@@ -1,0 +1,71 @@
+# Environnement virtuel
+venv/
+ENV/
+
+# Dossiers d'images de profil
+profile_images/
+
+# Fichiers de configuration Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Fichiers de configuration et données
+.env
+.venv
+env/
+env.bak/
+venv.bak/
+
+# Fichiers de développement
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dossier de logs
+logs/
+
+# Fichiers et dossiers de logs
+*.log
+logs/
+*.log.*
+!README.md
+
+# Dossier de captures d'écran
+screenshots/
+
+# Fichiers de base de données
+*.db
+*.sqlite3
+
+# Fichiers temporaires
+*.tmp
+*~
+
+# Fichiers spécifiques au projet
+taktik_instagram.egg-info/
+
+# Documentation interne
+docs/
+
+# Exemples et tests
+examples/

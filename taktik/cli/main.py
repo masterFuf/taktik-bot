@@ -1,0 +1,1118 @@
+import os
+import sys
+import click
+import logging
+import time
+import json
+import math
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+from rich.prompt import Prompt, Confirm, IntPrompt
+from loguru import logger
+from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from taktik.core.social_media.instagram.core.manager import InstagramManager
+from taktik.core.social_media.tiktok.manager import TikTokManager
+from taktik.core.license import unified_license_manager
+from taktik.core.database import configure_db_service
+from taktik.locales import fr, en
+
+device_manager = DeviceManager()
+
+LANGUAGES = {
+    'en': en,
+    'fr': fr
+}
+DEFAULT_LANGUAGE = 'en'
+current_translations = LANGUAGES[DEFAULT_LANGUAGE].TRANSLATIONS
+current_banner = LANGUAGES[DEFAULT_LANGUAGE].BANNER
+
+def set_language(lang_code):
+    global current_translations, current_banner
+    if lang_code in LANGUAGES:
+        current_translations = LANGUAGES[lang_code].TRANSLATIONS
+        current_banner = LANGUAGES[lang_code].BANNER
+    else:
+        current_translations = LANGUAGES[DEFAULT_LANGUAGE].TRANSLATIONS
+        current_banner = LANGUAGES[DEFAULT_LANGUAGE].BANNER
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+console = Console()
+
+
+def display_banner():
+    links = f"""
+    [blue]{current_translations['website']}:[/blue] [link=http://taktik-social.com/]http://taktik-social.com/[/link]
+    [blue]{current_translations['github']}:[/blue] [link=https://github.com/galaffu/taktik-instagram]github.com/galaffu/taktik-instagram[/link]
+    """
+    
+    console.print(Panel.fit(
+        f"[bold blue]{current_banner}\n[bold green]{current_translations['app_title']}[/bold green]\n\n{links}",
+        border_style="blue",
+        padding=(1, 2),
+        title="TAKTIK",
+        title_align="left"
+    ))
+
+def select_language():
+    console.print("\n[bold blue]Language Selection / Sélection de la langue[/bold blue]")
+    console.print("1. English")
+    console.print("2. Français")
+    
+    choice = click.prompt(
+        "\n[bold yellow]Choose your language / Choisissez votre langue[/bold yellow]",
+        type=click.IntRange(1, 2),
+        default=1,
+        show_choices=False
+    )
+    
+    if choice == 1:
+        return 'en'
+    else:
+        return 'fr'
+
+def select_target_type():
+    console.print(Panel.fit(f"[bold blue]{current_translations['target_selection_title']}[/bold blue]"))
+    
+    target_options = {
+        "1": current_translations['target_option_target'],
+        "2": current_translations['target_option_hashtags'],
+        "3": current_translations['target_option_post_url'],
+        # "4": current_translations['target_option_place']  # Temporarily disabled
+    }
+    
+    for key, value in target_options.items():
+        console.print(f"  {key}. {value}")
+    
+    choice = Prompt.ask(
+        f"\n[bold yellow]{current_translations['choose_target_type']}[/bold yellow]",
+        choices=["1", "2", "3"],
+        default="1"
+    )
+    
+    if choice == "1":
+        return "target"
+    elif choice == "2":
+        return "hashtags"
+    elif choice == "3":
+        return "post_url"
+    # elif choice == "4":  # Temporarily disabled
+    #     return "place"
+    
+    return None
+
+def generate_dynamic_workflow(target_type):
+    if target_type == "target":
+        return generate_target_workflow()
+    elif target_type == "hashtags":
+        return generate_hashtags_workflow()
+    elif target_type == "post_url":
+        return generate_post_url_workflow()
+    # elif target_type == "place":  # Temporarily disabled
+    #     return generate_place_workflow()
+    
+    return None
+
+def generate_target_workflow():
+    console.print(f"\n[bold green]{current_translations['target_workflow_title']}[/bold green]")
+    
+    target_username = Prompt.ask(f"[cyan]{current_translations['target_username_prompt']}[/cyan]")
+    if not target_username:
+        console.print(f"[red]{current_translations['username_required']}[/red]")
+        return None
+    
+    interaction_types = {
+        "1": "followers",
+        "2": "following"
+    }
+    
+    console.print(f"\n[yellow]{current_translations['interaction_types_available']}[/yellow]")
+    console.print(f"[cyan]1.[/cyan] {current_translations['followers_interaction']}")
+    console.print(f"[cyan]2.[/cyan] {current_translations['following_interaction']}")
+    
+    interaction_choice = Prompt.ask(f"[cyan]{current_translations['choose_interaction_type']}[/cyan]", choices=["1", "2"], default="1")
+    interaction_type = interaction_types[interaction_choice]
+    
+    console.print(f"\n[yellow]{current_translations['limits_configuration']}[/yellow]")
+    max_interactions = int(Prompt.ask(
+        f"[cyan]{current_translations['max_interactions_prompt']}[/cyan]", 
+        default="20"
+    ))
+    
+    max_likes_per_profile = int(Prompt.ask(
+        f"[cyan]{current_translations['max_likes_per_profile']}[/cyan]", 
+        default="2"
+    ))
+    
+    console.print(f"\n[yellow]{current_translations['probabilities_configuration']}[/yellow]")
+    like_percentage = int(Prompt.ask(f"[cyan]{current_translations['like_probability']}[/cyan]", default="80"))
+    follow_percentage = int(Prompt.ask(f"[cyan]{current_translations['follow_probability']}[/cyan]", default="20"))
+    comment_percentage = int(Prompt.ask(f"[cyan]{current_translations['comment_probability']}[/cyan]", default="5"))
+    story_percentage = int(Prompt.ask(f"[cyan]{current_translations['story_probability']}[/cyan]", default="15"))
+    story_like_percentage = int(Prompt.ask(f"[cyan]{current_translations['story_like_probability']}[/cyan]", default="10"))
+    
+    console.print(f"\n[yellow]{current_translations['advanced_filters']}[/yellow]")
+    min_followers = int(Prompt.ask(f"[cyan]{current_translations['min_followers_required']}[/cyan]", default="50"))
+    max_followers = int(Prompt.ask(f"[cyan]{current_translations['max_followers_accepted']}[/cyan]", default="50000"))
+    min_posts = int(Prompt.ask(f"[cyan]{current_translations['min_posts_required']}[/cyan]", default="5"))
+    max_followings = int(Prompt.ask(f"[cyan]{current_translations['max_followings_accepted']}[/cyan]", default="7500"))
+    
+    console.print(f"\n[yellow]{current_translations['blacklist_optional']}[/yellow]")
+    blacklist_input = Prompt.ask(f"[cyan]{current_translations['blacklist_keywords']}[/cyan]", default="")
+    blacklist_words = [word.strip() for word in blacklist_input.split(",") if word.strip()]
+    
+    console.print(f"\n[yellow]{current_translations['session_configuration']}[/yellow]")
+    console.print(f"\n[yellow]{current_translations['session_configuration']}[/yellow]")
+    session_duration = int(Prompt.ask(f"[cyan]{current_translations['max_session_duration']}[/cyan]", default="60"))
+    min_delay = int(Prompt.ask(f"[cyan]{current_translations['min_delay_actions']}[/cyan]", default="5"))
+    max_delay = int(Prompt.ask(f"[cyan]{current_translations['max_delay_actions']}[/cyan]", default="15"))
+    
+    workflow_config = {
+        "filters": {
+            "min_followers": min_followers,
+            "max_followers": max_followers,
+            "min_followings": 0,
+            "max_followings": max_followings,
+            "min_posts": min_posts,
+            "privacy_relation": "public_and_private",
+            "blacklist_words": blacklist_words
+        },
+        "session_settings": {
+            "workflow_type": "target_followers",
+            "total_interactions_limit": max_interactions,
+            "total_follows_limit": math.ceil(max_interactions * (follow_percentage / 100)) if follow_percentage > 0 else 0,
+            "total_likes_limit": math.ceil(max_interactions * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,
+            "session_duration_minutes": session_duration,
+            "delay_between_actions": {
+                "min": min_delay,
+                "max": max_delay
+            },
+            "randomize_actions": True,
+            "enable_screenshots": True,
+            "screenshot_path": "screenshots"
+        },
+        "actions": [
+            {
+                "type": "interact_with_followers",
+                "target_username": target_username,
+                "interaction_type": interaction_type,
+                "max_interactions": max_interactions,
+                "like_posts": True,
+                "max_likes_per_profile": max_likes_per_profile,
+                "probabilities": {
+                    "like_percentage": like_percentage,
+                    "follow_percentage": follow_percentage,
+                    "comment_percentage": comment_percentage,
+                    "story_percentage": story_percentage,
+                    "story_like_percentage": story_like_percentage
+                },
+                "like_settings": {
+                    "enabled": like_percentage > 0,
+                    "like_carousels": True,
+                    "like_reels": True,
+                    "randomize_order": True,
+                    "methods": ["button_click", "double_tap"],
+                    "verify_like_success": True,
+                    "max_attempts_per_post": 2,
+                    "delay_between_attempts": 2
+                },
+                "follow_settings": {
+                    "enabled": follow_percentage > 0,
+                    "unfollow_after_days": 3,
+                    "verify_follow_success": True
+                },
+                "comment_settings": {
+                    "enabled": comment_percentage > 0,
+                    "verify_comment_success": True
+                },
+                "story_settings": {
+                    "enabled": story_percentage > 0,
+                    "watch_duration_range": [3, 8]
+                },
+                "story_like_settings": {
+                    "enabled": story_like_percentage > 0,
+                    "max_stories_per_user": 3,
+                    "like_probability": story_like_percentage / 100.0,
+                    "verify_like_success": True
+                },
+                "scrolling": {
+                    "enabled": True,
+                    "max_scroll_attempts": 3,
+                    "scroll_delay": 1.5
+                }
+            }
+        ],
+        "comments": [
+            "Great content! 😊",
+            "Love your posts! ❤️",
+            "Amazing content! ✨",
+            "Nice work! 👍",
+            "Awesome! 🔥",
+            "Beautiful! 💯"
+        ],
+        "debug": {
+            "save_screenshots": True,
+            "screenshot_failed_actions": True,
+            "log_level": "DEBUG"
+        }
+    }
+    
+    console.print(f"\n[green]{current_translations['target_workflow_summary']}[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column(current_translations['parameter'], style="cyan")
+    table.add_column(current_translations['value'], style="yellow") 
+    
+    table.add_row(current_translations['target'], f"@{target_username}")
+    table.add_row(current_translations['interaction_type'], interaction_type)
+    table.add_row(current_translations['max_interactions'], str(max_interactions))
+    table.add_row(current_translations['max_likes_per_profile'], str(max_likes_per_profile))
+    
+    table.add_row("", "")
+    table.add_row(f"[bold]{current_translations['probabilities']}[/bold]", "")
+    table.add_row(f"→ {current_translations['like_probability']}", f"{like_percentage}%")
+    table.add_row(f"→ {current_translations['follow_probability']}", f"{follow_percentage}%")
+    table.add_row(f"→ {current_translations['comment_probability']}", f"{comment_percentage}%")
+    table.add_row(f"→ {current_translations['story_probability']}", f"{story_percentage}%")
+    table.add_row(f"→ {current_translations['story_like_probability']}", f"{story_like_percentage}%")
+    
+    table.add_row("", "")
+    table.add_row(f"[bold]{current_translations['filters']}[/bold]", "")
+    table.add_row(f"→ {current_translations['min_followers_required']}", str(min_followers))
+    table.add_row(f"→ {current_translations['max_followers_accepted']}", str(max_followers))
+    table.add_row(f"→ {current_translations['min_posts_required']}", str(min_posts))
+    table.add_row(f"→ {current_translations['max_followings_accepted']}", str(max_followings))
+    
+    table.add_row("", "")
+    table.add_row(f"[bold]{current_translations['session']}[/bold]", "")
+    table.add_row(f"→ {current_translations['max_session_duration']}", f"{session_duration} min")
+    table.add_row(f"→ {current_translations['min_delay_actions']}-{current_translations['max_delay_actions']}", f"{min_delay}-{max_delay}s")
+    
+    if blacklist_words:
+        table.add_row(f"→ {current_translations['blacklisted_words']}", ", ".join(blacklist_words[:3]) + ("..." if len(blacklist_words) > 3 else ""))
+    
+    console.print(table)
+    
+    estimated_likes = int(max_interactions * max_likes_per_profile * (like_percentage / 100))
+    estimated_follows = int(max_interactions * (follow_percentage / 100))
+    estimated_comments = int(max_interactions * (comment_percentage / 100))
+    
+    console.print(f"\n[bold green]{current_translations['session_estimates']}[/bold green]")
+    console.print(f"• [cyan]{current_translations['estimated_likes']}[/cyan] {estimated_likes}")
+    console.print(f"• [cyan]{current_translations['estimated_follows']}[/cyan] {estimated_follows}")
+    console.print(f"• [cyan]{current_translations['estimated_comments']}[/cyan] {estimated_comments}")
+    
+    console.print(f"\n[green]{current_translations['target_workflow_configured'].format(target_username)}[/green]")
+    return workflow_config
+
+def generate_hashtags_workflow():
+    console.print(f"\n[bold green]🏷️ Configuration du workflow Hashtags[/bold green]")
+    
+    hashtag = Prompt.ask(f"[cyan]Hashtag à cibler (sans #)[/cyan]")
+    if not hashtag:
+        console.print(f"[red]Hashtag requis[/red]")
+        return None
+    
+    hashtag = hashtag.lstrip('#')
+    
+    console.print(f"\n[yellow]📱 Mode: Extraction et interaction avec les likers des meilleurs posts de #{hashtag}[/yellow]")
+    console.print(f"[dim]Note: Les posts seront sélectionnés selon leurs métadonnées (likes, commentaires)[/dim]")
+    
+    console.print(f"\n[bold yellow]🎯 Critères de sélection des posts[/bold yellow]")
+    
+    min_likes = Prompt.ask(
+        f"[cyan]Nombre minimum de likes par post[/cyan]",
+        default="100"
+    )
+    
+    max_likes = Prompt.ask(
+        f"[cyan]Nombre maximum de likes par post[/cyan]",
+        default="50000"
+    )
+    
+    console.print(f"\n[yellow]📊 Configuration des limites :[/yellow]")
+    max_interactions = Prompt.ask(
+        f"[cyan]Nombre maximum d'interactions (profils à traiter)[/cyan]",
+        default="30"
+    )
+    
+    max_likes_per_profile = Prompt.ask(
+        f"[cyan]Nombre maximum de likes par profil[/cyan]",
+        default="2"
+    )
+    
+    console.print(f"\n[yellow]🎲 Configuration des probabilités d'interaction (en %) :[/yellow]")
+    like_percentage = Prompt.ask(
+        f"[cyan]Probabilité de liker des posts[/cyan]",
+        default="80"
+    )
+    
+    follow_percentage = Prompt.ask(
+        f"[cyan]Probabilité de follow[/cyan]",
+        default="15"
+    )
+    
+    comment_percentage = Prompt.ask(
+        f"[cyan]Probabilité de commenter[/cyan]",
+        default="5"
+    )
+    
+    story_percentage = Prompt.ask(
+        f"[cyan]Probabilité de regarder les stories[/cyan]",
+        default="20"
+    )
+    
+    story_like_percentage = Prompt.ask(
+        f"[cyan]Probabilité de liker les stories[/cyan]",
+        default="10"
+    )
+    
+    console.print(f"\n[yellow]🔍 Filtres avancés de ciblage :[/yellow]")
+    min_followers = Prompt.ask(
+        f"[cyan]Nombre minimum de followers requis[/cyan]",
+        default="10"
+    )
+    
+    max_followers = Prompt.ask(
+        f"[cyan]Nombre maximum de followers acceptés[/cyan]",
+        default="50000"
+    )
+    
+    min_posts = Prompt.ask(
+        f"[cyan]Nombre minimum de posts requis[/cyan]",
+        default="3"
+    )
+    
+    max_followings = Prompt.ask(
+        f"[cyan]Nombre maximum de comptes suivis acceptés[/cyan]",
+        default="7500"
+    )
+    
+    # Liste noire
+    console.print(f"\n[yellow]🚫 Liste noire (optionnel) :[/yellow]")
+    blacklist_input = Prompt.ask(
+        "[cyan]Mots-clés à éviter (séparés par des virgules)[/cyan]",
+        default=""
+    )
+    blacklist_words = [word.strip() for word in blacklist_input.split(",") if word.strip()] if blacklist_input else []
+    
+    console.print(f"\n[yellow]⏱️ Configuration de session :[/yellow]")
+    session_duration = Prompt.ask(
+        "[cyan]Durée maximale de session (minutes)[/cyan]",
+        default="60"
+    )
+    min_delay = Prompt.ask(
+        "[cyan]Délai minimum entre actions (secondes)[/cyan]",
+        default="5"
+    )
+    max_delay = Prompt.ask(
+        "[cyan]Délai maximum entre actions (secondes)[/cyan]",
+        default="15"
+    )
+    
+    workflow_config = {
+        "filters": {
+            "min_followers": int(min_followers),
+            "max_followers": int(max_followers),
+            "min_followings": 0,
+            "max_followings": int(max_followings),
+            "min_posts": int(min_posts),
+            "privacy_relation": "public_and_private",
+            "blacklist_words": blacklist_words
+        },
+        "session_settings": {
+            "workflow_type": "hashtag_interactions",
+            "total_interactions_limit": int(max_interactions),
+            "total_follows_limit": math.ceil(int(max_interactions) * (int(follow_percentage) / 100)) if int(follow_percentage) > 0 else 0,
+            "total_likes_limit": math.ceil(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100)) if int(like_percentage) > 0 else 0,
+            "session_duration_minutes": int(session_duration),
+            "delay_between_actions": {
+                "min": int(min_delay),
+                "max": int(max_delay)
+            },
+            "randomize_actions": True,
+            "enable_screenshots": True,
+            "screenshot_path": "screenshots"
+        },
+        "actions": [
+            {
+                "type": "hashtag",
+                "hashtag": hashtag,
+                "max_interactions": int(max_interactions),
+                "max_likes_per_profile": int(max_likes_per_profile),
+                "post_criteria": {
+                    "min_likes": int(min_likes),
+                    "max_likes": int(max_likes)
+                },
+                "probabilities": {
+                    "like_percentage": int(like_percentage),
+                    "follow_percentage": int(follow_percentage),
+                    "comment_percentage": int(comment_percentage),
+                    "story_percentage": int(story_percentage),
+                    "story_like_percentage": int(story_like_percentage)
+                },
+                "filter_criteria": {
+                    "min_followers": int(min_followers),
+                    "max_followers": int(max_followers),
+                    "min_posts": int(min_posts),
+                    "skip_private": True,
+                    "skip_business": False
+                },
+                "like_settings": {
+                    "enabled": int(like_percentage) > 0,
+                    "like_carousels": True,
+                    "like_reels": True,
+                    "randomize_order": True,
+                    "methods": ["button_click", "double_tap"],
+                    "verify_like_success": True,
+                    "max_attempts_per_post": 2,
+                    "delay_between_attempts": 2
+                },
+                "follow_settings": {
+                    "enabled": int(follow_percentage) > 0,
+                    "unfollow_after_days": 3,
+                    "verify_follow_success": True
+                },
+                "story_settings": {
+                    "enabled": int(story_percentage) > 0,
+                    "watch_duration_range": [3, 8]
+                },
+                "story_like_settings": {
+                    "enabled": int(story_like_percentage) > 0,
+                    "max_stories_per_user": 3,
+                    "like_probability": int(story_like_percentage) / 100.0,
+                    "verify_like_success": True
+                },
+                "scrolling": {
+                    "enabled": True,
+                    "max_scroll_attempts": 3,
+                    "scroll_delay": 1.5
+                }
+            }
+        ]
+    }
+    
+    console.print("\n[green]📋 Résumé de la configuration Hashtag :[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Paramètre", style="cyan")
+    table.add_column("Valeur", style="yellow")
+    
+    table.add_row("Hashtag", f"#{hashtag}")
+    table.add_row("Critères posts", f"{min_likes}-{max_likes} likes")
+    table.add_row("Max interactions", str(max_interactions))
+    table.add_row("Nombre maximum de likes par profil", str(max_likes_per_profile))
+    table.add_row("", "")
+    table.add_row("Probabilités", "")
+    table.add_row("→ Probabilité de liker des posts", f"{like_percentage}%")
+    table.add_row("→ Probabilité de follow", f"{follow_percentage}%")
+    table.add_row("→ Probabilité de commenter", f"{comment_percentage}%")
+    table.add_row("→ Probabilité de regarder les stories", f"{story_percentage}%")
+    table.add_row("→ Probabilité de liker les stories", f"{story_like_percentage}%")
+    table.add_row("", "")
+    table.add_row("Filtres", "")
+    table.add_row("→ Nombre minimum de followers requis", str(min_followers))
+    table.add_row("→ Nombre maximum de followers acceptés", str(max_followers))
+    table.add_row("→ Nombre minimum de posts requis", str(min_posts))
+    table.add_row("→ Nombre maximum de comptes suivis acceptés", str(max_followings))
+    table.add_row("", "")
+    table.add_row("Session", "")
+    table.add_row("→ Durée maximale de session (minutes)", f"{session_duration} min")
+    table.add_row("→ Délai minimum entre actions (secondes)-Délai maximum entre actions (secondes)", f"{min_delay}-{max_delay}s")
+    
+    console.print(table)
+    
+    console.print(f"\n[green]📊 Estimations de session :[/green]")
+    estimated_likes = int(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100))
+    estimated_follows = int(int(max_interactions) * (int(follow_percentage) / 100))
+    estimated_comments = int(int(max_interactions) * (int(comment_percentage) / 100))
+    
+    console.print(f"• Likes estimés : {estimated_likes}")
+    console.print(f"• Follows estimés : {estimated_follows}")
+    console.print(f"• Commentaires estimés : {estimated_comments}")
+    
+    console.print(f"\n[green]✅ Workflow hashtag #{hashtag} configuré avec succès ![/green]")
+    return workflow_config
+
+def generate_post_url_workflow():
+    console.print(f"[green]{current_translations['post_url_workflow_config']}[/green]")
+    
+    post_url = Prompt.ask(f"[cyan]{current_translations['enter_post_url']}[/cyan]")
+    if not post_url:
+        console.print(f"[red]{current_translations['post_url_required']}[/red]")
+        return None
+    
+    if not _validate_instagram_url(post_url):
+        console.print(f"[red]{current_translations['invalid_instagram_url']}[/red]")
+        return None
+    
+    console.print(f"\n[yellow]{current_translations['interaction_mode']}[/yellow]")
+    console.print(f"[dim]{current_translations['workflow_extract_likers']}[/dim]")
+    
+    console.print(f"\n[yellow]{current_translations['limits_configuration']}[/yellow]")
+    max_interactions = Prompt.ask(f"[cyan]{current_translations['max_interactions_prompt']}[/cyan]", default="20")
+    max_likes_per_profile = Prompt.ask(f"[cyan]{current_translations['max_likes_per_profile']}[/cyan]", default="2")
+    
+    console.print(f"\n[yellow]{current_translations['probabilities_configuration']}[/yellow]")
+    console.print(f"\n[yellow]{current_translations['probabilities_configuration']}[/yellow]")
+    like_percentage = Prompt.ask(f"[cyan]{current_translations['like_probability']}[/cyan]", default="80")
+    follow_percentage = Prompt.ask(f"[cyan]{current_translations['follow_probability']}[/cyan]", default="20")
+    comment_percentage = Prompt.ask(f"[cyan]{current_translations['comment_probability']}[/cyan]", default="5")
+    story_percentage = Prompt.ask(f"[cyan]{current_translations['story_probability']}[/cyan]", default="15")
+    story_like_percentage = Prompt.ask(f"[cyan]{current_translations['story_like_probability']}[/cyan]", default="10")
+    
+    console.print(f"\n[yellow]{current_translations['advanced_filters']}[/yellow]")
+    min_followers = Prompt.ask(f"[cyan]{current_translations['min_followers_required']}[/cyan]", default="50")
+    max_followers = Prompt.ask(f"[cyan]{current_translations['max_followers_accepted']}[/cyan]", default="50000")
+    min_posts = Prompt.ask(f"[cyan]{current_translations['min_posts_required']}[/cyan]", default="5")
+    max_followings = Prompt.ask(f"[cyan]{current_translations['max_followings_accepted']}[/cyan]", default="7500")
+    
+    console.print(f"\n[yellow]{current_translations['blacklist_optional']}[/yellow]")
+    blacklist_input = Prompt.ask(f"[cyan]{current_translations['blacklist_keywords']}[/cyan]", default="")
+    blacklist_words = [word.strip() for word in blacklist_input.split(",") if word.strip()] if blacklist_input else []
+    
+    console.print(f"\n[yellow]{current_translations['session_configuration']}[/yellow]")
+    console.print(f"\n[yellow]{current_translations['session_configuration']}[/yellow]")
+    session_duration = Prompt.ask(f"[cyan]{current_translations['max_session_duration']}[/cyan]", default="60")
+    min_delay = Prompt.ask(f"[cyan]{current_translations['min_delay_actions']}[/cyan]", default="5")
+    max_delay = Prompt.ask(f"[cyan]{current_translations['max_delay_actions']}[/cyan]", default="15")
+    
+    workflow_config = {
+        "filters": {
+            "min_followers": int(min_followers),
+            "max_followers": int(max_followers),
+            "min_followings": 0,
+            "max_followings": int(max_followings),
+            "min_posts": int(min_posts),
+            "privacy_relation": "public_and_private",
+            "blacklist_words": blacklist_words
+        },
+        "session_settings": {
+            "workflow_type": "target_followers",
+            "total_interactions_limit": int(max_interactions),
+            "total_follows_limit": math.ceil(int(max_interactions) * (int(follow_percentage) / 100)) if int(follow_percentage) > 0 else 0,
+            "total_likes_limit": math.ceil(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100)) if int(like_percentage) > 0 else 0,
+            "session_duration_minutes": int(session_duration),
+            "delay_between_actions": {
+                "min": int(min_delay),
+                "max": int(max_delay)
+            },
+            "randomize_actions": True,
+            "enable_screenshots": True,
+            "screenshot_path": "screenshots"
+        },
+        'steps': [
+            {
+                'type': 'post_url',
+                'post_url': post_url,
+                'interaction_type': 'post-likers',
+                'max_interactions': int(max_interactions),
+                'max_likes_per_profile': int(max_likes_per_profile),
+                'probabilities': {
+                    'like_percentage': int(like_percentage),
+                    'follow_percentage': int(follow_percentage), 
+                    'comment_percentage': int(comment_percentage),
+                    'story_percentage': int(story_percentage),
+                    'story_like_percentage': int(story_like_percentage)
+                },
+                'like_settings': {
+                    'enabled': int(like_percentage) > 0,
+                    'like_carousels': True,
+                    'like_reels': True,
+                    'randomize_order': True,
+                    'methods': ['button_click', 'double_tap'],
+                    'verify_like_success': True,
+                    'max_attempts_per_post': 2,
+                    'delay_between_attempts': 2
+                },
+                'follow_settings': {
+                    'enabled': int(follow_percentage) > 0,
+                    'unfollow_after_days': 3,
+                    'verify_follow_success': True
+                },
+                'story_settings': {
+                    'enabled': int(story_percentage) > 0,
+                    'watch_duration_range': [3, 8]
+                },
+                'story_like_settings': {
+                    'enabled': int(story_like_percentage) > 0,
+                    'max_stories_per_user': 3,
+                    'like_probability': int(story_like_percentage) / 100.0,
+                    'verify_like_success': True
+                },
+                'scrolling': {
+                    'enabled': True,
+                    'max_scroll_attempts': 3,
+                    'scroll_delay': 1.5
+                }
+            }
+        ]
+    }
+    
+    console.print(f"\n[green]{current_translations['post_url_workflow_summary']}[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column(current_translations['parameter'], style="cyan")
+    table.add_column(current_translations['value'], style="yellow") 
+    
+    post_id = _extract_post_id_from_url(post_url)
+    table.add_row(current_translations['post_url'], post_url)
+    table.add_row(current_translations['post_id'], post_id if post_id else current_translations['post_id_not_detected'])
+    table.add_row(current_translations['interaction_type'], current_translations['interaction_type_likers'])
+    table.add_row(current_translations['max_interactions'], str(max_interactions))
+    table.add_row(current_translations['max_likes_per_profile'], str(max_likes_per_profile))
+    table.add_row("", "")
+    table.add_row(current_translations['probabilities'], "")
+    table.add_row(f"→ {current_translations['like_probability']}", f"{like_percentage}%")
+    table.add_row(f"→ {current_translations['follow_probability']}", f"{follow_percentage}%")
+    table.add_row(f"→ {current_translations['comment_probability']}", f"{comment_percentage}%")
+    table.add_row(f"→ {current_translations['story_probability']}", f"{story_percentage}%")
+    table.add_row(f"→ {current_translations['story_like_probability']}", f"{story_like_percentage}%")
+    table.add_row("", "")
+    table.add_row(current_translations['filters'], "")
+    table.add_row(f"→ {current_translations['min_followers_required']}", str(min_followers))
+    table.add_row(f"→ {current_translations['max_followers_accepted']}", str(max_followers))
+    table.add_row(f"→ {current_translations['min_posts_required']}", str(min_posts))
+    table.add_row(f"→ {current_translations['max_followings_accepted']}", str(max_followings))
+    table.add_row("", "")
+    table.add_row(current_translations['session'], "")
+    table.add_row(f"→ {current_translations['max_session_duration']}", f"{session_duration} min")
+    table.add_row(f"→ {current_translations['min_delay_actions']}-{current_translations['max_delay_actions']}", f"{min_delay}-{max_delay}s")
+    
+    console.print(table)
+    
+    console.print(f"\n[green]{current_translations['session_estimates']}[/green]")
+    estimated_likes = int(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100))
+    estimated_follows = int(int(max_interactions) * (int(follow_percentage) / 100))
+    estimated_comments = int(int(max_interactions) * (int(comment_percentage) / 100))
+    
+    console.print(f"• {current_translations['estimated_likes']} {estimated_likes}")
+    console.print(f"• {current_translations['estimated_follows']} {estimated_follows}")
+    console.print(f"• {current_translations['estimated_comments']} {estimated_comments}")
+    
+    console.print(f"\n[green]{current_translations['post_url_workflow_success'].format(post_url)}[/green]")
+    
+    return workflow_config
+
+def generate_place_workflow():
+    console = Console()
+    
+    console.print("\n[green]🏙️ Configuration du workflow Place[/green]")
+    
+    place_name = Prompt.ask("[cyan]Nom du lieu à cibler[/cyan]", default="Paris, France")
+    place_name = Prompt.ask("[cyan]Nom du lieu à cibler[/cyan]", default="Paris, France")
+    
+    max_users = Prompt.ask("[cyan]Nombre maximum d'utilisateurs à traiter[/cyan]", default="20")
+    
+    max_posts_check = Prompt.ask("[cyan]Nombre maximum de posts à vérifier dans le lieu[/cyan]", default="10")
+    
+    like_percentage = Prompt.ask("[cyan]Probabilité de like (%)[/cyan]", default="70")
+    follow_percentage = Prompt.ask("[cyan]Probabilité de follow (%)[/cyan]", default="30")
+    comment_percentage = Prompt.ask("[cyan]Probabilité de commentaire (%)[/cyan]", default="10")
+    story_view_percentage = Prompt.ask("[cyan]Probabilité de regarder les stories (%)[/cyan]", default="40")
+    story_like_percentage = Prompt.ask("[cyan]Probabilité de liker les stories (%)[/cyan]", default="60")
+    
+    console.print("\n[yellow]🔍 Configuration des filtres[/yellow]")
+    min_followers = Prompt.ask("[cyan]Nombre minimum de followers[/cyan]", default="100")
+    max_followers = Prompt.ask("[cyan]Nombre maximum de followers[/cyan]", default="10000")
+    min_posts = Prompt.ask("[cyan]Nombre minimum de posts[/cyan]", default="5")
+    
+    workflow_config = {
+        'target_type': 'place',
+        'actions': [
+            {
+                'type': 'place',
+                'place_name': place_name,
+                'max_users': int(max_users),
+                'max_posts_to_check': int(max_posts_check),
+                'like_percentage': int(like_percentage),
+                'follow_percentage': int(follow_percentage),
+                'comment_percentage': int(comment_percentage),
+                'story_view_percentage': int(story_view_percentage),
+                'story_like_percentage': int(story_like_percentage),
+                'filters': {
+                    'min_followers': int(min_followers),
+                    'max_followers': int(max_followers),
+                    'min_posts': int(min_posts)
+                }
+            }
+        ]
+    }
+    
+    console.print("\n[green]📋 Résumé de la configuration Place :[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Paramètre", style="cyan")
+    table.add_column("Valeur", style="yellow") 
+    
+    table.add_row("Lieu cible", place_name)
+    table.add_row("Max utilisateurs", str(max_users))
+    table.add_row("Max posts à vérifier", str(max_posts_check))
+    table.add_row("Probabilité like", f"{like_percentage}%")
+    table.add_row("Probabilité follow", f"{follow_percentage}%")
+    table.add_row("Probabilité commentaire", f"{comment_percentage}%")
+    table.add_row("Probabilité stories", f"{story_view_percentage}%")
+    table.add_row("Probabilité like stories", f"{story_like_percentage}%")
+    
+    console.print(table)
+    
+    console.print(f"\n[green]📊 Estimations de session :[/green]")
+    estimated_likes = int(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100))
+    estimated_follows = int(int(max_interactions) * (int(follow_percentage) / 100))
+    estimated_comments = int(int(max_interactions) * (int(comment_percentage) / 100))
+    
+    console.print(f"• Likes estimés : {estimated_likes}")
+    console.print(f"• Follows estimés : {estimated_follows}")
+    console.print(f"• Commentaires estimés : {estimated_comments}")
+    
+    console.print(f"\n[green]✅ Workflow URL de post configuré pour {post_url}[/green]")
+    
+    return workflow_config
+
+def _validate_instagram_url(url: str) -> bool:
+    import re
+    
+    patterns = [
+        r'^https?://(?:www\.)?instagram\.com/p/([A-Za-z0-9_-]+)/?.*$',  # Posts
+        r'^https?://(?:www\.)?instagram\.com/reel/([A-Za-z0-9_-]+)/?.*$',  # Reels
+        r'^https?://(?:www\.)?instagram\.com/tv/([A-Za-z0-9_-]+)/?.*$',  # IGTV
+    ]
+    
+    for pattern in patterns:
+        if re.match(pattern, url):
+            return True
+    
+    return False
+
+def _extract_post_id_from_url(url: str) -> str:
+    import re
+    
+    patterns = [
+        r'instagram\.com/p/([A-Za-z0-9_-]+)',
+        r'instagram\.com/reel/([A-Za-z0-9_-]+)',
+        r'instagram\.com/tv/([A-Za-z0-9_-]+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    
+    return None
+
+@click.group(invoke_without_command=True)
+@click.option('--lang', '-l', type=click.Choice(['fr', 'en']), help='Language (fr/en)')
+@click.pass_context
+def cli(ctx, lang=None):
+    if not lang:
+        lang = select_language()
+    
+    set_language(lang)
+    
+    console = Console()
+    
+    from taktik.cli.license_prompt import check_license_on_startup
+    
+    license_valid, api_key = check_license_on_startup()
+    if not license_valid:
+        sys.exit(1)
+    
+    os.environ['TAKTIK_API_KEY'] = api_key
+    
+    from taktik.core.license.unified_license_manager import unified_license_manager
+    
+    configure_db_service(api_key)
+    
+    if ctx.invoked_subcommand is None:
+        display_banner()
+        
+        while True:
+            options = ['instagram', 'tiktok', 'quit']
+            labels = [
+                current_translations['option_instagram'],
+                current_translations['option_tiktok'],
+                current_translations['option_quit']
+            ]
+            
+            console.print(f"\n[bold cyan]{current_translations['menu_title']}[/bold cyan]")
+            
+            for i, label in enumerate(labels, 1):
+                console.print(f"[bold]{i}.[/bold] {label}")
+            
+            selected = click.prompt(f"\n[bold]{current_translations['prompt_choice']}[/bold]", 
+                                 type=click.IntRange(1, len(options)),
+                                 show_choices=False)
+            
+            choice = options[selected-1]
+            
+            if choice == 'instagram':
+                devices = device_manager.list_devices()
+                if not devices:
+                    console.print(f"[red]{current_translations['no_device_connected']}[/red]")
+                    continue
+                console.print(f"\n[bold cyan]{current_translations['select_device']}[/bold cyan]")
+                for idx, device in enumerate(devices, 1):
+                    console.print(f"[bold]{idx}.[/bold] {device['id']} ({device['status']})")
+                selected_device = click.prompt(f"\n[bold]{current_translations['prompt_choice']}[/bold]", type=click.IntRange(1, len(devices)), show_choices=False)
+                device_id = devices[selected_device-1]['id']
+                console.print(f"[blue]{current_translations['device_selected'].format(device_id)}[/blue]")
+                instagram = InstagramManager(device_id)
+                if not instagram.is_installed():
+                    console.print(f"[red]{current_translations['instagram_not_installed']}[/red]")
+                    continue
+                console.print(f"[blue]{current_translations['launching_instagram']}[/blue]")
+                if instagram.launch():
+                    console.print(f"[green]{current_translations['instagram_launched_success']}[/green]")
+                else:
+                    console.print(f"[red]{current_translations['instagram_launch_failed']}[/red]")
+                    continue
+                
+                from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+                
+                target_type = select_target_type()
+                if not target_type:
+                    console.print(f"[red]{current_translations['no_target_selected']}[/red]")
+                    continue
+                
+                dynamic_config = generate_dynamic_workflow(target_type)
+                if not dynamic_config:
+                    console.print(f"[red]{current_translations['workflow_generation_error']}[/red]")
+                    continue
+
+                if not device_manager.connect(device_id):
+                    console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                    continue
+
+                if not device_manager.device:
+                    console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                    continue
+
+                console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
+                automation = InstagramAutomation(device_manager)
+                
+                automation._initialize_license_limits(api_key)
+                automation.config = dynamic_config
+                console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
+                
+                automation.run_workflow()
+                
+                console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                sys.exit(0)
+                    
+            elif choice == 'quit':
+                console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                sys.exit(0)
+
+@cli.command()
+def setup():
+    console.print(Panel.fit("[bold green]Configuration de Taktik-Instagram[/bold green]"))
+    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
+
+@cli.group()
+def device():
+    pass
+
+@cli.group()
+def instagram():
+    pass
+
+@cli.group()
+def tiktok():
+    pass
+
+@device.command(name="list")
+def list_devices():
+    console.print(Panel.fit("[bold green]Liste des appareils connectés[/bold green]"))
+    
+    devices = SimpleDeviceManager.list_devices()
+    
+    if not devices:
+        console.print("[yellow]Aucun appareil connecté.[/yellow]")
+        console.print("[blue]Assurez-vous que l'appareil est connecté et que ADB est correctement configuré.[/blue]")
+        return
+    
+    table = Table(title="Appareils connectés")
+    table.add_column("ID", style="cyan")
+    table.add_column("Statut", style="green")
+    
+    for i, device_id in enumerate(devices):
+        table.add_row(device_id, "Connecté")
+    
+    console.print(table)
+
+@instagram.command("launch")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+def launch_instagram(device_id):
+    console.print(Panel.fit("[bold green]Lancement d'Instagram[/bold green]"))
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]['id']
+        console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
+    instagram = InstagramManager(device_id)
+    if not instagram.is_installed():
+        console.print("[red]Instagram n'est pas installé sur cet appareil.[/red]")
+        return
+    console.print("[blue]Lancement d'Instagram...[/blue]")
+    success = instagram.launch()
+    if success:
+        console.print("[green]Instagram a été lancé avec succès ![/green]")
+    else:
+        console.print("[red]Échec du lancement d'Instagram.[/red]")
+
+@instagram.command("workflow")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+@click.option('--config', '-c', type=click.Path(exists=True), help="Chemin vers le fichier de configuration JSON du workflow")
+def workflow_instagram(device_id, config):
+    from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+    console.print(Panel.fit("[bold green]Lancement du workflow Instagram[/bold green]"))
+    
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]['id']
+    
+    console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
+    
+    if not config:
+        target_type = select_target_type()
+        if not target_type:
+            console.print("[red]Aucune cible sélectionnée. Arrêt du workflow.[/red]")
+            return
+        
+        dynamic_config = generate_dynamic_workflow(target_type)
+        if not dynamic_config:
+            console.print("[red]Erreur lors de la génération du workflow dynamique.[/red]")
+            return
+    
+    final_config = None
+    if config:
+        try:
+            with open(config, 'r') as f:
+                final_config = json.load(f)
+            console.print(f"[green]Configuration chargée depuis {config}[/green]")
+        except Exception as e:
+            console.print(f"[red]Erreur lors du chargement de la configuration: {e}[/red]")
+            return
+    elif 'dynamic_config' in locals():
+        final_config = dynamic_config
+        console.print("[green]Configuration dynamique préparée[/green]")
+    else:
+        console.print("[yellow]Aucune configuration fournie, utilisation des paramètres par défaut.[/yellow]")
+        final_config = {}
+    
+    try:
+        device_manager = SimpleDeviceManager(device_id)
+        if not device_manager.connect(device_id):
+            console.print(f"[red]Impossible de se connecter à l'appareil {device_id}[/red]")
+            return
+        
+        if not device_manager.device:
+            console.print(f"[red]Erreur: L'appareil n'a pas pu être initialisé correctement[/red]")
+            return
+            
+        console.print("[blue]Initialisation de l'automatisation Instagram...[/blue]")
+        automation = InstagramAutomation(device_manager, config=final_config)
+        
+        from taktik.core.license.unified_license_manager import unified_license_manager
+        console.print("[green]Automatisation initialisée avec succès[/green]")
+        
+        if final_config:
+            session_settings = final_config.get('session_settings', {})
+            duration = session_settings.get('session_duration_minutes', 60)
+            max_interactions = session_settings.get('total_interactions_limit', 'illimité')
+            console.print(f"[cyan]⚙️  Configuration appliquée: {duration} min, {max_interactions} interactions max[/cyan]")
+        
+    except ValueError as e:
+        console.print(f"[red]Erreur de configuration: {e}[/red]")
+        return
+    except Exception as e:
+        console.print(f"[red]Erreur inattendue lors de l'initialisation: {e}[/red]")
+        import traceback
+        console.print(traceback.format_exc())
+        return
+    automation.run_workflow()
+    
+
+@tiktok.command("launch")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+def launch_tiktok(device_id):
+    """Lance TikTok sur l'appareil spécifié."""
+    console.print(Panel.fit("[bold green]Lancement de TikTok[/bold green]"))
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]['id']
+        console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
+    tiktok = TikTokManager(device_id)
+    if not tiktok.is_installed():
+        console.print("[red]TikTok n'est pas installé sur cet appareil.[/red]")
+        return
+    console.print("[blue]Lancement de TikTok...[/blue]")
+    success = tiktok.launch()
+    if success:
+        console.print(f"\n[green]{current_translations['hashtag_workflow_success']}[/green]")
+    else:
+        console.print("[red]Échec du lancement de TikTok.[/red]")
+
+@cli.command()
+@click.option('--network', '-n', required=True, type=click.Choice(['instagram', 'tiktok']), help='Réseau social à lancer')
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+def launch(network, device_id):
+    """Lance l'application du réseau social choisi sur l'appareil spécifié."""
+    console.print(Panel.fit(f"[bold green]Lancement de {network.capitalize()}[/bold green]"))
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]['id']
+        console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
+    if network == 'instagram':
+        manager = InstagramManager(device_id)
+    elif network == 'tiktok':
+        manager = TikTokManager(device_id)
+    else:
+        console.print("[red]Réseau social non supporté.[/red]")
+        return
+    if not manager.is_installed():
+        console.print(f"[red]{network.capitalize()} n'est pas installé sur cet appareil.[/red]")
+        return
+    console.print(f"[blue]Lancement de {network.capitalize()}...[/blue]")
+    success = manager.launch()
+    if success:
+        console.print(f"[green]{network.capitalize()} a été lancé avec succès ![/green]")
+    else:
+        console.print(f"[red]Échec du lancement de {network.capitalize()}.[/red]")
+
+@cli.command()
+def proxy():
+    """Gestion des proxies."""
+    console.print(Panel.fit("[bold green]Gestion des proxies[/bold green]"))
+    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
+
+@cli.command()
+def account():
+    """Gestion des comptes Instagram."""
+    console.print(Panel.fit("[bold green]Gestion des comptes Instagram[/bold green]"))
+    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
+
+@cli.command()
+def run():
+    """Démarre une session d'interaction."""
+    console.print(Panel.fit("[bold green]Démarrage d'une session d'interaction[/bold green]"))
+    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
+
+if __name__ == "__main__":
+    cli()
