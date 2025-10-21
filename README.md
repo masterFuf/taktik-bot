@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="logo/logo.png" alt="Taktik Logo" width="400"/>
+  <img src="logo/logo.png" alt="Taktik Logo" width="600"/>
+</div>
+
+<div align="center">
+  <h3><a href="https://taktik-bot.com/">🌐 taktik-bot.com</a></h3>
 </div>
 
 <div align="right">
@@ -257,31 +261,9 @@ taktik/
 
 ---
 
-## 🆕 What's New in v1.0.0 (October 20, 2025)
-
-### ✨ Major Features
-- ✅ **3 Powerful Workflows** - Followers, Hashtag, and Post URL automation
-- ✅ **Comment System** - Full comment automation with templates
-- ✅ **Popup Auto-Close** - Smart swipe detection for comment popups
-- ✅ **Duplicate Prevention** - Max 1 comment per profile
-- ✅ **Reel Support** - Enhanced detection and interaction
-- ✅ **Modular Architecture** - Clean, maintainable code structure
-- ✅ **Smart Filtering** - Advanced profile filtering capabilities
-- ✅ **Database Tracking** - SQLite integration for interaction history
-
-### 🐛 Bug Fixes
-- Fixed quota duplication in license system
-- Enhanced private account detection (3 methods)
-- Improved statistics display
-- Better Instagram loading time handling
-
----
-
 ## 📚 Documentation
 
-- **[Architecture Guide](ARCHITECTURE.md)** - Technical deep dive
-- **[TODO List](TODO.md)** - Development roadmap
-- **[Overview](OVERVIEW.md)** - Project overview
+For complete documentation, visit **[taktik-bot.com/en/docs](https://taktik-bot.com/en/docs)**
 
 ---
 
