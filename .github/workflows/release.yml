@@ -1,0 +1,140 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v1.2.3, etc.
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Update version in setup.py
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          sed -i "s/version=\".*\"/version=\"$VERSION\"/" setup.py
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            # First release
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            # Generate changelog since last tag
+            CHANGELOG=$(git log $PREV_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Save changelog to file
+          echo "$CHANGELOG" > CHANGELOG.txt
+          
+          # Also save for GitHub release
+          cat << EOF > RELEASE_NOTES.md
+          ## 🎯 Taktik Bot ${{ steps.get_version.outputs.TAG }}
+          
+          ### 📦 Installation
+          
+          **Quick Install (Windows):**
+          \`\`\`powershell
+          git clone https://github.com/masterFuf/taktik-bot.git
+          cd taktik-bot
+          git checkout ${{ steps.get_version.outputs.TAG }}
+          .\scripts\install.ps1
+          \`\`\`
+          
+          **Quick Install (Linux/macOS):**
+          \`\`\`bash
+          git clone https://github.com/masterFuf/taktik-bot.git
+          cd taktik-bot
+          git checkout ${{ steps.get_version.outputs.TAG }}
+          chmod +x scripts/install.sh
+          ./scripts/install.sh
+          \`\`\`
+          
+          **Update existing installation:**
+          \`\`\`bash
+          # Windows
+          .\scripts\install.ps1 -Update -Version ${{ steps.get_version.outputs.TAG }}
+          
+          # Linux/macOS
+          ./scripts/install.sh --update --version ${{ steps.get_version.outputs.TAG }}
+          \`\`\`
+          
+          ### 📝 Changes
+          
+          $CHANGELOG
+          
+          ### 📚 Documentation
+          
+          Full documentation: [taktik-bot.com/en/docs](https://taktik-bot.com/en/docs)
+          
+          ### ⚠️ Requirements
+          
+          - Python 3.10+
+          - Android device/emulator with USB debugging
+          - ADB installed
+          - Instagram app
+          
+          ---
+          
+          **Made with ❤️ by [masterFuf](https://github.com/masterFuf)**
+          EOF
+      
+      - name: Create source archive
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          
+          # Create a clean archive without .git and other unnecessary files
+          mkdir -p dist
+          git archive --format=zip --prefix=taktik-bot-$VERSION/ HEAD -o dist/taktik-bot-$VERSION-source.zip
+          git archive --format=tar.gz --prefix=taktik-bot-$VERSION/ HEAD -o dist/taktik-bot-$VERSION-source.tar.gz
+          
+          # Create checksums
+          cd dist
+          sha256sum taktik-bot-$VERSION-source.zip > taktik-bot-$VERSION-source.zip.sha256
+          sha256sum taktik-bot-$VERSION-source.tar.gz > taktik-bot-$VERSION-source.tar.gz.sha256
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Taktik Bot ${{ steps.get_version.outputs.TAG }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: |
+            dist/taktik-bot-${{ steps.get_version.outputs.VERSION }}-source.zip
+            dist/taktik-bot-${{ steps.get_version.outputs.VERSION }}-source.tar.gz
+            dist/taktik-bot-${{ steps.get_version.outputs.VERSION }}-source.zip.sha256
+            dist/taktik-bot-${{ steps.get_version.outputs.VERSION }}-source.tar.gz.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ Release ${{ steps.get_version.outputs.TAG }} created successfully!"
+          echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.TAG }}"

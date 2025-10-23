@@ -17,6 +17,8 @@ from taktik.core.social_media.tiktok.manager import TikTokManager
 from taktik.core.license import unified_license_manager
 from taktik.core.database import configure_db_service
 from taktik.locales import fr, en
+from taktik import __version__
+from taktik.utils.version_checker import check_version
 
 device_manager = DeviceManager()
 
@@ -830,6 +832,12 @@ def cli(ctx, lang=None):
     
     if ctx.invoked_subcommand is None:
         display_banner()
+        
+        # Check for updates (non-blocking)
+        try:
+            check_version(__version__, silent=False)
+        except Exception as e:
+            logger.debug(f"Version check failed: {e}")
         
         while True:
             options = ['instagram', 'tiktok', 'quit']
