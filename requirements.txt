@@ -17,6 +17,7 @@ requests>=2.30.0
 pillow>=10.0.0
 loguru>=0.7.0
 reportlab>=4.4.3
+packaging>=23.0
 
 pytest>=7.3.1
 pytest-cov>=4.1.0

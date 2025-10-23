@@ -1,0 +1,55 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts should always use LF
+*.sh text eol=lf
+
+# PowerShell scripts should use CRLF
+*.ps1 text eol=crlf
+
+# Python files should use LF
+*.py text eol=lf
+
+# Markdown files
+*.md text eol=lf
+
+# YAML files
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# JSON files
+*.json text eol=lf
+
+# Configuration files
+*.ini text eol=lf
+*.cfg text eol=lf
+*.conf text eol=lf
+
+# Documentation
+*.txt text eol=lf
+*.rst text eol=lf
+
+# Archives (binary)
+*.zip binary
+*.tar.gz binary
+*.tgz binary
+*.gz binary
+*.bz2 binary
+*.7z binary
+*.rar binary
+
+# Images (binary)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.webp binary
+
+# Fonts (binary)
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
