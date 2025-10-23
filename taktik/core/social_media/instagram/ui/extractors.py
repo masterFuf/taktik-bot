@@ -13,6 +13,73 @@ class InstagramUIExtractors:
         self.post_selectors = POST_SELECTORS
         self.popup_selectors = POPUP_SELECTORS
     
+    def extract_post_stats_atomic(self) -> Dict[str, int]:
+        """
+        Extract likes and comments counts atomically from the same carousel element.
+        This prevents timing issues during scrolling where likes and comments 
+        might be read from different posts.
+        
+        Returns:
+            dict: {'likes': int, 'comments': int} or None if extraction failed
+        """
+        try:
+            # Try to find carousel elements that contain both likes and comments in content-desc
+            carousel_selectors = [
+                '//*[contains(@resource-id, "carousel_video_media_group")]',
+                '//*[contains(@resource-id, "carousel_media_group")]',
+                '//*[contains(@content-desc, "likes") and contains(@content-desc, "comment")]'
+            ]
+            
+            for selector in carousel_selectors:
+                try:
+                    elements = self.device.xpath(selector).all()
+                    for element in elements:
+                        element_info = element.info
+                        content_desc = element_info.get('contentDescription', '')
+                        
+                        if not content_desc:
+                            continue
+                        
+                        # Extract likes
+                        likes_match = re.search(
+                            r'(\d+(?:[,.]\d+)?(?:\s?[KkMmBb])?)\s*(?:like|j\'aime)',
+                            content_desc,
+                            re.IGNORECASE
+                        )
+                        
+                        # Extract comments
+                        comments_match = re.search(
+                            r'(\d+(?:[,.]\d+)?(?:\s?[KkMmBb])?)\s*(?:comment|commentaire)',
+                            content_desc,
+                            re.IGNORECASE
+                        )
+                        
+                        if likes_match and comments_match:
+                            likes_text = likes_match.group(1)
+                            comments_text = comments_match.group(1)
+                            
+                            likes_count = self.parse_instagram_number(likes_text)
+                            comments_count = self.parse_instagram_number(comments_text)
+                            
+                            if likes_count >= 0 and comments_count >= 0:
+                                log.debug(f"✅ Post stats extracted atomically from carousel: {likes_count} likes, {comments_count} comments")
+                                log.debug(f"   Source content-desc: {content_desc[:100]}...")
+                                return {
+                                    'likes': likes_count,
+                                    'comments': comments_count
+                                }
+                        
+                except Exception as e:
+                    log.debug(f"Error with carousel selector {selector}: {e}")
+                    continue
+            
+            log.debug("⚠️ Could not extract post stats atomically, falling back to separate extraction")
+            return None
+            
+        except Exception as e:
+            log.error(f"Error in atomic extraction: {e}")
+            return None
+    
     def parse_instagram_number(self, text: str) -> int:
         if not text:
             return 0
@@ -426,7 +493,8 @@ class InstagramUIExtractors:
             
             center_x = screen_width // 2
             
-            time.sleep(0.8)
+            # Reduced wait time for faster extraction (was 0.8s)
+            time.sleep(0.3)
             
             username_elements = self.device.xpath(self.popup_selectors.username_list_selector).all()
             
@@ -460,12 +528,14 @@ class InstagramUIExtractors:
                 else:
                     logger_to_use.debug(f"⚠️ No username detected, fallback")
             
-            self.device.swipe(center_x, start_y, center_x, end_y, duration=0.8)
+            # Faster scroll for better extraction speed (was 0.8s)
+            self.device.swipe(center_x, start_y, center_x, end_y, duration=0.5)
             
             if verbose_logs:
-                logger_to_use.debug(f"📜 Adaptive scroll in likers popup: ({center_x},{start_y}) → ({center_x},{end_y}) in 0.8s")
+                logger_to_use.debug(f"📜 Adaptive scroll in likers popup: ({center_x},{start_y}) → ({center_x},{end_y}) in 0.5s")
             
-            time.sleep(0.4)
+            # Reduced post-scroll wait (was 0.4s)
+            time.sleep(0.2)
             return True
             
         except Exception as e:

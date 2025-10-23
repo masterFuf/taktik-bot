@@ -321,6 +321,34 @@ class PostUrlBusiness(BaseBusinessAction):
     def _determine_interactions_from_config(self, config: Dict[str, Any]) -> List[str]:
         return super()._determine_interactions_from_config(config)
     
+    def _calculate_adaptive_tolerance(self, target_likes: int) -> int:
+        """
+        Calculate adaptive tolerance based on post popularity.
+        
+        Strategy:
+        - Small posts (<500 likes): ±5 likes tolerance (~1-5%)
+        - Medium posts (500-2000): ±15 likes tolerance (~1-3%)
+        - Popular posts (2000-10000): ±50 likes tolerance (~0.5-2.5%)
+        - Viral posts (10000-50000): ±100 likes tolerance (~0.2-1%)
+        - Mega viral (>50000): ±200 likes tolerance (~0.4%)
+        
+        Args:
+            target_likes: Number of likes on the target post
+            
+        Returns:
+            int: Tolerance threshold
+        """
+        if target_likes < 500:
+            return 5
+        elif target_likes < 2000:
+            return 15
+        elif target_likes < 10000:
+            return 50
+        elif target_likes < 50000:
+            return 100
+        else:
+            return 200
+    
     def _find_and_extract_likers_from_profile(self, post_metadata: Dict[str, Any]) -> List[str]:
         try:
             self.logger.info(f"Searching for post with {post_metadata['likes_count']} likes, {post_metadata['comments_count']} comments")
@@ -349,8 +377,17 @@ class PostUrlBusiness(BaseBusinessAction):
                 
                 try:
                     self.logger.debug("Extracting current post metadata...")
-                    current_likes = self.ui_extractors.extract_likes_count_from_ui()
-                    current_comments = self.ui_extractors.extract_comments_count_from_ui()
+                    
+                    # Try atomic extraction first (prevents timing issues during scroll)
+                    stats = self.ui_extractors.extract_post_stats_atomic()
+                    
+                    if stats:
+                        current_likes = stats['likes']
+                        current_comments = stats['comments']
+                    else:
+                        # Fallback to separate extraction
+                        current_likes = self.ui_extractors.extract_likes_count_from_ui()
+                        current_comments = self.ui_extractors.extract_comments_count_from_ui()
                     
                     post_signature = (current_likes, current_comments)
                     
@@ -367,13 +404,18 @@ class PostUrlBusiness(BaseBusinessAction):
                         
                         self.logger.info(f"UNIQUE POST #{posts_checked}: {current_likes} likes, {current_comments} comments | TARGET: {post_metadata['likes_count']} likes, {post_metadata['comments_count']} comments")
                         
+                        # Exact match - best case
                         if current_likes == post_metadata['likes_count'] and current_comments == post_metadata['comments_count']:
-                            self.logger.success(f"Exact post found (post #{posts_checked})!")
+                            self.logger.success(f"✅ Exact post found (post #{posts_checked})!")
                             return self._extract_likers_from_current_post()
                         
+                        # Adaptive tolerance based on post popularity
                         likes_diff = abs(current_likes - post_metadata['likes_count'])
-                        if likes_diff <= 5 and current_comments == post_metadata['comments_count']:
-                            self.logger.success(f"Close post found (diff: {likes_diff}, post #{posts_checked})!")
+                        adaptive_tolerance = self._calculate_adaptive_tolerance(post_metadata['likes_count'])
+                        
+                        # Comments must match exactly (they change less frequently)
+                        if likes_diff <= adaptive_tolerance and current_comments == post_metadata['comments_count']:
+                            self.logger.success(f"✅ Matching post found (likes diff: {likes_diff}/{adaptive_tolerance}, post #{posts_checked})!")
                             return self._extract_likers_from_current_post()
                     
                 except Exception as e:

@@ -146,9 +146,11 @@ class WorkflowHelpers:
                     target_type = "PLACE"
                     target = action_override.get('place_name', 'unknown')
             else:
-                # Try to get from config
-                if 'actions' in self.automation.config and self.automation.config['actions']:
-                    for action in self.automation.config['actions']:
+                # Try to get from config (check both 'steps' and 'actions' for compatibility)
+                steps_or_actions = self.automation.config.get('steps') or self.automation.config.get('actions', [])
+                
+                if steps_or_actions:
+                    for action in steps_or_actions:
                         if action.get('type') == 'interact_with_followers':
                             target_type = "USER"
                             target = action.get('target_username', 'unknown')
@@ -180,6 +182,10 @@ class WorkflowHelpers:
                     elif 'hashtag' in workflow_info:
                         target_type = "HASHTAG"
                         target = workflow_info['hashtag']
+                        self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
+                    elif 'post_url' in workflow_info:
+                        target_type = "POST_URL"
+                        target = workflow_info['post_url']
                         self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
             
             self.logger.info(f"Session created with target_type='{target_type}', target='{target}'")

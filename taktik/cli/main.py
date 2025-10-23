@@ -83,7 +83,8 @@ def display_banner():
     
     # Build banner content
     banner_content = f"[bold blue]{current_banner}[/bold blue]\n"
-    banner_content += "[bold green]Social Media Automation Tool[/bold green]\n\n"
+    banner_content += "[bold green]Social Media Automation Tool[/bold green]\n"
+    banner_content += f"[dim cyan]Version {__version__}[/dim cyan]\n\n"
     
     # Add update notification if available
     if update_available and latest_version:
