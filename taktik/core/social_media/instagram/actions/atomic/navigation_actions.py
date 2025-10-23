@@ -131,7 +131,7 @@ class NavigationActions(BaseAction):
                 self.logger.debug("✅ Already on own profile")
                 return True
             
-            if self._find_and_click(self.selectors.profile_tab, timeout=5):
+            if self._find_and_click(self.selectors.profile_tab, timeout=15):
                 self._human_like_delay('navigation')
                 
                 if detection.is_on_own_profile():

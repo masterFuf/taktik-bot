@@ -657,7 +657,7 @@ class FollowerBusiness(BaseBusinessAction):
                 if follow_result:
                     result['followed'] = True
                     try:
-                        self.session_manager.increment('follows')
+                        self.stats_manager.increment('follows')
                     except Exception as e:
                         self.logger.error(f"Critical error: Follow of @{username} cancelled - {e}")
                         self.logger.error(f"Security: Follow of @{username} cancelled to avoid quota leak")
