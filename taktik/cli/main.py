@@ -47,19 +47,72 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+def auto_update():
+    """Launch automatic update process."""
+    import platform
+    import subprocess
+    
+    console.print("\n[bold yellow]🔄 Starting automatic update...[/bold yellow]\n")
+    
+    system = platform.system()
+    
+    try:
+        if system == "Windows":
+            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts", "install.ps1")
+            subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", script_path, "-Update"], check=True)
+        else:
+            script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts", "install.sh")
+            subprocess.run(["bash", script_path, "--update"], check=True)
+        
+        console.print("\n[bold green]✅ Update completed successfully![/bold green]")
+        console.print("[yellow]Please restart the application to use the new version.[/yellow]\n")
+        sys.exit(0)
+        
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Update failed: {e}[/bold red]")
+        console.print("[yellow]Please update manually using the commands shown above.[/yellow]\n")
+
+
 def display_banner():
-    links = f"""
-    [blue]{current_translations['website']}:[/blue] [link=http://taktik-social.com/]http://taktik-social.com/[/link]
-    [blue]{current_translations['github']}:[/blue] [link=https://github.com/galaffu/taktik-instagram]github.com/galaffu/taktik-instagram[/link]
-    """
+    """Display banner with version check integrated."""
+    from taktik.utils.version_checker import VersionChecker
+    
+    # Check for updates
+    checker = VersionChecker(__version__)
+    update_available, latest_version = checker.check_for_updates()
+    
+    # Build banner content
+    banner_content = f"[bold blue]{current_banner}[/bold blue]\n"
+    banner_content += "[bold green]Social Media Automation Tool[/bold green]\n\n"
+    
+    # Add update notification if available
+    if update_available and latest_version:
+        banner_content += "[bold yellow]🎉 NEW VERSION AVAILABLE![/bold yellow]\n\n"
+        banner_content += f"[cyan]Current version:[/cyan] {__version__}\n"
+        banner_content += f"[cyan]Latest version:[/cyan]  [bold green]{latest_version}[/bold green]\n\n"
+        banner_content += "[yellow]📦 To update:[/yellow]\n"
+        banner_content += "[dim]Windows:[/dim] .\\scripts\\install.ps1 -Update\n"
+        banner_content += "[dim]Linux/macOS:[/dim] ./scripts/install.sh --update\n\n"
+    
+    # Add links
+    banner_content += "[blue]🌐 Website:[/blue] [link=https://taktik-bot.com/]taktik-bot.com[/link]\n"
+    banner_content += "[blue]📚 Documentation:[/blue] [link=https://taktik-bot.com/en/docs]taktik-bot.com/en/docs[/link]\n"
+    banner_content += "[blue]💻 GitHub:[/blue] [link=https://github.com/masterFuf/taktik-bot]github.com/masterFuf/taktik-bot[/link]\n"
+    banner_content += "[blue]💬 Discord:[/blue] [link=https://discord.com/invite/bb7MuMmpKS]discord.gg/bb7MuMmpKS[/link]"
     
     console.print(Panel.fit(
-        f"[bold blue]{current_banner}\n[bold green]{current_translations['app_title']}[/bold green]\n\n{links}",
+        banner_content,
         border_style="blue",
         padding=(1, 2),
         title="TAKTIK",
         title_align="left"
     ))
+    
+    # Prompt for auto-update if available
+    if update_available and latest_version:
+        console.print("")
+        if Confirm.ask("[bold cyan]Would you like to update automatically now?[/bold cyan]", default=False):
+            auto_update()
 
 def select_language():
     console.print("\n[bold blue]Language Selection / Sélection de la langue[/bold blue]")
@@ -832,12 +885,6 @@ def cli(ctx, lang=None):
     
     if ctx.invoked_subcommand is None:
         display_banner()
-        
-        # Check for updates (non-blocking)
-        try:
-            check_version(__version__, silent=False)
-        except Exception as e:
-            logger.debug(f"Version check failed: {e}")
         
         while True:
             options = ['instagram', 'tiktok', 'quit']

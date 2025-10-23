@@ -18,7 +18,7 @@ function Write-Error { Write-Host $args -ForegroundColor Red }
 Write-Host @"
 ╔════════════════════════════════════════════╗
 ║                                            ║
-║         🎯 TAKTIK BOT INSTALLER           ║
+║         TAKTIK BOT INSTALLER              ║
 ║                                            ║
 ╚════════════════════════════════════════════╝
 "@ -ForegroundColor Cyan
@@ -31,13 +31,13 @@ try {
         $major = [int]$matches[1]
         $minor = [int]$matches[2]
         if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {
-            Write-Error "❌ Python 3.10+ required. Found: $pythonVersion"
+            Write-Error "[X] Python 3.10+ required. Found: $pythonVersion"
             exit 1
         }
-        Write-Success "✓ Python version OK: $pythonVersion"
+        Write-Success "[OK] Python version OK: $pythonVersion"
     }
 } catch {
-    Write-Error "❌ Python not found. Please install Python 3.10+"
+    Write-Error "[X] Python not found. Please install Python 3.10+"
     exit 1
 }
 
@@ -45,9 +45,9 @@ try {
 Write-Info "`n[2/6] Checking Git installation..."
 try {
     $gitVersion = git --version 2>&1
-    Write-Success "✓ Git found: $gitVersion"
+    Write-Success "[OK] Git found: $gitVersion"
 } catch {
-    Write-Error "❌ Git not found. Please install Git first."
+    Write-Error "[X] Git not found. Please install Git first."
     exit 1
 }
 
@@ -79,15 +79,15 @@ if ($Update) {
                 git checkout $Version
             }
             
-            Write-Success "✓ Repository updated successfully"
+            Write-Success "[OK] Repository updated successfully"
         } catch {
-            Write-Error "❌ Failed to update repository: $_"
+            Write-Error "[X] Failed to update repository: $_"
             Pop-Location
             exit 1
         }
         Pop-Location
     } else {
-        Write-Error "❌ Not a git repository. Cannot update."
+        Write-Error "[X] Not a git repository. Cannot update."
         exit 1
     }
 } else {
@@ -100,9 +100,9 @@ Push-Location $installDir
 try {
     python -m pip install --upgrade pip
     pip install -r requirements.txt
-    Write-Success "✓ Dependencies installed successfully"
+    Write-Success "[OK] Dependencies installed successfully"
 } catch {
-    Write-Error "❌ Failed to install dependencies: $_"
+    Write-Error "[X] Failed to install dependencies: $_"
     Pop-Location
     exit 1
 }
@@ -113,9 +113,9 @@ Write-Info "`n[5/6] Installing Taktik Bot..."
 Push-Location $installDir
 try {
     pip install -e .
-    Write-Success "✓ Taktik Bot installed successfully"
+    Write-Success "[OK] Taktik Bot installed successfully"
 } catch {
-    Write-Error "❌ Failed to install Taktik Bot: $_"
+    Write-Error "[X] Failed to install Taktik Bot: $_"
     Pop-Location
     exit 1
 }
@@ -125,9 +125,9 @@ Pop-Location
 Write-Info "`n[6/6] Verifying installation..."
 try {
     $taktikVersion = python -c "from taktik import __version__; print(__version__)" 2>&1
-    Write-Success "✓ Installation verified. Version: $taktikVersion"
+    Write-Success "[OK] Installation verified. Version: $taktikVersion"
 } catch {
-    Write-Warning "⚠ Could not verify installation"
+    Write-Warning "[!] Could not verify installation"
 }
 
 # Success message
@@ -135,18 +135,18 @@ Write-Host @"
 
 ╔════════════════════════════════════════════╗
 ║                                            ║
-║     ✅ INSTALLATION COMPLETED!            ║
+║     INSTALLATION COMPLETED!               ║
 ║                                            ║
 ╚════════════════════════════════════════════╝
 
 "@ -ForegroundColor Green
 
-Write-Info "🚀 Quick Start:"
+Write-Info "Quick Start:"
 Write-Host "   python -m taktik" -ForegroundColor White
 Write-Host ""
-Write-Info "📚 Documentation:"
+Write-Info "Documentation:"
 Write-Host "   https://taktik-bot.com/en/docs" -ForegroundColor White
 Write-Host ""
-Write-Info "🔄 To update later, run:"
+Write-Info "To update later, run:"
 Write-Host "   .\scripts\install.ps1 -Update" -ForegroundColor White
 Write-Host ""
