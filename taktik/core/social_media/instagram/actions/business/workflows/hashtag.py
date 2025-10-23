@@ -189,6 +189,13 @@ class HashtagBusiness(BaseBusinessAction):
             posts_tested = 0
             
             while posts_tested < max_attempts:
+                # Vérifier si la session doit continuer (durée, limites, etc.)
+                if hasattr(self, 'session_manager') and self.session_manager:
+                    should_continue, stop_reason = self.session_manager.should_continue()
+                    if not should_continue:
+                        self.logger.warning(f"🛑 Session stopped: {stop_reason}")
+                        return None
+                
                 metadata = self._extract_post_metadata()
                 
                 if metadata:

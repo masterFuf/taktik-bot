@@ -340,6 +340,13 @@ class PostUrlBusiness(BaseBusinessAction):
             
             self.logger.debug(f"Starting search loop (max {max_scrolls} scrolls)")
             while scroll_count < max_scrolls and posts_checked < 50:
+                # Vérifier si la session doit continuer (durée, limites, etc.)
+                if hasattr(self, 'session_manager') and self.session_manager:
+                    should_continue, stop_reason = self.session_manager.should_continue()
+                    if not should_continue:
+                        self.logger.warning(f"🛑 Session stopped: {stop_reason}")
+                        return None
+                
                 try:
                     self.logger.debug("Extracting current post metadata...")
                     current_likes = self.ui_extractors.extract_likes_count_from_ui()

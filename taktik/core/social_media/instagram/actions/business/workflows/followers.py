@@ -199,6 +199,13 @@ class FollowerBusiness(BaseBusinessAction):
         
         try:
             for i in range(start_index, min(len(followers), max_interactions)):
+                # Vérifier si la session doit continuer (durée, limites, etc.)
+                if hasattr(self, 'session_manager') and self.session_manager:
+                    should_continue, stop_reason = self.session_manager.should_continue()
+                    if not should_continue:
+                        self.logger.warning(f"🛑 Session stopped: {stop_reason}")
+                        break
+                
                 follower = followers[i]
                 username = follower.get('username', '')
                 
