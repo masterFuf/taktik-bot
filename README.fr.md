@@ -4,38 +4,41 @@
 
 <div align="center">
   <h3><a href="https://taktik-bot.com/">🌐 taktik-bot.com</a></h3>
+  <h3><a href="https://discord.gg/bb7MuMmpKS">💬 Rejoignez notre Communauté Discord</a></h3>
 </div>
 
 <div align="right">
   <a href="./README.md">🇬🇧 English</a> | <strong>🇫🇷 Français</strong>
 </div>
 
-# 🎯 Taktik Bot - Automatisation Instagram
+# 🎯 Taktik Bot - Outil d'Automatisation Instagram | Bot de Croissance & Engagement
 
-**Version 1.0.0** | Automatisation professionnelle Instagram avec comportement humain et anti-détection.
+**Version 1.0.0** | Logiciel d'automatisation Instagram professionnel avec comportement humain, système anti-détection et capacités de ciblage avancées.
 
-> Automatisez vos interactions Instagram avec 3 workflows puissants : Followers, Hashtags et Post URL.
+> **Bot Instagram gratuit** pour automatiser les likes, commentaires, follows et vues de stories. Développez votre compte Instagram de manière organique avec un ciblage intelligent via les workflows Followers, Hashtags et Post URL.
 
 ---
 
 ## ✨ Fonctionnalités Clés
 
-- 🤖 **3 Workflows d'Automatisation** - Ciblez les abonnés, hashtags ou likers de posts
-- ❤️ **Interactions Intelligentes** - Likes, commentaires, follows et visionnage de stories
-- 🎯 **Filtrage Avancé** - Filtrez par abonnés, nombre de posts, type de compte
-- 🧠 **Comportement Humain** - Délais aléatoires, patterns de scrolling naturels
-- 📊 **Analytics Temps Réel** - Suivez les performances et stats de session
-- 🔒 **Anti-Détection** - Gestion des quotas et patterns aléatoires
+- 🤖 **3 Workflows d'Automatisation Puissants** - Ciblez les abonnés Instagram, hashtags ou likers de posts avec précision
+- ❤️ **Interactions Instagram Intelligentes** - Likes automatisés, commentaires personnalisés, follows et vues de stories Instagram
+- 🎯 **Filtrage Avancé de Comptes** - Filtrez les cibles par nombre d'abonnés, nombre de posts, type de compte business/créateur
+- 🧠 **Simulation de Comportement Humain** - Délais aléatoires, patterns de scrolling naturels, timing d'interaction réaliste
+- 📊 **Analytics Instagram Temps Réel** - Suivez les performances d'engagement, statistiques de session et métriques de croissance
+- 🔒 **Technologie Anti-Détection** - Gestion intelligente des quotas, patterns aléatoires et respect des limites d'actions Instagram
+- 🆓 **Gratuit & Open Source** - Accès gratuit aux fonctionnalités de base, offres premium disponibles pour plus d'appels API
+- 🔧 **Installation Facile** - Fonctionne avec appareils/émulateurs Android via connexion ADB
 
 ---
 
-## 🚀 Démarrage Rapide
+## 🚀 Guide de Démarrage Rapide
 
-### Prérequis
-- Python 3.10+
-- Appareil/émulateur Android avec débogage USB
-- ADB installé
-- Application Instagram
+### Prérequis pour l'Automatisation Instagram
+- Python 3.10 ou supérieur
+- Appareil Android ou émulateur Android avec débogage USB activé
+- ADB (Android Debug Bridge) installé sur votre ordinateur
+- Application Instagram installée sur l'appareil Android
 
 ### Installation
 
@@ -65,28 +68,30 @@ python -m taktik
 
 ---
 
-## 🛠️ Workflows
+## 🛠️ Workflows d'Automatisation Instagram
 
-### 1. Workflow Followers
-Ciblez et interagissez avec les abonnés de comptes spécifiques.
+### 1. Workflow de Ciblage par Followers
+Ciblez et interagissez automatiquement avec les abonnés de comptes Instagram spécifiques. Parfait pour l'analyse de la concurrence et le ciblage d'audience.
 
-### 2. Workflow Hashtag  
-Engagez avec les posts de hashtags spécifiques.
+### 2. Workflow de Ciblage par Hashtag  
+Engagez avec les posts Instagram de hashtags spécifiques. Idéal pour le marketing de niche et la découverte de contenu.
 
-### 3. Workflow Post URL
-Interagissez avec les utilisateurs qui ont liké un post spécifique.
-
----
-
-## 📄 Licence
-
-GNU General Public License v3.0 - Voir [LICENSE](LICENSE) pour les détails.
+### 3. Workflow de Ciblage par Post URL
+Interagissez avec les utilisateurs Instagram qui ont liké un post spécifique. Excellent pour engager avec des audiences hautement pertinentes.
 
 ---
 
-## 🔒 Avis Légal
+## 📌 Licence
 
-**Fins éducatives uniquement.** Les utilisateurs doivent se conformer aux Conditions d'Utilisation d'Instagram. Les développeurs ne sont pas responsables d'une mauvaise utilisation.
+Ce bot d'automatisation Instagram est sous licence GNU General Public License v3.0 - Voir [LICENSE](LICENSE) pour les détails.
+
+**Gratuit à utiliser, modifier et distribuer** - Outil de croissance Instagram open source.
+
+---
+
+## 🔒 Avis Légal & Clause de Non-Responsabilité
+
+**À des fins éducatives et de recherche uniquement.** Cet outil d'automatisation Instagram est fourni tel quel. Les utilisateurs doivent se conformer aux Conditions d'Utilisation d'Instagram et aux politiques d'utilisation de l'API. Les développeurs ne sont pas responsables des restrictions de compte, bannissements ou mauvaise utilisation de ce logiciel. Utilisation à vos propres risques et responsabilités.
 
 ---
 
