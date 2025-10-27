@@ -17,50 +17,20 @@ class DetectionActions(BaseAction):
     def is_private_account(self) -> bool:
         self.logger.debug("Detecting private account")
         
-        if self._is_element_present(self.selectors.private_indicators):
-            self.logger.debug("✅ Private account detected via text indicators")
-            return True
-        
         private_message_selectors = [
-            '//*[contains(@text, "This Account is Private")]',
+            '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="This account is private"]',
+            '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="Ce compte est privé"]',
+            '//*[contains(@text, "This account is private")]',
             '//*[contains(@text, "Ce compte est privé")]',
-            '//*[contains(@content-desc, "This Account is Private")]',
+            '//*[contains(@content-desc, "This account is private")]',
             '//*[contains(@content-desc, "Ce compte est privé")]'
         ]
+        
         if self._is_element_present(private_message_selectors):
-            self.logger.debug("✅ Private account detected via 'Account is Private' message")
+            self.logger.debug("✅ Private account detected via 'This account is private' message")
             return True
         
-        try:
-            post_count_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_profile_header_textview_post_count"]',
-                '//*[contains(@resource-id, "post_count")]'
-            ]
-            
-            post_count = None
-            for selector in post_count_selectors:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    text = element.get_text().strip()
-                    if text and text.isdigit():
-                        post_count = int(text)
-                        break
-            
-            visible_posts = self.count_visible_posts()
-            
-            if post_count == 0 and visible_posts > 0:
-                self.logger.debug(f"✅ Private account detected: post_count=0 but {visible_posts} visible posts in grid")
-                return True
-            
-            if visible_posts > 0:
-                clickable_posts = self.device.xpath('//*[@resource-id="com.instagram.android:id/image_button"]').all()
-                if not clickable_posts:
-                    self.logger.debug(f"✅ Private account detected: {visible_posts} visible posts but none clickable")
-                    return True
-                    
-        except Exception as e:
-            self.logger.debug(f"Error in advanced private detection: {e}")
-        
+        self.logger.debug("❌ No private account indicator found")
         return False
     
     def is_verified_account(self) -> bool:
