@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="taktik-instagram",
-    version="1.0.2",
+    name="taktik-bot",
+    version="1.0.3",
     packages=find_packages(),
     include_package_data=True,
     python_requires=">=3.10",
@@ -29,7 +29,7 @@ setup(
     long_description="Taktik-Instagram: Une approche stratégique pour l'automatisation Instagram",
     # long_description=open("README.md", encoding='utf-8').read(),
     # long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/taktik-instagram",
+    url="https://github.com/masterFuf/taktik-bot",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
