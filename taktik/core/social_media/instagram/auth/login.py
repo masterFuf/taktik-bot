@@ -374,6 +374,25 @@ class InstagramLogin:
         # Attendre un peu pour que la page charge
         time.sleep(2)
         
+        # Vérifier si la popup "Save your login info?" est présente (indicateur de succès)
+        save_login_popup_selectors = [
+            '//android.view.View[@content-desc="Save your login info?"]',
+            '//android.view.View[contains(@content-desc, "Save your login info")]',
+            '//android.view.View[contains(@text, "Save your login info")]',
+            '//android.view.View[contains(@content-desc, "Enregistrer vos informations")]',
+            '//android.view.View[contains(@text, "Enregistrer vos informations")]'
+        ]
+        for selector in save_login_popup_selectors:
+            try:
+                if self.device.xpath(selector).exists:
+                    self.logger.success("✅ Login successful! (Save login info popup detected)")
+                    return LoginResult(
+                        success=True,
+                        message="Login successful"
+                    )
+            except:
+                continue
+        
         # Vérifier si connexion réussie
         for selector in self.auth_selectors.login_success_indicators:
             try:
