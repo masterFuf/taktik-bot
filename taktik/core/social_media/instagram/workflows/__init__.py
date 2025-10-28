@@ -1,5 +1,5 @@
 from .core import InstagramAutomation, WorkflowRunner
-from .management import SessionManager, WorkflowConfigBuilder, ActionProbabilities, FilterCriteria
+from .management import SessionManager, WorkflowConfigBuilder, ActionProbabilities, FilterCriteria, LoginWorkflow
 from .helpers import WorkflowHelpers, UIHelpers, FilteringHelpers, LicenseHelpers
 
 __all__ = [
@@ -9,6 +9,7 @@ __all__ = [
     'WorkflowConfigBuilder',
     'ActionProbabilities',
     'FilterCriteria',
+    'LoginWorkflow',
     'WorkflowHelpers',
     'UIHelpers',
     'FilteringHelpers',

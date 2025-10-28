@@ -59,10 +59,33 @@ def auto_update():
     try:
         if system == "Windows":
             script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts", "install.ps1")
-            subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", script_path, "-Update"], check=True)
+            result = subprocess.run(
+                ["powershell", "-ExecutionPolicy", "Bypass", "-File", script_path, "-Update"],
+                capture_output=True,
+                text=True
+            )
+            
+            # Display output
+            if result.stdout:
+                console.print(result.stdout)
+            if result.stderr:
+                console.print(f"[yellow]{result.stderr}[/yellow]")
+            
+            # Check if update was successful by verifying version
+            if result.returncode != 0:
+                raise Exception(f"Update script failed with exit code {result.returncode}")
+                
         else:
             script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts", "install.sh")
-            subprocess.run(["bash", script_path, "--update"], check=True)
+            result = subprocess.run(["bash", script_path, "--update"], capture_output=True, text=True)
+            
+            if result.stdout:
+                console.print(result.stdout)
+            if result.stderr:
+                console.print(f"[yellow]{result.stderr}[/yellow]")
+                
+            if result.returncode != 0:
+                raise Exception(f"Update script failed with exit code {result.returncode}")
         
         console.print("\n[bold green]✅ Update completed successfully![/bold green]")
         console.print("[yellow]Please restart the application to use the new version.[/yellow]\n")
@@ -1022,6 +1045,113 @@ def launch_instagram(device_id):
         console.print("[green]Instagram a été lancé avec succès ![/green]")
     else:
         console.print("[red]Échec du lancement d'Instagram.[/red]")
+
+@instagram.command("login")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+@click.option('--username', '-u', help="Nom d'utilisateur, email ou numéro de téléphone")
+@click.option('--password', '-p', help="Mot de passe (sera demandé de manière sécurisée si non fourni)")
+@click.option('--save-session/--no-save-session', default=True, help="Sauvegarder la session après connexion (système Taktik)")
+@click.option('--save-instagram-login/--no-save-instagram-login', default=False, help="Sauvegarder les infos de login dans Instagram")
+def login_instagram(device_id, username, password, save_session, save_instagram_login):
+    """Se connecter à un compte Instagram."""
+    from taktik.core.social_media.instagram.workflows.management.login_workflow import LoginWorkflow
+    import uiautomator2 as u2
+    from getpass import getpass
+    
+    console.print(Panel.fit("[bold green]🔐 Connexion à Instagram[/bold green]"))
+    
+    # Sélectionner le device
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]❌ Aucun appareil connecté.[/red]")
+            console.print("[blue]💡 Assurez-vous que l'appareil est connecté et que ADB est configuré.[/blue]")
+            return
+        device_id = devices[0]
+        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
+    
+    # Demander le username si non fourni
+    if not username:
+        username = Prompt.ask("[cyan]👤 Nom d'utilisateur, email ou numéro de téléphone[/cyan]")
+    
+    # Demander le password de manière sécurisée si non fourni
+    if not password:
+        password = getpass("🔑 Mot de passe: ")
+    
+    if not username or not password:
+        console.print("[red]❌ Username et password requis.[/red]")
+        return
+    
+    try:
+        # Connexion au device
+        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
+        device = u2.connect(device_id)
+        
+        # Vérifier qu'Instagram est installé
+        instagram_manager = InstagramManager(device_id)
+        if not instagram_manager.is_installed():
+            console.print("[red]❌ Instagram n'est pas installé sur cet appareil.[/red]")
+            return
+        
+        # Lancer Instagram si pas déjà lancé
+        console.print("[blue]📱 Lancement d'Instagram...[/blue]")
+        instagram_manager.launch()
+        time.sleep(3)  # Attendre que l'app se lance
+        
+        # Créer le workflow de login
+        login_workflow = LoginWorkflow(device, device_id)
+        
+        # Afficher les informations
+        console.print(f"\n[cyan]👤 Username:[/cyan] {username}")
+        console.print(f"[cyan]💾 Save session (Taktik):[/cyan] {'Yes' if save_session else 'No'}")
+        console.print(f"[cyan]💾 Save login info (Instagram):[/cyan] {'Yes' if save_instagram_login else 'No'}\n")
+        
+        # Exécuter le login
+        with console.status("[bold yellow]🔄 Connexion en cours...[/bold yellow]", spinner="dots"):
+            result = login_workflow.execute(
+                username=username,
+                password=password,
+                max_retries=3,
+                save_session=save_session,
+                use_saved_session=True,
+                save_login_info_instagram=save_instagram_login
+            )
+        
+        # Afficher le résultat
+        console.print()
+        if result['success']:
+            console.print(Panel.fit(
+                f"[bold green]✅ Connexion réussie ![/bold green]\n\n"
+                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
+                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
+                f"[cyan]💾 Session sauvegardée:[/cyan] {'Oui' if result['session_saved'] else 'Non'}",
+                title="[bold green]Succès[/bold green]",
+                border_style="green"
+            ))
+        else:
+            console.print(Panel.fit(
+                f"[bold red]❌ Échec de la connexion[/bold red]\n\n"
+                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
+                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
+                f"[cyan]❌ Erreur:[/cyan] {result['message']}\n"
+                f"[cyan]🏷️ Type d'erreur:[/cyan] {result['error_type'] or 'unknown'}",
+                title="[bold red]Échec[/bold red]",
+                border_style="red"
+            ))
+            
+            # Suggestions selon le type d'erreur
+            if result['error_type'] == 'credentials_error':
+                console.print("\n[yellow]💡 Vérifiez vos identifiants et réessayez.[/yellow]")
+            elif result['error_type'] == '2fa_required':
+                console.print("\n[yellow]💡 2FA requis - Cette fonctionnalité sera bientôt disponible.[/yellow]")
+            elif result['error_type'] == 'suspicious_login':
+                console.print("\n[yellow]💡 Instagram a détecté une connexion inhabituelle.[/yellow]")
+                console.print("[yellow]   Essayez de vous connecter manuellement d'abord.[/yellow]")
+    
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Erreur inattendue: {e}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
 @instagram.command("workflow")
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
