@@ -8,9 +8,10 @@ from loguru import logger
 
 class BaseStatsManager:
     
-    def __init__(self, workflow_type: str = "unknown"):
+    def __init__(self, workflow_type: str = "unknown", session_manager=None):
         self.workflow_type = workflow_type
         self.start_time = datetime.now()
+        self.session_manager = session_manager
         self.stats = self._initialize_stats()
         
     def _initialize_stats(self) -> Dict[str, Any]:
@@ -62,7 +63,13 @@ class BaseStatsManager:
             self.stats['error_list'] = [error_message]
     
     def get_duration(self) -> float:
-        duration = (datetime.now() - self.start_time).total_seconds()
+        """Retourne la durée d'interaction (ou totale si pas de session_manager)."""
+        if self.session_manager and hasattr(self.session_manager, 'get_interaction_duration'):
+            interaction_duration = self.session_manager.get_interaction_duration()
+            duration = interaction_duration.total_seconds()
+        else:
+            duration = (datetime.now() - self.start_time).total_seconds()
+        
         self.stats['duration_seconds'] = duration
         return duration
     
@@ -136,7 +143,19 @@ class BaseStatsManager:
             logger.info(f"👤 Last profile processed: @{current_profile}")
         logger.info("-" * 80)
         
-        logger.info(f"⏱️  Session duration: {summary['duration']}")
+        # Afficher les durées séparément si session_manager disponible
+        if self.session_manager and hasattr(self.session_manager, 'get_scraping_duration'):
+            scraping_duration = self.session_manager.get_scraping_duration()
+            interaction_duration = self.session_manager.get_interaction_duration()
+            
+            # Formater scraping duration
+            scraping_seconds = int(scraping_duration.total_seconds())
+            scraping_str = f"{scraping_seconds // 60:02d}:{scraping_seconds % 60:02d}"
+            
+            logger.info(f"⏱️  Scraping duration: {scraping_str}")
+            logger.info(f"⏱️  Interaction duration: {summary['duration']}")
+        else:
+            logger.info(f"⏱️  Session duration: {summary['duration']}")
         logger.info(f"❤️  Likes performed: {summary['likes']} ({summary['likes_per_hour']:.1f}/h)")
         logger.info(f"👥 Follows performed: {summary['follows']} ({summary['follows_per_hour']:.1f}/h)")
         logger.info(f"💬 Comments: {summary['comments']}")
@@ -164,7 +183,26 @@ class BaseStatsManager:
         logger.info(f"🏁 FINAL {workflow_name.upper()} SUMMARY")
         logger.info("=" * 80)
         
-        logger.info(f"⏱️  Total duration: {summary['duration']}")
+        # Afficher les durées séparément si session_manager disponible
+        if self.session_manager and hasattr(self.session_manager, 'get_scraping_duration'):
+            scraping_duration = self.session_manager.get_scraping_duration()
+            interaction_duration = self.session_manager.get_interaction_duration()
+            total_duration = datetime.now() - self.session_manager.session_start_time
+            
+            # Formater les durées
+            scraping_seconds = int(scraping_duration.total_seconds())
+            interaction_seconds = int(interaction_duration.total_seconds())
+            total_seconds = int(total_duration.total_seconds())
+            
+            scraping_str = f"{scraping_seconds // 60:02d}:{scraping_seconds % 60:02d}"
+            interaction_str = f"{interaction_seconds // 3600:02d}:{(interaction_seconds % 3600) // 60:02d}:{interaction_seconds % 60:02d}"
+            total_str = f"{total_seconds // 3600:02d}:{(total_seconds % 3600) // 60:02d}:{total_seconds % 60:02d}"
+            
+            logger.info(f"⏱️  Scraping duration: {scraping_str}")
+            logger.info(f"⏱️  Interaction duration: {interaction_str}")
+            logger.info(f"⏱️  Total duration: {total_str}")
+        else:
+            logger.info(f"⏱️  Total duration: {summary['duration']}")
         logger.info(f"👤 Profiles visited: {summary['profiles_visited']}")
         logger.info(f"❤️  Likes performed: {summary['likes']}")
         logger.info(f"👥 Follows performed: {summary['follows']}")
@@ -177,11 +215,21 @@ class BaseStatsManager:
             logger.info(f"❌ Errors: {summary['errors']}")
         
         total_actions = summary['likes'] + summary['follows'] + summary['stories_watched']
+        
+        # Afficher les taux basés sur la durée d'interaction
+        if summary['duration_seconds'] > 0:
+            logger.info(f"📈 Rates (based on interaction time):")
+            logger.info(f"   - Likes: {summary['likes_per_hour']:.1f}/h")
+            logger.info(f"   - Follows: {summary['follows_per_hour']:.1f}/h")
+            logger.info(f"   - Profiles: {summary['profiles_per_hour']:.1f}/h")
         logger.info(f"📈 Total actions: {total_actions}")
         
         if summary['profiles_visited'] > 0:
             success_rate = ((summary['likes'] + summary['follows']) / summary['profiles_visited']) * 100
-            logger.info(f"📊 Success rate: {success_rate:.1f}%")
+            logger.info(f"📊 Average rate: {success_rate:.1f}%")
+        
+        if self.session_manager:
+            logger.info(f"📊 Session efficiency: {summary['likes'] + summary['follows']} actions in {summary['duration']} interaction time")
         
         logger.info("=" * 80)
     

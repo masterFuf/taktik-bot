@@ -79,7 +79,14 @@ class PostUrlBusiness(BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
+            if self.session_manager:
+                self.session_manager.start_scraping_phase()
+            
             likers = self._find_and_extract_likers_from_profile(post_metadata)
+            if self.session_manager:
+                self.session_manager.end_scraping_phase()
+                self.session_manager.start_interaction_phase()
+            
             if not likers:
                 self.logger.warning("No users found for interaction")
                 return stats

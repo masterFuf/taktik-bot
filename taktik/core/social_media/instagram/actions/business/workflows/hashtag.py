@@ -89,11 +89,20 @@ class HashtagBusiness(BaseBusinessAction):
                     effective_config['max_interactions'] = validation_result['adjusted_max']
                     self.logger.info(f"✅ Adjusted max interactions to {validation_result['adjusted_max']}")
             
+            # Démarrer la phase de scraping
+            if self.session_manager:
+                self.session_manager.start_scraping_phase()
+            
             self.logger.info(f"Extracting likers from selected post...")
             is_reel = valid_post.get('is_reel', False)
             max_interactions = effective_config['max_interactions']
             all_likers = self._extract_likers_from_current_post(is_reel=is_reel, max_interactions=max_interactions)
             stats['users_found'] = len(all_likers)
+            
+            # Terminer le scraping et démarrer les interactions
+            if self.session_manager:
+                self.session_manager.end_scraping_phase()
+                self.session_manager.start_interaction_phase()
             
             if not all_likers:
                 self.logger.warning("No likers found")

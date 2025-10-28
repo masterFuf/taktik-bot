@@ -478,8 +478,17 @@ class FollowerBusiness(BaseBusinessAction):
             self.logger.debug(f"Interaction config used: {interaction_config}")
             self.logger.info(f"Max interactions from CLI: {max_interactions}")
             
+            # Démarrer la phase de scraping
+            if self.session_manager:
+                self.session_manager.start_scraping_phase()
+            
             self.logger.info(f"📥 Extraction des followers de @{target_username} en cours...")
             followers = self._extract_followers_with_scroll(max_interactions * 2, account_id, target_username)
+            
+            # Terminer le scraping et démarrer les interactions
+            if self.session_manager:
+                self.session_manager.end_scraping_phase()
+                self.session_manager.start_interaction_phase()
             
             if not followers:
                 self.logger.warning(f"❌ No followers extracted from @{target_username}")
