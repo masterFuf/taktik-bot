@@ -221,11 +221,11 @@ class LikeBusiness(BaseBusinessAction):
                     self.logger.success(f"Goal reached: {posts_liked}/{max_likes} posts liked - stopping scroll")
                     break
                 
-                base_probability = 0.35
+                base_probability = 0.70
                 
                 position_factor = 1.0
                 if unique_posts_seen <= 2:
-                    position_factor = 0.3
+                    position_factor = 0.8
                 elif unique_posts_seen <= 5:
                     position_factor = 1.0
                 else:

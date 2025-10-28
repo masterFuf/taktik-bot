@@ -930,6 +930,18 @@ def cli(ctx, lang=None):
             choice = options[selected-1]
             
             if choice == 'instagram':
+                # Sous-menu: Management ou Automation
+                console.print("\n[bold cyan]Instagram Mode Selection[/bold cyan]")
+                console.print("[bold]1.[/bold] 🔧 Management (Features: Auth, Content, DM)")
+                console.print("[bold]2.[/bold] 🤖 Automation (Workflows: Target followers/Followings, Hashtags, Post url)")
+                console.print("[bold]3.[/bold] ← Back")
+                
+                mode_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 3), show_choices=False)
+                
+                if mode_choice == 3:
+                    continue
+                
+                # Sélection du device (commun aux deux modes)
                 devices = device_manager.list_devices()
                 if not devices:
                     console.print(f"[red]{current_translations['no_device_connected']}[/red]")
@@ -951,12 +963,190 @@ def cli(ctx, lang=None):
                     console.print(f"[red]{current_translations['instagram_launch_failed']}[/red]")
                     continue
                 
-                from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+                if mode_choice == 1:
+                    # Mode Management
+                    console.print("\n[bold cyan]Management Options[/bold cyan]")
+                    console.print("[bold]1.[/bold] 🔐 Login")
+                    console.print("[bold]2.[/bold] 📸 Post Content")
+                    console.print("[bold]3.[/bold] 📱 Post Story")
+                    console.print("[bold]4.[/bold] 💬 Manage DMs (Coming soon)")
+                    console.print("[bold]5.[/bold] ← Back")
+                    
+                    mgmt_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
+                    
+                    if mgmt_choice == 5:
+                        continue
+                    
+                    elif mgmt_choice == 1:
+                        # Login interactif
+                        from taktik.core.social_media.instagram.workflows.management.login_workflow import LoginWorkflow
+                        import uiautomator2 as u2
+                        from getpass import getpass
+                        
+                        console.print("\n[bold green]🔐 Instagram Login[/bold green]")
+                        
+                        username = Prompt.ask("[cyan]👤 Username, email or phone[/cyan]")
+                        password = getpass("🔑 Password: ")
+                        
+                        if not username or not password:
+                            console.print("[red]❌ Username and password required.[/red]")
+                            continue
+                        
+                        save_session = Confirm.ask("[cyan]💾 Save session (Taktik)?[/cyan]", default=True)
+                        save_instagram_login = Confirm.ask("[cyan]💾 Save login info (Instagram)?[/cyan]", default=False)
+                        
+                        try:
+                            device = u2.connect(device_id)
+                            login_workflow = LoginWorkflow(device, device_id)
+                            
+                            with console.status("[bold yellow]🔄 Logging in...[/bold yellow]", spinner="dots"):
+                                result = login_workflow.execute(
+                                    username=username,
+                                    password=password,
+                                    max_retries=3,
+                                    save_session=save_session,
+                                    use_saved_session=True,
+                                    save_login_info_instagram=save_instagram_login
+                                )
+                            
+                            if result['success']:
+                                console.print(Panel.fit(
+                                    f"[bold green]✅ Login successful![/bold green]\n"
+                                    f"[cyan]👤 Username:[/cyan] {result['username']}\n"
+                                    f"[cyan]💾 Session saved:[/cyan] {'Yes' if result['session_saved'] else 'No'}",
+                                    title="[bold green]Success[/bold green]",
+                                    border_style="green"
+                                ))
+                            else:
+                                console.print(Panel.fit(
+                                    f"[bold red]❌ Login failed[/bold red]\n"
+                                    f"[cyan]❌ Error:[/cyan] {result['message']}",
+                                    title="[bold red]Failed[/bold red]",
+                                    border_style="red"
+                                ))
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                        
+                        input("\nPress Enter to continue...")
+                        continue
+                    
+                    elif mgmt_choice == 2:
+                        # Post Content interactif
+                        from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+                        from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
+                        from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+                        import uiautomator2 as u2
+                        
+                        console.print("\n[bold green]📸 Post Content[/bold green]")
+                        
+                        image_path = Prompt.ask("[cyan]📷 Image path[/cyan]")
+                        caption = Prompt.ask("[cyan]✍️  Caption[/cyan] (optional)", default="")
+                        location = Prompt.ask("[cyan]📍 Location[/cyan] (optional)", default="")
+                        hashtags_input = Prompt.ask("[cyan]#️⃣ Hashtags[/cyan] (optional, space-separated)", default="")
+                        
+                        if not image_path:
+                            console.print("[red]❌ Image path required.[/red]")
+                            continue
+                        
+                        hashtag_list = None
+                        if hashtags_input:
+                            hashtag_list = [tag.strip() for tag in hashtags_input.split()]
+                        
+                        try:
+                            device = u2.connect(device_id)
+                            device_mgr = DeviceManager()
+                            device_mgr.connect(device_id)
+                            
+                            nav_actions = NavigationActions(device)
+                            detection_actions = DetectionActions(device)
+                            workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
+                            
+                            console.print("\n[yellow]⏳ Publishing...[/yellow]")
+                            result = workflow.post_single_photo(
+                                image_path, 
+                                caption if caption else None, 
+                                location if location else None,
+                                hashtag_list
+                            )
+                            
+                            if result['success']:
+                                console.print(Panel.fit(
+                                    f"[green]✅ Post published successfully![/green]",
+                                    title="[bold green]Success[/bold green]",
+                                    border_style="green"
+                                ))
+                            else:
+                                console.print(Panel.fit(
+                                    f"[red]❌ Failed to publish[/red]\n"
+                                    f"[cyan]Error:[/cyan] {result['message']}",
+                                    title="[bold red]Failed[/bold red]",
+                                    border_style="red"
+                                ))
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                        
+                        input("\nPress Enter to continue...")
+                        continue
+                    
+                    elif mgmt_choice == 3:
+                        # Post Story interactif
+                        from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+                        from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
+                        from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+                        import uiautomator2 as u2
+                        
+                        console.print("\n[bold green]📱 Post Story[/bold green]")
+                        
+                        image_path = Prompt.ask("[cyan]📷 Image path[/cyan]")
+                        
+                        if not image_path:
+                            console.print("[red]❌ Image path required.[/red]")
+                            continue
+                        
+                        try:
+                            device = u2.connect(device_id)
+                            device_mgr = DeviceManager()
+                            device_mgr.connect(device_id)
+                            
+                            nav_actions = NavigationActions(device)
+                            detection_actions = DetectionActions(device)
+                            workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
+                            
+                            console.print("\n[yellow]⏳ Publishing story...[/yellow]")
+                            result = workflow.post_story(image_path)
+                            
+                            if result['success']:
+                                console.print(Panel.fit(
+                                    f"[green]✅ Story published successfully![/green]",
+                                    title="[bold green]Success[/bold green]",
+                                    border_style="green"
+                                ))
+                            else:
+                                console.print(Panel.fit(
+                                    f"[red]❌ Failed to publish story[/red]\n"
+                                    f"[cyan]Error:[/cyan] {result['message']}",
+                                    title="[bold red]Failed[/bold red]",
+                                    border_style="red"
+                                ))
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                        
+                        input("\nPress Enter to continue...")
+                        continue
+                    
+                    elif mgmt_choice == 4:
+                        console.print("[yellow]💬 DM management coming soon![/yellow]")
+                        input("\nPress Enter to continue...")
+                        continue
                 
-                target_type = select_target_type()
-                if not target_type:
-                    console.print(f"[red]{current_translations['no_target_selected']}[/red]")
-                    continue
+                elif mode_choice == 2:
+                    # Mode Automation (ancien workflow)
+                    from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+                    
+                    target_type = select_target_type()
+                    if not target_type:
+                        console.print(f"[red]{current_translations['no_target_selected']}[/red]")
+                        continue
                 
                 dynamic_config = generate_dynamic_workflow(target_type)
                 if not dynamic_config:
@@ -997,7 +1187,8 @@ def device():
     pass
 
 @cli.group()
-def instagram():
+def automation():
+    """🤖 Instagram automation (workflows, hashtags, followers)."""
     pass
 
 @cli.group()
@@ -1024,136 +1215,9 @@ def list_devices():
     
     console.print(table)
 
-@instagram.command("launch")
-@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
-def launch_instagram(device_id):
-    console.print(Panel.fit("[bold green]Lancement d'Instagram[/bold green]"))
-    if not device_id:
-        devices = SimpleDeviceManager().list_devices()
-        if not devices:
-            console.print("[red]Aucun appareil connecté.[/red]")
-            return
-        device_id = devices[0]['id']
-        console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
-    instagram = InstagramManager(device_id)
-    if not instagram.is_installed():
-        console.print("[red]Instagram n'est pas installé sur cet appareil.[/red]")
-        return
-    console.print("[blue]Lancement d'Instagram...[/blue]")
-    success = instagram.launch()
-    if success:
-        console.print("[green]Instagram a été lancé avec succès ![/green]")
-    else:
-        console.print("[red]Échec du lancement d'Instagram.[/red]")
+# Les commandes management et auth sont définies plus bas après la définition des groupes
 
-@instagram.command("login")
-@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
-@click.option('--username', '-u', help="Nom d'utilisateur, email ou numéro de téléphone")
-@click.option('--password', '-p', help="Mot de passe (sera demandé de manière sécurisée si non fourni)")
-@click.option('--save-session/--no-save-session', default=True, help="Sauvegarder la session après connexion (système Taktik)")
-@click.option('--save-instagram-login/--no-save-instagram-login', default=False, help="Sauvegarder les infos de login dans Instagram")
-def login_instagram(device_id, username, password, save_session, save_instagram_login):
-    """Se connecter à un compte Instagram."""
-    from taktik.core.social_media.instagram.workflows.management.login_workflow import LoginWorkflow
-    import uiautomator2 as u2
-    from getpass import getpass
-    
-    console.print(Panel.fit("[bold green]🔐 Connexion à Instagram[/bold green]"))
-    
-    # Sélectionner le device
-    if not device_id:
-        devices = SimpleDeviceManager().list_devices()
-        if not devices:
-            console.print("[red]❌ Aucun appareil connecté.[/red]")
-            console.print("[blue]💡 Assurez-vous que l'appareil est connecté et que ADB est configuré.[/blue]")
-            return
-        device_id = devices[0]
-        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
-    
-    # Demander le username si non fourni
-    if not username:
-        username = Prompt.ask("[cyan]👤 Nom d'utilisateur, email ou numéro de téléphone[/cyan]")
-    
-    # Demander le password de manière sécurisée si non fourni
-    if not password:
-        password = getpass("🔑 Mot de passe: ")
-    
-    if not username or not password:
-        console.print("[red]❌ Username et password requis.[/red]")
-        return
-    
-    try:
-        # Connexion au device
-        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
-        device = u2.connect(device_id)
-        
-        # Vérifier qu'Instagram est installé
-        instagram_manager = InstagramManager(device_id)
-        if not instagram_manager.is_installed():
-            console.print("[red]❌ Instagram n'est pas installé sur cet appareil.[/red]")
-            return
-        
-        # Lancer Instagram si pas déjà lancé
-        console.print("[blue]📱 Lancement d'Instagram...[/blue]")
-        instagram_manager.launch()
-        time.sleep(3)  # Attendre que l'app se lance
-        
-        # Créer le workflow de login
-        login_workflow = LoginWorkflow(device, device_id)
-        
-        # Afficher les informations
-        console.print(f"\n[cyan]👤 Username:[/cyan] {username}")
-        console.print(f"[cyan]💾 Save session (Taktik):[/cyan] {'Yes' if save_session else 'No'}")
-        console.print(f"[cyan]💾 Save login info (Instagram):[/cyan] {'Yes' if save_instagram_login else 'No'}\n")
-        
-        # Exécuter le login
-        with console.status("[bold yellow]🔄 Connexion en cours...[/bold yellow]", spinner="dots"):
-            result = login_workflow.execute(
-                username=username,
-                password=password,
-                max_retries=3,
-                save_session=save_session,
-                use_saved_session=True,
-                save_login_info_instagram=save_instagram_login
-            )
-        
-        # Afficher le résultat
-        console.print()
-        if result['success']:
-            console.print(Panel.fit(
-                f"[bold green]✅ Connexion réussie ![/bold green]\n\n"
-                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
-                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
-                f"[cyan]💾 Session sauvegardée:[/cyan] {'Oui' if result['session_saved'] else 'Non'}",
-                title="[bold green]Succès[/bold green]",
-                border_style="green"
-            ))
-        else:
-            console.print(Panel.fit(
-                f"[bold red]❌ Échec de la connexion[/bold red]\n\n"
-                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
-                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
-                f"[cyan]❌ Erreur:[/cyan] {result['message']}\n"
-                f"[cyan]🏷️ Type d'erreur:[/cyan] {result['error_type'] or 'unknown'}",
-                title="[bold red]Échec[/bold red]",
-                border_style="red"
-            ))
-            
-            # Suggestions selon le type d'erreur
-            if result['error_type'] == 'credentials_error':
-                console.print("\n[yellow]💡 Vérifiez vos identifiants et réessayez.[/yellow]")
-            elif result['error_type'] == '2fa_required':
-                console.print("\n[yellow]💡 2FA requis - Cette fonctionnalité sera bientôt disponible.[/yellow]")
-            elif result['error_type'] == 'suspicious_login':
-                console.print("\n[yellow]💡 Instagram a détecté une connexion inhabituelle.[/yellow]")
-                console.print("[yellow]   Essayez de vous connecter manuellement d'abord.[/yellow]")
-    
-    except Exception as e:
-        console.print(f"\n[bold red]❌ Erreur inattendue: {e}[/bold red]")
-        import traceback
-        console.print(f"[dim]{traceback.format_exc()}[/dim]")
-
-@instagram.command("workflow")
+@automation.command("workflow")
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
 @click.option('--config', '-c', type=click.Path(exists=True), help="Chemin vers le fichier de configuration JSON du workflow")
 def workflow_instagram(device_id, config):
@@ -1299,6 +1363,349 @@ def run():
     """Démarre une session d'interaction."""
     console.print(Panel.fit("[bold green]Démarrage d'une session d'interaction[/bold green]"))
     console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
+
+# ==================== MANAGEMENT GROUP ====================
+
+@cli.group("management")
+def management():
+    """🔧 Gestion manuelle Instagram (auth, content, DM)."""
+    pass
+
+@management.group("auth")
+def auth():
+    """🔐 Authentification et gestion de compte."""
+    pass
+
+@auth.command("login")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+@click.option('--username', '-u', help="Nom d'utilisateur, email ou numéro de téléphone")
+@click.option('--password', '-p', help="Mot de passe (sera demandé de manière sécurisée si non fourni)")
+@click.option('--save-session/--no-save-session', default=True, help="Sauvegarder la session après connexion (système Taktik)")
+@click.option('--save-instagram-login/--no-save-instagram-login', default=False, help="Sauvegarder les infos de login dans Instagram")
+def login_instagram(device_id, username, password, save_session, save_instagram_login):
+    """Se connecter à un compte Instagram."""
+    from taktik.core.social_media.instagram.workflows.management.login_workflow import LoginWorkflow
+    import uiautomator2 as u2
+    from getpass import getpass
+    
+    console.print(Panel.fit("[bold green]🔐 Connexion à Instagram[/bold green]"))
+    
+    # Sélectionner le device
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]❌ Aucun appareil connecté.[/red]")
+            console.print("[blue]💡 Assurez-vous que l'appareil est connecté et que ADB est configuré.[/blue]")
+            return
+        device_id = devices[0]
+        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
+    
+    # Demander le username si non fourni
+    if not username:
+        username = Prompt.ask("[cyan]👤 Nom d'utilisateur, email ou numéro de téléphone[/cyan]")
+    
+    # Demander le password de manière sécurisée si non fourni
+    if not password:
+        password = getpass("🔑 Mot de passe: ")
+    
+    if not username or not password:
+        console.print("[red]❌ Username et password requis.[/red]")
+        return
+    
+    try:
+        # Connexion au device
+        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
+        device = u2.connect(device_id)
+        
+        # Vérifier qu'Instagram est installé
+        instagram_manager = InstagramManager(device_id)
+        if not instagram_manager.is_installed():
+            console.print("[red]❌ Instagram n'est pas installé sur cet appareil.[/red]")
+            return
+        
+        # Lancer Instagram si pas déjà lancé
+        console.print("[blue]📱 Lancement d'Instagram...[/blue]")
+        instagram_manager.launch()
+        time.sleep(3)  # Attendre que l'app se lance
+        
+        # Créer le workflow de login
+        login_workflow = LoginWorkflow(device, device_id)
+        
+        # Afficher les informations
+        console.print(f"\n[cyan]👤 Username:[/cyan] {username}")
+        console.print(f"[cyan]💾 Save session (Taktik):[/cyan] {'Yes' if save_session else 'No'}")
+        console.print(f"[cyan]💾 Save login info (Instagram):[/cyan] {'Yes' if save_instagram_login else 'No'}\n")
+        
+        # Exécuter le login
+        with console.status("[bold yellow]🔄 Connexion en cours...[/bold yellow]", spinner="dots"):
+            result = login_workflow.execute(
+                username=username,
+                password=password,
+                max_retries=3,
+                save_session=save_session,
+                use_saved_session=True,
+                save_login_info_instagram=save_instagram_login
+            )
+        
+        # Afficher le résultat
+        console.print()
+        if result['success']:
+            console.print(Panel.fit(
+                f"[bold green]✅ Connexion réussie ![/bold green]\n\n"
+                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
+                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
+                f"[cyan]💾 Session sauvegardée:[/cyan] {'Oui' if result['session_saved'] else 'Non'}",
+                title="[bold green]Succès[/bold green]",
+                border_style="green"
+            ))
+        else:
+            console.print(Panel.fit(
+                f"[bold red]❌ Échec de la connexion[/bold red]\n\n"
+                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
+                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
+                f"[cyan]❌ Erreur:[/cyan] {result['message']}\n"
+                f"[cyan]🏷️ Type d'erreur:[/cyan] {result['error_type'] or 'unknown'}",
+                title="[bold red]Échec[/bold red]",
+                border_style="red"
+            ))
+            
+            # Suggestions selon le type d'erreur
+            if result['error_type'] == 'credentials_error':
+                console.print("\n[yellow]💡 Vérifiez vos identifiants et réessayez.[/yellow]")
+            elif result['error_type'] == '2fa_required':
+                console.print("\n[yellow]💡 2FA requis - Cette fonctionnalité sera bientôt disponible.[/yellow]")
+            elif result['error_type'] == 'suspicious_login':
+                console.print("\n[yellow]💡 Instagram a détecté une connexion inhabituelle.[/yellow]")
+                console.print("[yellow]   Essayez de vous connecter manuellement d'abord.[/yellow]")
+    
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Erreur inattendue: {e}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
+
+@management.group("content")
+def content():
+    """📸 Gestion du contenu Instagram (posts, stories, carousel)."""
+    pass
+
+@content.command("post")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+@click.option('--image', '-i', required=True, type=click.Path(exists=True), help="Chemin vers l'image à poster")
+@click.option('--caption', '-c', help="Légende du post")
+@click.option('--location', '-l', help="Localisation du post")
+@click.option('--hashtags', '-h', help="Hashtags séparés par des espaces (ex: 'travel nature sunset')")
+def post_single(device_id, image, caption, location, hashtags):
+    """Poster une photo unique sur Instagram."""
+    from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    import uiautomator2 as u2
+    
+    console.print(Panel.fit("[bold green]📸 Publication d'un post Instagram[/bold green]"))
+    
+    # Sélectionner le device
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]❌ Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]
+        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
+    
+    try:
+        # Connexion au device
+        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
+        device = u2.connect(device_id)
+        
+        # Initialiser les composants
+        device_mgr = DeviceManager()
+        device_mgr.connect(device_id)
+        
+        nav_actions = NavigationActions(device)
+        detection_actions = DetectionActions(device)
+        
+        # Créer le workflow
+        workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
+        
+        # Afficher les infos
+        console.print(f"\n[cyan]📷 Image:[/cyan] {image}")
+        if caption:
+            console.print(f"[cyan]✍️  Caption:[/cyan] {caption[:50]}{'...' if len(caption) > 50 else ''}")
+        if location:
+            console.print(f"[cyan]📍 Location:[/cyan] {location}")
+        
+        hashtag_list = None
+        if hashtags:
+            hashtag_list = [tag.strip() for tag in hashtags.split()]
+            console.print(f"[cyan]#️⃣ Hashtags:[/cyan] {', '.join(hashtag_list)}")
+        
+        console.print("\n[yellow]⏳ Publication en cours...[/yellow]")
+        
+        result = workflow.post_single_photo(image, caption, location, hashtag_list)
+        
+        # Afficher le résultat
+        if result['success']:
+            console.print(Panel(
+                f"[green]✅ Post publié avec succès ![/green]\n"
+                f"[cyan]Image:[/cyan] {result['image_path']}",
+                title="[bold green]Succès[/bold green]",
+                border_style="green"
+            ))
+        else:
+            console.print(Panel(
+                f"[red]❌ Échec de la publication[/red]\n"
+                f"[cyan]Erreur:[/cyan] {result['message']}",
+                title="[bold red]Échec[/bold red]",
+                border_style="red"
+            ))
+    
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Erreur: {e}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
+
+@content.command("post-bulk")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+@click.option('--images', '-i', required=True, multiple=True, type=click.Path(exists=True), help="Chemins vers les images à poster (peut être répété)")
+@click.option('--captions', '-c', multiple=True, help="Légendes des posts (même ordre que les images)")
+@click.option('--delay', default=60, help="Délai entre chaque post en secondes (défaut: 60)")
+def post_bulk(device_id, images, captions, delay):
+    """Poster plusieurs photos successivement."""
+    from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    import uiautomator2 as u2
+    
+    console.print(Panel.fit("[bold green]📸 Publication multiple de posts Instagram[/bold green]"))
+    
+    if not images:
+        console.print("[red]❌ Aucune image fournie.[/red]")
+        return
+    
+    # Sélectionner le device
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]❌ Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]
+        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
+    
+    try:
+        # Connexion au device
+        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
+        device = u2.connect(device_id)
+        
+        # Initialiser les composants
+        device_mgr = DeviceManager()
+        device_mgr.connect(device_id)
+        
+        nav_actions = NavigationActions(device)
+        detection_actions = DetectionActions(device)
+        
+        # Créer le workflow
+        workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
+        
+        # Afficher les infos
+        console.print(f"\n[cyan]📷 Nombre d'images:[/cyan] {len(images)}")
+        console.print(f"[cyan]⏱️  Délai entre posts:[/cyan] {delay}s")
+        
+        # Convertir captions en liste
+        captions_list = list(captions) if captions else None
+        
+        console.print("\n[yellow]⏳ Publication en cours...[/yellow]")
+        
+        # Poster
+        results = workflow.post_multiple_photos(list(images), captions_list, delay)
+        
+        # Afficher le résultat
+        console.print(Panel(
+            f"[cyan]Total:[/cyan] {results['total']}\n"
+            f"[green]✅ Réussis:[/green] {results['success']}\n"
+            f"[red]❌ Échoués:[/red] {results['failed']}",
+            title="[bold blue]Résultats[/bold blue]",
+            border_style="blue"
+        ))
+        
+        # Afficher le détail
+        if results['failed'] > 0:
+            console.print("\n[yellow]Détails des échecs:[/yellow]")
+            for post in results['posts']:
+                if not post['success']:
+                    console.print(f"  [red]❌ {post['image_path']}: {post['message']}[/red]")
+    
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Erreur: {e}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
+
+@content.command("story")
+@click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
+@click.option('--image', '-i', required=True, type=click.Path(exists=True), help="Chemin vers l'image de la story")
+def post_story(device_id, image):
+    """Poster une story sur Instagram."""
+    from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    import uiautomator2 as u2
+    
+    console.print(Panel.fit("[bold green]📱 Publication d'une story Instagram[/bold green]"))
+    
+    # Sélectionner le device
+    if not device_id:
+        devices = SimpleDeviceManager().list_devices()
+        if not devices:
+            console.print("[red]❌ Aucun appareil connecté.[/red]")
+            return
+        device_id = devices[0]
+        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
+    
+    try:
+        # Connexion au device
+        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
+        device = u2.connect(device_id)
+        
+        # Initialiser les composants
+        device_mgr = DeviceManager()
+        device_mgr.connect(device_id)
+        
+        nav_actions = NavigationActions(device)
+        detection_actions = DetectionActions(device)
+        
+        # Créer le workflow
+        workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
+        
+        # Afficher les infos
+        console.print(f"\n[cyan]📷 Image:[/cyan] {image}")
+        
+        console.print("\n[yellow]⏳ Publication en cours...[/yellow]")
+        
+        # Poster
+        result = workflow.post_story(image)
+        
+        # Afficher le résultat
+        if result['success']:
+            console.print(Panel(
+                f"[green]✅ Story publiée avec succès ![/green]\n"
+                f"[cyan]Image:[/cyan] {result['image_path']}",
+                title="[bold green]Succès[/bold green]",
+                border_style="green"
+            ))
+        else:
+            console.print(Panel(
+                f"[red]❌ Échec de la publication[/red]\n"
+                f"[cyan]Erreur:[/cyan] {result['message']}",
+                title="[bold red]Échec[/bold red]",
+                border_style="red"
+            ))
+    
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Erreur: {e}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
 if __name__ == "__main__":
     cli()
