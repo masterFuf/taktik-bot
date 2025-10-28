@@ -98,8 +98,14 @@ if ($Update) {
 Write-Info "`n[4/6] Installing/Updating dependencies..."
 Push-Location $installDir
 try {
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
+    # Try to upgrade pip (may fail without admin rights, but that's OK)
+    python -m pip install --upgrade pip --user 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "[!] Could not upgrade pip (admin rights required), continuing with current version..."
+    }
+    
+    # Install requirements with --user flag to avoid permission issues
+    pip install -r requirements.txt --user
     Write-Success "[OK] Dependencies installed successfully"
 } catch {
     Write-Error "[X] Failed to install dependencies: $_"
@@ -112,7 +118,8 @@ Pop-Location
 Write-Info "`n[5/6] Installing Taktik Bot..."
 Push-Location $installDir
 try {
-    pip install -e .
+    # Force reinstall to ensure version update
+    pip install -e . --user --force-reinstall --no-deps
     Write-Success "[OK] Taktik Bot installed successfully"
 } catch {
     Write-Error "[X] Failed to install Taktik Bot: $_"
