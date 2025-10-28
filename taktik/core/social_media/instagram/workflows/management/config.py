@@ -97,11 +97,13 @@ class WorkflowConfigBuilder:
         """Build config for hashtag workflow"""
         max_interactions = action.get('max_interactions', 10)
         probabilities = ActionProbabilities.from_percentages(action.get('probabilities', {}))
+        filters = FilterCriteria.from_action(action)
         
         return {
             'max_interactions': max_interactions,
             **probabilities.to_dict(),
-            'interaction_type': action.get('interaction_type', 'recent-likers')
+            'interaction_type': action.get('interaction_type', 'recent-likers'),
+            'filter_criteria': filters.to_dict()
         }
     
     @staticmethod
