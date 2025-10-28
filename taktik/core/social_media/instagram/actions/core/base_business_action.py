@@ -126,7 +126,7 @@ class BaseBusinessAction(BaseAction):
     
     
     def _get_filter_criteria_from_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        filter_criteria = config.get('filter_criteria', {})
+        filter_criteria = config.get('filter_criteria', config.get('filters', {}))
         
         return {
             'min_followers': filter_criteria.get('min_followers', config.get('min_followers', 0)),

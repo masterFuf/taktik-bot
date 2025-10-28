@@ -16,6 +16,12 @@ class SessionManager:
         """
         self.config = config
         self.session_start_time = datetime.now()
+        
+        # Séparation des phases : scraping vs interaction
+        self.scraping_start_time = None
+        self.scraping_end_time = None
+        self.interaction_start_time = None
+        
         self.counters = {
             'total_interactions': 0,
             'successful_interactions': 0,
@@ -38,17 +44,25 @@ class SessionManager:
         Returns:
             tuple[bool, str]: (should_continue, stop_reason)
         """
+        # Durée totale (pour info)
         session_duration = datetime.now() - self.session_start_time
+        
+        # Durée d'interaction (pour les limites)
+        interaction_duration = self.get_interaction_duration()
+        
         configured_duration = self.config.get('session_settings', {}).get('session_duration_minutes', 60)
         max_duration = timedelta(minutes=configured_duration)
         
         print(f"[DEBUG SessionManager] Duration check:")
-        print(f"[DEBUG SessionManager] - Current duration: {session_duration}")
+        print(f"[DEBUG SessionManager] - Total session duration: {session_duration}")
+        print(f"[DEBUG SessionManager] - Scraping duration: {self.get_scraping_duration()}")
+        print(f"[DEBUG SessionManager] - Interaction duration: {interaction_duration}")
         print(f"[DEBUG SessionManager] - Max configured: {configured_duration} minutes ({max_duration})")
-        print(f"[DEBUG SessionManager] - Should stop: {session_duration > max_duration}")
+        print(f"[DEBUG SessionManager] - Should stop: {interaction_duration > max_duration}")
         
-        if session_duration > max_duration:
-            reason = f"Maximum duration reached ({configured_duration} minutes)"
+        # Vérifier la durée d'interaction, pas la durée totale
+        if interaction_duration > max_duration:
+            reason = f"Maximum interaction duration reached ({configured_duration} minutes)"
             print(f"🛑 Session ended: {reason}")
             return False, reason
 
@@ -220,7 +234,9 @@ class SessionManager:
         """
         return {
             'start_time': self.session_start_time,
-            'duration': str(datetime.now() - self.session_start_time),
+            'total_duration': str(datetime.now() - self.session_start_time),
+            'scraping_duration': str(self.get_scraping_duration()),
+            'interaction_duration': str(self.get_interaction_duration()),
             **self.counters
         }
 
@@ -237,3 +253,34 @@ class SessionManager:
         print(f"[DEBUG SessionManager] Configuration updated:")
         print(f"[DEBUG SessionManager] - session_duration_minutes: {duration_minutes}")
         print(f"[DEBUG SessionManager] - session_settings: {session_settings}")
+    
+    def start_scraping_phase(self):
+        """Marque le début de la phase de scraping."""
+        self.scraping_start_time = datetime.now()
+        print(f"[DEBUG SessionManager] 🔍 Scraping phase started at {self.scraping_start_time}")
+    
+    def end_scraping_phase(self):
+        """Marque la fin de la phase de scraping."""
+        self.scraping_end_time = datetime.now()
+        if self.scraping_start_time:
+            scraping_duration = self.scraping_end_time - self.scraping_start_time
+            print(f"[DEBUG SessionManager] ✅ Scraping phase ended - Duration: {scraping_duration}")
+        else:
+            print(f"[DEBUG SessionManager] ⚠️ Scraping end called but no start time recorded")
+    
+    def start_interaction_phase(self):
+        """Marque le début de la phase d'interaction."""
+        self.interaction_start_time = datetime.now()
+        print(f"[DEBUG SessionManager] 🎯 Interaction phase started at {self.interaction_start_time}")
+    
+    def get_scraping_duration(self) -> timedelta:
+        """Retourne la durée de la phase de scraping."""
+        if self.scraping_start_time and self.scraping_end_time:
+            return self.scraping_end_time - self.scraping_start_time
+        return timedelta(0)
+    
+    def get_interaction_duration(self) -> timedelta:
+        """Retourne la durée de la phase d'interaction."""
+        if self.interaction_start_time:
+            return datetime.now() - self.interaction_start_time
+        return timedelta(0)

@@ -628,7 +628,11 @@ class FollowerBusiness(BaseBusinessAction):
             
             if profile_info.get('is_private', False):
                 self.logger.debug(f"@{username} is a private profile")
-            filter_criteria = config.get('filter_criteria', {})
+            
+            filter_criteria = config.get('filter_criteria', config.get('filters', {}))
+            
+            self.logger.debug(f"Filter criteria for @{username}: {filter_criteria}")
+            
             filter_result = self.filtering_business.apply_comprehensive_filter(
                 profile_info, filter_criteria
             )
