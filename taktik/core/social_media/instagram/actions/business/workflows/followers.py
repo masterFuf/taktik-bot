@@ -471,7 +471,8 @@ class FollowerBusiness(BaseBusinessAction):
                 'like_probability': config.get('like_probability', 0.8),
                 'follow_probability': config.get('follow_probability', 0.2),
                 'comment_probability': config.get('comment_probability', 0.1),
-                'story_probability': config.get('story_probability', 0.2)
+                'story_probability': config.get('story_probability', 0.2),
+                'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
             }
             
             self.logger.debug(f"Interaction config received: {config}")
