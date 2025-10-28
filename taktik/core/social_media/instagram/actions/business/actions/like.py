@@ -6,7 +6,6 @@ from loguru import logger
 
 from ...core.base_business_action import BaseBusinessAction
 from ..management.profile import ProfileBusiness
-from ..legacy.grid_methods import LegacyGridLikeMethods
 
 class LikeBusiness(BaseBusinessAction):
     
@@ -25,16 +24,6 @@ class LikeBusiness(BaseBusinessAction):
         self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
         
         self.profile_business = ProfileBusiness(device, session_manager)
-        
-        self.legacy_grid = LegacyGridLikeMethods(
-            device=device,
-            selectors=None,
-            profile_selectors=self.profile_selectors,
-            post_selectors=self.post_selectors,
-            navigation_selectors=self.navigation_selectors,
-            debug_selectors=self.debug_selectors,
-            problematic_page_detector=self.problematic_page_detector
-        )
         
         self.default_config = {
             'like_delay_range': (2, 5),
@@ -97,12 +86,7 @@ class LikeBusiness(BaseBusinessAction):
             stats['posts_seen'] = sequential_stats.get('posts_seen', 0)
             stats['method'] = sequential_stats.get('method', 'sequential_scroll')
             
-            if posts_liked == 0 and sequential_stats.get('errors', 0) > 0:
-                self.logger.warning("Fallback to grid method...")
-                grid_stats = self.like_posts_with_grid_method(username, max_likes, config)
-                posts_liked = grid_stats['posts_liked']
-                stats['posts_liked'] = posts_liked
-                stats['method'] = 'grid_fallback'
+            # Legacy grid method removed - sequential scroll is now the only method
             
             self.logger.debug(f"Checking session_manager: hasattr={hasattr(self, 'session_manager')}, session_manager={self.session_manager}, posts_liked={posts_liked}")
             if hasattr(self, 'session_manager') and self.session_manager and posts_liked > 0:
@@ -135,27 +119,15 @@ class LikeBusiness(BaseBusinessAction):
             return stats
     
     def like_posts_with_grid_method(self, username: str, max_likes: int = 3, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        stats = {
+        """DEPRECATED - This method is no longer used."""
+        self.logger.warning("Grid method is deprecated and no longer available")
+        return {
             'username': username,
             'posts_liked': 0,
             'success': False,
-            'errors': 0,
-            'method': 'grid_method'
+            'errors': 1,
+            'method': 'deprecated'
         }
-        
-        try:
-            self.logger.info(f"[LEGACY FALLBACK] Grid method for @{username}")
-            
-            posts_liked = self.legacy_grid._like_posts_with_advanced_logic(username, max_likes, config or {})
-            stats['posts_liked'] = posts_liked
-            stats['success'] = posts_liked > 0
-            
-            return stats
-            
-        except Exception as e:
-            self.logger.error(f"Error in like_posts_with_grid_method: {e}")
-            stats['errors'] += 1
-            return stats
 
     def like_posts_with_sequential_scroll(self, username: str, max_likes: int = 3, config: dict = None, profile_data: dict = None,
                                          should_comment: bool = False, custom_comments: list = None,

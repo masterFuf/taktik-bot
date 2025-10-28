@@ -17,14 +17,13 @@ from .workflows import PostUrlBusiness, HashtagBusiness, FollowerBusiness
 from .actions import LikeBusiness, StoryBusiness, InteractionBusiness
 from .management import ProfileBusiness, ContentBusiness, FilteringBusiness
 from .system import ConfigBusiness, LicenseBusiness
-from .legacy import LegacyGridLikeMethods
 from .common import DatabaseHelpers
 
 __all__ = [
     # Workflows
-    'PostUrlBusiness',
     'HashtagBusiness',
     'FollowerBusiness',
+    'PostUrlBusiness',
     # Actions
     'LikeBusiness',
     'StoryBusiness',
@@ -36,8 +35,6 @@ __all__ = [
     # System
     'ConfigBusiness',
     'LicenseBusiness',
-    # Legacy
-    'LegacyGridLikeMethods',
     # Common
     'DatabaseHelpers'
 ]
