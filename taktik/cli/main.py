@@ -932,13 +932,14 @@ def cli(ctx, lang=None):
             if choice == 'instagram':
                 # Sous-menu: Management ou Automation
                 console.print("\n[bold cyan]Instagram Mode Selection[/bold cyan]")
-                console.print("[bold]1.[/bold] 🔧 Management (Features: Auth, Content, DM)")
+                console.print("[bold]1.[/bold] 🔧 Management (Features: Auth, Content, Story)")
                 console.print("[bold]2.[/bold] 🤖 Automation (Workflows: Target followers/Followings, Hashtags, Post url)")
-                console.print("[bold]3.[/bold] ← Back")
+                console.print("[bold]3.[/bold] 📬 Advanced Actions (Mass DM, Unfollow, Reply DM)")
+                console.print("[bold]4.[/bold] ← Back")
                 
-                mode_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 3), show_choices=False)
+                mode_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
                 
-                if mode_choice == 3:
+                if mode_choice == 4:
                     continue
                 
                 # Sélection du device (commun aux deux modes)
@@ -1147,31 +1148,173 @@ def cli(ctx, lang=None):
                     if not target_type:
                         console.print(f"[red]{current_translations['no_target_selected']}[/red]")
                         continue
-                
-                dynamic_config = generate_dynamic_workflow(target_type)
-                if not dynamic_config:
-                    console.print(f"[red]{current_translations['workflow_generation_error']}[/red]")
-                    continue
+                    
+                    dynamic_config = generate_dynamic_workflow(target_type)
+                    if not dynamic_config:
+                        console.print(f"[red]{current_translations['workflow_generation_error']}[/red]")
+                        continue
 
-                if not device_manager.connect(device_id):
-                    console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
-                    continue
+                    if not device_manager.connect(device_id):
+                        console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                        continue
 
-                if not device_manager.device:
-                    console.print(f"[red]{current_translations['device_init_error']}[/red]")
-                    continue
+                    if not device_manager.device:
+                        console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                        continue
 
-                console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
-                automation = InstagramAutomation(device_manager)
+                    console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
+                    automation = InstagramAutomation(device_manager)
+                    
+                    automation._initialize_license_limits(api_key)
+                    automation.config = dynamic_config
+                    console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
+                    
+                    automation.run_workflow()
+                    
+                    console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                    sys.exit(0)
                 
-                automation._initialize_license_limits(api_key)
-                automation.config = dynamic_config
-                console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
-                
-                automation.run_workflow()
-                
-                console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
-                sys.exit(0)
+                elif mode_choice == 3:
+                    # Mode Advanced Actions
+                    import uiautomator2 as u2
+                    from taktik.core.social_media.instagram.actions.business.actions.mass_dm_action import MassDMAction
+                    from taktik.core.social_media.instagram.actions.business.actions.unfollow_action import UnfollowAction
+                    from taktik.core.social_media.instagram.actions.atomic.dm_actions import DMActions
+                    
+                    console.print("\n[bold cyan]📬 Advanced Actions Menu[/bold cyan]")
+                    console.print("[bold]1.[/bold] 📤 Mass DM (Send DM to multiple users)")
+                    console.print("[bold]2.[/bold] 👋 Intelligent Unfollow (Unfollow non-followers)")
+                    console.print("[bold]3.[/bold] 💬 Reply to DMs (Coming soon)")
+                    console.print("[bold]4.[/bold] 🧹 Clean Followers (Coming soon)")
+                    console.print("[bold]5.[/bold] ← Back")
+                    
+                    advanced_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
+                    
+                    if advanced_choice == 5:
+                        continue
+                    
+                    elif advanced_choice == 1:
+                        # Mass DM
+                        console.print("\n[bold green]📤 Mass DM Configuration[/bold green]")
+                        
+                        # Choix du mode
+                        console.print("\n[yellow]Select target source:[/yellow]")
+                        console.print("[cyan]1.[/cyan] Manual list (enter usernames)")
+                        console.print("[cyan]2.[/cyan] Your followers")
+                        console.print("[cyan]3.[/cyan] Hashtag users")
+                        
+                        source_choice = click.prompt("[bold]Source[/bold]", type=click.IntRange(1, 3), show_choices=False)
+                        
+                        message_template = Prompt.ask("[cyan]💬 Message template[/cyan] (use {username} for personalization)")
+                        max_dm = IntPrompt.ask("[cyan]📊 Maximum DM to send[/cyan]", default=20)
+                        personalize = Confirm.ask("[cyan]✨ Personalize messages?[/cyan]", default=True)
+                        
+                        try:
+                            device = u2.connect(device_id)
+                            mass_dm = MassDMAction(device)
+                            
+                            if source_choice == 1:
+                                # Manual list
+                                usernames_input = Prompt.ask("[cyan]👥 Enter usernames (comma-separated)[/cyan]")
+                                usernames = [u.strip().lstrip('@') for u in usernames_input.split(',') if u.strip()]
+                                
+                                if not usernames:
+                                    console.print("[red]❌ No usernames provided[/red]")
+                                    continue
+                                
+                                console.print(f"\n[yellow]⏳ Sending DM to {len(usernames)} users...[/yellow]")
+                                stats = mass_dm.send_mass_dm(
+                                    usernames=usernames,
+                                    message_template=message_template,
+                                    max_dm=max_dm,
+                                    personalize=personalize
+                                )
+                            
+                            elif source_choice == 2:
+                                # Your followers
+                                console.print(f"\n[yellow]⏳ Sending DM to your followers...[/yellow]")
+                                stats = mass_dm.send_dm_to_followers(
+                                    message_template=message_template,
+                                    max_dm=max_dm,
+                                    personalize=personalize
+                                )
+                            
+                            elif source_choice == 3:
+                                # Hashtag users
+                                hashtag = Prompt.ask("[cyan]#️⃣ Hashtag (without #)[/cyan]")
+                                console.print(f"\n[yellow]⏳ Sending DM to #{hashtag} users...[/yellow]")
+                                stats = mass_dm.send_dm_to_hashtag_users(
+                                    hashtag=hashtag,
+                                    message_template=message_template,
+                                    max_dm=max_dm,
+                                    personalize=personalize
+                                )
+                            
+                            # Display results
+                            console.print(Panel.fit(
+                                f"[bold green]✅ Mass DM Completed![/bold green]\n\n"
+                                f"[cyan]📤 Sent:[/cyan] {stats['sent']}\n"
+                                f"[cyan]❌ Failed:[/cyan] {stats['failed']}\n"
+                                f"[cyan]⏭️ Skipped:[/cyan] {stats['skipped']}",
+                                title="[bold green]Results[/bold green]",
+                                border_style="green"
+                            ))
+                        
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                        
+                        input("\nPress Enter to continue...")
+                        continue
+                    
+                    elif advanced_choice == 2:
+                        # Intelligent Unfollow
+                        console.print("\n[bold green]👋 Intelligent Unfollow Configuration[/bold green]")
+                        
+                        max_unfollow = IntPrompt.ask("[cyan]📊 Maximum unfollow[/cyan]", default=50)
+                        min_days = IntPrompt.ask("[cyan]📅 Minimum days since follow[/cyan]", default=3)
+                        skip_verified = Confirm.ask("[cyan]✓ Skip verified accounts?[/cyan]", default=True)
+                        skip_followers = Confirm.ask("[cyan]👥 Skip accounts that follow you back?[/cyan]", default=True)
+                        
+                        whitelist_input = Prompt.ask("[cyan]🛡️ Whitelist usernames (comma-separated, optional)[/cyan]", default="")
+                        whitelist = [u.strip().lstrip('@') for u in whitelist_input.split(',') if u.strip()] if whitelist_input else []
+                        
+                        try:
+                            device = u2.connect(device_id)
+                            unfollow_action = UnfollowAction(device)
+                            
+                            console.print(f"\n[yellow]⏳ Starting intelligent unfollow...[/yellow]")
+                            
+                            stats = unfollow_action.intelligent_unfollow(
+                                max_unfollow=max_unfollow,
+                                min_days_followed=min_days,
+                                skip_verified=skip_verified,
+                                skip_followers=skip_followers,
+                                whitelist=whitelist
+                            )
+                            
+                            # Display results
+                            console.print(Panel.fit(
+                                f"[bold green]✅ Intelligent Unfollow Completed![/bold green]\n\n"
+                                f"[cyan]👋 Unfollowed:[/cyan] {stats['unfollowed']}\n"
+                                f"[cyan]✓ Skipped (verified):[/cyan] {stats['skipped_verified']}\n"
+                                f"[cyan]👥 Skipped (followers):[/cyan] {stats['skipped_followers']}\n"
+                                f"[cyan]🛡️ Skipped (whitelist):[/cyan] {stats['skipped_whitelist']}\n"
+                                f"[cyan]📅 Skipped (recent):[/cyan] {stats['skipped_recent']}\n"
+                                f"[cyan]❌ Errors:[/cyan] {stats['errors']}",
+                                title="[bold green]Results[/bold green]",
+                                border_style="green"
+                            ))
+                        
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                        
+                        input("\nPress Enter to continue...")
+                        continue
+                    
+                    else:
+                        console.print("[yellow]⚠️ This feature is coming soon![/yellow]")
+                        input("\nPress Enter to continue...")
+                        continue
             
             elif choice == 'tiktok':
                 # Menu TikTok
