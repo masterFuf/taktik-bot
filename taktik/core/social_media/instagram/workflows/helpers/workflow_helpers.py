@@ -146,47 +146,70 @@ class WorkflowHelpers:
                     target_type = "PLACE"
                     target = action_override.get('place_name', 'unknown')
             else:
-                # Try to get from config (check both 'steps' and 'actions' for compatibility)
-                steps_or_actions = self.automation.config.get('steps') or self.automation.config.get('actions', [])
-                
-                if steps_or_actions:
-                    for action in steps_or_actions:
-                        if action.get('type') == 'interact_with_followers':
-                            target_type = "USER"
-                            target = action.get('target_username', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                        elif action.get('type') == 'hashtag':
-                            target_type = "HASHTAG"
-                            target = action.get('hashtag', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                        elif action.get('type') == 'post_url':
-                            target_type = "POST_URL"
-                            target = action.get('post_url', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                        elif action.get('type') == 'place':
-                            target_type = "PLACE"
-                            target = action.get('place_name', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                
-                # Fallback to workflow info if available
-                if target == "unknown" and hasattr(self.automation, 'current_workflow_info'):
-                    workflow_info = getattr(self.automation, 'current_workflow_info', {})
-                    if 'target_username' in workflow_info:
+                # Check if config has direct target_type (automation module format)
+                if self.automation.config.get('target_type'):
+                    config_target_type = self.automation.config.get('target_type')
+                    
+                    if config_target_type == 'followers':
                         target_type = "USER"
-                        target = workflow_info['target_username']
-                        self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
-                    elif 'hashtag' in workflow_info:
+                        target = self.automation.config.get('target_username', 'unknown')
+                        self.logger.debug(f"Session target from config: {target_type} = {target}")
+                    elif config_target_type == 'following':
+                        target_type = "USER"
+                        target = self.automation.config.get('target_username', 'unknown')
+                        self.logger.debug(f"Session target from config: {target_type} = {target}")
+                    elif config_target_type == 'hashtag':
                         target_type = "HASHTAG"
-                        target = workflow_info['hashtag']
-                        self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
-                    elif 'post_url' in workflow_info:
+                        target = self.automation.config.get('hashtag', 'unknown')
+                        self.logger.debug(f"Session target from config: {target_type} = {target}")
+                    elif config_target_type == 'post_url':
                         target_type = "POST_URL"
-                        target = workflow_info['post_url']
-                        self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
+                        target = self.automation.config.get('post_url', 'unknown')
+                        self.logger.debug(f"Session target from config: {target_type} = {target}")
+                else:
+                    # Try to get from config (check both 'steps' and 'actions' for compatibility)
+                    steps_or_actions = self.automation.config.get('steps') or self.automation.config.get('actions', [])
+                    
+                    if steps_or_actions and isinstance(steps_or_actions, list):
+                        for action in steps_or_actions:
+                            if isinstance(action, dict):
+                                if action.get('type') == 'interact_with_followers':
+                                    target_type = "USER"
+                                    target = action.get('target_username', 'unknown')
+                                    self.logger.debug(f"Session target determined: {target_type} = {target}")
+                                    break
+                                elif action.get('type') == 'hashtag':
+                                    target_type = "HASHTAG"
+                                    target = action.get('hashtag', 'unknown')
+                                    self.logger.debug(f"Session target determined: {target_type} = {target}")
+                                    break
+                                elif action.get('type') == 'post_url':
+                                    target_type = "POST_URL"
+                                    target = action.get('post_url', 'unknown')
+                                    self.logger.debug(f"Session target determined: {target_type} = {target}")
+                                    break
+                                elif action.get('type') == 'place':
+                                    target_type = "PLACE"
+                                    target = action.get('place_name', 'unknown')
+                                    self.logger.debug(f"Session target determined: {target_type} = {target}")
+                                    break
+                    
+                    # Fallback to workflow info if available
+                    if target == "unknown" and hasattr(self.automation, 'current_workflow_info'):
+                        workflow_info = getattr(self.automation, 'current_workflow_info', {})
+                        if isinstance(workflow_info, dict):
+                            if 'target_username' in workflow_info:
+                                target_type = "USER"
+                                target = workflow_info['target_username']
+                                self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
+                            elif 'hashtag' in workflow_info:
+                                target_type = "HASHTAG"
+                                target = workflow_info['hashtag']
+                                self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
+                            elif 'post_url' in workflow_info:
+                                target_type = "POST_URL"
+                                target = workflow_info['post_url']
+                                self.logger.debug(f"Session target retrieved from workflow: {target_type} = {target}")
             
             self.logger.info(f"Session created with target_type='{target_type}', target='{target}'")
             

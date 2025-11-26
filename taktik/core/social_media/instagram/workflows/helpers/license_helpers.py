@@ -38,6 +38,13 @@ class LicenseHelpers:
             verification_result = unified_license_manager.verify_license(license_key)
             
             if verification_result.get('valid'):
+                # Configure l'API key dans le UnifiedLicenseManager (comme le fait le CLI)
+                if api_key:
+                    unified_license_manager._api_key = api_key
+                    from taktik.core.database.api_client import TaktikAPIClient
+                    unified_license_manager.api_client = TaktikAPIClient(None, api_key, config_mode=False)
+                    self.logger.debug(f"✅ API key configured in UnifiedLicenseManager")
+                
                 self.logger.info("🔒 License limits initialized successfully (API verification)")
                 self.license_limits_enabled = True
                 return True
@@ -58,11 +65,7 @@ class LicenseHelpers:
             return True
         
         try:
-            license_key = self.get_license_key_from_config()
-            if not license_key:
-                self.logger.warning("⚠️ No license key - blocking action for safety")
-                return False
-            
+            # L'API key est déjà configurée dans initialize_license_limits
             can_perform = unified_license_manager.can_perform_action(action_type)
             
             if not can_perform:

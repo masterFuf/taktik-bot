@@ -1,0 +1,5 @@
+# Ignorer toutes les configs avec credentials
+*.json
+
+# Sauf les exemples
+!example_*.json

@@ -1,0 +1,32 @@
+{
+  "client_id": "example_client_123",
+  "platform": "instagram",
+  "device_id": "emulator-5566",
+  "api_key": "TAPI_KEY",
+  "account": {
+    "username": "username",
+    "password": "pass",
+    "save_session": true,
+    "save_login_info": false
+  },
+  "workflow": {
+    "type": "automation",
+    "target_type": "target",
+    "hashtag": "travel",
+    "post_url": null,
+    "actions": {
+      "like": true,
+      "follow": true,
+      "comment": false,
+      "watch": false,
+      "unfollow": false
+    },
+    "limits": {
+      "max_interactions": 50,
+      "max_follows": 20,
+      "max_likes": 50,
+      "max_comments": 0,
+      "max_unfollows": 50
+    }
+  }
+}
