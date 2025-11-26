@@ -50,42 +50,30 @@ class WorkflowRunner:
             self.logger.warning("Interaction with followers blocked by license limits")
             return False
         
-        if 'target_username' in action:
-            target_user = action.get('target_username')
-            self.logger.info(f"[DEBUG] target_username récupéré: '{target_user}'")
-            
-            config = WorkflowConfigBuilder.build_interaction_config(action)
-            
-            self.automation.interact_with_followers(
-                target_username=target_user,
-                max_interactions=action.get('max_interactions', 10),
-                like_posts=action.get('like_posts', True),
-                max_likes_per_profile=action.get('max_likes_per_profile', 1),
-                config=config
-            )
-            self.automation._record_action_performed('interact_with_followers', self.automation.active_username)
-            return True
-            
-        elif 'targets' in action and action['targets']:
-            for target in action['targets']:
-                if not self.automation._check_action_limits('interact_with_followers', self.automation.active_username):
-                    self.logger.warning("Interaction blocked by license limits")
-                    return False
-                
-                config = WorkflowConfigBuilder.build_interaction_config(action)
-                
-                self.automation.interact_with_followers(
-                    target_username=target,
-                    max_interactions=action.get('max_interactions', 10),
-                    like_posts=action.get('like_posts', True),
-                    max_likes_per_profile=action.get('max_likes_per_profile', 1),
-                    config=config
-                )
-                self.automation._record_action_performed('interact_with_followers', self.automation.active_username)
-            return True
-        else:
-            self.logger.error("No target_username or targets provided for interact_with_followers")
+        # Support multi-targets
+        target_usernames = action.get('target_usernames', [])
+        if not target_usernames and 'target_username' in action:
+            target_usernames = [action.get('target_username')]
+        
+        if not target_usernames:
+            self.logger.error("No target_username or target_usernames provided for interact_with_followers")
             return False
+        
+        if len(target_usernames) > 1:
+            self.logger.info(f"🎯 Multi-target mode: {len(target_usernames)} targets configured")
+        
+        config = WorkflowConfigBuilder.build_interaction_config(action)
+        
+        # Pass all targets to interact_with_followers for smart extraction
+        self.automation.interact_with_followers(
+            target_usernames=target_usernames,
+            max_interactions=action.get('max_interactions', 10),
+            like_posts=action.get('like_posts', True),
+            max_likes_per_profile=action.get('max_likes_per_profile', 1),
+            config=config
+        )
+        self.automation._record_action_performed('interact_with_followers', self.automation.active_username)
+        return True
     
     def _run_hashtag_workflow(self, action: Dict[str, Any]) -> bool:
         if not self.automation._check_action_limits('hashtag', self.automation.active_username):

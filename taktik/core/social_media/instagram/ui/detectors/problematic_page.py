@@ -123,6 +123,21 @@ class ProblematicPageDetector:
                     'background_dimmer'
                 ],
                 'close_methods': ['tap_background_dimmer', 'swipe_down_handle', 'back_button']
+            },
+            'mute_notifications_popup': {
+                'indicators': [
+                    'Sourdine',
+                    'Publications',
+                    'Stories',
+                    'Bulles d\'activité sur le contenu',
+                    'Notes',
+                    'Notes sur la carte',
+                    'Mute',
+                    'Posts',
+                    'Activity bubbles about content',
+                    'bottom_sheet_start_nav_button_icon'
+                ],
+                'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside']
             }
         }
     
@@ -337,19 +352,47 @@ class ProblematicPageDetector:
                     self.device.swipe(start_x, start_y, end_x, end_y, duration=0.3)
                 
                 elif method == 'swipe_down_handle':
-                    # Méthode spécifique pour le trait gris (handle) - optimisée pour la vitesse
-                    info = self.device.info
-                    screen_width = info['displayWidth']
-                    screen_height = info['displayHeight']
+                    # Méthode spécifique pour le trait gris (handle) - cibler l'élément directement
+                    # Chercher le drag handle avec son resource-id
+                    drag_handle_selectors = [
+                        {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'},
+                        {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_frame'}
+                    ]
                     
-                    # Position plus précise du handle (trait gris)
-                    handle_x = screen_width // 2
-                    handle_y = int(screen_height * 0.62)  # Juste au-dessus de la popup
-                    end_y = int(screen_height * 0.98)
+                    handle_found = False
+                    for selector in drag_handle_selectors:
+                        element = self.device(**selector)
+                        if element.exists():
+                            # Récupérer les coordonnées du handle
+                            info = element.info
+                            bounds = info.get('bounds', {})
+                            if bounds:
+                                # Centre du handle
+                                handle_x = (bounds['left'] + bounds['right']) // 2
+                                handle_y = (bounds['top'] + bounds['bottom']) // 2
+                                
+                                # Swipe vers le bas de l'écran
+                                screen_height = self.device.info['displayHeight']
+                                end_y = int(screen_height * 0.95)
+                                
+                                logger.info(f"Swipe handle trouvé: ({handle_x}, {handle_y}) → ({handle_x}, {end_y})")
+                                self.device.swipe(handle_x, handle_y, handle_x, end_y, duration=0.3)
+                                handle_found = True
+                                break
                     
-                    logger.info(f"Swipe handle rapide: ({handle_x}, {handle_y}) → ({handle_x}, {end_y})")
-                    # Durée réduite pour un swipe plus rapide
-                    self.device.swipe(handle_x, handle_y, handle_x, end_y, duration=0.2)
+                    if not handle_found:
+                        # Fallback: utiliser des coordonnées approximatives
+                        logger.warning("Handle non trouvé, utilisation de coordonnées approximatives")
+                        info = self.device.info
+                        screen_width = info['displayWidth']
+                        screen_height = info['displayHeight']
+                        
+                        handle_x = screen_width // 2
+                        handle_y = int(screen_height * 0.55)  # Position approximative
+                        end_y = int(screen_height * 0.95)
+                        
+                        logger.info(f"Swipe handle approximatif: ({handle_x}, {handle_y}) → ({handle_x}, {end_y})")
+                        self.device.swipe(handle_x, handle_y, handle_x, end_y, duration=0.3)
                 
                 elif method == 'terminate_button':
                     # Chercher et cliquer sur le bouton "Terminé"

@@ -147,9 +147,10 @@ class InstagramAutomation:
         
         return stats
 
-    def interact_with_followers(self, target_username: str, max_interactions: int = 100, 
-                           like_posts: bool = True, max_likes_per_profile: int = 2,
-                           skip_processed: bool = True, config: Dict[str, Any] = None) -> Dict[str, Any]:
+    def interact_with_followers(self, target_username: str = None, target_usernames: List[str] = None,
+                           max_interactions: int = 100, like_posts: bool = True, 
+                           max_likes_per_profile: int = 2, skip_processed: bool = True, 
+                           config: Dict[str, Any] = None) -> Dict[str, Any]:
         if not self.active_account_id:
             self.logger.info("Active account not detected, retrieving current profile...")
             self.get_profile_info(username=None, save_to_db=True)
@@ -158,14 +159,22 @@ class InstagramAutomation:
             self.logger.error("Cannot get or create active Instagram account")
             return {}
         
+        # Support both single and multi-target
+        if target_usernames is None:
+            target_usernames = [target_username] if target_username else []
+        
+        if not target_usernames:
+            self.logger.error("No target username(s) provided")
+            return {}
+        
         result = self.actions.follower_business.interact_with_target_followers(
-            target_username=target_username,
+            target_usernames=target_usernames,
             max_interactions=max_interactions,
             like_posts=like_posts,
             max_likes_per_profile=max_likes_per_profile,
             skip_processed=skip_processed,
-            automation=self,  # Pass automation instance
-            account_id=self.active_account_id,  # Pass active account ID
+            automation=self,
+            account_id=self.active_account_id,
             config=config
         )
         

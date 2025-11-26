@@ -200,10 +200,17 @@ def generate_dynamic_workflow(target_type):
 def generate_target_workflow():
     console.print(f"\n[bold green]{current_translations['target_workflow_title']}[/bold green]")
     
+    console.print(f"[dim]💡 Tip: You can enter multiple targets separated by commas (e.g., user1,user2,user3)[/dim]")
     target_username = Prompt.ask(f"[cyan]{current_translations['target_username_prompt']}[/cyan]")
     if not target_username:
         console.print(f"[red]{current_translations['username_required']}[/red]")
         return None
+    
+    # Parse multiple targets
+    target_usernames = [t.strip() for t in target_username.split(',') if t.strip()]
+    if len(target_usernames) > 1:
+        console.print(f"[green]✅ {len(target_usernames)} targets detected: {', '.join(['@' + t for t in target_usernames])}[/green]")
+    target_username = target_usernames[0]  # Keep first for backward compatibility
     
     interaction_types = {
         "1": "followers",
@@ -279,6 +286,7 @@ def generate_target_workflow():
             {
                 "type": "interact_with_followers",
                 "target_username": target_username,
+                "target_usernames": target_usernames,  # Multi-targets support
                 "interaction_type": interaction_type,
                 "max_interactions": max_interactions,
                 "like_posts": True,

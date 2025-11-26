@@ -8,6 +8,7 @@ from loguru import logger
 
 from ..core.base_action import BaseAction
 from ...ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS
+from ...ui.detectors.problematic_page import ProblematicPageDetector
 
 
 class NavigationActions(BaseAction):
@@ -17,6 +18,7 @@ class NavigationActions(BaseAction):
         self.logger = logger.bind(module="instagram-navigation-atomic")
         self.detection_selectors = DETECTION_SELECTORS
         self.selectors = NAVIGATION_SELECTORS
+        self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
     
     def _get_device_serial(self) -> str:
         try:
@@ -159,6 +161,8 @@ class NavigationActions(BaseAction):
         
         if success:
             self._random_sleep()
+            # Vérifier et fermer les popups problématiques
+            self._check_and_close_problematic_pages()
             return True
         
         if not use_deep_link:
@@ -166,6 +170,8 @@ class NavigationActions(BaseAction):
             success = self._navigate_via_deep_link(username)
             if success:
                 self._random_sleep()
+                # Vérifier et fermer les popups problématiques
+                self._check_and_close_problematic_pages()
                 return True
         
         self.logger.warning(f"Navigation failed to @{username}, but continuing")
@@ -402,5 +408,17 @@ class NavigationActions(BaseAction):
             return False
             
         except Exception as e:
-            self.logger.error(f"❌ Error navigating to next story: {e}")
+            self.logger.error(f"Error navigating to next story: {e}")
             return False
+    
+    def _check_and_close_problematic_pages(self) -> None:
+        """Vérifie et ferme les pages problématiques après navigation."""
+        try:
+            result = self.problematic_page_detector.detect_and_handle_problematic_pages()
+            if result.get('detected'):
+                if result.get('closed'):
+                    self.logger.info(f"✅ Popup {result.get('page_type')} fermée automatiquement")
+                else:
+                    self.logger.warning(f"⚠️ Popup {result.get('page_type')} détectée mais non fermée")
+        except Exception as e:
+            self.logger.debug(f"Erreur lors de la vérification des popups: {e}")
