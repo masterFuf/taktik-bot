@@ -25,6 +25,7 @@ class SessionManager:
         self.counters = {
             'total_interactions': 0,
             'successful_interactions': 0,
+            'profiles_processed': 0,  # Nombre de profils traités (visités)
             'follows': 0,
             'likes': 0,
             'comments': 0,
@@ -70,13 +71,15 @@ class SessionManager:
         workflow_type = session_settings.get('workflow_type', 'unknown')
         
         print(f"[DEBUG SessionManager] Limits check (workflow: {workflow_type}):")
-        print(f"[DEBUG SessionManager] - Interactions: {self.counters['total_interactions']}/{session_settings.get('total_interactions_limit', 'infinite')}")
+        print(f"[DEBUG SessionManager] - Profiles processed: {self.counters['profiles_processed']}/{session_settings.get('total_profiles_limit', 'infinite')}")
+        print(f"[DEBUG SessionManager] - Total interactions (API): {self.counters['total_interactions']}")
         print(f"[DEBUG SessionManager] - Likes: {self.counters['likes']}/{session_settings.get('total_likes_limit', 'infinite')}")
         print(f"[DEBUG SessionManager] - Follows: {self.counters['follows']}/{session_settings.get('total_follows_limit', 'infinite')}")
         
-        interactions_limit = session_settings.get('total_interactions_limit', float('inf'))
-        if self.counters['total_interactions'] >= interactions_limit:
-            reason = f"Interactions limit reached ({self.counters['total_interactions']}/{interactions_limit})"
+        # Vérifier la limite de profils traités (limite principale)
+        profiles_limit = session_settings.get('total_profiles_limit', float('inf'))
+        if self.counters['profiles_processed'] >= profiles_limit:
+            reason = f"Profiles limit reached ({self.counters['profiles_processed']}/{profiles_limit})"
             print(f"🛑 Session ended: {reason}")
             return False, reason
         
@@ -138,6 +141,14 @@ class SessionManager:
 
         return True
 
+    def record_profile_processed(self):
+        """Record that a profile has been processed (visited for interaction).
+        
+        This should be called once per profile, regardless of how many actions are performed.
+        """
+        self.counters['profiles_processed'] += 1
+        logger.debug(f"📊 Profile processed: {self.counters['profiles_processed']}")
+    
     def record_action(self, action_type: str, success: bool = True, source: Optional[str] = None):
         """Record performed action.
 

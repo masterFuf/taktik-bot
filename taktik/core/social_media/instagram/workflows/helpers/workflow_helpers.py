@@ -75,13 +75,15 @@ class WorkflowHelpers:
         
         if hasattr(self.automation, 'session_manager') and self.automation.session_manager:
             session_settings = self.automation.session_manager.config.get('session_settings', {})
+            session_counters = self.automation.session_manager.counters
             
-            total_limit = session_settings.get('total_interactions_limit', 'unlimited')
+            profiles_limit = session_settings.get('total_profiles_limit', 'unlimited')
             likes_limit = session_settings.get('total_likes_limit', 'unlimited')
             follows_limit = session_settings.get('total_follows_limit', 'unlimited')
             
             stats_output += "\n🎯 CONFIGURED LIMITS:\n"
-            stats_output += f"   Interactions: {self.automation.stats['interactions']}/{total_limit}\n"
+            stats_output += f"   Profiles processed: {session_counters.get('profiles_processed', 0)}/{profiles_limit}\n"
+            stats_output += f"   Total interactions (API): {session_counters.get('total_interactions', 0)}\n"
             stats_output += f"   Likes: {self.automation.stats['likes']}/{likes_limit}\n"
             stats_output += f"   Follows: {self.automation.stats['follows']}/{follows_limit}\n"
         

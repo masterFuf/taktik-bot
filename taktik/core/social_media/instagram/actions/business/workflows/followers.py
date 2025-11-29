@@ -179,12 +179,12 @@ class FollowerBusiness(BaseBusinessAction):
             'resumed_from_checkpoint': False
         }
         
-        max_interactions = min(len(followers), config['max_interactions_per_session'])
+        max_profiles = config['max_interactions_per_session']
         start_index = 0
         
         self.logger.info(f"Probabilities: like={config.get('like_probability', 'N/A')}, follow={config.get('follow_probability', 'N/A')}")
         self.logger.info(f"Config: {config}")
-        self.logger.info(f"Max interactions: {max_interactions} (followers: {len(followers)}, config: {config['max_interactions_per_session']})")
+        self.logger.info(f"Target: {max_profiles} profiles to process from {len(followers)} followers")
         if session_id and target_username:
             checkpoint_data = self._load_checkpoint(session_id, target_username)
             if checkpoint_data:
@@ -195,10 +195,10 @@ class FollowerBusiness(BaseBusinessAction):
             else:
                 self._create_checkpoint(session_id, target_username, followers, 0)
         
-        self.logger.info(f"Starting interactions with {max_interactions} followers (start index: {start_index})")
+        self.logger.info(f"Starting interactions (target: {max_profiles} profiles, start index: {start_index})")
         
         try:
-            for i in range(start_index, min(len(followers), max_interactions)):
+            for i in range(start_index, len(followers)):
                 # Vérifier si la session doit continuer (durée, limites, etc.)
                 if hasattr(self, 'session_manager') and self.session_manager:
                     should_continue, stop_reason = self.session_manager.should_continue()
@@ -215,7 +215,9 @@ class FollowerBusiness(BaseBusinessAction):
                         self._update_checkpoint_index(i + 1)
                         continue
                     
-                    self.logger.info(f"[{i+1}/{max_interactions}] Interacting with @{username}")
+                    # Afficher le nombre de profils traités vs l'objectif
+                    current_processed = self.session_manager.counters.get('profiles_processed', 0) if hasattr(self, 'session_manager') and self.session_manager else 0
+                    self.logger.info(f"[{current_processed+1}/{max_profiles}] Interacting with @{username} (follower #{i+1})")
                     if session_id and target_username:
                         self._update_checkpoint_index(i)
                     
@@ -704,6 +706,10 @@ class FollowerBusiness(BaseBusinessAction):
                 result['filter_reasons'] = reasons
                 self.stats_manager.increment('profiles_filtered')
                 return result
+            
+            # 📊 Enregistrer que ce profil va être traité (après toutes les vérifications)
+            if hasattr(self, 'session_manager') and self.session_manager:
+                self.session_manager.record_profile_processed()
             
             like_probability = config.get('like_probability', 0.8)
             follow_probability = config.get('follow_probability', 0.2)

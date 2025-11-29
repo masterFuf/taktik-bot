@@ -5,6 +5,8 @@ ENV/
 # Dossiers d'images de profil
 profile_images/
 
+debug_ui
+
 # Fichiers de configuration Python
 __pycache__/
 **/__pycache__/
@@ -76,3 +78,6 @@ changelog-dev/
 # TODO files (personal notes)
 TODO.md
 TODO_TIKTOK.md
+
+# Dossier de test personnel (non versionné)
+test_perso/

@@ -71,7 +71,7 @@ TRANSLATIONS = {
     "recent_posts_likers": "Recent Posts Likers - Interagir avec ceux qui ont liké les posts récents",
     "choose_interaction_type": "Choisissez le type d'interaction",
     "limits_configuration": "📊 Configuration des limites :",
-    "max_interactions_prompt": "Nombre maximum d'interactions (profils à traiter)",
+    "max_profiles_prompt": "Nombre maximum de profils à traiter",
     "max_likes_per_profile": "Nombre maximum de likes par profil",
     "probabilities_configuration": "🎲 Configuration des probabilités d'interaction (en %) :",
     "like_probability": "Probabilité de liker des posts",

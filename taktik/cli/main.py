@@ -225,8 +225,8 @@ def generate_target_workflow():
     interaction_type = interaction_types[interaction_choice]
     
     console.print(f"\n[yellow]{current_translations['limits_configuration']}[/yellow]")
-    max_interactions = int(Prompt.ask(
-        f"[cyan]{current_translations['max_interactions_prompt']}[/cyan]", 
+    max_profiles = int(Prompt.ask(
+        f"[cyan]{current_translations['max_profiles_prompt']}[/cyan]", 
         default="20"
     ))
     
@@ -270,9 +270,9 @@ def generate_target_workflow():
         },
         "session_settings": {
             "workflow_type": "target_followers",
-            "total_interactions_limit": max_interactions,
-            "total_follows_limit": math.ceil(max_interactions * (follow_percentage / 100)) if follow_percentage > 0 else 0,
-            "total_likes_limit": math.ceil(max_interactions * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,
+            "total_profiles_limit": max_profiles,  # Nombre de profils à traiter
+            "total_follows_limit": math.ceil(max_profiles * (follow_percentage / 100)) if follow_percentage > 0 else 0,
+            "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,
             "session_duration_minutes": session_duration,
             "delay_between_actions": {
                 "min": min_delay,
@@ -288,7 +288,7 @@ def generate_target_workflow():
                 "target_username": target_username,
                 "target_usernames": target_usernames,  # Multi-targets support
                 "interaction_type": interaction_type,
-                "max_interactions": max_interactions,
+                "max_interactions": max_profiles,
                 "like_posts": True,
                 "max_likes_per_profile": max_likes_per_profile,
                 "probabilities": {
@@ -357,7 +357,7 @@ def generate_target_workflow():
     
     table.add_row(current_translations['target'], f"@{target_username}")
     table.add_row(current_translations['interaction_type'], interaction_type)
-    table.add_row(current_translations['max_interactions'], str(max_interactions))
+    table.add_row(current_translations['max_profiles_prompt'], str(max_profiles))
     table.add_row(current_translations['max_likes_per_profile'], str(max_likes_per_profile))
     
     table.add_row("", "")
@@ -385,9 +385,9 @@ def generate_target_workflow():
     
     console.print(table)
     
-    estimated_likes = int(max_interactions * max_likes_per_profile * (like_percentage / 100))
-    estimated_follows = int(max_interactions * (follow_percentage / 100))
-    estimated_comments = int(max_interactions * (comment_percentage / 100))
+    estimated_likes = int(max_profiles * max_likes_per_profile * (like_percentage / 100))
+    estimated_follows = int(max_profiles * (follow_percentage / 100))
+    estimated_comments = int(max_profiles * (comment_percentage / 100))
     
     console.print(f"\n[bold green]{current_translations['session_estimates']}[/bold green]")
     console.print(f"• [cyan]{current_translations['estimated_likes']}[/cyan] {estimated_likes}")
@@ -423,8 +423,8 @@ def generate_hashtags_workflow():
     )
     
     console.print(f"\n[yellow]📊 Configuration des limites :[/yellow]")
-    max_interactions = Prompt.ask(
-        f"[cyan]Nombre maximum d'interactions (profils à traiter)[/cyan]",
+    max_profiles = Prompt.ask(
+        f"[cyan]Nombre maximum de profils à traiter[/cyan]",
         default="30"
     )
     
@@ -514,9 +514,9 @@ def generate_hashtags_workflow():
         },
         "session_settings": {
             "workflow_type": "hashtag_interactions",
-            "total_interactions_limit": int(max_interactions),
-            "total_follows_limit": math.ceil(int(max_interactions) * (int(follow_percentage) / 100)) if int(follow_percentage) > 0 else 0,
-            "total_likes_limit": math.ceil(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100)) if int(like_percentage) > 0 else 0,
+            "total_profiles_limit": int(max_profiles),  # Nombre de profils à traiter
+            "total_follows_limit": math.ceil(int(max_profiles) * (int(follow_percentage) / 100)) if int(follow_percentage) > 0 else 0,
+            "total_likes_limit": math.ceil(int(max_profiles) * int(max_likes_per_profile) * (int(like_percentage) / 100)) if int(like_percentage) > 0 else 0,
             "session_duration_minutes": int(session_duration),
             "delay_between_actions": {
                 "min": int(min_delay),
@@ -530,7 +530,7 @@ def generate_hashtags_workflow():
             {
                 "type": "hashtag",
                 "hashtag": hashtag,
-                "max_interactions": int(max_interactions),
+                "max_interactions": int(max_profiles),
                 "max_likes_per_profile": int(max_likes_per_profile),
                 "post_criteria": {
                     "min_likes": int(min_likes),
@@ -592,7 +592,7 @@ def generate_hashtags_workflow():
     
     table.add_row("Hashtag", f"#{hashtag}")
     table.add_row("Critères posts", f"{min_likes}-{max_likes} likes")
-    table.add_row("Max interactions", str(max_interactions))
+    table.add_row("Nombre maximum de profils", str(max_profiles))
     table.add_row("Nombre maximum de likes par profil", str(max_likes_per_profile))
     table.add_row("", "")
     table.add_row("Probabilités", "")
@@ -615,9 +615,9 @@ def generate_hashtags_workflow():
     console.print(table)
     
     console.print(f"\n[green]📊 Estimations de session :[/green]")
-    estimated_likes = int(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100))
-    estimated_follows = int(int(max_interactions) * (int(follow_percentage) / 100))
-    estimated_comments = int(int(max_interactions) * (int(comment_percentage) / 100))
+    estimated_likes = int(int(max_profiles) * int(max_likes_per_profile) * (int(like_percentage) / 100))
+    estimated_follows = int(int(max_profiles) * (int(follow_percentage) / 100))
+    estimated_comments = int(int(max_profiles) * (int(comment_percentage) / 100))
     
     console.print(f"• Likes estimés : {estimated_likes}")
     console.print(f"• Follows estimés : {estimated_follows}")
@@ -642,7 +642,7 @@ def generate_post_url_workflow():
     console.print(f"[dim]{current_translations['workflow_extract_likers']}[/dim]")
     
     console.print(f"\n[yellow]{current_translations['limits_configuration']}[/yellow]")
-    max_interactions = Prompt.ask(f"[cyan]{current_translations['max_interactions_prompt']}[/cyan]", default="20")
+    max_profiles = Prompt.ask(f"[cyan]{current_translations['max_profiles_prompt']}[/cyan]", default="20")
     max_likes_per_profile = Prompt.ask(f"[cyan]{current_translations['max_likes_per_profile']}[/cyan]", default="2")
     
     console.print(f"\n[yellow]{current_translations['probabilities_configuration']}[/yellow]")
@@ -681,9 +681,9 @@ def generate_post_url_workflow():
         },
         "session_settings": {
             "workflow_type": "target_followers",
-            "total_interactions_limit": int(max_interactions),
-            "total_follows_limit": math.ceil(int(max_interactions) * (int(follow_percentage) / 100)) if int(follow_percentage) > 0 else 0,
-            "total_likes_limit": math.ceil(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100)) if int(like_percentage) > 0 else 0,
+            "total_profiles_limit": int(max_profiles),  # Nombre de profils à traiter
+            "total_follows_limit": math.ceil(int(max_profiles) * (int(follow_percentage) / 100)) if int(follow_percentage) > 0 else 0,
+            "total_likes_limit": math.ceil(int(max_profiles) * int(max_likes_per_profile) * (int(like_percentage) / 100)) if int(like_percentage) > 0 else 0,
             "session_duration_minutes": int(session_duration),
             "delay_between_actions": {
                 "min": int(min_delay),
@@ -698,7 +698,7 @@ def generate_post_url_workflow():
                 'type': 'post_url',
                 'post_url': post_url,
                 'interaction_type': 'post-likers',
-                'max_interactions': int(max_interactions),
+                'max_interactions': int(max_profiles),
                 'max_likes_per_profile': int(max_likes_per_profile),
                 'probabilities': {
                     'like_percentage': int(like_percentage),
@@ -751,7 +751,7 @@ def generate_post_url_workflow():
     table.add_row(current_translations['post_url'], post_url)
     table.add_row(current_translations['post_id'], post_id if post_id else current_translations['post_id_not_detected'])
     table.add_row(current_translations['interaction_type'], current_translations['interaction_type_likers'])
-    table.add_row(current_translations['max_interactions'], str(max_interactions))
+    table.add_row(current_translations['max_profiles_prompt'], str(max_profiles))
     table.add_row(current_translations['max_likes_per_profile'], str(max_likes_per_profile))
     table.add_row("", "")
     table.add_row(current_translations['probabilities'], "")
@@ -774,9 +774,9 @@ def generate_post_url_workflow():
     console.print(table)
     
     console.print(f"\n[green]{current_translations['session_estimates']}[/green]")
-    estimated_likes = int(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100))
-    estimated_follows = int(int(max_interactions) * (int(follow_percentage) / 100))
-    estimated_comments = int(int(max_interactions) * (int(comment_percentage) / 100))
+    estimated_likes = int(int(max_profiles) * int(max_likes_per_profile) * (int(like_percentage) / 100))
+    estimated_follows = int(int(max_profiles) * (int(follow_percentage) / 100))
+    estimated_comments = int(int(max_profiles) * (int(comment_percentage) / 100))
     
     console.print(f"• {current_translations['estimated_likes']} {estimated_likes}")
     console.print(f"• {current_translations['estimated_follows']} {estimated_follows}")
@@ -849,9 +849,9 @@ def generate_place_workflow():
     console.print(table)
     
     console.print(f"\n[green]📊 Estimations de session :[/green]")
-    estimated_likes = int(int(max_interactions) * int(max_likes_per_profile) * (int(like_percentage) / 100))
-    estimated_follows = int(int(max_interactions) * (int(follow_percentage) / 100))
-    estimated_comments = int(int(max_interactions) * (int(comment_percentage) / 100))
+    estimated_likes = int(int(max_profiles) * int(max_likes_per_profile) * (int(like_percentage) / 100))
+    estimated_follows = int(int(max_profiles) * (int(follow_percentage) / 100))
+    estimated_comments = int(int(max_profiles) * (int(comment_percentage) / 100))
     
     console.print(f"• Likes estimés : {estimated_likes}")
     console.print(f"• Follows estimés : {estimated_follows}")
@@ -1364,8 +1364,8 @@ def workflow_instagram(device_id, config):
         if final_config:
             session_settings = final_config.get('session_settings', {})
             duration = session_settings.get('session_duration_minutes', 60)
-            max_interactions = session_settings.get('total_interactions_limit', 'illimité')
-            console.print(f"[cyan]⚙️  Configuration appliquée: {duration} min, {max_interactions} interactions max[/cyan]")
+            max_profiles = session_settings.get('total_profiles_limit', session_settings.get('total_interactions_limit', 'illimité'))
+            console.print(f"[cyan]⚙️  Configuration appliquée: {duration} min, {max_profiles} profils max[/cyan]")
         
     except ValueError as e:
         console.print(f"[red]Erreur de configuration: {e}[/red]")
