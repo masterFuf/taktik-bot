@@ -5,7 +5,18 @@ All notable changes to TAKTIK Instagram Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.2] - 2025-12-02
+## [1.1.3] - 2025-12-02
+
+### Refactored
+- **Centralized number parsing**: All number parsing logic now uses `parse_number_from_text` from `extractors.py`
+  - Eliminated code duplication in `like.py`, `utils.py`, and `profile.py`
+  - Fixed follower count parsing for large accounts with space before K/M suffix (e.g., "166 K" → 166,000)
+  - All parsing improvements now apply automatically across the entire codebase
+
+- **Centralized problematic page selectors**: Created `ProblematicPageSelectors` class in `selectors.py`
+  - Moved hardcoded selectors from `problematic_page.py` to centralized location
+  - Improved maintainability and consistency of UI selectors
+  - All problematic page detection and closing now uses centralized selectors
 
 ### Fixed
 - **Follower count parsing for large accounts**: Fixed parsing of follower counts with space before K/M suffix (e.g., "166 K" for 166,000 followers)
@@ -72,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.1.3** (2025-12-02): Centralized number parsing and UI selectors, eliminated code duplication
 - **1.1.2** (2025-12-02): Fix follower count parsing for large accounts (K/M with space)
 - **1.1.1** (2025-11-26): Multi-target support, intelligent scrolling, automatic popup handling
 - **1.1.0**: Core automation features and workflows
