@@ -5,7 +5,7 @@ import time
 from typing import Optional, Dict, Any
 from loguru import logger
 from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
-from ..selectors import POPUP_SELECTORS
+from ..selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 
 
 class ProblematicPageDetector:
@@ -31,136 +31,9 @@ class ProblematicPageDetector:
             'failed_count': 0,    # Nombre de fois où la fermeture a échoué
             'last_detection': None  # Timestamp de la dernière détection
         }
-        self.detection_patterns = {
-            'qr_code_page': {
-                'indicators': [
-                    'Partager le profil',
-                    'QR code',
-                    'Copier le lien',
-                    '@dkabdo.videography'
-                ],
-                'close_methods': ['back_button', 'x_button', 'tap_outside']
-            },
-            'story_qr_code_page': {
-                'indicators': [
-                    'Enregistrer le code QR',
-                    'Terminé',
-                    'Tout le monde peut scanner ce code QR',
-                    'smartphone pour voir ce contenu'
-                ],
-                'close_methods': ['terminate_button', 'back_button', 'tap_outside']
-            },
-            'message_contacts_page': {
-                'indicators': [
-                    'Write a message...',
-                    'Écrivez un message…',
-                    'Send separately',
-                    'Envoyer',
-                    'Search',
-                    'Rechercher',
-                    'Discussion non sélectionnée',
-                    'New group',
-                    'Nouveau groupe',
-                    'direct_private_share_container_view',
-                    'direct_share_sheet_grid_view_pog'
-                ],
-                'close_methods': ['swipe_down_handle', 'tap_outside', 'back_button']
-            },
-            'profile_share_page': {
-                'indicators': [
-                    'WhatsApp',
-                    'Ajouter à la story',
-                    'Partager',
-                    'Texto',
-                    'Threads'
-                ],
-                'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside', 'back_button']
-            },
-            'try_again_later_page': {
-                'indicators': [
-                    # Titres (multilingue)
-                    'Réessayer plus tard',
-                    'Try Again Later',
-                    # Messages (multilingue)
-                    'Nous limitons la fréquence',
-                    'We limit how often',
-                    'certaines actions que vous pouvez effectuer',
-                    'certain things on Instagram',
-                    'protéger notre communauté',
-                    'protect our community',
-                    # Resource IDs
-                    'igds_alert_dialog_headline',
-                    'igds_alert_dialog_subtext',
-                    'igds_alert_dialog_primary_button',
-                    # Boutons
-                    'Contactez-nous',
-                    'Tell us'
-                ],
-                'close_methods': ['ok_button', 'back_button'],
-                'is_soft_ban': True,  # Indique qu'il faut arrêter la session
-                'track_stats': True   # Active le tracking des statistiques
-            },
-            'notifications_popup': {
-                'indicators': [
-                    'Notifications',
-                    'Get notifications when',
-                    'shares photos, videos or channels',
-                    'Goes live',
-                    'Some',
-                    # Suppression de 'Posts' car trop générique
-                    'Stories',
-                    'Reels'
-                ],
-                'close_methods': ['back_button', 'tap_outside', 'swipe_down']
-            },
-            'follow_notification_popup': {
-                'indicators': [
-                    'Turn on notifications?',
-                    'Get notifications when',
-                    'Turn On',
-                    'Not Now',
-                    'posts a photo or video'
-                ],
-                'close_methods': ['not_now_button', 'back_button', 'tap_outside']
-            },
-            'instagram_update_popup': {
-                'indicators': [
-                    'Update Instagram',
-                    'Get the latest version',
-                    'Update',
-                    'Not Now',
-                    'available on Google Play'
-                ],
-                'close_methods': ['not_now_button', 'back_button', 'tap_outside']
-            },
-            'follow_options_bottom_sheet': {
-                'indicators': [
-                    'Ajouter à la liste Ami(e)s proches',
-                    'Ajouter aux favoris',
-                    'Sourdine',
-                    'Restreindre',
-                    'Ne plus suivre',
-                    'bottom_sheet_container',
-                    'background_dimmer'
-                ],
-                'close_methods': ['tap_background_dimmer', 'swipe_down_handle', 'back_button']
-            },
-            'mute_notifications_popup': {
-                'indicators': [
-                    'Sourdine',
-                    'Publications',
-                    'Stories',
-                    'Bulles d\'activité sur le contenu',
-                    'Notes',
-                    'Notes sur la carte',
-                    'Mute',
-                    'Posts',
-                    'Activity bubbles about content',
-                    'bottom_sheet_start_nav_button_icon'
-                ],
-                'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside']
-            }
-        }
+        
+        # Utiliser les patterns centralisés depuis selectors.py
+        self.detection_patterns = PROBLEMATIC_PAGE_SELECTORS.detection_patterns
     
     def detect_and_handle_problematic_pages(self) -> dict:
         """
@@ -341,18 +214,8 @@ class ProblematicPageDetector:
                 
                 elif method == 'x_button':
                     # Chercher un bouton X ou close avec uiautomator2
-                    close_selectors = [
-                        {'resourceId': 'com.instagram.android:id/action_bar_button_back'},
-                        {'description': 'Close'},
-                        {'description': 'Dismiss'},
-                        {'description': 'Cancel'},
-                        {'text': '×'},
-                        {'text': '✕'},
-                        {'className': 'android.widget.ImageView', 'description': 'Back'}
-                    ]
-                    
                     button_found = False
-                    for selector in close_selectors:
+                    for selector in PROBLEMATIC_PAGE_SELECTORS.close_button_selectors:
                         element = self.device(**selector)
                         if element.exists():
                             element.click()
@@ -389,14 +252,8 @@ class ProblematicPageDetector:
                 
                 elif method == 'swipe_down_handle':
                     # Méthode spécifique pour le trait gris (handle) - cibler l'élément directement
-                    # Chercher le drag handle avec son resource-id
-                    drag_handle_selectors = [
-                        {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'},
-                        {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_frame'}
-                    ]
-                    
                     handle_found = False
-                    for selector in drag_handle_selectors:
+                    for selector in PROBLEMATIC_PAGE_SELECTORS.drag_handle_selectors:
                         element = self.device(**selector)
                         if element.exists():
                             # Récupérer les coordonnées du handle
@@ -432,17 +289,8 @@ class ProblematicPageDetector:
                 
                 elif method == 'terminate_button':
                     # Chercher et cliquer sur le bouton "Terminé"
-                    terminate_selectors = [
-                        {'text': 'Terminé'},
-                        {'text': 'Done'},
-                        {'text': 'Fermer'},
-                        {'text': 'Close'},
-                        {'description': 'Terminé'},
-                        {'description': 'Done'}
-                    ]
-                    
                     button_found = False
-                    for selector in terminate_selectors:
+                    for selector in PROBLEMATIC_PAGE_SELECTORS.terminate_button_selectors:
                         element = self.device(**selector)
                         if element.exists():
                             logger.info(f"Bouton trouvé avec sélecteur: {selector}")
@@ -456,16 +304,8 @@ class ProblematicPageDetector:
                 
                 elif method == 'ok_button':
                     # Chercher et cliquer sur le bouton "OK" pour les popups de limitation
-                    ok_selectors = [
-                        {'text': 'OK'},
-                        {'resourceId': 'com.instagram.android:id/igds_alert_dialog_primary_button'},
-                        {'text': 'Ok'},
-                        {'description': 'OK'},
-                        {'description': 'Ok'}
-                    ]
-                    
                     button_found = False
-                    for selector in ok_selectors:
+                    for selector in PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors:
                         element = self.device(**selector)
                         if element.exists():
                             logger.info(f"Bouton OK trouvé avec sélecteur: {selector}")
@@ -479,13 +319,8 @@ class ProblematicPageDetector:
                 
                 elif method == 'tap_background_dimmer':
                     # Cliquer sur le background dimmer pour fermer la bottom sheet
-                    dimmer_selectors = [
-                        {'resourceId': 'com.instagram.android:id/background_dimmer'},
-                        {'description': '@2131954182'}  # Description spécifique du dimmer
-                    ]
-                    
                     button_found = False
-                    for selector in dimmer_selectors:
+                    for selector in PROBLEMATIC_PAGE_SELECTORS.background_dimmer_selectors:
                         element = self.device(**selector)
                         if element.exists():
                             logger.info(f"Background dimmer trouvé avec sélecteur: {selector}")

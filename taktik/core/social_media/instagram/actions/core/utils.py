@@ -8,41 +8,10 @@ from loguru import logger
 class ActionUtils:
     @staticmethod
     def parse_number_from_text(text: str) -> Optional[int]:
-        if not text:
-            return None
-        
-        text = text.strip().replace(',', '.').replace(' ', '')
-        
-        patterns = [
-            r'(\d+(?:\.\d+)?)\s*([KkMmBb]?)',  # 1.2K, 500, 2.5M
-            r'(\d+(?:,\d+)*)',  # 1,234,567
-            r'(\d+)'  # Simple number
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                try:
-                    number_str = match.group(1)
-                    suffix = match.group(2) if len(match.groups()) > 1 else ''
-                    
-                    number = float(number_str.replace(',', ''))
-                    
-                    multipliers = {
-                        'K': 1000, 'k': 1000,
-                        'M': 1000000, 'm': 1000000,
-                        'B': 1000000000, 'b': 1000000000
-                    }
-                    
-                    if suffix in multipliers:
-                        number *= multipliers[suffix]
-                    
-                    return int(number)
-                    
-                except (ValueError, IndexError):
-                    continue
-        
-        return None
+        """Parse number from text - delegates to centralized parser"""
+        from ...ui.extractors import parse_number_from_text as central_parser
+        result = central_parser(text)
+        return result if result > 0 else None
     
     @staticmethod
     def clean_username(username: str) -> str:

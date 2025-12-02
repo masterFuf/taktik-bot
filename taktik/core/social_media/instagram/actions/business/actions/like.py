@@ -557,28 +557,9 @@ class LikeBusiness(BaseBusinessAction):
             return False
     
     def _parse_instagram_number(self, text: str) -> int:
-        try:
-            if not text:
-                return 0
-            
-            text = text.strip().replace(' ', '').replace(',', '.')
-            
-            multiplier = 1
-            if text.lower().endswith('k'):
-                multiplier = 1000
-                text = text[:-1]
-            elif text.lower().endswith('m'):
-                multiplier = 1000000
-                text = text[:-1]
-            elif text.lower().endswith('b'):
-                multiplier = 1000000000
-                text = text[:-1]
-            number = float(text) * multiplier
-            return int(number)
-            
-        except (ValueError, TypeError):
-            self.logger.debug(f"Unable to parse number: '{text}'")
-            return 0
+        """Parse Instagram number - delegates to parse_number_from_text"""
+        from ....ui.extractors import parse_number_from_text
+        return parse_number_from_text(text)
     
     def _record_individual_actions(self, username: str, action_type: str, count: int):
         self.logger.debug(f"[DEBUG LIKE] _record_individual_actions called - username: {username}, action_type: {action_type}, count: {count}")

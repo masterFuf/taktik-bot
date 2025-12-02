@@ -382,12 +382,10 @@ class ProfileBusiness(BaseBusinessAction):
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
-                    count = ''.join(c for c in count_text if c.isdigit() or c == '.' or c == ',')
-                    if count:
-                        count = count.replace(',', '.')
-                        if '.' in count:
-                            return int(float(count) * 1000)
-                        return int(count)
+                    # Utiliser parse_number_from_text pour gérer tous les formats (166K, 166 K, 1.2M, etc.)
+                    parsed = parse_number_from_text(count_text)
+                    if parsed > 0:
+                        return parsed
             
             followers = self._get_count_from_element_robust(
                 element_type='id',
@@ -439,12 +437,9 @@ class ProfileBusiness(BaseBusinessAction):
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
-                    count = ''.join(c for c in count_text if c.isdigit() or c == '.' or c == ',')
-                    if count:
-                        count = count.replace(',', '.')
-                        if '.' in count:
-                            return int(float(count) * 1000)
-                        return int(count)
+                    parsed = parse_number_from_text(count_text)
+                    if parsed > 0:
+                        return parsed
             
             following = self._get_count_from_element_robust(
                 element_type='id',
@@ -481,12 +476,9 @@ class ProfileBusiness(BaseBusinessAction):
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
-                    count = ''.join(c for c in count_text if c.isdigit() or c == '.' or c == ',')
-                    if count:
-                        count = count.replace(',', '.')
-                        if '.' in count:
-                            return int(float(count) * 1000)
-                        return int(count)
+                    parsed = parse_number_from_text(count_text)
+                    if parsed > 0:
+                        return parsed
             
             posts = self._get_count_from_element_robust(
                 element_type='id',

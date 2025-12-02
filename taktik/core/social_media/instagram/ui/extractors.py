@@ -81,28 +81,8 @@ class InstagramUIExtractors:
             return None
     
     def parse_instagram_number(self, text: str) -> int:
-        if not text:
-            return 0
-        
-        multipliers = {
-            'K': 1000, 'k': 1000,
-            'M': 1000000, 'm': 1000000,
-            'B': 1000000000, 'b': 1000000000
-        }
-        
-        for suffix, multiplier in multipliers.items():
-            if text.endswith(suffix):
-                try:
-                    number_part = text[:-1].replace('\xa0', '').replace(' ', '').replace(',', '.')
-                    return int(float(number_part) * multiplier)
-                except (ValueError, AttributeError):
-                    continue
-        
-        try:
-            cleaned = re.sub(r"[^0-9]", "", text.replace('\xa0', '').replace(' ', ''))
-            return int(cleaned) if cleaned else 0
-        except (ValueError, AttributeError):
-            return 0
+        """Parse Instagram number - delegates to parse_number_from_text"""
+        return parse_number_from_text(text)
     
     def is_like_count_text(self, text: str) -> bool:
         if not text:
@@ -566,28 +546,8 @@ class InstagramUIExtractors:
 
 
 def parse_instagram_number(text: str) -> int:
-    if not text:
-        return 0
-    
-    multipliers = {
-        'K': 1000, 'k': 1000,
-        'M': 1000000, 'm': 1000000,
-        'B': 1000000000, 'b': 1000000000
-    }
-    
-    for suffix, multiplier in multipliers.items():
-        if text.endswith(suffix):
-            try:
-                number_part = text[:-1].replace('\xa0', '').replace(' ', '').replace(',', '.')
-                return int(float(number_part) * multiplier)
-            except (ValueError, AttributeError):
-                continue
-    
-    try:
-        cleaned = re.sub(r"[^0-9]", "", text.replace('\xa0', '').replace(' ', ''))
-        return int(cleaned) if cleaned else 0
-    except (ValueError, AttributeError):
-        return 0
+    """Parse Instagram number - delegates to parse_number_from_text"""
+    return parse_number_from_text(text)
 
 
 def parse_number_from_text(text: str) -> int:
