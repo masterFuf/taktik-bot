@@ -591,11 +591,15 @@ def parse_instagram_number(text: str) -> int:
 
 
 def parse_number_from_text(text: str) -> int:
+    """Parse a number from text, handling formats like '166 K', '1.2M', '1,234', etc."""
     if not text:
         return 0
     
     try:
-        text_str = str(text)
+        text_str = str(text).strip()
+        
+        # Normalize: remove non-breaking spaces and extra whitespace
+        text_str = text_str.replace('\xa0', ' ').strip()
         
         multipliers = {
             'K': 1000, 'k': 1000,
@@ -603,14 +607,24 @@ def parse_number_from_text(text: str) -> int:
             'B': 1000000000, 'b': 1000000000
         }
         
+        # Check for suffix with or without space (e.g., "166K", "166 K", "1.2 M")
         for suffix, multiplier in multipliers.items():
-            if text_str.endswith(suffix):
+            # Handle "166 K" format (space before suffix)
+            if text_str.endswith(f' {suffix}') or text_str.endswith(f' {suffix.lower()}'):
                 try:
-                    number_part = text_str[:-1].replace('\xa0', '').replace(' ', '').replace(',', '.')
+                    number_part = text_str[:-2].strip().replace(',', '.')
+                    return int(float(number_part) * multiplier)
+                except (ValueError, AttributeError):
+                    continue
+            # Handle "166K" format (no space)
+            elif text_str.endswith(suffix):
+                try:
+                    number_part = text_str[:-1].strip().replace(',', '.')
                     return int(float(number_part) * multiplier)
                 except (ValueError, AttributeError):
                     continue
         
+        # No suffix found - extract digits only
         number_str = ''.join(c for c in text_str if c.isdigit() or c in ',. ')
         
         number_str = number_str.replace(' ', '').replace(',', '').replace('.', '')
