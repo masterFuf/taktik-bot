@@ -23,6 +23,14 @@ class ProblematicPageDetector:
         """
         self.device = device
         self.debug_mode = debug_mode
+        
+        # Statistiques de détection des popups de rate limiting
+        self.rate_limit_stats = {
+            'detected_count': 0,  # Nombre de fois détectée
+            'closed_count': 0,    # Nombre de fois fermée avec succès
+            'failed_count': 0,    # Nombre de fois où la fermeture a échoué
+            'last_detection': None  # Timestamp de la dernière détection
+        }
         self.detection_patterns = {
             'qr_code_page': {
                 'indicators': [
@@ -70,14 +78,27 @@ class ProblematicPageDetector:
             },
             'try_again_later_page': {
                 'indicators': [
+                    # Titres (multilingue)
+                    'Réessayer plus tard',
                     'Try Again Later',
-                    'We limit how often you can do certain things on Instagram',
+                    # Messages (multilingue)
+                    'Nous limitons la fréquence',
+                    'We limit how often',
+                    'certaines actions que vous pouvez effectuer',
+                    'certain things on Instagram',
+                    'protéger notre communauté',
+                    'protect our community',
+                    # Resource IDs
                     'igds_alert_dialog_headline',
                     'igds_alert_dialog_subtext',
-                    'protect our community'
+                    'igds_alert_dialog_primary_button',
+                    # Boutons
+                    'Contactez-nous',
+                    'Tell us'
                 ],
                 'close_methods': ['ok_button', 'back_button'],
-                'is_soft_ban': True  # Indique qu'il faut arrêter la session
+                'is_soft_ban': True,  # Indique qu'il faut arrêter la session
+                'track_stats': True   # Active le tracking des statistiques
             },
             'notifications_popup': {
                 'indicators': [
@@ -180,14 +201,24 @@ class ProblematicPageDetector:
                 if self._is_page_detected(ui_content, config['indicators']):
                     logger.warning(f"🚨 Page problématique détectée: {page_type}")
                     
+                    # Tracking des statistiques pour les popups de rate limiting
+                    if config.get('track_stats', False):
+                        self._update_rate_limit_stats('detected')
+                    
                     # Vérifier si c'est un soft ban
                     is_soft_ban = config.get('is_soft_ban', False)
                     if is_soft_ban:
                         logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
+                        logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
                     
                     # Essayer de fermer la page
                     if self._close_problematic_page(page_type, config['close_methods']):
                         logger.success(f"✅ Page {page_type} fermée avec succès")
+                        
+                        # Tracking de la fermeture réussie
+                        if config.get('track_stats', False):
+                            self._update_rate_limit_stats('closed')
+                        
                         return {
                             'detected': True,
                             'closed': True,
@@ -196,6 +227,11 @@ class ProblematicPageDetector:
                         }
                     else:
                         logger.error(f"❌ Impossible de fermer la page {page_type}")
+                        
+                        # Tracking de l'échec de fermeture
+                        if config.get('track_stats', False):
+                            self._update_rate_limit_stats('failed')
+                        
                         return {
                             'detected': True,
                             'closed': False,
@@ -536,6 +572,74 @@ class ProblematicPageDetector:
             except Exception as e:
                 logger.error(f"Erreur dans la surveillance continue: {e}")
                 time.sleep(check_interval)
+    
+    def _update_rate_limit_stats(self, action: str) -> None:
+        """
+        Met à jour les statistiques de rate limiting.
+        
+        Args:
+            action: Type d'action ('detected', 'closed', 'failed')
+        """
+        import datetime
+        
+        if action == 'detected':
+            self.rate_limit_stats['detected_count'] += 1
+            self.rate_limit_stats['last_detection'] = datetime.datetime.now().isoformat()
+            logger.info(f"📊 Rate limit détecté #{self.rate_limit_stats['detected_count']}")
+        elif action == 'closed':
+            self.rate_limit_stats['closed_count'] += 1
+        elif action == 'failed':
+            self.rate_limit_stats['failed_count'] += 1
+    
+    def get_rate_limit_stats(self) -> dict:
+        """
+        Récupère les statistiques de rate limiting.
+        
+        Returns:
+            dict: Statistiques complètes avec taux de succès
+        """
+        stats = self.rate_limit_stats.copy()
+        
+        # Calculer le taux de succès
+        total_attempts = stats['closed_count'] + stats['failed_count']
+        if total_attempts > 0:
+            stats['success_rate'] = (stats['closed_count'] / total_attempts) * 100
+        else:
+            stats['success_rate'] = 0.0
+        
+        return stats
+    
+    def reset_rate_limit_stats(self) -> None:
+        """
+        Réinitialise les statistiques de rate limiting.
+        """
+        self.rate_limit_stats = {
+            'detected_count': 0,
+            'closed_count': 0,
+            'failed_count': 0,
+            'last_detection': None
+        }
+        logger.info("📊 Statistiques de rate limiting réinitialisées")
+    
+    def should_stop_session(self) -> bool:
+        """
+        Détermine si la session doit être arrêtée en fonction du nombre de rate limits.
+        
+        Règle de sécurité: Arrêter si on détecte plus de 3 rate limits dans une session
+        pour éviter un bannissement permanent.
+        
+        Returns:
+            bool: True si la session doit être arrêtée
+        """
+        threshold = 3
+        detected = self.rate_limit_stats['detected_count']
+        
+        if detected >= threshold:
+            logger.error(f"🛑 SEUIL DE SÉCURITÉ ATTEINT: {detected} rate limits détectés (seuil: {threshold})")
+            logger.error("⚠️ Arrêt de la session pour éviter un bannissement permanent")
+            return True
+        
+        return False
 
 
 def create_problematic_page_detector(device, debug_mode: bool = False) -> ProblematicPageDetector:
