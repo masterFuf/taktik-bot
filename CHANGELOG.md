@@ -5,6 +5,16 @@ All notable changes to TAKTIK Instagram Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-12-02
+
+### Fixed
+- **Follower count parsing for large accounts**: Fixed parsing of follower counts with space before K/M suffix (e.g., "166 K" for 166,000 followers)
+  - Instagram displays large numbers with a space before the suffix on some devices/locales
+  - Previously, "166 K" was incorrectly parsed as 166 instead of 166,000
+  - This caused premature termination of follower scraping on accounts with thousands of followers
+
+---
+
 ## [1.1.1] - 2025-11-26
 
 ### Added
@@ -62,5 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **1.1.2** (2025-12-02): Fix follower count parsing for large accounts (K/M with space)
 - **1.1.1** (2025-11-26): Multi-target support, intelligent scrolling, automatic popup handling
 - **1.1.0**: Core automation features and workflows
