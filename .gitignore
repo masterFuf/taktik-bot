@@ -5,7 +5,7 @@ ENV/
 # Dossiers d'images de profil
 profile_images/
 
-# debug_ui
+debug_ui
 
 # Fichiers de configuration Python
 __pycache__/
