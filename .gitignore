@@ -5,7 +5,7 @@ ENV/
 # Dossiers d'images de profil
 profile_images/
 
-debug_ui
+# debug_ui
 
 # Fichiers de configuration Python
 __pycache__/
@@ -81,3 +81,4 @@ TODO_TIKTOK.md
 
 # Dossier de test personnel (non versionné)
 test_perso/
+ANTI_DETECTION_STRATEGY.md
