@@ -83,22 +83,7 @@ class StoryBusiness(BaseBusinessAction):
                     stats['stories_viewed'] += 1
                     
                     # Record story view in database
-                    try:
-                        from ..common.database_helpers import DatabaseHelpers
-                        account_id = self._get_account_id()
-                        session_id = self._get_session_id()
-                        
-                        if account_id:
-                            DatabaseHelpers.record_individual_actions(
-                                username=username,
-                                action_type='STORY_WATCH',
-                                count=1,
-                                account_id=account_id,
-                                session_id=session_id
-                            )
-                            self.logger.debug(f"Story view recorded for @{username}")
-                    except Exception as e:
-                        self.logger.error(f"Failed to record story view: {e}")
+                    self._record_action(username, 'STORY_WATCH', 1)
                     
                     if random.random() < config.get('like_probability', 0.3):
                         if self.click_actions.like_story():
@@ -106,22 +91,7 @@ class StoryBusiness(BaseBusinessAction):
                             self.logger.debug(f"Story {i+1} liked")
                             
                             # Record story like in database
-                            try:
-                                from ..common.database_helpers import DatabaseHelpers
-                                account_id = self._get_account_id()
-                                session_id = self._get_session_id()
-                                
-                                if account_id:
-                                    DatabaseHelpers.record_individual_actions(
-                                        username=username,
-                                        action_type='STORY_LIKE',
-                                        count=1,
-                                        account_id=account_id,
-                                        session_id=session_id
-                                    )
-                                    self.logger.debug(f"Story like recorded for @{username}")
-                            except Exception as e:
-                                self.logger.error(f"Failed to record story like: {e}")
+                            self._record_action(username, 'STORY_LIKE', 1)
                     
                     if i < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story():

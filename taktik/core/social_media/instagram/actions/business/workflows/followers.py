@@ -812,7 +812,7 @@ class FollowerBusiness(BaseBusinessAction):
                 stories_liked = 0
                 
                 for _ in range(3):
-                    time.sleep(random.uniform(2, 5))
+                    self._human_like_delay(2, 5)
                     stories_viewed += 1
                     
                     if like_stories:

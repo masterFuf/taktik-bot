@@ -57,22 +57,7 @@ class InteractionBusiness(BaseBusinessAction):
                     self.logger.info(f"Follow successful: @{username}")
                     
                     # Record follow in database
-                    try:
-                        from ..common.database_helpers import DatabaseHelpers
-                        account_id = self._get_account_id()
-                        session_id = self._get_session_id()
-                        
-                        if account_id:
-                            DatabaseHelpers.record_individual_actions(
-                                username=username,
-                                action_type='FOLLOW',
-                                count=1,
-                                account_id=account_id,
-                                session_id=session_id
-                            )
-                            self.logger.debug(f"Follow recorded in database for @{username}")
-                    except Exception as e:
-                        self.logger.error(f"Failed to record follow in database: {e}")
+                    self._record_action(username, 'FOLLOW', 1)
                 else:
                     result['reason'] = f'Button state unchanged: {final_state}'
                     self.logger.warning(f"Follow uncertain: @{username}")
@@ -115,13 +100,7 @@ class InteractionBusiness(BaseBusinessAction):
             if self.click_actions.click_unfollow_button():
                 self._human_like_delay('click')
                 
-                confirmation_selectors = [
-                    '//*[contains(@text, "Ne plus suivre")]',
-                    '//*[contains(@text, "Unfollow")]',
-                    '//*[contains(@text, "Confirmer")]'
-                ]
-                
-                if self._find_and_click(confirmation_selectors, timeout=2):
+                if self._find_and_click(self.popup_selectors.unfollow_confirmation_selectors, timeout=2):
                     self._human_like_delay('click')
                 
                 final_state = self.click_actions.get_follow_button_state()
@@ -133,22 +112,7 @@ class InteractionBusiness(BaseBusinessAction):
                     self.logger.info(f"Unfollow successful: @{username}")
                     
                     # Record unfollow in database
-                    try:
-                        from ..common.database_helpers import DatabaseHelpers
-                        account_id = self._get_account_id()
-                        session_id = self._get_session_id()
-                        
-                        if account_id:
-                            DatabaseHelpers.record_individual_actions(
-                                username=username,
-                                action_type='UNFOLLOW',
-                                count=1,
-                                account_id=account_id,
-                                session_id=session_id
-                            )
-                            self.logger.debug(f"Unfollow recorded in database for @{username}")
-                    except Exception as e:
-                        self.logger.error(f"Failed to record unfollow in database: {e}")
+                    self._record_action(username, 'UNFOLLOW', 1)
                 else:
                     result['reason'] = f'Button state unchanged: {final_state}'
                     self.logger.warning(f"Unfollow uncertain: @{username}")
@@ -390,16 +354,7 @@ class InteractionBusiness(BaseBusinessAction):
                 result['reason'] = 'Failed to type comment'
                 return result
             
-            send_button_selectors = [
-                '//*[contains(@content-desc, "Publier")]',
-                '//*[contains(@content-desc, "Post")]',
-                '//*[contains(@text, "Publier")]',
-                '//*[contains(@text, "Post")]',
-                '//*[contains(@content-desc, "Share")]',
-                '//*[contains(@text, "Share")]'
-            ]
-            
-            if self._find_and_click(send_button_selectors, timeout=3):
+            if self._find_and_click(self.post_selectors.send_post_button_selectors, timeout=3):
                 self._human_like_delay('click')
                 result['success'] = True
                 result['reason'] = 'Comment posted successfully'

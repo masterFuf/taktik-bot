@@ -19,84 +19,61 @@ class ScrollActions(BaseAction):
             self.screen_width = 1080
             self.screen_height = 1920
                 
-    def scroll_down(self, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
+    _SPEED_MAP = {'slow': 1.0, 'normal': 0.5, 'fast': 0.2}
+    
+    def _scroll(self, direction: str, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
+        """
+        Generic scroll method.
+        
+        Args:
+            direction: 'up', 'down', 'left', 'right'
+            distance_ratio: Scroll distance as ratio of screen size
+            speed: 'slow', 'normal', 'fast'
+            
+        Returns:
+            True if scroll successful, False otherwise
+        """
         try:
+            duration = self._SPEED_MAP.get(speed, 0.5)
             center_x = self.screen_width // 2
-            start_y = int(self.screen_height * 0.7)
-            end_y = int(start_y - (self.screen_height * distance_ratio))
+            center_y = self.screen_height // 2
             
-            duration_map = {'slow': 1.0, 'normal': 0.5, 'fast': 0.2}
-            duration = duration_map.get(speed, 0.5)
+            if direction == 'down':
+                start_x, start_y = center_x, int(self.screen_height * 0.7)
+                end_x, end_y = center_x, int(start_y - (self.screen_height * distance_ratio))
+            elif direction == 'up':
+                start_x, start_y = center_x, int(self.screen_height * 0.3)
+                end_x, end_y = center_x, int(start_y + (self.screen_height * distance_ratio))
+            elif direction == 'left':
+                start_x, start_y = int(self.screen_width * 0.7), center_y
+                end_x, end_y = int(start_x - (self.screen_width * distance_ratio)), center_y
+            elif direction == 'right':
+                start_x, start_y = int(self.screen_width * 0.3), center_y
+                end_x, end_y = int(start_x + (self.screen_width * distance_ratio)), center_y
+            else:
+                self.logger.error(f"Invalid scroll direction: {direction}")
+                return False
             
-            self.logger.debug(f"📱 Scrolling down: {start_y} → {end_y} (speed: {speed})")
-            
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration)
+            self.logger.debug(f"📱 Scrolling {direction}: ({start_x}, {start_y}) → ({end_x}, {end_y}) (speed: {speed})")
+            self.device.swipe_coordinates(start_x, start_y, end_x, end_y, duration)
             self._human_like_delay('scroll')
             return True
             
         except Exception as e:
-            self.logger.error(f"Error scrolling down: {e}")
+            self.logger.error(f"Error scrolling {direction}: {e}")
             return False
+    
+    def scroll_down(self, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
+        return self._scroll('down', distance_ratio, speed)
     
     def scroll_up(self, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
-        try:
-            center_x = self.screen_width // 2
-            start_y = int(self.screen_height * 0.3)
-            end_y = int(start_y + (self.screen_height * distance_ratio))
-            
-            duration_map = {'slow': 1.0, 'normal': 0.5, 'fast': 0.2}
-            duration = duration_map.get(speed, 0.5)
-            
-            self.logger.debug(f"📱 Scrolling up: {start_y} → {end_y} (speed: {speed})")
-            
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration)
-            
-            self._human_like_delay('scroll')
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error scrolling up: {e}")
-            return False
+        return self._scroll('up', distance_ratio, speed)
     
     def scroll_left(self, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
-        try:
-            center_y = self.screen_height // 2
-            start_x = int(self.screen_width * 0.7)
-            end_x = int(start_x - (self.screen_width * distance_ratio))
-            
-            duration_map = {'slow': 1.0, 'normal': 0.5, 'fast': 0.2}
-            duration = duration_map.get(speed, 0.5)
-            
-            self.logger.debug(f"📱 Scrolling left: {start_x} → {end_x} (speed: {speed})")
-            
-            self.device.swipe_coordinates(start_x, center_y, end_x, center_y, duration)
-            
-            self._human_like_delay('scroll')
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error scrolling left: {e}")
-            return False
+        return self._scroll('left', distance_ratio, speed)
     
     def scroll_right(self, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
-        try:
-            center_y = self.screen_height // 2
-            start_x = int(self.screen_width * 0.3)
-            end_x = int(start_x + (self.screen_width * distance_ratio))
-            
-            duration_map = {'slow': 1.0, 'normal': 0.5, 'fast': 0.2}
-            duration = duration_map.get(speed, 0.5)
-            
-            self.logger.debug(f"📱 Scrolling right: {start_x} → {end_x} (speed: {speed})")
-            
-            self.device.swipe_coordinates(start_x, center_y, end_x, center_y, duration)
-            
-            self._human_like_delay('scroll')
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error scrolling right: {e}")
-            return False
+        return self._scroll('right', distance_ratio, speed)
     
     def scroll_followers_list_down(self) -> bool:
         self.logger.debug("👥 Scrolling followers list down")

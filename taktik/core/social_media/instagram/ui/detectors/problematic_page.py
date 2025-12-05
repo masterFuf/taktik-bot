@@ -35,6 +35,38 @@ class ProblematicPageDetector:
         # Utiliser les patterns centralisés depuis selectors.py
         self.detection_patterns = PROBLEMATIC_PAGE_SELECTORS.detection_patterns
     
+    def _get_ui_content(self, context: str = "detection") -> Optional[str]:
+        """Get UI content based on debug mode."""
+        if self.debug_mode:
+            dump_path = dump_ui_hierarchy(self.device, "debug_ui/problematic_pages")
+            if not dump_path:
+                logger.warning(f"Impossible de dumper l'UI pour {context}")
+                return None
+            with open(dump_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        else:
+            try:
+                return self.device.dump_hierarchy()
+            except Exception as e:
+                logger.error(f"Erreur lors du dump UI pour {context}: {e}")
+                return None
+    
+    def _click_button_from_selectors(self, selectors: list, button_name: str) -> bool:
+        """Try to click a button from a list of selectors."""
+        logger.debug(f"Recherche du bouton '{button_name}' avec {len(selectors)} sélecteurs")
+        for selector in selectors:
+            try:
+                logger.debug(f"Essai du sélecteur: {selector}")
+                element = self.device(**selector)
+                if element.exists():
+                    logger.info(f"Bouton {button_name} trouvé avec sélecteur: {selector}")
+                    element.click()
+                    return True
+            except Exception as e:
+                logger.debug(f"Erreur avec sélecteur {selector}: {e}")
+        logger.warning(f"Bouton '{button_name}' non trouvé après {len(selectors)} tentatives")
+        return False
+    
     def detect_and_handle_problematic_pages(self) -> dict:
         """
         Détecte et ferme automatiquement les pages problématiques.
@@ -51,23 +83,9 @@ class ProblematicPageDetector:
             logger.info("🔍 Vérification des pages problématiques...")
             logger.debug(f"Mode debug activé: {self.debug_mode}")
             
-            # Dump de l'UI actuelle pour analyse (seulement si debug activé)
-            if self.debug_mode:
-                dump_path = dump_ui_hierarchy(self.device, "debug_ui/problematic_pages")
-                if not dump_path:
-                    logger.warning("Impossible de dumper l'UI pour la détection")
-                    return False
-                
-                # Lire le contenu du dump
-                with open(dump_path, 'r', encoding='utf-8') as f:
-                    ui_content = f.read()
-            else:
-                # En mode production, utiliser directement l'API uiautomator2
-                try:
-                    ui_content = self.device.dump_hierarchy()
-                except Exception as e:
-                    logger.error(f"Erreur lors du dump UI: {e}")
-                    return False
+            ui_content = self._get_ui_content("detection")
+            if not ui_content:
+                return False
             
             # Vérifier chaque type de page problématique
             for page_type, config in self.detection_patterns.items():
@@ -213,16 +231,9 @@ class ProblematicPageDetector:
                             break
                 
                 elif method == 'x_button':
-                    # Chercher un bouton X ou close avec uiautomator2
-                    button_found = False
-                    for selector in PROBLEMATIC_PAGE_SELECTORS.close_button_selectors:
-                        element = self.device(**selector)
-                        if element.exists():
-                            element.click()
-                            button_found = True
-                            break
-                    
-                    if not button_found:
+                    if not self._click_button_from_selectors(
+                        PROBLEMATIC_PAGE_SELECTORS.close_button_selectors, "X/Close"
+                    ):
                         continue
                             
                 elif method == 'tap_outside':
@@ -288,48 +299,21 @@ class ProblematicPageDetector:
                         self.device.swipe(handle_x, handle_y, handle_x, end_y, duration=0.3)
                 
                 elif method == 'terminate_button':
-                    # Chercher et cliquer sur le bouton "Terminé"
-                    button_found = False
-                    for selector in PROBLEMATIC_PAGE_SELECTORS.terminate_button_selectors:
-                        element = self.device(**selector)
-                        if element.exists():
-                            logger.info(f"Bouton trouvé avec sélecteur: {selector}")
-                            element.click()
-                            button_found = True
-                            break
-                    
-                    if not button_found:
-                        logger.warning("Bouton 'Terminé' non trouvé")
+                    if not self._click_button_from_selectors(
+                        PROBLEMATIC_PAGE_SELECTORS.terminate_button_selectors, "Terminé"
+                    ):
                         continue
                 
                 elif method == 'ok_button':
-                    # Chercher et cliquer sur le bouton "OK" pour les popups de limitation
-                    button_found = False
-                    for selector in PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors:
-                        element = self.device(**selector)
-                        if element.exists():
-                            logger.info(f"Bouton OK trouvé avec sélecteur: {selector}")
-                            element.click()
-                            button_found = True
-                            break
-                    
-                    if not button_found:
-                        logger.warning("Bouton 'OK' non trouvé")
+                    if not self._click_button_from_selectors(
+                        PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors, "OK"
+                    ):
                         continue
                 
                 elif method == 'tap_background_dimmer':
-                    # Cliquer sur le background dimmer pour fermer la bottom sheet
-                    button_found = False
-                    for selector in PROBLEMATIC_PAGE_SELECTORS.background_dimmer_selectors:
-                        element = self.device(**selector)
-                        if element.exists():
-                            logger.info(f"Background dimmer trouvé avec sélecteur: {selector}")
-                            element.click()
-                            button_found = True
-                            break
-                    
-                    if not button_found:
-                        logger.warning("Background dimmer non trouvé")
+                    if not self._click_button_from_selectors(
+                        PROBLEMATIC_PAGE_SELECTORS.background_dimmer_selectors, "Background dimmer"
+                    ):
                         continue
                 
                 # Attendre moins longtemps pour accélérer le processus
@@ -360,22 +344,9 @@ class ProblematicPageDetector:
             bool: True si la page est fermée
         """
         try:
-            # Vérification optimisée selon le mode
-            if self.debug_mode:
-                # En mode debug, sauvegarder un dump pour analyse
-                dump_path = dump_ui_hierarchy(self.device, "debug_ui/problematic_pages")
-                if not dump_path:
-                    return False
-                
-                with open(dump_path, 'r', encoding='utf-8') as f:
-                    ui_content = f.read()
-            else:
-                # En mode production, utiliser directement l'API sans sauvegarder
-                try:
-                    ui_content = self.device.dump_hierarchy()
-                except Exception as e:
-                    logger.error(f"Erreur lors du dump UI pour vérification: {e}")
-                    return False
+            ui_content = self._get_ui_content("vérification")
+            if not ui_content:
+                return False
             
             # Vérifier que les indicateurs ne sont plus présents
             config = self.detection_patterns[page_type]

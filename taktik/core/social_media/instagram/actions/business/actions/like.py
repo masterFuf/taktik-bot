@@ -106,7 +106,7 @@ class LikeBusiness(BaseBusinessAction):
                 self.logger.warning(f"Stats NOT recorded - Reason: session_manager={self.session_manager}, posts_liked={posts_liked}")
             
             if posts_liked > 0:
-                self._record_individual_actions(username, 'LIKE', posts_liked)
+                self._record_action(username, 'LIKE', posts_liked)
             
             stats['success'] = stats['posts_liked'] > 0
             self.logger.info(f"Likes completed for @{username}: {stats['posts_liked']} posts liked")
@@ -285,7 +285,7 @@ class LikeBusiness(BaseBusinessAction):
                     if not success:
                         break
                 
-                time.sleep(random.uniform(0.5, 1.0))
+                self._human_like_delay(0.5, 1.0)
             
             self._return_to_profile_from_post()
             
@@ -331,24 +331,11 @@ class LikeBusiness(BaseBusinessAction):
             self.logger.debug(f"Error checking if liked: {e}")
             return False
     
-    def _human_like_delay(self, action_type: str = 'default'):
-        delays = {
-            'tab_switch': (0.8, 1.5),
-            'scroll': (0.5, 1.2),
-            'click': (0.3, 0.8),
-            'default': (0.5, 1.0)
-        }
-        
-        delay_range = delays.get(action_type, delays['default'])
-        delay = random.uniform(*delay_range)
-        time.sleep(delay)
-
     def _open_first_post_of_profile(self) -> bool:
         try:
             self.logger.info("Opening first post of profile...")
             
-            posts_selector = '//*[@resource-id="com.instagram.android:id/image_button"]'
-            posts = self.device.xpath(posts_selector).all()
+            posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
             
             if not posts:
                 self.logger.error("No posts found in grid")
@@ -452,144 +439,13 @@ class LikeBusiness(BaseBusinessAction):
     
     
     def _extract_likes_count_from_ui(self) -> int:
-        try:
-            try:
-                like_count_buttons = self.device.xpath(self.post_selectors.like_count_button_selector).all()
-                
-                for button in like_count_buttons:
-                    try:
-                        button_info = button.info
-                        text = button_info.get('text', '').strip()
-                        bounds = button_info.get('bounds', {})
-                        
-                        if text and re.match(r'^\d+(?:[,.]\d+)?[KkMmBb]?$', text):
-                            if isinstance(bounds, dict):
-                                top = bounds.get('top', 0)
-                                if 200 <= top <= 2000:
-                                    likes_count = self._parse_instagram_number(text)
-                                    if likes_count >= 0:
-                                        self.logger.debug(f"Likes extracted from button: {likes_count} (text: '{text}')")
-                                        return likes_count
-                    except Exception as e:
-                        continue
-            except Exception as e:
-                self.logger.debug(f"Button method failed: {e}")
-            
-            all_photo_elements = self.device.xpath(self.post_selectors.photo_imageview_selector).all()
-            self.logger.debug(f"Fallback content-desc method: Found {len(all_photo_elements)} photo elements")
-            
-            for i, element in enumerate(all_photo_elements):
-                try:
-                    element_info = element.info
-                    content_desc = element_info.get('contentDescription', '')
-                    
-                    apostrophe_variants = ["J'aime", "J'aime", "J`aime", "Jaime", "J'aime"]
-                    has_jaime = any(variant in content_desc for variant in apostrophe_variants)
-                    has_likes = 'likes' in content_desc
-                    has_aime = 'aime' in content_desc.lower()
-                    
-                    if content_desc and (has_jaime or has_likes or has_aime):
-                        like_match = re.search(r"(\d+(?:\s\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s*J[''`'ʼ]?aime", content_desc, re.IGNORECASE)
-                        
-                        if not like_match:
-                            like_match = re.search(r"(\d+(?:\s\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s+aime", content_desc, re.IGNORECASE)
-                        
-                        if not like_match:
-                            like_match = re.search(r"(\d+(?:\s\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s+likes?", content_desc, re.IGNORECASE)
-                        
-                        if like_match:
-                            likes_text = like_match.group(1)
-                            likes_count = self._parse_instagram_number(likes_text)
-                            if likes_count >= 0:
-                                self.logger.debug(f"Likes extracted from content-desc: {likes_count}")
-                                return likes_count
-                except Exception as e:
-                    self.logger.debug(f"Error with photo element {i+1}: {e}")
-                    continue
-            
-            self.logger.debug("Likes count not found with any method")
-            return 0
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting likes: {e}")
-            return 0
+        """Delegate to ui_extractors for likes extraction."""
+        return self.ui_extractors.extract_likes_count_from_ui()
     
     def _extract_comments_count_from_ui(self) -> int:
-        try:
-            all_photo_elements = self.device.xpath(self.post_selectors.photo_imageview_selector).all()
-            
-            for i, element in enumerate(all_photo_elements):
-                try:
-                    element_info = element.info
-                    content_desc = element_info.get('contentDescription', '')
-                    
-                    if content_desc and ('commentaire' in content_desc or 'comment' in content_desc):
-                        comment_match = re.search(r'(\d+(?:\s?\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s*(?:commentaire|comment)', content_desc)
-                        if comment_match:
-                            comments_text = comment_match.group(1)
-                            comments_count = self._parse_instagram_number(comments_text)
-                            if comments_count >= 0:
-                                self.logger.debug(f"Comments extracted: {comments_count}")
-                                return comments_count
-                except Exception as e:
-                    self.logger.debug(f"Error with photo element {i+1}: {e}")
-                    continue
-            
-            self.logger.debug("Comments count not found")
-            return 0
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting comments: {e}")
-            return 0
+        """Delegate to ui_extractors for comments extraction."""
+        return self.ui_extractors.extract_comments_count_from_ui()
     
     def _is_current_post_reel(self) -> bool:
-        try:
-            reel_indicators = self.post_selectors.reel_indicators_like_business
-            
-            for indicator in reel_indicators:
-                if self.device.xpath(indicator).exists:
-                    return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.debug(f"Error detecting Reel: {e}")
-            return False
-    
-    def _parse_instagram_number(self, text: str) -> int:
-        """Parse Instagram number - delegates to parse_number_from_text"""
-        from ....ui.extractors import parse_number_from_text
-        return parse_number_from_text(text)
-    
-    def _record_individual_actions(self, username: str, action_type: str, count: int):
-        self.logger.debug(f"[DEBUG LIKE] _record_individual_actions called - username: {username}, action_type: {action_type}, count: {count}")
-        try:
-            account_id = getattr(self.automation, 'active_account_id', None) if hasattr(self, 'automation') and self.automation else None
-            self.logger.debug(f"[DEBUG LIKE] account_id retrieved: {account_id}")
-            self.logger.debug(f"[DEBUG LIKE] self.automation exists: {hasattr(self, 'automation') and self.automation is not None}")
-            if account_id:
-                session_id = getattr(self.automation, 'current_session_id', None) if hasattr(self, 'automation') and self.automation else None
-                self.logger.debug(f"[DEBUG LIKE] session_id retrieved: {session_id}")
-                
-                for i in range(count):
-                    content = f"Action {action_type} on profile @{username}"
-                    from taktik.core.database import get_db_service
-                    success = get_db_service().record_interaction(
-                        account_id=account_id,
-                        username=username,
-                        interaction_type=action_type,
-                        success=True,
-                        content=content,
-                        session_id=session_id
-                    )
-                    if success:
-                        self.logger.debug(f"Action {action_type} #{i+1} recorded for @{username}")
-                    else:
-                        self.logger.warning(f"Failed to record {action_type} #{i+1} for @{username}")
-            else:
-                self.logger.warning(f"[LIKE] account_id is None - unable to record {action_type} actions for @{username}")
-                self.logger.warning(f"[LIKE] self.automation: {self.automation}")
-                if hasattr(self, 'automation') and self.automation:
-                    self.logger.warning(f"[LIKE] self.automation.active_account_id: {getattr(self.automation, 'active_account_id', 'ATTRIBUTE NOT FOUND')}")
-        except Exception as e:
-            self.logger.error(f"Error recording {action_type} actions for @{username}: {e}")
+        """Delegate to detection_actions for reel detection."""
+        return self.detection_actions.is_reel_post()

@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from loguru import logger
 
+from ...ui.selectors import CONTENT_CREATION_SELECTORS
+
 
 class ContentWorkflow:
     """Workflow pour publier du contenu sur Instagram"""
@@ -25,6 +27,7 @@ class ContentWorkflow:
         self.detection_actions = detection_actions
         self.device = device_manager.device
         self.logger = logger
+        self.content_selectors = CONTENT_CREATION_SELECTORS
     
     def post_single_photo(
         self,
@@ -221,7 +224,7 @@ class ContentWorkflow:
             self.logger.debug("Opening content creation interface...")
             
             # Cliquer sur le bouton "+" dans la tab bar
-            creation_tab = self.device(resourceId="com.instagram.android:id/creation_tab")
+            creation_tab = self.device(resourceId=self.content_selectors.creation_tab)
             if creation_tab.exists(timeout=5):
                 creation_tab.click()
                 time.sleep(2)
@@ -309,7 +312,7 @@ class ContentWorkflow:
             self.logger.debug("Selecting image from gallery...")
             time.sleep(3)
             
-            gallery_image = self.device(resourceId="com.instagram.android:id/gallery_grid_item_thumbnail")
+            gallery_image = self.device(resourceId=self.content_selectors.gallery_grid_item)
             if gallery_image.exists(timeout=5):
                 self.logger.debug("Found image (method 1: gallery_grid_item)")
                 gallery_image.click()
@@ -317,7 +320,7 @@ class ContentWorkflow:
                 self.logger.debug("✅ Image selected from gallery")
                 return True
             
-            first_image = self.device(className="android.view.ViewGroup", clickable=True).child(resourceId="com.instagram.android:id/gallery_grid_item_thumbnail")
+            first_image = self.device(className="android.view.ViewGroup", clickable=True).child(resourceId=self.content_selectors.gallery_grid_item)
             if first_image.exists(timeout=5):
                 self.logger.debug("Found image (method 2: ViewGroup child)")
                 first_image.click()
@@ -338,7 +341,7 @@ class ContentWorkflow:
             self.logger.debug("Checking for popups...")
             time.sleep(2)
             
-            ok_button = self.device(resourceId="com.instagram.android:id/primary_button")
+            ok_button = self.device(resourceId=self.content_selectors.primary_button)
             if ok_button.exists(timeout=3):
                 self.logger.debug("Found popup button (method 1: primary_button)")
                 ok_button.click()
@@ -346,7 +349,7 @@ class ContentWorkflow:
                 self.logger.debug("✅ Popup closed")
                 return True
             
-            ok_button = self.device(resourceId="com.instagram.android:id/bb_primary_action")
+            ok_button = self.device(resourceId=self.content_selectors.bb_primary_action)
             if ok_button.exists(timeout=3):
                 self.logger.debug("Found popup button (method 2: bb_primary_action)")
                 ok_button.click()
@@ -376,7 +379,7 @@ class ContentWorkflow:
             self.logger.debug("Clicking Next button...")
             time.sleep(3)
             
-            next_button = self.device(resourceId="com.instagram.android:id/next_button_textview")
+            next_button = self.device(resourceId=self.content_selectors.next_button)
             if next_button.exists(timeout=5):
                 self.logger.debug("Found Next button (method 1: resourceId)")
                 next_button.click()
@@ -427,9 +430,9 @@ class ContentWorkflow:
             if not full_text:
                 return True
             
-            caption_field = self.device(resourceId="com.instagram.android:id/caption_text_view")
+            caption_field = self.device(resourceId=self.content_selectors.caption_text_view)
             if not caption_field.exists(timeout=5):
-                caption_field = self.device(resourceId="com.instagram.android:id/caption_input_text_view")
+                caption_field = self.device(resourceId=self.content_selectors.caption_input_text_view)
             if not caption_field.exists(timeout=5):
                 caption_field = self.device(text="Write a caption...")
             

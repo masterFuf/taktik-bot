@@ -14,75 +14,51 @@ class DetectionActions(BaseAction):
         self.selectors = PROFILE_SELECTORS
         self.post_selectors = POST_SELECTORS
     
+    def _detect_element(self, selectors, element_name: str, log_found: bool = False) -> bool:
+        """
+        Generic method to detect if an element is present.
+        
+        Args:
+            selectors: Selector or list of selectors
+            element_name: Name for logging
+            log_found: Whether to log when found
+            
+        Returns:
+            True if element found, False otherwise
+        """
+        self.logger.debug(f"Detecting {element_name}")
+        is_present = self._is_element_present(selectors)
+        
+        if log_found and is_present:
+            self.logger.debug(f"✅ {element_name} detected")
+        elif log_found:
+            self.logger.debug(f"❌ {element_name} not found")
+            
+        return is_present
+    
     def is_private_account(self) -> bool:
-        self.logger.debug("Detecting private account")
-        
-        private_message_selectors = [
-            '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="This account is private"]',
-            '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="Ce compte est privé"]',
-            '//*[contains(@text, "This account is private")]',
-            '//*[contains(@text, "Ce compte est privé")]',
-            '//*[contains(@content-desc, "This account is private")]',
-            '//*[contains(@content-desc, "Ce compte est privé")]'
-        ]
-        
-        if self._is_element_present(private_message_selectors):
-            self.logger.debug("✅ Private account detected via 'This account is private' message")
-            return True
-        
-        self.logger.debug("❌ No private account indicator found")
-        return False
+        return self._detect_element(self.detection_selectors.private_account_indicators, "Private account", log_found=True)
     
     def is_verified_account(self) -> bool:
-        self.logger.debug("Detecting verified account")
-        verified_selectors = [
-            '//*[contains(@content-desc, "Verified")]',
-            '//*[contains(@content-desc, "Vérifié")]',
-            '//*[@resource-id="com.instagram.android:id/verified_badge"]'
-        ]
-        return self._is_element_present(verified_selectors)
+        return self._detect_element(self.detection_selectors.verified_account_indicators, "Verified account")
     
     def is_business_account(self) -> bool:
-        self.logger.debug("Detecting business account")
-        business_selectors = [
-            '//*[contains(@resource-id, "profile_header_business_category")]',
-            '//*[contains(@text, "Professional")]',
-            '//*[contains(@text, "Professionnel")]'
-        ]
-        return self._is_element_present(business_selectors)
+        return self._detect_element(self.detection_selectors.business_account_indicators, "Business account")
     
     def get_username_from_profile(self) -> Optional[str]:
         try:
-            username_element = self.device.xpath(
-                '//*[@resource-id="com.instagram.android:id/action_bar_large_title_auto_size"]'
-            )
-            
-            if username_element.exists:
-                username = username_element.get_text().strip()
-                if username:
-                    self.logger.debug(f"Username found: {username}")
-                    return username
-            
-            app_id = 'com.instagram.android'
-            username_selectors = [
-                f'//android.widget.TextView[contains(@resource-id, "{app_id}:id/action_bar_title")]',
-                f'//android.widget.TextView[contains(@resource-id, "{app_id}:id/action_bar_large_title_auto_size")]',
-                f'//android.widget.TextView[contains(@resource-id, "{app_id}:id/row_profile_header_username")]',
-                '//android.widget.TextView[contains(@text, "@")]',
-            ]
-            
-            for selector in username_selectors:
+            # Try main username selectors
+            for selector in self.selectors.username:
                 element = self.device.xpath(selector)
                 if element.exists:
                     username = element.get_text().strip()
                     if username:
                         username = username.replace('@', '')
-                        self.logger.debug(f"Username found with alternative selector: {username}")
+                        self.logger.debug(f"Username found: {username}")
                         return username
             
-            username_element = self.device.xpath(
-                '//*[contains(@content-desc, "@")]'
-            )
+            # Try content-desc fallback
+            username_element = self.device.xpath(self.selectors.username_content_desc)
             if username_element.exists:
                 username = username_element.get_attribute('content-desc', '').strip()
                 if username and '@' in username:
@@ -98,14 +74,17 @@ class DetectionActions(BaseAction):
             return None
     
     def get_full_name_from_profile(self) -> Optional[str]:
-        full_name_selectors = [
-            '//*[@resource-id="com.instagram.android:id/profile_header_full_name"]',
-            '//*[contains(@resource-id, "full_name")]'
-        ]
-        return self._get_text_from_element(full_name_selectors)
+        return self._get_text_from_element(self.selectors.full_name)
     
     def get_biography_from_profile(self) -> Optional[str]:
         return self._get_text_from_element(self.selectors.bio)
+    
+    def _get_count_from_selectors(self, selectors) -> Optional[int]:
+        """Generic method to get count from selectors."""
+        text = self._get_text_from_element(selectors)
+        if text:
+            return self._extract_number_from_text(text)
+        return None
     
     def get_followers_count_text(self) -> Optional[str]:
         return self._get_text_from_element(self.selectors.followers_count)
@@ -117,28 +96,19 @@ class DetectionActions(BaseAction):
         return self._get_text_from_element(self.selectors.posts_count)
     
     def get_followers_count(self) -> Optional[int]:
-        text = self.get_followers_count_text()
-        if text:
-            return self._extract_number_from_text(text)
-        return None
+        return self._get_count_from_selectors(self.selectors.followers_count)
     
     def get_following_count(self) -> Optional[int]:
-        text = self.get_following_count_text()
-        if text:
-            return self._extract_number_from_text(text)
-        return None
+        return self._get_count_from_selectors(self.selectors.following_count)
     
     def get_posts_count(self) -> Optional[int]:
-        text = self.get_posts_count_text()
-        if text:
-            return self._extract_number_from_text(text)
-        return None
+        return self._get_count_from_selectors(self.selectors.posts_count)
     
     def is_on_home_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.home_screen_indicators)
+        return self._detect_element(self.detection_selectors.home_screen_indicators, "Home screen")
     
     def is_on_search_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.search_screen_indicators)
+        return self._detect_element(self.detection_selectors.search_screen_indicators, "Search screen")
     
     def is_on_profile_screen(self) -> bool:
         is_profile = self._is_element_present(self.detection_selectors.profile_screen_indicators)
@@ -167,33 +137,20 @@ class DetectionActions(BaseAction):
         return is_own_profile
     
     def is_followers_list_open(self) -> bool:
-        follow_list_selectors = [
-            '//*[@resource-id="com.instagram.android:id/follow_list_container"]',
-            '//*[contains(@resource-id, "follow_list")]',
-            '//*[contains(@content-desc, "followers") or contains(@content-desc, "following")]'
-        ]
-        return self._is_element_present(follow_list_selectors)
+        return self._detect_element(self.detection_selectors.followers_list_indicators, "Followers list")
     
     def is_following_list_open(self) -> bool:
         return self.is_followers_list_open()
     
     def is_post_grid_visible(self) -> bool:
-        post_grid_selectors = [
-            '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]',
-            '//*[contains(@resource-id, "recycler_view")]'
-        ]
-        return self._is_element_present(post_grid_selectors)
+        return self._detect_element(self.detection_selectors.post_grid_visibility_indicators, "Post grid")
     
     def is_story_viewer_open(self) -> bool:
-        return self._is_element_present(self.detection_selectors.story_viewer_indicators)
+        return self._detect_element(self.detection_selectors.story_viewer_indicators, "Story viewer")
     
     def count_visible_posts(self) -> int:
         count = 0
-        post_thumbnail_selectors = [
-            '//*[@resource-id="com.instagram.android:id/image_button"]',
-            '//android.widget.ImageView[contains(@resource-id, "image")]'
-        ]
-        for selector in post_thumbnail_selectors:
+        for selector in self.detection_selectors.post_thumbnail_selectors:
             try:
                 elements = self.device.xpath(selector)
                 if elements.exists:
@@ -261,11 +218,7 @@ class DetectionActions(BaseAction):
     def extract_usernames_from_follow_list(self) -> List[str]:
         usernames = []
         
-        follow_list_username_selectors = [
-            '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
-            '//*[contains(@resource-id, "username")]'
-        ]
-        for selector in follow_list_username_selectors:
+        for selector in self.detection_selectors.follow_list_username_selectors:
             try:
                 elements = self.device.xpath(selector)
                 if elements.exists:
@@ -303,14 +256,13 @@ class DetectionActions(BaseAction):
         return errors
     
     def is_rate_limited(self) -> bool:
-        is_limited = self._is_element_present(self.detection_selectors.rate_limit_indicators)
+        is_limited = self._detect_element(self.detection_selectors.rate_limit_indicators, "Rate limit")
         if is_limited:
-            self.logger.warning("Rate limit detected")
-        
+            self.logger.warning("Rate limit detected!")
         return is_limited
     
     def is_login_required(self) -> bool:
-        return self._is_element_present(self.detection_selectors.login_required_indicators)
+        return self._detect_element(self.detection_selectors.login_required_indicators, "Login required")
     
     def detect_popup_or_modal(self) -> Optional[str]:
         for popup_type, selector in self.detection_selectors.popup_types.items():
@@ -336,9 +288,10 @@ class DetectionActions(BaseAction):
         }
     
     def is_post_liked(self) -> bool:
-        self.logger.debug("❤️ Checking if post is already liked")
-        return self._is_element_present(self.detection_selectors.liked_button_indicators)
+        return self._detect_element(self.detection_selectors.liked_button_indicators, "Liked button")
     
     def is_on_post_screen(self) -> bool:
-        self.logger.debug("📱 Checking if on post screen")
-        return self._is_element_present(self.detection_selectors.post_screen_indicators)
+        return self._detect_element(self.detection_selectors.post_screen_indicators, "Post screen")
+    
+    def is_reel_post(self) -> bool:
+        return self._detect_element(self.detection_selectors.reel_indicators, "Reel post")

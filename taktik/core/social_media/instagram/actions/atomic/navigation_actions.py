@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS
+from ...ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
 from ...ui.detectors.problematic_page import ProblematicPageDetector
 
 
@@ -18,6 +18,7 @@ class NavigationActions(BaseAction):
         self.logger = logger.bind(module="instagram-navigation-atomic")
         self.detection_selectors = DETECTION_SELECTORS
         self.selectors = NAVIGATION_SELECTORS
+        self.profile_selectors = PROFILE_SELECTORS
         self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
     
     def _get_device_serial(self) -> str:
@@ -37,25 +38,37 @@ class NavigationActions(BaseAction):
         
         return device_serial
     
-    def navigate_to_home(self) -> bool:
-        self.logger.debug("🏠 Navigating to home screen")
+    def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func) -> bool:
+        """
+        Generic method to navigate to a tab.
         
-        if self._find_and_click(self.selectors.home_tab, timeout=3):
+        Args:
+            tab_selectors: Selectors for the tab
+            tab_name: Name for logging
+            emoji: Emoji for logging
+            verify_func: Function to verify navigation success
+            
+        Returns:
+            True if navigation successful, False otherwise
+        """
+        self.logger.debug(f"{emoji} Navigating to {tab_name}")
+        
+        if self._find_and_click(tab_selectors, timeout=3):
             self._human_like_delay('navigation')
-            return self._is_home_screen()
+            return verify_func()
+        
+        return False
+    
+    def navigate_to_home(self) -> bool:
+        if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
+            return True
         
         self.logger.debug("Fallback: using back button")
         self._press_back(3)
         return self._is_home_screen()
     
     def navigate_to_search(self) -> bool:
-        self.logger.debug("🔍 Navigating to search screen")
-        
-        if self._find_and_click(self.selectors.search_tab, timeout=3):
-            self._human_like_delay('navigation')
-            return self._is_search_screen()
-        
-        return False
+        return self._navigate_to_tab(self.selectors.search_tab, "search screen", "🔍", self._is_search_screen)
     
     def navigate_to_hashtag(self, hashtag: str) -> bool:
         try:
@@ -219,7 +232,7 @@ class NavigationActions(BaseAction):
             self.logger.error("Cannot access search screen")
             return False
         
-        if not self._find_and_click(self.detection_selectors.search_bar_selectors[0] if self.detection_selectors.search_bar_selectors else '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]', timeout=5):
+        if not self._find_and_click(self.detection_selectors.search_bar_selectors, timeout=5):
             self.logger.error("Cannot find search bar")
             return False
         
@@ -238,12 +251,10 @@ class NavigationActions(BaseAction):
     def open_followers_list(self) -> bool:
         self.logger.debug("👥 Opening followers list")
         
-        followers_link = '//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]'
-        if self._find_and_click(followers_link, timeout=5):
+        if self._find_and_click(self.profile_selectors.followers_link, timeout=5):
             self._human_like_delay('navigation')
             
             # Attendre que la liste se charge (Instagram peut être lent)
-            import time
             time.sleep(2)
             
             # Vérifier si la liste est ouverte
@@ -262,8 +273,7 @@ class NavigationActions(BaseAction):
     def open_following_list(self) -> bool:
         self.logger.debug("👥 Opening following list")
         
-        following_link = '//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]'
-        if self._find_and_click(following_link, timeout=5):
+        if self._find_and_click(self.profile_selectors.following_link, timeout=5):
             self._human_like_delay('navigation')
             return self._is_following_list_open()
         
@@ -283,22 +293,29 @@ class NavigationActions(BaseAction):
         self._press_back(1)
         return True
     
+    def _is_screen(self, indicators, screen_name: str = None) -> bool:
+        """Generic method to check if on a specific screen."""
+        return self._is_element_present(indicators)
+    
     def _is_home_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.home_screen_indicators)
+        return self._is_screen(self.detection_selectors.home_screen_indicators)
     
     def _is_search_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.search_screen_indicators)
+        return self._is_screen(self.detection_selectors.search_screen_indicators)
     
     def _is_profile_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.profile_screen_indicators)
+        return self._is_screen(self.detection_selectors.profile_screen_indicators)
     
     def _is_followers_list_open(self) -> bool:
-        return self._is_element_present(self.detection_selectors.followers_list_indicators)
+        return self._is_screen(self.detection_selectors.followers_list_indicators)
     
     def _is_following_list_open(self) -> bool:
         return self._is_followers_list_open()
     
     def _verify_profile_navigation(self, expected_username: str) -> bool:
+        # D'abord vérifier et fermer les popups problématiques
+        self._check_and_close_problematic_pages()
+        
         if not self._is_profile_screen():
             self.logger.debug(f"❌ Not on profile screen")
             return False

@@ -26,24 +26,41 @@ class UIHelpers:
         except ImportError:
             self.logger.warning("Could not import UI selectors")
     
+    def _random_delay(self, min_delay: float = 0.5, max_delay: float = 1.0) -> None:
+        """Add a random delay to simulate human behavior."""
+        time.sleep(random.uniform(min_delay, max_delay))
+    
+    def _find_element(self, selectors: list) -> object:
+        """Find first matching element from a list of xpath selectors."""
+        for selector in selectors:
+            try:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    return element
+            except:
+                continue
+        return None
+    
+    def _element_exists(self, selectors: list) -> bool:
+        """Check if any element from selectors exists."""
+        return self._find_element(selectors) is not None
+    
     def is_current_post_reel(self) -> bool:
         try:
             if not self.POST_SELECTORS:
                 return False
-                
-            for selector in self.POST_SELECTORS.automation_reel_specific_indicators:
-                if self.device.xpath(selector).exists:
-                    self.logger.debug(f"Reel detected via: {selector}")
-                    return True
             
-            reel_texts = ['Reel', 'reels', 'REEL']
-            for text in reel_texts:
+            if self._element_exists(self.POST_SELECTORS.automation_reel_specific_indicators):
+                self.logger.debug("Reel detected via selector")
+                return True
+            
+            # Fallback: check text/description
+            for text in ['Reel', 'reels', 'REEL']:
                 if self.device(textContains=text).exists:
                     self.logger.debug(f"Reel detected via text: {text}")
                     return True
             
-            reel_descriptions = ['reel', 'Reel']
-            for desc in reel_descriptions:
+            for desc in ['reel', 'Reel']:
                 if self.device(descriptionContains=desc).exists:
                     self.logger.debug(f"Reel detected via description: {desc}")
                     return True
@@ -58,12 +75,10 @@ class UIHelpers:
         try:
             if not self.POST_SELECTORS:
                 return False
-                
-            for selector in self.POST_SELECTORS.automation_like_indicators:
-                element = self.device.xpath(selector).get()
-                if element:
-                    self.logger.debug(f"Likes detected via: {selector}")
-                    return True
+            
+            if self._element_exists(self.POST_SELECTORS.automation_like_indicators):
+                self.logger.debug("Likes detected via selector")
+                return True
             
             return False
             
@@ -79,7 +94,7 @@ class UIHelpers:
             center_x = screen_size[0] // 2
             
             self.device.swipe(center_x, start_y, center_x, end_y, duration=0.3)
-            time.sleep(random.uniform(0.5, 1.0))
+            self._random_delay(0.5, 1.0)
             return True
             
         except Exception as e:
@@ -97,7 +112,7 @@ class UIHelpers:
                     if element.exists:
                         self.logger.debug(f"Attempting to click like counter: {selector}")
                         element.click()
-                        time.sleep(random.uniform(1.0, 2.0))
+                        self._random_delay(1.0, 2.0)
                         
                         if self.is_likes_popup_open():
                             self.logger.info("✅ Likes list opened successfully")
@@ -142,14 +157,14 @@ class UIHelpers:
                     if element.exists:
                         self.logger.debug(f"Closing popup via: {selector}")
                         element.click()
-                        time.sleep(random.uniform(0.5, 1.0))
+                        self._random_delay(0.5, 1.0)
                         return True
                 except Exception as e:
                     self.logger.debug(f"Error closing with {selector}: {e}")
                     continue
             
             self.device.press("back")
-            time.sleep(random.uniform(0.5, 1.0))
+            self._random_delay(0.5, 1.0)
             return True
             
         except Exception as e:
@@ -161,13 +176,13 @@ class UIHelpers:
             follow_button = self.device(text="Follow")
             if follow_button.exists():
                 follow_button.click()
-                time.sleep(random.uniform(1, 2))
+                self._random_delay(1, 2)
                 return True
             
             follow_button = self.device(text="Suivre")
             if follow_button.exists():
                 follow_button.click()
-                time.sleep(random.uniform(1, 2))
+                self._random_delay(1, 2)
                 return True
             
             return False
@@ -190,7 +205,7 @@ class UIHelpers:
                     self.logger.debug("Aucun username trouvé, scroll...")
                     self._scroll_in_popup()
                     scroll_attempts += 1
-                    time.sleep(random.uniform(0.5, 1.0))
+                    self._random_delay(0.5, 1.0)
                     continue
                 
                 new_usernames = [u for u in usernames if u not in usernames_seen]
@@ -199,7 +214,7 @@ class UIHelpers:
                     self.logger.debug("Pas de nouveaux usernames, scroll...")
                     self._scroll_in_popup()
                     scroll_attempts += 1
-                    time.sleep(random.uniform(0.5, 1.0))
+                    self._random_delay(0.5, 1.0)
                     continue
                 
                 for username in new_usernames:
@@ -220,7 +235,7 @@ class UIHelpers:
                         if self.follow_user(username):
                             self.logger.info(f"➕ Follow @{username}")
                     
-                    time.sleep(random.uniform(1.0, 2.0))
+                    self._random_delay(1.0, 2.0)
                 
                 scroll_attempts = 0
             
@@ -233,13 +248,11 @@ class UIHelpers:
     def _extract_usernames_from_popup(self) -> list:
         usernames = []
         try:
-            selectors = [
-                '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
-                '//*[@resource-id="com.instagram.android:id/row_user_username"]',
-                '//android.widget.TextView[contains(@text, "@")]'
-            ]
+            if not hasattr(self, 'DETECTION_SELECTORS') or not self.DETECTION_SELECTORS:
+                from ...ui.selectors import DETECTION_SELECTORS
+                self.DETECTION_SELECTORS = DETECTION_SELECTORS
             
-            for selector in selectors:
+            for selector in self.DETECTION_SELECTORS.likers_list_username_selectors:
                 elements = self.device.xpath(selector).all()
                 for elem in elements:
                     text = elem.text

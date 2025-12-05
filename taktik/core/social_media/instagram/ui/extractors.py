@@ -9,9 +9,10 @@ class InstagramUIExtractors:
     def __init__(self, device):
         self.device = device
         
-        from .selectors import POST_SELECTORS, POPUP_SELECTORS
+        from .selectors import POST_SELECTORS, POPUP_SELECTORS, DETECTION_SELECTORS
         self.post_selectors = POST_SELECTORS
         self.popup_selectors = POPUP_SELECTORS
+        self.detection_selectors = DETECTION_SELECTORS
     
     def extract_post_stats_atomic(self) -> Dict[str, int]:
         """
@@ -24,13 +25,7 @@ class InstagramUIExtractors:
         """
         try:
             # Try to find carousel elements that contain both likes and comments in content-desc
-            carousel_selectors = [
-                '//*[contains(@resource-id, "carousel_video_media_group")]',
-                '//*[contains(@resource-id, "carousel_media_group")]',
-                '//*[contains(@content-desc, "likes") and contains(@content-desc, "comment")]'
-            ]
-            
-            for selector in carousel_selectors:
+            for selector in self.detection_selectors.carousel_selectors:
                 try:
                     elements = self.device.xpath(selector).all()
                     for element in elements:
@@ -111,9 +106,9 @@ class InstagramUIExtractors:
     
     def extract_likes_count_from_ui(self) -> int:
         try:
-            reel_like_selector = '//*[@resource-id="com.instagram.android:id/like_count"]'
+            # Try Reel like count selector first
             try:
-                element = self.device.xpath(reel_like_selector)
+                element = self.device.xpath(self.detection_selectors.reel_like_count_selector)
                 if element.exists:
                     content_desc = element.info.get('contentDescription', '')
                     if content_desc:
@@ -197,9 +192,9 @@ class InstagramUIExtractors:
     
     def extract_comments_count_from_ui(self) -> int:
         try:
-            reel_comment_selector = '//*[@resource-id="com.instagram.android:id/comment_count"]'
+            # Try Reel comment count selector first
             try:
-                element = self.device.xpath(reel_comment_selector)
+                element = self.device.xpath(self.detection_selectors.reel_comment_count_selector)
                 if element.exists:
                     content_desc = element.info.get('contentDescription', '')
                     if content_desc:

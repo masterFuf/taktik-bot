@@ -67,6 +67,40 @@ class InstagramLogin:
         # Session manager
         self.session_manager = SessionManager()
     
+    def _find_element(self, selectors: list) -> object:
+        """Find first matching element from a list of xpath selectors."""
+        for selector in selectors:
+            try:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    return element
+            except:
+                continue
+        return None
+    
+    def _click_first_match(self, selectors: list, element_name: str) -> bool:
+        """Click first matching element from a list of xpath selectors."""
+        element = self._find_element(selectors)
+        if element:
+            element.click()
+            self.logger.success(f"✅ Clicked '{element_name}'")
+            return True
+        return False
+    
+    def _element_exists(self, selectors: list) -> bool:
+        """Check if any element from selectors exists."""
+        return self._find_element(selectors) is not None
+    
+    def _handle_popup(self, popup_selectors: list, button_selectors: list, 
+                      popup_name: str, button_name: str) -> bool:
+        """Handle a popup by detecting it and clicking a dismiss button."""
+        if self._element_exists(popup_selectors):
+            self.logger.info(f"Found '{popup_name}' popup")
+            if self._click_first_match(button_selectors, button_name):
+                time.sleep(1)
+                return True
+        return False
+    
     def login(
         self,
         username: str,
@@ -262,13 +296,9 @@ class InstagramLogin:
                 continue
         
         # Vérifier si on est maintenant sur l'écran de login
-        for selector in self.auth_selectors.login_screen_indicators:
-            try:
-                if self.device.xpath(selector).exists:
-                    self.logger.success("✅ On login screen")
-                    return True
-            except:
-                continue
+        if self._element_exists(self.auth_selectors.login_screen_indicators):
+            self.logger.success("✅ On login screen")
+            return True
         
         self.logger.warning("⚠️ Not on login screen")
         return False
@@ -347,17 +377,8 @@ class InstagramLogin:
         # Petit délai avant de cliquer
         time.sleep(self.utils.generate_human_like_delay(0.5, 1.0))
         
-        for selector in self.auth_selectors.login_button:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.debug(f"Found login button with selector: {selector}")
-                    element.click()
-                    self.logger.success("✅ Login button clicked")
-                    return True
-            except Exception as e:
-                self.logger.debug(f"Failed with selector {selector}: {e}")
-                continue
+        if self._click_first_match(self.auth_selectors.login_button, "Login button"):
+            return True
         
         self.logger.error("❌ Failed to click login button")
         return False
@@ -382,70 +403,40 @@ class InstagramLogin:
             '//android.view.View[contains(@content-desc, "Enregistrer vos informations")]',
             '//android.view.View[contains(@text, "Enregistrer vos informations")]'
         ]
-        for selector in save_login_popup_selectors:
-            try:
-                if self.device.xpath(selector).exists:
-                    self.logger.success("✅ Login successful! (Save login info popup detected)")
-                    return LoginResult(
-                        success=True,
-                        message="Login successful"
-                    )
-            except:
-                continue
+        if self._element_exists(save_login_popup_selectors):
+            self.logger.success("✅ Login successful! (Save login info popup detected)")
+            return LoginResult(success=True, message="Login successful")
         
         # Vérifier si connexion réussie
-        for selector in self.auth_selectors.login_success_indicators:
-            try:
-                if self.device.xpath(selector).exists:
-                    self.logger.success("✅ Login successful!")
-                    return LoginResult(
-                        success=True,
-                        message="Login successful"
-                    )
-            except:
-                continue
+        if self._element_exists(self.auth_selectors.login_success_indicators):
+            self.logger.success("✅ Login successful!")
+            return LoginResult(success=True, message="Login successful")
         
         # Vérifier si 2FA requis
-        for selector in self.auth_selectors.two_factor_indicators:
-            try:
-                if self.device.xpath(selector).exists:
-                    self.logger.warning("🔐 2FA required")
-                    return LoginResult(
-                        success=False,
-                        message="2FA required (not yet implemented)",
-                        requires_2fa=True,
-                        error_type="2fa_required"
-                    )
-            except:
-                continue
+        if self._element_exists(self.auth_selectors.two_factor_indicators):
+            self.logger.warning("🔐 2FA required")
+            return LoginResult(
+                success=False, message="2FA required (not yet implemented)",
+                requires_2fa=True, error_type="2fa_required"
+            )
         
         # Vérifier si suspicious login
-        for selector in self.auth_selectors.suspicious_login_indicators:
-            try:
-                if self.device.xpath(selector).exists:
-                    self.logger.warning("⚠️ Suspicious login detected")
-                    return LoginResult(
-                        success=False,
-                        message="Suspicious login - additional verification required",
-                        error_type="suspicious_login"
-                    )
-            except:
-                continue
+        if self._element_exists(self.auth_selectors.suspicious_login_indicators):
+            self.logger.warning("⚠️ Suspicious login detected")
+            return LoginResult(
+                success=False, message="Suspicious login - additional verification required",
+                error_type="suspicious_login"
+            )
         
         # Vérifier les messages d'erreur
-        for selector in self.auth_selectors.error_message_selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    error_text = element.get_text()
-                    self.logger.error(f"❌ Login error: {error_text}")
-                    return LoginResult(
-                        success=False,
-                        message=f"Login failed: {error_text}",
-                        error_type="credentials_error"
-                    )
-            except:
-                continue
+        error_element = self._find_element(self.auth_selectors.error_message_selectors)
+        if error_element:
+            error_text = error_element.get_text()
+            self.logger.error(f"❌ Login error: {error_text}")
+            return LoginResult(
+                success=False, message=f"Login failed: {error_text}",
+                error_type="credentials_error"
+            )
         
         # Si on est toujours sur l'écran de login
         if self._is_on_login_screen():
@@ -474,128 +465,41 @@ class InstagramLogin:
         self.logger.info("🪟 Handling post-login popups...")
         
         # Popup "Save Your Login Info"
-        for selector in self.auth_selectors.save_login_info_popup:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.info("Found 'Save Login Info' popup")
-                    
-                    if save_login_info:
-                        # Chercher le bouton "Save"
-                        save_selectors = [
-                            '//android.widget.Button[@content-desc="Save"]',
-                            '//android.widget.Button[@content-desc="Enregistrer"]',
-                            '//android.widget.Button[contains(@text, "Save")]',
-                            '//android.widget.Button[contains(@text, "Enregistrer")]'
-                        ]
-                        for save_selector in save_selectors:
-                            save_btn = self.device.xpath(save_selector)
-                            if save_btn.exists:
-                                save_btn.click()
-                                self.logger.success("✅ Clicked 'Save' on login info popup")
-                                time.sleep(1)
-                                break
-                    else:
-                        # Chercher le bouton "Not Now"
-                        for not_now_selector in self.popup_selectors.not_now_selectors:
-                            not_now = self.device.xpath(not_now_selector)
-                            if not_now.exists:
-                                not_now.click()
-                                self.logger.success("✅ Dismissed 'Save Login Info' popup (Not now)")
-                                time.sleep(1)
-                                break
-                    break
-            except:
-                continue
+        if self._element_exists(self.auth_selectors.save_login_info_popup):
+            self.logger.info("Found 'Save Login Info' popup")
+            if save_login_info:
+                self._click_first_match(self.auth_selectors.save_button_selectors, "Save")
+            else:
+                self._click_first_match(self.popup_selectors.not_now_selectors, "Not now")
+            time.sleep(1)
         
         # Popup "Turn on Notifications"
-        for selector in self.auth_selectors.notification_popup:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.info("Found 'Turn on Notifications' popup")
-                    # Chercher le bouton "Not Now"
-                    for not_now_selector in self.popup_selectors.not_now_selectors:
-                        not_now = self.device.xpath(not_now_selector)
-                        if not_now.exists:
-                            not_now.click()
-                            self.logger.success("✅ Dismissed 'Notifications' popup")
-                            time.sleep(1)
-                            break
-                    break
-            except:
-                continue
+        self._handle_popup(
+            self.auth_selectors.notification_popup,
+            self.popup_selectors.not_now_selectors,
+            "Turn on Notifications", "Not now"
+        )
         
         # Popup "Contacts Sync" (Find friends)
-        for selector in self.auth_selectors.contacts_sync_popup:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.info("Found 'Contacts Sync' popup")
-                    # Chercher le bouton "Ignorer" / "Skip"
-                    skip_selectors = [
-                        '//android.widget.Button[@content-desc="Ignorer"]',
-                        '//android.widget.Button[@content-desc="Skip"]',
-                        '//android.widget.Button[contains(@text, "Ignorer")]',
-                        '//android.widget.Button[contains(@text, "Skip")]'
-                    ]
-                    for skip_selector in skip_selectors:
-                        skip_btn = self.device.xpath(skip_selector)
-                        if skip_btn.exists:
-                            skip_btn.click()
-                            self.logger.success("✅ Dismissed 'Contacts Sync' popup")
-                            time.sleep(1)
-                            break
-                    break
-            except:
-                continue
+        self._handle_popup(
+            self.auth_selectors.contacts_sync_popup,
+            self.auth_selectors.skip_button_selectors,
+            "Contacts Sync", "Skip"
+        )
         
         # Popup "Location Services"
-        for selector in self.auth_selectors.location_services_popup:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.info("Found 'Location Services' popup")
-                    # Cliquer sur "Continuer" / "Continue"
-                    continue_selectors = [
-                        '//android.widget.Button[@content-desc="Continuer"]',
-                        '//android.widget.Button[@content-desc="Continue"]',
-                        '//android.widget.Button[contains(@text, "Continuer")]',
-                        '//android.widget.Button[contains(@text, "Continue")]'
-                    ]
-                    for continue_selector in continue_selectors:
-                        continue_btn = self.device.xpath(continue_selector)
-                        if continue_btn.exists:
-                            continue_btn.click()
-                            self.logger.success("✅ Clicked 'Continue' on Location Services popup")
-                            time.sleep(1)
-                            break
-                    break
-            except:
-                continue
+        self._handle_popup(
+            self.auth_selectors.location_services_popup,
+            self.auth_selectors.continue_button_selectors,
+            "Location Services", "Continue"
+        )
         
         # Permission système localisation (Android dialog)
-        for selector in self.auth_selectors.location_permission_dialog:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.info("Found 'Location Permission' system dialog")
-                    # Chercher le bouton "REFUSER" / "DENY"
-                    deny_selectors = [
-                        '//android.widget.Button[@resource-id="com.android.packageinstaller:id/permission_deny_button"]',
-                        '//android.widget.Button[@text="REFUSER"]',
-                        '//android.widget.Button[@text="DENY"]'
-                    ]
-                    for deny_selector in deny_selectors:
-                        deny_btn = self.device.xpath(deny_selector)
-                        if deny_btn.exists:
-                            deny_btn.click()
-                            self.logger.success("✅ Denied location permission")
-                            time.sleep(1)
-                            break
-                    break
-            except:
-                continue
+        self._handle_popup(
+            self.auth_selectors.location_permission_dialog,
+            self.auth_selectors.deny_button_selectors,
+            "Location Permission", "Deny"
+        )
     
     def _get_device_info(self) -> dict:
         """
