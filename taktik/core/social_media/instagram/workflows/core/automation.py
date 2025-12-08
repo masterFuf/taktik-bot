@@ -150,7 +150,21 @@ class InstagramAutomation:
     def interact_with_followers(self, target_username: str = None, target_usernames: List[str] = None,
                            max_interactions: int = 100, like_posts: bool = True, 
                            max_likes_per_profile: int = 2, skip_processed: bool = True, 
-                           config: Dict[str, Any] = None) -> Dict[str, Any]:
+                           config: Dict[str, Any] = None,
+                           use_direct_mode: bool = True) -> Dict[str, Any]:
+        """
+        Interagit avec les followers d'un ou plusieurs comptes cibles.
+        
+        Args:
+            target_username: Username cible unique
+            target_usernames: Liste de usernames cibles
+            max_interactions: Nombre max d'interactions
+            like_posts: Liker les posts
+            max_likes_per_profile: Max likes par profil
+            skip_processed: Ignorer les profils déjà traités
+            config: Configuration additionnelle
+            use_direct_mode: Si True, utilise le nouveau workflow direct (sans deep links)
+        """
         if not self.active_account_id:
             self.logger.info("Active account not detected, retrieving current profile...")
             self.get_profile_info(username=None, save_to_db=True)
@@ -167,6 +181,50 @@ class InstagramAutomation:
             self.logger.error("No target username(s) provided")
             return {}
         
+        # 🆕 Utiliser le nouveau workflow direct si activé
+        if use_direct_mode:
+            self.logger.info("🚀 Using DIRECT mode (no deep links, natural navigation)")
+            
+            # Pour le mode direct, on traite un target à la fois
+            all_results = {
+                'processed': 0,
+                'liked': 0,
+                'followed': 0,
+                'stories_viewed': 0,
+                'errors': 0,
+                'skipped': 0
+            }
+            
+            remaining_interactions = max_interactions
+            
+            for target in target_usernames:
+                if remaining_interactions <= 0:
+                    break
+                    
+                self.logger.info(f"📍 Processing target: @{target}")
+                
+                result = self.actions.follower_business.interact_with_followers_direct(
+                    target_username=target,
+                    max_interactions=remaining_interactions,
+                    config=config,
+                    account_id=self.active_account_id
+                )
+                
+                # Agréger les résultats
+                all_results['processed'] += result.get('processed', 0)
+                all_results['liked'] += result.get('liked', 0)
+                all_results['followed'] += result.get('followed', 0)
+                all_results['stories_viewed'] += result.get('stories_viewed', 0)
+                all_results['errors'] += result.get('errors', 0)
+                all_results['skipped'] += result.get('skipped', 0)
+                
+                remaining_interactions -= result.get('processed', 0)
+            
+            self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
+            return all_results
+        
+        # Mode legacy (avec deep links)
+        self.logger.info("⚠️ Using LEGACY mode (with deep links)")
         result = self.actions.follower_business.interact_with_target_followers(
             target_usernames=target_usernames,
             max_interactions=max_interactions,

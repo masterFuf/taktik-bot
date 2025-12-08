@@ -1070,6 +1070,15 @@ class DetectionSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]'
     ])
     
+    reel_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Reel de")]',
+        '//*[contains(@content-desc, "Reel by")]',
+        '//*[@resource-id="com.instagram.android:id/clips_single_media_component"]',
+        '//*[@resource-id="com.instagram.android:id/clips_viewer_video_layout"]',
+        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
+        '//*[@resource-id="com.instagram.android:id/clips_video_player"]'
+    ])
+    
     # === Détection de contenu ===
     story_ring_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "story_ring")]',
@@ -1114,11 +1123,27 @@ class DetectionSelectors:
     })
     
     # === État du post (liked) ===
+    # Quand un post est déjà liké, plusieurs indicateurs possibles selon version/langue:
+    # - FR: content-desc = "J'aime déjà" ou "Ne plus aimer"
+    # - EN: content-desc = "Unlike" ou "Liked"
+    # - Universel: selected = "true" sur le bouton like
     liked_button_indicators: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
+        # === MÉTHODE 1: Attribut selected (le plus fiable, indépendant de la langue) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
+        
+        # === MÉTHODE 2: Français (FR) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "déjà")]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Ne plus aimer")]',
+        '//*[contains(@content-desc, "J\'aime déjà")]',
+        '//*[contains(@content-desc, "Ne plus aimer")]',
+        
+        # === MÉTHODE 3: Anglais (EN) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Liked")]',
         '//*[contains(@content-desc, "Unlike")]',
-        '//*[contains(@content-desc, "Ne plus aimer")]'
+        
+        # === MÉTHODE 4: Fallback générique (anciennes versions) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"][@selected="true"]'
     ])
     
     # === Navigation - Search bars ===
@@ -1163,15 +1188,37 @@ class DetectionSelectors:
     ])
     
     # === Followers/Following list ===
+    # Sélecteurs SPÉCIFIQUES à la liste des followers/following
+    # Ces éléments n'existent QUE sur l'écran de liste, pas sur un profil
     followers_list_indicators: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/follow_list_container"]',
-        '//*[contains(@resource-id, "follow_list")]',
-        '//*[contains(@content-desc, "followers") or contains(@content-desc, "following")]'
+        # PRIORITÉ 1: Tab layout avec "followers", "following", "en commun" (TRÈS FIABLE)
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
+        # PRIORITÉ 2: View pager spécifique à la liste
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager_wrapper"]',
+        # PRIORITÉ 3: Container parent de la liste
+        '//*[@resource-id="com.instagram.android:id/layout_listview_parent_container"]',
+        # PRIORITÉ 4: Boutons avec texte "followers" ou "following" (onglets)
+        '//android.widget.Button[contains(@text, "followers")]',
+        '//android.widget.Button[contains(@text, "following")]',
+        '//android.widget.Button[contains(@text, "suivi")]',
+        '//android.widget.Button[contains(@text, "en commun")]',
+        '//android.widget.Button[contains(@text, "mutual")]'
     ])
     
     follow_list_username_selectors: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
-        '//*[contains(@resource-id, "username")]'
+        # UNIQUEMENT les vrais followers, PAS les suggestions (row_recommended_user_username)
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
+    ])
+    
+    # Sélecteurs pour détecter la section suggestions (à éviter)
+    suggestions_section_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_recommended_user_username"]',
+        '//*[contains(@text, "Voir toutes les suggestions")]',
+        '//*[contains(@text, "See all suggestions")]',
+        '//*[contains(@text, "Suggestions pour vous")]',
+        '//*[contains(@text, "Suggestions for you")]',
+        '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]'
     ])
     
     # === Post grid visibility ===

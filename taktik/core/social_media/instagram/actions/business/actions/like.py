@@ -237,7 +237,11 @@ class LikeBusiness(BaseBusinessAction):
                 self.logger.debug(f"Post #{posts_seen}: probability={final_probability:.2f} (base={base_probability:.2f}, position_factor={position_factor:.1f})")
                 
                 if should_like and posts_liked < max_likes:
-                    if not self._is_post_already_liked() and self.like_current_post():
+                    # Vérifier d'abord si le post est déjà liké
+                    if self._is_post_already_liked():
+                        self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")
+                        stats['already_liked'] = stats.get('already_liked', 0) + 1
+                    elif self.like_current_post():
                         posts_liked += 1
                         stats['posts_liked'] = posts_liked
                         self.logger.success(f"Post #{posts_seen} liked successfully ({posts_liked}/{max_likes})")
@@ -285,7 +289,7 @@ class LikeBusiness(BaseBusinessAction):
                     if not success:
                         break
                 
-                self._human_like_delay(0.5, 1.0)
+                self._human_like_delay('scroll')
             
             self._return_to_profile_from_post()
             

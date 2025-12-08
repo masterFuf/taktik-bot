@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ...core.base_business_action import BaseBusinessAction
 from taktik.core.database import get_db_service
+from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 
 from ..common import DatabaseHelpers
 
@@ -37,7 +38,108 @@ class FollowerBusiness(BaseBusinessAction):
         self.current_checkpoint_file = None
         self.current_followers_list = []
         self.current_index = 0
+        
+        # Sélecteurs pour le bouton retour Instagram
+        self._back_button_selectors = [
+            '//*[@content-desc="Retour"]',
+            '//*[@content-desc="Back"]',
+            '//*[@content-desc="Précédent"]',
+            '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
+            '//android.widget.ImageView[@content-desc="Retour"]',
+            '//android.widget.ImageView[@content-desc="Back"]'
+        ]
     
+    def _go_back_to_list(self) -> bool:
+        """
+        Clique sur le bouton retour de l'app Instagram pour revenir à la liste.
+        Plus fiable que device.press('back') qui peut causer des scrolls indésirables.
+        """
+        try:
+            # Essayer de cliquer sur le bouton retour de l'app
+            clicked = False
+            for selector in self._back_button_selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        element.click()
+                        self.logger.debug("⬅️ Clicked Instagram back button")
+                        self._human_like_delay('navigation')
+                        clicked = True
+                        break
+                except Exception:
+                    continue
+            
+            if not clicked:
+                # Fallback: utiliser le bouton système
+                self.logger.debug("⬅️ Using system back button (fallback)")
+                self.device.press('back')
+                self._human_like_delay('click')
+            
+            # Vérifier qu'on est bien revenu sur la liste des followers
+            if self.detection_actions.is_followers_list_open():
+                self.logger.debug("✅ Back to followers list confirmed")
+                return True
+            else:
+                self.logger.warning("⚠️ Back clicked but not on followers list")
+                return False
+            
+        except Exception as e:
+            self.logger.error(f"Error going back: {e}")
+            self.device.press('back')
+            self._human_like_delay('click')
+            return False
+    
+    def _ensure_on_followers_list(self, target_username: str = None, force_back: bool = False) -> bool:
+        """
+        S'assure qu'on est sur la liste des followers.
+        Essaie plusieurs fois de revenir avec back, puis en dernier recours navigue vers la target.
+        
+        Args:
+            target_username: Username de la target pour recovery en dernier recours
+            force_back: Si True, fait toujours un back d'abord (à utiliser après avoir visité un profil)
+        
+        Retourne True si on est sur la liste, False sinon.
+        """
+        # Si force_back=False, vérifier si on est déjà sur la liste
+        if not force_back and self.detection_actions.is_followers_list_open():
+            return True
+        
+        # Essayer jusqu'à 3 fois de revenir avec back
+        for attempt in range(3):
+            self.logger.debug(f"🔄 Recovery attempt {attempt + 1}/3 - trying back button")
+            
+            # Essayer le bouton back
+            for selector in self._back_button_selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        element.click()
+                        self._human_like_delay('navigation')
+                        break
+                except Exception:
+                    continue
+            else:
+                # Aucun bouton trouvé, utiliser back système
+                self.device.press('back')
+                self._human_like_delay('click')
+            
+            # Vérifier si on est sur la liste
+            if self.detection_actions.is_followers_list_open():
+                self.logger.info(f"✅ Recovered to followers list (attempt {attempt + 1})")
+                return True
+        
+        # Dernier recours: naviguer vers la target (on perd la position)
+        if target_username:
+            self.logger.warning(f"⚠️ Could not recover via back, navigating to @{target_username}")
+            if self.nav_actions.navigate_to_profile(target_username):
+                self._human_like_delay('navigation')
+                if self.nav_actions.open_followers_list():
+                    self._human_like_delay('navigation')
+                    self.logger.warning("⚠️ Recovered but position in list is lost")
+                    return True
+        
+        self.logger.error("❌ Could not recover to followers list")
+        return False
 
     def extract_followers_from_profile(self, target_username: str, 
                                      max_followers: int = 50,
@@ -222,27 +324,13 @@ class FollowerBusiness(BaseBusinessAction):
                     account_id = follower.get('source_account_id')
                     if account_id:
                         try:
-                            if DatabaseHelpers.is_profile_already_processed(username, account_id, hours_limit=24*60):
-                                self.logger.info(f"Profile @{username} already processed, skipped")
+                            should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                                username, account_id, hours_limit=24*60
+                            )
+                            if should_skip:
+                                self.logger.info(f"Profile @{username} skipped ({skip_reason})")
                                 stats['skipped'] += 1
                                 self.stats_manager.increment('skipped')
-                                
-                                # Enregistrer le profil skipped dans filtered_profile
-                                try:
-                                    session_id = self._get_session_id()
-                                    source_name = getattr(self.automation, 'target_username', 'unknown')
-                                    DatabaseHelpers.record_filtered_profile(
-                                        username=username,
-                                        reason='Already processed',
-                                        source_type='FOLLOWER',
-                                        source_name=source_name,
-                                        account_id=account_id,
-                                        session_id=session_id
-                                    )
-                                    self.logger.debug(f"Already processed profile @{username} recorded in API")
-                                except Exception as e:
-                                    self.logger.error(f"Error recording already processed profile @{username}: {e}")
-                                
                                 continue
                         except Exception as e:
                             self.logger.warning(f"Error checking @{username}: {e}")
@@ -302,33 +390,47 @@ class FollowerBusiness(BaseBusinessAction):
                             self.stats_manager.increment('errors')
                             continue
                     
-                    if account_id:
-                        try:
-                            visit_notes = f"Profile visit during follower exploration"
-                            DatabaseHelpers.mark_profile_as_processed(
-                                username, visit_notes,
-                                account_id=account_id,
-                                session_id=self._get_session_id()
-                            )
-                            stats['processed'] += 1
-                        except Exception as e:
-                            self.logger.warning(f"Error marking @{username}: {e}")
                     try:
                         # ✅ Passer profile_data pour éviter une 2ème extraction
                         interaction_result = self._perform_profile_interactions(username, config, profile_data=profile_data)
                         
+                        # Track if we actually interacted
+                        actually_interacted = False
+                        
                         if interaction_result.get('liked'):
                             stats['liked'] += 1
+                            actually_interacted = True
                         if interaction_result.get('followed'):
                             stats['followed'] += 1
+                            actually_interacted = True
                         if interaction_result.get('story_viewed'):
                             stats['stories_viewed'] += 1
+                            actually_interacted = True
                         if interaction_result.get('commented'):
                             if 'comments' not in stats:
                                 stats['comments'] = 0
                             stats['comments'] += 1
+                            actually_interacted = True
                         
-                        self.stats_manager.increment('profiles_visited')
+                        # Only count as interacted if we actually did something
+                        if actually_interacted:
+                            stats['processed'] += 1
+                            self.stats_manager.increment('profiles_interacted')
+                        else:
+                            self.logger.debug(f"@{username} visited but no interaction (probability)")
+                            stats['skipped'] += 1
+                        
+                        # Mark as processed in DB (to avoid revisiting)
+                        if account_id:
+                            try:
+                                visit_notes = "Profile interaction" if actually_interacted else "Visited but no interaction"
+                                DatabaseHelpers.mark_profile_as_processed(
+                                    username, visit_notes,
+                                    account_id=account_id,
+                                    session_id=self._get_session_id()
+                                )
+                            except Exception as e:
+                                self.logger.warning(f"Error marking @{username}: {e}")
                         
                         if interaction_result.get('filtered', False):
                             self.stats_manager.increment('profiles_filtered')
@@ -410,6 +512,511 @@ class FollowerBusiness(BaseBusinessAction):
             'skipped': stats.get('skipped', 0),
             'resumed_from_checkpoint': stats.get('resumed_from_checkpoint', False)
         }
+    
+    def interact_with_followers_direct(self, target_username: str,
+                                       max_interactions: int = 30,
+                                       config: Dict[str, Any] = None,
+                                       account_id: int = None) -> Dict[str, Any]:
+        """
+        🆕 NOUVEAU WORKFLOW: Interaction directe depuis la liste des followers.
+        
+        Au lieu de scraper puis naviguer via deep link, on:
+        1. Ouvre la liste des followers
+        2. Pour chaque follower visible: clic direct → interaction → retour
+        3. Scroll seulement quand tous les visibles sont traités
+        
+        Avantages:
+        - ❌ Plus de deep links (pattern suspect)
+        - ✅ Navigation 100% naturelle par clics
+        - ✅ Comportement humain réaliste
+        """
+        config = config or {}
+        
+        stats = {
+            'interacted': 0,      # Profiles with actual interaction (like/follow/story/comment)
+            'visited': 0,         # Total profiles visited (navigated to)
+            'liked': 0,
+            'followed': 0,
+            'stories_viewed': 0,
+            'story_likes': 0,     # Likes on stories
+            'errors': 0,
+            'skipped': 0,
+            'filtered': 0,        # Profiles filtered by criteria
+            'already_processed': 0,
+            # Keep 'processed' as alias for 'interacted' for backward compatibility
+            'processed': 0
+        }
+        
+        interaction_config = {
+            'like_probability': config.get('like_probability', 0.8),
+            'follow_probability': config.get('follow_probability', 0.2),
+            'comment_probability': config.get('comment_probability', 0.1),
+            'story_probability': config.get('story_probability', 0.2),
+            'max_likes_per_profile': config.get('max_likes_per_profile', 3),
+            'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
+        }
+        
+        # Navigation configuration
+        # deep_link_percentage: 0 = always search, 100 = always deep link
+        # force_search_for_target: if True, always use search for target profile navigation
+        deep_link_percentage = config.get('deep_link_percentage', 90)
+        force_search_for_target = config.get('force_search_for_target', False)
+        
+        try:
+            # 1. Naviguer vers le profil cible
+            self.logger.info(f"🎯 Opening followers list of @{target_username}")
+            
+            if not self.nav_actions.navigate_to_profile(
+                target_username, 
+                deep_link_usage_percentage=deep_link_percentage,
+                force_search=force_search_for_target
+            ):
+                self.logger.error(f"Failed to navigate to @{target_username}")
+                return stats
+            
+            self._human_like_delay('profile_view')
+            
+            # Vérifier si le profil est privé
+            if self.detection_actions.is_private_account():
+                self.logger.warning(f"@{target_username} is a private account")
+                return stats
+            
+            # Récupérer le nombre total de followers de la target (méthode robuste)
+            profile_info = self.profile_business.get_complete_profile_info(target_username, navigate_if_needed=False)
+            target_followers_count = profile_info.get('followers_count', 0) if profile_info else 0
+            
+            if target_followers_count > 0:
+                self.logger.info(f"📊 Target @{target_username} has {target_followers_count:,} followers")
+            else:
+                self.logger.warning(f"⚠️ Could not get followers count for @{target_username}")
+            
+            # 2. Ouvrir la liste des followers
+            if not self.nav_actions.open_followers_list():
+                self.logger.error("Failed to open followers list")
+                return stats
+            
+            self._human_like_delay('navigation')
+            
+            # Démarrer la phase d'interaction
+            if self.session_manager:
+                self.session_manager.start_interaction_phase()
+            
+            # 3. Boucle principale d'interaction
+            processed_usernames = set()
+            scroll_attempts = 0
+            max_scroll_attempts = 100  # Augmenté pour les très gros comptes
+            no_new_profiles_count = 0
+            total_usernames_seen = 0  # Compteur total de usernames vus
+            
+            # Contexte de navigation pour savoir où on en est
+            last_visited_username = None  # Dernier profil visité
+            next_expected_username = None  # Prochain profil attendu après le retour
+            
+            # Initialiser le ScrollEndDetector pour gérer le bouton "Voir plus" et la fin de liste
+            scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
+            
+            self.logger.info(f"🚀 Starting direct interactions (max: {max_interactions})")
+            
+            while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
+                # Vérifier si on doit prendre une pause
+                took_break = self._maybe_take_break()
+                
+                # Après une pause, vérifier qu'on est toujours sur la liste des followers
+                if took_break:
+                    if not self.detection_actions.is_followers_list_open():
+                        self.logger.warning("⚠️ Not on followers list after break, trying to recover...")
+                        
+                        # IMPORTANT: Ne PAS naviguer vers la target car ça reset la liste!
+                        # Essayer d'abord de revenir avec le bouton back (max 3 tentatives)
+                        recovered = False
+                        for back_attempt in range(3):
+                            self.logger.debug(f"🔙 Back attempt {back_attempt + 1}/3")
+                            if self._go_back_to_list():
+                                self._human_like_delay('navigation')
+                                if self.detection_actions.is_followers_list_open():
+                                    self.logger.info("✅ Recovered to followers list via back button")
+                                    recovered = True
+                                    break
+                        
+                        if not recovered:
+                            # En dernier recours seulement, naviguer vers la target
+                            # Mais on sait qu'on va perdre notre position dans la liste
+                            self.logger.warning("⚠️ Could not recover via back, navigating to target (will restart from beginning)")
+                            if not self.nav_actions.navigate_to_profile(
+                                target_username,
+                                deep_link_usage_percentage=deep_link_percentage,
+                                force_search=force_search_for_target
+                            ):
+                                self.logger.error("Could not navigate back to target profile")
+                                break
+                            if not self.nav_actions.open_followers_list():
+                                self.logger.error("Could not reopen followers list")
+                                break
+                            self._human_like_delay('navigation')
+                            # Reset le compteur car on recommence
+                            self.logger.warning(f"⚠️ Position lost - restarting from beginning (was at {total_usernames_seen} usernames)")
+                
+                # Vérifier si la session doit continuer
+                if self.session_manager:
+                    should_continue, stop_reason = self.session_manager.should_continue()
+                    if not should_continue:
+                        self.logger.warning(f"🛑 Session stopped: {stop_reason}")
+                        break
+                
+                # Récupérer les followers visibles (uniquement les vrais, pas les suggestions)
+                visible_followers = self.detection_actions.get_visible_followers_with_elements()
+                
+                if not visible_followers:
+                    self.logger.debug("No visible followers found on screen")
+                    
+                    # Vérifier si on est dans la section suggestions (fin des vrais followers)
+                    if self.detection_actions.is_in_suggestions_section():
+                        self.logger.info("📋 Reached suggestions section - checking for 'See more' button")
+                        
+                        # Essayer de cliquer sur "Voir plus" pour charger plus de vrais followers
+                        if scroll_detector.click_load_more_if_present():
+                            self._human_like_delay('load_more')
+                            # Attendre un peu plus pour que la liste se recharge
+                            time.sleep(1.5)
+                            continue
+                        else:
+                            # Réessayer une fois de plus après un petit scroll
+                            self.logger.debug("No 'See more' button found, trying a small scroll...")
+                            self.scroll_actions.scroll_followers_list_down()
+                            self._human_like_delay('scroll')
+                            
+                            # Re-vérifier le bouton après le scroll
+                            if scroll_detector.click_load_more_if_present():
+                                self._human_like_delay('load_more')
+                                time.sleep(1.5)
+                                continue
+                            
+                            self.logger.info("🏁 No more real followers to load - end of list")
+                            break
+                    
+                    # Vérifier s'il y a un bouton "Voir plus" même sans section suggestions
+                    if scroll_detector.click_load_more_if_present():
+                        self._human_like_delay('load_more')
+                        continue
+                    
+                    # Vérifier si on a atteint la fin de la liste
+                    if scroll_detector.is_the_end():
+                        self.logger.info("🏁 End of followers list detected")
+                        break
+                    
+                    scroll_attempts += 1
+                    self.scroll_actions.scroll_followers_list_down()
+                    self._human_like_delay('scroll')
+                    continue
+                
+                new_usernames_found = 0  # Nouveaux usernames vus (pas encore dans processed_usernames)
+                new_profiles_to_interact = 0  # Profils avec lesquels on va vraiment interagir
+                did_interact_this_iteration = False  # A-t-on interagi avec un profil cette itération?
+                
+                # Extraire la liste ordonnée des usernames visibles
+                visible_usernames_list = [f['username'] for f in visible_followers]
+                
+                # Vérifier si on est au bon endroit après un retour de profil
+                if last_visited_username and next_expected_username:
+                    if last_visited_username in visible_usernames_list or next_expected_username in visible_usernames_list:
+                        self.logger.debug(f"✅ Position OK: found @{last_visited_username} or @{next_expected_username} in visible list")
+                    else:
+                        self.logger.warning(f"⚠️ Position lost: neither @{last_visited_username} nor @{next_expected_username} visible")
+                        # On continue quand même, le scroll nous ramènera
+                
+                for idx, follower_data in enumerate(visible_followers):
+                    username = follower_data['username']
+                    
+                    # Skip si déjà vu dans cette session (évite de re-traiter)
+                    if username in processed_usernames:
+                        continue
+                    
+                    processed_usernames.add(username)
+                    new_usernames_found += 1
+                    total_usernames_seen += 1
+                    
+                    # Vérifier si déjà traité OU filtré via API (DB)
+                    if account_id:
+                        try:
+                            should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                                username, account_id, hours_limit=24*60
+                            )
+                            if should_skip:
+                                if skip_reason == "already_processed":
+                                    self.logger.debug(f"@{username} already processed in DB, skipping")
+                                    stats['already_processed'] += 1
+                                elif skip_reason == "already_filtered":
+                                    self.logger.debug(f"@{username} already filtered in DB, skipping")
+                                    stats['filtered'] += 1
+                                stats['skipped'] += 1
+                                continue
+                        except Exception as e:
+                            self.logger.warning(f"Error checking @{username}: {e}")
+                    
+                    # Ce profil est nouveau et pas dans la DB → on va interagir
+                    new_profiles_to_interact += 1
+                    
+                    # Mémoriser le contexte AVANT de cliquer
+                    last_visited_username = username
+                    # Trouver le prochain username dans la liste (s'il existe)
+                    if idx + 1 < len(visible_followers):
+                        next_expected_username = visible_followers[idx + 1]['username']
+                    else:
+                        next_expected_username = None
+                    
+                    # === INTERACTION DIRECTE ===
+                    progress_info = f"[{stats['interacted']+1}/{max_interactions}]"
+                    if target_followers_count > 0:
+                        progress_pct = (total_usernames_seen / target_followers_count) * 100
+                        progress_info += f" ({progress_pct:.1f}% of {target_followers_count:,} followers scanned)"
+                    self.logger.info(f"{progress_info} 👆 Clicking on @{username}")
+                    
+                    # Cliquer sur le profil dans la liste
+                    if not self.detection_actions.click_follower_in_list(username):
+                        self.logger.warning(f"Could not click on @{username}")
+                        stats['errors'] += 1
+                        continue
+                    
+                    self._human_like_delay('navigation')
+                    
+                    # Vérifier qu'on est bien sur un profil
+                    if not self.detection_actions.is_on_profile_screen():
+                        self.logger.warning(f"Not on profile screen after clicking @{username}")
+                        # S'assurer qu'on revient bien sur la liste avant de continuer
+                        if not self._ensure_on_followers_list(target_username):
+                            self.logger.error("Could not recover to followers list, stopping")
+                            break
+                        stats['errors'] += 1
+                        continue
+                    
+                    # ✅ Profile successfully visited - increment counter
+                    stats['visited'] += 1
+                    self.stats_manager.increment('profiles_visited')
+                    
+                    # Extraire les infos du profil
+                    try:
+                        profile_data = self.profile_business.get_complete_profile_info(
+                            username=username, 
+                            navigate_if_needed=False
+                        )
+                        
+                        if not profile_data:
+                            self.logger.warning(f"Could not get profile data for @{username}")
+                            # force_back=True car on vient de visiter un profil
+                            if not self._ensure_on_followers_list(target_username, force_back=True):
+                                self.logger.error("Could not recover to followers list, stopping")
+                                break
+                            stats['errors'] += 1
+                            continue
+                        
+                        # Vérifier si profil privé
+                        if profile_data.get('is_private', False):
+                            self.logger.info(f"🔒 Private profile @{username} - skipped")
+                            stats['skipped'] += 1
+                            self.stats_manager.increment('private_profiles')
+                            
+                            # Enregistrer comme filtré
+                            if account_id:
+                                try:
+                                    DatabaseHelpers.record_filtered_profile(
+                                        username=username,
+                                        reason='Private profile',
+                                        source_type='FOLLOWER',
+                                        source_name=target_username,
+                                        account_id=account_id,
+                                        session_id=self._get_session_id()
+                                    )
+                                except Exception:
+                                    pass
+                            
+                            # force_back=True car on vient de visiter un profil privé
+                            if not self._ensure_on_followers_list(target_username, force_back=True):
+                                self.logger.error("Could not recover to followers list, stopping")
+                                break
+                            continue
+                        
+                        # Appliquer les filtres
+                        filter_criteria = interaction_config.get('filter_criteria', {})
+                        filter_result = self.filtering_business.apply_comprehensive_filter(
+                            profile_data, filter_criteria
+                        )
+                        
+                        if not filter_result.get('suitable', False):
+                            reasons = filter_result.get('reasons', [])
+                            self.logger.info(f"🚫 @{username} filtered: {', '.join(reasons)}")
+                            stats['filtered'] += 1
+                            self.stats_manager.increment('profiles_filtered')
+                            
+                            # force_back=True car on vient de visiter un profil filtré
+                            if not self._ensure_on_followers_list(target_username, force_back=True):
+                                self.logger.error("Could not recover to followers list, stopping")
+                                break
+                            continue
+                        
+                        # === EFFECTUER LES INTERACTIONS ===
+                        interaction_result = self._perform_profile_interactions(
+                            username, 
+                            interaction_config, 
+                            profile_data=profile_data
+                        )
+                        
+                        # Mettre à jour les stats locales ET le stats_manager
+                        # Track if we actually interacted with this profile
+                        actually_interacted = False
+                        
+                        if interaction_result.get('liked'):
+                            likes_count = interaction_result.get('likes_count', 1)
+                            stats['liked'] += likes_count
+                            self.stats_manager.increment('likes', likes_count)
+                            actually_interacted = True
+                        if interaction_result.get('followed'):
+                            stats['followed'] += 1
+                            self.stats_manager.increment('follows')
+                            actually_interacted = True
+                        if interaction_result.get('story_viewed'):
+                            stats['stories_viewed'] += 1
+                            self.stats_manager.increment('stories_watched')
+                            actually_interacted = True
+                        if interaction_result.get('story_liked'):
+                            stats['story_likes'] += 1
+                            self.stats_manager.increment('story_likes')
+                            actually_interacted = True
+                        if interaction_result.get('commented'):
+                            actually_interacted = True
+                        
+                        # Only count as "interacted" if we actually did something
+                        # (like, follow, story view/like, comment - not just visited)
+                        if actually_interacted:
+                            stats['interacted'] += 1
+                            stats['processed'] += 1  # Keep for backward compatibility
+                            self.stats_manager.increment('profiles_interacted')
+                            did_interact_this_iteration = True
+                        else:
+                            # Visited but no interaction (probability rolls failed)
+                            self.logger.debug(f"@{username} visited but no interaction (probability)")
+                            stats['skipped'] += 1
+                        
+                        # Marquer comme traité dans la DB (même si pas d'interaction, pour éviter de revisiter)
+                        if account_id:
+                            try:
+                                DatabaseHelpers.mark_profile_as_processed(
+                                    username, 
+                                    "Direct interaction from followers list" if actually_interacted else "Visited but no interaction",
+                                    account_id=account_id,
+                                    session_id=self._get_session_id()
+                                )
+                            except Exception:
+                                pass
+                        
+                        # Enregistrer dans session manager SEULEMENT si on a vraiment interagi
+                        if actually_interacted and self.session_manager:
+                            self.session_manager.record_profile_processed()
+                        
+                    except Exception as e:
+                        self.logger.error(f"Error interacting with @{username}: {e}")
+                        stats['errors'] += 1
+                    
+                    # Retour à la liste des followers avec vérification robuste
+                    # force_back=True car on vient de visiter un profil et d'interagir
+                    if not self._ensure_on_followers_list(target_username, force_back=True):
+                        self.logger.error("Could not return to followers list, stopping")
+                        break
+                    
+                    # Afficher les stats
+                    self.stats_manager.display_stats(current_profile=username)
+                    
+                    # Vérifier si on a atteint le max
+                    if stats['interacted'] >= max_interactions:
+                        break
+                    
+                    # IMPORTANT: Après avoir interagi, on sort de la boucle for
+                    # pour re-scanner la liste et trouver le prochain follower non traité
+                    # Cela évite de rester bloqué sur les mêmes profils
+                    break
+                
+                # Notifier le scroll detector des usernames vus
+                visible_usernames = [f['username'] for f in visible_followers]
+                scroll_detector.notify_new_page(visible_usernames, list(processed_usernames))
+                
+                # Vérifier si on a vu de nouveaux usernames (même s'ils sont déjà dans la DB)
+                # C'est important pour savoir si on avance dans la liste ou si on est bloqué
+                if new_usernames_found == 0:
+                    # Aucun nouvel username = on revoit les mêmes profils
+                    no_new_profiles_count += 1
+                    
+                    # Calculer combien de followers il reste potentiellement à parcourir
+                    remaining_followers = target_followers_count - total_usernames_seen if target_followers_count > 0 else float('inf')
+                    
+                    self.logger.debug(f"⚠️ No new usernames found ({no_new_profiles_count}/15) - {total_usernames_seen} seen, ~{remaining_followers:,.0f} remaining")
+                    
+                    # Vérifier s'il y a un bouton "Voir plus" avant de conclure
+                    if scroll_detector.click_load_more_if_present():
+                        self._human_like_delay('load_more')
+                        no_new_profiles_count = 0
+                        continue
+                    
+                    # Conditions pour arrêter (alignées avec _extract_followers_with_scroll):
+                    # 1. On a vu ~95% des followers de la target → fin de liste
+                    # 2. OU le scroll detector dit qu'on est à la fin
+                    # 3. OU on a essayé 20 fois sans nouveaux usernames (sécurité)
+                    should_stop = False
+                    
+                    # Vérifier si on a parcouru ~95% des followers (comme dans l'ancienne fonction)
+                    if target_followers_count > 0 and total_usernames_seen >= target_followers_count * 0.95:
+                        self.logger.info(f"🏁 Reached end of list: seen {total_usernames_seen:,}/{target_followers_count:,} followers (~95%)")
+                        should_stop = True
+                    elif scroll_detector.is_the_end():
+                        self.logger.info("🏁 ScrollEndDetector: end of list reached")
+                        should_stop = True
+                    elif no_new_profiles_count >= 20:
+                        self.logger.info(f"🏁 No new usernames found after 20 attempts (seen {total_usernames_seen:,} usernames)")
+                        should_stop = True
+                    elif no_new_profiles_count >= 10:
+                        # Après 10 tentatives, log la progression pour debug
+                        if target_followers_count > 0:
+                            coverage = (total_usernames_seen / target_followers_count) * 100
+                            self.logger.debug(f"📊 {coverage:.1f}% coverage ({total_usernames_seen:,}/{target_followers_count:,}), continuing...")
+                    
+                    if should_stop:
+                        break
+                    
+                    # Forcer un scroll pour essayer d'avancer
+                    self.scroll_actions.scroll_followers_list_down()
+                    self._human_like_delay('scroll')
+                    scroll_attempts += 1
+                    continue  # Re-scanner après le scroll
+                else:
+                    # On a vu de nouveaux usernames, on continue
+                    no_new_profiles_count = 0
+                    
+                    # Log pour debug avec progression
+                    if target_followers_count > 0:
+                        coverage = (total_usernames_seen / target_followers_count) * 100
+                        self.logger.debug(f"📊 Progress: {total_usernames_seen:,}/{target_followers_count:,} ({coverage:.1f}%) - {new_usernames_found} new this page")
+                    
+                    if new_profiles_to_interact == 0 and new_usernames_found > 0:
+                        self.logger.debug(f"📋 {new_usernames_found} new usernames seen, but all already in DB - continuing scroll")
+                
+                # Scroller pour voir plus de followers
+                # On scroll seulement si:
+                # 1. On n'a pas atteint le max
+                # 2. On n'a PAS interagi cette itération (sinon on re-scanne d'abord pour voir si le suivant est visible)
+                #    OU tous les nouveaux usernames étaient déjà dans la DB
+                if stats['interacted'] < max_interactions:
+                    if not did_interact_this_iteration or (new_usernames_found > 0 and new_profiles_to_interact == 0):
+                        self.logger.debug(f"📜 Scrolling (interacted: {did_interact_this_iteration}, new_usernames: {new_usernames_found}, to_interact: {new_profiles_to_interact})")
+                        self.scroll_actions.scroll_followers_list_down()
+                        self._human_like_delay('scroll')
+                        scroll_attempts += 1
+            
+            self.logger.info(f"✅ Direct interactions completed: {stats}")
+            self.stats_manager.display_final_stats(workflow_name="FOLLOWERS_DIRECT")
+            
+            return stats
+            
+        except Exception as e:
+            self.logger.error(f"Error in direct followers workflow: {e}")
+            return stats
     
     def interact_with_target_followers(self, target_username: str = None, target_usernames: List[str] = None,
                                      max_interactions: int = 10,
@@ -568,8 +1175,11 @@ class FollowerBusiness(BaseBusinessAction):
             
             if account_id:
                 try:
-                    if DatabaseHelpers.is_profile_already_processed(follower_username, account_id, hours_limit=24*60):
-                        self.logger.info(f"Profile @{follower_username} already processed, skipped")
+                    should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                        follower_username, account_id, hours_limit=24*60
+                    )
+                    if should_skip:
+                        self.logger.info(f"Profile @{follower_username} skipped ({skip_reason})")
                         return True
                 except Exception as e:
                     self.logger.warning(f"Error checking @{follower_username}: {e}")

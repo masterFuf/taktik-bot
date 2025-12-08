@@ -160,10 +160,27 @@ class NavigationActions(BaseAction):
         self.logger.error("❌ Failed to navigate to own profile after 3 attempts")
         return False
     
-    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 90) -> bool:
+    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 90, force_search: bool = False) -> bool:
+        """
+        Navigate to a user's profile.
+        
+        Args:
+            username: The username to navigate to
+            deep_link_usage_percentage: Percentage chance to use deep link (0-100)
+                                        Set to 0 to always use search
+            force_search: If True, always use search (ignores deep_link_usage_percentage)
+            
+        Returns:
+            True if navigation successful, False otherwise
+        """
         self.logger.info(f"🎯 Navigating to profile @{username}")
         
-        use_deep_link = random.randint(1, 100) <= deep_link_usage_percentage
+        # Determine navigation method
+        if force_search:
+            use_deep_link = False
+            self.logger.debug("Forced to use search navigation")
+        else:
+            use_deep_link = random.randint(1, 100) <= deep_link_usage_percentage
         
         if use_deep_link:
             self.logger.debug("Using deep link")
@@ -178,12 +195,19 @@ class NavigationActions(BaseAction):
             self._check_and_close_problematic_pages()
             return True
         
-        if not use_deep_link:
+        # Fallback: try the other method
+        if not use_deep_link and not force_search:
             self.logger.debug("Fallback attempt with deep link")
             success = self._navigate_via_deep_link(username)
             if success:
                 self._random_sleep()
-                # Vérifier et fermer les popups problématiques
+                self._check_and_close_problematic_pages()
+                return True
+        elif use_deep_link:
+            self.logger.debug("Fallback attempt with search")
+            success = self._navigate_via_search(username)
+            if success:
+                self._random_sleep()
                 self._check_and_close_problematic_pages()
                 return True
         
@@ -228,24 +252,85 @@ class NavigationActions(BaseAction):
         return False
     
     def _navigate_via_search(self, username: str) -> bool:
+        """
+        Navigate to a profile using the search feature with human-like typing.
+        
+        Flow:
+        1. Click on search tab (bottom bar)
+        2. Click on search bar to activate it
+        3. Type username with human-like delays
+        4. Wait for results and click on the matching profile
+        """
+        self.logger.info(f"🔍 Navigating to @{username} via search")
+        
+        # Step 1: Navigate to search tab
         if not self.navigate_to_search():
             self.logger.error("Cannot access search screen")
             return False
         
-        if not self._find_and_click(self.detection_selectors.search_bar_selectors, timeout=5):
-            self.logger.error("Cannot find search bar")
+        self._human_like_delay('navigation')
+        
+        # Step 2: Click on search bar to activate it
+        # On the explore page, we need to click on the search bar at the top
+        search_bar_selectors = [
+            # Search bar on explore page (text "Rechercher" or "Search")
+            '//android.widget.TextView[contains(@text, "Rechercher")]',
+            '//android.widget.TextView[contains(@text, "Search")]',
+            # Search bar with resource-id
+            '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
+            # EditText search bar
+            '//android.widget.EditText[contains(@hint, "Rechercher")]',
+            '//android.widget.EditText[contains(@hint, "Search")]',
+            # Fallback to any clickable search element
+            '//*[contains(@content-desc, "Rechercher")]',
+            '//*[contains(@content-desc, "Search")]'
+        ]
+        
+        if not self._find_and_click(search_bar_selectors, timeout=5):
+            self.logger.error("Cannot find/click search bar")
             return False
         
         self._human_like_delay('click')
-        self.device.send_keys(username)
-        self._human_like_delay('typing')
         
-        search_result = f'//android.widget.TextView[@text="{username}"]'
-        if self._wait_for_element(search_result, timeout=5):
-            if self._find_and_click(search_result, timeout=3):
+        # Wait for keyboard to appear and search field to be active
+        time.sleep(0.5)
+        
+        # Step 3: Type username with human-like delays
+        self._type_like_human(username, min_delay=0.05, max_delay=0.12)
+        
+        # Wait for search results to load
+        self._human_like_delay('typing')
+        time.sleep(1.5)  # Extra time for Instagram to fetch results
+        
+        # Step 4: Find and click on the search result
+        # The clickable element is the container (row_search_user_container), not the TextView
+        # We need to find the container that has the matching username inside
+        search_result_selectors = [
+            # BEST: Click on the user container that contains the exact username
+            # This targets the Button container with the username TextView inside
+            f'//*[@resource-id="com.instagram.android:id/row_search_user_container"][.//*[@resource-id="com.instagram.android:id/row_search_user_username" and @text="{username}"]]',
+            
+            # Alternative: Container with any descendant matching the username
+            f'//*[@resource-id="com.instagram.android:id/row_search_user_container"][.//*[@text="{username}"]]',
+            
+            # Fallback: Click directly on the username TextView (might work on some versions)
+            f'//android.widget.TextView[@resource-id="com.instagram.android:id/row_search_user_username" and @text="{username}"]',
+            
+            # Last resort: Any clickable element with the username
+            f'//*[@clickable="true"][.//*[@text="{username}"]]'
+        ]
+        
+        # Wait for results to appear
+        if self._wait_for_element(search_result_selectors, timeout=5):
+            self.logger.debug(f"🔍 Found search result for @{username}, clicking...")
+            if self._find_and_click(search_result_selectors, timeout=3):
+                self.logger.debug(f"✅ Clicked on search result for @{username}")
                 self._human_like_delay('navigation')
                 return self._verify_profile_navigation(username)
+            else:
+                self.logger.warning(f"Found but could not click on @{username}")
         
+        self.logger.warning(f"Could not find @{username} in search results")
         return False
     
     def open_followers_list(self) -> bool:

@@ -2,6 +2,7 @@ import time
 import random
 import os
 import re
+import math
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple, Union
 from loguru import logger
@@ -10,11 +11,106 @@ from .device_facade import DeviceFacade
 from .utils import ActionUtils
 
 
+class HumanBehavior:
+    """Simule un comportement humain réaliste pour éviter la détection."""
+    
+    # Singleton pour partager l'état entre toutes les actions
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
+        
+        self.session_start = time.time()
+        self.actions_count = 0
+        self.last_action_time = time.time()
+        self.last_break_at = 0
+        
+        # Configuration des pauses
+        self.actions_before_short_break = random.randint(15, 25)
+        self.actions_before_long_break = random.randint(50, 80)
+        
+    def reset_session(self):
+        """Reset pour une nouvelle session."""
+        self.session_start = time.time()
+        self.actions_count = 0
+        self.last_action_time = time.time()
+        self.last_break_at = 0
+        self.actions_before_short_break = random.randint(15, 25)
+        self.actions_before_long_break = random.randint(50, 80)
+    
+    def get_fatigue_multiplier(self) -> float:
+        """Retourne un multiplicateur basé sur la durée de session.
+        Plus la session dure, plus les delays augmentent."""
+        minutes_elapsed = (time.time() - self.session_start) / 60
+        # Après 30 min: x1.3, après 60 min: x1.6
+        return 1.0 + (minutes_elapsed / 60) * 0.6
+    
+    def should_take_break(self) -> Tuple[bool, str, float]:
+        """Vérifie si une pause est nécessaire.
+        Returns: (should_break, break_type, duration)"""
+        actions_since_break = self.actions_count - self.last_break_at
+        
+        # Pause longue (5-15 min) toutes les 50-80 actions
+        if actions_since_break >= self.actions_before_long_break:
+            self.last_break_at = self.actions_count
+            self.actions_before_long_break = random.randint(50, 80)
+            return (True, 'long', random.uniform(300, 900))  # 5-15 min
+        
+        # Pause courte (30s-2min) toutes les 15-25 actions
+        if actions_since_break >= self.actions_before_short_break:
+            self.last_break_at = self.actions_count
+            self.actions_before_short_break = random.randint(15, 25)
+            return (True, 'short', random.uniform(30, 120))  # 30s-2min
+        
+        return (False, None, 0)
+    
+    def record_action(self):
+        """Enregistre une action effectuée."""
+        self.actions_count += 1
+        self.last_action_time = time.time()
+    
+    def gaussian_delay(self, base_min: float, base_max: float) -> float:
+        """Génère un délai avec distribution gaussienne (plus naturel)."""
+        mean = (base_min + base_max) / 2
+        std = (base_max - base_min) / 4
+        
+        # Distribution gaussienne
+        delay = random.gauss(mean, std)
+        
+        # Clamp entre min et max avec une petite marge
+        delay = max(base_min * 0.8, min(base_max * 1.2, delay))
+        
+        # Appliquer le multiplicateur de fatigue
+        delay *= self.get_fatigue_multiplier()
+        
+        # 5% de chance d'une pause "distraction" (3-8s)
+        if random.random() < 0.05:
+            delay += random.uniform(3, 8)
+        
+        return delay
+    
+    def get_random_offset(self, variance: int = 15) -> Tuple[int, int]:
+        """Retourne un offset aléatoire pour les coordonnées (simule imprécision du doigt)."""
+        return (
+            random.randint(-variance, variance),
+            random.randint(-variance, variance)
+        )
+
+
 class BaseAction:
     def __init__(self, device):
         self.device = device if isinstance(device, DeviceFacade) else DeviceFacade(device)
         self.logger = logger.bind(module=f"instagram.actions.{self.__class__.__name__.lower()}")
         self.utils = ActionUtils()
+        self.human = HumanBehavior()  # Singleton partagé
         
         self._method_stats = {
             'clicks': 0,
@@ -24,21 +120,49 @@ class BaseAction:
         }
         
     def _random_sleep(self, min_delay: float = 0.3, max_delay: float = 0.8) -> None:
-        delay = random.uniform(min_delay, max_delay)
-        self.logger.debug(f"⏱️ Random sleep: {delay:.2f}s")
+        """Sleep avec distribution gaussienne et fatigue de session."""
+        delay = self.human.gaussian_delay(min_delay, max_delay)
+        self.logger.debug(f"⏱️ Random sleep: {delay:.2f}s (fatigue: x{self.human.get_fatigue_multiplier():.2f})")
         time.sleep(delay)
     
     def _human_like_delay(self, action_type: str = 'general') -> None:
+        """Délai humanisé selon le type d'action avec distribution gaussienne."""
         delays = {
-            'click': (0.2, 0.5),      
-            'navigation': (0.7, 1.5),  
-            'scroll': (0.3, 0.7),      
-            'typing': (0.08, 0.15),    
-            'default': (0.3, 0.8)      
+            'click': (0.2, 0.5),
+            'navigation': (0.7, 1.5),
+            'scroll': (0.3, 0.7),
+            'typing': (0.08, 0.15),
+            'reading_bio': (2.0, 5.0),      # Temps de lecture réaliste
+            'before_like': (0.5, 2.0),      # Hésitation avant like
+            'after_like': (1.0, 3.0),       # Satisfaction après like
+            'before_follow': (1.0, 3.0),    # Réflexion avant follow
+            'story_view': (2.0, 5.0),       # Regarder une story
+            'story_load': (1.0, 2.0),       # Chargement story
+            'load_more': (2.0, 4.0),        # Après clic load more (Instagram needs time to load)
+            'profile_view': (1.5, 4.0),     # Observer un profil
+            'default': (0.3, 0.8)
         }
         
         min_delay, max_delay = delays.get(action_type, delays['default'])
         self._random_sleep(min_delay, max_delay)
+        
+        # Enregistrer l'action pour le système de pauses
+        self.human.record_action()
+    
+    def _maybe_take_break(self) -> bool:
+        """Vérifie et prend une pause si nécessaire. Retourne True si pause prise."""
+        should_break, break_type, duration = self.human.should_take_break()
+        
+        if should_break:
+            if break_type == 'long':
+                self.logger.info(f"☕ Pause longue naturelle ({duration/60:.1f} min) - {self.human.actions_count} actions effectuées")
+            else:
+                self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - simulation comportement humain")
+            
+            time.sleep(duration)
+            return True
+        
+        return False
     
     def _find_and_click(self, selectors: Union[List[str], str], timeout: float = 5.0, 
                        human_delay: bool = True) -> bool:
@@ -150,19 +274,43 @@ class BaseAction:
         return None
 
     def _scroll_down(self, distance: int = 500) -> None:
-        screen_size = self.device.info['displayHeight']
-        start_y = int(screen_size * 0.7)
-        end_y = int(screen_size * 0.3)
+        """Scroll vers le bas avec variance naturelle."""
+        screen_info = self.device.info
+        screen_height = screen_info['displayHeight']
+        screen_width = screen_info['displayWidth']
         
-        self.device.swipe(540, start_y, 540, end_y)
+        # Position X avec variance (pas toujours au centre)
+        center_x = screen_width // 2
+        offset_x, offset_y = self.human.get_random_offset(30)
+        start_x = center_x + offset_x
+        end_x = center_x + random.randint(-20, 20)  # Légère courbe
+        
+        start_y = int(screen_height * random.uniform(0.65, 0.75))
+        end_y = int(screen_height * random.uniform(0.25, 0.35))
+        
+        # Durée variable du swipe
+        duration = random.uniform(0.2, 0.4)
+        
+        self.device.swipe(start_x, start_y, end_x, end_y, duration=duration)
         self._human_like_delay('scroll')
     
     def _scroll_up(self, distance: int = 500) -> None:
-        screen_size = self.device.info['displayHeight']
-        start_y = int(screen_size * 0.3)
-        end_y = int(screen_size * 0.7)
+        """Scroll vers le haut avec variance naturelle."""
+        screen_info = self.device.info
+        screen_height = screen_info['displayHeight']
+        screen_width = screen_info['displayWidth']
         
-        self.device.swipe(540, start_y, 540, end_y)
+        center_x = screen_width // 2
+        offset_x, _ = self.human.get_random_offset(30)
+        start_x = center_x + offset_x
+        end_x = center_x + random.randint(-20, 20)
+        
+        start_y = int(screen_height * random.uniform(0.25, 0.35))
+        end_y = int(screen_height * random.uniform(0.65, 0.75))
+        
+        duration = random.uniform(0.2, 0.4)
+        
+        self.device.swipe(start_x, start_y, end_x, end_y, duration=duration)
         self._human_like_delay('scroll')
     
     def _press_back(self, count: int = 1) -> None:
@@ -212,3 +360,41 @@ class BaseAction:
     
     def _is_valid_username(self, username: str) -> bool:
         return self.utils.is_valid_username(username)
+    
+    def _type_like_human(self, text: str, min_delay: float = 0.05, max_delay: float = 0.15) -> None:
+        """
+        Tape du texte caractère par caractère avec des délais humains.
+        Simule une frappe naturelle avec des variations de vitesse.
+        
+        Args:
+            text: Le texte à taper
+            min_delay: Délai minimum entre les caractères (en secondes)
+            max_delay: Délai maximum entre les caractères (en secondes)
+        """
+        self.logger.debug(f"⌨️ Typing '{text}' with human-like delays")
+        
+        for i, char in enumerate(text):
+            # Taper le caractère
+            self.device.send_keys(char)
+            
+            # Délai variable entre les caractères
+            # Plus rapide pour les caractères consécutifs similaires
+            if i > 0 and text[i-1].lower() == char.lower():
+                # Même touche = plus rapide
+                delay = random.uniform(min_delay * 0.5, max_delay * 0.7)
+            elif char in '._-':
+                # Caractères spéciaux = légèrement plus lent (changement de zone clavier)
+                delay = random.uniform(min_delay * 1.2, max_delay * 1.5)
+            else:
+                # Délai normal avec distribution gaussienne
+                mean = (min_delay + max_delay) / 2
+                std = (max_delay - min_delay) / 4
+                delay = max(min_delay, min(max_delay, random.gauss(mean, std)))
+            
+            # Occasionnellement, une micro-pause (comme si on cherchait la touche)
+            if random.random() < 0.08:  # 8% de chance
+                delay += random.uniform(0.1, 0.3)
+            
+            time.sleep(delay)
+        
+        self.logger.debug(f"✅ Finished typing '{text}'")

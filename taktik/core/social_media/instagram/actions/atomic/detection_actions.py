@@ -237,6 +237,68 @@ class DetectionActions(BaseAction):
         self.logger.debug(f"{len(unique_usernames)} usernames extracted from list")
         return unique_usernames
     
+    def get_visible_followers_with_elements(self) -> List[Dict[str, Any]]:
+        """
+        Récupère les followers visibles avec leurs éléments cliquables.
+        Utilisé pour le nouveau workflow d'interaction directe.
+        
+        Returns:
+            Liste de dicts avec 'username' et 'element' (élément cliquable)
+        """
+        followers = []
+        
+        for selector in self.detection_selectors.follow_list_username_selectors:
+            try:
+                elements = self.device.xpath(selector)
+                if elements.exists:
+                    for element in elements.all():
+                        username_text = element.text
+                        if username_text:
+                            clean_username = self._clean_username(username_text)
+                            if self._is_valid_username(clean_username):
+                                followers.append({
+                                    'username': clean_username,
+                                    'element': element
+                                })
+                    break
+            except Exception as e:
+                self.logger.debug(f"Error getting followers with elements: {e}")
+                continue
+        
+        self.logger.debug(f"{len(followers)} clickable followers found")
+        return followers
+    
+    def click_follower_in_list(self, username: str) -> bool:
+        """
+        Clique sur un follower spécifique dans la liste.
+        
+        Args:
+            username: Le username du follower à cliquer
+            
+        Returns:
+            True si le clic a réussi
+        """
+        try:
+            # Chercher l'élément avec ce username
+            for selector in self.detection_selectors.follow_list_username_selectors:
+                elements = self.device.xpath(selector)
+                if elements.exists:
+                    for element in elements.all():
+                        element_text = element.text
+                        if element_text:
+                            clean_text = self._clean_username(element_text)
+                            if clean_text == username:
+                                element.click()
+                                self.logger.debug(f"✅ Clicked on @{username} in list")
+                                return True
+            
+            self.logger.warning(f"❌ Could not find @{username} in visible list")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error clicking follower @{username}: {e}")
+            return False
+    
     def detect_error_messages(self) -> List[str]:
         errors = []
         for selector in self.detection_selectors.error_message_indicators:
@@ -288,10 +350,20 @@ class DetectionActions(BaseAction):
         }
     
     def is_post_liked(self) -> bool:
-        return self._detect_element(self.detection_selectors.liked_button_indicators, "Liked button")
+        return self._detect_element(self.detection_selectors.liked_button_indicators, "Liked button", log_found=True)
     
     def is_on_post_screen(self) -> bool:
         return self._detect_element(self.detection_selectors.post_screen_indicators, "Post screen")
     
     def is_reel_post(self) -> bool:
         return self._detect_element(self.detection_selectors.reel_indicators, "Reel post")
+    
+    def is_in_suggestions_section(self) -> bool:
+        """
+        Détecte si on est dans la section suggestions (après la liste des vrais followers).
+        Retourne True si on voit des éléments de suggestions.
+        """
+        return self._detect_element(
+            self.detection_selectors.suggestions_section_indicators, 
+            "Suggestions section"
+        )
