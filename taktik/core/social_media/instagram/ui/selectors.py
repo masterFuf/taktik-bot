@@ -1208,7 +1208,9 @@ class DetectionSelectors:
     
     follow_list_username_selectors: List[str] = field(default_factory=lambda: [
         # UNIQUEMENT les vrais followers, PAS les suggestions (row_recommended_user_username)
-        '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
+        # Pour la popup des likers (bottom sheet)
+        '//*[@resource-id="com.instagram.android:id/row_user_primary_name"]'
     ])
     
     # Sélecteurs pour détecter la section suggestions (à éviter)

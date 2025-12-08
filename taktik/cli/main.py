@@ -892,6 +892,188 @@ def _extract_post_id_from_url(url: str) -> str:
     
     return None
 
+# ==================== SCRAPING WORKFLOW GENERATORS ====================
+
+def generate_target_scraping_workflow():
+    """Generate configuration for target-based scraping (followers/following)."""
+    console.print("\n[bold green]🔍 Target Scraping Configuration[/bold green]")
+    
+    console.print("[dim]💡 Tip: You can enter multiple targets separated by commas (e.g., user1,user2,user3)[/dim]")
+    target_username = Prompt.ask("[cyan]Target username(s) to scrape[/cyan]")
+    if not target_username:
+        console.print("[red]❌ Username required[/red]")
+        return None
+    
+    # Parse multiple targets
+    target_usernames = [t.strip().lstrip('@') for t in target_username.split(',') if t.strip()]
+    if len(target_usernames) > 1:
+        console.print(f"[green]✅ {len(target_usernames)} targets detected: {', '.join(['@' + t for t in target_usernames])}[/green]")
+    
+    # Scraping type
+    console.print("\n[yellow]📋 What do you want to scrape?[/yellow]")
+    console.print("[bold]1.[/bold] 👥 Followers")
+    console.print("[bold]2.[/bold] 👤 Following")
+    
+    scrape_choice = Prompt.ask("[cyan]Your choice[/cyan]", choices=["1", "2"], default="1")
+    scrape_type = "followers" if scrape_choice == "1" else "following"
+    
+    # Limits
+    console.print("\n[yellow]📊 Scraping limits[/yellow]")
+    max_profiles = int(Prompt.ask("[cyan]Maximum profiles to scrape[/cyan]", default="500"))
+    
+    # Session settings
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    scraping_config = {
+        "type": "target",
+        "scrape_type": scrape_type,
+        "target_usernames": target_usernames,
+        "max_profiles": max_profiles,
+        "session_duration_minutes": session_duration,
+        "save_to_db": True,
+        "export_csv": True
+    }
+    
+    # Summary
+    console.print("\n[green]📋 Scraping Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("Target(s)", ", ".join(['@' + t for t in target_usernames]))
+    table.add_row("Scrape type", scrape_type.capitalize())
+    table.add_row("Max profiles", str(max_profiles))
+    table.add_row("Session duration", f"{session_duration} min")
+    table.add_row("Save to database", "Yes")
+    table.add_row("Export to CSV", "Yes")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start scraping with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return scraping_config
+
+
+def generate_hashtag_scraping_workflow():
+    """Generate configuration for hashtag-based scraping."""
+    console.print("\n[bold green]🔍 Hashtag Scraping Configuration[/bold green]")
+    
+    hashtag = Prompt.ask("[cyan]Hashtag to scrape (without #)[/cyan]")
+    if not hashtag:
+        console.print("[red]❌ Hashtag required[/red]")
+        return None
+    
+    hashtag = hashtag.lstrip('#')
+    
+    # Scraping mode
+    console.print("\n[yellow]📋 What do you want to scrape?[/yellow]")
+    console.print("[bold]1.[/bold] 👤 Post authors (users who posted with this hashtag)")
+    console.print("[bold]2.[/bold] ❤️ Post likers (users who liked posts with this hashtag)")
+    
+    scrape_choice = Prompt.ask("[cyan]Your choice[/cyan]", choices=["1", "2"], default="1")
+    scrape_type = "authors" if scrape_choice == "1" else "likers"
+    
+    # Limits
+    console.print("\n[yellow]📊 Scraping limits[/yellow]")
+    max_profiles = int(Prompt.ask("[cyan]Maximum profiles to scrape[/cyan]", default="200"))
+    max_posts = int(Prompt.ask("[cyan]Maximum posts to check[/cyan]", default="50"))
+    
+    # Session settings
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    scraping_config = {
+        "type": "hashtag",
+        "hashtag": hashtag,
+        "scrape_type": scrape_type,
+        "max_profiles": max_profiles,
+        "max_posts": max_posts,
+        "session_duration_minutes": session_duration,
+        "save_to_db": True,
+        "export_csv": True
+    }
+    
+    # Summary
+    console.print("\n[green]📋 Scraping Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("Hashtag", f"#{hashtag}")
+    table.add_row("Scrape type", scrape_type.capitalize())
+    table.add_row("Max profiles", str(max_profiles))
+    table.add_row("Max posts to check", str(max_posts))
+    table.add_row("Session duration", f"{session_duration} min")
+    table.add_row("Save to database", "Yes")
+    table.add_row("Export to CSV", "Yes")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start scraping with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return scraping_config
+
+
+def generate_url_scraping_workflow():
+    """Generate configuration for post URL-based scraping (likers)."""
+    console.print("\n[bold green]🔍 Post URL Scraping Configuration[/bold green]")
+    
+    post_url = Prompt.ask("[cyan]Instagram post URL[/cyan]")
+    if not post_url:
+        console.print("[red]❌ Post URL required[/red]")
+        return None
+    
+    if not _validate_instagram_url(post_url):
+        console.print("[red]❌ Invalid Instagram URL. Must be a post, reel, or IGTV URL.[/red]")
+        return None
+    
+    # Limits
+    console.print("\n[yellow]📊 Scraping limits[/yellow]")
+    max_profiles = int(Prompt.ask("[cyan]Maximum likers to scrape[/cyan]", default="200"))
+    
+    # Session settings
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    scraping_config = {
+        "type": "post_url",
+        "post_url": post_url,
+        "post_id": _extract_post_id_from_url(post_url),
+        "scrape_type": "likers",
+        "max_profiles": max_profiles,
+        "session_duration_minutes": session_duration,
+        "save_to_db": True,
+        "export_csv": True
+    }
+    
+    # Summary
+    console.print("\n[green]📋 Scraping Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("Post URL", post_url[:50] + "..." if len(post_url) > 50 else post_url)
+    table.add_row("Post ID", scraping_config["post_id"] or "Unknown")
+    table.add_row("Scrape type", "Likers")
+    table.add_row("Max profiles", str(max_profiles))
+    table.add_row("Session duration", f"{session_duration} min")
+    table.add_row("Save to database", "Yes")
+    table.add_row("Export to CSV", "Yes")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start scraping with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return scraping_config
+
+
 @click.group(invoke_without_command=True)
 @click.option('--lang', '-l', type=click.Choice(['fr', 'en']), help='Language (fr/en)')
 @click.pass_context
@@ -938,15 +1120,16 @@ def cli(ctx, lang=None):
             choice = options[selected-1]
             
             if choice == 'instagram':
-                # Sous-menu: Management ou Automation
+                # Sous-menu: Management, Automation ou Scraping
                 console.print("\n[bold cyan]Instagram Mode Selection[/bold cyan]")
                 console.print("[bold]1.[/bold] 🔧 Management (Features: Auth, Content, DM)")
                 console.print("[bold]2.[/bold] 🤖 Automation (Workflows: Target followers/Followings, Hashtags, Post url)")
-                console.print("[bold]3.[/bold] ← Back")
+                console.print("[bold]3.[/bold] 🔍 Scraping (Extract profiles: Target, Hashtag, Post URL)")
+                console.print("[bold]4.[/bold] ← Back")
                 
-                mode_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 3), show_choices=False)
+                mode_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
                 
-                if mode_choice == 3:
+                if mode_choice == 4:
                     continue
                 
                 # Sélection du device (commun aux deux modes)
@@ -1155,31 +1338,75 @@ def cli(ctx, lang=None):
                     if not target_type:
                         console.print(f"[red]{current_translations['no_target_selected']}[/red]")
                         continue
-                
-                dynamic_config = generate_dynamic_workflow(target_type)
-                if not dynamic_config:
-                    console.print(f"[red]{current_translations['workflow_generation_error']}[/red]")
-                    continue
+                    
+                    dynamic_config = generate_dynamic_workflow(target_type)
+                    if not dynamic_config:
+                        console.print(f"[red]{current_translations['workflow_generation_error']}[/red]")
+                        continue
 
-                if not device_manager.connect(device_id):
-                    console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
-                    continue
+                    if not device_manager.connect(device_id):
+                        console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                        continue
 
-                if not device_manager.device:
-                    console.print(f"[red]{current_translations['device_init_error']}[/red]")
-                    continue
+                    if not device_manager.device:
+                        console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                        continue
 
-                console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
-                automation = InstagramAutomation(device_manager)
+                    console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
+                    automation = InstagramAutomation(device_manager)
+                    
+                    automation._initialize_license_limits(api_key)
+                    automation.config = dynamic_config
+                    console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
+                    
+                    automation.run_workflow()
+                    
+                    console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                    sys.exit(0)
                 
-                automation._initialize_license_limits(api_key)
-                automation.config = dynamic_config
-                console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
-                
-                automation.run_workflow()
-                
-                console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
-                sys.exit(0)
+                elif mode_choice == 3:
+                    # Mode Scraping
+                    console.print("\n[bold cyan]🔍 Scraping Mode[/bold cyan]")
+                    console.print("[bold]1.[/bold] 👥 Target Scraping (Followers/Following)")
+                    # console.print("[bold]2.[/bold] #️⃣ Hashtag Scraping")  # TODO: À implémenter
+                    console.print("[bold]2.[/bold] 🔗 Post URL Scraping (Likers)")
+                    console.print("[bold]3.[/bold] ← Back")
+                    
+                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 3), show_choices=False)
+                    
+                    if scraping_choice == 3:
+                        continue
+                    
+                    # Générer la config de scraping selon le choix
+                    if scraping_choice == 1:
+                        scraping_config = generate_target_scraping_workflow()
+                    # elif scraping_choice == 2:
+                    #     scraping_config = generate_hashtag_scraping_workflow()  # TODO: À implémenter
+                    elif scraping_choice == 2:
+                        scraping_config = generate_url_scraping_workflow()
+                    
+                    if not scraping_config:
+                        console.print("[red]❌ Scraping configuration cancelled.[/red]")
+                        continue
+                    
+                    # Connexion au device
+                    if not device_manager.connect(device_id):
+                        console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                        continue
+                    
+                    if not device_manager.device:
+                        console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                        continue
+                    
+                    # Lancer le scraping
+                    from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
+                    
+                    console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
+                    scraping_workflow = ScrapingWorkflow(device_manager, scraping_config)
+                    scraping_workflow.run()
+                    
+                    console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                    sys.exit(0)
             
             elif choice == 'tiktok':
                 # Menu TikTok

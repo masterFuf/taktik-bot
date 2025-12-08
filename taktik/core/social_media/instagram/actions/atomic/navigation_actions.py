@@ -364,6 +364,19 @@ class NavigationActions(BaseAction):
         
         return False
     
+    def navigate_to_post_url(self, post_url: str) -> bool:
+        """
+        Navigate to a specific Instagram post via deep link.
+        
+        Args:
+            post_url: Full Instagram post URL (e.g., https://www.instagram.com/p/ABC123/)
+            
+        Returns:
+            bool: True if navigation successful
+        """
+        # Delegate to the proper deep link method that specifies Instagram package
+        return self.navigate_to_post_via_deep_link(post_url)
+    
     def close_modal_or_popup(self) -> bool:
         self.logger.debug("❌ Closing popup/modal")
         
