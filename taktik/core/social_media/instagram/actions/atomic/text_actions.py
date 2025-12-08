@@ -67,7 +67,7 @@ class TextActions(BaseAction):
     def type_in_search_bar(self, search_term: str) -> bool:
         self.logger.debug(f"🔍 Typing in search bar: '{search_term}'")
         
-        if not self._find_and_click(self.detection_selectors.search_bar_selectors[0] if detection_selectors.search_bar_selectors else "//*[@resource-id=\"com.instagram.android:id/action_bar_search_edit_text\"]", timeout=5):
+        if not self._find_and_click(self.detection_selectors.search_bar_selectors, timeout=5):
             self.logger.error("Cannot find search bar")
             return False
         
@@ -75,38 +75,40 @@ class TextActions(BaseAction):
         
         return self.type_text(search_term, clear_first=True, human_typing=True)
     
-    def type_comment(self, comment_text: str) -> bool:
-        self.logger.debug(f"💬 Typing comment: '{comment_text[:30]}...'")
+    def _type_in_field(self, text: str, field_selectors: list, field_name: str, emoji: str = "📝") -> bool:
+        """
+        Generic method to type text in a specific field.
         
-        if not self._find_and_click(self.text_selectors.comment_field_selectors, timeout=5):
-            self.logger.error("Cannot find field comment")
+        Args:
+            text: Text to type
+            field_selectors: List of selectors to find the field
+            field_name: Name of the field for logging
+            emoji: Emoji for logging
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        self.logger.debug(f"{emoji} Typing {field_name}: '{text[:30]}...'")
+        
+        if not self._find_and_click(field_selectors, timeout=5):
+            self.logger.error(f"Cannot find field {field_name}")
             return False
         
         self._human_like_delay('typing')
         
-        return self.type_text(comment_text, clear_first=True, human_typing=True)
+        return self.type_text(text, clear_first=True, human_typing=True)
+    
+    def type_comment(self, comment_text: str) -> bool:
+        """Type a comment in the comment field."""
+        return self._type_in_field(comment_text, self.text_selectors.comment_field_selectors, "comment", "💬")
     
     def type_caption(self, caption_text: str) -> bool:
-        self.logger.debug(f"📝 Typing caption: '{caption_text[:30]}...'")
-        
-        if not self._find_and_click(self.text_selectors.caption_field_selectors, timeout=5):
-            self.logger.error("Cannot find field caption")
-            return False
-        
-        self._human_like_delay('typing')
-        
-        return self.type_text(caption_text, clear_first=True, human_typing=True)
+        """Type a caption in the caption field."""
+        return self._type_in_field(caption_text, self.text_selectors.caption_field_selectors, "caption", "📝")
     
     def type_bio(self, bio_text: str) -> bool:
-        self.logger.debug(f"👤 Typing bio: '{bio_text[:30]}...'")
-        
-        if not self._find_and_click(self.text_selectors.bio_field_selectors, timeout=5):
-            self.logger.error("Cannot find field bio")
-            return False
-        
-        self._human_like_delay('typing')
-        
-        return self.type_text(bio_text, clear_first=True, human_typing=True)
+        """Type a bio in the bio field."""
+        return self._type_in_field(bio_text, self.text_selectors.bio_field_selectors, "bio", "👤")
     
     def send_message(self, message_text: str) -> bool:
         self.logger.debug(f"💌 Sending message: '{message_text[:30]}...'")

@@ -4,7 +4,10 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import PROFILE_SELECTORS, DETECTION_SELECTORS, BUTTON_SELECTORS, POST_SELECTORS
+from ...ui.selectors import (
+    PROFILE_SELECTORS, DETECTION_SELECTORS, BUTTON_SELECTORS, 
+    POST_SELECTORS, NAVIGATION_SELECTORS, STORY_SELECTORS
+)
 
 
 class ClickActions(BaseAction):
@@ -16,29 +19,38 @@ class ClickActions(BaseAction):
         self.selectors = BUTTON_SELECTORS  # Pour les boutons d'interaction
         self.profile_selectors = PROFILE_SELECTORS
         self.post_selectors = POST_SELECTORS
+        self.navigation_selectors = NAVIGATION_SELECTORS
+        self.story_selectors = STORY_SELECTORS
+    
+    def _click_button(self, selectors, button_name: str, emoji: str = "👆", timeout: float = 5) -> bool:
+        """
+        Generic method to click a button with selectors.
+        
+        Args:
+            selectors: Selector or list of selectors
+            button_name: Name for logging
+            emoji: Emoji for logging
+            timeout: Click timeout
+            
+        Returns:
+            True if clicked, False otherwise
+        """
+        self.logger.debug(f"{emoji} Clicking {button_name}")
+        
+        if self._find_and_click(selectors, timeout=timeout):
+            return True
+        
+        self.logger.warning(f"{button_name} not found")
+        return False
     
     def click_follow_button(self) -> bool:
-        self.logger.debug("👤 Clicking Follow button")
-        
-        if self._find_and_click(self.profile_selectors.follow_button, timeout=5):
-            return True
-        
-        self.logger.warning("Follow button not found")
-        return False
+        return self._click_button(self.profile_selectors.follow_button, "Follow button", "👤")
     
     def click_unfollow_button(self) -> bool:
-        self.logger.debug("👤 Clicking Unfollow button")
-        
-        if self._find_and_click(self.profile_selectors.following_button, timeout=5):
-            return True
-        
-        self.logger.warning("Unfollow button not found")
-        return False
+        return self._click_button(self.profile_selectors.following_button, "Unfollow button", "👤")
     
     def click_like_button(self) -> bool:
-        self.logger.debug("❤️ Clicking Like button")
-        
-        return self._find_and_click(self.selectors.like_button, timeout=3)
+        return self._click_button(self.selectors.like_button, "Like button", "❤️", timeout=3)
     
     def like_post(self) -> bool:
         return self.click_like_button()
@@ -47,22 +59,10 @@ class ClickActions(BaseAction):
         return self.click_unlike_button()
     
     def click_unlike_button(self) -> bool:
-        self.logger.debug("💔 Clicking Unlike button")
-        
-        if self._find_and_click(self.selectors.like_button, timeout=5):
-            return True
-        
-        self.logger.warning("Unlike button not found")
-        return False
+        return self._click_button(self.selectors.like_button, "Unlike button", "💔")
     
     def click_comment_button(self) -> bool:
-        self.logger.debug("💬 Clicking Comment button")
-        
-        if self._find_and_click(self.selectors.comment_button, timeout=5):
-            return True
-        
-        self.logger.warning("Comment button not found")
-        return False
+        return self._click_button(self.selectors.comment_button, "Comment button", "💬")
     
     def follow_user(self, username: str) -> bool:
         try:
@@ -116,31 +116,13 @@ class ClickActions(BaseAction):
             return True
     
     def click_share_button(self) -> bool:
-        self.logger.debug("📤 Clicking Share button")
-        
-        if self._find_and_click(self.selectors.share_button, timeout=5):
-            return True
-        
-        self.logger.warning("Share button not found")
-        return False
+        return self._click_button(self.selectors.share_button, "Share button", "📤")
     
     def click_save_button(self) -> bool:
-        self.logger.debug("🔖 Clicking Save button")
-        
-        if self._find_and_click(self.selectors.save_button, timeout=5):
-            return True
-        
-        self.logger.warning("Save button not found")
-        return False
+        return self._click_button(self.selectors.save_button, "Save button", "🔖")
     
     def click_story_like_button(self) -> bool:
-        self.logger.debug("❤️ Clicking Story Like button")
-        
-        if self._find_and_click(self.selectors.like_button, timeout=3):
-            return True
-        
-        self.logger.warning("Story Like button not found")
-        return False
+        return self._click_button(self.selectors.like_button, "Story Like button", "❤️", timeout=3)
     
     def click_post_thumbnail(self, post_index: int = 0) -> bool:
         self.logger.debug(f"🖼️ Clicking post thumbnail #{post_index}")
@@ -173,39 +155,20 @@ class ClickActions(BaseAction):
             return False
     
     def click_followers_count(self) -> bool:
-        self.logger.debug("👥 Clicking followers count")
-        
-        if self._find_and_click(self.profile_selectors.followers_count, timeout=5):
-            return True
-        
-        self.logger.warning("Followers count not clickable")
-        return False
+        return self._click_button(self.profile_selectors.followers_count, "Followers count", "👥")
     
     def click_following_count(self) -> bool:
-        self.logger.debug("👥 Clicking following count")
-        
-        if self._find_and_click(self.profile_selectors.following_count, timeout=5):
-            return True
-        
-        self.logger.warning("Following count not clickable")
-        return False
+        return self._click_button(self.profile_selectors.following_count, "Following count", "👥")
     
     def click_posts_count(self) -> bool:
-        self.logger.debug("📸 Clicking posts count")
-        
-        if self._find_and_click(self.profile_selectors.posts_count, timeout=5):
-            return True
-        
-        self.logger.warning("Posts count not clickable")
-        return False
+        return self._click_button(self.profile_selectors.posts_count, "Posts count", "📸")
     
     def click_story_ring(self, story_index: int = 0) -> bool:
         self.logger.debug(f"📱 Clicking story #{story_index}")
         
         # Trouver toutes les stories
         story_elements = []
-        from ...ui.selectors import STORY_SELECTORS
-        for selector in STORY_SELECTORS.story_ring_indicators if hasattr(STORY_SELECTORS, 'story_ring_indicators') else [STORY_SELECTORS.story_ring]:
+        for selector in self.story_selectors.story_ring_indicators if hasattr(self.story_selectors, 'story_ring_indicators') else [self.story_selectors.story_ring]:
             try:
                 elements = self.device.xpath(selector)
                 if elements.exists:
@@ -231,33 +194,13 @@ class ClickActions(BaseAction):
             return False
     
     def click_close_button(self) -> bool:
-        self.logger.debug("❌ Clicking close button")
-        
-        from ...ui.selectors import NAVIGATION_SELECTORS
-        if self._find_and_click(NAVIGATION_SELECTORS.close_button, timeout=3):
-            return True
-        
-        self.logger.warning("Close button not found")
-        return False
+        return self._click_button(self.navigation_selectors.close_button, "Close button", "❌", timeout=3)
     
     def click_back_button(self) -> bool:
-        self.logger.debug("⬅️ Clicking back button")
-        
-        from ...ui.selectors import NAVIGATION_SELECTORS
-        if self._find_and_click(NAVIGATION_SELECTORS.back_button, timeout=3):
-            return True
-        
-        self.logger.warning("Back button not found")
-        return False
+        return self._click_button(self.navigation_selectors.back_button, "Back button", "⬅️", timeout=3)
     
     def click_message_button(self) -> bool:
-        self.logger.debug("💌 Clicking Message button")
-        
-        if self._find_and_click(self.profile_selectors.message_button, timeout=5):
-            return True
-        
-        self.logger.warning("Message button not found")
-        return False
+        return self._click_button(self.profile_selectors.message_button, "Message button", "💌")
     
     def is_follow_button_available(self) -> bool:
         return self._is_element_present(self.profile_selectors.follow_button)

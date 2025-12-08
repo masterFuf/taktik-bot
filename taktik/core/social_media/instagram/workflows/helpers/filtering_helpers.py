@@ -3,6 +3,8 @@ import random
 from typing import Dict, Any
 from loguru import logger
 
+from ...ui.selectors import CONTENT_CREATION_SELECTORS
+
 
 class FilteringHelpers:
     
@@ -11,6 +13,11 @@ class FilteringHelpers:
         self.device = automation.device
         self.nav_actions = automation.nav_actions
         self.logger = logger.bind(module="filtering-helpers")
+        self.content_selectors = CONTENT_CREATION_SELECTORS
+    
+    def _random_delay(self, min_delay: float = 0.5, max_delay: float = 1.5) -> None:
+        """Add a random delay to simulate human behavior."""
+        time.sleep(random.uniform(min_delay, max_delay))
         
     def should_interact_with_user(self, username: str, filters: Dict[str, Any]) -> bool:
         try:
@@ -42,10 +49,10 @@ class FilteringHelpers:
     
     def like_current_post(self) -> bool:
         try:
-            like_button = self.device(resourceId="com.instagram.android:id/row_feed_button_like")
+            like_button = self.device(resourceId=self.content_selectors.feed_like_button)
             if like_button.exists():
                 like_button.click()
-                time.sleep(random.uniform(0.5, 1.5))
+                self._random_delay(0.5, 1.5)
                 self.logger.debug("✅ Post liked successfully")
                 return True
             
@@ -58,10 +65,10 @@ class FilteringHelpers:
     
     def visit_profile_from_post(self, username: str) -> bool:
         try:
-            profile_elements = self.device(resourceId="com.instagram.android:id/row_feed_photo_profile_name")
+            profile_elements = self.device(resourceId=self.content_selectors.feed_profile_name)
             if profile_elements.exists():
                 profile_elements.click()
-                time.sleep(random.uniform(2, 4))
+                self._random_delay(2, 4)
                 self.logger.debug(f"✅ Navigated to @{username} profile from post")
                 return True
             
@@ -77,14 +84,14 @@ class FilteringHelpers:
             follow_button = self.device(text="Follow")
             if follow_button.exists():
                 follow_button.click()
-                time.sleep(random.uniform(1, 2))
+                self._random_delay(1, 2)
                 self.logger.debug(f"✅ Followed @{username} (EN)")
                 return True
             
             follow_button = self.device(text="Suivre")
             if follow_button.exists():
                 follow_button.click()
-                time.sleep(random.uniform(1, 2))
+                self._random_delay(1, 2)
                 self.logger.debug(f"✅ Followed @{username} (FR)")
                 return True
             

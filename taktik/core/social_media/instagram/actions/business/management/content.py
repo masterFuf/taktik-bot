@@ -15,36 +15,54 @@ class ContentBusiness(BaseBusinessAction):
     def extract_usernames_from_follow_list(self) -> List[str]:
         return self.detection_actions.extract_usernames_from_follow_list()
     
-    def extract_followers_from_profile(self, username: str, max_followers: int = 100, 
-                                     scroll_attempts: int = 10) -> List[str]:
-        followers = []
+    def _extract_users_from_list(self, username: str, list_type: str, 
+                                  max_users: int = 100, scroll_attempts: int = 10) -> List[str]:
+        """
+        Generic method to extract users from followers or following list.
+        
+        Args:
+            username: Profile username to extract from
+            list_type: 'followers' or 'following'
+            max_users: Maximum number of users to extract
+            scroll_attempts: Maximum scroll attempts
+            
+        Returns:
+            List of extracted usernames
+        """
+        users = []
         
         try:
             if not self.nav_actions.navigate_to_profile(username):
                 self.logger.error(f"Failed to navigate to @{username}")
-                return followers
+                return users
             
-            if not self.nav_actions.open_followers_list():
-                self.logger.error("Failed to open followers list")
-                return followers
+            # Open the appropriate list
+            if list_type == 'followers':
+                if not self.nav_actions.open_followers_list():
+                    self.logger.error("Failed to open followers list")
+                    return users
+            else:
+                if not self.nav_actions.open_following_list():
+                    self.logger.error("Failed to open following list")
+                    return users
             
-            self.logger.info(f"Extracting followers from @{username} (max: {max_followers})")
+            self.logger.info(f"Extracting {list_type} from @{username} (max: {max_users})")
             
             extracted_count = 0
             scroll_count = 0
             no_new_users_count = 0
             
-            while extracted_count < max_followers and scroll_count < scroll_attempts:
+            while extracted_count < max_users and scroll_count < scroll_attempts:
                 current_usernames = self.detection_actions.extract_usernames_from_follow_list()
                 
                 new_users_found = 0
                 for username_found in current_usernames:
-                    if username_found not in followers:
-                        followers.append(username_found)
+                    if username_found not in users:
+                        users.append(username_found)
                         extracted_count += 1
                         new_users_found += 1
                         
-                        if extracted_count >= max_followers:
+                        if extracted_count >= max_users:
                             break
                 
                 self.logger.debug(f"Extraction: {new_users_found} new, total: {extracted_count}")
@@ -57,70 +75,27 @@ class ContentBusiness(BaseBusinessAction):
                 else:
                     no_new_users_count = 0
                 
-                if extracted_count < max_followers:
+                if extracted_count < max_users:
                     self.scroll_actions.scroll_followers_list_down()
                     self._human_like_delay('scroll')
                     scroll_count += 1
             
-            self.logger.info(f"Extraction completed: {len(followers)} followers extracted")
+            self.logger.info(f"Extraction completed: {len(users)} {list_type} extracted")
             
         except Exception as e:
-            self.logger.error(f"Error extracting followers: {e}")
+            self.logger.error(f"Error extracting {list_type}: {e}")
         
-        return followers
+        return users
+    
+    def extract_followers_from_profile(self, username: str, max_followers: int = 100, 
+                                     scroll_attempts: int = 10) -> List[str]:
+        """Extract followers from a profile."""
+        return self._extract_users_from_list(username, 'followers', max_followers, scroll_attempts)
     
     def extract_following_from_profile(self, username: str, max_following: int = 100,
                                      scroll_attempts: int = 10) -> List[str]:
-        following = []
-        
-        try:
-            if not self.nav_actions.navigate_to_profile(username):
-                self.logger.error(f"Failed to navigate to @{username}")
-                return following
-            
-            if not self.nav_actions.open_following_list():
-                self.logger.error("Failed to open following list")
-                return following
-            
-            self.logger.info(f"Extracting following from @{username} (max: {max_following})")
-            
-            extracted_count = 0
-            scroll_count = 0
-            no_new_users_count = 0
-            
-            while extracted_count < max_following and scroll_count < scroll_attempts:
-                current_usernames = self.detection_actions.extract_usernames_from_follow_list()
-                
-                new_users_found = 0
-                for username_found in current_usernames:
-                    if username_found not in following:
-                        following.append(username_found)
-                        extracted_count += 1
-                        new_users_found += 1
-                        
-                        if extracted_count >= max_following:
-                            break
-                
-                self.logger.debug(f"Extraction: {new_users_found} new, total: {extracted_count}")
-                
-                if new_users_found == 0:
-                    no_new_users_count += 1
-                    if no_new_users_count >= 3:
-                        break
-                else:
-                    no_new_users_count = 0
-                
-                if extracted_count < max_following:
-                    self.scroll_actions.scroll_followers_list_down()
-                    self._human_like_delay('scroll')
-                    scroll_count += 1
-            
-            self.logger.info(f"Extraction completed: {len(following)} following extracted")
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting following: {e}")
-        
-        return following
+        """Extract following from a profile."""
+        return self._extract_users_from_list(username, 'following', max_following, scroll_attempts)
     
     def extract_likers_from_post(self, post_url: str, max_likers: int = 50) -> List[str]:
         likers = []
@@ -130,13 +105,7 @@ class ContentBusiness(BaseBusinessAction):
                 self.logger.error(f"Failed to navigate to post: {post_url}")
                 return likers
             
-            likes_count_selectors = [
-                '//*[contains(@text, "J\'aime")]',
-                '//*[contains(@text, "likes")]',
-                '//*[contains(@resource-id, "like_count")]'
-            ]
-            
-            if not self._find_and_click(likes_count_selectors, timeout=5):
+            if not self._find_and_click(self.post_selectors.likes_count_click_selectors, timeout=5):
                 self.logger.error("Failed to open likes list")
                 return likers
             
@@ -186,11 +155,7 @@ class ContentBusiness(BaseBusinessAction):
                 return posts
             
             if post_type == "recent":
-                recent_tab_selectors = [
-                    '//*[contains(@text, "Récents")]',
-                    '//*[contains(@text, "Recent")]'
-                ]
-                self._find_and_click(recent_tab_selectors, timeout=3)
+                self._find_and_click(self.navigation_selectors.recent_tab_selectors, timeout=3)
             
             self.logger.info(f"Extracting posts from #{hashtag} (max: {max_posts}, type: {post_type})")
             
@@ -296,29 +261,17 @@ class ContentBusiness(BaseBusinessAction):
                 'mentions': []
             }
             
-            author_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
-                '//*[contains(@resource-id, "profile_name")]'
-            ]
-            author_text = self._get_text_from_element(author_selectors)
+            author_text = self._get_text_from_element(self.post_selectors.username_extraction_selectors)
             if author_text:
                 post_info['author_username'] = self._clean_username(author_text)
             
-            caption_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_comment_text"]',
-                '//*[contains(@resource-id, "caption")]'
-            ]
-            caption_text = self._get_text_from_element(caption_selectors)
+            caption_text = self._get_text_from_element(self.post_selectors.caption_selectors)
             if caption_text:
                 post_info['caption'] = caption_text
                 post_info['hashtags'] = self.utils.extract_hashtags_from_text(caption_text)
                 post_info['mentions'] = self.utils.extract_mentions_from_text(caption_text)
             
-            likes_selectors = [
-                '//*[contains(@text, "J\'aime")]',
-                '//*[contains(@text, "likes")]'
-            ]
-            likes_text = self._get_text_from_element(likes_selectors)
+            likes_text = self._get_text_from_element(self.post_selectors.likes_count_click_selectors)
             if likes_text:
                 post_info['likes_count'] = self._extract_number_from_text(likes_text)
             

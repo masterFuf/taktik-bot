@@ -34,6 +34,20 @@ class ScrollEndDetector:
         # Utiliser les sélecteurs centralisés
         self.load_more_selectors = SCROLL_SELECTORS.load_more_selectors
         self.end_of_list_indicators = SCROLL_SELECTORS.end_of_list_indicators
+    
+    def _find_element_from_selectors(self, selectors: list, element_name: str) -> object:
+        """Find first matching element from a list of xpath selectors."""
+        if not self.device:
+            return None
+        for selector in selectors:
+            try:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    self.logger.debug(f"{element_name} détecté: {selector}")
+                    return element
+            except Exception as e:
+                self.logger.debug(f"Erreur lors de la vérification {element_name}: {e}")
+        return None
 
     def notify_new_page(self, usernames: List[str], processed_usernames: Optional[List[str]] = None) -> bool:
         """
@@ -95,68 +109,21 @@ class ScrollEndDetector:
         return len(new_users) > 0
 
     def has_load_more_button(self) -> bool:
-        """
-        Vérifie s'il y a un bouton "Load More" visible à l'écran.
-        
-        Returns:
-            bool: True si un bouton "Load More" est détecté
-        """
-        if not self.device:
-            return False
-            
-        for selector in self.load_more_selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.debug(f"Bouton 'Load More' détecté: {selector}")
-                    return True
-            except Exception as e:
-                self.logger.debug(f"Erreur lors de la vérification Load More: {e}")
-                continue
-        return False
+        """Vérifie s'il y a un bouton "Load More" visible à l'écran."""
+        return self._find_element_from_selectors(self.load_more_selectors, "Bouton 'Load More'") is not None
     
     def click_load_more_if_present(self) -> bool:
-        """
-        Clique sur le bouton "Load More" s'il est présent.
-        
-        Returns:
-            bool: True si le bouton a été cliqué avec succès
-        """
-        if not self.device:
-            return False
-            
-        for selector in self.load_more_selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.info(f"Clic sur le bouton 'Load More'")
-                    element.click()
-                    return True
-            except Exception as e:
-                self.logger.debug(f"Erreur lors du clic Load More: {e}")
-                continue
+        """Clique sur le bouton "Load More" s'il est présent."""
+        element = self._find_element_from_selectors(self.load_more_selectors, "Bouton 'Load More'")
+        if element:
+            self.logger.info("Clic sur le bouton 'Load More'")
+            element.click()
+            return True
         return False
     
     def has_end_of_list_indicator(self) -> bool:
-        """
-        Vérifie s'il y a un indicateur de fin de liste visible.
-        
-        Returns:
-            bool: True si un indicateur de fin de liste est détecté
-        """
-        if not self.device:
-            return False
-            
-        for selector in self.end_of_list_indicators:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.debug(f"Indicateur de fin de liste détecté: {selector}")
-                    return True
-            except Exception as e:
-                self.logger.debug(f"Erreur lors de la vérification de fin: {e}")
-                continue
-        return False
+        """Vérifie s'il y a un indicateur de fin de liste visible."""
+        return self._find_element_from_selectors(self.end_of_list_indicators, "Indicateur de fin de liste") is not None
 
     def should_use_fast_scroll(self) -> bool:
         """

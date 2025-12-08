@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS
+from ...ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
 from ...ui.detectors.problematic_page import ProblematicPageDetector
 
 
@@ -18,6 +18,7 @@ class NavigationActions(BaseAction):
         self.logger = logger.bind(module="instagram-navigation-atomic")
         self.detection_selectors = DETECTION_SELECTORS
         self.selectors = NAVIGATION_SELECTORS
+        self.profile_selectors = PROFILE_SELECTORS
         self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
     
     def _get_device_serial(self) -> str:
@@ -37,25 +38,37 @@ class NavigationActions(BaseAction):
         
         return device_serial
     
-    def navigate_to_home(self) -> bool:
-        self.logger.debug("🏠 Navigating to home screen")
+    def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func) -> bool:
+        """
+        Generic method to navigate to a tab.
         
-        if self._find_and_click(self.selectors.home_tab, timeout=3):
+        Args:
+            tab_selectors: Selectors for the tab
+            tab_name: Name for logging
+            emoji: Emoji for logging
+            verify_func: Function to verify navigation success
+            
+        Returns:
+            True if navigation successful, False otherwise
+        """
+        self.logger.debug(f"{emoji} Navigating to {tab_name}")
+        
+        if self._find_and_click(tab_selectors, timeout=3):
             self._human_like_delay('navigation')
-            return self._is_home_screen()
+            return verify_func()
+        
+        return False
+    
+    def navigate_to_home(self) -> bool:
+        if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
+            return True
         
         self.logger.debug("Fallback: using back button")
         self._press_back(3)
         return self._is_home_screen()
     
     def navigate_to_search(self) -> bool:
-        self.logger.debug("🔍 Navigating to search screen")
-        
-        if self._find_and_click(self.selectors.search_tab, timeout=3):
-            self._human_like_delay('navigation')
-            return self._is_search_screen()
-        
-        return False
+        return self._navigate_to_tab(self.selectors.search_tab, "search screen", "🔍", self._is_search_screen)
     
     def navigate_to_hashtag(self, hashtag: str) -> bool:
         try:
@@ -147,10 +160,27 @@ class NavigationActions(BaseAction):
         self.logger.error("❌ Failed to navigate to own profile after 3 attempts")
         return False
     
-    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 90) -> bool:
+    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 90, force_search: bool = False) -> bool:
+        """
+        Navigate to a user's profile.
+        
+        Args:
+            username: The username to navigate to
+            deep_link_usage_percentage: Percentage chance to use deep link (0-100)
+                                        Set to 0 to always use search
+            force_search: If True, always use search (ignores deep_link_usage_percentage)
+            
+        Returns:
+            True if navigation successful, False otherwise
+        """
         self.logger.info(f"🎯 Navigating to profile @{username}")
         
-        use_deep_link = random.randint(1, 100) <= deep_link_usage_percentage
+        # Determine navigation method
+        if force_search:
+            use_deep_link = False
+            self.logger.debug("Forced to use search navigation")
+        else:
+            use_deep_link = random.randint(1, 100) <= deep_link_usage_percentage
         
         if use_deep_link:
             self.logger.debug("Using deep link")
@@ -165,12 +195,19 @@ class NavigationActions(BaseAction):
             self._check_and_close_problematic_pages()
             return True
         
-        if not use_deep_link:
+        # Fallback: try the other method
+        if not use_deep_link and not force_search:
             self.logger.debug("Fallback attempt with deep link")
             success = self._navigate_via_deep_link(username)
             if success:
                 self._random_sleep()
-                # Vérifier et fermer les popups problématiques
+                self._check_and_close_problematic_pages()
+                return True
+        elif use_deep_link:
+            self.logger.debug("Fallback attempt with search")
+            success = self._navigate_via_search(username)
+            if success:
+                self._random_sleep()
                 self._check_and_close_problematic_pages()
                 return True
         
@@ -215,35 +252,94 @@ class NavigationActions(BaseAction):
         return False
     
     def _navigate_via_search(self, username: str) -> bool:
+        """
+        Navigate to a profile using the search feature with human-like typing.
+        
+        Flow:
+        1. Click on search tab (bottom bar)
+        2. Click on search bar to activate it
+        3. Type username with human-like delays
+        4. Wait for results and click on the matching profile
+        """
+        self.logger.info(f"🔍 Navigating to @{username} via search")
+        
+        # Step 1: Navigate to search tab
         if not self.navigate_to_search():
             self.logger.error("Cannot access search screen")
             return False
         
-        if not self._find_and_click(self.detection_selectors.search_bar_selectors[0] if self.detection_selectors.search_bar_selectors else '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]', timeout=5):
-            self.logger.error("Cannot find search bar")
+        self._human_like_delay('navigation')
+        
+        # Step 2: Click on search bar to activate it
+        # On the explore page, we need to click on the search bar at the top
+        search_bar_selectors = [
+            # Search bar on explore page (text "Rechercher" or "Search")
+            '//android.widget.TextView[contains(@text, "Rechercher")]',
+            '//android.widget.TextView[contains(@text, "Search")]',
+            # Search bar with resource-id
+            '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
+            # EditText search bar
+            '//android.widget.EditText[contains(@hint, "Rechercher")]',
+            '//android.widget.EditText[contains(@hint, "Search")]',
+            # Fallback to any clickable search element
+            '//*[contains(@content-desc, "Rechercher")]',
+            '//*[contains(@content-desc, "Search")]'
+        ]
+        
+        if not self._find_and_click(search_bar_selectors, timeout=5):
+            self.logger.error("Cannot find/click search bar")
             return False
         
         self._human_like_delay('click')
-        self.device.send_keys(username)
-        self._human_like_delay('typing')
         
-        search_result = f'//android.widget.TextView[@text="{username}"]'
-        if self._wait_for_element(search_result, timeout=5):
-            if self._find_and_click(search_result, timeout=3):
+        # Wait for keyboard to appear and search field to be active
+        time.sleep(0.5)
+        
+        # Step 3: Type username with human-like delays
+        self._type_like_human(username, min_delay=0.05, max_delay=0.12)
+        
+        # Wait for search results to load
+        self._human_like_delay('typing')
+        time.sleep(1.5)  # Extra time for Instagram to fetch results
+        
+        # Step 4: Find and click on the search result
+        # The clickable element is the container (row_search_user_container), not the TextView
+        # We need to find the container that has the matching username inside
+        search_result_selectors = [
+            # BEST: Click on the user container that contains the exact username
+            # This targets the Button container with the username TextView inside
+            f'//*[@resource-id="com.instagram.android:id/row_search_user_container"][.//*[@resource-id="com.instagram.android:id/row_search_user_username" and @text="{username}"]]',
+            
+            # Alternative: Container with any descendant matching the username
+            f'//*[@resource-id="com.instagram.android:id/row_search_user_container"][.//*[@text="{username}"]]',
+            
+            # Fallback: Click directly on the username TextView (might work on some versions)
+            f'//android.widget.TextView[@resource-id="com.instagram.android:id/row_search_user_username" and @text="{username}"]',
+            
+            # Last resort: Any clickable element with the username
+            f'//*[@clickable="true"][.//*[@text="{username}"]]'
+        ]
+        
+        # Wait for results to appear
+        if self._wait_for_element(search_result_selectors, timeout=5):
+            self.logger.debug(f"🔍 Found search result for @{username}, clicking...")
+            if self._find_and_click(search_result_selectors, timeout=3):
+                self.logger.debug(f"✅ Clicked on search result for @{username}")
                 self._human_like_delay('navigation')
                 return self._verify_profile_navigation(username)
+            else:
+                self.logger.warning(f"Found but could not click on @{username}")
         
+        self.logger.warning(f"Could not find @{username} in search results")
         return False
     
     def open_followers_list(self) -> bool:
         self.logger.debug("👥 Opening followers list")
         
-        followers_link = '//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]'
-        if self._find_and_click(followers_link, timeout=5):
+        if self._find_and_click(self.profile_selectors.followers_link, timeout=5):
             self._human_like_delay('navigation')
             
             # Attendre que la liste se charge (Instagram peut être lent)
-            import time
             time.sleep(2)
             
             # Vérifier si la liste est ouverte
@@ -262,8 +358,7 @@ class NavigationActions(BaseAction):
     def open_following_list(self) -> bool:
         self.logger.debug("👥 Opening following list")
         
-        following_link = '//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]'
-        if self._find_and_click(following_link, timeout=5):
+        if self._find_and_click(self.profile_selectors.following_link, timeout=5):
             self._human_like_delay('navigation')
             return self._is_following_list_open()
         
@@ -283,22 +378,29 @@ class NavigationActions(BaseAction):
         self._press_back(1)
         return True
     
+    def _is_screen(self, indicators, screen_name: str = None) -> bool:
+        """Generic method to check if on a specific screen."""
+        return self._is_element_present(indicators)
+    
     def _is_home_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.home_screen_indicators)
+        return self._is_screen(self.detection_selectors.home_screen_indicators)
     
     def _is_search_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.search_screen_indicators)
+        return self._is_screen(self.detection_selectors.search_screen_indicators)
     
     def _is_profile_screen(self) -> bool:
-        return self._is_element_present(self.detection_selectors.profile_screen_indicators)
+        return self._is_screen(self.detection_selectors.profile_screen_indicators)
     
     def _is_followers_list_open(self) -> bool:
-        return self._is_element_present(self.detection_selectors.followers_list_indicators)
+        return self._is_screen(self.detection_selectors.followers_list_indicators)
     
     def _is_following_list_open(self) -> bool:
         return self._is_followers_list_open()
     
     def _verify_profile_navigation(self, expected_username: str) -> bool:
+        # D'abord vérifier et fermer les popups problématiques
+        self._check_and_close_problematic_pages()
+        
         if not self._is_profile_screen():
             self.logger.debug(f"❌ Not on profile screen")
             return False

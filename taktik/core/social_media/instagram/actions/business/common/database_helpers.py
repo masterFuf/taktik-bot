@@ -132,6 +132,54 @@ class DatabaseHelpers:
         except Exception as e:
             log.error(f"❌ Erreur enregistrement filtrage @{username}: {e}")
             return False
+    
+    @staticmethod
+    def is_profile_filtered(
+        username: str,
+        account_id: Optional[int] = None
+    ) -> bool:
+        """Vérifie si un profil a déjà été filtré pour ce compte."""
+        if not account_id:
+            return False
+        
+        try:
+            # Accéder directement à l'API client
+            db_service = get_db_service()
+            if hasattr(db_service, 'api_client'):
+                is_filtered = db_service.api_client.is_profile_filtered(username, account_id)
+                if is_filtered:
+                    log.debug(f"🚫 Profil @{username} déjà filtré")
+                return is_filtered
+            return False
+            
+        except Exception as e:
+            log.debug(f"Erreur vérification filtrage @{username}: {e}")
+            return False
+    
+    @staticmethod
+    def is_profile_skippable(
+        username: str,
+        account_id: Optional[int] = None,
+        hours_limit: int = 1440
+    ) -> tuple[bool, str]:
+        """
+        Vérifie si un profil doit être skippé (déjà traité OU déjà filtré).
+        
+        Returns:
+            tuple[bool, str]: (should_skip, reason)
+        """
+        if not account_id:
+            return False, ""
+        
+        # Vérifier si déjà traité (interagi)
+        if DatabaseHelpers.is_profile_already_processed(username, account_id, hours_limit):
+            return True, "already_processed"
+        
+        # Vérifier si déjà filtré
+        if DatabaseHelpers.is_profile_filtered(username, account_id):
+            return True, "already_filtered"
+        
+        return False, ""
 
 
 __all__ = ['DatabaseHelpers']

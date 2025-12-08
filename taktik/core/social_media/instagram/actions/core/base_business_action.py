@@ -78,6 +78,43 @@ class BaseBusinessAction(BaseAction):
             return getattr(self.automation, 'current_session_id', None)
         return None
     
+    def _record_action(self, username: str, action_type: str, count: int = 1) -> bool:
+        """
+        Record an action in the database.
+        Centralized method to avoid code duplication across business actions.
+        
+        Args:
+            username: Target username
+            action_type: Type of action (LIKE, FOLLOW, UNFOLLOW, STORY_WATCH, STORY_LIKE, COMMENT, etc.)
+            count: Number of actions to record
+            
+        Returns:
+            True if recording succeeded, False otherwise
+        """
+        try:
+            from ..business.common.database_helpers import DatabaseHelpers
+            
+            account_id = self._get_account_id()
+            session_id = self._get_session_id()
+            
+            if not account_id:
+                self.logger.warning(f"Cannot record {action_type} - no account_id")
+                return False
+            
+            DatabaseHelpers.record_individual_actions(
+                username=username,
+                action_type=action_type,
+                count=count,
+                account_id=account_id,
+                session_id=session_id
+            )
+            self.logger.debug(f"✅ {count} {action_type} action(s) recorded for @{username}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to record {action_type} for @{username}: {e}")
+            return False
+    
     def _is_likers_popup_open(self) -> bool:
         for indicator in self.popup_selectors.likers_popup_indicators:
             if self._is_element_present([indicator]):
@@ -401,27 +438,15 @@ class BaseBusinessAction(BaseAction):
         try:
             self.logger.debug("🔍 Checking for suggestions popup after follow...")
             
-            suggestion_popup_selectors = [
-                '//*[contains(@text, "Suggestions")]',
-                '//*[contains(@text, "Recommended")]',
-                '//*[@resource-id="com.instagram.android:id/bottom_sheet_container"]'
-            ]
-            
             popup_detected = False
-            for selector in suggestion_popup_selectors:
+            for selector in self.popup_selectors.follow_suggestions_indicators:
                 if self.device.xpath(selector).exists:
                     popup_detected = True
                     self.logger.debug(f"✅ Suggestions popup detected: {selector}")
                     break
             
             if popup_detected:
-                close_selectors = [
-                    '//*[@content-desc="Close"]',
-                    '//*[@content-desc="Fermer"]',
-                    '//*[@resource-id="com.instagram.android:id/dismiss_button"]'
-                ]
-                
-                for selector in close_selectors:
+                for selector in self.popup_selectors.follow_suggestions_close_methods:
                     if self._find_and_click(selector, timeout=2):
                         self.logger.debug("✅ Suggestions popup closed")
                         time.sleep(0.5)

@@ -209,6 +209,34 @@ class AuthSelectors:
         '//android.widget.Button[@text="DENY"]'
     ])
     
+    # === Boutons génériques pour popups ===
+    save_button_selectors: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@content-desc="Save"]',
+        '//android.widget.Button[@content-desc="Enregistrer"]',
+        '//android.widget.Button[contains(@text, "Save")]',
+        '//android.widget.Button[contains(@text, "Enregistrer")]'
+    ])
+    
+    skip_button_selectors: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@content-desc="Ignorer"]',
+        '//android.widget.Button[@content-desc="Skip"]',
+        '//android.widget.Button[contains(@text, "Ignorer")]',
+        '//android.widget.Button[contains(@text, "Skip")]'
+    ])
+    
+    continue_button_selectors: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@content-desc="Continuer"]',
+        '//android.widget.Button[@content-desc="Continue"]',
+        '//android.widget.Button[contains(@text, "Continuer")]',
+        '//android.widget.Button[contains(@text, "Continue")]'
+    ])
+    
+    deny_button_selectors: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@resource-id="com.android.packageinstaller:id/permission_deny_button"]',
+        '//android.widget.Button[@text="REFUSER"]',
+        '//android.widget.Button[@text="DENY"]'
+    ])
+    
     # === Détection de connexion réussie ===
     login_success_indicators: List[str] = field(default_factory=lambda: [
         # Navigation bar visible (home, search, etc.)
@@ -293,6 +321,20 @@ class NavigationSelectors:
         '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]//android.widget.ImageView[1]',
         '//android.widget.ImageView[@content-desc="Grid view"]'
     ])
+    
+    # === Hashtag navigation ===
+    recent_tab_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Récents")]',
+        '//*[contains(@text, "Recent")]',
+        '//*[contains(@content-desc, "Récents")]',
+        '//*[contains(@content-desc, "Recent")]'
+    ])
+    
+    top_tab_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Top")]',
+        '//*[contains(@text, "Populaires")]',
+        '//*[contains(@content-desc, "Top")]'
+    ])
 
 @dataclass
 class ButtonSelectors:
@@ -333,9 +375,16 @@ class ProfileSelectors:
     
     # === Informations de base (listes pour fallbacks) ===
     username: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar_large_title_auto_size"]',
         '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
-        '//*[contains(@resource-id, "action_bar_title")]'
+        '//*[contains(@resource-id, "action_bar_title")]',
+        '//*[contains(@resource-id, "action_bar_large_title_auto_size")]',
+        '//*[contains(@resource-id, "row_profile_header_username")]',
+        '//android.widget.TextView[contains(@text, "@")]'
     ])
+    
+    # === Username from content-desc ===
+    username_content_desc: str = '//*[contains(@content-desc, "@")]'
     
     bio: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
@@ -382,6 +431,25 @@ class ProfileSelectors:
     igtv_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "IGTV")]'
     saved_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Enregistré") or contains(@content-desc, "Saved")]'
     tagged_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Photos de") or contains(@content-desc, "Photos with")]'
+    
+    # === Liens followers/following (pour navigation) ===
+    followers_link: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]',
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_followers_container"]',
+        '//*[contains(@content-desc, "followers") or contains(@content-desc, "abonnés")]'
+    ])
+    
+    following_link: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]',
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_following_container"]',
+        '//*[contains(@content-desc, "following") or contains(@content-desc, "abonnements")]'
+    ])
+    
+    # === Full name ===
+    full_name: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_header_full_name"]',
+        '//*[contains(@resource-id, "full_name")]'
+    ])
     
     # === Détection de profils privés ===
     zero_posts_indicators: List[str] = field(default_factory=lambda: [
@@ -711,6 +779,30 @@ class PostSelectors:
         '//android.widget.ImageView[contains(@content-desc, "Share")]',
         '//*[contains(@resource-id, "share_button")]'
     ])
+    
+    # === Caption selectors ===
+    caption_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_comment_text"]',
+        '//*[contains(@resource-id, "caption")]'
+    ])
+    
+    # === Likes count selectors (for opening likers list) ===
+    likes_count_click_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "J\'aime")]',
+        '//*[contains(@text, "likes")]',
+        '//*[contains(@resource-id, "like_count")]'
+    ])
+    
+    # === Send/Post button selectors ===
+    send_post_button_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Publier")]',
+        '//*[contains(@content-desc, "Post")]',
+        '//*[contains(@text, "Publier")]',
+        '//*[contains(@text, "Post")]',
+        '//*[contains(@content-desc, "Share")]',
+        '//*[contains(@text, "Share")]'
+    ])
+
 # =============================================================================
 # 📖 STORIES
 # =============================================================================
@@ -862,6 +954,17 @@ class PopupSelectors:
     # === Sélecteurs hashtag_business.py ===
     username_list_selector: str = '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
     drag_handle_selector: str = '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_prism"]'
+    
+    # === Comment popup close ===
+    comment_popup_drag_handle: str = '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_prism"]'
+    
+    # === Unfollow confirmation selectors ===
+    unfollow_confirmation_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Ne plus suivre")]',
+        '//*[contains(@text, "Unfollow")]',
+        '//*[contains(@text, "Confirmer")]',
+        '//*[contains(@text, "Confirm")]'
+    ])
 
 # =============================================================================
 # 📜 SCROLL & CHARGEMENT
@@ -967,6 +1070,15 @@ class DetectionSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]'
     ])
     
+    reel_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Reel de")]',
+        '//*[contains(@content-desc, "Reel by")]',
+        '//*[@resource-id="com.instagram.android:id/clips_single_media_component"]',
+        '//*[@resource-id="com.instagram.android:id/clips_viewer_video_layout"]',
+        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
+        '//*[@resource-id="com.instagram.android:id/clips_video_player"]'
+    ])
+    
     # === Détection de contenu ===
     story_ring_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "story_ring")]',
@@ -1011,11 +1123,27 @@ class DetectionSelectors:
     })
     
     # === État du post (liked) ===
+    # Quand un post est déjà liké, plusieurs indicateurs possibles selon version/langue:
+    # - FR: content-desc = "J'aime déjà" ou "Ne plus aimer"
+    # - EN: content-desc = "Unlike" ou "Liked"
+    # - Universel: selected = "true" sur le bouton like
     liked_button_indicators: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
+        # === MÉTHODE 1: Attribut selected (le plus fiable, indépendant de la langue) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
+        
+        # === MÉTHODE 2: Français (FR) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "déjà")]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Ne plus aimer")]',
+        '//*[contains(@content-desc, "J\'aime déjà")]',
+        '//*[contains(@content-desc, "Ne plus aimer")]',
+        
+        # === MÉTHODE 3: Anglais (EN) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Liked")]',
         '//*[contains(@content-desc, "Unlike")]',
-        '//*[contains(@content-desc, "Ne plus aimer")]'
+        
+        # === MÉTHODE 4: Fallback générique (anciennes versions) ===
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"][@selected="true"]'
     ])
     
     # === Navigation - Search bars ===
@@ -1060,9 +1188,72 @@ class DetectionSelectors:
     ])
     
     # === Followers/Following list ===
+    # Sélecteurs SPÉCIFIQUES à la liste des followers/following
+    # Ces éléments n'existent QUE sur l'écran de liste, pas sur un profil
     followers_list_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, "follow_list_container")]',
-        '//*[contains(@resource-id, "follow_list_username")]'
+        # PRIORITÉ 1: Tab layout avec "followers", "following", "en commun" (TRÈS FIABLE)
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
+        # PRIORITÉ 2: View pager spécifique à la liste
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager_wrapper"]',
+        # PRIORITÉ 3: Container parent de la liste
+        '//*[@resource-id="com.instagram.android:id/layout_listview_parent_container"]',
+        # PRIORITÉ 4: Boutons avec texte "followers" ou "following" (onglets)
+        '//android.widget.Button[contains(@text, "followers")]',
+        '//android.widget.Button[contains(@text, "following")]',
+        '//android.widget.Button[contains(@text, "suivi")]',
+        '//android.widget.Button[contains(@text, "en commun")]',
+        '//android.widget.Button[contains(@text, "mutual")]'
+    ])
+    
+    follow_list_username_selectors: List[str] = field(default_factory=lambda: [
+        # UNIQUEMENT les vrais followers, PAS les suggestions (row_recommended_user_username)
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
+    ])
+    
+    # Sélecteurs pour détecter la section suggestions (à éviter)
+    suggestions_section_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_recommended_user_username"]',
+        '//*[contains(@text, "Voir toutes les suggestions")]',
+        '//*[contains(@text, "See all suggestions")]',
+        '//*[contains(@text, "Suggestions pour vous")]',
+        '//*[contains(@text, "Suggestions for you")]',
+        '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]'
+    ])
+    
+    # === Post grid visibility ===
+    post_grid_visibility_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]',
+        '//*[contains(@resource-id, "recycler_view")]'
+    ])
+    
+    post_thumbnail_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/image_button"]',
+        '//android.widget.ImageView[contains(@resource-id, "image")]'
+    ])
+    
+    # === Private account detection ===
+    private_account_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="This account is private"]',
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="Ce compte est privé"]',
+        '//*[contains(@text, "This account is private")]',
+        '//*[contains(@text, "Ce compte est privé")]',
+        '//*[contains(@content-desc, "This account is private")]',
+        '//*[contains(@content-desc, "Ce compte est privé")]'
+    ])
+    
+    # === Verified account detection ===
+    verified_account_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Verified")]',
+        '//*[contains(@content-desc, "Vérifié")]',
+        '//*[@resource-id="com.instagram.android:id/verified_badge"]'
+    ])
+    
+    # === Business account detection ===
+    business_account_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "profile_header_business_category")]',
+        '//*[contains(@text, "Professional")]',
+        '//*[contains(@text, "Professionnel")]'
     ])
     
     # === Load more / End of list ===
@@ -1118,6 +1309,24 @@ class DetectionSelectors:
         '//android.widget.FrameLayout//android.widget.ImageView',
         '//android.view.ViewGroup[@clickable="true"]//android.widget.ImageView',
         '//android.widget.ImageButton[@resource-id="com.instagram.android:id/image_button"]'
+    ])
+    
+    # === Carousel selectors (for atomic extraction) ===
+    carousel_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "carousel_video_media_group")]',
+        '//*[contains(@resource-id, "carousel_media_group")]',
+        '//*[contains(@content-desc, "likes") and contains(@content-desc, "comment")]'
+    ])
+    
+    # === Reel like/comment count selectors ===
+    reel_like_count_selector: str = '//*[@resource-id="com.instagram.android:id/like_count"]'
+    reel_comment_count_selector: str = '//*[@resource-id="com.instagram.android:id/comment_count"]'
+    
+    # === Likers list username selectors ===
+    likers_list_username_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
+        '//*[@resource-id="com.instagram.android:id/row_user_username"]',
+        '//android.widget.TextView[contains(@text, "@")]'
     ])
 
 # =============================================================================
@@ -1201,9 +1410,10 @@ class ProblematicPageSelectors:
     
     # === Boutons OK ===
     ok_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
-        {'text': 'OK'},
         {'resourceId': 'com.instagram.android:id/igds_alert_dialog_primary_button'},
+        {'text': 'OK'},
         {'text': 'Ok'},
+        {'textContains': 'OK'},
         {'description': 'OK'},
         {'description': 'Ok'}
     ])
@@ -1278,6 +1488,35 @@ class ProblematicPageSelectors:
     })
 
 # =============================================================================
+# 📸 CRÉATION DE CONTENU
+# =============================================================================
+
+@dataclass
+class ContentCreationSelectors:
+    """Sélecteurs pour la création de contenu (posts, stories, reels)."""
+    
+    # === Tab de création ===
+    creation_tab: str = 'com.instagram.android:id/creation_tab'
+    
+    # === Galerie ===
+    gallery_grid_item: str = 'com.instagram.android:id/gallery_grid_item_thumbnail'
+    
+    # === Boutons de popup ===
+    primary_button: str = 'com.instagram.android:id/primary_button'
+    bb_primary_action: str = 'com.instagram.android:id/bb_primary_action'
+    
+    # === Navigation création ===
+    next_button: str = 'com.instagram.android:id/next_button_textview'
+    
+    # === Champs de texte ===
+    caption_text_view: str = 'com.instagram.android:id/caption_text_view'
+    caption_input_text_view: str = 'com.instagram.android:id/caption_input_text_view'
+    
+    # === Feed interactions ===
+    feed_like_button: str = 'com.instagram.android:id/row_feed_button_like'
+    feed_profile_name: str = 'com.instagram.android:id/row_feed_photo_profile_name'
+
+# =============================================================================
 # 🔧 DEBUG & UTILITAIRES
 # =============================================================================
 
@@ -1309,6 +1548,7 @@ DETECTION_SELECTORS = DetectionSelectors()
 TEXT_INPUT_SELECTORS = TextInputSelectors()
 DEBUG_SELECTORS = DebugSelectors()
 PROBLEMATIC_PAGE_SELECTORS = ProblematicPageSelectors()
+CONTENT_CREATION_SELECTORS = ContentCreationSelectors()
 
 # =============================================================================
 # 📋 RÉSUMÉ DES SÉLECTEURS DISPONIBLES

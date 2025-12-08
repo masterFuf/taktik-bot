@@ -91,14 +91,14 @@ class CommentBusiness(BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
-            time.sleep(random.uniform(1, 2))
+            self._human_like_delay(1, 2)
             
             if not self._type_comment(comment_text):
                 self.logger.error("Failed to type comment")
                 stats['errors'] += 1
                 return stats
             
-            time.sleep(random.uniform(0.5, 1.5))
+            self._human_like_delay(0.5, 1.5)
             
             if not self._post_comment():
                 self.logger.error("Failed to post comment")
@@ -127,24 +127,7 @@ class CommentBusiness(BaseBusinessAction):
             
             # Record comment in database
             if username:
-                try:
-                    from ..common.database_helpers import DatabaseHelpers
-                    account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
-                    session_id = getattr(self.session_manager, 'session_id', None) if self.session_manager else None
-                    
-                    if account_id:
-                        DatabaseHelpers.record_individual_actions(
-                            username=username,
-                            action_type='COMMENT',
-                            count=1,
-                            account_id=account_id,
-                            session_id=session_id
-                        )
-                        self.logger.debug(f"Comment recorded in database for @{username}")
-                    else:
-                        self.logger.warning("account_id not available - comment not recorded in DB")
-                except Exception as e:
-                    self.logger.error(f"Failed to record comment in database: {e}")
+                self._record_action(username, 'COMMENT', 1)
             
             return stats
             
@@ -216,7 +199,7 @@ class CommentBusiness(BaseBusinessAction):
         try:
             self.logger.debug("Closing comment popup...")
             
-            drag_handle = self.device.xpath('//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_prism"]')
+            drag_handle = self.device.xpath(self.popup_selectors.comment_popup_drag_handle)
             
             if drag_handle.exists:
                 bounds = drag_handle.info.get('bounds', {})

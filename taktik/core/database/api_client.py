@@ -403,6 +403,39 @@ class TaktikAPIClient:
             logger.error(f"Erreur lors de l'enregistrement du profil filtré {username}: {e}")
             return False
     
+    def is_profile_filtered(self, username: str, account_id: int) -> bool:
+        """Vérifie si un profil a été filtré pour un compte donné."""
+        try:
+            result = self._make_request('GET', f'/filtered-profiles/{username}/{account_id}')
+            if result:
+                return result.get('filtered', False)
+            return False
+        except Exception as e:
+            logger.debug(f"Erreur lors de la vérification du profil filtré {username}: {e}")
+            return False
+    
+    def check_filtered_profiles_batch(self, usernames: list, account_id: int) -> list:
+        """
+        Vérifie si plusieurs profils sont filtrés en une seule requête.
+        Retourne la liste des usernames qui sont filtrés.
+        """
+        try:
+            if not usernames:
+                return []
+            
+            data = {
+                'usernames': usernames,
+                'account_id': account_id
+            }
+            result = self._make_request('POST', '/filtered-profiles/check-batch', data)
+            
+            if result:
+                return result.get('filtered_usernames', [])
+            return []
+        except Exception as e:
+            logger.debug(f"Erreur lors de la vérification batch des profils filtrés: {e}")
+            return []
+    
     def create_session(self, account_id: int, session_name: str, target_type: str, target: str, config_used: Dict[str, Any] = None) -> Optional[int]:
         try:
             truncated_target = target[:50] if target else 'unknown'

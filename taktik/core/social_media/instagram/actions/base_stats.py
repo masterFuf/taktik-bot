@@ -104,10 +104,11 @@ class BaseStatsManager:
             'follows': max(self.stats.get('follows', 0), self.stats.get('follows_made', 0)),
             'comments': max(self.stats.get('comments', 0), self.stats.get('comments_made', 0)),
             'stories_watched': self.stats.get('stories_watched', 0),
+            'story_likes': self.stats.get('story_likes', 0),
             
             'likes_per_hour': self.get_rate_per_hour('likes'),
             'follows_per_hour': self.get_rate_per_hour('follows'),
-            'profiles_per_hour': self.get_rate_per_hour('profiles_visited'),
+            'profiles_per_hour': self.get_rate_per_hour('profiles_interacted'),  # Based on interacted, not visited
             
             'errors': self.stats.get('errors', 0),
             'error_list': self.stats.get('error_list', [])
@@ -158,18 +159,24 @@ class BaseStatsManager:
             logger.info(f"⏱️  Session duration: {summary['duration']}")
         logger.info(f"❤️  Likes performed: {summary['likes']} ({summary['likes_per_hour']:.1f}/h)")
         logger.info(f"👥 Follows performed: {summary['follows']} ({summary['follows_per_hour']:.1f}/h)")
+        logger.info(f"👁️  Stories watched: {summary['stories_watched']}")
+        if self.stats.get('story_likes', 0) > 0:
+            logger.info(f"❤️  Story likes: {self.stats.get('story_likes', 0)}")
         logger.info(f"💬 Comments: {summary['comments']}")
-        logger.info(f"👤 Profiles visited: {summary['profiles_visited']} ({summary['profiles_per_hour']:.1f}/h)")
+        logger.info("-" * 40)
+        logger.info(f"👤 Profiles visited: {summary['profiles_visited']}")
+        logger.info(f"✅ Profiles interacted: {summary.get('profiles_interacted', 0)}")
         logger.info(f"🚫 Profiles filtered: {summary.get('profiles_filtered', 0)} (criteria not met)")
         if summary.get('skipped', 0) > 0:
-            logger.info(f"⏭️ Profiles skipped: {summary['skipped']} (already processed)")
+            logger.info(f"⏭️ Profiles skipped: {summary['skipped']} (already processed/no interaction)")
         
         if summary['private_profiles'] > 0:
             logger.info(f"🔒 Private profiles: {summary['private_profiles']}")
         
         logger.info("-" * 80)
-        logger.info(f"📈 Total actions: {summary['likes'] + summary['follows'] + summary['comments']}")
-        logger.info(f"📊 Total profiles processed: {summary['profiles_visited']}")
+        total_actions = summary['likes'] + summary['follows'] + summary['comments'] + summary['stories_watched']
+        logger.info(f"📈 Total actions: {total_actions}")
+        logger.info(f"📊 Profiles interacted: {summary.get('profiles_interacted', 0)} / visited: {summary['profiles_visited']}")
         
         if summary['errors'] > 0:
             logger.info(f"❌ Errors: {summary['errors']}")
