@@ -11,7 +11,7 @@ import json
 import signal
 import logging
 import math
-from typing import Optional
+from typing import Optional, Dict, Any
 from loguru import logger
 
 # Configure logging for desktop integration
@@ -66,6 +66,10 @@ class DesktopBridge:
         self.license_key = config.get('licenseKey')
         self.device_manager = None
         self.automation = None
+        
+        # Media capture service
+        self.media_capture_enabled = config.get('mediaCaptureEnabled', True)
+        self.media_capture_service = None
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self._handle_shutdown)
@@ -365,6 +369,84 @@ class DesktopBridge:
             logger.exception("Workflow error")
             return False
     
+    def start_media_capture(self) -> bool:
+        """Start the media capture service for intercepting Instagram images."""
+        if not self.media_capture_enabled:
+            send_log("info", "Media capture disabled in config")
+            return True
+        
+        try:
+            from taktik.core.media import MediaCaptureService
+            
+            send_status("initializing", "Starting media capture service...")
+            
+            # Create callback to forward media events to desktop
+            def on_media_event(event_type: str, data: Dict[str, Any]):
+                send_message(event_type, **data)
+            
+            self.media_capture_service = MediaCaptureService(
+                device_id=self.device_id,
+                proxy_port=8888,
+                desktop_bridge_callback=on_media_event
+            )
+            
+            # Set up callbacks for logging
+            def on_profile(profile):
+                send_log("info", f"📸 Captured profile: @{profile.username} ({profile.follower_count} followers)")
+                send_message("profile_captured", 
+                    username=profile.username,
+                    full_name=profile.full_name,
+                    profile_pic_url=profile.profile_pic_url,
+                    profile_pic_url_hd=profile.profile_pic_url_hd,
+                    follower_count=profile.follower_count,
+                    following_count=profile.following_count,
+                    media_count=profile.media_count,
+                    is_private=profile.is_private,
+                    is_verified=profile.is_verified,
+                    biography=profile.biography
+                )
+            
+            def on_media(media):
+                send_log("debug", f"🖼️ Captured media: {media.media_id} ({media.like_count} likes)")
+                send_message("media_captured",
+                    media_id=media.media_id,
+                    media_type=media.media_type,
+                    image_url=media.image_url,
+                    like_count=media.like_count,
+                    comment_count=media.comment_count,
+                    caption=media.caption[:100] if media.caption else "",
+                    username=media.username
+                )
+            
+            self.media_capture_service.on_profile_captured = on_profile
+            self.media_capture_service.on_media_captured = on_media
+            
+            if not self.media_capture_service.start():
+                send_log("warning", "Media capture service failed to start (continuing without it)")
+                self.media_capture_service = None
+                return True  # Non-blocking failure
+            
+            send_status("media_capture_ready", "Media capture service started")
+            return True
+            
+        except ImportError as e:
+            send_log("warning", f"Media capture not available: {e}")
+            return True  # Non-blocking
+        except Exception as e:
+            send_log("warning", f"Media capture failed: {e}")
+            return True  # Non-blocking
+    
+    def stop_media_capture(self):
+        """Stop the media capture service."""
+        if self.media_capture_service:
+            try:
+                stats = self.media_capture_service.get_stats()
+                send_log("info", f"Media capture stats: {stats['profiles_captured']} profiles, {stats['media_captured']} media")
+                self.media_capture_service.stop()
+            except Exception as e:
+                send_log("warning", f"Error stopping media capture: {e}")
+            self.media_capture_service = None
+    
     def run(self) -> int:
         """Main entry point."""
         send_status("starting", "TAKTIK Desktop Bridge starting...")
@@ -385,13 +467,22 @@ class DesktopBridge:
         if not self.connect_device():
             return 3
         
+        # Start media capture (non-blocking if fails)
+        self.start_media_capture()
+        
         # Launch Instagram
         if not self.launch_instagram():
+            self.stop_media_capture()
             return 4
         
         # Run workflow
-        if not self.run_workflow():
-            return 5
+        try:
+            if not self.run_workflow():
+                self.stop_media_capture()
+                return 5
+        finally:
+            # Always stop media capture
+            self.stop_media_capture()
         
         send_status("finished", "Session completed")
         return 0
