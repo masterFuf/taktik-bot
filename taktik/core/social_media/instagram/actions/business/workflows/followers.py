@@ -619,7 +619,10 @@ class FollowerBusiness(BaseBusinessAction):
             scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
             
             # Initialiser le tracker pour diagnostiquer les problèmes de navigation
-            account_username = self.session_manager.account_username if self.session_manager else "unknown"
+            # Récupérer le username du compte actif depuis automation ou utiliser "unknown"
+            account_username = "unknown"
+            if self.automation and hasattr(self.automation, 'active_username') and self.automation.active_username:
+                account_username = self.automation.active_username
             tracker = FollowersTracker(account_username, target_username)
             self.logger.info(f"📝 Tracking log: {tracker.get_log_file_path()}")
             
@@ -680,6 +683,18 @@ class FollowerBusiness(BaseBusinessAction):
                     loop_detected = tracker.log_visible_followers(visible_usernames_for_tracking, "scan")
                     if loop_detected:
                         self.logger.warning("⚠️ LOOP DETECTED: Back to start of followers list!")
+                        # Si on détecte une boucle, on a probablement perdu notre position
+                        # On peut soit arrêter, soit essayer de scroller pour avancer
+                        if tracker.loop_detected_count >= 3:
+                            self.logger.error("🛑 Too many loops detected (3+), stopping to avoid infinite loop")
+                            break
+                        else:
+                            # Essayer de scroller pour sortir de la boucle
+                            self.logger.info("🔄 Trying to scroll past the loop...")
+                            for _ in range(3):
+                                self.scroll_actions.scroll_followers_list_down()
+                                self._human_like_delay('scroll')
+                            continue
                 
                 if not visible_followers:
                     self.logger.debug("No visible followers found on screen")
@@ -989,6 +1004,20 @@ class FollowerBusiness(BaseBusinessAction):
                         self.logger.error("Could not return to followers list, stopping")
                         break
                     
+                    # === VÉRIFICATION DE POSITION APRÈS RETOUR (style Insomniac) ===
+                    # Récupérer les followers visibles après le retour
+                    visible_after_back = self.detection_actions.get_visible_followers_with_elements()
+                    if visible_after_back:
+                        visible_usernames_after = [f['username'] for f in visible_after_back]
+                        
+                        # Vérifier si on est revenu à la bonne position
+                        position_ok = tracker.check_position_after_back(username, visible_usernames_after)
+                        
+                        if not position_ok:
+                            self.logger.warning(f"⚠️ Position lost after visiting @{username} - may cause loop")
+                            # Log pour diagnostic mais on continue
+                            # Le système de processed_usernames évitera de revisiter les mêmes profils
+                    
                     # Afficher les stats
                     self.stats_manager.display_stats(current_profile=username)
                     
@@ -1025,7 +1054,8 @@ class FollowerBusiness(BaseBusinessAction):
                     # Conditions pour arrêter (alignées avec _extract_followers_with_scroll):
                     # 1. On a vu ~95% des followers de la target → fin de liste
                     # 2. OU le scroll detector dit qu'on est à la fin
-                    # 3. OU on a essayé 20 fois sans nouveaux usernames (sécurité)
+                    # 3. OU le tracker détecte des pages identiques (style Insomniac)
+                    # 4. OU on a essayé 20 fois sans nouveaux usernames (sécurité)
                     should_stop = False
                     
                     # Vérifier si on a parcouru ~95% des followers (comme dans l'ancienne fonction)
@@ -1034,6 +1064,9 @@ class FollowerBusiness(BaseBusinessAction):
                         should_stop = True
                     elif scroll_detector.is_the_end():
                         self.logger.info("🏁 ScrollEndDetector: end of list reached")
+                        should_stop = True
+                    elif tracker.is_end_of_list():
+                        self.logger.info("🏁 Tracker: same followers seen multiple times - end of list")
                         should_stop = True
                     elif no_new_profiles_count >= 20:
                         self.logger.info(f"🏁 No new usernames found after 20 attempts (seen {total_usernames_seen:,} usernames)")
@@ -1060,6 +1093,7 @@ class FollowerBusiness(BaseBusinessAction):
                         break
                     
                     # Forcer un scroll pour essayer d'avancer
+                    tracker.log_scroll("down")
                     self.scroll_actions.scroll_followers_list_down()
                     self._human_like_delay('scroll')
                     scroll_attempts += 1

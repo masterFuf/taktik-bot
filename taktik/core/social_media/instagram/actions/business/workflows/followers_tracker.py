@@ -30,9 +30,11 @@ class FollowersTracker:
         
         # État interne pour détecter les anomalies
         self.visited_usernames: List[str] = []  # Ordre de visite
-        self.visible_history: List[List[str]] = []  # Historique des listes visibles
+        self.visible_history: List[List[str]] = []  # Historique des listes visibles (pages)
         self.scroll_count = 0
         self.loop_detected_count = 0
+        self.repeats_to_end = 5  # Nombre de pages identiques pour détecter la fin (augmenté pour éviter faux positifs)
+        self.first_page_usernames: List[str] = []  # Première page vue (pour détecter retour au début)
         
         # Écrire l'en-tête de session
         self._log_event("session_start", {
@@ -56,21 +58,43 @@ class FollowersTracker:
     def log_visible_followers(self, visible_usernames: List[str], after_action: str = "scan"):
         """
         Enregistre la liste des followers visibles à l'écran.
-        Détecte si on est revenu en début de liste.
+        Détecte si on est revenu en début de liste (style Insomniac).
+        
+        Returns:
+            bool: True si une boucle (retour au début) est détectée
         """
-        self.visible_history.append(visible_usernames)
+        # Stocker la première page pour référence
+        if not self.first_page_usernames and visible_usernames:
+            self.first_page_usernames = visible_usernames.copy()
+        
+        self.visible_history.append(visible_usernames.copy())
+        
+        # === DÉTECTION DE BOUCLE (style Insomniac) ===
+        loop_detected = False
+        is_same_as_previous = False
+        consecutive_same_pages = 0
+        
+        if len(self.visible_history) >= 2:
+            # Vérifier si la page actuelle est identique à la précédente
+            prev_page = self.visible_history[-2]
+            is_same_as_previous = visible_usernames == prev_page
+            
+            # Compter les pages consécutives identiques
+            if is_same_as_previous:
+                for i in range(len(self.visible_history) - 1, 0, -1):
+                    if self.visible_history[i] == self.visible_history[i-1]:
+                        consecutive_same_pages += 1
+                    else:
+                        break
         
         # Détecter un retour en début de liste
-        loop_detected = False
-        if len(self.visible_history) > 2:
-            # Comparer avec les premières listes vues
-            first_visible = self.visible_history[0]
-            if visible_usernames and first_visible:
-                # Si les 3 premiers usernames sont les mêmes qu'au début
-                common_start = sum(1 for a, b in zip(visible_usernames[:3], first_visible[:3]) if a == b)
-                if common_start >= 2 and len(self.visible_history) > 5:
-                    loop_detected = True
-                    self.loop_detected_count += 1
+        if len(self.visible_history) > 5 and visible_usernames and self.first_page_usernames:
+            # Comparer avec la première page
+            # Si au moins 2 des 3 premiers usernames sont les mêmes → retour au début
+            common_with_first = sum(1 for a, b in zip(visible_usernames[:3], self.first_page_usernames[:3]) if a == b)
+            if common_with_first >= 2:
+                loop_detected = True
+                self.loop_detected_count += 1
         
         self._log_event("visible_followers", {
             "action": after_action,
@@ -78,18 +102,85 @@ class FollowersTracker:
             "usernames": visible_usernames[:10],  # Max 10 pour lisibilité
             "scroll_count": self.scroll_count,
             "loop_detected": loop_detected,
+            "is_same_as_previous": is_same_as_previous,
+            "consecutive_same_pages": consecutive_same_pages,
             "history_size": len(self.visible_history)
         })
         
         if loop_detected:
             self._log_event("WARNING_LOOP_DETECTED", {
                 "message": "Retour en début de liste détecté!",
-                "first_visible": first_visible[:5],
-                "current_visible": visible_usernames[:5],
+                "first_page": self.first_page_usernames[:5],
+                "current_page": visible_usernames[:5],
                 "total_loops": self.loop_detected_count
             })
         
         return loop_detected
+    
+    def is_end_of_list(self) -> bool:
+        """
+        Détecte si on a atteint la fin de la liste (style Insomniac).
+        Retourne True si les N dernières pages sont identiques ET qu'on a fait assez de scrolls.
+        
+        Conditions pour éviter les faux positifs:
+        - Au moins 10 scrolls effectués
+        - Au moins 50 usernames vus
+        - Les N dernières pages sont identiques
+        """
+        # Éviter les faux positifs en début de session
+        if self.scroll_count < 10:
+            return False
+        
+        # Compter les usernames uniques vus dans l'historique
+        all_seen_usernames = set()
+        for page in self.visible_history:
+            all_seen_usernames.update(page)
+        
+        if len(all_seen_usernames) < 50:
+            return False
+        
+        if len(self.visible_history) < self.repeats_to_end:
+            return False
+        
+        last_page = self.visible_history[-1]
+        for i in range(2, self.repeats_to_end + 1):
+            if self.visible_history[-i] != last_page:
+                return False
+        
+        self._log_event("END_OF_LIST_DETECTED", {
+            "message": f"Mêmes followers vus {self.repeats_to_end} fois consécutives après {self.scroll_count} scrolls",
+            "last_page": last_page[:5],
+            "total_visited": len(self.visited_usernames),
+            "scroll_count": self.scroll_count
+        })
+        return True
+    
+    def check_position_after_back(self, expected_username: str, visible_usernames: List[str]) -> bool:
+        """
+        Vérifie si on est revenu à la bonne position après un back().
+        
+        Args:
+            expected_username: Le username qu'on s'attend à voir (dernier visité ou suivant)
+            visible_usernames: Liste des usernames actuellement visibles
+            
+        Returns:
+            bool: True si la position est correcte
+        """
+        position_ok = expected_username in visible_usernames
+        
+        self._log_event("position_check_after_back", {
+            "expected": expected_username,
+            "found": position_ok,
+            "visible_sample": visible_usernames[:5]
+        })
+        
+        if not position_ok:
+            self._log_event("WARNING_POSITION_LOST", {
+                "message": f"Position perdue! @{expected_username} n'est plus visible",
+                "visible": visible_usernames[:5]
+            })
+        
+        return position_ok
     
     def log_scroll(self, direction: str = "down"):
         """Enregistre un scroll."""
