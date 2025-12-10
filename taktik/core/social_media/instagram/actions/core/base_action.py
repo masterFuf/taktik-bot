@@ -29,22 +29,24 @@ class HumanBehavior:
         self._initialized = True
         
         self.session_start = time.time()
-        self.actions_count = 0
+        self.actions_count = 0  # Toutes les actions (pour fatigue)
+        self.interactions_count = 0  # Seulement les vraies interactions (like, follow, comment)
         self.last_action_time = time.time()
         self.last_break_at = 0
         
-        # Configuration des pauses
-        self.actions_before_short_break = random.randint(15, 25)
-        self.actions_before_long_break = random.randint(50, 80)
+        # Configuration des pauses (basées sur les VRAIES interactions uniquement)
+        self.interactions_before_short_break = random.randint(8, 15)
+        self.interactions_before_long_break = random.randint(30, 50)
         
     def reset_session(self):
         """Reset pour une nouvelle session."""
         self.session_start = time.time()
         self.actions_count = 0
+        self.interactions_count = 0
         self.last_action_time = time.time()
         self.last_break_at = 0
-        self.actions_before_short_break = random.randint(15, 25)
-        self.actions_before_long_break = random.randint(50, 80)
+        self.interactions_before_short_break = random.randint(8, 15)
+        self.interactions_before_long_break = random.randint(30, 50)
     
     def get_fatigue_multiplier(self) -> float:
         """Retourne un multiplicateur basé sur la durée de session.
@@ -55,26 +57,36 @@ class HumanBehavior:
     
     def should_take_break(self) -> Tuple[bool, str, float]:
         """Vérifie si une pause est nécessaire.
-        Returns: (should_break, break_type, duration)"""
-        actions_since_break = self.actions_count - self.last_break_at
+        Returns: (should_break, break_type, duration)
         
-        # Pause longue (5-15 min) toutes les 50-80 actions
-        if actions_since_break >= self.actions_before_long_break:
-            self.last_break_at = self.actions_count
-            self.actions_before_long_break = random.randint(50, 80)
-            return (True, 'long', random.uniform(300, 900))  # 5-15 min
+        Les pauses sont basées sur les VRAIES interactions (like, follow, comment)
+        pas sur les simples visites de profils ou scrolls.
+        """
+        interactions_since_break = self.interactions_count - self.last_break_at
         
-        # Pause courte (30s-2min) toutes les 15-25 actions
-        if actions_since_break >= self.actions_before_short_break:
-            self.last_break_at = self.actions_count
-            self.actions_before_short_break = random.randint(15, 25)
-            return (True, 'short', random.uniform(30, 120))  # 30s-2min
+        # Pause longue (1-3 min) toutes les 30-50 interactions
+        if interactions_since_break >= self.interactions_before_long_break:
+            self.last_break_at = self.interactions_count
+            self.interactions_before_long_break = random.randint(30, 50)
+            return (True, 'long', random.uniform(60, 180))  # 1-3 min
+        
+        # Pause courte (5-15s) toutes les 8-15 interactions
+        if interactions_since_break >= self.interactions_before_short_break:
+            self.last_break_at = self.interactions_count
+            self.interactions_before_short_break = random.randint(8, 15)
+            return (True, 'short', random.uniform(5, 15))  # 5-15s
         
         return (False, None, 0)
     
     def record_action(self):
-        """Enregistre une action effectuée."""
+        """Enregistre une action effectuée (pour le calcul de fatigue)."""
         self.actions_count += 1
+        self.last_action_time = time.time()
+    
+    def record_interaction(self):
+        """Enregistre une vraie interaction (like, follow, comment, story view).
+        C'est ce compteur qui déclenche les pauses."""
+        self.interactions_count += 1
         self.last_action_time = time.time()
     
     def gaussian_delay(self, base_min: float, base_max: float) -> float:
@@ -155,9 +167,9 @@ class BaseAction:
         
         if should_break:
             if break_type == 'long':
-                self.logger.info(f"☕ Pause longue naturelle ({duration/60:.1f} min) - {self.human.actions_count} actions effectuées")
+                self.logger.info(f"☕ Pause longue naturelle ({duration/60:.1f} min) - {self.human.interactions_count} interactions effectuées")
             else:
-                self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - simulation comportement humain")
+                self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - {self.human.interactions_count} interactions")
             
             time.sleep(duration)
             return True
