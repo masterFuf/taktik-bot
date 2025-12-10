@@ -5,6 +5,55 @@ All notable changes to TAKTIK Instagram Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2025-12-10
+
+### Added
+- **DM Bridge**: Unified Python bridge for reading and sending Instagram DMs
+  - Read conversations with full message history (sent + received)
+  - Send messages with human-like typing simulation
+  - Emoji and special character support
+  - Integration with TAKTIK Desktop app
+
+- **Media Capture Service**: Intercept Instagram CDN media using mitmproxy
+  - Capture stories, reels, and posts media URLs
+  - Real-time media interception during browsing
+  - Export captured media for analysis
+
+- **Frida SSL Bypass**: Certificate pinning bypass for Instagram Android
+  - `frida_ssl_bypass.js` script for SSL unpinning
+  - Works with mitmproxy for HTTPS traffic inspection
+  - Compatible with Instagram app versions 300+
+
+- **Enhanced Followers Tracking**: Insomniac-style position verification
+  - Loop detection to prevent infinite scrolling
+  - Position-based duplicate detection
+  - Improved extraction reliability on large accounts
+
+- **Multi-Target Diagnostics**: Better debugging for follower extraction
+  - Detailed logging of extraction progress
+  - Target switching diagnostics
+  - Performance metrics per target
+
+### Improved
+- **Target Workflow**: More reliable follower extraction with better termination conditions
+- **DM Reading**: Now captures both sent and received messages for full conversation context
+- **Human-like Behavior**: Optimized typing delays (faster but still natural)
+
+### Technical
+- Unified `dm_bridge.py` replaces `dm_bridge_desktop.py` and `dm_send_bridge.py`
+- New `media_capture/` service module with mitmproxy integration
+- Frida scripts in `frida/` directory for SSL bypass
+
+---
+
+## [1.1.5] - 2025-12-05
+
+### Added
+- **Post URL Scraping Workflow**: Extract and interact with users who liked specific posts
+- Various bug fixes and stability improvements
+
+---
+
 ## [1.1.3] - 2025-12-02
 
 ### Refactored
@@ -83,7 +132,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-- **1.1.3** (2025-12-02): Centralized number parsing and UI selectors, eliminated code duplication
+- **1.1.6** (2025-12-10): DM Bridge, Media Capture, Frida SSL Bypass, Enhanced Tracking
+- **1.1.5** (2025-12-05): Post URL scraping workflow
+- **1.1.3** (2025-12-02): Centralized number parsing and UI selectors
 - **1.1.2** (2025-12-02): Fix follower count parsing for large accounts (K/M with space)
 - **1.1.1** (2025-11-26): Multi-target support, intelligent scrolling, automatic popup handling
 - **1.1.0**: Core automation features and workflows

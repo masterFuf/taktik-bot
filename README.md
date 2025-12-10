@@ -44,8 +44,11 @@
 | 👥 **Instagram Auto Follow** | Smart follow/unfollow with customizable filters and limits |
 | 💬 **Instagram Auto Comment** | Post personalized comments with spin syntax support |
 | 👁️ **Instagram Story Viewer** | Automatically view stories to increase visibility |
+| 📩 **DM Automation** | Read and send DMs with AI-powered responses (Desktop app) |
 | 🎯 **Advanced Targeting** | Filter by followers, posts, account type, engagement rate |
 | 🧠 **Human-like Behavior** | Random delays, natural patterns, anti-detection system |
+| 📸 **Media Capture** | Intercept and save Instagram stories, reels, and posts |
+| 🔓 **SSL Bypass** | Frida-based certificate pinning bypass for traffic analysis |
 | 📊 **Analytics Dashboard** | Track growth, engagement rates, and session statistics |
 | 🔒 **Safe & Undetectable** | Respects Instagram limits, randomized actions |
 
@@ -75,6 +78,23 @@ Interact with users who liked a specific viral post.
 ✅ Target highly engaged audiences
 ✅ Perfect for competitor analysis
 ✅ Reach users interested in similar content
+```
+
+### 4. 📩 DM Management (Desktop App)
+Read and respond to Instagram DMs with AI assistance.
+```
+✅ Read all conversations with full message history
+✅ AI-powered response generation (Claude, GPT-4, Gemini)
+✅ Bulk send responses with human-like typing
+✅ Emoji and special character support
+```
+
+### 5. 📸 Media Capture (Advanced)
+Intercept Instagram media using mitmproxy + Frida.
+```
+✅ Capture stories, reels, and posts CDN URLs
+✅ SSL certificate pinning bypass
+✅ Real-time media interception
 ```
 
 ---
