@@ -213,6 +213,12 @@ class DesktopBridge:
         min_delay = self.session_config.get('minDelay', 5)
         max_delay = self.session_config.get('maxDelay', 15)
         
+        # Parse multiple targets (comma-separated) into a list
+        # e.g., "user1,user2,user3" -> ["user1", "user2", "user3"]
+        target_list = [t.strip() for t in self.target.split(',') if t.strip()]
+        # For single target compatibility, use the first one
+        primary_target = target_list[0] if target_list else self.target
+        
         # Determine interaction type and workflow_type for SessionManager
         if self.workflow_type == 'target_followers':
             interaction_type = 'followers'
@@ -263,8 +269,9 @@ class DesktopBridge:
             "actions": [
                 {
                     "type": action_type,
-                    "target_username": self.target if action_type == 'interact_with_followers' else None,
-                    "target_usernames": [self.target] if action_type == 'interact_with_followers' else [],
+                    # Use primary_target for single-target fields, target_list for multi-target
+                    "target_username": primary_target if action_type == 'interact_with_followers' else None,
+                    "target_usernames": target_list if action_type == 'interact_with_followers' else [],
                     "hashtag": self.target if action_type == 'hashtag' else None,
                     "post_url": self.target if action_type == 'post_url' else None,
                     "interaction_type": interaction_type,
@@ -321,7 +328,9 @@ class DesktopBridge:
             
             workflow_config = self.build_workflow_config()
             
-            send_status("starting", f"Starting {self.workflow_type} workflow for @{self.target}")
+            # Parse targets for display
+            targets_display = ', @'.join([t.strip() for t in self.target.split(',') if t.strip()])
+            send_status("starting", f"Starting {self.workflow_type} workflow for @{targets_display}")
             send_log("info", f"Configuration: {json.dumps(workflow_config, indent=2)}")
             
             # Create automation instance (matching CLI usage)
@@ -359,7 +368,10 @@ class DesktopBridge:
     def run(self) -> int:
         """Main entry point."""
         send_status("starting", "TAKTIK Desktop Bridge starting...")
-        send_log("info", f"Config: device={self.device_id}, workflow={self.workflow_type}, target={self.target}")
+        # Parse targets for display
+        target_list = [t.strip() for t in self.target.split(',') if t.strip()]
+        targets_display = ', '.join(target_list)
+        send_log("info", f"Config: device={self.device_id}, workflow={self.workflow_type}, targets=[{targets_display}] ({len(target_list)} target(s))")
         
         # Validate configuration
         if not self.validate_config():

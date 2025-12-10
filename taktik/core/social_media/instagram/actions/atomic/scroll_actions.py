@@ -117,7 +117,7 @@ class ScrollActions(BaseAction):
                 except Exception:
                     continue
             
-            # self.logger.debug("❌ No 'Load more' button found")
+            self.logger.debug("🔍 No 'Voir plus' button found on screen")
             return None
             
         except Exception as e:

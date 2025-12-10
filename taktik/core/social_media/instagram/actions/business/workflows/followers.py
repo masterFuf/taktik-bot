@@ -13,6 +13,7 @@ from taktik.core.database import get_db_service
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 
 from ..common import DatabaseHelpers
+from .followers_tracker import FollowersTracker
 
 
 class FollowerBusiness(BaseBusinessAction):
@@ -416,6 +417,8 @@ class FollowerBusiness(BaseBusinessAction):
                         if actually_interacted:
                             stats['processed'] += 1
                             self.stats_manager.increment('profiles_interacted')
+                            # Enregistrer l'interaction pour le système de pauses
+                            self.human.record_interaction()
                         else:
                             self.logger.debug(f"@{username} visited but no interaction (probability)")
                             stats['skipped'] += 1
@@ -615,6 +618,14 @@ class FollowerBusiness(BaseBusinessAction):
             # Initialiser le ScrollEndDetector pour gérer le bouton "Voir plus" et la fin de liste
             scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
             
+            # Initialiser le tracker pour diagnostiquer les problèmes de navigation
+            # Récupérer le username du compte actif depuis automation ou utiliser "unknown"
+            account_username = "unknown"
+            if self.automation and hasattr(self.automation, 'active_username') and self.automation.active_username:
+                account_username = self.automation.active_username
+            tracker = FollowersTracker(account_username, target_username)
+            self.logger.info(f"📝 Tracking log: {tracker.get_log_file_path()}")
+            
             self.logger.info(f"🚀 Starting direct interactions (max: {max_interactions})")
             
             while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
@@ -666,6 +677,25 @@ class FollowerBusiness(BaseBusinessAction):
                 # Récupérer les followers visibles (uniquement les vrais, pas les suggestions)
                 visible_followers = self.detection_actions.get_visible_followers_with_elements()
                 
+                # Tracker: enregistrer les followers visibles
+                if visible_followers:
+                    visible_usernames_for_tracking = [f['username'] for f in visible_followers]
+                    loop_detected = tracker.log_visible_followers(visible_usernames_for_tracking, "scan")
+                    if loop_detected:
+                        self.logger.warning("⚠️ LOOP DETECTED: Back to start of followers list!")
+                        # Si on détecte une boucle, on a probablement perdu notre position
+                        # On peut soit arrêter, soit essayer de scroller pour avancer
+                        if tracker.loop_detected_count >= 3:
+                            self.logger.error("🛑 Too many loops detected (3+), stopping to avoid infinite loop")
+                            break
+                        else:
+                            # Essayer de scroller pour sortir de la boucle
+                            self.logger.info("🔄 Trying to scroll past the loop...")
+                            for _ in range(3):
+                                self.scroll_actions.scroll_followers_list_down()
+                                self._human_like_delay('scroll')
+                            continue
+                
                 if not visible_followers:
                     self.logger.debug("No visible followers found on screen")
                     
@@ -704,6 +734,18 @@ class FollowerBusiness(BaseBusinessAction):
                         self.logger.info("🏁 End of followers list detected")
                         break
                     
+                    # PRIORITÉ: Vérifier le bouton "Voir plus" AVANT de scroller
+                    load_more_result = self.scroll_actions.check_and_click_load_more()
+                    if load_more_result is True:
+                        self.logger.info("✅ 'Voir plus' clicked (no visible followers) - loading more real followers")
+                        self._human_like_delay('load_more')
+                        time.sleep(1.0)
+                        scroll_attempts = 0
+                        continue
+                    elif load_more_result is False:
+                        self.logger.info("🏁 End of followers list detected (suggestions section)")
+                        break
+                    
                     scroll_attempts += 1
                     self.scroll_actions.scroll_followers_list_down()
                     self._human_like_delay('scroll')
@@ -718,7 +760,10 @@ class FollowerBusiness(BaseBusinessAction):
                 
                 # Vérifier si on est au bon endroit après un retour de profil
                 if last_visited_username and next_expected_username:
-                    if last_visited_username in visible_usernames_list or next_expected_username in visible_usernames_list:
+                    position_ok = last_visited_username in visible_usernames_list or next_expected_username in visible_usernames_list
+                    tracker.log_position_check(last_visited_username, next_expected_username, visible_usernames_list, position_ok)
+                    
+                    if position_ok:
                         self.logger.debug(f"✅ Position OK: found @{last_visited_username} or @{next_expected_username} in visible list")
                     else:
                         self.logger.warning(f"⚠️ Position lost: neither @{last_visited_username} nor @{next_expected_username} visible")
@@ -745,9 +790,11 @@ class FollowerBusiness(BaseBusinessAction):
                                 if skip_reason == "already_processed":
                                     self.logger.debug(f"@{username} already processed in DB, skipping")
                                     stats['already_processed'] += 1
+                                    tracker.log_skipped_from_db(username, "already_processed")
                                 elif skip_reason == "already_filtered":
                                     self.logger.debug(f"@{username} already filtered in DB, skipping")
                                     stats['filtered'] += 1
+                                    tracker.log_skipped_from_db(username, "already_filtered")
                                 stats['skipped'] += 1
                                 continue
                         except Exception as e:
@@ -765,7 +812,10 @@ class FollowerBusiness(BaseBusinessAction):
                         next_expected_username = None
                     
                     # === INTERACTION DIRECTE ===
-                    progress_info = f"[{stats['interacted']+1}/{max_interactions}]"
+                    # Afficher les interactions réussies ET les profils visités pour plus de clarté
+                    profiles_clicked = stats.get('profiles_clicked', 0) + 1
+                    stats['profiles_clicked'] = profiles_clicked
+                    progress_info = f"[{stats['interacted']}/{max_interactions} interactions, {profiles_clicked} visited]"
                     if target_followers_count > 0:
                         progress_pct = (total_usernames_seen / target_followers_count) * 100
                         progress_info += f" ({progress_pct:.1f}% of {target_followers_count:,} followers scanned)"
@@ -793,6 +843,9 @@ class FollowerBusiness(BaseBusinessAction):
                     stats['visited'] += 1
                     self.stats_manager.increment('profiles_visited')
                     
+                    # Tracker: enregistrer la visite
+                    tracker.log_profile_visit(username, idx, already_in_db=False)
+                    
                     # Extraire les infos du profil
                     try:
                         profile_data = self.profile_business.get_complete_profile_info(
@@ -814,6 +867,9 @@ class FollowerBusiness(BaseBusinessAction):
                             self.logger.info(f"🔒 Private profile @{username} - skipped")
                             stats['skipped'] += 1
                             self.stats_manager.increment('private_profiles')
+                            
+                            # Tracker: profil filtré (privé)
+                            tracker.log_profile_filtered(username, "Private profile", profile_data)
                             
                             # Enregistrer comme filtré
                             if account_id:
@@ -846,6 +902,23 @@ class FollowerBusiness(BaseBusinessAction):
                             self.logger.info(f"🚫 @{username} filtered: {', '.join(reasons)}")
                             stats['filtered'] += 1
                             self.stats_manager.increment('profiles_filtered')
+                            
+                            # Tracker: profil filtré (critères)
+                            tracker.log_profile_filtered(username, ', '.join(reasons), profile_data)
+                            
+                            # IMPORTANT: Enregistrer le profil filtré dans la DB pour éviter de le revisiter
+                            if account_id:
+                                try:
+                                    DatabaseHelpers.record_filtered_profile(
+                                        username=username,
+                                        reason=', '.join(reasons),
+                                        source_type='FOLLOWER',
+                                        source_name=target_username,
+                                        account_id=account_id,
+                                        session_id=self._get_session_id()
+                                    )
+                                except Exception as e:
+                                    self.logger.debug(f"Error recording filtered profile @{username}: {e}")
                             
                             # force_back=True car on vient de visiter un profil filtré
                             if not self._ensure_on_followers_list(target_username, force_back=True):
@@ -891,6 +964,15 @@ class FollowerBusiness(BaseBusinessAction):
                             stats['processed'] += 1  # Keep for backward compatibility
                             self.stats_manager.increment('profiles_interacted')
                             did_interact_this_iteration = True
+                            # Enregistrer l'interaction pour le système de pauses
+                            self.human.record_interaction()
+                            # Tracker: interaction réussie
+                            tracker.log_profile_interacted(username, {
+                                'liked': interaction_result.get('liked', False),
+                                'followed': interaction_result.get('followed', False),
+                                'story_viewed': interaction_result.get('story_viewed', False),
+                                'commented': interaction_result.get('commented', False)
+                            })
                         else:
                             # Visited but no interaction (probability rolls failed)
                             self.logger.debug(f"@{username} visited but no interaction (probability)")
@@ -921,6 +1003,20 @@ class FollowerBusiness(BaseBusinessAction):
                     if not self._ensure_on_followers_list(target_username, force_back=True):
                         self.logger.error("Could not return to followers list, stopping")
                         break
+                    
+                    # === VÉRIFICATION DE POSITION APRÈS RETOUR (style Insomniac) ===
+                    # Récupérer les followers visibles après le retour
+                    visible_after_back = self.detection_actions.get_visible_followers_with_elements()
+                    if visible_after_back:
+                        visible_usernames_after = [f['username'] for f in visible_after_back]
+                        
+                        # Vérifier si on est revenu à la bonne position
+                        position_ok = tracker.check_position_after_back(username, visible_usernames_after)
+                        
+                        if not position_ok:
+                            self.logger.warning(f"⚠️ Position lost after visiting @{username} - may cause loop")
+                            # Log pour diagnostic mais on continue
+                            # Le système de processed_usernames évitera de revisiter les mêmes profils
                     
                     # Afficher les stats
                     self.stats_manager.display_stats(current_profile=username)
@@ -958,7 +1054,8 @@ class FollowerBusiness(BaseBusinessAction):
                     # Conditions pour arrêter (alignées avec _extract_followers_with_scroll):
                     # 1. On a vu ~95% des followers de la target → fin de liste
                     # 2. OU le scroll detector dit qu'on est à la fin
-                    # 3. OU on a essayé 20 fois sans nouveaux usernames (sécurité)
+                    # 3. OU le tracker détecte des pages identiques (style Insomniac)
+                    # 4. OU on a essayé 20 fois sans nouveaux usernames (sécurité)
                     should_stop = False
                     
                     # Vérifier si on a parcouru ~95% des followers (comme dans l'ancienne fonction)
@@ -967,6 +1064,9 @@ class FollowerBusiness(BaseBusinessAction):
                         should_stop = True
                     elif scroll_detector.is_the_end():
                         self.logger.info("🏁 ScrollEndDetector: end of list reached")
+                        should_stop = True
+                    elif tracker.is_end_of_list():
+                        self.logger.info("🏁 Tracker: same followers seen multiple times - end of list")
                         should_stop = True
                     elif no_new_profiles_count >= 20:
                         self.logger.info(f"🏁 No new usernames found after 20 attempts (seen {total_usernames_seen:,} usernames)")
@@ -980,7 +1080,20 @@ class FollowerBusiness(BaseBusinessAction):
                     if should_stop:
                         break
                     
+                    # PRIORITÉ: Vérifier le bouton "Voir plus" AVANT de scroller
+                    load_more_result = self.scroll_actions.check_and_click_load_more()
+                    if load_more_result is True:
+                        self.logger.info("✅ 'Voir plus' clicked (no new usernames) - loading more real followers")
+                        self._human_like_delay('load_more')
+                        time.sleep(1.0)
+                        no_new_profiles_count = 0
+                        continue
+                    elif load_more_result is False:
+                        self.logger.info("🏁 End of followers list detected (suggestions section)")
+                        break
+                    
                     # Forcer un scroll pour essayer d'avancer
+                    tracker.log_scroll("down")
                     self.scroll_actions.scroll_followers_list_down()
                     self._human_like_delay('scroll')
                     scroll_attempts += 1
@@ -1005,10 +1118,31 @@ class FollowerBusiness(BaseBusinessAction):
                 if stats['interacted'] < max_interactions:
                     if not did_interact_this_iteration or (new_usernames_found > 0 and new_profiles_to_interact == 0):
                         self.logger.debug(f"📜 Scrolling (interacted: {did_interact_this_iteration}, new_usernames: {new_usernames_found}, to_interact: {new_profiles_to_interact})")
+                        
+                        # PRIORITÉ: Vérifier le bouton "Voir plus" AVANT de scroller
+                        # C'est crucial car le bouton apparaît après ~25 followers et doit être cliqué
+                        # pour charger les vrais followers suivants (sinon on tombe dans les suggestions)
+                        load_more_result = self.scroll_actions.check_and_click_load_more()
+                        if load_more_result is True:
+                            # Bouton trouvé et cliqué - attendre le chargement
+                            self.logger.info("✅ 'Voir plus' clicked before scroll - loading more real followers")
+                            self._human_like_delay('load_more')
+                            time.sleep(1.0)  # Attendre que les nouveaux followers se chargent
+                            scroll_attempts = 0  # Reset car on a chargé de nouveaux followers
+                            continue  # Re-scanner sans scroller
+                        elif load_more_result is False:
+                            # Fin de liste détectée (suggestions section)
+                            self.logger.info("🏁 End of followers list detected (suggestions section)")
+                            break
+                        # Si None, pas de bouton visible -> on peut scroller normalement
+                        
+                        tracker.log_scroll("down")
                         self.scroll_actions.scroll_followers_list_down()
                         self._human_like_delay('scroll')
                         scroll_attempts += 1
             
+            # Tracker: enregistrer la fin de session
+            tracker.log_session_end(stats)
             self.logger.info(f"✅ Direct interactions completed: {stats}")
             self.stats_manager.display_final_stats(workflow_name="FOLLOWERS_DIRECT")
             
