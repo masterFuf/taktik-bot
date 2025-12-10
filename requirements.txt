@@ -16,6 +16,10 @@ schedule>=1.2.0
 requests>=2.30.0
 pillow>=10.0.0
 loguru>=0.7.0
+
+# Media capture (optional - for intercepting Instagram images)
+mitmproxy>=10.0.0
+frida-tools>=12.0.0
 reportlab>=4.4.3
 packaging>=23.0
 
