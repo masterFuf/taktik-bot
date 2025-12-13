@@ -36,6 +36,15 @@ class WorkflowRunner:
                 
             elif action_type == 'place':
                 return self._run_place_workflow_handler(action)
+            
+            elif action_type == 'notifications':
+                return self._run_notifications_workflow(action)
+            
+            elif action_type == 'unfollow':
+                return self._run_unfollow_workflow(action)
+            
+            elif action_type == 'feed':
+                return self._run_feed_workflow(action)
                 
             else:
                 self.logger.warning(f"Unrecognized action type: {action_type}")
@@ -275,3 +284,125 @@ class WorkflowRunner:
         except Exception as e:
             self.logger.error(f"❌ Error in place workflow: {e}")
             return stats
+    
+    def _run_notifications_workflow(self, action: Dict[str, Any]) -> bool:
+        """Run the notifications workflow."""
+        if not self.automation._check_action_limits('notifications', self.automation.active_username):
+            self.logger.warning("Notifications interaction blocked by license limits")
+            return False
+        
+        config = {
+            'max_interactions': action.get('max_interactions', 20),
+            'like_percentage': action.get('like_percentage', 70),
+            'follow_percentage': action.get('follow_percentage', 15),
+            'comment_percentage': action.get('comment_percentage', 5),
+            'story_watch_percentage': action.get('story_watch_percentage', 10),
+            'max_likes_per_profile': action.get('max_likes_per_profile', 3),
+            'notification_types': action.get('notification_types', ['likes', 'follows', 'comments']),
+            'filter_criteria': action.get('filters', {})
+        }
+        
+        # Utiliser le NotificationsBusiness si disponible
+        if hasattr(self.automation, 'notifications_business'):
+            result = self.automation.notifications_business.interact_with_notifications(config)
+        else:
+            # Créer une instance temporaire
+            from ..actions.business.workflows.notifications import NotificationsBusiness
+            notifications_business = NotificationsBusiness(
+                self.automation.device,
+                self.automation.session_manager,
+                self.automation
+            )
+            result = notifications_business.interact_with_notifications(config)
+        
+        self.automation._record_action_performed('notifications', self.automation.active_username)
+        
+        # Mettre à jour les stats
+        self.automation.stats['likes'] += result.get('likes_made', 0)
+        self.automation.stats['follows'] += result.get('follows_made', 0)
+        self.automation.stats['comments'] += result.get('comments_made', 0)
+        self.automation.stats['interactions'] += result.get('users_interacted', 0)
+        
+        return result.get('success', False)
+    
+    def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
+        """Run the unfollow workflow."""
+        if not self.automation._check_action_limits('unfollow', self.automation.active_username):
+            self.logger.warning("Unfollow action blocked by license limits")
+            return False
+        
+        config = {
+            'max_unfollows': action.get('max_unfollows', 20),
+            'unfollow_delay_range': (
+                action.get('min_delay', 30),
+                action.get('max_delay', 60)
+            ),
+            'unfollow_non_followers': action.get('unfollow_non_followers', True),
+            'min_days_since_follow': action.get('min_days_since_follow', 3),
+            'skip_verified': action.get('skip_verified', True),
+            'skip_business': action.get('skip_business', False)
+        }
+        
+        # Utiliser le UnfollowBusiness si disponible
+        if hasattr(self.automation, 'unfollow_business'):
+            result = self.automation.unfollow_business.run_unfollow_workflow(config)
+        else:
+            # Créer une instance temporaire
+            from ..actions.business.workflows.unfollow import UnfollowBusiness
+            unfollow_business = UnfollowBusiness(
+                self.automation.device,
+                self.automation.session_manager,
+                self.automation
+            )
+            result = unfollow_business.run_unfollow_workflow(config)
+        
+        self.automation._record_action_performed('unfollow', self.automation.active_username)
+        
+        # Mettre à jour les stats
+        self.automation.stats['unfollows'] = self.automation.stats.get('unfollows', 0) + result.get('unfollows_made', 0)
+        
+        return result.get('success', False)
+    
+    def _run_feed_workflow(self, action: Dict[str, Any]) -> bool:
+        """Run the feed workflow."""
+        if not self.automation._check_action_limits('feed', self.automation.active_username):
+            self.logger.warning("Feed interaction blocked by license limits")
+            return False
+        
+        config = {
+            'max_interactions': action.get('max_interactions', 20),
+            'max_posts_to_check': action.get('max_posts_to_check', 30),
+            'like_percentage': action.get('like_percentage', 70),
+            'follow_percentage': action.get('follow_percentage', 15),
+            'comment_percentage': action.get('comment_percentage', 5),
+            'story_watch_percentage': action.get('story_watch_percentage', 10),
+            'max_likes_per_profile': action.get('max_likes_per_profile', 3),
+            'interact_with_post_author': action.get('interact_with_post_author', True),
+            'interact_with_post_likers': action.get('interact_with_post_likers', False),
+            'skip_reels': action.get('skip_reels', True),
+            'skip_ads': action.get('skip_ads', True),
+            'filter_criteria': action.get('filters', {})
+        }
+        
+        # Utiliser le FeedBusiness si disponible
+        if hasattr(self.automation, 'feed_business'):
+            result = self.automation.feed_business.interact_with_feed(config)
+        else:
+            # Créer une instance temporaire
+            from ..actions.business.workflows.feed import FeedBusiness
+            feed_business = FeedBusiness(
+                self.automation.device,
+                self.automation.session_manager,
+                self.automation
+            )
+            result = feed_business.interact_with_feed(config)
+        
+        self.automation._record_action_performed('feed', self.automation.active_username)
+        
+        # Mettre à jour les stats
+        self.automation.stats['likes'] += result.get('likes_made', 0)
+        self.automation.stats['follows'] += result.get('follows_made', 0)
+        self.automation.stats['comments'] += result.get('comments_made', 0)
+        self.automation.stats['interactions'] += result.get('users_interacted', 0)
+        
+        return result.get('success', False)

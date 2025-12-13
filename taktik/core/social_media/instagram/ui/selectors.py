@@ -1573,6 +1573,12 @@ class ProblematicPageSelectors:
                           'Notes', 'Notes sur la carte', 'Mute', 'Posts', 'Activity bubbles about content',
                           'bottom_sheet_start_nav_button_icon'],
             'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside']
+        },
+        'android_permission_dialog': {
+            'indicators': ['com.android.packageinstaller', 'permission_allow_button', 'permission_deny_button',
+                          'Autoriser', 'AUTORISER', 'Allow', 'ALLOW', 'accéder aux photos',
+                          'access to photos', 'contenus multimédias', 'media files'],
+            'close_methods': ['allow_permission_button', 'back_button']
         }
     })
 

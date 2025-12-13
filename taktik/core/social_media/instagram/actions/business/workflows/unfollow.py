@@ -1,0 +1,434 @@
+"""Business logic for Instagram unfollow workflow.
+
+Ce workflow permet de unfollow des comptes de manière automatisée.
+Utilisations typiques:
+- Nettoyer sa liste d'abonnements
+- Unfollow les comptes qui ne follow pas en retour
+- Unfollow les comptes inactifs
+"""
+
+import time
+import random
+from typing import Dict, List, Any, Optional
+from loguru import logger
+
+from ...core.base_business_action import BaseBusinessAction
+from ..common.database_helpers import DatabaseHelpers
+from taktik.core.database import get_db_service
+
+
+class UnfollowBusiness(BaseBusinessAction):
+    """Business logic for unfollowing Instagram accounts."""
+    
+    def __init__(self, device, session_manager=None, automation=None):
+        super().__init__(device, session_manager, automation, "unfollow", init_business_modules=False)
+        
+        self.default_config = {
+            'max_unfollows': 20,
+            'unfollow_delay_range': (30, 60),  # Délais plus longs pour éviter les bans
+            'unfollow_non_followers': True,  # Unfollow ceux qui ne follow pas en retour
+            'min_days_since_follow': 3,  # Attendre X jours avant d'unfollow
+            'skip_verified': True,  # Ne pas unfollow les comptes vérifiés
+            'skip_business': False  # Ne pas unfollow les comptes business
+        }
+        
+        # Sélecteurs spécifiques à l'unfollow
+        self._unfollow_selectors = {
+            'following_button': [
+                '//*[contains(@text, "Abonné")]',
+                '//*[contains(@text, "Following")]',
+                '//*[contains(@text, "Suivi(e)")]',
+                '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]',
+                '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]'
+            ],
+            'unfollow_confirm': [
+                '//*[contains(@text, "Ne plus suivre")]',
+                '//*[contains(@text, "Unfollow")]',
+                '//android.widget.Button[contains(@text, "Ne plus suivre")]',
+                '//android.widget.Button[contains(@text, "Unfollow")]'
+            ],
+            'following_list_item': [
+                '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
+            ],
+            'following_tab': [
+                '//android.widget.Button[contains(@text, "following")]',
+                '//android.widget.Button[contains(@text, "abonnements")]',
+                '//*[contains(@content-desc, "following")]',
+                '//*[contains(@content-desc, "abonnements")]'
+            ]
+        }
+    
+    def run_unfollow_workflow(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Exécuter le workflow d'unfollow.
+        
+        Args:
+            config: Configuration du workflow
+            
+        Returns:
+            Dict avec les statistiques
+        """
+        effective_config = {**self.default_config, **(config or {})}
+        
+        stats = {
+            'accounts_checked': 0,
+            'unfollows_made': 0,
+            'skipped_verified': 0,
+            'skipped_business': 0,
+            'skipped_recent': 0,
+            'skipped_followers': 0,
+            'errors': 0,
+            'success': False
+        }
+        
+        try:
+            self.logger.info("🔄 Starting unfollow workflow")
+            self.logger.info(f"Max unfollows: {effective_config['max_unfollows']}")
+            self.logger.info(f"Unfollow non-followers only: {effective_config['unfollow_non_followers']}")
+            
+            # Naviguer vers son propre profil
+            if not self.nav_actions.navigate_to_profile_tab():
+                self.logger.error("Failed to navigate to own profile")
+                stats['errors'] += 1
+                return stats
+            
+            time.sleep(2)
+            
+            # Ouvrir la liste des abonnements (following)
+            if not self.nav_actions.open_following_list():
+                self.logger.error("Failed to open following list")
+                stats['errors'] += 1
+                return stats
+            
+            time.sleep(2)
+            
+            # Extraire les comptes à potentiellement unfollow
+            accounts_to_check = self._extract_following_accounts(
+                max_accounts=effective_config['max_unfollows'] * 3
+            )
+            
+            if not accounts_to_check:
+                self.logger.warning("No accounts found in following list")
+                return stats
+            
+            self.logger.info(f"📋 {len(accounts_to_check)} accounts to check")
+            
+            unfollows_done = 0
+            
+            for username in accounts_to_check:
+                if unfollows_done >= effective_config['max_unfollows']:
+                    self.logger.info(f"✅ Reached max unfollows ({effective_config['max_unfollows']})")
+                    break
+                
+                stats['accounts_checked'] += 1
+                self.logger.info(f"[{stats['accounts_checked']}] Checking @{username}")
+                
+                # Vérifier si on doit unfollow ce compte
+                should_unfollow, reason = self._should_unfollow_account(username, effective_config)
+                
+                if not should_unfollow:
+                    self.logger.debug(f"Skipping @{username}: {reason}")
+                    if 'verified' in reason:
+                        stats['skipped_verified'] += 1
+                    elif 'business' in reason:
+                        stats['skipped_business'] += 1
+                    elif 'recent' in reason:
+                        stats['skipped_recent'] += 1
+                    elif 'follower' in reason:
+                        stats['skipped_followers'] += 1
+                    continue
+                
+                # Effectuer l'unfollow
+                if self._unfollow_account(username):
+                    stats['unfollows_made'] += 1
+                    unfollows_done += 1
+                    self.logger.info(f"✅ Unfollowed @{username} ({unfollows_done}/{effective_config['max_unfollows']})")
+                    
+                    # Enregistrer l'action
+                    self._record_action(username, 'UNFOLLOW', 1)
+                    
+                    # Délai entre unfollows
+                    delay = random.randint(*effective_config['unfollow_delay_range'])
+                    self.logger.debug(f"⏳ Waiting {delay}s before next unfollow")
+                    time.sleep(delay)
+                else:
+                    stats['errors'] += 1
+            
+            stats['success'] = True
+            self.logger.info(f"✅ Unfollow workflow completed: {stats['unfollows_made']} unfollows")
+            
+        except Exception as e:
+            self.logger.error(f"Error in unfollow workflow: {e}")
+            stats['errors'] += 1
+        
+        return stats
+    
+    def _extract_following_accounts(self, max_accounts: int = 100) -> List[str]:
+        """
+        Extraire les comptes de la liste des abonnements.
+        
+        Args:
+            max_accounts: Nombre max de comptes à extraire
+            
+        Returns:
+            Liste de usernames
+        """
+        accounts = []
+        seen_accounts = set()
+        scroll_attempts = 0
+        max_scroll_attempts = 15
+        
+        self.logger.info(f"📋 Extracting following accounts (max: {max_accounts})")
+        
+        while len(accounts) < max_accounts and scroll_attempts < max_scroll_attempts:
+            # Extraire les comptes visibles
+            new_accounts = self._get_visible_following_accounts()
+            
+            for username in new_accounts:
+                if username not in seen_accounts and len(accounts) < max_accounts:
+                    seen_accounts.add(username)
+                    accounts.append(username)
+            
+            if len(accounts) >= max_accounts:
+                break
+            
+            # Scroll pour voir plus de comptes
+            previous_count = len(accounts)
+            self.scroll_actions.scroll_down()
+            time.sleep(1.5)
+            scroll_attempts += 1
+            
+            # Si pas de nouveaux comptes après scroll
+            if len(accounts) == previous_count:
+                self.logger.debug("No new accounts found after scroll")
+                break
+        
+        self.logger.info(f"✅ Extracted {len(accounts)} following accounts")
+        return accounts
+    
+    def _get_visible_following_accounts(self) -> List[str]:
+        """Récupérer les usernames visibles dans la liste following."""
+        accounts = []
+        
+        try:
+            for selector in self._unfollow_selectors['following_list_item']:
+                elements = self.device.xpath(selector)
+                if elements.exists:
+                    for element in elements.all():
+                        try:
+                            username = element.text
+                            if username and self._is_valid_username(username):
+                                accounts.append(self._clean_username(username))
+                        except Exception:
+                            continue
+                    break
+        except Exception as e:
+            self.logger.debug(f"Error extracting following accounts: {e}")
+        
+        return accounts
+    
+    def _should_unfollow_account(self, username: str, config: Dict[str, Any]) -> tuple:
+        """
+        Déterminer si on doit unfollow un compte.
+        
+        Args:
+            username: Nom d'utilisateur
+            config: Configuration
+            
+        Returns:
+            Tuple (should_unfollow: bool, reason: str)
+        """
+        try:
+            # Naviguer vers le profil pour vérifier
+            if not self.nav_actions.navigate_to_profile(username):
+                return False, "cannot_navigate"
+            
+            time.sleep(1.5)
+            
+            # Vérifier si c'est un compte vérifié
+            if config.get('skip_verified', True):
+                if self.detection_actions.is_verified_account():
+                    self._go_back_to_following_list()
+                    return False, "verified_account"
+            
+            # Vérifier si c'est un compte business
+            if config.get('skip_business', False):
+                if self.detection_actions.is_business_account():
+                    self._go_back_to_following_list()
+                    return False, "business_account"
+            
+            # Vérifier si le compte nous follow en retour
+            if config.get('unfollow_non_followers', True):
+                if self._does_user_follow_back(username):
+                    self._go_back_to_following_list()
+                    return False, "is_follower"
+            
+            # Vérifier la date du follow (si disponible en BDD)
+            if config.get('min_days_since_follow', 0) > 0:
+                days_since_follow = self._get_days_since_follow(username)
+                if days_since_follow is not None and days_since_follow < config['min_days_since_follow']:
+                    self._go_back_to_following_list()
+                    return False, f"recent_follow_{days_since_follow}d"
+            
+            return True, "should_unfollow"
+            
+        except Exception as e:
+            self.logger.debug(f"Error checking if should unfollow @{username}: {e}")
+            return False, f"error: {e}"
+    
+    def _does_user_follow_back(self, username: str) -> bool:
+        """Vérifier si un utilisateur nous follow en retour."""
+        try:
+            # Chercher le bouton "Follows you" ou "Vous suit"
+            follows_back_indicators = [
+                '//*[contains(@text, "Follows you")]',
+                '//*[contains(@text, "Vous suit")]',
+                '//*[contains(@text, "vous suit")]',
+                '//*[contains(@content-desc, "Follows you")]',
+                '//*[contains(@content-desc, "Vous suit")]'
+            ]
+            
+            return self._is_element_present(follows_back_indicators)
+            
+        except Exception as e:
+            self.logger.debug(f"Error checking if @{username} follows back: {e}")
+            return False  # En cas de doute, on considère qu'il ne follow pas
+    
+    def _get_days_since_follow(self, username: str) -> Optional[int]:
+        """Récupérer le nombre de jours depuis le follow (depuis la BDD)."""
+        try:
+            account_id = self._get_account_id()
+            if not account_id:
+                return None
+            
+            # Chercher dans l'historique des interactions
+            db_service = get_db_service()
+            if db_service:
+                # Cette méthode devrait être implémentée dans DatabaseHelpers
+                return DatabaseHelpers.get_days_since_follow(username, account_id)
+            
+            return None
+            
+        except Exception as e:
+            self.logger.debug(f"Error getting days since follow for @{username}: {e}")
+            return None
+    
+    def _unfollow_account(self, username: str) -> bool:
+        """
+        Effectuer l'unfollow d'un compte.
+        
+        Args:
+            username: Nom d'utilisateur à unfollow
+            
+        Returns:
+            True si l'unfollow a réussi
+        """
+        try:
+            # S'assurer qu'on est sur le profil
+            if not self.detection_actions.is_on_profile_screen():
+                if not self.nav_actions.navigate_to_profile(username):
+                    return False
+                time.sleep(1.5)
+            
+            # Cliquer sur le bouton "Abonné" / "Following"
+            clicked = False
+            for selector in self._unfollow_selectors['following_button']:
+                if self._find_and_click(selector, timeout=3):
+                    clicked = True
+                    self._human_like_delay('click')
+                    break
+            
+            if not clicked:
+                self.logger.warning(f"Cannot find Following button for @{username}")
+                return False
+            
+            time.sleep(1)
+            
+            # Confirmer l'unfollow
+            for selector in self._unfollow_selectors['unfollow_confirm']:
+                if self._find_and_click(selector, timeout=3):
+                    self._human_like_delay('click')
+                    self.logger.debug(f"✅ Unfollow confirmed for @{username}")
+                    
+                    # Retourner à la liste
+                    self._go_back_to_following_list()
+                    return True
+            
+            # Si pas de confirmation trouvée, peut-être que l'unfollow est direct
+            # Vérifier si le bouton est maintenant "Follow" / "Suivre"
+            follow_button_indicators = [
+                '//*[contains(@text, "Suivre") and not(contains(@text, "Abonné"))]',
+                '//*[contains(@text, "Follow") and not(contains(@text, "Following"))]'
+            ]
+            
+            if self._is_element_present(follow_button_indicators):
+                self.logger.debug(f"✅ Unfollow successful for @{username} (no confirmation needed)")
+                self._go_back_to_following_list()
+                return True
+            
+            self.logger.warning(f"Cannot confirm unfollow for @{username}")
+            self._go_back_to_following_list()
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error unfollowing @{username}: {e}")
+            return False
+    
+    def _go_back_to_following_list(self):
+        """Retourner à la liste des abonnements."""
+        try:
+            # Appuyer sur back plusieurs fois si nécessaire
+            for _ in range(3):
+                if self.detection_actions.is_following_list_open():
+                    return
+                self.device.press('back')
+                time.sleep(0.5)
+        except Exception as e:
+            self.logger.debug(f"Error going back to following list: {e}")
+    
+    def unfollow_specific_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Unfollow une liste spécifique de comptes.
+        
+        Args:
+            usernames: Liste des usernames à unfollow
+            config: Configuration
+            
+        Returns:
+            Dict avec les statistiques
+        """
+        effective_config = {**self.default_config, **(config or {})}
+        
+        stats = {
+            'accounts_to_unfollow': len(usernames),
+            'unfollows_made': 0,
+            'errors': 0,
+            'success': False
+        }
+        
+        try:
+            self.logger.info(f"🔄 Unfollowing {len(usernames)} specific accounts")
+            
+            for i, username in enumerate(usernames, 1):
+                self.logger.info(f"[{i}/{len(usernames)}] Unfollowing @{username}")
+                
+                if self._unfollow_account(username):
+                    stats['unfollows_made'] += 1
+                    self._record_action(username, 'UNFOLLOW', 1)
+                    
+                    # Délai entre unfollows
+                    if i < len(usernames):
+                        delay = random.randint(*effective_config['unfollow_delay_range'])
+                        self.logger.debug(f"⏳ Waiting {delay}s before next unfollow")
+                        time.sleep(delay)
+                else:
+                    stats['errors'] += 1
+            
+            stats['success'] = True
+            self.logger.info(f"✅ Unfollowed {stats['unfollows_made']}/{len(usernames)} accounts")
+            
+        except Exception as e:
+            self.logger.error(f"Error in specific unfollow: {e}")
+            stats['errors'] += 1
+        
+        return stats
