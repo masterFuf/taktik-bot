@@ -98,8 +98,8 @@ class APIEndpointManager:
             
             config['api_url'] = api_url.rstrip('/')
             
-            with open(config_path, 'w') as f:
-                json.dump(config, f, indent=2)
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
             
             return True
         except Exception as e:

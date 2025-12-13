@@ -14,12 +14,22 @@ import os
 import time
 import random
 
+# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
 from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
 from loguru import logger
+
+# Configure loguru for UTF-8 output
+logger.remove()
+logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
 
 
 class DMBridge:
@@ -60,6 +70,7 @@ class DMBridge:
         logger.info("Navigating to DM inbox...")
         
         # Method 1: DM_SELECTORS.direct_tab (xpath)
+        logger.info("Trying method 1: direct_tab resource-id...")
         dm_tab = self.device.xpath(DM_SELECTORS.direct_tab)
         if dm_tab.exists:
             dm_tab.click()
@@ -68,23 +79,26 @@ class DMBridge:
             return True
         
         # Method 2: content-desc selectors
+        logger.info("Trying method 2: content-desc selectors...")
         for selector in DM_SELECTORS.direct_tab_content_desc:
             dm_btn = self.device.xpath(selector)
             if dm_btn.exists:
                 dm_btn.click()
                 time.sleep(2)
-                logger.info(f"Navigated via content-desc")
+                logger.info(f"Navigated via content-desc: {selector}")
                 return True
         
-        # Method 3: Direct icon
-        direct_icon = self.device(contentDescription="Direct")
+        # Method 3: Direct icon by description
+        logger.info("Trying method 3: Direct icon description...")
+        direct_icon = self.device(description="Direct")
         if direct_icon.exists:
             direct_icon.click()
             time.sleep(2)
             logger.info("Navigated via Direct icon")
             return True
         
-        # Method 4: Messenger icon
+        # Method 4: Messenger icon (action bar)
+        logger.info("Trying method 4: action_bar_inbox_button...")
         messenger = self.device(resourceId="com.instagram.android:id/action_bar_inbox_button")
         if messenger.exists:
             messenger.click()
@@ -92,7 +106,46 @@ class DMBridge:
             logger.info("Navigated via messenger icon")
             return True
         
-        logger.error("Cannot find DM button")
+        # Method 5: Try clicking on top-right corner where DM icon usually is
+        logger.info("Trying method 5: tap on DM icon position (top-right)...")
+        try:
+            # DM icon is typically in top-right corner of the screen
+            self.device.click(self.screen_width - 80, 150)
+            time.sleep(2)
+            # Check if we're in DM inbox
+            inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+            if inbox.exists:
+                logger.info("Navigated via tap on top-right")
+                return True
+        except:
+            pass
+        
+        # Method 6: Try messenger description variations
+        logger.info("Trying method 6: messenger description variations...")
+        for desc in ["Messenger", "Messages", "Inbox", "Boîte de réception"]:
+            btn = self.device(descriptionContains=desc)
+            if btn.exists:
+                btn.click()
+                time.sleep(2)
+                logger.info(f"Navigated via description: {desc}")
+                return True
+        
+        # Method 7: Try by class and position (ImageView in action bar)
+        logger.info("Trying method 7: ImageView in action bar...")
+        action_bar = self.device(resourceId="com.instagram.android:id/action_bar_container")
+        if action_bar.exists:
+            # Find clickable ImageViews in action bar
+            images = action_bar.child(className="android.widget.ImageView", clickable=True)
+            if images.count > 0:
+                # Usually the last one is the DM icon
+                images[images.count - 1].click()
+                time.sleep(2)
+                inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                if inbox.exists:
+                    logger.info("Navigated via action bar ImageView")
+                    return True
+        
+        logger.error("Cannot find DM button - all methods failed")
         return False
     
     def open_conversation(self, username: str) -> bool:
@@ -151,40 +204,89 @@ class DMBridge:
         """Send a message in the current conversation with human-like timing."""
         logger.info("Sending message...")
         
-        # Find message input
+        # Find message input - try multiple selectors
         msg_input = self.device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
         if not msg_input.exists:
+            logger.info("Trying alternative input selector...")
+            msg_input = self.device(resourceId="com.instagram.android:id/message_content")
+        if not msg_input.exists:
+            logger.info("Trying EditText class...")
             msg_input = self.device(className="android.widget.EditText")
+        if not msg_input.exists:
+            logger.info("Trying hint text...")
+            msg_input = self.device(textContains="Message")
         
         if not msg_input.exists:
             logger.error("Message input not found")
             return False
         
+        logger.info(f"Found message input: {msg_input.info}")
+        
         # Click on input field
         msg_input.click()
-        time.sleep(random.uniform(0.3, 0.5))
+        time.sleep(random.uniform(0.5, 0.8))
         
         # Simulate typing delay (looks like we're typing)
         self._simulate_typing_delay(message)
         
         # Use set_text for reliable input (supports emojis, special chars, etc.)
-        msg_input.set_text(message)
-        time.sleep(random.uniform(0.2, 0.4))  # Brief pause before sending
+        try:
+            msg_input.set_text(message)
+            logger.info("Text set via set_text")
+        except Exception as e:
+            logger.warning(f"set_text failed: {e}, trying send_keys...")
+            try:
+                msg_input.send_keys(message)
+                logger.info("Text set via send_keys")
+            except Exception as e2:
+                logger.error(f"send_keys also failed: {e2}")
+                return False
         
-        # Find send button
+        time.sleep(random.uniform(0.3, 0.5))  # Brief pause before sending
+        
+        # Find send button - try multiple selectors
         send_btn = self.device(resourceId="com.instagram.android:id/row_thread_composer_send_button_container")
+        logger.info(f"Send button (container): exists={send_btn.exists}")
+        
         if not send_btn.exists:
-            send_btn = self.device(contentDescription="Envoyer")
+            send_btn = self.device(resourceId="com.instagram.android:id/row_thread_composer_send_button")
+            logger.info(f"Send button (direct): exists={send_btn.exists}")
+        
         if not send_btn.exists:
-            send_btn = self.device(contentDescription="Send")
+            send_btn = self.device(description="Envoyer")
+            logger.info(f"Send button (Envoyer): exists={send_btn.exists}")
+        
+        if not send_btn.exists:
+            send_btn = self.device(description="Send")
+            logger.info(f"Send button (Send): exists={send_btn.exists}")
+        
+        if not send_btn.exists:
+            send_btn = self.device(description="Send message")
+            logger.info(f"Send button (Send message): exists={send_btn.exists}")
+        
+        if not send_btn.exists:
+            # Try to find any clickable element near the input that could be send
+            send_btn = self.device(resourceId="com.instagram.android:id/send_button")
+            logger.info(f"Send button (send_button): exists={send_btn.exists}")
         
         if send_btn.exists:
+            logger.info(f"Clicking send button: {send_btn.info}")
             send_btn.click()
             time.sleep(1)
             logger.info("Message sent!")
             return True
         
-        logger.error("Send button not found")
+        logger.error("Send button not found - dumping UI elements for debugging")
+        # Log all clickable elements for debugging
+        try:
+            clickables = self.device(clickable=True)
+            for i in range(min(clickables.count, 20)):
+                elem = clickables[i]
+                info = elem.info
+                logger.info(f"Clickable {i}: {info.get('resourceId', '')} - {info.get('contentDescription', '')} - {info.get('className', '')}")
+        except:
+            pass
+        
         return False
     
     def read_conversations(self, limit: int) -> list:

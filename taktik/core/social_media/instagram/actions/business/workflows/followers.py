@@ -34,7 +34,9 @@ class FollowerBusiness(BaseBusinessAction):
             'max_likes_per_profile': 4,
             'comment_probability': 0.05
         }
-        self.checkpoint_dir = Path("temp/checkpoints")
+        # Use AppData folder for checkpoints to avoid permission issues
+        app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
+        self.checkpoint_dir = Path(app_data) / 'taktik-desktop' / 'temp' / 'checkpoints'
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.current_checkpoint_file = None
         self.current_followers_list = []

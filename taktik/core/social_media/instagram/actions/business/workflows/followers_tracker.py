@@ -20,8 +20,9 @@ class FollowersTracker:
         self.target_username = target_username
         self.session_start = datetime.now()
         
-        # Créer le dossier de logs
-        self.log_dir = Path("logs/followers_tracking")
+        # Créer le dossier de logs dans AppData pour éviter les problèmes de permission
+        app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
+        self.log_dir = Path(app_data) / 'taktik-desktop' / 'logs' / 'followers_tracking'
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
         # Fichier de log pour cette session

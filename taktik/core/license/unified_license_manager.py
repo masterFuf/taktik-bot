@@ -244,8 +244,8 @@ class UnifiedLicenseManager:
                 'version': '2.0'
             }
             
-            with open(config_file, 'w') as f:
-                json.dump(config_data, f, indent=2)
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
             
             os.chmod(config_file, 0o600)
             

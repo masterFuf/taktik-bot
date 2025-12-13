@@ -14,6 +14,21 @@ import math
 from typing import Optional, Dict, Any
 from loguru import logger
 
+# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+# Configure loguru - the UTF-8 encoding is already set via the TextIOWrapper above
+logger.remove()  # Remove default handler
+logger.add(
+    sys.stderr,
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}",
+    level="DEBUG",
+    colorize=False
+)
+
 # Configure logging for desktop integration
 logging.basicConfig(
     level=logging.INFO,

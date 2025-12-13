@@ -8,12 +8,22 @@ import sys
 import json
 import os
 
+# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from loguru import logger
+
+# Configure loguru for UTF-8 output
+logger.remove()
+logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
 
 def main():
     if len(sys.argv) < 2:
