@@ -411,8 +411,7 @@ class NavigationActions(BaseAction):
         return self._is_followers_list_open()
     
     def _verify_profile_navigation(self, expected_username: str) -> bool:
-        # D'abord vérifier et fermer les popups problématiques
-        self._check_and_close_problematic_pages()
+        # NOTE: _check_and_close_problematic_pages() removed here - already called by navigate_to_profile()
         
         if not self._is_profile_screen():
             self.logger.debug(f"❌ Not on profile screen")

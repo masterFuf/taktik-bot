@@ -367,3 +367,89 @@ class DetectionActions(BaseAction):
             self.detection_selectors.suggestions_section_indicators, 
             "Suggestions section"
         )
+    
+    def get_profile_flags_batch(self) -> Dict[str, bool]:
+        """
+        Get all profile boolean flags in a single XML dump.
+        Much faster than individual checks (~1s vs ~20s).
+        
+        Returns:
+            Dict with keys: is_private, is_verified, is_business
+        """
+        selectors_dict = {
+            'is_private': self.detection_selectors.private_account_indicators,
+            'is_verified': self.detection_selectors.verified_account_indicators,
+            'is_business': self.detection_selectors.business_account_indicators,
+        }
+        
+        results = self.device.batch_xpath_check(selectors_dict)
+        self.logger.debug(f"📊 Batch profile flags: private={results.get('is_private')}, verified={results.get('is_verified')}, business={results.get('is_business')}")
+        return results
+    
+    def get_profile_text_batch(self) -> Dict[str, Optional[str]]:
+        """
+        Get username, full_name, bio in a single XML dump.
+        Much faster than individual calls (~1s vs ~9s).
+        
+        Returns:
+            Dict with keys: username, full_name, biography
+        """
+        from lxml import etree
+        
+        results = {
+            'username': None,
+            'full_name': None,
+            'biography': None
+        }
+        
+        xml_content = self.device.get_xml_dump()
+        if not xml_content:
+            return results
+        
+        try:
+            tree = etree.fromstring(xml_content.encode('utf-8'))
+            
+            # Extract username
+            for selector in self.selectors.username:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['username'] = text.replace('@', '')
+                            break
+                except Exception:
+                    continue
+            
+            # Extract full name
+            for selector in self.selectors.full_name:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['full_name'] = text
+                            break
+                except Exception:
+                    continue
+            
+            # Extract biography
+            for selector in self.selectors.bio:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['biography'] = text
+                            break
+                except Exception:
+                    continue
+            
+            if results['username']:
+                self.logger.debug(f"📊 Batch text: @{results['username']}, name={results['full_name']}")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in batch text extraction: {e}")
+            return results
