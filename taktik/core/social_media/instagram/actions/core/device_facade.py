@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional, List, Union, Tuple
 from enum import Enum
 import time
 import re
+from lxml import etree
 from loguru import logger
 
 
@@ -258,3 +259,56 @@ class DeviceFacade:
         except Exception as e:
             self.logger.error(f"Error clicking on coordinates ({x}, {y}): {e}")
             return False
+    
+    def get_xml_dump(self) -> Optional[str]:
+        """Get a single XML dump of the current screen for batch operations."""
+        try:
+            return self._device.dump_hierarchy()
+        except Exception as e:
+            self.logger.error(f"Error getting XML dump: {e}")
+            return None
+    
+    def xpath_exists_in_xml(self, xml_content: str, xpath: str) -> bool:
+        """Check if xpath exists in pre-fetched XML content (fast, no ADB call)."""
+        try:
+            tree = etree.fromstring(xml_content.encode('utf-8'))
+            result = tree.xpath(xpath)
+            return len(result) > 0
+        except Exception:
+            return False
+    
+    def batch_xpath_check(self, selectors_dict: Dict[str, List[str]]) -> Dict[str, bool]:
+        """
+        Check multiple xpath selectors in a single XML dump.
+        Much faster than individual checks (1 ADB call vs N calls).
+        
+        Args:
+            selectors_dict: Dict mapping names to list of xpath selectors
+                           e.g. {'is_private': ['//*[@text="Private"]', ...], ...}
+        
+        Returns:
+            Dict mapping names to boolean results
+        """
+        results = {name: False for name in selectors_dict}
+        
+        xml_content = self.get_xml_dump()
+        if not xml_content:
+            return results
+        
+        try:
+            tree = etree.fromstring(xml_content.encode('utf-8'))
+            
+            for name, selectors in selectors_dict.items():
+                for selector in selectors:
+                    try:
+                        if tree.xpath(selector):
+                            results[name] = True
+                            break
+                    except Exception:
+                        continue
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in batch xpath check: {e}")
+            return results

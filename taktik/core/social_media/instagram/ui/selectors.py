@@ -1276,21 +1276,17 @@ class DetectionSelectors:
     
     # === Followers/Following list ===
     # Sélecteurs SPÉCIFIQUES à la liste des followers/following
-    # Ces éléments n'existent QUE sur l'écran de liste, pas sur un profil
+    # IMPORTANT: Les éléments comme follow_list_container existent AUSSI sur les profils privés
+    # avec des suggestions. On doit utiliser des éléments VRAIMENT uniques.
     followers_list_indicators: List[str] = field(default_factory=lambda: [
-        # PRIORITÉ 1: Tab layout avec "followers", "following", "en commun" (TRÈS FIABLE)
+        # PRIORITÉ 1: Tab layout avec onglets - N'EXISTE QUE sur la liste des followers
         '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
-        # PRIORITÉ 2: View pager spécifique à la liste
+        # PRIORITÉ 2: View pager de la liste - N'EXISTE QUE sur la liste des followers
         '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
-        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager_wrapper"]',
-        # PRIORITÉ 3: Container parent de la liste
-        '//*[@resource-id="com.instagram.android:id/layout_listview_parent_container"]',
-        # PRIORITÉ 4: Boutons avec texte "followers" ou "following" (onglets)
+        # PRIORITÉ 3: Onglet "mutual" - N'EXISTE QUE sur la liste des followers
+        '//android.widget.Button[contains(@text, "mutual")]',
+        # PRIORITÉ 4: Onglet avec nombre + "followers" (ex: "52.5K followers")
         '//android.widget.Button[contains(@text, "followers")]',
-        '//android.widget.Button[contains(@text, "following")]',
-        '//android.widget.Button[contains(@text, "suivi")]',
-        '//android.widget.Button[contains(@text, "en commun")]',
-        '//android.widget.Button[contains(@text, "mutual")]'
     ])
     
     follow_list_username_selectors: List[str] = field(default_factory=lambda: [

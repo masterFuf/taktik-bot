@@ -83,11 +83,17 @@ class WorkflowConfigBuilder:
         probabilities = ActionProbabilities.from_percentages(action.get('probabilities', {}))
         filters = FilterCriteria.from_action(action)
         
+        # Get custom comments from comment_settings
+        comment_settings = action.get('comment_settings', {})
+        custom_comments = comment_settings.get('custom_comments', [])
+        
         config = {
             'max_interactions': max_interactions,
             'max_interactions_per_session': max_interactions,
             **probabilities.to_dict(),
-            'filter_criteria': filters.to_dict()
+            'filter_criteria': filters.to_dict(),
+            'custom_comments': custom_comments,
+            'interaction_type': action.get('interaction_type', 'followers')  # 'followers' or 'following'
         }
         
         return config

@@ -446,16 +446,15 @@ class BaseBusinessAction(BaseAction):
                     break
             
             if popup_detected:
-                for selector in self.popup_selectors.follow_suggestions_close_methods:
-                    if self._find_and_click(selector, timeout=2):
-                        self.logger.debug("✅ Suggestions popup closed")
-                        time.sleep(0.5)
-                        return
-                
+                # Swipe UP to scroll back to top of profile where posts are visible
+                # This hides the "Suggested for you" section by scrolling past it
                 from ..core.device_facade import Direction
-                self.device.swipe(Direction.DOWN, scale=0.3)
-                self.logger.debug("✅ Popup closed by swipe down")
-                time.sleep(0.5)
+                self.logger.debug("📜 Scrolling up to hide suggestions section...")
+                self.device.swipe(Direction.DOWN, scale=0.5)  # DOWN = finger moves down = content goes UP
+                time.sleep(0.3)
+                self.device.swipe(Direction.DOWN, scale=0.5)  # Second swipe to ensure we're at top
+                time.sleep(0.3)
+                self.logger.debug("✅ Suggestions section hidden by scrolling up")
             else:
                 self.logger.debug("ℹ️ No suggestions popup detected")
                 

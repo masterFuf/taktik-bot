@@ -100,12 +100,9 @@ class HumanBehavior:
         # Clamp entre min et max avec une petite marge
         delay = max(base_min * 0.8, min(base_max * 1.2, delay))
         
-        # Appliquer le multiplicateur de fatigue
-        delay *= self.get_fatigue_multiplier()
-        
-        # 5% de chance d'une pause "distraction" (3-8s)
-        if random.random() < 0.05:
-            delay += random.uniform(3, 8)
+        # Appliquer le multiplicateur de fatigue (capped at x1.5 to avoid excessive delays)
+        fatigue = min(self.get_fatigue_multiplier(), 1.5)
+        delay *= fatigue
         
         return delay
     
