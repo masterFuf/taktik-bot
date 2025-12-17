@@ -62,6 +62,119 @@ def send_log(level: str, message: str):
     send_message("log", level=level, message=message)
 
 
+class DebugBridge:
+    """Bridge for debug commands (analyze, detect)."""
+    
+    def __init__(self, config: dict):
+        self.config = config
+        self.device_id = config.get('deviceId')
+        self.mode = config.get('mode', 'analyze')  # analyze, detect
+    
+    def run(self) -> int:
+        """Run debug command."""
+        try:
+            send_log("debug", f"Starting debug command: mode={self.mode}, device={self.device_id}")
+            
+            from taktik.core.device import DeviceManager
+            send_log("debug", "DeviceManager imported successfully")
+            
+            if not self.device_id:
+                send_error("Device ID is required")
+                return 1
+            
+            send_log("debug", f"Connecting to device {self.device_id}...")
+            device = DeviceManager.connect_to_device(self.device_id)
+            if not device:
+                send_error(f"Failed to connect to device {self.device_id}")
+                return 2
+            
+            send_log("info", f"Connected to device {self.device_id}")
+            
+            if self.mode == 'analyze':
+                return self._analyze(device)
+            elif self.mode == 'detect':
+                return self._detect(device)
+            else:
+                send_error(f"Unknown debug mode: {self.mode}")
+                return 3
+                
+        except ImportError as e:
+            send_error(f"Import error: {str(e)}")
+            logger.exception("Import error in DebugBridge")
+            return 1
+        except Exception as e:
+            import traceback
+            send_error(f"Debug error: {str(e)}")
+            send_log("error", f"Traceback: {traceback.format_exc()}")
+            logger.exception("Debug error")
+            return 1
+    
+    def _analyze(self, device) -> int:
+        """Analyze current screen - capture screenshot and UI dump."""
+        try:
+            from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+            import tempfile
+            import os
+            
+            # Use temp directory for output
+            output_dir = os.path.join(tempfile.gettempdir(), 'taktik_debug')
+            os.makedirs(output_dir, exist_ok=True)
+            send_log("debug", f"Output directory: {output_dir}")
+            
+            send_log("debug", "Capturing screenshot...")
+            screenshot_path = capture_screenshot(device, output_dir)
+            
+            send_log("debug", "Dumping UI hierarchy...")
+            dump_path = dump_ui_hierarchy(device, output_dir)
+            
+            result = {
+                'success': True,
+                'screenshotPath': screenshot_path,
+                'dumpPath': dump_path
+            }
+            
+            # Output result as JSON for the desktop app to parse
+            if screenshot_path:
+                send_log("info", f"Screenshot saved: {screenshot_path}")
+            else:
+                send_log("warning", "Screenshot capture failed")
+                
+            if dump_path:
+                send_log("info", f"UI dump: {dump_path}")
+            else:
+                send_log("warning", "UI dump failed")
+            
+            send_message("debug_result", **result)
+            return 0
+            
+        except Exception as e:
+            import traceback
+            send_error(f"Analyze error: {str(e)}")
+            send_log("error", f"Traceback: {traceback.format_exc()}")
+            return 1
+    
+    def _detect(self, device) -> int:
+        """Detect and handle problematic pages."""
+        from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+        
+        detector = ProblematicPageDetector(device, debug_mode=True)
+        detected = detector.detect_and_handle_problematic_pages()
+        
+        result = {
+            'success': True,
+            'detected': detected,
+            'handled': detected
+        }
+        
+        if detected:
+            send_log("info", "Problematic page detected and handled")
+        else:
+            send_log("info", "No problematic pages detected")
+        
+        send_message("debug_result", **result)
+        return 0
+
+
 class DesktopBridge:
     """Bridge between Desktop app and TAKTIK Bot."""
     
@@ -74,6 +187,7 @@ class DesktopBridge:
         self.probabilities = config.get('probabilities', {})
         self.filters = config.get('filters', {})
         self.session_config = config.get('session', {})
+        self.comments_config = config.get('comments', {})
         self.language = config.get('language', 'en')
         self.running = True
         # API credentials passed from desktop app
@@ -83,7 +197,7 @@ class DesktopBridge:
         self.automation = None
         
         # Media capture service
-        self.media_capture_enabled = config.get('mediaCaptureEnabled', True)
+        self.media_capture_enabled = config.get('mediaCaptureEnabled', False)
         self.media_capture_service = None
         
         # Setup signal handlers for graceful shutdown
@@ -329,6 +443,10 @@ class DesktopBridge:
                         "like_probability": story_like_percentage / 100.0,
                         "verify_like_success": True
                     },
+                    "comment_settings": {
+                        "enabled": comment_percentage > 0,
+                        "custom_comments": self.comments_config.get('customComments', [])
+                    },
                     "scrolling": {
                         "enabled": True,
                         "max_scroll_attempts": 3,
@@ -508,6 +626,26 @@ def main():
     try:
         config = None
         
+        # Check for --debug flag first (for debug commands)
+        if len(sys.argv) >= 2 and sys.argv[1] == '--debug':
+            # Debug mode: --debug --mode analyze/detect --device <device_id>
+            import argparse
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--debug', action='store_true')
+            parser.add_argument('--mode', choices=['analyze', 'detect'], default='analyze')
+            parser.add_argument('--device', type=str, required=True)
+            args = parser.parse_args()
+            
+            config = {
+                'debugMode': True,
+                'mode': args.mode,
+                'deviceId': args.device
+            }
+            
+            bridge = DebugBridge(config)
+            exit_code = bridge.run()
+            sys.exit(exit_code)
+        
         # Method 1: Config file path as argument
         if len(sys.argv) >= 2:
             arg = sys.argv[1]
@@ -536,6 +674,12 @@ def main():
         if config is None:
             send_error("No configuration provided. Use: python desktop_bridge.py <config.json> or pipe JSON to stdin")
             sys.exit(1)
+        
+        # Check if this is a debug command via JSON config
+        if config.get('debugMode'):
+            bridge = DebugBridge(config)
+            exit_code = bridge.run()
+            sys.exit(exit_code)
         
         # Create and run bridge
         bridge = DesktopBridge(config)
