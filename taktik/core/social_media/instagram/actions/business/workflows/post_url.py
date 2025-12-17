@@ -429,7 +429,12 @@ class PostUrlBusiness(BaseBusinessAction):
                     self.logger.debug(f"Error checking scroll #{scroll_count + 1}: {e}")
                 
                 self.logger.debug(f"Vertical scroll #{scroll_count + 1}")
-                self.device.swipe_coordinates(540, 1700, 540, 300, duration=0.7)
+                # Adaptive swipe coordinates
+                width, height = self.device.get_screen_size()
+                center_x = width // 2
+                start_y = int(height * 0.89)  # ~89% of height
+                end_y = int(height * 0.16)    # ~16% of height
+                self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.7)
                 time.sleep(2.5)
                 scroll_count += 1
             

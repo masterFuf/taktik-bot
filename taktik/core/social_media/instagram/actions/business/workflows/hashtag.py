@@ -234,7 +234,12 @@ class HashtagBusiness(BaseBusinessAction):
                 posts_tested += 1
                 
                 if posts_tested < max_attempts:
-                    self.device.swipe_coordinates(540, 1600, 540, 400, duration=0.6)
+                    # Adaptive swipe coordinates
+                    width, height = self.device.get_screen_size()
+                    center_x = width // 2
+                    start_y = int(height * 0.83)  # ~83% of height
+                    end_y = int(height * 0.21)    # ~21% of height
+                    self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.6)
                     time.sleep(3)
                     is_reel = self._is_reel_post()
             
@@ -421,9 +426,15 @@ class HashtagBusiness(BaseBusinessAction):
             
             current_index = 0
             
+            # Get screen dimensions once for adaptive swipes
+            width, height = self.device.get_screen_size()
+            center_x = width // 2
+            start_y = int(height * 0.83)
+            end_y = int(height * 0.21)
+            
             for post in posts:
                 while current_index < post['index']:
-                    self.device.swipe_coordinates(540, 1600, 540, 400, duration=0.6)
+                    self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.6)
                     time.sleep(2)
                     current_index += 1
                 

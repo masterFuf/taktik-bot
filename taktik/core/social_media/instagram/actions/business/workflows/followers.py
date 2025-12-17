@@ -107,37 +107,89 @@ class FollowerBusiness(BaseBusinessAction):
         if not force_back and self.detection_actions.is_followers_list_open():
             return True
         
-        # Essayer jusqu'à 3 fois de revenir avec back
-        for attempt in range(3):
-            self.logger.debug(f"🔄 Recovery attempt {attempt + 1}/3 - trying back button")
-            
-            # Essayer le bouton back
-            for selector in self._back_button_selectors:
+        # Sélecteurs UNIQUES à la liste des followers (pas présents sur les profils)
+        # unified_follow_list_tab_layout et unified_follow_list_view_pager n'existent QUE sur la liste
+        quick_check_selectors = [
+            '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
+            '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
+            '//android.widget.Button[contains(@text, "mutual")]',
+        ]
+        
+        # Fonction helper pour vérifier si on est sur la liste
+        def is_on_followers_list() -> bool:
+            for selector in quick_check_selectors:
                 try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        element.click()
-                        self._human_like_delay('navigation')
-                        break
-                except Exception:
+                    exists = self.device.xpath(selector).exists
+                    self.logger.debug(f"🔍 Checking selector: {selector[:50]}... = {exists}")
+                    if exists:
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"❌ Selector error: {e}")
                     continue
-            else:
-                # Aucun bouton trouvé, utiliser back système
-                self.device.press('back')
-                self._human_like_delay('click')
-            
-            # Vérifier si on est sur la liste
-            if self.detection_actions.is_followers_list_open():
-                self.logger.info(f"✅ Recovered to followers list (attempt {attempt + 1})")
-                return True
+            return False
+        
+        # Sélecteurs pour le bouton back UI d'Instagram (flèche en haut à gauche)
+        back_button_selectors = [
+            '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]//android.widget.ImageView[@clickable="true"]',
+            '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]/android.widget.ImageView',
+            '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
+        ]
+        
+        # Fonction helper pour cliquer sur le bouton back UI
+        def click_ui_back_button() -> bool:
+            for selector in back_button_selectors:
+                try:
+                    elem = self.device.xpath(selector)
+                    if elem.exists:
+                        elem.click()
+                        self.logger.info(f"✅ Clicked UI back button")
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"❌ Back button error: {e}")
+                    continue
+            # Fallback: device.press('back') si le bouton UI n'est pas trouvé
+            self.logger.warning(f"⚠️ UI back button not found, using device.press('back')")
+            self.device.press('back')
+            return True
+        
+        # Premier back (on vient d'un profil)
+        self.logger.info(f"🔄 Recovery - clicking back button (1st) to return to followers list")
+        click_ui_back_button()
+        self.logger.info(f"⏳ Waiting 2s after 1st back...")
+        self._random_sleep(2.0, 2.5)
+        
+        self.logger.info(f"🔍 Checking if on followers list after 1st back...")
+        if is_on_followers_list():
+            self.logger.info(f"✅ Recovered to followers list (1st back)")
+            return True
+        
+        # Si le premier back n'a pas suffi, on est peut-être sur le profil
+        # (cas: post → profil après back, il faut un 2ème back pour la liste)
+        self.logger.info(f"🔄 First back didn't reach list, trying 2nd back...")
+        click_ui_back_button()
+        self.logger.info(f"⏳ Waiting 2s after 2nd back...")
+        self._random_sleep(2.0, 2.5)
+        
+        self.logger.info(f"🔍 Checking if on followers list after 2nd back...")
+        if is_on_followers_list():
+            self.logger.info(f"✅ Recovered to followers list (2nd back)")
+            return True
+        
+        # Attendre un peu plus et réessayer la détection
+        self.logger.info(f"🔄 Detection failed, waiting 1s more and retrying...")
+        self._random_sleep(1.0, 1.5)
+        
+        if is_on_followers_list():
+            self.logger.info(f"✅ Recovered to followers list (after wait)")
+            return True
         
         # Dernier recours: naviguer vers la target (on perd la position)
         if target_username:
             self.logger.warning(f"⚠️ Could not recover via back, navigating to @{target_username}")
             if self.nav_actions.navigate_to_profile(target_username):
-                self._human_like_delay('navigation')
+                self._random_sleep(0.5, 1.0)  # Short delay after navigation
                 if self.nav_actions.open_followers_list():
-                    self._human_like_delay('navigation')
+                    self._random_sleep(0.5, 1.0)  # Short delay
                     self.logger.warning("⚠️ Recovered but position in list is lost")
                     return True
         
@@ -581,13 +633,14 @@ class FollowerBusiness(BaseBusinessAction):
             
             self._human_like_delay('profile_view')
             
-            # Vérifier si le profil est privé
-            if self.detection_actions.is_private_account():
+            # Récupérer le profil complet (inclut is_private via batch check)
+            profile_info = self.profile_business.get_complete_profile_info(target_username, navigate_if_needed=False)
+            
+            # Vérifier si le profil est privé (from profile_info, no extra ADB call)
+            if profile_info and profile_info.get('is_private', False):
                 self.logger.warning(f"@{target_username} is a private account")
                 return stats
             
-            # Récupérer le nombre total de followers de la target (méthode robuste)
-            profile_info = self.profile_business.get_complete_profile_info(target_username, navigate_if_needed=False)
             target_followers_count = profile_info.get('followers_count', 0) if profile_info else 0
             
             if target_followers_count > 0:
@@ -595,10 +648,19 @@ class FollowerBusiness(BaseBusinessAction):
             else:
                 self.logger.warning(f"⚠️ Could not get followers count for @{target_username}")
             
-            # 2. Ouvrir la liste des followers
-            if not self.nav_actions.open_followers_list():
-                self.logger.error("Failed to open followers list")
-                return stats
+            # 2. Ouvrir la liste des followers OU following selon interaction_type
+            interaction_type = config.get('interaction_type', 'followers')
+            
+            if interaction_type == 'following':
+                self.logger.info(f"📋 Opening FOLLOWING list of @{target_username}")
+                if not self.nav_actions.open_following_list():
+                    self.logger.error("Failed to open following list")
+                    return stats
+            else:
+                self.logger.info(f"📋 Opening FOLLOWERS list of @{target_username}")
+                if not self.nav_actions.open_followers_list():
+                    self.logger.error("Failed to open followers list")
+                    return stats
             
             self._human_like_delay('navigation')
             
@@ -778,6 +840,21 @@ class FollowerBusiness(BaseBusinessAction):
                     if username in processed_usernames:
                         continue
                     
+                    # Skip our own account - never interact with ourselves!
+                    if account_username and account_username != "unknown":
+                        if username.lower() == account_username.lower():
+                            self.logger.info(f"⏭️ Skipping own account @{username}")
+                            processed_usernames.add(username)
+                            # Don't count own account in filtered stats
+                            continue
+                    
+                    # Skip target account - no need to interact with the source
+                    if target_username and username.lower() == target_username.lower():
+                        self.logger.info(f"⏭️ Skipping target account @{username}")
+                        processed_usernames.add(username)
+                        # Don't count target account in filtered stats
+                        continue
+                    
                     processed_usernames.add(username)
                     new_usernames_found += 1
                     total_usernames_seen += 1
@@ -934,6 +1011,9 @@ class FollowerBusiness(BaseBusinessAction):
                             interaction_config, 
                             profile_data=profile_data
                         )
+                        
+                        # DEBUG: Log interaction result
+                        self.logger.debug(f"🔍 interaction_result for @{username}: {interaction_result}")
                         
                         # Mettre à jour les stats locales ET le stats_manager
                         # Track if we actually interacted with this profile
@@ -1398,9 +1478,10 @@ class FollowerBusiness(BaseBusinessAction):
             if not username:
                 continue
             
-            if criteria.get('exclude_bots', True):
-                if self.utils.is_likely_bot_username(username):
-                    continue
+            # DISABLED: Bot username detection - too many false positives
+            # if criteria.get('exclude_bots', True):
+            #     if self.utils.is_likely_bot_username(username):
+            #         continue
             
             filtered.append(follower)
         
@@ -1468,24 +1549,31 @@ class FollowerBusiness(BaseBusinessAction):
             
             if follow_roll < follow_probability:
                 self.logger.debug(f"Follow probability won ({follow_roll:.3f} < {follow_probability})")
-                follow_result = self.click_actions.follow_user(username)
-                if follow_result:
-                    result['followed'] = True
-                    try:
-                        self.stats_manager.increment('follows')
-                    except Exception as e:
-                        self.logger.error(f"Critical error: Follow of @{username} cancelled - {e}")
-                        self.logger.error(f"Security: Follow of @{username} cancelled to avoid quota leak")
-                        
-                        result['followed'] = False
-                        result['error'] = f"Follow cancelled - API quotas not updated: {e}"
-                        return result
-                    
-                    # REMOVED: L'enregistrement des follows est déjà géré dans base_business_action.py (centralisé)
-                    
-                    self._handle_follow_suggestions_popup()
+                
+                # Check if we already follow this user (button shows "Following" instead of "Follow")
+                follow_button_state = profile_info.get('follow_button_state', 'unknown')
+                if follow_button_state in ['following', 'unfollow', 'requested']:
+                    self.logger.info(f"⏭️ Already following @{username} (button: {follow_button_state}) - skipping follow")
+                    result['already_following'] = True
                 else:
-                    self.logger.debug(f"Follow failed for @{username}")
+                    follow_result = self.click_actions.follow_user(username)
+                    if follow_result:
+                        result['followed'] = True
+                        try:
+                            self.stats_manager.increment('follows')
+                        except Exception as e:
+                            self.logger.error(f"Critical error: Follow of @{username} cancelled - {e}")
+                            self.logger.error(f"Security: Follow of @{username} cancelled to avoid quota leak")
+                            
+                            result['followed'] = False
+                            result['error'] = f"Follow cancelled - API quotas not updated: {e}"
+                            return result
+                        
+                        # REMOVED: L'enregistrement des follows est déjà géré dans base_business_action.py (centralisé)
+                        
+                        self._handle_follow_suggestions_popup()
+                    else:
+                        self.logger.debug(f"Follow failed for @{username}")
             else:
                 self.logger.debug(f"Follow probability lost ({follow_roll:.3f} >= {follow_probability})")
             
