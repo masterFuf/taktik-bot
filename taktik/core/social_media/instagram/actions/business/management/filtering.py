@@ -124,16 +124,17 @@ class FilteringBusiness(BaseBusinessAction):
             })
             return result
         
-        username = profile_info.get('username', '')
-        if self.utils.is_likely_bot_username(username):
-            if not criteria.get('allow_bots', False):
-                result.update({
-                    'suitable': False,
-                    'reasons': ['Likely bot username'],
-                    'category': 'bot',
-                    'score': 0
-                })
-                return result
+        # DISABLED: Bot username detection - too many false positives
+        # username = profile_info.get('username', '')
+        # if self.utils.is_likely_bot_username(username):
+        #     if not criteria.get('allow_bots', False):
+        #         result.update({
+        #             'suitable': False,
+        #             'reasons': ['Likely bot username'],
+        #             'category': 'bot',
+        #             'score': 0
+        #         })
+        #         return result
         
         result['filter_details']['basic_filters'] = {
             'private_check': 'passed',

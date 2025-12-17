@@ -26,38 +26,47 @@ class ProfileBusiness(BaseBusinessAction):
                         self.logger.error("Failed to navigate to own profile")
                         return None
             
-            self.logger.debug("Checking if on profile screen...")
-            if not self.detection_actions.is_on_profile_screen():
-                self.logger.error("Not on a profile screen")
-                return None
-            
-            self.logger.debug("Profile screen confirmed")
-            
-            if username is None:
-                self.logger.debug("Checking if on own profile...")
-                if not self.detection_actions.is_on_own_profile():
-                    self.logger.error("Not on own profile")
+            # Quick profile screen check (skip if navigate_if_needed=False, we trust the caller)
+            if navigate_if_needed:
+                if not self.detection_actions.is_on_profile_screen():
+                    self.logger.error("Not on a profile screen")
                     return None
-                self.logger.debug("Confirmed: on own profile")
-            else:
-                self.logger.debug(f"Checking if on profile of @{username}...")
-                self.logger.debug("Confirmed: on user profile")
             
-            self.logger.debug("Waiting for profile to load...")
-            self._human_like_delay('navigation')
+            # Short delay for profile to load
+            self._random_sleep(0.3, 0.6)
+            
+            # Use batch detection for boolean flags (1 ADB call instead of 3)
+            profile_flags = self.detection_actions.get_profile_flags_batch()
+            
+            # Use batch text extraction (1 ADB call instead of 3)
+            profile_text = self.detection_actions.get_profile_text_batch()
+            
+            # Get counts (these are fast, ~300ms each)
+            followers_count = self._get_followers_count_robust()
+            following_count = self._get_following_count_robust()
+            posts_count = self._get_posts_count_robust()
+            
+            # Get visible posts count (skip is_post_grid_visible - redundant)
+            visible_posts = self.detection_actions.count_visible_posts()
+            
+            # Fallback to individual call if batch didn't get username (critical field)
+            extracted_username = profile_text.get('username')
+            if not extracted_username:
+                extracted_username = self.detection_actions.get_username_from_profile()
+            
             profile_info = {
-                'username': self.detection_actions.get_username_from_profile(),
-                'full_name': self.detection_actions.get_full_name_from_profile(),
-                'biography': self.detection_actions.get_biography_from_profile(),
-                'followers_count': self._get_followers_count_robust(),
-                'following_count': self._get_following_count_robust(),
-                'posts_count': self._get_posts_count_robust(),
-                'is_private': self.detection_actions.is_private_account(),
-                'is_verified': self.detection_actions.is_verified_account(),
-                'is_business': self.detection_actions.is_business_account(),
+                'username': extracted_username,
+                'full_name': profile_text.get('full_name'),
+                'biography': profile_text.get('biography'),
+                'followers_count': followers_count,
+                'following_count': following_count,
+                'posts_count': posts_count,
+                'is_private': profile_flags.get('is_private', False),
+                'is_verified': profile_flags.get('is_verified', False),
+                'is_business': profile_flags.get('is_business', False),
                 'follow_button_state': self.click_actions.get_follow_button_state(),
-                'has_posts': self.detection_actions.is_post_grid_visible(),
-                'visible_posts_count': self.detection_actions.count_visible_posts(),
+                'has_posts': visible_posts > 0,
+                'visible_posts_count': visible_posts,
                 'visible_stories_count': self.detection_actions.count_visible_stories()
             }
             
@@ -67,7 +76,7 @@ class ProfileBusiness(BaseBusinessAction):
             
             # Add metadata
             profile_info['extraction_timestamp'] = self.utils.format_duration(0)  # Current time
-            profile_info['screen_state'] = self.detection_actions.get_screen_state_summary()
+            # NOTE: get_screen_state_summary() removed for performance - it added ~30s of unnecessary detections
             
             # Detailed log with all profile information
             self.logger.info(f"✅ Profile extracted: @{profile_info['username']} ({profile_info['followers_count']} followers)")
@@ -212,13 +221,13 @@ class ProfileBusiness(BaseBusinessAction):
                 result['reasons'].append('Business account')
                 result['score'] -= 15
         
-        # Détection de bot potentiel
-        username = profile_info.get('username', '')
-        if self.utils.is_likely_bot_username(username):
-            result['suitable'] = False
-            result['reasons'].append('Likely bot username')
-            result['category'] = 'bot'
-            result['score'] -= 50
+        # DISABLED: Bot username detection - too many false positives
+        # username = profile_info.get('username', '')
+        # if self.utils.is_likely_bot_username(username):
+        #     result['suitable'] = False
+        #     result['reasons'].append('Likely bot username')
+        #     result['category'] = 'bot'
+        #     result['score'] -= 50
         
         # Déterminer la catégorie finale
         if result['suitable']:
@@ -293,8 +302,9 @@ class ProfileBusiness(BaseBusinessAction):
         # Malus pour signaux négatifs
         if profile_info.get('is_private'):
             quality_score -= 20
-        if self.utils.is_likely_bot_username(profile_info.get('username', '')):
-            quality_score -= 40
+        # DISABLED: Bot username detection - too many false positives
+        # if self.utils.is_likely_bot_username(profile_info.get('username', '')):
+        #     quality_score -= 40
         
         metrics['quality_score'] = max(0, min(100, quality_score))
         
