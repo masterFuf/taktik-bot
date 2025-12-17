@@ -204,9 +204,11 @@ class CommentBusiness(BaseBusinessAction):
             if drag_handle.exists:
                 bounds = drag_handle.info.get('bounds', {})
                 if bounds:
+                    # Get screen dimensions for adaptive end_y
+                    _, height = self.device.get_screen_size()
                     center_x = (bounds.get('left', 540) + bounds.get('right', 540)) // 2
                     start_y = bounds.get('top', 100)
-                    end_y = 1500
+                    end_y = int(height * 0.78)  # ~78% of screen height
                     
                     self.logger.debug(f"Swiping drag handle down: ({center_x}, {start_y}) → ({center_x}, {end_y})")
                     self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.3)

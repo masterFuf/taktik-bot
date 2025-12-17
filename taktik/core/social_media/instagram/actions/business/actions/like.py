@@ -380,8 +380,16 @@ class LikeBusiness(BaseBusinessAction):
         try:
             self.logger.debug("Navigating to next post...")
             
+            # Get screen dimensions for adaptive swipe coordinates
+            width, height = self.device.get_screen_size()
+            
             try:
-                self.device.swipe_coordinates(540, 1500, 540, 400, duration=0.25)
+                # Vertical scroll: center X, from 78% to 21% of height
+                center_x = width // 2
+                start_y = int(height * 0.78)
+                end_y = int(height * 0.21)
+                
+                self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.25)
                 time.sleep(2.0)
                 
                 if self._is_in_post_view():
@@ -391,7 +399,12 @@ class LikeBusiness(BaseBusinessAction):
                 self.logger.debug(f"Vertical scroll failed: {e}")
             
             try:
-                self.device.swipe_coordinates(800, 960, 200, 960, duration=0.3)
+                # Horizontal swipe: from 74% to 19% of width, center Y
+                start_x = int(width * 0.74)
+                end_x = int(width * 0.19)
+                center_y = height // 2
+                
+                self.device.swipe_coordinates(start_x, center_y, end_x, center_y, duration=0.3)
                 time.sleep(1)
                 
                 if self._is_in_post_view():
@@ -434,7 +447,13 @@ class LikeBusiness(BaseBusinessAction):
                     self.logger.debug("Returned via back button")
                     return
             
-            self.device.swipe_coordinates(540, 1200, 540, 400, duration=0.5)
+            # Adaptive swipe coordinates
+            width, height = self.device.get_screen_size()
+            center_x = width // 2
+            start_y = int(height * 0.625)  # ~62.5% of height
+            end_y = int(height * 0.21)     # ~21% of height
+            
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.5)
             time.sleep(1.5)
             self.logger.debug("Returned via downward swipe")
             
