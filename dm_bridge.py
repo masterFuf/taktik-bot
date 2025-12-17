@@ -13,6 +13,7 @@ import json
 import os
 import time
 import random
+import re
 
 # Force UTF-8 encoding for stdout/stderr to support emojis on Windows
 if sys.platform == 'win32':
@@ -148,11 +149,48 @@ class DMBridge:
         logger.error("Cannot find DM button - all methods failed")
         return False
     
-    def open_conversation(self, username: str) -> bool:
-        """Open a specific conversation by username."""
-        logger.info(f"Opening conversation with: {username}")
+    def _ensure_primary_tab(self):
+        """Ensure we're on the Primary tab in DM inbox."""
+        # Look for Primary tab and click it
+        primary_tab = self.device(textContains="Primary")
+        if primary_tab.exists:
+            logger.info("Clicking Primary tab to ensure we're in the right section")
+            primary_tab.click()
+            time.sleep(1)
+            return True
         
-        # First, try to find in visible inbox
+        # Alternative: look for tab with content-desc containing Primary
+        primary_tab = self.device(descriptionContains="Primary")
+        if primary_tab.exists:
+            logger.info("Clicking Primary tab (via description)")
+            primary_tab.click()
+            time.sleep(1)
+            return True
+        
+        logger.warning("Primary tab not found")
+        return False
+    
+    def _scroll_to_top_of_inbox(self):
+        """Scroll to the top of the inbox list and ensure we're on Primary tab."""
+        logger.info("Scrolling to top of inbox...")
+        
+        # Ensure we're on Primary tab
+        self._ensure_primary_tab()
+        
+        # Scroll up by swiping DOWN (pull down to reveal content above)
+        # Use the lower part of the screen to avoid the tabs area
+        for _ in range(3):
+            self.device.swipe(
+                self.screen_width // 2, int(self.screen_height * 0.55),
+                self.screen_width // 2, int(self.screen_height * 0.85),
+                duration=0.2
+            )
+            time.sleep(0.3)
+        
+        time.sleep(0.5)
+    
+    def _search_conversation_in_visible_list(self, username_lower: str) -> bool:
+        """Search for a conversation in the currently visible inbox list."""
         inbox_items = self.device(resourceId="com.instagram.android:id/row_inbox_container")
         
         for i in range(min(inbox_items.count, 20)):
@@ -161,21 +199,68 @@ class DMBridge:
                 username_elem = item.child(resourceId="com.instagram.android:id/row_inbox_username")
                 if username_elem.exists:
                     item_username = username_elem.get_text()
-                    if item_username and username.lower() in item_username.lower():
-                        item.click()
+                    if item_username:
+                        item_username_lower = item_username.lower().strip()
+                        # Exact match (case-insensitive) or partial match
+                        if item_username_lower == username_lower or username_lower in item_username_lower or item_username_lower in username_lower:
+                            logger.info(f"Found conversation: {item_username}")
+                            item.click()
+                            time.sleep(2)
+                            return True
+            except:
+                continue
+        return False
+    
+    def open_conversation(self, username: str) -> bool:
+        """Open a specific conversation by username."""
+        logger.info(f"Opening conversation with: {username}")
+        
+        # Normalize username for comparison (case-insensitive, strip whitespace)
+        username_lower = username.lower().strip()
+        
+        # Method 1: Search in visible inbox items by row_inbox_username
+        if self._search_conversation_in_visible_list(username_lower):
+            return True
+        
+        # Method 2: Search all row_inbox_username elements directly
+        logger.info("Trying direct search on all row_inbox_username elements...")
+        username_elems = self.device(resourceId="com.instagram.android:id/row_inbox_username")
+        for i in range(min(username_elems.count, 20)):
+            try:
+                elem = username_elems[i]
+                item_username = elem.get_text()
+                if item_username:
+                    item_username_lower = item_username.lower().strip()
+                    if item_username_lower == username_lower or username_lower in item_username_lower or item_username_lower in username_lower:
+                        logger.info(f"Found via direct username element: {item_username}")
+                        elem.click()
                         time.sleep(2)
                         return True
             except:
                 continue
         
-        # Try clicking on any element containing the username
+        # Method 3: Try textContains with original username (handles exact text)
         user_elem = self.device(textContains=username)
         if user_elem.exists:
+            logger.info(f"Found via textContains: {username}")
             user_elem.click()
             time.sleep(2)
             return True
         
-        logger.error(f"Conversation with {username} not found")
+        # Method 4: Scroll down progressively and search (up to 5 scrolls)
+        for scroll_attempt in range(5):
+            logger.info(f"Scrolling down to find conversation (attempt {scroll_attempt + 1}/5)...")
+            self.device.swipe(
+                self.screen_width // 2, int(self.screen_height * 0.7),
+                self.screen_width // 2, int(self.screen_height * 0.3),
+                duration=0.3
+            )
+            time.sleep(1)
+            
+            if self._search_conversation_in_visible_list(username_lower):
+                return True
+        
+        logger.error(f"Conversation with {username} not found after scrolling")
         return False
     
     def _simulate_typing_delay(self, text: str):
@@ -292,7 +377,8 @@ class DMBridge:
     def read_conversations(self, limit: int) -> list:
         """Read DM conversations."""
         conversations = []
-        processed_usernames = set()
+        processed_usernames = set()  # Track by inbox_username (lowercase)
+        processed_real_usernames = set()  # Track by real_username (lowercase) to catch duplicates
         conversations_read = 0
         scroll_count = 0
         max_scrolls = 10
@@ -304,7 +390,20 @@ class DMBridge:
                 logger.warning("No threads found")
                 break
             
+            # Trier les threads par position verticale (top) pour les traiter dans l'ordre
+            threads_with_pos = []
             for thread in threads:
+                try:
+                    bounds = thread.info.get('bounds', {})
+                    top = bounds.get('top', 0)
+                    threads_with_pos.append((top, thread))
+                except:
+                    continue
+            threads_with_pos.sort(key=lambda x: x[0])
+            
+            new_conversations_in_scroll = 0  # Track if we found new conversations in this scroll
+            
+            for thread_top, thread in threads_with_pos:
                 if conversations_read >= limit:
                     break
                 
@@ -335,9 +434,24 @@ class DMBridge:
                     except:
                         pass
                     
-                    if username in processed_usernames:
+                    # Check if already processed (case-insensitive)
+                    # Gérer les noms tronqués: "Here come the Grannies! ...." vs "Here come the Grannies! 💙🧡"
+                    username_lower = username.lower().strip()
+                    username_base = username_lower.rstrip('.').strip()  # Enlever les "..." de troncature
+                    
+                    already_processed = False
+                    for processed in processed_usernames:
+                        processed_base = processed.rstrip('.').strip()
+                        # Match exact ou l'un est préfixe de l'autre (troncature)
+                        if (username_base == processed_base or 
+                            username_base.startswith(processed_base) or 
+                            processed_base.startswith(username_base)):
+                            already_processed = True
+                            break
+                    
+                    if already_processed:
+                        logger.debug(f"Skipping already processed: {username}")
                         continue
-                    processed_usernames.add(username)
                     
                     logger.info(f"Opening conversation: {username}")
                     thread.click()
@@ -346,40 +460,96 @@ class DMBridge:
                     header_title = self.device(resourceId="com.instagram.android:id/header_title")
                     if not header_title.exists(timeout=3):
                         logger.warning(f"Could not open conversation with {username}")
-                        self.device.press("back")
-                        time.sleep(1)
+                        # Vérifier si on est toujours dans l'inbox (pas besoin de back)
+                        inbox_list = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                        if not inbox_list.exists:
+                            # On est quelque part d'autre, revenir à l'inbox
+                            back_btn = self.device(resourceId="com.instagram.android:id/header_left_button")
+                            if back_btn.exists:
+                                back_btn.click()
+                            else:
+                                self.device.press("back")
+                            time.sleep(1)
                         continue
                     
                     real_username = header_title.get_text() or username
+                    real_username_lower = real_username.lower().strip()
                     
-                    # Check if group
+                    # Double-check: if real_username was already processed, skip
+                    if real_username_lower in processed_real_usernames:
+                        logger.info(f"Skipping duplicate (real_username already seen): {real_username}")
+                        back_btn = self.device(resourceId="com.instagram.android:id/header_left_button")
+                        if back_btn.exists:
+                            back_btn.click()
+                        else:
+                            self.device.press("back")
+                        time.sleep(1)
+                        continue
+                    
+                    # Mark both as processed
+                    processed_usernames.add(username_lower)
+                    processed_real_usernames.add(real_username_lower)
+                    
+                    # Check if group or broadcast channel
                     is_group = False
                     can_reply = True
                     header_subtitle = self.device(resourceId="com.instagram.android:id/header_subtitle")
                     if header_subtitle.exists:
                         try:
                             subtitle_text = header_subtitle.get_text() or ''
-                            subtitle_desc = header_subtitle.info.get('contentDescription', '')
-                            combined = (subtitle_text + subtitle_desc).lower()
-                            if 'membres' in combined or 'members' in combined:
+                            # Récupérer aussi le contentDescription (content-desc dans le XML)
+                            subtitle_info = header_subtitle.info
+                            subtitle_desc = subtitle_info.get('contentDescription', '') or ''
+                            combined = (subtitle_text + ' ' + subtitle_desc).lower()
+                            
+                            # Détecter les groupes: "X membres", "X members", "X.XK members", etc.
+                            is_group_pattern = bool(re.search(r'\d+\.?\d*k?\s*(membres|members)', combined))
+                            
+                            if is_group_pattern or 'membres' in combined or 'members' in combined:
                                 is_group = True
-                                composer = self.device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
-                                if not composer.exists:
-                                    can_reply = False
-                        except:
-                            pass
+                                logger.info(f"Groupe détecté via subtitle: {combined[:50]}")
+                        except Exception as e:
+                            logger.debug(f"Erreur détection groupe via subtitle: {e}")
+                    
+                    # Vérifier si on peut répondre (composer présent)
+                    composer = self.device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
+                    if not composer.exists:
+                        # Pas de composer = on ne peut pas répondre (groupe broadcast, channel, etc.)
+                        can_reply = False
+                        if not is_group:
+                            # Si pas détecté comme groupe mais pas de composer, c'est probablement un broadcast channel
+                            is_group = True
+                            logger.info(f"Broadcast channel détecté (pas de composer): {real_username}")
                     
                     # Collect messages
                     messages = self._collect_messages()
                     
+                    # Vérifier si le dernier message vient de nous
+                    # Si oui, on ne peut pas répondre (on se répondrait à nous-mêmes)
+                    last_message_is_ours = False
+                    if messages:
+                        last_msg = messages[-1]  # Dernier message (le plus récent)
+                        if last_msg.get('is_sent', False):
+                            last_message_is_ours = True
+                            logger.info(f"Dernier message de @{real_username} est de NOUS -> can_reply=False")
+                    
+                    # can_reply = False si:
+                    # - C'est un groupe sans composer
+                    # - Le dernier message vient de nous (on ne se répond pas)
+                    if last_message_is_ours:
+                        can_reply = False
+                    
                     conv = {
                         'username': real_username,
+                        'inbox_username': username,  # Original name from inbox for reliable matching
                         'messages': messages,
                         'is_group': is_group,
-                        'can_reply': can_reply
+                        'can_reply': can_reply,
+                        'last_message_is_ours': last_message_is_ours  # Info supplémentaire pour le front
                     }
                     conversations.append(conv)
                     conversations_read += 1
+                    new_conversations_in_scroll += 1
                     
                     # Send real-time update
                     print(json.dumps({
@@ -399,8 +569,15 @@ class DMBridge:
                     
                 except Exception as e:
                     logger.error(f"Error reading conversation: {e}")
-                    self.device.press("back")
-                    time.sleep(1)
+                    # Vérifier si on est dans une conversation avant de faire back
+                    inbox_list = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                    if not inbox_list.exists:
+                        back_btn = self.device(resourceId="com.instagram.android:id/header_left_button")
+                        if back_btn.exists:
+                            back_btn.click()
+                        else:
+                            self.device.press("back")
+                        time.sleep(1)
                     continue
             
             if conversations_read >= limit:
@@ -432,7 +609,10 @@ class DMBridge:
                     continue
                 msg_left = msg_bounds.get('left', 0)
                 msg_top = msg_bounds.get('top', 0)
-                is_received = msg_left < self.screen_width * 0.5
+                # Détection envoyé/reçu: les messages reçus sont à gauche (left < 25% de l'écran)
+                # Les messages envoyés sont à droite (left >= 25% de l'écran)
+                # Seuil de 25% car sur un écran de 576px: messages reçus ont left~84, envoyés ont left~172+
+                is_received = msg_left < self.screen_width * 0.25
                 all_items.append({
                     'type': 'text',
                     'text': text,
@@ -450,7 +630,8 @@ class DMBridge:
                 reel_bounds = reel.info.get('bounds', {})
                 reel_left = reel_bounds.get('left', 0)
                 reel_top = reel_bounds.get('top', 0)
-                is_received = reel_left < self.screen_width * 0.5
+                # Même logique pour les reels: 25% de l'écran comme seuil
+                is_received = reel_left < self.screen_width * 0.25
                 
                 title_elem = self.device(resourceId="com.instagram.android:id/title_text")
                 reel_author = ""
@@ -477,17 +658,15 @@ class DMBridge:
         # Sort all messages by position (top to bottom = chronological order)
         all_items.sort(key=lambda x: x['top'])
         
-        # Deduplicate while keeping all messages (sent and received)
-        seen_texts = set()
+        # Pas de déduplication - garder TOUS les messages
+        # Un même texte peut apparaître plusieurs fois (ex: smileys, réponses courtes)
         messages = []
         for msg in all_items:
-            if msg['text'] not in seen_texts:
-                seen_texts.add(msg['text'])
-                messages.append({
-                    'type': msg['type'],
-                    'text': msg['text'],
-                    'is_sent': msg['is_sent']
-                })
+            messages.append({
+                'type': msg['type'],
+                'text': msg['text'],
+                'is_sent': msg['is_sent']
+            })
         
         return messages
 
@@ -525,17 +704,51 @@ def cmd_send(device_id: str, username: str, message: str):
         print(json.dumps({"success": False, "error": "Failed to connect to device"}))
         sys.exit(1)
     
-    if not bridge.navigate_to_dm_inbox():
-        print(json.dumps({"success": False, "error": "Cannot navigate to DM inbox"}))
-        sys.exit(1)
+    # Check if we're already in the inbox (likely after reading DMs)
+    inbox = bridge.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+    if not inbox.exists(timeout=2):
+        # Not in inbox, navigate there
+        if not bridge.navigate_to_dm_inbox():
+            print(json.dumps({"success": False, "error": "Cannot navigate to DM inbox"}))
+            sys.exit(1)
+        time.sleep(2)
+        # Si on vient de naviguer, on doit s'assurer d'être sur Primary et en haut
+        bridge._ensure_primary_tab()
+        bridge._scroll_to_top_of_inbox()
     
-    time.sleep(2)
-    
-    if not bridge.open_conversation(username):
-        print(json.dumps({"success": False, "error": f"Cannot find conversation with {username}"}))
-        sys.exit(1)
+    # D'abord essayer de trouver l'utilisateur à l'écran actuel (sans scroller)
+    if bridge.open_conversation(username):
+        pass  # Trouvé directement à l'écran
+    else:
+        # Pas trouvé à l'écran actuel, scroller en haut et réessayer
+        logger.info(f"Utilisateur {username} non visible, scroll en haut et réessai...")
+        bridge._ensure_primary_tab()
+        bridge._scroll_to_top_of_inbox()
+        
+        if not bridge.open_conversation(username):
+            print(json.dumps({"success": False, "error": f"Cannot find conversation with {username}"}))
+            sys.exit(1)
     
     if bridge.send_message(message):
+        # Retourner à l'inbox en cliquant sur le bouton back du header
+        time.sleep(0.5)
+        back_btn = bridge.device(resourceId="com.instagram.android:id/header_left_button")
+        if back_btn.exists(timeout=2):
+            back_btn.click()
+            logger.info("Retour à l'inbox via header_left_button")
+            time.sleep(1)
+        else:
+            # Fallback: essayer avec description "Back"
+            back_btn = bridge.device(description="Back")
+            if back_btn.exists(timeout=2):
+                back_btn.click()
+                logger.info("Retour à l'inbox via description Back")
+                time.sleep(1)
+            else:
+                logger.warning("Bouton back non trouvé, tentative press back")
+                bridge.device.press("back")
+                time.sleep(1)
+        
         print(json.dumps({
             "success": True,
             "username": username,

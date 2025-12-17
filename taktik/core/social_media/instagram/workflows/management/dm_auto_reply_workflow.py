@@ -482,9 +482,8 @@ class DMAutoReplyWorkflow:
             if config.on_after_reply:
                 config.on_after_reply(conv.username, last_message, reply)
             
-            # 10. Retourner à la liste des DM
-            self.device.press("back")
-            time.sleep(1)
+            # 10. Retourner à la liste des DM (utiliser le bouton UI Instagram, pas ui automator)
+            self._go_back_to_inbox()
             
         except Exception as e:
             result.error = f"Exception: {str(e)}"
@@ -510,30 +509,77 @@ class DMAutoReplyWorkflow:
             return False
     
     def _get_last_incoming_message(self) -> Optional[str]:
-        """Récupérer le dernier message reçu dans la conversation."""
+        """
+        Récupérer le dernier message reçu dans la conversation.
+        
+        IMPORTANT: Vérifie que le dernier message ne provient PAS de nous-mêmes
+        pour éviter de se répondre à soi-même.
+        
+        Returns:
+            Le texte du dernier message reçu, ou None si le dernier message
+            provient de nous ou si aucun message n'est trouvé.
+        """
         try:
-            # Les messages sont dans un RecyclerView
-            # Le dernier message reçu est généralement aligné à gauche
-            messages = self.device(className="android.widget.TextView")
+            # Récupérer la taille de l'écran pour déterminer si message envoyé/reçu
+            screen_info = self.device.info
+            screen_width = screen_info.get('displayWidth', 1080)
             
-            # Parcourir les messages du bas vers le haut
-            for i in range(messages.count - 1, -1, -1):
+            # Chercher les messages texte via le resource-id spécifique
+            msg_elements = self.device(resourceId="com.instagram.android:id/direct_text_message_text_view")
+            
+            if not msg_elements.exists:
+                self.logger.debug("No text messages found in conversation")
+                return None
+            
+            # Collecter tous les messages avec leur position
+            all_messages = []
+            for i in range(msg_elements.count):
                 try:
-                    msg = messages[i]
+                    msg = msg_elements[i]
                     text = msg.get_text()
+                    if not text or len(text) < 2:
+                        continue
                     
-                    # Filtrer les éléments non-messages (timestamps, etc.)
-                    if text and len(text) > 2 and not text.startswith("Seen"):
-                        # Vérifier si c'est un message reçu (pas envoyé par nous)
-                        # Cela dépend de la position/style dans l'UI
-                        bounds = msg.info.get('bounds', {})
-                        # Messages reçus sont généralement à gauche (x < 50% de l'écran)
-                        if bounds:
-                            return text
-                except:
+                    bounds = msg.info.get('bounds', {})
+                    msg_left = bounds.get('left', 0)
+                    msg_top = bounds.get('top', 0)
+                    
+                    # Déterminer si le message est reçu (à gauche) ou envoyé (à droite)
+                    # Messages reçus: position left < 50% de l'écran
+                    # Messages envoyés: position left >= 50% de l'écran
+                    is_received = msg_left < screen_width * 0.5
+                    
+                    all_messages.append({
+                        'text': text,
+                        'is_received': is_received,
+                        'top': msg_top
+                    })
+                except Exception as e:
+                    self.logger.debug(f"Error parsing message {i}: {e}")
                     continue
             
-            return None
+            if not all_messages:
+                self.logger.debug("No valid messages found")
+                return None
+            
+            # Trier par position (top) pour avoir l'ordre chronologique
+            # Le message le plus bas (top le plus grand) est le plus récent
+            all_messages.sort(key=lambda x: x['top'], reverse=True)
+            
+            # Prendre le dernier message (le plus récent)
+            last_message = all_messages[0]
+            
+            # VÉRIFICATION CRITIQUE: Si le dernier message vient de nous, ne pas répondre!
+            if not last_message['is_received']:
+                self.logger.warning(
+                    f"⚠️ Le dernier message provient de NOUS, pas de l'interlocuteur. "
+                    f"On ne répond pas pour éviter de se parler à soi-même. "
+                    f"Message: '{last_message['text'][:50]}...'"
+                )
+                return None
+            
+            self.logger.debug(f"Dernier message reçu: '{last_message['text'][:50]}...'")
+            return last_message['text']
             
         except Exception as e:
             self.logger.error(f"Error getting last message: {e}")
@@ -694,6 +740,48 @@ Your reply (keep it natural and concise):"""
             
         except Exception as e:
             self.logger.error(f"Error sending reply: {e}")
+            return False
+    
+    def _go_back_to_inbox(self):
+        """
+        Retourner à la liste des DM en utilisant le bouton UI Instagram.
+        Évite d'utiliser device.press("back") qui peut causer des problèmes.
+        """
+        try:
+            # Méthode 1: Bouton back dans le header (resource-id spécifique)
+            back_btn = self.device(resourceId="com.instagram.android:id/header_left_button")
+            if back_btn.exists(timeout=2):
+                back_btn.click()
+                time.sleep(1)
+                self.logger.debug("✅ Retour via header_left_button")
+                return True
+            
+            # Méthode 2: Bouton avec content-desc "Back"
+            back_btn = self.device(description="Back")
+            if back_btn.exists(timeout=2):
+                back_btn.click()
+                time.sleep(1)
+                self.logger.debug("✅ Retour via description Back")
+                return True
+            
+            # Méthode 3: Bouton avec content-desc "Retour"
+            back_btn = self.device(descriptionContains="Retour")
+            if back_btn.exists(timeout=2):
+                back_btn.click()
+                time.sleep(1)
+                self.logger.debug("✅ Retour via description Retour")
+                return True
+            
+            # Fallback: utiliser press back si aucun bouton trouvé
+            self.logger.warning("Aucun bouton back UI trouvé, utilisation de press back en fallback")
+            self.device.press("back")
+            time.sleep(1)
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Erreur lors du retour: {e}")
+            self.device.press("back")
+            time.sleep(1)
             return False
     
     def _save_to_history(self, username: str, incoming: str, reply: str):
