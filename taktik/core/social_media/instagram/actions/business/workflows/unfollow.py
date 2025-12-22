@@ -386,6 +386,167 @@ class UnfollowBusiness(BaseBusinessAction):
         except Exception as e:
             self.logger.debug(f"Error going back to following list: {e}")
     
+    def run_simple_unfollow_from_list(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Workflow d'unfollow SIMPLE: cliquer directement sur les boutons "Following" dans la liste.
+        
+        C'est beaucoup plus rapide que de visiter chaque profil.
+        On doit déjà être sur la liste des "following" de notre propre compte.
+        
+        Args:
+            config: Configuration du workflow
+            
+        Returns:
+            Dict avec les statistiques
+        """
+        effective_config = {**self.default_config, **(config or {})}
+        max_unfollows = effective_config.get('max_unfollows', 50)
+        
+        stats = {
+            'unfollows_made': 0,
+            'errors': 0,
+            'scrolls': 0,
+            'success': False
+        }
+        
+        try:
+            self.logger.info("🔄 Starting SIMPLE unfollow workflow (direct button clicks)")
+            self.logger.info(f"Max unfollows: {max_unfollows}")
+            
+            # Accéder au device uiautomator2 sous-jacent
+            d = self.device.device
+            
+            # Vérifier qu'on est sur la liste following (onglet "following" sélectionné)
+            following_tab = d(resourceId="com.instagram.android:id/title", textContains="following")
+            if not following_tab.exists:
+                # Essayer de trouver n'importe quel onglet "following"
+                following_tab = d(textContains="following")
+            
+            # Sélecteurs pour le bouton "Following" dans la liste
+            following_button_selectors = [
+                'com.instagram.android:id/follow_list_row_large_follow_button',  # resource-id
+            ]
+            
+            # Sélecteur pour la modal de confirmation (compte privé)
+            unfollow_confirm_selector = 'com.instagram.android:id/primary_button'
+            
+            unfollows_done = 0
+            max_scrolls = 50
+            scroll_count = 0
+            no_button_count = 0
+            
+            while unfollows_done < max_unfollows and scroll_count < max_scrolls:
+                # Chercher tous les boutons "Following" visibles
+                following_buttons = d(
+                    resourceId="com.instagram.android:id/follow_list_row_large_follow_button",
+                    text="Following"
+                )
+                
+                if not following_buttons.exists:
+                    self.logger.debug("No 'Following' buttons found on screen")
+                    no_button_count += 1
+                    if no_button_count >= 3:
+                        self.logger.info("No more Following buttons after 3 scrolls, stopping")
+                        break
+                    # Scroll pour voir plus
+                    self._scroll_following_list()
+                    scroll_count += 1
+                    stats['scrolls'] += 1
+                    time.sleep(1)
+                    continue
+                
+                no_button_count = 0  # Reset counter
+                
+                # Cliquer sur le premier bouton "Following" trouvé
+                # Récupérer le username associé pour le log
+                username = "unknown"
+                try:
+                    # Le username est dans le même container parent
+                    button_info = following_buttons[0].info
+                    button_bounds = button_info.get('bounds', {})
+                    # Chercher le username proche de ce bouton
+                    usernames_on_screen = d(resourceId="com.instagram.android:id/follow_list_username")
+                    if usernames_on_screen.exists:
+                        for i in range(usernames_on_screen.count):
+                            try:
+                                u_elem = usernames_on_screen[i]
+                                u_bounds = u_elem.info.get('bounds', {})
+                                # Si le username est sur la même ligne (même top approximativement)
+                                if abs(u_bounds.get('top', 0) - button_bounds.get('top', 0)) < 50:
+                                    username = u_elem.get_text() or "unknown"
+                                    break
+                            except:
+                                pass
+                except:
+                    pass
+                
+                # Essayer de cliquer sur le bouton
+                try:
+                    self.logger.info(f"[{unfollows_done + 1}/{max_unfollows}] Clicking 'Following' for @{username}")
+                    following_buttons[0].click()
+                    time.sleep(1)
+                    
+                    # Vérifier si une modal de confirmation apparaît (compte privé)
+                    confirm_button = d(resourceId=unfollow_confirm_selector, text="Unfollow")
+                    if confirm_button.exists(timeout=2):
+                        self.logger.debug("Modal detected, clicking 'Unfollow' to confirm")
+                        confirm_button.click()
+                        time.sleep(0.5)
+                    
+                    unfollows_done += 1
+                    stats['unfollows_made'] += 1
+                    self.logger.info(f"✅ Unfollowed @{username} ({unfollows_done}/{max_unfollows})")
+                    
+                    # Enregistrer l'action
+                    self._record_action(username, 'UNFOLLOW', 1)
+                    
+                    # Envoyer l'événement en temps réel au frontend (séparé pour éviter les erreurs I/O)
+                    try:
+                        from desktop_bridge import send_unfollow_event, send_stats
+                        send_unfollow_event(username, success=True)
+                        send_stats(unfollows=unfollows_done)
+                    except:
+                        pass  # Ignorer toutes les erreurs d'envoi
+                    
+                    # Petit délai entre les unfollows (plus court car on ne visite pas les profils)
+                    delay = random.randint(2, 5)
+                    self.logger.debug(f"⏳ Short delay: {delay}s")
+                    time.sleep(delay)
+                    
+                except Exception as e:
+                    self.logger.warning(f"Error clicking Following button: {e}")
+                    stats['errors'] += 1
+                    # Scroll pour passer à d'autres boutons
+                    self._scroll_following_list()
+                    scroll_count += 1
+                    stats['scrolls'] += 1
+                    time.sleep(1)
+            
+            stats['success'] = True
+            self.logger.info(f"✅ Simple unfollow workflow completed: {stats['unfollows_made']} unfollows in {stats['scrolls']} scrolls")
+            
+        except Exception as e:
+            self.logger.error(f"Error in simple unfollow workflow: {e}")
+            stats['errors'] += 1
+        
+        return stats
+    
+    def _scroll_following_list(self):
+        """Scroll dans la liste des following."""
+        try:
+            d = self.device.device
+            screen_width = d.info.get('displayWidth', 576)
+            screen_height = d.info.get('displayHeight', 1280)
+            
+            # Scroll du milieu vers le haut
+            start_y = int(screen_height * 0.7)
+            end_y = int(screen_height * 0.3)
+            x = screen_width // 2
+            
+            d.swipe(x, start_y, x, end_y, duration=0.3)
+        except Exception as e:
+            self.logger.debug(f"Error scrolling: {e}")
+    
     def unfollow_specific_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Unfollow une liste spécifique de comptes.
