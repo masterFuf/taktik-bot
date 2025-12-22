@@ -386,6 +386,15 @@ class NotificationsBusiness(BaseBusinessAction):
                     self._human_like_delay('click')
                     self._record_action(username, 'FOLLOW', 1)
                     self.logger.info(f"✅ Followed @{username}")
+                    
+                    # Envoyer l'événement follow en temps réel au frontend
+                    try:
+                        import json
+                        msg = {"type": "follow_event", "username": username, "success": True}
+                        print(json.dumps(msg), flush=True)
+                    except:
+                        pass  # Ignorer les erreurs d'envoi (CLI mode)
+                    
                     return True
         except Exception as e:
             self.logger.debug(f"Error following user: {e}")

@@ -1532,9 +1532,8 @@ class FollowerBusiness(BaseBusinessAction):
                 self.stats_manager.increment('profiles_filtered')
                 return result
             
-            # 📊 Enregistrer que ce profil va être traité (après toutes les vérifications)
-            if hasattr(self, 'session_manager') and self.session_manager:
-                self.session_manager.record_profile_processed()
+            # Note: record_profile_processed est appelé dans interact_with_followers_direct
+            # SEULEMENT après qu'une interaction réelle ait eu lieu (actually_interacted=True)
             
             like_probability = config.get('like_probability', 0.8)
             follow_probability = config.get('follow_probability', 0.2)
@@ -1569,7 +1568,14 @@ class FollowerBusiness(BaseBusinessAction):
                             result['error'] = f"Follow cancelled - API quotas not updated: {e}"
                             return result
                         
-                        # REMOVED: L'enregistrement des follows est déjà géré dans base_business_action.py (centralisé)
+                        # Envoyer l'événement follow en temps réel au frontend
+                        try:
+                            import json
+                            followers_count = profile_info.get('followers_count', 0)
+                            msg = {"type": "follow_event", "username": username, "followers_count": followers_count, "success": True}
+                            print(json.dumps(msg), flush=True)
+                        except:
+                            pass  # Ignorer les erreurs d'envoi (CLI mode)
                         
                         self._handle_follow_suggestions_popup()
                     else:
