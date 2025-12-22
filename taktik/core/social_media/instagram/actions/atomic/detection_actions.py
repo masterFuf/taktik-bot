@@ -368,6 +368,15 @@ class DetectionActions(BaseAction):
             "Suggestions section"
         )
     
+    def is_loading_spinner_visible(self) -> bool:
+        """
+        Détecte si un spinner de chargement est visible (Instagram charge du contenu).
+        """
+        return self._detect_element(
+            self.detection_selectors.loading_spinner_indicators,
+            "Loading spinner"
+        )
+    
     def get_profile_flags_batch(self) -> Dict[str, bool]:
         """
         Get all profile boolean flags in a single XML dump.

@@ -5,7 +5,7 @@ import random
 from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
-from .....database import get_db_service
+from .....database.local_database import get_local_database
 
 
 class WorkflowHelpers:
@@ -25,6 +25,15 @@ class WorkflowHelpers:
     
     def finalize_session(self, status='COMPLETED', reason='Limits reached'):
         self.logger.info(f"🏁 Finalizing session: {reason}")
+        
+        # Send stop reason to frontend
+        import json
+        stop_message = {
+            "type": "session_stop",
+            "status": status,
+            "reason": reason
+        }
+        print(json.dumps(stop_message), flush=True)
         
         # Update session in DB
         if hasattr(self.automation, 'current_session_id') and self.automation.current_session_id:
@@ -194,7 +203,8 @@ class WorkflowHelpers:
             
             session_name = f"Auto_{target_type}_{target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
-            session_id = get_db_service().api_client.create_session(
+            local_db = get_local_database()
+            session_id = local_db.create_session(
                 account_id=self.automation.active_account_id,
                 session_name=session_name,
                 target_type=target_type,
@@ -222,20 +232,18 @@ class WorkflowHelpers:
             }
             
             try:
-                success = get_db_service().api_client.update_session(session_id, update_data)
+                local_db = get_local_database()
+                success = local_db.update_session(session_id, **update_data)
                 
                 if success:
                     self.logger.info(f"✅ Session {session_id} updated successfully")
                     return True
                 else:
-                    self.logger.warning(f"⚠️ Session {session_id} update failed (may not be created on API side yet)")
+                    self.logger.warning(f"⚠️ Session {session_id} update failed")
                     return False
                     
-            except Exception as api_error:
-                if "404" in str(api_error):
-                    self.logger.warning(f"⚠️ Session {session_id} not found in API (may not be synced yet)")
-                else:
-                    self.logger.error(f"❌ API error updating session {session_id}: {api_error}")
+            except Exception as db_error:
+                self.logger.error(f"❌ Database error updating session {session_id}: {db_error}")
                 return False
                 
         except Exception as e:

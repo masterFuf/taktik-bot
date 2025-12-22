@@ -326,35 +326,56 @@ class WorkflowRunner:
         return result.get('success', False)
     
     def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
-        """Run the unfollow workflow."""
+        """Run the unfollow workflow.
+        
+        Utilise la méthode SIMPLE: clic direct sur les boutons "Following" dans la liste,
+        sans visiter chaque profil individuellement.
+        """
         if not self.automation._check_action_limits('unfollow', self.automation.active_username):
             self.logger.warning("Unfollow action blocked by license limits")
             return False
         
         config = {
-            'max_unfollows': action.get('max_unfollows', 20),
+            'max_unfollows': action.get('max_unfollows', 50),
             'unfollow_delay_range': (
-                action.get('min_delay', 30),
-                action.get('max_delay', 60)
+                action.get('min_delay', 2),
+                action.get('max_delay', 5)
             ),
-            'unfollow_non_followers': action.get('unfollow_non_followers', True),
-            'min_days_since_follow': action.get('min_days_since_follow', 3),
             'skip_verified': action.get('skip_verified', True),
             'skip_business': action.get('skip_business', False)
         }
         
-        # Utiliser le UnfollowBusiness si disponible
+        from taktik.core.social_media.instagram.actions.business.workflows.unfollow import UnfollowBusiness
+        
+        # Créer l'instance
         if hasattr(self.automation, 'unfollow_business'):
-            result = self.automation.unfollow_business.run_unfollow_workflow(config)
+            unfollow_business = self.automation.unfollow_business
         else:
-            # Créer une instance temporaire
-            from ..actions.business.workflows.unfollow import UnfollowBusiness
             unfollow_business = UnfollowBusiness(
                 self.automation.device,
                 self.automation.session_manager,
                 self.automation
             )
-            result = unfollow_business.run_unfollow_workflow(config)
+        
+        # 1. Naviguer vers notre propre profil
+        self.logger.info("📱 Navigating to own profile...")
+        if not unfollow_business.nav_actions.navigate_to_profile_tab():
+            self.logger.error("Failed to navigate to own profile")
+            return False
+        
+        import time
+        time.sleep(2)
+        
+        # 2. Cliquer sur "following" pour ouvrir la liste
+        self.logger.info("📋 Opening following list...")
+        if not unfollow_business.nav_actions.open_following_list():
+            self.logger.error("Failed to open following list")
+            return False
+        
+        time.sleep(2)
+        
+        # 3. Lancer le workflow simple (clic direct sur boutons)
+        result = unfollow_business.run_simple_unfollow_from_list(config)
         
         self.automation._record_action_performed('unfollow', self.automation.active_username)
         

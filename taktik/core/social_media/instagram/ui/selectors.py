@@ -434,15 +434,35 @@ class ProfileSelectors:
     
     # === Liens followers/following (pour navigation) ===
     followers_link: List[str] = field(default_factory=lambda: [
+        # Text-based selectors (EN/FR)
         '//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]',
+        '//android.widget.TextView[contains(@text, "Followers") or contains(@text, "Abonnés")]',
+        # Resource ID selectors (various Instagram versions)
         '//*[@resource-id="com.instagram.android:id/row_profile_header_followers_container"]',
-        '//*[contains(@content-desc, "followers") or contains(@content-desc, "abonnés")]'
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_textview_followers_count"]',
+        '//*[contains(@resource-id, "followers")]',
+        # Content-desc selectors
+        '//*[contains(@content-desc, "followers") or contains(@content-desc, "abonnés")]',
+        '//*[contains(@content-desc, "Followers") or contains(@content-desc, "Abonnés")]',
+        # Clickable container with followers text
+        '//android.view.ViewGroup[.//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]]',
+        '//android.widget.LinearLayout[.//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]]'
     ])
     
     following_link: List[str] = field(default_factory=lambda: [
+        # Text-based selectors (EN/FR)
         '//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]',
+        '//android.widget.TextView[contains(@text, "Following") or contains(@text, "Abonnements")]',
+        # Resource ID selectors
         '//*[@resource-id="com.instagram.android:id/row_profile_header_following_container"]',
-        '//*[contains(@content-desc, "following") or contains(@content-desc, "abonnements")]'
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_textview_following_count"]',
+        '//*[contains(@resource-id, "following")]',
+        # Content-desc selectors
+        '//*[contains(@content-desc, "following") or contains(@content-desc, "abonnements")]',
+        '//*[contains(@content-desc, "Following") or contains(@content-desc, "Abonnements")]',
+        # Clickable container with following text
+        '//android.view.ViewGroup[.//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]]',
+        '//android.widget.LinearLayout[.//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]]'
     ])
     
     # === Full name ===
@@ -1023,6 +1043,27 @@ class PopupSelectors:
         '//android.widget.TextView[contains(@text, "Pas maintenant")]'
     ])
     
+    # === Popup "Review this account before following" ===
+    review_account_popup_indicators: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[contains(@text, "Review this account")]',
+        '//android.widget.TextView[contains(@text, "before following")]',
+        '//android.widget.TextView[contains(@text, "Date joined")]',
+        '//android.widget.TextView[contains(@text, "Account based in")]'
+    ])
+    
+    review_account_follow_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Follow"]',
+        '//android.widget.Button[@text="Suivre"]',
+        '//android.widget.Button[contains(@text, "Follow") and not(contains(@text, "Following"))]'
+    ])
+    
+    review_account_cancel_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Cancel"]',
+        '//android.widget.Button[@text="Annuler"]',
+        '//android.widget.TextView[@text="Cancel"]',
+        '//android.widget.TextView[@text="Annuler"]'
+    ])
+    
     # === Popup de suggestions après follow ===
     follow_suggestions_indicators: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[contains(@text, "Suggested for you")]',
@@ -1304,6 +1345,19 @@ class DetectionSelectors:
         '//*[contains(@text, "Suggestions pour vous")]',
         '//*[contains(@text, "Suggestions for you")]',
         '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]'
+    ])
+    
+    # Sélecteurs pour détecter le spinner de chargement Instagram
+    loading_spinner_indicators: List[str] = field(default_factory=lambda: [
+        # Instagram's "Load more" button with loading animation
+        '//*[@resource-id="com.instagram.android:id/row_load_more_button"]',
+        # Loading indicator with content-desc
+        '//*[contains(@content-desc, "Loading")]',
+        '//*[contains(@content-desc, "Chargement")]',
+        # Generic progress indicators
+        '//android.widget.ProgressBar',
+        '//*[@class="android.widget.ProgressBar"]',
+        '//*[contains(@resource-id, "progress")]'
     ])
     
     # === Post grid visibility ===

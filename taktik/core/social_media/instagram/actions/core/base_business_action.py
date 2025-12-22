@@ -251,9 +251,8 @@ class BaseBusinessAction(BaseAction):
                 
                 return None
             
-            # 📊 Enregistrer que ce profil va être traité (après toutes les vérifications)
-            if hasattr(self, 'session_manager') and self.session_manager:
-                self.session_manager.record_profile_processed()
+            # Note: record_profile_processed est appelé dans interact_with_followers_direct
+            # SEULEMENT après qu'une interaction réelle ait eu lieu (actually_interacted=True)
             
             interactions_to_do = self._determine_interactions_from_config(config)
             self.logger.debug(f"🎯 Planned interactions for @{username}: {interactions_to_do}")

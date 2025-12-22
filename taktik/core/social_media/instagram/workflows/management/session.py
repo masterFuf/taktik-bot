@@ -45,25 +45,28 @@ class SessionManager:
         Returns:
             tuple[bool, str]: (should_continue, stop_reason)
         """
-        # Durée totale (pour info)
+        # Durée totale de session (limite principale)
         session_duration = datetime.now() - self.session_start_time
         
-        # Durée d'interaction (pour les limites)
+        # Durée d'interaction (pour info)
         interaction_duration = self.get_interaction_duration()
         
         configured_duration = self.config.get('session_settings', {}).get('session_duration_minutes', 60)
         max_duration = timedelta(minutes=configured_duration)
+        
+        # Vérifier la durée TOTALE de session (pas seulement l'interaction)
+        should_stop_duration = session_duration > max_duration
         
         print(f"[DEBUG SessionManager] Duration check:")
         print(f"[DEBUG SessionManager] - Total session duration: {session_duration}")
         print(f"[DEBUG SessionManager] - Scraping duration: {self.get_scraping_duration()}")
         print(f"[DEBUG SessionManager] - Interaction duration: {interaction_duration}")
         print(f"[DEBUG SessionManager] - Max configured: {configured_duration} minutes ({max_duration})")
-        print(f"[DEBUG SessionManager] - Should stop: {interaction_duration > max_duration}")
+        print(f"[DEBUG SessionManager] - Should stop (total > max): {should_stop_duration}")
         
-        # Vérifier la durée d'interaction, pas la durée totale
-        if interaction_duration > max_duration:
-            reason = f"Maximum interaction duration reached ({configured_duration} minutes)"
+        # Vérifier la durée totale de session
+        if should_stop_duration:
+            reason = f"Maximum session duration reached ({configured_duration} minutes)"
             print(f"🛑 Session ended: {reason}")
             return False, reason
 
@@ -76,25 +79,23 @@ class SessionManager:
         print(f"[DEBUG SessionManager] - Likes: {self.counters['likes']}/{session_settings.get('total_likes_limit', 'infinite')}")
         print(f"[DEBUG SessionManager] - Follows: {self.counters['follows']}/{session_settings.get('total_follows_limit', 'infinite')}")
         
-        # Vérifier la limite de profils traités (limite principale)
+        # Vérifier la limite de profils traités
         profiles_limit = session_settings.get('total_profiles_limit', float('inf'))
-        if self.counters['profiles_processed'] >= profiles_limit:
+        if profiles_limit and profiles_limit != float('inf') and self.counters['profiles_processed'] >= profiles_limit:
             reason = f"Profiles limit reached ({self.counters['profiles_processed']}/{profiles_limit})"
             print(f"🛑 Session ended: {reason}")
             return False, reason
         
-        if workflow_type in ['target', 'followers', 'target_followers']:
-            print(f"[DEBUG SessionManager] Workflow {workflow_type}: checking only interactions + time")
-            return True, ""
-        
+        # Vérifier la limite de follows (si configurée et > 0)
         follows_limit = session_settings.get('total_follows_limit', float('inf'))
-        if self.counters['follows'] >= follows_limit:
+        if follows_limit and follows_limit != float('inf') and follows_limit > 0 and self.counters['follows'] >= follows_limit:
             reason = f"Follows limit reached ({self.counters['follows']}/{follows_limit})"
             print(f"🛑 Session ended: {reason}")
             return False, reason
             
+        # Vérifier la limite de likes (si configurée et > 0)
         likes_limit = session_settings.get('total_likes_limit', float('inf'))
-        if self.counters['likes'] >= likes_limit:
+        if likes_limit and likes_limit != float('inf') and likes_limit > 0 and self.counters['likes'] >= likes_limit:
             reason = f"Likes limit reached ({self.counters['likes']}/{likes_limit})"
             print(f"🛑 Session ended: {reason}")
             return False, reason
@@ -280,9 +281,12 @@ class SessionManager:
             print(f"[DEBUG SessionManager] ⚠️ Scraping end called but no start time recorded")
     
     def start_interaction_phase(self):
-        """Marque le début de la phase d'interaction."""
-        self.interaction_start_time = datetime.now()
-        print(f"[DEBUG SessionManager] 🎯 Interaction phase started at {self.interaction_start_time}")
+        """Marque le début de la phase d'interaction (une seule fois par session)."""
+        if self.interaction_start_time is None:
+            self.interaction_start_time = datetime.now()
+            print(f"[DEBUG SessionManager] 🎯 Interaction phase started at {self.interaction_start_time}")
+        else:
+            print(f"[DEBUG SessionManager] ℹ️ Interaction phase already started at {self.interaction_start_time} (not resetting)")
     
     def get_scraping_duration(self) -> timedelta:
         """Retourne la durée de la phase de scraping."""

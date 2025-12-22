@@ -80,10 +80,12 @@ class ScrollActions(BaseAction):
         
         try:
             center_x = self.screen_width // 2
-            start_y = int(self.screen_height * 0.8)
-            end_y = int(self.screen_height * 0.2)
+            # Gentler scroll: from 70% to 40% (30% of screen) instead of 80% to 20% (60%)
+            start_y = int(self.screen_height * 0.70)
+            end_y = int(self.screen_height * 0.40)
             
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.5)
+            # Slower swipe: 0.8s instead of 0.5s for smoother scrolling
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.8)
             
             self._human_like_delay('scroll')
             return True

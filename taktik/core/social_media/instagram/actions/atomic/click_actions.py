@@ -6,7 +6,7 @@ from loguru import logger
 from ..core.base_action import BaseAction
 from ...ui.selectors import (
     PROFILE_SELECTORS, DETECTION_SELECTORS, BUTTON_SELECTORS, 
-    POST_SELECTORS, NAVIGATION_SELECTORS, STORY_SELECTORS
+    POST_SELECTORS, NAVIGATION_SELECTORS, STORY_SELECTORS, POPUP_SELECTORS
 )
 
 
@@ -21,6 +21,7 @@ class ClickActions(BaseAction):
         self.post_selectors = POST_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
         self.story_selectors = STORY_SELECTORS
+        self.popup_selectors = POPUP_SELECTORS
     
     def _click_button(self, selectors, button_name: str, emoji: str = "👆", timeout: float = 5) -> bool:
         """
@@ -78,8 +79,23 @@ class ClickActions(BaseAction):
                 # Vérifier qu'on n'a pas navigué vers la liste des followers
                 self._human_like_delay('click')
                 
+                # Check for "Review this account before following" popup
+                if self._handle_review_account_popup():
+                    self.logger.info(f"📋 Handled 'Review account' popup for @{username}")
+                    self._human_like_delay('click')
+                
                 if self._verify_follow_success(username):
                     self.logger.info(f"✅ Successfully followed @{username}")
+                    
+                    # Envoyer l'événement follow en temps réel au frontend
+                    try:
+                        import json
+                        import sys
+                        msg = {"type": "follow_event", "username": username, "success": True}
+                        print(json.dumps(msg), flush=True)
+                    except:
+                        pass  # Ignorer les erreurs d'envoi (CLI mode)
+                    
                     return True
                 else:
                     self.logger.warning(f"❌ Clicked but not on the right button for @{username}")
@@ -90,6 +106,35 @@ class ClickActions(BaseAction):
                 
         except Exception as e:
             self.logger.error(f"❌ Failed to follow @{username}: {e}")
+            return False
+    
+    def _handle_review_account_popup(self) -> bool:
+        """
+        Handle the "Review this account before following" popup that appears for new accounts.
+        Clicks the Follow button in the popup to confirm the follow action.
+        
+        Returns:
+            True if popup was detected and handled, False otherwise
+        """
+        try:
+            # Check if the popup is present
+            for indicator in self.popup_selectors.review_account_popup_indicators:
+                if self.device.xpath(indicator).exists:
+                    self.logger.info("📋 'Review this account before following' popup detected")
+                    
+                    # Click the Follow button in the popup
+                    for follow_btn in self.popup_selectors.review_account_follow_button:
+                        if self.device.xpath(follow_btn).exists:
+                            self.device.xpath(follow_btn).click()
+                            self.logger.info("✅ Clicked Follow button in review popup")
+                            return True
+                    
+                    self.logger.warning("⚠️ Review popup detected but Follow button not found")
+                    return False
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"Error handling review account popup: {e}")
             return False
     
     def _verify_follow_success(self, username: str) -> bool:
