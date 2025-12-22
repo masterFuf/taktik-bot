@@ -210,6 +210,30 @@ class LocalDatabaseService:
             )
         """)
         
+        # Scraping Sessions
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scraping_sessions (
+                scraping_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER,
+                scraping_type TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_name TEXT NOT NULL,
+                total_scraped INTEGER DEFAULT 0,
+                max_profiles INTEGER DEFAULT 500,
+                export_csv INTEGER DEFAULT 0,
+                csv_path TEXT,
+                save_to_db INTEGER DEFAULT 1,
+                start_time TEXT DEFAULT (datetime('now')),
+                end_time TEXT,
+                duration_seconds INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'RUNNING',
+                error_message TEXT,
+                config_used TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL
+            )
+        """)
+        
         # Daily Stats (for API sync)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS daily_stats (
@@ -247,6 +271,8 @@ class LocalDatabaseService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_username ON filtered_profiles(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_stats_account_date ON daily_stats(account_id, date)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_status ON scraping_sessions(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_source ON scraping_sessions(source_type, source_name)")
         
         conn.commit()
     
@@ -388,10 +414,52 @@ class LocalDatabaseService:
             return result
         return None
     
-    def save_profile(self, profile_data: Dict[str, Any]) -> Optional[int]:
-        """Save a profile and return its ID."""
-        profile_id, _ = self.get_or_create_profile(profile_data)
-        return profile_id
+    def save_profile(self, profile_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Save a profile and optionally record enriched stats.
+        
+        Returns:
+            Dict with 'profile_id' and 'created' keys
+        """
+        profile_id, created = self.get_or_create_profile(profile_data)
+        
+        # If we have enriched data (followers_count > 0 or other stats), record in profile_stats_history
+        has_enriched_data = (
+            profile_data.get('followers_count', 0) > 0 or
+            profile_data.get('following_count', 0) > 0 or
+            profile_data.get('posts_count', 0) > 0 or
+            profile_data.get('biography') or
+            profile_data.get('full_name')
+        )
+        
+        if has_enriched_data and profile_id:
+            try:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+                
+                # Insert enriched stats into profile_stats_history
+                cursor.execute("""
+                    INSERT INTO profile_stats_history 
+                    (profile_id, followers_count, following_count, posts_count, 
+                     is_verified, is_business, category, external_url, profile_pic_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    profile_id,
+                    profile_data.get('followers_count', 0),
+                    profile_data.get('following_count', 0),
+                    profile_data.get('posts_count', 0),
+                    1 if profile_data.get('is_verified') else 0,
+                    1 if profile_data.get('is_business') else 0,
+                    profile_data.get('category'),
+                    profile_data.get('external_url'),
+                    profile_data.get('profile_pic_url')
+                ))
+                conn.commit()
+                logger.debug(f"Recorded enriched stats for profile {profile_id}")
+            except Exception as e:
+                logger.warning(f"Failed to record enriched stats for profile {profile_id}: {e}")
+        
+        return {'profile_id': profile_id, 'created': created}
     
     # ============================================
     # INTERACTIONS
@@ -847,6 +915,192 @@ class LocalDatabaseService:
             WHERE account_id = ?
             AND date >= date('now', '-' || ? || ' days')
         """, (account_id, days))
+        
+        row = cursor.fetchone()
+        return dict(row) if row else {}
+    
+    # ============================================
+    # SCRAPING SESSIONS
+    # ============================================
+    
+    def create_scraping_session(self, scraping_type: str, source_type: str, source_name: str,
+                                 max_profiles: int = 500, export_csv: bool = False,
+                                 save_to_db: bool = True, account_id: Optional[int] = None,
+                                 config: Optional[Dict] = None) -> Optional[int]:
+        """
+        Create a new scraping session.
+        
+        Args:
+            scraping_type: Type of scraping (followers, following, likers, authors)
+            source_type: Source type (TARGET, HASHTAG, POST_URL)
+            source_name: Source name (@username, #hashtag, or post URL)
+            max_profiles: Maximum profiles to scrape
+            export_csv: Whether to export to CSV
+            save_to_db: Whether to save profiles to database
+            account_id: Optional bot account ID
+            config: Optional full config dict
+            
+        Returns:
+            scraping_id or None if failed
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO scraping_sessions 
+                (account_id, scraping_type, source_type, source_name, max_profiles, export_csv, save_to_db, config_used)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                account_id,
+                scraping_type,
+                source_type,
+                source_name,
+                max_profiles,
+                1 if export_csv else 0,
+                1 if save_to_db else 0,
+                json.dumps(config) if config else None
+            ))
+            conn.commit()
+            
+            scraping_id = cursor.lastrowid
+            logger.info(f"Created scraping session {scraping_id}: {scraping_type} from {source_type}:{source_name}")
+            return scraping_id
+            
+        except Exception as e:
+            logger.error(f"Error creating scraping session: {e}")
+            return None
+    
+    def update_scraping_session(self, scraping_id: int, **kwargs) -> bool:
+        """
+        Update a scraping session.
+        
+        Supported kwargs: total_scraped, csv_path, end_time, duration_seconds, status, error_message
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            updates = []
+            values = []
+            
+            if 'total_scraped' in kwargs:
+                updates.append("total_scraped = ?")
+                values.append(kwargs['total_scraped'])
+            if 'csv_path' in kwargs:
+                updates.append("csv_path = ?")
+                values.append(kwargs['csv_path'])
+            if 'end_time' in kwargs:
+                updates.append("end_time = ?")
+                values.append(kwargs['end_time'])
+            if 'duration_seconds' in kwargs:
+                updates.append("duration_seconds = ?")
+                values.append(kwargs['duration_seconds'])
+            if 'status' in kwargs:
+                updates.append("status = ?")
+                values.append(kwargs['status'])
+            if 'error_message' in kwargs:
+                updates.append("error_message = ?")
+                values.append(kwargs['error_message'])
+            
+            if not updates:
+                return True
+            
+            values.append(scraping_id)
+            
+            cursor.execute(f"UPDATE scraping_sessions SET {', '.join(updates)} WHERE scraping_id = ?", values)
+            conn.commit()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating scraping session {scraping_id}: {e}")
+            return False
+    
+    def complete_scraping_session(self, scraping_id: int, total_scraped: int, 
+                                   csv_path: Optional[str] = None,
+                                   error_message: Optional[str] = None) -> bool:
+        """Mark a scraping session as completed."""
+        from datetime import datetime
+        
+        # Get session to calculate duration
+        session = self.get_scraping_session(scraping_id)
+        if not session:
+            return False
+        
+        start_time = datetime.fromisoformat(session['start_time'].replace('Z', '+00:00')) if session.get('start_time') else datetime.now()
+        end_time = datetime.now()
+        duration = int((end_time - start_time).total_seconds())
+        
+        status = 'COMPLETED' if not error_message else 'ERROR'
+        
+        return self.update_scraping_session(
+            scraping_id,
+            total_scraped=total_scraped,
+            csv_path=csv_path,
+            end_time=end_time.isoformat(),
+            duration_seconds=duration,
+            status=status,
+            error_message=error_message
+        )
+    
+    def get_scraping_session(self, scraping_id: int) -> Optional[Dict[str, Any]]:
+        """Get a scraping session by ID."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM scraping_sessions WHERE scraping_id = ?", (scraping_id,))
+        row = cursor.fetchone()
+        
+        if row:
+            result = dict(row)
+            result['export_csv'] = bool(result.get('export_csv'))
+            result['save_to_db'] = bool(result.get('save_to_db'))
+            return result
+        return None
+    
+    def get_scraping_sessions(self, limit: int = 50, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get recent scraping sessions."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        if status:
+            cursor.execute("""
+                SELECT * FROM scraping_sessions 
+                WHERE status = ?
+                ORDER BY created_at DESC LIMIT ?
+            """, (status, limit))
+        else:
+            cursor.execute("""
+                SELECT * FROM scraping_sessions 
+                ORDER BY created_at DESC LIMIT ?
+            """, (limit,))
+        
+        results = []
+        for row in cursor.fetchall():
+            r = dict(row)
+            r['export_csv'] = bool(r.get('export_csv'))
+            r['save_to_db'] = bool(r.get('save_to_db'))
+            results.append(r)
+        
+        return results
+    
+    def get_scraping_stats(self, days: int = 7) -> Dict[str, Any]:
+        """Get aggregated scraping statistics."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_sessions,
+                COALESCE(SUM(total_scraped), 0) as total_profiles_scraped,
+                COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END), 0) as completed_sessions,
+                COALESCE(SUM(CASE WHEN status = 'ERROR' THEN 1 ELSE 0 END), 0) as failed_sessions,
+                COALESCE(SUM(duration_seconds), 0) as total_duration_seconds,
+                COALESCE(AVG(total_scraped), 0) as avg_profiles_per_session
+            FROM scraping_sessions
+            WHERE created_at >= datetime('now', '-' || ? || ' days')
+        """, (days,))
         
         row = cursor.fetchone()
         return dict(row) if row else {}
