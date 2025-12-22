@@ -692,6 +692,9 @@ class FollowerBusiness(BaseBusinessAction):
             
             self.logger.info(f"🚀 Starting direct interactions (max: {max_interactions})")
             
+            # Track stop reason for finalization
+            session_stop_reason = None
+            
             while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
                 # Vérifier si on doit prendre une pause
                 took_break = self._maybe_take_break()
@@ -736,6 +739,7 @@ class FollowerBusiness(BaseBusinessAction):
                     should_continue, stop_reason = self.session_manager.should_continue()
                     if not should_continue:
                         self.logger.warning(f"🛑 Session stopped: {stop_reason}")
+                        session_stop_reason = stop_reason
                         break
                 
                 # Récupérer les followers visibles (uniquement les vrais, pas les suggestions)
@@ -1227,6 +1231,14 @@ class FollowerBusiness(BaseBusinessAction):
             tracker.log_session_end(stats)
             self.logger.info(f"✅ Direct interactions completed: {stats}")
             self.stats_manager.display_final_stats(workflow_name="FOLLOWERS_DIRECT")
+            
+            # Send stop reason to frontend
+            if session_stop_reason and self.automation and hasattr(self.automation, 'helpers'):
+                self.automation.helpers.finalize_session(status='COMPLETED', reason=session_stop_reason)
+            elif self.automation and hasattr(self.automation, 'helpers'):
+                # Session ended normally (max interactions reached or end of list)
+                reason = f"Workflow completed ({stats['interacted']} interactions)"
+                self.automation.helpers.finalize_session(status='COMPLETED', reason=reason)
             
             return stats
             
