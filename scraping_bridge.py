@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
+from taktik.core.database import configure_db_service
 from loguru import logger
 
 # Configure loguru for UTF-8 output
@@ -44,6 +45,14 @@ def main():
         print(json.dumps({"success": False, "error": "No deviceId provided"}))
         sys.exit(1)
     
+    # Configure database service with API key from config or environment
+    api_key = config.get('apiKey') or os.environ.get('TAKTIK_API_KEY', 'local-mode')
+    try:
+        configure_db_service(api_key, use_local=True)
+        logger.info("Database service configured (local mode)")
+    except Exception as e:
+        logger.warning(f"Could not configure database service: {e}")
+    
     device_manager = None
     try:
         # Initialize device manager
@@ -61,6 +70,7 @@ def main():
             'max_profiles': config.get('maxProfiles', 500),
             'export_csv': config.get('exportCsv', True),
             'save_to_db': config.get('saveToDb', True),
+            'enrich_profiles': config.get('enrichProfiles', False),
         }
         
         # Type-specific config
@@ -88,6 +98,8 @@ def main():
         
         # Run scraping workflow
         logger.info(f"Starting scraping workflow: {scraping_config['type']}")
+        if scraping_config.get('enrich_profiles', False):
+            logger.info("Enriched scraping enabled - will visit each profile for details")
         workflow = ScrapingWorkflow(device_manager, scraping_config)
         result = workflow.run()
         

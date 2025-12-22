@@ -25,6 +25,7 @@ from taktik.core.social_media.instagram.actions.business.management.profile impo
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.database import get_db_service
+from taktik.core.database.local_database import get_local_database
 
 
 console = Console()
@@ -64,6 +65,8 @@ class ScrapingWorkflow:
         self.scraped_profiles: List[Dict[str, Any]] = []
         self.start_time = None
         self.session_duration_minutes = config.get('session_duration_minutes', 60)
+        self.scraping_session_id: Optional[int] = None
+        self.csv_export_path: Optional[str] = None
         
     def run(self) -> Dict[str, Any]:
         """
@@ -77,6 +80,9 @@ class ScrapingWorkflow:
         
         console.print(f"\n[bold blue]🔍 Starting {scraping_type.upper()} scraping...[/bold blue]\n")
         
+        # Create scraping session in database
+        self._create_scraping_session()
+        
         try:
             if scraping_type == 'target':
                 result = self._scrape_target()
@@ -86,7 +92,11 @@ class ScrapingWorkflow:
                 result = self._scrape_post_url()
             else:
                 self.logger.error(f"Unknown scraping type: {scraping_type}")
+                self._complete_scraping_session(error_message=f"Unknown scraping type: {scraping_type}")
                 return {"success": False, "error": f"Unknown scraping type: {scraping_type}"}
+            
+            # Note: If enrich_profiles is enabled, enrichment is done on-the-fly in _scrape_list
+            # No separate enrichment step needed anymore
             
             # Export results
             if self.config.get('export_csv', True) and self.scraped_profiles:
@@ -99,11 +109,15 @@ class ScrapingWorkflow:
             # Display final stats
             self._display_final_stats()
             
+            # Complete scraping session
+            self._complete_scraping_session()
+            
             return result
             
         except Exception as e:
             self.logger.error(f"Scraping error: {e}")
             console.print(f"[red]❌ Scraping error: {e}[/red]")
+            self._complete_scraping_session(error_message=str(e))
             return {"success": False, "error": str(e)}
     
     def _should_continue(self) -> bool:
@@ -153,16 +167,18 @@ class ScrapingWorkflow:
                 
                 # Adjust max to what's actually available
                 remaining_to_scrape = max_profiles_requested - total_scraped
-                actual_max = min(remaining_to_scrape, available_count)
                 
-                console.print(f"[green]✅ @{target}: {available_count:,} {scrape_type} available[/green]")
-                
+                # If count detection failed (0), use requested max and try anyway
                 if available_count == 0:
-                    console.print(f"[yellow]⚠️ No {scrape_type} to scrape from @{target}[/yellow]")
-                    continue
-                
-                if actual_max < remaining_to_scrape:
-                    console.print(f"[dim]   Adjusting target: {actual_max:,} (instead of {remaining_to_scrape:,})[/dim]")
+                    console.print(f"[yellow]⚠️ Could not detect {scrape_type} count for @{target}, trying anyway...[/yellow]")
+                    actual_max = remaining_to_scrape
+                    available_count = remaining_to_scrape  # Use requested as fallback
+                else:
+                    actual_max = min(remaining_to_scrape, available_count)
+                    console.print(f"[green]✅ @{target}: {available_count:,} {scrape_type} available[/green]")
+                    
+                    if actual_max < remaining_to_scrape:
+                        console.print(f"[dim]   Adjusting target: {actual_max:,} (instead of {remaining_to_scrape:,})[/dim]")
                 
                 targets_info.append({
                     'username': target,
@@ -188,11 +204,13 @@ class ScrapingWorkflow:
             time.sleep(1.5)
             
             # Scrape the list with the adjusted max
+            enrich_profiles = self.config.get('enrich_profiles', False)
             profiles_from_target = self._scrape_list(
                 max_count=actual_max,
                 source_type=scrape_type.upper(),
                 source_name=target,
-                total_available=available_count
+                total_available=available_count,
+                enrich_on_the_fly=enrich_profiles
             )
             
             total_scraped += len(profiles_from_target)
@@ -262,10 +280,12 @@ class ScrapingWorkflow:
                     # Scrape likers
                     if self._open_likers_list():
                         time.sleep(1)
+                        enrich_profiles = self.config.get('enrich_profiles', False)
                         likers = self._scrape_list(
                             max_count=min(20, max_profiles - total_scraped),
                             source_type='HASHTAG_LIKER',
-                            source_name=hashtag
+                            source_name=hashtag,
+                            enrich_on_the_fly=enrich_profiles
                         )
                         total_scraped += len(likers)
                         progress.update(task, advance=len(likers))
@@ -509,7 +529,7 @@ class ScrapingWorkflow:
         
         return likers
     
-    def _scrape_list(self, max_count: int, source_type: str, source_name: str, total_available: int = None) -> List[Dict[str, Any]]:
+    def _scrape_list(self, max_count: int, source_type: str, source_name: str, total_available: int = None, enrich_on_the_fly: bool = False) -> List[Dict[str, Any]]:
         """
         Scrape usernames from a visible list (followers, following, likers).
         
@@ -518,6 +538,7 @@ class ScrapingWorkflow:
             source_type: Type of source (FOLLOWER, FOLLOWING, LIKER, etc.)
             source_name: Name of the source (target username, hashtag, etc.)
             total_available: Total profiles available (for accurate progress display)
+            enrich_on_the_fly: If True, click on each profile to get detailed info (followers, following, posts, bio)
             
         Returns:
             List of scraped profile data
@@ -526,10 +547,13 @@ class ScrapingWorkflow:
         scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
         seen_usernames = set()
         no_new_users_count = 0
-        max_no_new_users = 3  # Stop after 3 consecutive scrolls with no new users
+        max_no_new_users = 5  # Stop after 5 consecutive scrolls with no new users
         
         # Use actual available count for progress bar if provided
         progress_total = min(max_count, total_available) if total_available else max_count
+        
+        # Description for progress bar
+        action_desc = "Scraping enrichi" if enrich_on_the_fly else "Scraping"
         
         with Progress(
             SpinnerColumn(),
@@ -544,24 +568,33 @@ class ScrapingWorkflow:
                 total=progress_total
             )
             
+            suggestions_check_count = 0  # Count consecutive suggestions detections
+            min_profiles_before_suggestions_check = 50  # Don't check suggestions until we have some profiles
+            
             while len(scraped) < max_count and self._should_continue():
-                # Check if we're in suggestions section (end of real followers)
-                if self.detection_actions.is_in_suggestions_section():
-                    self.logger.info("📋 Reached suggestions section - end of real followers list")
-                    # Update progress to show we're done
-                    progress.update(
-                        task,
-                        description=f"[green]Completed {source_type.lower()} ({len(scraped):,}/{len(scraped):,}) - end of list[/green]"
-                    )
-                    break
+                # Only check suggestions section after collecting some profiles
+                # This prevents false positives when suggestions are visible but we haven't scrolled yet
+                if len(scraped) >= min_profiles_before_suggestions_check:
+                    if self.detection_actions.is_in_suggestions_section():
+                        suggestions_check_count += 1
+                        # Require 2 consecutive detections to confirm we're really in suggestions
+                        if suggestions_check_count >= 2:
+                            self.logger.info("📋 Reached suggestions section - end of real followers list")
+                            progress.update(
+                                task,
+                                description=f"[green]Completed {source_type.lower()} ({len(scraped):,}/{len(scraped):,}) - end of list[/green]"
+                            )
+                            break
+                    else:
+                        suggestions_check_count = 0  # Reset if not in suggestions
                 
                 # Get visible usernames
                 visible = self.detection_actions.get_visible_followers_with_elements()
                 
                 if not visible:
-                    # Try scrolling
+                    # Try scrolling - wait for Instagram to load
                     self.scroll_actions.scroll_followers_list_down()
-                    time.sleep(1)
+                    time.sleep(1.5)
                     
                     if scroll_detector.is_the_end():
                         self.logger.info("Reached end of list")
@@ -571,6 +604,7 @@ class ScrapingWorkflow:
                 new_count = 0
                 for follower in visible:
                     username = follower.get('username')
+                    element = follower.get('element')
                     if not username or username in seen_usernames:
                         continue
                     
@@ -583,6 +617,44 @@ class ScrapingWorkflow:
                         'scraped_at': datetime.now().isoformat()
                     }
                     
+                    # If enriching on the fly, click on profile to get details
+                    if enrich_on_the_fly and element:
+                        try:
+                            # Click on the profile element to navigate
+                            element.click()
+                            time.sleep(1.5)
+                            
+                            # Extract profile info
+                            followers_count = self.detection_actions.get_followers_count() or 0
+                            following_count = self.detection_actions.get_following_count() or 0
+                            posts_count = self.detection_actions.get_posts_count() or 0
+                            is_private = self.detection_actions.is_private_account()
+                            bio = self._get_profile_bio() or ""
+                            full_name = self._get_profile_full_name() or ""
+                            
+                            # Add enriched data
+                            profile_data['followers_count'] = followers_count
+                            profile_data['following_count'] = following_count
+                            profile_data['posts_count'] = posts_count
+                            profile_data['is_private'] = is_private
+                            profile_data['biography'] = bio
+                            profile_data['full_name'] = full_name
+                            
+                            self.logger.debug(f"✅ Enriched @{username}: {followers_count} followers")
+                            
+                            # Go back to the list
+                            self.device.press("back")
+                            time.sleep(1)
+                            
+                        except Exception as e:
+                            self.logger.warning(f"Failed to enrich @{username}: {e}")
+                            # Try to go back anyway
+                            try:
+                                self.device.press("back")
+                                time.sleep(0.5)
+                            except:
+                                pass
+                    
                     scraped.append(profile_data)
                     self.scraped_profiles.append(profile_data)
                     new_count += 1
@@ -591,7 +663,7 @@ class ScrapingWorkflow:
                     progress.update(
                         task, 
                         advance=1,
-                        description=f"[cyan]Scraping {source_type.lower()} ({len(scraped):,}/{progress_total:,})..."
+                        description=f"[cyan]{action_desc} {source_type.lower()} ({len(scraped):,}/{progress_total:,})..."
                     )
                     
                     if len(scraped) >= max_count:
@@ -604,18 +676,40 @@ class ScrapingWorkflow:
                     no_new_users_count += 1
                     self.logger.debug(f"No new users found ({no_new_users_count}/{max_no_new_users})")
                     
-                    # Check suggestions before scrolling more
-                    if self.detection_actions.is_in_suggestions_section():
-                        self.logger.info("📋 Reached suggestions section - stopping")
-                        break
+                    # Check suggestions only after collecting enough profiles
+                    if len(scraped) >= min_profiles_before_suggestions_check:
+                        if self.detection_actions.is_in_suggestions_section():
+                            suggestions_check_count += 1
+                            if suggestions_check_count >= 2:
+                                self.logger.info("📋 Reached suggestions section - stopping")
+                                break
+                        else:
+                            suggestions_check_count = 0
                     
                     if no_new_users_count >= max_no_new_users:
                         self.logger.info(f"🏁 No new users after {max_no_new_users} scrolls - assuming end of list")
                         break
                     
+                    # Get current visible usernames before scroll
+                    current_usernames = set(f.get('username') for f in visible if f.get('username'))
+                    
                     # Scroll to find more
                     self.scroll_actions.scroll_followers_list_down()
-                    time.sleep(0.8)
+                    
+                    # Wait for content to actually change (not just a fixed delay)
+                    max_wait_attempts = 5
+                    for wait_attempt in range(max_wait_attempts):
+                        time.sleep(1.0)  # Wait 1s between checks
+                        new_visible = self.detection_actions.get_visible_followers_with_elements()
+                        new_usernames = set(f.get('username') for f in new_visible if f.get('username'))
+                        
+                        # Check if we have new usernames (content loaded)
+                        if new_usernames != current_usernames and len(new_usernames - seen_usernames) > 0:
+                            self.logger.debug(f"✅ New content loaded after {wait_attempt + 1}s")
+                            break
+                        
+                        if wait_attempt == max_wait_attempts - 1:
+                            self.logger.debug(f"⏳ Content unchanged after {max_wait_attempts}s")
                     
                     if scroll_detector.is_the_end():
                         self.logger.info("Reached end of list")
@@ -623,8 +717,18 @@ class ScrapingWorkflow:
                 else:
                     # Reset counter when we find new users
                     no_new_users_count = 0
-                    # Small delay before next batch
-                    time.sleep(0.3)
+                    # Scroll down to reveal more followers
+                    self.scroll_actions.scroll_followers_list_down()
+                    
+                    # Wait for Instagram to finish loading (detect spinner)
+                    max_loading_wait = 10  # Max 10 seconds waiting for loading
+                    for _ in range(max_loading_wait):
+                        time.sleep(1.0)
+                        if not self.detection_actions.is_loading_spinner_visible():
+                            self.logger.debug("✅ Loading complete, continuing...")
+                            break
+                    else:
+                        self.logger.debug("⏳ Loading timeout, continuing anyway...")
         
         # Log final count vs expected
         if total_available and len(scraped) < total_available:
@@ -668,6 +772,132 @@ class ScrapingWorkflow:
         
         return None
     
+    def _enrich_scraped_profiles(self):
+        """
+        Visit each scraped profile to get detailed information.
+        This includes: followers count, following count, posts count, bio, is_private.
+        """
+        if not self.scraped_profiles:
+            return
+        
+        console.print(f"\n[bold blue]🔍 Enriching {len(self.scraped_profiles)} profiles...[/bold blue]")
+        console.print("[dim]This will visit each profile to get detailed information[/dim]\n")
+        
+        enriched_count = 0
+        failed_count = 0
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console
+        ) as progress:
+            task = progress.add_task(
+                f"[cyan]Enriching profiles (0/{len(self.scraped_profiles)})...", 
+                total=len(self.scraped_profiles)
+            )
+            
+            for i, profile in enumerate(self.scraped_profiles):
+                if not self._should_continue():
+                    self.logger.info("⏱️ Session time limit reached during enrichment")
+                    break
+                
+                username = profile.get('username')
+                if not username:
+                    continue
+                
+                progress.update(
+                    task,
+                    description=f"[cyan]Enriching @{username} ({i+1}/{len(self.scraped_profiles)})..."
+                )
+                
+                # Navigate to profile
+                if self.nav_actions.navigate_to_profile(username, deep_link_usage_percentage=0, force_search=False):
+                    time.sleep(1)
+                    
+                    # Extract profile info
+                    try:
+                        # Get counts
+                        followers_count = self.detection_actions.get_followers_count() or 0
+                        following_count = self.detection_actions.get_following_count() or 0
+                        posts_count = self.detection_actions.get_posts_count() or 0
+                        
+                        # Check if private
+                        is_private = self.detection_actions.is_private_account()
+                        
+                        # Get bio
+                        bio = self._get_profile_bio() or ""
+                        
+                        # Get full name
+                        full_name = self._get_profile_full_name() or ""
+                        
+                        # Update profile data
+                        profile['followers_count'] = followers_count
+                        profile['following_count'] = following_count
+                        profile['posts_count'] = posts_count
+                        profile['is_private'] = is_private
+                        profile['biography'] = bio
+                        profile['full_name'] = full_name
+                        
+                        enriched_count += 1
+                        self.logger.debug(f"✅ Enriched @{username}: {followers_count} followers, {following_count} following, {posts_count} posts")
+                        
+                    except Exception as e:
+                        self.logger.warning(f"Failed to extract info for @{username}: {e}")
+                        failed_count += 1
+                    
+                    # Go back to prepare for next profile
+                    self.device.press("back")
+                    time.sleep(0.5)
+                else:
+                    self.logger.warning(f"Failed to navigate to @{username}")
+                    failed_count += 1
+                
+                progress.update(task, advance=1)
+                
+                # Small delay between profiles to avoid rate limiting
+                time.sleep(0.3)
+        
+        console.print(f"\n[green]✅ Enriched {enriched_count}/{len(self.scraped_profiles)} profiles[/green]")
+        if failed_count > 0:
+            console.print(f"[yellow]⚠️ Failed to enrich {failed_count} profiles[/yellow]")
+    
+    def _get_profile_bio(self) -> Optional[str]:
+        """Extract biography from current profile screen."""
+        bio_selectors = [
+            '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
+            '//*[@resource-id="com.instagram.android:id/biography"]',
+            '//android.widget.TextView[contains(@resource-id, "bio")]'
+        ]
+        
+        for selector in bio_selectors:
+            try:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    return element.get_text().strip()
+            except Exception:
+                continue
+        
+        return None
+    
+    def _get_profile_full_name(self) -> Optional[str]:
+        """Extract full name from current profile screen."""
+        name_selectors = [
+            '//*[@resource-id="com.instagram.android:id/profile_header_full_name"]',
+            '//*[@resource-id="com.instagram.android:id/full_name"]'
+        ]
+        
+        for selector in name_selectors:
+            try:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    return element.get_text().strip()
+            except Exception:
+                continue
+        
+        return None
+    
     def _export_to_csv(self):
         """Export scraped profiles to CSV file."""
         if not self.scraped_profiles:
@@ -683,43 +913,68 @@ class ScrapingWorkflow:
         filename = f"scraping_{scraping_type}_{timestamp}.csv"
         filepath = os.path.join(exports_dir, filename)
         
+        # Determine fieldnames based on whether profiles are enriched
+        is_enriched = self.config.get('enrich_profiles', False)
+        if is_enriched:
+            fieldnames = ['username', 'full_name', 'followers_count', 'following_count', 'posts_count', 
+                         'is_private', 'biography', 'source_type', 'source_name', 'scraped_at']
+        else:
+            fieldnames = ['username', 'source_type', 'source_name', 'scraped_at']
+        
         # Write CSV
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=['username', 'source_type', 'source_name', 'scraped_at'])
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
             writer.writeheader()
             writer.writerows(self.scraped_profiles)
+        
+        # Store path for session completion
+        self.csv_export_path = filepath
         
         console.print(f"\n[green]📁 Exported {len(self.scraped_profiles)} profiles to:[/green]")
         console.print(f"   [cyan]{filepath}[/cyan]")
     
     def _save_to_database(self):
-        """Save scraped profiles to database."""
+        """Save scraped profiles to local database."""
         if not self.scraped_profiles:
             return
         
         try:
-            db_service = get_db_service()
+            local_db = get_local_database()
             saved_count = 0
+            updated_count = 0
             
             for profile in self.scraped_profiles:
                 try:
-                    # Create minimal profile in database
+                    username = profile['username']
+                    
+                    # Use enriched data if available, otherwise use defaults
                     profile_data = {
-                        'username': profile['username'],
-                        'followers_count': 0,
-                        'following_count': 0,
-                        'posts_count': 0,
-                        'is_private': False,
+                        'username': username,
+                        'followers_count': profile.get('followers_count', 0),
+                        'following_count': profile.get('following_count', 0),
+                        'posts_count': profile.get('posts_count', 0),
+                        'is_private': profile.get('is_private', False),
+                        'biography': profile.get('biography', ''),
+                        'full_name': profile.get('full_name', ''),
                         'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
                     }
                     
-                    result = db_service.api_client.create_profile(profile_data)
+                    # Save or update profile in local database
+                    result = local_db.save_profile(profile_data)
+                    
                     if result:
-                        saved_count += 1
+                        if result.get('created'):
+                            saved_count += 1
+                        else:
+                            updated_count += 1
+                            
                 except Exception as e:
-                    self.logger.debug(f"Error saving @{profile['username']}: {e}")
+                    self.logger.debug(f"Error saving @{profile.get('username', 'unknown')}: {e}")
             
-            console.print(f"[green]💾 Saved {saved_count}/{len(self.scraped_profiles)} profiles to database[/green]")
+            if updated_count > 0:
+                console.print(f"[green]💾 Saved {saved_count} new profiles, updated {updated_count} existing profiles[/green]")
+            else:
+                console.print(f"[green]💾 Saved {saved_count}/{len(self.scraped_profiles)} profiles to database[/green]")
             
         except Exception as e:
             self.logger.error(f"Database save error: {e}")
@@ -758,3 +1013,64 @@ class ScrapingWorkflow:
         
         console.print(table)
         console.print("=" * 60)
+    
+    def _create_scraping_session(self) -> None:
+        """Create a scraping session in the database."""
+        try:
+            local_db = get_local_database()
+            
+            # Determine source type and name
+            scraping_type = self.config.get('type', 'target')
+            scrape_type = self.config.get('scrape_type', 'followers')
+            
+            if scraping_type == 'target':
+                source_type = 'TARGET'
+                targets = self.config.get('target_usernames', [])
+                source_name = ', '.join([f"@{t}" for t in targets[:3]])
+                if len(targets) > 3:
+                    source_name += f" (+{len(targets) - 3} more)"
+            elif scraping_type == 'hashtag':
+                source_type = 'HASHTAG'
+                source_name = f"#{self.config.get('hashtag', 'unknown')}"
+            elif scraping_type == 'post_url':
+                source_type = 'POST_URL'
+                source_name = self.config.get('post_url', 'unknown')[:100]
+            else:
+                source_type = 'UNKNOWN'
+                source_name = 'unknown'
+            
+            self.scraping_session_id = local_db.create_scraping_session(
+                scraping_type=scrape_type,
+                source_type=source_type,
+                source_name=source_name,
+                max_profiles=self.config.get('max_profiles', 500),
+                export_csv=self.config.get('export_csv', True),
+                save_to_db=self.config.get('save_to_db', True),
+                config=self.config
+            )
+            
+            if self.scraping_session_id:
+                self.logger.info(f"Created scraping session: {self.scraping_session_id}")
+            
+        except Exception as e:
+            self.logger.warning(f"Could not create scraping session: {e}")
+    
+    def _complete_scraping_session(self, error_message: Optional[str] = None) -> None:
+        """Complete the scraping session in the database."""
+        if not self.scraping_session_id:
+            return
+        
+        try:
+            local_db = get_local_database()
+            local_db.complete_scraping_session(
+                scraping_id=self.scraping_session_id,
+                total_scraped=len(self.scraped_profiles),
+                csv_path=self.csv_export_path,
+                error_message=error_message
+            )
+            
+            status = 'ERROR' if error_message else 'COMPLETED'
+            self.logger.info(f"Scraping session {self.scraping_session_id} {status}: {len(self.scraped_profiles)} profiles")
+            
+        except Exception as e:
+            self.logger.warning(f"Could not complete scraping session: {e}")
