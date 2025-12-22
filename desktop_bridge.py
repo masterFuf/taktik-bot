@@ -38,8 +38,11 @@ logging.basicConfig(
 # Structured message output for desktop app
 def send_message(msg_type: str, **kwargs):
     """Send a structured JSON message to the desktop app."""
-    message = {"type": msg_type, **kwargs}
-    print(json.dumps(message), flush=True)
+    try:
+        message = {"type": msg_type, **kwargs}
+        print(json.dumps(message), flush=True)
+    except (OSError, ValueError):
+        pass  # Ignore I/O errors when stdout is closed
 
 def send_status(status: str, message: str = ""):
     """Send status update to desktop app."""
@@ -49,9 +52,9 @@ def send_progress(current: int, total: int, action: str = ""):
     """Send progress update to desktop app."""
     send_message("progress", current=current, total=total, action=action)
 
-def send_stats(likes: int = 0, follows: int = 0, comments: int = 0, profiles: int = 0):
+def send_stats(likes: int = 0, follows: int = 0, comments: int = 0, profiles: int = 0, unfollows: int = 0):
     """Send stats update to desktop app."""
-    send_message("stats", likes=likes, follows=follows, comments=comments, profiles=profiles)
+    send_message("stats", likes=likes, follows=follows, comments=comments, profiles=profiles, unfollows=unfollows)
 
 def send_error(error: str):
     """Send error to desktop app."""
@@ -60,6 +63,10 @@ def send_error(error: str):
 def send_log(level: str, message: str):
     """Send log message to desktop app."""
     send_message("log", level=level, message=message)
+
+def send_unfollow_event(username: str, success: bool = True):
+    """Send unfollow event to desktop app for real-time activity."""
+    send_message("unfollow_event", username=username, success=success)
 
 
 class DebugBridge:
@@ -188,6 +195,7 @@ class DesktopBridge:
         self.filters = config.get('filters', {})
         self.session_config = config.get('session', {})
         self.comments_config = config.get('comments', {})
+        self.unfollow_config = config.get('unfollow', {})  # Unfollow specific settings
         self.language = config.get('language', 'en')
         self.running = True
         # API credentials passed from desktop app
@@ -329,6 +337,100 @@ class DesktopBridge:
             logger.exception("Instagram launch failed")
             return False
     
+    def _build_action_config(self, action_type: str, interaction_type: str, primary_target: str,
+                              target_list: list, max_profiles: int, max_likes_per_profile: int,
+                              like_percentage: int, follow_percentage: int, comment_percentage: int,
+                              story_percentage: int, story_like_percentage: int) -> dict:
+        """Build action configuration based on action type."""
+        
+        # Configuration spécifique pour le workflow UNFOLLOW
+        if action_type == 'unfollow':
+            # Utiliser les paramètres spécifiques unfollow s'ils existent
+            unfollow_cfg = self.unfollow_config if hasattr(self, 'unfollow_config') else {}
+            return {
+                "type": "unfollow",
+                "max_unfollows": unfollow_cfg.get('maxUnfollows', max_profiles),
+                "min_delay": 2,
+                "max_delay": 5,
+                "skip_verified": unfollow_cfg.get('skipVerified', True),
+                "skip_business": unfollow_cfg.get('skipBusiness', False)
+            }
+        
+        # Configuration spécifique pour le workflow FEED
+        if action_type == 'feed':
+            return {
+                "type": "feed",
+                "max_interactions": max_profiles,
+                "like_percentage": like_percentage,
+                "follow_percentage": follow_percentage,
+                "comment_percentage": comment_percentage,
+                "story_watch_percentage": story_percentage
+            }
+        
+        # Configuration spécifique pour le workflow NOTIFICATIONS
+        if action_type == 'notifications':
+            return {
+                "type": "notifications",
+                "max_interactions": max_profiles,
+                "like_percentage": like_percentage,
+                "follow_percentage": follow_percentage,
+                "comment_percentage": comment_percentage
+            }
+        
+        # Configuration par défaut pour les autres workflows (interact_with_followers, hashtag, post_url)
+        return {
+            "type": action_type,
+            "target_username": primary_target if action_type == 'interact_with_followers' else None,
+            "target_usernames": target_list if action_type == 'interact_with_followers' else [],
+            "hashtag": self.target if action_type == 'hashtag' else None,
+            "post_url": self.target if action_type == 'post_url' else None,
+            "interaction_type": interaction_type,
+            "max_interactions": max_profiles,
+            "like_posts": True,
+            "max_likes_per_profile": max_likes_per_profile,
+            "probabilities": {
+                "like_percentage": like_percentage,
+                "follow_percentage": follow_percentage,
+                "comment_percentage": comment_percentage,
+                "story_percentage": story_percentage,
+                "story_like_percentage": story_like_percentage
+            },
+            "like_settings": {
+                "enabled": like_percentage > 0,
+                "like_carousels": True,
+                "like_reels": True,
+                "randomize_order": True,
+                "methods": ["button_click", "double_tap"],
+                "verify_like_success": True,
+                "max_attempts_per_post": 2,
+                "delay_between_attempts": 2
+            },
+            "follow_settings": {
+                "enabled": follow_percentage > 0,
+                "unfollow_after_days": 3,
+                "verify_follow_success": True
+            },
+            "story_settings": {
+                "enabled": story_percentage > 0,
+                "watch_duration_range": [3, 8]
+            },
+            "story_like_settings": {
+                "enabled": story_like_percentage > 0,
+                "max_stories_per_user": 3,
+                "like_probability": story_like_percentage / 100.0,
+                "verify_like_success": True
+            },
+            "comment_settings": {
+                "enabled": comment_percentage > 0,
+                "custom_comments": self.comments_config.get('customComments', [])
+            },
+            "scrolling": {
+                "enabled": True,
+                "max_scroll_attempts": 3,
+                "scroll_delay": 1.5
+            }
+        }
+    
     def build_workflow_config(self) -> dict:
         """Build the workflow configuration matching CLI format."""
         max_profiles = self.limits.get('maxProfiles', 20)
@@ -369,6 +471,18 @@ class DesktopBridge:
             interaction_type = 'post-likers'
             action_type = 'post_url'
             session_workflow_type = 'target_followers'
+        elif self.workflow_type == 'unfollow':
+            interaction_type = 'unfollow'
+            action_type = 'unfollow'
+            session_workflow_type = 'unfollow'
+        elif self.workflow_type == 'feed':
+            interaction_type = 'feed'
+            action_type = 'feed'
+            session_workflow_type = 'feed'
+        elif self.workflow_type == 'notifications':
+            interaction_type = 'notifications'
+            action_type = 'notifications'
+            session_workflow_type = 'notifications'
         else:
             interaction_type = 'followers'
             action_type = 'interact_with_followers'
@@ -400,59 +514,19 @@ class DesktopBridge:
                 "screenshot_path": "screenshots"
             },
             "actions": [
-                {
-                    "type": action_type,
-                    # Use primary_target for single-target fields, target_list for multi-target
-                    "target_username": primary_target if action_type == 'interact_with_followers' else None,
-                    "target_usernames": target_list if action_type == 'interact_with_followers' else [],
-                    "hashtag": self.target if action_type == 'hashtag' else None,
-                    "post_url": self.target if action_type == 'post_url' else None,
-                    "interaction_type": interaction_type,
-                    "max_interactions": max_profiles,
-                    "like_posts": True,
-                    "max_likes_per_profile": max_likes_per_profile,
-                    "probabilities": {
-                        "like_percentage": like_percentage,
-                        "follow_percentage": follow_percentage,
-                        "comment_percentage": comment_percentage,
-                        "story_percentage": story_percentage,
-                        "story_like_percentage": story_like_percentage
-                    },
-                    "like_settings": {
-                        "enabled": like_percentage > 0,
-                        "like_carousels": True,
-                        "like_reels": True,
-                        "randomize_order": True,
-                        "methods": ["button_click", "double_tap"],
-                        "verify_like_success": True,
-                        "max_attempts_per_post": 2,
-                        "delay_between_attempts": 2
-                    },
-                    "follow_settings": {
-                        "enabled": follow_percentage > 0,
-                        "unfollow_after_days": 3,
-                        "verify_follow_success": True
-                    },
-                    "story_settings": {
-                        "enabled": story_percentage > 0,
-                        "watch_duration_range": [3, 8]
-                    },
-                    "story_like_settings": {
-                        "enabled": story_like_percentage > 0,
-                        "max_stories_per_user": 3,
-                        "like_probability": story_like_percentage / 100.0,
-                        "verify_like_success": True
-                    },
-                    "comment_settings": {
-                        "enabled": comment_percentage > 0,
-                        "custom_comments": self.comments_config.get('customComments', [])
-                    },
-                    "scrolling": {
-                        "enabled": True,
-                        "max_scroll_attempts": 3,
-                        "scroll_delay": 1.5
-                    }
-                }
+                self._build_action_config(
+                    action_type=action_type,
+                    interaction_type=interaction_type,
+                    primary_target=primary_target,
+                    target_list=target_list,
+                    max_profiles=max_profiles,
+                    max_likes_per_profile=max_likes_per_profile,
+                    like_percentage=like_percentage,
+                    follow_percentage=follow_percentage,
+                    comment_percentage=comment_percentage,
+                    story_percentage=story_percentage,
+                    story_like_percentage=story_like_percentage
+                )
             ]
         }
         
@@ -491,7 +565,8 @@ class DesktopBridge:
                 likes=stats.get('likes', 0),
                 follows=stats.get('follows', 0),
                 comments=stats.get('comments', 0),
-                profiles=stats.get('interactions', 0)
+                profiles=stats.get('interactions', 0),
+                unfollows=stats.get('unfollows', 0)
             )
             
             send_status("completed", "Workflow completed successfully")
