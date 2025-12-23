@@ -5,6 +5,99 @@ All notable changes to TAKTIK Instagram Bot will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-12-23
+
+### Changed
+- Updated version alignment with TAKTIK Desktop app to 1.2.1
+- Synchronized version numbering across bot and desktop application
+
+---
+
+## [1.2.0] - 2025-12-20
+
+### Added
+- **Cold DM Workflow**: Automated cold DM campaigns to targeted users
+  - Send personalized messages to scraped profiles
+  - Private profile detection and handling
+  - Configurable message templates with variable substitution
+  - Integration with desktop app for campaign management
+
+- **DM Auto Reply**: Automatic response system for incoming DMs
+  - AI-powered response generation
+  - Customizable triggers and response templates
+  - Group chat detection and handling
+  - Smart navigation optimization
+
+- **Screen Mirroring**: Real-time device screen mirroring in desktop app
+  - Live view of Android device screen
+  - Touch interaction support
+  - Performance optimized for smooth streaming
+
+- **AI Content Generation**: Generate Instagram content with AI
+  - Post caption generation
+  - Image generation with fal.ai integration
+  - Multiple AI model support (Claude, GPT-4, Gemini)
+
+- **Local Database Migration**: SQLite-based local data storage
+  - All Instagram data stored locally in %APPDATA%/taktik-desktop/taktik-data.db
+  - Improved privacy and performance
+  - Offline capability for data access
+  - Remote API only receives aggregated stats
+
+- **New Workflows**:
+  - Feed interaction workflow
+  - Notifications workflow
+  - Unfollow from following list
+  - Business account management
+
+- **Enhanced Session Management**:
+  - Session finalization with stop reason tracking
+  - Scraping session statistics
+  - Enriched profile scraping with on-the-fly details
+  - Better session timing metrics
+
+### Improved
+- Business workflows (feed/notifications) optimization
+- Atomic actions and selectors refinement
+- DM auto-reply with group detection
+- Navigation reliability and performance
+- Workflow runner plumbing
+
+### Technical
+- New `cold_dm_bridge.py` for cold DM campaigns
+- Enhanced `dm_bridge.py` with auto-reply capabilities
+- Local database schema with better-sqlite3 (Electron) and sqlite3 (Python)
+- Desktop bridge extended for new workflow types and stats
+- Scraping session tracking in database
+
+---
+
+## [1.1.9] - 2025-12-15
+
+### Fixed
+- UTF-8 encoding issues in file operations
+- Permission errors on Windows systems
+- Log file encoding set to UTF-8
+
+---
+
+## [1.1.8] - 2025-12-12
+
+### Added
+- Feed interaction workflow
+- Notifications workflow
+- Unfollow from following list workflow
+
+---
+
+## [1.1.7] - 2025-12-11
+
+### Changed
+- Migrated to local SQLite database for Instagram data storage
+- Remote API now only receives aggregated statistics
+
+---
+
 ## [1.1.6] - 2025-12-10
 
 ### Added

@@ -9,7 +9,7 @@
   [![GitHub forks](https://img.shields.io/github/forks/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/network/members)
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-  [![Discord](https://img.shields.io/discord/1234567890?color=7289da&label=Discord&logo=discord&logoColor=white)](https://discord.gg/bb7MuMmpKS)
+  [![Discord](https://img.shields.io/discord/1316752973831114833?color=7289da&label=Discord&logo=discord&logoColor=white)](https://discord.gg/bb7MuMmpKS)
   
   <br/>
   
@@ -17,6 +17,26 @@
   <a href="https://taktik-bot.com/en/docs">📚 Documentation</a> •
   <a href="https://discord.gg/bb7MuMmpKS">💬 Discord</a> •
   <a href="./README.fr.md">🇫🇷 Français</a>
+</div>
+
+---
+
+<div align="center">
+  
+  ### 🎉 **NEW: TAKTIK Desktop App is Now Available!**
+  
+  <img src="https://raw.githubusercontent.com/masterFuf/taktik-bot/main/public/app-preview.png" alt="TAKTIK Desktop Application" width="800"/>
+  
+  <br/><br/>
+  
+  **🎁 Limited Beta Offer - Free Starter Plan Until January 15th, 2025!**
+  
+  Get lifetime access to the Starter plan with all features including AI capabilities.
+  
+  <a href="https://taktik-bot.com/fr/auth/trial">🚀 **Claim Your Free Starter License** →</a>
+  
+  <br/><br/>
+  
 </div>
 
 ---
@@ -45,6 +65,10 @@
 | 💬 **Instagram Auto Comment** | Post personalized comments with spin syntax support |
 | 👁️ **Instagram Story Viewer** | Automatically view stories to increase visibility |
 | 📩 **DM Automation** | Read and send DMs with AI-powered responses (Desktop app) |
+| ❄️ **Cold DM** | Send automated DMs to targeted users with personalized messages |
+| 🤖 **DM Auto Reply** | Automatically respond to incoming DMs with AI assistance |
+| 📱 **Screen Mirroring** | Real-time device screen mirroring in desktop app |
+| 🎨 **AI Content Generation** | Generate posts, captions, and images with AI |
 | 🎯 **Advanced Targeting** | Filter by followers, posts, account type, engagement rate |
 | 🧠 **Human-like Behavior** | Random delays, natural patterns, anti-detection system |
 | 📸 **Media Capture** | Intercept and save Instagram stories, reels, and posts |
@@ -87,6 +111,8 @@ Read and respond to Instagram DMs with AI assistance.
 ✅ AI-powered response generation (Claude, GPT-4, Gemini)
 ✅ Bulk send responses with human-like typing
 ✅ Emoji and special character support
+✅ Cold DM campaigns to targeted users
+✅ Automatic DM replies with customizable triggers
 ```
 
 ### 5. 📸 Media Capture (Advanced)
