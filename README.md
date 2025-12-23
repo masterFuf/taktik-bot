@@ -3,13 +3,13 @@
   
   <h1>🚀 Instagram Bot & TikTok Automation Tool</h1>
   
-  <p><strong>Free & Open Source Social Media Growth Bot</strong></p>
+  <p><strong>Open Source Instagram Automation Bot</strong></p>
   
   [![GitHub stars](https://img.shields.io/github/stars/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/stargazers)
   [![GitHub forks](https://img.shields.io/github/forks/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/network/members)
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-  [![Discord](https://img.shields.io/discord/1316752973831114833?color=7289da&label=Discord&logo=discord&logoColor=white)](https://discord.gg/bb7MuMmpKS)
+  [![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289da?logo=discord&logoColor=white)](https://discord.gg/bb7MuMmpKS)
   
   <br/>
   
@@ -25,7 +25,7 @@
   
   ### 🎉 **NEW: TAKTIK Desktop App is Now Available!**
   
-  <img src="https://raw.githubusercontent.com/masterFuf/taktik-bot/main/public/app-preview.png" alt="TAKTIK Desktop Application" width="800"/>
+  <img src="https://taktik-bot.com/app-preview.png" alt="TAKTIK Desktop Application" width="800"/>
   
   <br/><br/>
   
@@ -45,7 +45,9 @@
 
 **TAKTIK** is a powerful **Instagram automation bot** and **TikTok bot** designed for organic social media growth. Automate your Instagram likes, follows, comments, and story views with human-like behavior to grow your audience safely.
 
-> 🆓 **100% Free & Open Source** - No hidden fees, no subscriptions required for core features
+> 🐍 **Open Source Python Bot** - The core automation engine is open source under GPLv3
+>
+> 🖥️ **Desktop App Available** - Premium desktop application with advanced features and GUI
 
 ### 🔥 Perfect for:
 - **Instagram Growth** - Automate engagement to grow followers organically
@@ -172,12 +174,25 @@ Full documentation available at **[taktik-bot.com/en/docs](https://taktik-bot.co
 
 | Feature | TAKTIK | Other Bots |
 |---------|--------|------------|
-| 💰 Price | **Free & Open Source** | $20-100/month |
+| 💰 Price | **From $19/month** (14-day free trial) | $50-200/month |
 | 🔒 Safety | Human-like behavior | Often detected |
 | 🎯 Targeting | Advanced filters | Basic only |
 | 📊 Analytics | Built-in dashboard | Limited |
 | 🛠️ Customization | Fully customizable | Locked features |
 | 💬 Support | Active Discord community | Email only |
+| 🤖 AI Features | Smart comments, DM replies, content generation | None or extra cost |
+
+### 💰 Pricing Plans
+
+| Plan | Devices | Price/month | With AI |
+|------|---------|-------------|----------|
+| **Starter** | 1-3 | $19 | $29 |
+| **Growth** | 4-10 | $59 | $79 |
+| **Pro** | 11-20 | $99 | $129 |
+| **Agency** | 21-50 | $179 | $229 |
+| **Enterprise** | 50+ | Contact us | - |
+
+> 💡 **14-day free trial** on all plans - No credit card required
 
 ---
 
@@ -199,7 +214,7 @@ Full documentation available at **[taktik-bot.com/en/docs](https://taktik-bot.co
 
 This project is licensed under **GNU General Public License v3.0** - See [LICENSE](LICENSE) for details.
 
-**Free to use, modify, and distribute** - Contributions welcome!
+The Python bot source code is free to use, modify, and distribute. Contributions welcome!
 
 ---
 
