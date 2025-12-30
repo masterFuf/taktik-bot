@@ -26,16 +26,19 @@ class FeedBusiness(BaseBusinessAction):
         self.default_config = {
             'max_interactions': 20,
             'max_posts_to_check': 30,
-            'interaction_delay_range': (20, 40),
-            'like_percentage': 70,
-            'follow_percentage': 15,
-            'comment_percentage': 5,
-            'story_watch_percentage': 10,
+            'interaction_delay_range': (2, 5),  # Délai court entre les likes
+            'like_percentage': 100,  # Liker tous les posts
+            'follow_percentage': 0,  # Pas de follow depuis le feed
+            'comment_percentage': 0,  # Pas de commentaires
+            'story_watch_percentage': 0,  # Pas de stories
             'max_likes_per_profile': 3,
-            'interact_with_post_author': True,  # Interagir avec l'auteur du post
-            'interact_with_post_likers': False,  # Interagir avec les likers du post
-            'skip_reels': True,  # Ignorer les reels dans le feed
-            'skip_ads': True  # Ignorer les publicités
+            'interact_with_post_author': False,  # Ne pas aller sur les profils
+            'interact_with_post_likers': False,  # Ne pas extraire les likers
+            'skip_reels': False,  # Liker aussi les reels
+            'skip_ads': True,  # Ignorer les publicités
+            'like_posts_directly': True,  # Liker directement dans le feed
+            'min_post_likes': 0,  # Filtre: nombre minimum de likes sur le post
+            'max_post_likes': 0  # Filtre: nombre maximum de likes (0 = pas de limite)
         }
         
         # Sélecteurs spécifiques au feed
@@ -110,109 +113,93 @@ class FeedBusiness(BaseBusinessAction):
             
             time.sleep(2)
             
-            # Démarrer la phase de scraping
-            if self.session_manager:
-                self.session_manager.start_scraping_phase()
-            
-            users_to_interact = []
-            seen_users = set()
-            posts_checked = 0
-            
-            # Parcourir le feed et collecter les utilisateurs
-            while (len(users_to_interact) < effective_config['max_interactions'] and 
-                   posts_checked < effective_config['max_posts_to_check']):
+            # Mode simplifié : liker directement les posts dans le feed
+            if effective_config.get('like_posts_directly', True):
+                self.logger.info("📱 Direct like mode: liking posts in feed")
                 
-                posts_checked += 1
-                stats['posts_checked'] += 1
+                if self.session_manager:
+                    self.session_manager.start_interaction_phase()
                 
-                self.logger.debug(f"📱 Checking post {posts_checked}/{effective_config['max_posts_to_check']}")
+                posts_liked = 0
+                posts_checked = 0
                 
-                # Vérifier si c'est une pub
-                if effective_config.get('skip_ads', True) and self._is_sponsored_post():
-                    self.logger.debug("⏭️ Skipping sponsored post")
-                    stats['posts_skipped_ads'] += 1
-                    self._scroll_to_next_post()
-                    continue
-                
-                # Vérifier si c'est un reel
-                if effective_config.get('skip_reels', True) and self._is_reel_post():
-                    self.logger.debug("⏭️ Skipping reel post")
-                    stats['posts_skipped_reels'] += 1
-                    self._scroll_to_next_post()
-                    continue
-                
-                # Extraire l'auteur du post
-                if effective_config.get('interact_with_post_author', True):
-                    author = self._get_current_post_author()
-                    if author and author not in seen_users:
-                        seen_users.add(author)
-                        users_to_interact.append({
-                            'username': author,
-                            'source': 'post_author'
-                        })
-                        self.logger.debug(f"Found post author: @{author}")
-                
-                # Extraire les likers du post (optionnel)
-                if effective_config.get('interact_with_post_likers', False):
-                    likers = self._get_post_likers(max_likers=3)
-                    for liker in likers:
-                        if liker not in seen_users and len(users_to_interact) < effective_config['max_interactions']:
-                            seen_users.add(liker)
-                            users_to_interact.append({
-                                'username': liker,
-                                'source': 'post_liker'
-                            })
-                
-                # Passer au post suivant
-                self._scroll_to_next_post()
-                time.sleep(random.uniform(1, 2))
-            
-            stats['users_found'] = len(users_to_interact)
-            
-            # Terminer le scraping et démarrer les interactions
-            if self.session_manager:
-                self.session_manager.end_scraping_phase()
-                self.session_manager.start_interaction_phase()
-            
-            if not users_to_interact:
-                self.logger.warning("No users found in feed")
-                return stats
-            
-            self.logger.info(f"📋 {len(users_to_interact)} users to process from feed")
-            
-            effective_config['source'] = "feed"
-            
-            for i, user_info in enumerate(users_to_interact, 1):
-                username = user_info['username']
-                self.logger.info(f"[{i}/{len(users_to_interact)}] Processing @{username} ({user_info['source']})")
-                
-                account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
-                if DatabaseHelpers.is_profile_already_processed(username, account_id):
-                    self.logger.info(f"Profile @{username} already processed, skipped")
-                    stats['skipped'] += 1
-                    self.stats_manager.increment('skipped')
-                    continue
-                
-                interaction_result = self._interact_with_user(username, effective_config)
-                
-                if interaction_result:
-                    stats['users_interacted'] += 1
-                    stats['likes_made'] += interaction_result.get('likes', 0)
-                    stats['follows_made'] += interaction_result.get('follows', 0)
-                    stats['comments_made'] += interaction_result.get('comments', 0)
-                    stats['stories_watched'] += interaction_result.get('stories', 0)
-                    stats['stories_liked'] += interaction_result.get('stories_liked', 0)
+                while (posts_liked < effective_config['max_interactions'] and 
+                       posts_checked < effective_config['max_posts_to_check']):
                     
-                    self.stats_manager.increment('interactions')
-                    self.stats_manager.increment('likes', interaction_result.get('likes', 0))
-                    self.stats_manager.increment('follows', interaction_result.get('follows', 0))
-                else:
-                    stats['profiles_filtered'] += 1
+                    posts_checked += 1
+                    stats['posts_checked'] += 1
+                    
+                    self.logger.info(f"📱 Post {posts_checked}/{effective_config['max_posts_to_check']} (liked: {posts_liked})")
+                    
+                    # Vérifier si c'est une pub
+                    if effective_config.get('skip_ads', True) and self._is_sponsored_post():
+                        self.logger.debug("⏭️ Skipping sponsored post")
+                        stats['posts_skipped_ads'] += 1
+                        self._scroll_to_next_post()
+                        time.sleep(random.uniform(1, 2))
+                        continue
+                    
+                    # Filtrer par nombre de likes si configuré
+                    min_likes = effective_config.get('min_post_likes', 0)
+                    max_likes = effective_config.get('max_post_likes', 0)
+                    
+                    self.logger.debug(f"🔍 Filter config: min_likes={min_likes}, max_likes={max_likes}")
+                    
+                    if min_likes > 0 or max_likes > 0:
+                        post_metadata = self._extract_post_metadata()
+                        self.logger.debug(f"🔍 Post metadata result: {post_metadata}")
+                        
+                        if post_metadata:
+                            post_likes = post_metadata.get('likes_count', 0) or 0
+                            
+                            if min_likes > 0 and post_likes < min_likes:
+                                self.logger.info(f"⏭️ Skipping post: {post_likes} likes < {min_likes} min")
+                                stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
+                                self._scroll_to_next_post()
+                                time.sleep(random.uniform(1, 2))
+                                continue
+                            
+                            if max_likes > 0 and post_likes > max_likes:
+                                self.logger.info(f"⏭️ Skipping post: {post_likes} likes > {max_likes} max")
+                                stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
+                                self._scroll_to_next_post()
+                                time.sleep(random.uniform(1, 2))
+                                continue
+                            
+                            self.logger.info(f"✅ Post matches filter: {post_likes} likes (max: {max_likes})")
+                        else:
+                            self.logger.debug("⚠️ Could not extract post metadata, skipping filter")
+                    
+                    # Liker le post directement dans le feed
+                    liked = False
+                    if random.randint(1, 100) <= effective_config.get('like_percentage', 100):
+                        if self._like_current_post():
+                            posts_liked += 1
+                            stats['likes_made'] += 1
+                            self.stats_manager.increment('likes')
+                            self.logger.info(f"❤️ Post liked ({posts_liked}/{effective_config['max_interactions']})")
+                            liked = True
+                        else:
+                            self.logger.debug("Failed to like post")
+                    
+                    # Commenter le post (si configuré)
+                    if liked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
+                        if self._comment_current_post(effective_config):
+                            stats['comments_made'] += 1
+                            self.stats_manager.increment('comments')
+                            self.logger.info(f"💬 Comment posted")
+                    
+                    # Passer au post suivant
+                    self._scroll_to_next_post()
+                    
+                    # Délai court entre les posts
+                    delay = random.randint(*effective_config['interaction_delay_range'])
+                    time.sleep(delay)
                 
-                # Délai entre interactions
-                delay = random.randint(*effective_config['interaction_delay_range'])
-                self.logger.debug(f"⏳ Waiting {delay}s before next interaction")
-                time.sleep(delay)
+                stats['users_interacted'] = posts_liked
+                stats['success'] = True
+                self.logger.info(f"✅ Feed workflow completed: {posts_liked} posts liked")
+                return stats
             
             stats['success'] = True
             self.logger.info(f"✅ Feed workflow completed: {stats['users_interacted']} interactions")
@@ -308,6 +295,178 @@ class FeedBusiness(BaseBusinessAction):
             self.logger.debug(f"Error getting post likers: {e}")
         
         return likers
+    
+    def _like_current_post(self) -> bool:
+        """Liker le post actuellement visible dans le feed."""
+        try:
+            # Sélecteurs pour le bouton like dans le feed
+            like_button_selectors = [
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
+                '//*[contains(@content-desc, "J\'aime")]',
+                '//*[contains(@content-desc, "Like")]',
+                '//*[@resource-id="com.instagram.android:id/like_button"]'
+            ]
+            
+            # D'abord vérifier si le post est déjà liké
+            for selector in like_button_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    content_desc = element.attrib.get('content-desc', '').lower()
+                    # Vérifier si déjà liké (unlike = déjà liké)
+                    if 'unlike' in content_desc or 'ne plus aimer' in content_desc or 'liked' in content_desc:
+                        self.logger.debug("⏭️ Post already liked, skipping")
+                        return False
+                    
+                    # Cliquer sur le bouton like
+                    element.click()
+                    self._human_like_delay('click')
+                    return True
+            
+            # Fallback: vérifier via l'icône du coeur si le post est déjà liké
+            # avant de faire un double tap
+            already_liked_selectors = [
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Ne plus aimer")]',
+                '//*[contains(@content-desc, "Unlike")]',
+                '//*[contains(@content-desc, "Ne plus aimer")]'
+            ]
+            
+            for selector in already_liked_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    self.logger.debug("⏭️ Post already liked (detected via unlike button), skipping")
+                    return False
+            
+            # Double tap seulement si on n'a pas trouvé de bouton like ET le post n'est pas déjà liké
+            self.logger.debug("Like button not found, trying double tap")
+            screen_height = self.device.info.get('displayHeight', 1920)
+            screen_width = self.device.info.get('displayWidth', 1080)
+            center_x = screen_width // 2
+            center_y = int(screen_height * 0.4)  # Milieu du post
+            
+            self.device.double_click(center_x, center_y)
+            self._human_like_delay('click')
+            return True
+            
+        except Exception as e:
+            self.logger.debug(f"Error liking post: {e}")
+            return False
+    
+    def _extract_post_metadata(self) -> Optional[Dict[str, Any]]:
+        """Extraire les métadonnées du post actuellement visible (likes, commentaires)."""
+        try:
+            metadata = {
+                'likes_count': self.ui_extractors.extract_likes_count_from_ui(),
+                'comments_count': self.ui_extractors.extract_comments_count_from_ui(),
+                'is_reel': self._is_reel_post()
+            }
+            
+            self.logger.debug(f"📊 Post metadata: {metadata['likes_count']} likes, {metadata['comments_count']} comments")
+            return metadata
+            
+        except Exception as e:
+            self.logger.debug(f"Error extracting post metadata: {e}")
+            return None
+    
+    def _is_reel_post(self) -> bool:
+        """Vérifier si le post actuel est un Reel."""
+        try:
+            reel_indicators = [
+                '//*[@resource-id="com.instagram.android:id/clips_viewer_view_pager"]',
+                '//*[contains(@content-desc, "Reel")]',
+                '//*[@resource-id="com.instagram.android:id/clips_audio_attribution_button"]'
+            ]
+            
+            for selector in reel_indicators:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    return True
+            
+            return False
+        except Exception as e:
+            self.logger.debug(f"Error checking if reel: {e}")
+            return False
+    
+    def _comment_current_post(self, config: Dict[str, Any]) -> bool:
+        """Commenter le post actuellement visible dans le feed."""
+        try:
+            # Récupérer les commentaires personnalisés ou utiliser des commentaires par défaut
+            custom_comments = config.get('custom_comments', [])
+            if not custom_comments:
+                custom_comments = ['👏', '🔥', '💯', '❤️', '👍', '😍', '✨', '🙌']
+            
+            comment_text = random.choice(custom_comments)
+            
+            # Sélecteurs pour le bouton commentaire dans le feed
+            comment_button_selectors = [
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
+                '//*[contains(@content-desc, "Comment")]',
+                '//*[contains(@content-desc, "Commenter")]'
+            ]
+            
+            # Cliquer sur le bouton commentaire
+            for selector in comment_button_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    self._human_like_delay('click')
+                    break
+            else:
+                self.logger.debug("Comment button not found")
+                return False
+            
+            time.sleep(1)
+            
+            # Trouver le champ de saisie et écrire le commentaire
+            comment_input_selectors = [
+                '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
+                '//*[contains(@text, "Add a comment")]',
+                '//*[contains(@text, "Ajouter un commentaire")]',
+                '//android.widget.EditText'
+            ]
+            
+            for selector in comment_input_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    time.sleep(0.5)
+                    element.set_text(comment_text)
+                    self._human_like_delay('typing')
+                    break
+            else:
+                self.logger.debug("Comment input not found")
+                self.device.press('back')
+                return False
+            
+            # Cliquer sur le bouton envoyer
+            send_button_selectors = [
+                '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',
+                '//*[contains(@content-desc, "Post")]',
+                '//*[contains(@content-desc, "Publier")]',
+                '//*[contains(@text, "Post")]'
+            ]
+            
+            for selector in send_button_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    self._human_like_delay('click')
+                    time.sleep(1)
+                    # Retourner au feed
+                    self.device.press('back')
+                    return True
+            
+            self.logger.debug("Send button not found")
+            self.device.press('back')
+            return False
+            
+        except Exception as e:
+            self.logger.debug(f"Error commenting post: {e}")
+            try:
+                self.device.press('back')
+            except:
+                pass
+            return False
     
     def _scroll_to_next_post(self):
         """Scroller vers le post suivant dans le feed."""
