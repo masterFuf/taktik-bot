@@ -358,13 +358,17 @@ class DesktopBridge:
         
         # Configuration spécifique pour le workflow FEED
         if action_type == 'feed':
+            feed_filters = self.filters or {}
             return {
                 "type": "feed",
                 "max_interactions": max_profiles,
                 "like_percentage": like_percentage,
                 "follow_percentage": follow_percentage,
                 "comment_percentage": comment_percentage,
-                "story_watch_percentage": story_percentage
+                "story_watch_percentage": story_percentage,
+                "min_post_likes": feed_filters.get('minPostLikes', 0),
+                "max_post_likes": feed_filters.get('maxPostLikes', 0),
+                "custom_comments": self.comments_config.get('customComments', [])
             }
         
         # Configuration spécifique pour le workflow NOTIFICATIONS
