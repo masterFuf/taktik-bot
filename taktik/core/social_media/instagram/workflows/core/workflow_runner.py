@@ -402,7 +402,10 @@ class WorkflowRunner:
             'interact_with_post_likers': action.get('interact_with_post_likers', False),
             'skip_reels': action.get('skip_reels', True),
             'skip_ads': action.get('skip_ads', True),
-            'filter_criteria': action.get('filters', {})
+            'filter_criteria': action.get('filters', {}),
+            'min_post_likes': action.get('min_post_likes', 0),
+            'max_post_likes': action.get('max_post_likes', 0),
+            'custom_comments': action.get('custom_comments', [])
         }
         
         # Utiliser le FeedBusiness si disponible
@@ -410,7 +413,7 @@ class WorkflowRunner:
             result = self.automation.feed_business.interact_with_feed(config)
         else:
             # Créer une instance temporaire
-            from ..actions.business.workflows.feed import FeedBusiness
+            from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
             feed_business = FeedBusiness(
                 self.automation.device,
                 self.automation.session_manager,
