@@ -21,7 +21,9 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add the bot directory to path to find taktik module
+bot_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, bot_dir)
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
