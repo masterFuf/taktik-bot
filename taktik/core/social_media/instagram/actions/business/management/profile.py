@@ -116,7 +116,7 @@ class ProfileBusiness(BaseBusinessAction):
                 'following_count': profile_info.get('following_count', 0),
                 'posts_count': profile_info.get('posts_count', 0),
                 'is_private': profile_info.get('is_private', False),
-                'notes': f'Profile automatically updated - {profile_info.get("extraction_timestamp", "")}'
+                'notes': ''  # Don't auto-populate notes
             }
             
             # Use API to save/update profile
