@@ -520,12 +520,33 @@ class FollowerBusiness(BaseBusinessAction):
                         else:
                             if interaction_result.get('liked'):
                                 self.stats_manager.increment('likes', interaction_result.get('likes_count', 1))
+                                # Record LIKE in database
+                                likes_count = interaction_result.get('likes_count', 1)
+                                DatabaseHelpers.record_individual_actions(
+                                    username, 'LIKE', likes_count,
+                                    account_id=account_id, session_id=self._get_session_id()
+                                )
                             if interaction_result.get('followed'):
                                 self.stats_manager.increment('follows')
+                                # Record FOLLOW in database
+                                DatabaseHelpers.record_individual_actions(
+                                    username, 'FOLLOW', 1,
+                                    account_id=account_id, session_id=self._get_session_id()
+                                )
                             if interaction_result.get('story_viewed'):
                                 self.stats_manager.increment('stories_watched')
+                                # Record STORY_WATCH in database
+                                DatabaseHelpers.record_individual_actions(
+                                    username, 'STORY_WATCH', 1,
+                                    account_id=account_id, session_id=self._get_session_id()
+                                )
                             if interaction_result.get('commented'):
                                 self.stats_manager.increment('comments')
+                                # Record COMMENT in database
+                                DatabaseHelpers.record_individual_actions(
+                                    username, 'COMMENT', 1,
+                                    account_id=account_id, session_id=self._get_session_id()
+                                )
                         
                     except Exception as e:
                         self.logger.error(f"Error interacting with @{username}: {e}")

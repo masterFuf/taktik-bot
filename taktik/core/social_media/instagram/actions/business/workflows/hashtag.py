@@ -154,11 +154,27 @@ class HashtagBusiness(BaseBusinessAction):
                     
                     self.logger.success(f"Successful interaction with @{username}")
                     self.stats_manager.increment('profiles_visited')
-                    self.stats_manager.increment('likes', interaction_result.get('likes', 0))
-                    self.stats_manager.increment('follows', interaction_result.get('follows', 0))
-                    self.stats_manager.increment('stories_watched', interaction_result.get('stories', 0))
+                    
+                    # Record interactions in database
+                    likes_count = interaction_result.get('likes', 0)
+                    follows_count = interaction_result.get('follows', 0)
+                    stories_count = interaction_result.get('stories', 0)
+                    comments_count = interaction_result.get('comments', 0)
+                    
+                    if likes_count > 0:
+                        self.stats_manager.increment('likes', likes_count)
+                        DatabaseHelpers.record_individual_actions(username, 'LIKE', likes_count, account_id, session_id)
+                    if follows_count > 0:
+                        self.stats_manager.increment('follows', follows_count)
+                        DatabaseHelpers.record_individual_actions(username, 'FOLLOW', follows_count, account_id, session_id)
+                    if stories_count > 0:
+                        self.stats_manager.increment('stories_watched', stories_count)
+                        DatabaseHelpers.record_individual_actions(username, 'STORY_WATCH', stories_count, account_id, session_id)
+                    if comments_count > 0:
+                        DatabaseHelpers.record_individual_actions(username, 'COMMENT', comments_count, account_id, session_id)
                     if interaction_result.get('stories_liked', 0) > 0:
                         self.stats_manager.increment('stories_liked', interaction_result['stories_liked'])
+                        DatabaseHelpers.record_individual_actions(username, 'STORY_LIKE', interaction_result['stories_liked'], account_id, session_id)
                     self.stats_manager.display_stats(current_profile=username)
                 else:
                     self.logger.warning(f"Failed interaction with @{username}")
