@@ -65,6 +65,7 @@ class HashtagBusiness(BaseBusinessAction):
             filter_crit = effective_config.get('filter_criteria', {})
             self.logger.info(f"Filters: {filter_crit.get('min_followers', 0)}-{filter_crit.get('max_followers', 100000)} followers, "
                            f"min {filter_crit.get('min_posts', 0)} posts")
+            
             if not self.nav_actions.navigate_to_hashtag(hashtag):
                 self.logger.error("Failed to navigate to hashtag")
                 stats['errors'] += 1
@@ -108,13 +109,19 @@ class HashtagBusiness(BaseBusinessAction):
                 self.logger.warning("No likers found")
                 return stats
             
-            likers = all_likers[:effective_config['max_interactions']]
-            self.logger.info(f"{len(likers)} users to process")
+            # Use all available likers, stop when we reach max successful interactions
+            max_interactions_target = effective_config['max_interactions']
+            self.logger.info(f"{len(all_likers)} users available, targeting {max_interactions_target} successful interactions")
             
             effective_config['source'] = f"#{hashtag}"
             
-            for i, username in enumerate(likers, 1):
-                self.logger.info(f"[{i}/{len(likers)}] Processing @{username}")
+            for i, username in enumerate(all_likers, 1):
+                # Stop if we reached the target number of successful interactions
+                if stats['users_interacted'] >= max_interactions_target:
+                    self.logger.info(f"✅ Reached target of {max_interactions_target} successful interactions")
+                    break
+                
+                self.logger.info(f"[{i}/{len(all_likers)}] Processing @{username} (interactions: {stats['users_interacted']}/{max_interactions_target})")
                 
                 account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
                 if DatabaseHelpers.is_profile_already_processed(username, account_id):

@@ -349,7 +349,7 @@ class LikeBusiness(BaseBusinessAction):
             first_post.click()
             self.logger.debug("Clicking on first post...")
             
-            time.sleep(2)
+            time.sleep(3)  # Increased from 2s to 3s for slower devices
             
             if self._is_in_post_view():
                 self.logger.success("First post opened successfully")
@@ -364,10 +364,12 @@ class LikeBusiness(BaseBusinessAction):
     
     def _is_in_post_view(self) -> bool:
         try:
-            post_indicators = self.post_selectors.post_view_indicators
+            # Use both post_view_indicators and post_detail_indicators for better detection
+            post_indicators = self.post_selectors.post_view_indicators + self.post_selectors.post_detail_indicators
             
             for indicator in post_indicators:
                 if self.device.xpath(indicator).exists:
+                    self.logger.debug(f"Post view detected via: {indicator[:50]}...")
                     return True
             
             return False

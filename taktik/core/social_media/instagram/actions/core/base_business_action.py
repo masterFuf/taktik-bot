@@ -201,7 +201,7 @@ class BaseBusinessAction(BaseAction):
                 self.logger.error(f"❌ Cannot navigate to @{username}")
                 return None
             
-            profile_info = self.profile_business.get_complete_profile_info(username)
+            profile_info = self.profile_business.get_complete_profile_info(username, navigate_if_needed=False)
             if not profile_info:
                 self.logger.error(f"❌ Cannot get profile info for @{username}")
                 return None
@@ -270,7 +270,9 @@ class BaseBusinessAction(BaseAction):
                     should_comment=should_comment,
                     custom_comments=config.get('custom_comments', []),
                     comment_template_category=config.get('comment_template_category', 'generic'),
-                    max_comments=config.get('max_comments_per_profile', 1)
+                    max_comments=config.get('max_comments_per_profile', 1),
+                    navigate_to_profile=False,  # Already on profile from _interact_with_user
+                    profile_data=profile_info  # Pass existing profile data to avoid re-fetching
                 )
                 likes_count = likes_result.get('posts_liked', 0)
                 comments_count = likes_result.get('posts_commented', 0)
