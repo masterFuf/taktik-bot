@@ -3,12 +3,21 @@ import random
 import os
 import re
 import math
+import base64
+import subprocess
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple, Union
 from loguru import logger
 
 from .device_facade import DeviceFacade
 from .utils import ActionUtils
+
+
+# Taktik Keyboard constants (ADB Keyboard)
+TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
+TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
+IME_MESSAGE_B64 = 'ADB_INPUT_B64'
+IME_CLEAR_TEXT = 'ADB_CLEAR_TEXT'
 
 
 class HumanBehavior:
@@ -407,3 +416,124 @@ class BaseAction:
             time.sleep(delay)
         
         self.logger.debug(f"✅ Finished typing '{text}'")
+    
+    def _get_device_serial(self) -> str:
+        """Get the device serial for ADB commands."""
+        try:
+            device_serial = getattr(self.device.device, 'serial', None)
+            if not device_serial:
+                device_info = getattr(self.device.device, '_device_info', {})
+                device_serial = device_info.get('serial', 'emulator-5554')
+            
+            if not device_serial:
+                self.logger.warning("⚠️ Device ID not found, using emulator-5554")
+                device_serial = "emulator-5554"
+                
+        except Exception as e:
+            self.logger.warning(f"⚠️ Device ID error: {e}, using emulator-5554")
+            device_serial = "emulator-5554"
+        
+        return device_serial
+    
+    def _is_taktik_keyboard_active(self) -> bool:
+        """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
+        try:
+            device_serial = self._get_device_serial()
+            result = subprocess.run(
+                ['adb', '-s', device_serial, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
+                capture_output=True, text=True, timeout=5
+            )
+            return TAKTIK_KEYBOARD_IME in result.stdout
+        except Exception as e:
+            self.logger.debug(f"Cannot check keyboard status: {e}")
+            return False
+    
+    def _activate_taktik_keyboard(self) -> bool:
+        """Activate Taktik Keyboard as the default IME."""
+        try:
+            device_serial = self._get_device_serial()
+            
+            # Enable the IME
+            subprocess.run(
+                ['adb', '-s', device_serial, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
+                capture_output=True, text=True, timeout=5
+            )
+            
+            # Set as default
+            result = subprocess.run(
+                ['adb', '-s', device_serial, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
+                capture_output=True, text=True, timeout=5
+            )
+            
+            if 'selected' in result.stdout.lower():
+                self.logger.debug("✅ Taktik Keyboard activated")
+                return True
+            else:
+                self.logger.warning(f"⚠️ Failed to activate Taktik Keyboard: {result.stdout}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error activating Taktik Keyboard: {e}")
+            return False
+    
+    def _type_with_taktik_keyboard(self, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
+        """
+        Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
+        This is more reliable than uiautomator2's send_keys for special characters.
+        
+        Args:
+            text: Text to type
+            delay_mean: Mean delay between characters in ms (default 80)
+            delay_deviation: Delay deviation in ms (default 30)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not text:
+            return True
+        
+        try:
+            device_serial = self._get_device_serial()
+            
+            # Check if Taktik Keyboard is active, activate if not
+            if not self._is_taktik_keyboard_active():
+                self.logger.debug("Taktik Keyboard not active, activating...")
+                if not self._activate_taktik_keyboard():
+                    self.logger.warning("⚠️ Could not activate Taktik Keyboard, falling back to send_keys")
+                    self.device.send_keys(text)
+                    return True
+            
+            # Encode text as base64
+            text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
+            
+            # Send broadcast with text
+            cmd = [
+                'adb', '-s', device_serial, 'shell', 'am', 'broadcast',
+                '-a', IME_MESSAGE_B64,
+                '--es', 'msg', text_b64,
+                '--ei', 'delay_mean', str(delay_mean),
+                '--ei', 'delay_deviation', str(delay_deviation)
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                # Wait for typing to complete
+                typing_time = (delay_mean * len(text) + delay_deviation) / 1000
+                self.logger.debug(f"⌨️ Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
+                time.sleep(typing_time + 0.5)  # Add small buffer
+                return True
+            else:
+                self.logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result.stderr}")
+                # Fallback to send_keys
+                self.device.send_keys(text)
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error using Taktik Keyboard: {e}")
+            # Fallback to send_keys
+            try:
+                self.device.send_keys(text)
+                return True
+            except:
+                return False

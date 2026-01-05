@@ -91,7 +91,10 @@ class NavigationActions(BaseAction):
             self._human_like_delay('input')
             
             hashtag_query = f"#{hashtag}"
-            self.device.send_keys(hashtag_query)
+            # Use Taktik Keyboard for more reliable typing (especially for # character)
+            if not self._type_with_taktik_keyboard(hashtag_query):
+                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
+                self.device.send_keys(hashtag_query)
             self._human_like_delay('typing')
             time.sleep(2)
             hashtag_result_selectors = [

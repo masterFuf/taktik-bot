@@ -14,6 +14,8 @@ import os
 import time
 import random
 import re
+import base64
+import subprocess
 
 # Force UTF-8 encoding for stdout/stderr to support emojis on Windows
 if sys.platform == 'win32':
@@ -33,6 +35,69 @@ from loguru import logger
 # Configure loguru for UTF-8 output
 logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
+
+
+# Taktik Keyboard constants
+TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
+IME_MESSAGE_B64 = 'ADB_INPUT_B64'
+
+
+def type_with_taktik_keyboard(device_id: str, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
+    """
+    Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
+    This is more reliable than uiautomator2's send_keys for special characters and emojis.
+    """
+    if not text:
+        return True
+    
+    try:
+        # Check if Taktik Keyboard is active
+        result = subprocess.run(
+            ['adb', '-s', device_id, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
+            capture_output=True, text=True, timeout=5
+        )
+        
+        if TAKTIK_KEYBOARD_IME not in result.stdout:
+            # Activate Taktik Keyboard
+            subprocess.run(
+                ['adb', '-s', device_id, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
+                capture_output=True, text=True, timeout=5
+            )
+            result = subprocess.run(
+                ['adb', '-s', device_id, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
+                capture_output=True, text=True, timeout=5
+            )
+            if 'selected' not in result.stdout.lower():
+                logger.warning("Could not activate Taktik Keyboard")
+                return False
+        
+        # Encode text as base64
+        text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
+        
+        # Send broadcast with text
+        cmd = [
+            'adb', '-s', device_id, 'shell', 'am', 'broadcast',
+            '-a', IME_MESSAGE_B64,
+            '--es', 'msg', text_b64,
+            '--ei', 'delay_mean', str(delay_mean),
+            '--ei', 'delay_deviation', str(delay_deviation)
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        
+        if result.returncode == 0:
+            # Wait for typing to complete
+            typing_time = (delay_mean * len(text) + delay_deviation) / 1000
+            logger.debug(f"Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
+            time.sleep(typing_time + 0.5)
+            return True
+        else:
+            logger.warning(f"Taktik Keyboard broadcast failed: {result.stderr}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error using Taktik Keyboard: {e}")
+        return False
 
 
 class DMBridge:
@@ -316,18 +381,23 @@ class DMBridge:
         # Simulate typing delay (looks like we're typing)
         self._simulate_typing_delay(message)
         
-        # Use set_text for reliable input (supports emojis, special chars, etc.)
-        try:
-            msg_input.set_text(message)
-            logger.info("Text set via set_text")
-        except Exception as e:
-            logger.warning(f"set_text failed: {e}, trying send_keys...")
+        # Use Taktik Keyboard for reliable input (supports emojis, special chars, etc.)
+        if type_with_taktik_keyboard(self.device_id, message):
+            logger.info("Text set via Taktik Keyboard")
+        else:
+            # Fallback to set_text or send_keys
+            logger.warning("Taktik Keyboard failed, trying fallback methods...")
             try:
-                msg_input.send_keys(message)
-                logger.info("Text set via send_keys")
-            except Exception as e2:
-                logger.error(f"send_keys also failed: {e2}")
-                return False
+                msg_input.set_text(message)
+                logger.info("Text set via set_text")
+            except Exception as e:
+                logger.warning(f"set_text failed: {e}, trying send_keys...")
+                try:
+                    msg_input.send_keys(message)
+                    logger.info("Text set via send_keys")
+                except Exception as e2:
+                    logger.error(f"send_keys also failed: {e2}")
+                    return False
         
         time.sleep(random.uniform(0.3, 0.5))  # Brief pause before sending
         

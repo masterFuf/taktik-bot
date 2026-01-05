@@ -232,7 +232,10 @@ class ContentBusiness(BaseBusinessAction):
                 return False
             
             self._human_like_delay('click')
-            self.device.send_keys(search_term)
+            # Use Taktik Keyboard for reliable text input
+            if not self._type_with_taktik_keyboard(search_term):
+                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
+                self.device.send_keys(search_term)
             self._human_like_delay('typing')
             
             hashtag_result_selectors = [

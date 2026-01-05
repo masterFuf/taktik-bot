@@ -167,7 +167,10 @@ class CommentBusiness(BaseBusinessAction):
             comment_field.click()
             time.sleep(0.5)
             
-            comment_field.set_text(comment_text)
+            # Use Taktik Keyboard for reliable text input
+            if not self._type_with_taktik_keyboard(comment_text):
+                self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                comment_field.set_text(comment_text)
             self.logger.debug(f"Comment text typed: '{comment_text}'")
             
             return True

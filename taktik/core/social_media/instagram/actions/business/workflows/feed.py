@@ -430,7 +430,10 @@ class FeedBusiness(BaseBusinessAction):
                 if element.exists:
                     element.click()
                     time.sleep(0.5)
-                    element.set_text(comment_text)
+                    # Use Taktik Keyboard for reliable text input
+                    if not self._type_with_taktik_keyboard(comment_text):
+                        self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                        element.set_text(comment_text)
                     self._human_like_delay('typing')
                     break
             else:

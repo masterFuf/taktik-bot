@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any
 from loguru import logger
 
 from ...ui.selectors import CONTENT_CREATION_SELECTORS
+from ...utils.taktik_keyboard import type_with_taktik_keyboard
 
 
 class ContentWorkflow:
@@ -439,7 +440,11 @@ class ContentWorkflow:
             if caption_field.exists(timeout=5):
                 caption_field.click()
                 time.sleep(0.5)
-                caption_field.set_text(full_text)
+                # Use Taktik Keyboard for reliable text input
+                device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+                if not type_with_taktik_keyboard(device_id, full_text):
+                    self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                    caption_field.set_text(full_text)
                 time.sleep(0.5)
                 self.logger.debug("✅ Caption and hashtags added")
                 return True
@@ -465,7 +470,11 @@ class ContentWorkflow:
                 # Rechercher la localisation
                 search_field = self.device(className="android.widget.EditText")
                 if search_field.exists(timeout=3):
-                    search_field.set_text(location)
+                    # Use Taktik Keyboard for reliable text input
+                    device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+                    if not type_with_taktik_keyboard(device_id, location):
+                        self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                        search_field.set_text(location)
                     time.sleep(2)
                     
                     # Sélectionner le premier résultat

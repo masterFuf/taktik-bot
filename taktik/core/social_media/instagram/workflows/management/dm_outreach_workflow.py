@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from loguru import logger
 
 from ...ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
+from ...utils.taktik_keyboard import type_with_taktik_keyboard
 
 
 @dataclass
@@ -273,7 +274,11 @@ class DMOutreachWorkflow:
             if search_field.exists(timeout=5):
                 search_field.click()
                 time.sleep(1)
-                search_field.set_text(username)
+                # Use Taktik Keyboard for reliable text input
+                device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+                if not type_with_taktik_keyboard(device_id, username):
+                    self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                    search_field.set_text(username)
                 time.sleep(2)
             else:
                 self.logger.error("Search field not found")
@@ -407,7 +412,11 @@ class DMOutreachWorkflow:
             # Saisir le message
             message_input.click()
             time.sleep(0.5)
-            message_input.set_text(message)
+            # Use Taktik Keyboard for reliable text input
+            device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+            if not type_with_taktik_keyboard(device_id, message):
+                self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                message_input.set_text(message)
             time.sleep(1)
             
             # Envoyer le message avec les nouveaux sélecteurs

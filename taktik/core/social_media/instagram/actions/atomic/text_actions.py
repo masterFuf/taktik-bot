@@ -25,10 +25,13 @@ class TextActions(BaseAction):
             if clear_first:
                 self.clear_text_field()
             
-            if human_typing:
-                self._type_with_human_delays(text)
-            else:
-                self.device.send_keys(text)
+            # Use Taktik Keyboard for reliable text input
+            if not self._type_with_taktik_keyboard(text):
+                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
+                if human_typing:
+                    self._type_with_human_delays(text)
+                else:
+                    self.device.send_keys(text)
             
             return True
             
@@ -37,6 +40,7 @@ class TextActions(BaseAction):
             return False
     
     def _type_with_human_delays(self, text: str) -> None:
+        """Fallback method using send_keys character by character."""
         for i, char in enumerate(text):
             self.device.send_keys(char)
             
