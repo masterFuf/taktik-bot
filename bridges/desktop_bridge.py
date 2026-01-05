@@ -35,14 +35,34 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+# Keep a reference to the original stdout buffer before any wrapping
+_original_stdout_fd = None
+try:
+    _original_stdout_fd = os.dup(1)  # Duplicate file descriptor 1 (stdout)
+except Exception:
+    pass
+
 # Structured message output for desktop app
 def send_message(msg_type: str, **kwargs):
     """Send a structured JSON message to the desktop app."""
+    global _original_stdout_fd
     try:
         message = {"type": msg_type, **kwargs}
-        print(json.dumps(message), flush=True)
-    except (OSError, ValueError):
-        pass  # Ignore I/O errors when stdout is closed
+        msg_bytes = (json.dumps(message) + '\n').encode('utf-8')
+        # Write directly to the original stdout file descriptor
+        if _original_stdout_fd is not None:
+            try:
+                os.write(_original_stdout_fd, msg_bytes)
+            except (OSError, ValueError):
+                pass
+        else:
+            # Fallback to os.write on fd 1
+            try:
+                os.write(1, msg_bytes)
+            except (OSError, ValueError):
+                pass
+    except Exception:
+        pass  # Ignore all errors
 
 def send_status(status: str, message: str = ""):
     """Send status update to desktop app."""
@@ -67,6 +87,20 @@ def send_log(level: str, message: str):
 def send_unfollow_event(username: str, success: bool = True):
     """Send unfollow event to desktop app for real-time activity."""
     send_message("unfollow_event", username=username, success=success)
+
+def send_post_skipped(author: str, reason: str = "already_processed", hashtag: str = None):
+    """Send post skipped event to desktop app for real-time activity."""
+    send_message("post_skipped", author=author, reason=reason, hashtag=hashtag)
+
+def send_current_post(author: str, likes_count: int = None, comments_count: int = None, caption: str = None, hashtag: str = None):
+    """Send current post metadata to desktop app for live panel display."""
+    # Use send_message which already has error handling
+    send_message("current_post", 
+                 author=author, 
+                 likes_count=likes_count, 
+                 comments_count=comments_count,
+                 caption=caption[:100] if caption else None,
+                 hashtag=hashtag)
 
 
 class DebugBridge:
