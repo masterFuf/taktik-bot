@@ -91,14 +91,14 @@ class CommentBusiness(BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
-            self._human_like_delay(1, 2)
+            time.sleep(random.uniform(1, 2))
             
             if not self._type_comment(comment_text):
                 self.logger.error("Failed to type comment")
                 stats['errors'] += 1
                 return stats
             
-            self._human_like_delay(0.5, 1.5)
+            time.sleep(random.uniform(0.5, 1.5))
             
             if not self._post_comment():
                 self.logger.error("Failed to post comment")
