@@ -9,6 +9,7 @@ from loguru import logger
 from ...core.base_business_action import BaseBusinessAction
 from ..common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
+from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
 
 class HashtagBusiness(BaseBusinessAction):
@@ -80,13 +81,107 @@ class HashtagBusiness(BaseBusinessAction):
             
             time.sleep(3)
             
-            valid_post = self._find_first_valid_post(hashtag, effective_config)
+            # Récupérer account_id pour la vérification des posts déjà traités
+            account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
+            
+            # Boucle pour trouver un post non encore traité
+            max_posts_to_try = effective_config.get('max_posts_to_analyze', 20)
+            posts_tried = 0
+            valid_post = None
+            post_metadata = None
+            need_to_open_post = True  # Flag pour savoir si on doit ouvrir un post depuis la grille
+            
+            while posts_tried < max_posts_to_try:
+                # Ouvrir un post depuis la grille seulement si nécessaire
+                if need_to_open_post:
+                    valid_post = self._find_first_valid_post(hashtag, effective_config, skip_count=0)
+                    
+                    if not valid_post:
+                        self.logger.warning("No valid post found matching criteria")
+                        return stats
+                else:
+                    # On est déjà sur un post (après swipe), extraire ses métadonnées
+                    self.logger.debug("📜 Already on a post after swipe, extracting metadata...")
+                    is_reel = self._is_reel_post()
+                    likes_count = self.ui_extractors.extract_likes_count_from_ui()
+                    comments_count = self.ui_extractors.extract_comments_count_from_ui()
+                    valid_post = {
+                        'likes_count': likes_count,
+                        'comments_count': comments_count,
+                        'is_reel': is_reel
+                    }
+                    # Vérifier si le post correspond aux critères
+                    min_likes = effective_config.get('post_criteria', {}).get('min_likes', 100)
+                    max_likes = effective_config.get('post_criteria', {}).get('max_likes', 50000)
+                    if not (min_likes <= likes_count <= max_likes):
+                        self.logger.info(f"⏭️ Post has {likes_count} likes (criteria: {min_likes}-{max_likes}), swiping to next...")
+                        self._swipe_to_next_post()
+                        time.sleep(1.5)
+                        posts_tried += 1
+                        continue
+                
+                posts_tried += 1
+                stats['posts_analyzed'] = posts_tried
+                
+                self.logger.info(f"Post selected: {valid_post['likes_count']} likes, {valid_post['comments_count']} comments")
+                
+                # Extraire les métadonnées du post pour vérifier s'il a déjà été traité
+                is_reel = valid_post.get('is_reel', False)
+                post_metadata = self._extract_current_post_metadata(is_reel)
+                
+                if post_metadata and post_metadata.get('author'):
+                    # Envoyer les métadonnées du post au front pour affichage
+                    try:
+                        from bridges.desktop_bridge import send_current_post
+                        send_current_post(
+                            author=post_metadata['author'],
+                            likes_count=post_metadata.get('likes_count'),
+                            comments_count=post_metadata.get('comments_count'),
+                            caption=post_metadata.get('caption'),
+                            hashtag=hashtag
+                        )
+                        self.logger.debug(f"📤 Sent current_post to frontend: @{post_metadata['author']}")
+                    except Exception as e:
+                        self.logger.debug(f"Failed to send current_post: {e}")
+                    
+                    # Vérifier si ce post a déjà été traité
+                    if DatabaseHelpers.is_hashtag_post_processed(
+                        hashtag=hashtag,
+                        post_author=post_metadata['author'],
+                        post_caption_hash=post_metadata.get('caption_hash'),
+                        account_id=account_id,
+                        hours_limit=168  # 7 jours
+                    ):
+                        self.logger.info(f"⏭️ Post by @{post_metadata['author']} already processed, swiping to next post...")
+                        # Notifier le frontend qu'on skip ce post
+                        try:
+                            from bridges.desktop_bridge import send_post_skipped
+                            send_post_skipped(
+                                author=post_metadata['author'],
+                                reason="already_processed",
+                                hashtag=hashtag
+                            )
+                        except Exception as e:
+                            self.logger.debug(f"Failed to send post_skipped: {e}")
+                        # Swiper verticalement pour passer au post suivant
+                        self._swipe_to_next_post()
+                        time.sleep(1.5)
+                        self._human_like_delay('navigation')
+                        need_to_open_post = False  # On est déjà sur un post après le swipe
+                        continue
+                    else:
+                        self.logger.info(f"✅ New post by @{post_metadata['author']} - proceeding with interactions")
+                        stats['posts_selected'] += 1
+                        break
+                else:
+                    # Si on ne peut pas extraire les métadonnées, on continue quand même
+                    self.logger.warning("⚠️ Could not extract post metadata, proceeding anyway")
+                    stats['posts_selected'] += 1
+                    break
             
             if not valid_post:
-                self.logger.warning("No valid post found matching criteria")
+                self.logger.warning("No unprocessed post found after trying multiple posts")
                 return stats
-            
-            self.logger.info(f"Post selected: {valid_post['likes_count']} likes, {valid_post['comments_count']} comments")
             
             validation_result = self._validate_hashtag_limits(valid_post, effective_config)
             if not validation_result['valid']:
@@ -98,7 +193,6 @@ class HashtagBusiness(BaseBusinessAction):
                     self.logger.info(f"✅ Adjusted max interactions to {validation_result['adjusted_max']}")
             
             # Ouvrir la liste des likers et interagir directement (comme Target Followers)
-            is_reel = valid_post.get('is_reel', False)
             max_interactions_target = effective_config['max_interactions']
             effective_config['source'] = f"#{hashtag}"
             
@@ -305,6 +399,21 @@ class HashtagBusiness(BaseBusinessAction):
             stats['success'] = stats['users_interacted'] > 0
             self.logger.info(f"Workflow completed: {stats['users_interacted']} interactions out of {stats['users_found']} users")
             
+            # Enregistrer le post comme traité pour éviter de le retraiter
+            if post_metadata and post_metadata.get('author') and account_id:
+                DatabaseHelpers.record_hashtag_post_processed(
+                    hashtag=hashtag,
+                    post_author=post_metadata['author'],
+                    post_caption_hash=post_metadata.get('caption_hash'),
+                    post_caption_preview=post_metadata.get('caption', '')[:100] if post_metadata.get('caption') else None,
+                    likes_count=post_metadata.get('likes_count'),
+                    comments_count=post_metadata.get('comments_count'),
+                    likers_processed=stats['users_found'],
+                    interactions_made=stats['users_interacted'],
+                    account_id=account_id
+                )
+                self.logger.info(f"📋 Post by @{post_metadata['author']} recorded as processed")
+            
             self.stats_manager.display_final_stats(workflow_name="HASHTAG")
             
         except Exception as e:
@@ -314,13 +423,21 @@ class HashtagBusiness(BaseBusinessAction):
         
         return stats
     
-    def _find_first_valid_post(self, hashtag: str, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _find_first_valid_post(self, hashtag: str, config: Dict[str, Any], skip_count: int = 0) -> Optional[Dict[str, Any]]:
+        """
+        Trouve le premier post valide selon les critères de likes.
+        
+        Args:
+            hashtag: Le hashtag à analyser
+            config: Configuration avec min_likes, max_likes
+            skip_count: Nombre de posts valides à sauter (pour trouver le N-ième post valide)
+        """
         min_likes = config.get('min_likes', 100)
         max_likes = config.get('max_likes', 50000)
-        max_attempts = 20
+        max_attempts = 20 + skip_count  # Augmenter les tentatives si on doit sauter des posts
         
         try:
-            self.logger.info(f"Searching for first valid post from #{hashtag} (criteria: {min_likes}-{max_likes} likes)")
+            self.logger.info(f"Searching for valid post from #{hashtag} (criteria: {min_likes}-{max_likes} likes, skip_count={skip_count})")
             
             post_open_result = self._open_first_post_in_grid()
             if not post_open_result:
@@ -330,6 +447,7 @@ class HashtagBusiness(BaseBusinessAction):
             is_reel = post_open_result.get('is_reel', False) if isinstance(post_open_result, dict) else False
             
             posts_tested = 0
+            valid_posts_found = 0  # Compteur de posts valides trouvés
             
             while posts_tested < max_attempts:
                 # Vérifier si la session doit continuer (durée, limites, etc.)
@@ -346,6 +464,23 @@ class HashtagBusiness(BaseBusinessAction):
                     comments_count = metadata.get('comments_count', 0)
                     
                     if min_likes <= likes_count <= max_likes:
+                        valid_posts_found += 1
+                        
+                        # Si on doit encore sauter des posts valides
+                        if valid_posts_found <= skip_count:
+                            self.logger.info(f"Valid post #{valid_posts_found} (skipping, need to skip {skip_count}): {likes_count} likes")
+                            # Swiper pour passer au suivant
+                            posts_tested += 1
+                            if posts_tested < max_attempts:
+                                width, height = self.device.get_screen_size()
+                                center_x = width // 2
+                                start_y = int(height * 0.83)
+                                end_y = int(height * 0.21)
+                                self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.6)
+                                time.sleep(3)
+                                is_reel = self._is_reel_post()
+                            continue
+                        
                         self.logger.info(f"Valid post found (#{posts_tested + 1}): {likes_count} likes, {comments_count} comments")
                         return {
                             'index': posts_tested,
@@ -383,6 +518,45 @@ class HashtagBusiness(BaseBusinessAction):
         except Exception as e:
             self.logger.error(f"Error searching for valid post: {e}")
             return None
+    
+    def _swipe_to_next_post(self):
+        """Swipe vertical pour passer au post suivant."""
+        try:
+            width, height = self.device.get_screen_size()
+            center_x = width // 2
+            start_y = int(height * 0.75)
+            end_y = int(height * 0.25)
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.4)
+            self.logger.debug("📜 Swiped to next post")
+        except Exception as e:
+            self.logger.debug(f"Error swiping to next post: {e}")
+    
+    def _is_on_hashtag_grid(self) -> bool:
+        """Vérifie si on est sur la grille de posts d'un hashtag."""
+        try:
+            # Vérifier si on voit des posts dans la grille
+            for selector in self.post_selectors.hashtag_post_selectors:
+                posts = self.device.xpath(selector).all()
+                if posts and len(posts) >= 3:  # Au moins 3 posts visibles = grille
+                    self.logger.debug(f"✅ Hashtag grid detected ({len(posts)} posts visible)")
+                    return True
+            
+            # Vérifier si on voit le header du hashtag
+            hashtag_header_selectors = [
+                '//*[contains(@text, "posts")]',
+                '//*[contains(@text, "publications")]',
+                '//*[@resource-id="com.instagram.android:id/action_bar_title"]'
+            ]
+            for selector in hashtag_header_selectors:
+                if self.device.xpath(selector).exists:
+                    self.logger.debug("✅ Hashtag page header detected")
+                    return True
+            
+            self.logger.debug("❌ Not on hashtag grid")
+            return False
+        except Exception as e:
+            self.logger.debug(f"Error checking hashtag grid: {e}")
+            return False
     
     def _open_first_post_in_grid(self):
         max_attempts = 5
@@ -668,32 +842,56 @@ class HashtagBusiness(BaseBusinessAction):
     def _open_likers_popup(self, is_reel: bool = False) -> bool:
         """Ouvre la popup des likers du post actuel."""
         try:
-            if is_reel:
-                # Pour les reels, cliquer sur le compteur de likes
-                like_count_element = self._find_like_count_element()
-                if like_count_element:
-                    like_count_element.click()
-                    self._human_like_delay('click')
-                    time.sleep(1.5)
-                    if self._is_likers_popup_open():
-                        self.logger.info("✅ Likers popup opened (reel)")
-                        return True
-            else:
-                # Pour les posts normaux, cliquer sur "likes" ou "autres personnes"
-                like_count_element = self._find_like_count_element()
-                if like_count_element:
-                    like_count_element.click()
-                    self._human_like_delay('click')
-                    time.sleep(1.5)
-                    if self._is_likers_popup_open():
-                        self.logger.info("✅ Likers popup opened")
-                        return True
+            like_count_element = self._find_like_count_element()
+            
+            if not like_count_element:
+                self.logger.warning("⚠️ No like counter found - post may not have visible like count")
+                return False
+            
+            like_count_element.click()
+            self._human_like_delay('click')
+            time.sleep(1.5)
+            
+            # Check if we accidentally opened comments instead of likers
+            if self._is_comments_view_open():
+                self.logger.warning("⚠️ Opened comments view instead of likers popup - closing and aborting")
+                self._close_comments_view()
+                return False
+            
+            if self._is_likers_popup_open():
+                post_type = "reel" if is_reel else "post"
+                self.logger.info(f"✅ Likers popup opened ({post_type})")
+                return True
             
             self.logger.error("❌ Could not open likers popup")
             return False
             
         except Exception as e:
             self.logger.error(f"Error opening likers popup: {e}")
+            return False
+    
+    def _close_comments_view(self) -> bool:
+        """Ferme la vue des commentaires si elle est ouverte."""
+        try:
+            # Try clicking back button
+            for selector in self._back_button_selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        element.click()
+                        time.sleep(0.5)
+                        if not self._is_comments_view_open():
+                            self.logger.debug("✅ Comments view closed")
+                            return True
+                except:
+                    continue
+            
+            # Fallback: press device back
+            self.device.press('back')
+            time.sleep(0.5)
+            return not self._is_comments_view_open()
+        except Exception as e:
+            self.logger.debug(f"Error closing comments view: {e}")
             return False
     
     def _go_back_to_likers_list(self) -> bool:
@@ -943,3 +1141,196 @@ class HashtagBusiness(BaseBusinessAction):
             result['adjusted_max'] = available_likes
         
         return result
+    
+    # ============================================
+    # POST METADATA EXTRACTION
+    # ============================================
+    
+    def _extract_current_post_metadata(self, is_reel: bool = False) -> Optional[Dict[str, Any]]:
+        """
+        Extrait les métadonnées du post actuellement affiché.
+        Utilisé pour identifier de manière unique un post et éviter de le retraiter.
+        
+        Args:
+            is_reel: True si on est sur un Reel, False pour un post classique
+            
+        Returns:
+            Dict avec author, caption, caption_hash, likes_count, comments_count
+            ou None si extraction échouée
+        """
+        try:
+            metadata = {
+                'author': None,
+                'caption': None,
+                'caption_hash': None,
+                'likes_count': None,
+                'comments_count': None,
+                'post_date': None
+            }
+            
+            # Détecter si c'est un Reel (plus fiable que le paramètre)
+            is_reel_detected = self._is_reel_post()
+            self.logger.debug(f"Post type detection: is_reel_param={is_reel}, is_reel_detected={is_reel_detected}")
+            is_reel = is_reel or is_reel_detected  # Utiliser True si l'un des deux est True
+            
+            # Extraire l'auteur
+            if is_reel:
+                author_selectors = self.post_selectors.reel_author_username_selectors
+            else:
+                author_selectors = self.post_selectors.post_author_username_selectors
+            
+            for selector in author_selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        # Essayer plusieurs méthodes pour récupérer le texte
+                        text = element.get_text()
+                        if not text:
+                            # Fallback: essayer content-desc
+                            info = element.info
+                            text = info.get('contentDescription', '') or info.get('text', '')
+                        if text:
+                            # Nettoyer le username
+                            metadata['author'] = text.strip().lstrip('@').lower()
+                            self.logger.debug(f"📝 Post author: @{metadata['author']}")
+                            break
+                except Exception as e:
+                    self.logger.debug(f"Author selector {selector} failed: {e}")
+                    continue
+            
+            # Fallback: extraire depuis "Reel by username" dans content-desc
+            if not metadata['author'] and is_reel:
+                self.logger.debug("Trying fallback: extracting author from 'Reel by' content-desc")
+                try:
+                    # Chercher l'élément clips_media_component qui contient "Reel by username"
+                    reel_element = self.device.xpath('//*[@resource-id="com.instagram.android:id/clips_media_component"]')
+                    if reel_element.exists:
+                        info = reel_element.info
+                        # Essayer plusieurs clés possibles pour content-desc
+                        content_desc = info.get('contentDescription') or info.get('content-desc') or info.get('contentDesc') or ''
+                        self.logger.debug(f"clips_media_component info keys: {list(info.keys())}")
+                        self.logger.debug(f"clips_media_component content-desc: '{content_desc[:100] if content_desc else 'empty'}'")
+                        
+                        # Format: "Reel by username. Double-tap to play or pause."
+                        if 'Reel by ' in content_desc:
+                            username = content_desc.split('Reel by ')[1].split('.')[0].strip()
+                            if username:
+                                metadata['author'] = username.lower()
+                                self.logger.debug(f"📝 Post author (from Reel by): @{metadata['author']}")
+                    else:
+                        self.logger.debug("clips_media_component not found")
+                except Exception as e:
+                    self.logger.debug(f"Fallback Reel by extraction failed: {e}")
+            
+            # Extraire la caption (et la date pour les Reels)
+            if is_reel:
+                caption_selectors = self.post_selectors.reel_caption_selectors
+                # Essayer d'abord de récupérer la caption
+                for selector in caption_selectors:
+                    try:
+                        element = self.device.xpath(selector)
+                        if element.exists:
+                            caption = element.info.get('contentDescription', '') or element.get_text() or ''
+                            if caption:
+                                # Vérifier si la caption est rétractée (contient "…" ou "...")
+                                if '…' in caption or '...' in caption:
+                                    self.logger.debug(f"📝 Caption rétractée détectée: {caption[:30]}... - clic pour ouvrir")
+                                    try:
+                                        element.click()
+                                        time.sleep(0.8)  # Attendre l'animation
+                                        # Réessayer de récupérer la caption complète
+                                        element = self.device.xpath(selector)
+                                        if element.exists:
+                                            caption = element.info.get('contentDescription', '') or element.get_text() or ''
+                                    except Exception:
+                                        pass
+                                
+                                metadata['caption'] = caption.strip()
+                                metadata['caption_hash'] = DatabaseHelpers.generate_caption_hash(caption)
+                                self.logger.debug(f"📝 Post caption: {caption[:80]}...")
+                                break
+                    except Exception:
+                        continue
+                
+                # Extraire la date du post (visible après ouverture de la caption)
+                try:
+                    date_selectors = getattr(self.post_selectors, 'reel_date_selectors', [])
+                    for selector in date_selectors:
+                        elements = self.device.xpath(selector)
+                        if elements.exists:
+                            for elem in elements.all() if hasattr(elements, 'all') else [elements]:
+                                date_text = elem.info.get('contentDescription', '') or elem.info.get('text', '') or elem.get_text() or ''
+                                # Vérifier que c'est une date (contient un mois)
+                                months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                         'July', 'August', 'September', 'October', 'November', 'December']
+                                if date_text and any(m in date_text for m in months):
+                                    metadata['post_date'] = date_text.strip()
+                                    self.logger.debug(f"📅 Post date: {metadata['post_date']}")
+                                    break
+                            if metadata.get('post_date'):
+                                break
+                except Exception as e:
+                    self.logger.debug(f"Date extraction failed: {e}")
+            else:
+                caption_selectors = self.post_selectors.post_caption_selectors
+                for selector in caption_selectors:
+                    try:
+                        element = self.device.xpath(selector)
+                        if element.exists:
+                            caption = element.info.get('contentDescription', '') or element.get_text() or ''
+                            if caption:
+                                metadata['caption'] = caption.strip()
+                                metadata['caption_hash'] = DatabaseHelpers.generate_caption_hash(caption)
+                                self.logger.debug(f"📝 Post caption preview: {caption[:50]}...")
+                                break
+                    except Exception:
+                        continue
+            
+            # Extraire le nombre de likes
+            for selector in self.post_selectors.post_likes_count_selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        # Pour les reels, le format est "The like number is X. View likes."
+                        content_desc = element.info.get('contentDescription', '')
+                        text = element.get_text() or content_desc
+                        
+                        if text:
+                            likes = parse_number_from_text(text)
+                            if likes:
+                                metadata['likes_count'] = likes
+                                self.logger.debug(f"📝 Post likes: {likes}")
+                                break
+                except Exception:
+                    continue
+            
+            # Extraire le nombre de commentaires
+            for selector in self.post_selectors.post_comments_count_selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        content_desc = element.info.get('contentDescription', '')
+                        text = element.get_text() or content_desc
+                        
+                        if text:
+                            comments = parse_number_from_text(text)
+                            if comments:
+                                metadata['comments_count'] = comments
+                                self.logger.debug(f"📝 Post comments: {comments}")
+                                break
+                except Exception:
+                    continue
+            
+            # Vérifier qu'on a au moins l'auteur
+            if metadata['author']:
+                date_info = f" | date: {metadata['post_date']}" if metadata.get('post_date') else ""
+                self.logger.info(f"📋 Post metadata: @{metadata['author']} | {metadata.get('likes_count', '?')} likes | caption_hash: {metadata.get('caption_hash', 'N/A')}{date_info}")
+                return metadata
+            else:
+                self.logger.warning("⚠️ Could not extract post author")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error extracting post metadata: {e}")
+            return None
+    
