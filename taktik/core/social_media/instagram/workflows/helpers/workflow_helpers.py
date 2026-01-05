@@ -102,12 +102,14 @@ class WorkflowHelpers:
         self.logger.info(stats_output)
     
     def initialize_session(self) -> Optional[int]:
+        # Always restart Instagram to ensure clean state
+        # This is necessary because if Instagram is on a random page (like a profile),
+        # the workflow cannot navigate properly to start
         self.logger.info("🔄 Restarting Instagram to ensure clean initial state...")
-        if self.automation.device_manager.launch_app("com.instagram.android"):
+        if self.automation.device_manager.launch_app("com.instagram.android", stop_first=True):
             self.logger.info("✅ Instagram restarted successfully")
             
-            # Attendre que l'app soit complètement chargée (5-10s)
-            # Important pour les PC qui rament ou les connexions lentes
+            # Wait for app to fully load (5-10s)
             wait_time = random.randint(5, 10)
             self.logger.info(f"⏳ Waiting {wait_time}s for Instagram to fully load...")
             time.sleep(wait_time)

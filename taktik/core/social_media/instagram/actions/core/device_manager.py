@@ -62,16 +62,16 @@ class DeviceManager:
             logger.error(f"Error checking if {package_name} is installed: {e}")
             return False
     
-    def launch_app(self, package_name: str, activity: Optional[str] = None) -> bool:
+    def launch_app(self, package_name: str, activity: Optional[str] = None, stop_first: bool = False) -> bool:
         if not self.device:
             if not self.connect():
                 return False
                 
         try:
             if activity:
-                self.device.app_start(package_name, activity, stop=True)
+                self.device.app_start(package_name, activity, stop=stop_first)
             else:
-                self.device.app_start(package_name, stop=True)
+                self.device.app_start(package_name, stop=stop_first)
             
             logger.info(f"Application {package_name} launched successfully")
             return True
