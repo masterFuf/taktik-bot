@@ -234,6 +234,25 @@ class LocalDatabaseService:
             )
         """)
         
+        # Processed Hashtag Posts (to avoid re-processing same posts)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS processed_hashtag_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER NOT NULL,
+                hashtag TEXT NOT NULL,
+                post_author TEXT NOT NULL,
+                post_caption_hash TEXT,
+                post_caption_preview TEXT,
+                likes_count INTEGER,
+                comments_count INTEGER,
+                likers_processed INTEGER DEFAULT 0,
+                interactions_made INTEGER DEFAULT 0,
+                processed_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
+                UNIQUE(account_id, hashtag, post_author, post_caption_hash)
+            )
+        """)
+        
         # Daily Stats (for API sync)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS daily_stats (
@@ -273,6 +292,7 @@ class LocalDatabaseService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_stats_account_date ON daily_stats(account_id, date)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_status ON scraping_sessions(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_source ON scraping_sessions(source_type, source_name)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_processed_hashtag_posts_lookup ON processed_hashtag_posts(account_id, hashtag, post_author)")
         
         conn.commit()
     
@@ -1104,6 +1124,149 @@ class LocalDatabaseService:
         
         row = cursor.fetchone()
         return dict(row) if row else {}
+    
+    # ============================================
+    # PROCESSED HASHTAG POSTS
+    # ============================================
+    
+    def is_hashtag_post_processed(
+        self, 
+        account_id: int, 
+        hashtag: str, 
+        post_author: str, 
+        post_caption_hash: Optional[str] = None,
+        hours_limit: int = 168  # 7 days default
+    ) -> bool:
+        """
+        Check if a hashtag post has already been processed.
+        
+        Args:
+            account_id: Bot account ID
+            hashtag: Hashtag name (without #)
+            post_author: Username of the post author
+            post_caption_hash: Hash of the caption (first 100 chars)
+            hours_limit: Only consider posts processed within this time window
+            
+        Returns:
+            True if post was already processed
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Build query based on available data
+            if post_caption_hash:
+                cursor.execute("""
+                    SELECT id FROM processed_hashtag_posts
+                    WHERE account_id = ? 
+                    AND hashtag = ? 
+                    AND post_author = ?
+                    AND post_caption_hash = ?
+                    AND processed_at >= datetime('now', '-' || ? || ' hours')
+                """, (account_id, hashtag.lower().strip('#'), post_author, post_caption_hash, hours_limit))
+            else:
+                # Without caption hash, just check author + hashtag
+                cursor.execute("""
+                    SELECT id FROM processed_hashtag_posts
+                    WHERE account_id = ? 
+                    AND hashtag = ? 
+                    AND post_author = ?
+                    AND processed_at >= datetime('now', '-' || ? || ' hours')
+                """, (account_id, hashtag.lower().strip('#'), post_author, hours_limit))
+            
+            return cursor.fetchone() is not None
+            
+        except Exception as e:
+            logger.error(f"Error checking processed hashtag post: {e}")
+            return False
+    
+    def record_processed_hashtag_post(
+        self,
+        account_id: int,
+        hashtag: str,
+        post_author: str,
+        post_caption_hash: Optional[str] = None,
+        post_caption_preview: Optional[str] = None,
+        likes_count: Optional[int] = None,
+        comments_count: Optional[int] = None,
+        likers_processed: int = 0,
+        interactions_made: int = 0
+    ) -> bool:
+        """
+        Record a hashtag post as processed.
+        
+        Args:
+            account_id: Bot account ID
+            hashtag: Hashtag name (without #)
+            post_author: Username of the post author
+            post_caption_hash: Hash of the caption for uniqueness
+            post_caption_preview: First ~100 chars of caption for display
+            likes_count: Number of likes on the post
+            comments_count: Number of comments on the post
+            likers_processed: Number of likers we processed
+            interactions_made: Number of successful interactions
+            
+        Returns:
+            True if recorded successfully
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO processed_hashtag_posts 
+                (account_id, hashtag, post_author, post_caption_hash, post_caption_preview,
+                 likes_count, comments_count, likers_processed, interactions_made, processed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """, (
+                account_id,
+                hashtag.lower().strip('#'),
+                post_author,
+                post_caption_hash,
+                post_caption_preview[:100] if post_caption_preview else None,
+                likes_count,
+                comments_count,
+                likers_processed,
+                interactions_made
+            ))
+            conn.commit()
+            
+            logger.debug(f"Recorded processed hashtag post: #{hashtag} by @{post_author}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error recording processed hashtag post: {e}")
+            return False
+    
+    def get_processed_hashtag_posts(
+        self,
+        account_id: int,
+        hashtag: Optional[str] = None,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get list of processed hashtag posts for an account."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            if hashtag:
+                cursor.execute("""
+                    SELECT * FROM processed_hashtag_posts
+                    WHERE account_id = ? AND hashtag = ?
+                    ORDER BY processed_at DESC LIMIT ?
+                """, (account_id, hashtag.lower().strip('#'), limit))
+            else:
+                cursor.execute("""
+                    SELECT * FROM processed_hashtag_posts
+                    WHERE account_id = ?
+                    ORDER BY processed_at DESC LIMIT ?
+                """, (account_id, limit))
+            
+            return [dict(row) for row in cursor.fetchall()]
+            
+        except Exception as e:
+            logger.error(f"Error getting processed hashtag posts: {e}")
+            return []
 
 
 # Singleton instance
