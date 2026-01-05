@@ -152,9 +152,14 @@ class HashtagBusiness(BaseBusinessAction):
                     new_likers_found = True
                     stats['users_found'] += 1
                     
-                    # Vérifier si déjà traité en DB
-                    if DatabaseHelpers.is_profile_already_processed(username, account_id):
-                        self.logger.info(f"⏭️ @{username} already processed, skipping")
+                    # Vérifier si déjà traité OU déjà filtré en DB (évite de cliquer sur des profils privés déjà connus)
+                    should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(username, account_id, hours_limit=24*60)
+                    if should_skip:
+                        if skip_reason == "already_processed":
+                            self.logger.info(f"⏭️ @{username} already processed, skipping")
+                        elif skip_reason == "already_filtered":
+                            self.logger.info(f"⏭️ @{username} already filtered in DB, skipping")
+                            stats['profiles_filtered'] += 1
                         stats['skipped'] += 1
                         self.stats_manager.increment('skipped')
                         continue
