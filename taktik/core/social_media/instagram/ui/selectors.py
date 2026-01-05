@@ -688,6 +688,57 @@ class PostSelectors:
     
     photo_imageview_selector: str = '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]'
     
+    # === Post Metadata Extraction (for hashtag workflow) ===
+    # Auteur du post (Reel view)
+    reel_author_username_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/clips_author_username"]',
+        '//*[@resource-id="com.instagram.android:id/clips_author_info_component"]//android.widget.Button',
+        '//*[contains(@content-desc, "Profile picture of")]/..//android.widget.Button[@text]',
+    ])
+    
+    # Caption du post (Reel view)
+    # La caption est dans un ViewGroup imbriqué avec content-desc contenant le texte + hashtags
+    # Note: La caption peut être rétractée (avec "…"), il faut cliquer dessus pour l'ouvrir
+    reel_caption_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.widget.ScrollView//android.view.ViewGroup[@content-desc]',
+        '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.view.ViewGroup[@content-desc and @clickable="true"]',
+        '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//*[@content-desc]',
+    ])
+    
+    # Date du post (Reel view) - visible quand la caption est ouverte
+    # Format: "31 October 2025"
+    reel_date_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.view.ViewGroup[@content-desc and contains(@content-desc, " ") and not(contains(@content-desc, "#"))]',
+        '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.view.ViewGroup[@text]',
+    ])
+    
+    # Auteur du post (Regular post view)
+    post_author_username_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]',
+    ])
+    
+    # Caption du post (Regular post view)
+    post_caption_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_comment_textview_comment"]',
+    ])
+    
+    # Likes count (for both views)
+    post_likes_count_selectors: List[str] = field(default_factory=lambda: [
+        # Reel view - content-desc contains "The like number is X"
+        '//*[@resource-id="com.instagram.android:id/like_count"]',
+        # Regular post view
+        '//*[@resource-id="com.instagram.android:id/row_feed_textview_likes"]',
+    ])
+    
+    # Comments count (for both views)
+    post_comments_count_selectors: List[str] = field(default_factory=lambda: [
+        # Reel view - content-desc contains "Comment number isX"
+        '//*[@resource-id="com.instagram.android:id/comment_count"]',
+        # Regular post view
+        '//*[@resource-id="com.instagram.android:id/row_feed_textview_comment_count"]',
+    ])
+    
     reel_indicators_like_business: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reel")]',
         '//*[contains(@content-desc, "reel")]',
@@ -992,6 +1043,19 @@ class PopupSelectors:
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
         '//*[@resource-id="com.instagram.android:id/row_user_primary_name"]',
         '//*[@resource-id="com.instagram.android:id/bottom_sheet_container"]'
+    ])
+    
+    # Indicateurs de la vue des commentaires (pour éviter confusion avec likers popup)
+    comments_view_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@text="Comments"]',
+        '//*[@text="Commentaires"]',
+        '//*[contains(@text, "What do you think")]',
+        '//*[contains(@text, "Add a comment")]',
+        '//*[contains(@text, "Ajouter un commentaire")]',
+        '//*[contains(@hint, "Add a comment")]',
+        '//*[contains(@hint, "What do you think")]',
+        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
+        '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment"]'
     ])
     
     # === Sélecteurs automation.py ===

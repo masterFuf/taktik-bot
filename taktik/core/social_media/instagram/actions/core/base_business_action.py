@@ -116,7 +116,19 @@ class BaseBusinessAction(BaseAction):
             return False
     
     def _is_likers_popup_open(self) -> bool:
+        # First check if we're in comments view (to avoid false positives)
+        if self._is_comments_view_open():
+            self.logger.debug("⚠️ Comments view detected, not likers popup")
+            return False
+        
         for indicator in self.popup_selectors.likers_popup_indicators:
+            if self._is_element_present([indicator]):
+                return True
+        return False
+    
+    def _is_comments_view_open(self) -> bool:
+        """Check if we're in the comments view instead of likers popup."""
+        for indicator in self.popup_selectors.comments_view_indicators:
             if self._is_element_present([indicator]):
                 return True
         return False
