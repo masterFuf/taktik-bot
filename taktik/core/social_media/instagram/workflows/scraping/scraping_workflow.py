@@ -203,6 +203,14 @@ class ScrapingWorkflow:
             
             time.sleep(1.5)
             
+            # Check if followers list is limited (Meta Verified / Business accounts)
+            is_limited = self.detection_actions.is_followers_list_limited()
+            if is_limited:
+                console.print(f"[yellow]⚠️ @{target}: Limited followers list (Meta Verified/Business account)[/yellow]")
+                console.print(f"[dim]   Instagram restricts access to full followers list for this account.[/dim]")
+                console.print(f"[dim]   Only a portion of followers will be scraped.[/dim]")
+                self.logger.warning(f"Limited followers list detected for @{target}")
+            
             # Scrape the list with the adjusted max
             enrich_profiles = self.config.get('enrich_profiles', False)
             profiles_from_target = self._scrape_list(
@@ -624,23 +632,25 @@ class ScrapingWorkflow:
                             element.click()
                             time.sleep(1.5)
                             
-                            # Extract profile info
-                            followers_count = self.detection_actions.get_followers_count() or 0
-                            following_count = self.detection_actions.get_following_count() or 0
-                            posts_count = self.detection_actions.get_posts_count() or 0
-                            is_private = self.detection_actions.is_private_account()
-                            bio = self._get_profile_bio() or ""
-                            full_name = self._get_profile_full_name() or ""
+                            # Use get_complete_profile_info (same as automation workflows)
+                            enriched_data = self.profile_manager.get_complete_profile_info(
+                                username=username,
+                                navigate_if_needed=False
+                            )
                             
-                            # Add enriched data
-                            profile_data['followers_count'] = followers_count
-                            profile_data['following_count'] = following_count
-                            profile_data['posts_count'] = posts_count
-                            profile_data['is_private'] = is_private
-                            profile_data['biography'] = bio
-                            profile_data['full_name'] = full_name
-                            
-                            self.logger.debug(f"✅ Enriched @{username}: {followers_count} followers")
+                            if enriched_data:
+                                profile_data['followers_count'] = enriched_data.get('followers_count', 0)
+                                profile_data['following_count'] = enriched_data.get('following_count', 0)
+                                profile_data['posts_count'] = enriched_data.get('posts_count', 0)
+                                profile_data['is_private'] = enriched_data.get('is_private', False)
+                                profile_data['biography'] = enriched_data.get('biography', '')
+                                profile_data['full_name'] = enriched_data.get('full_name', '')
+                                profile_data['is_verified'] = enriched_data.get('is_verified', False)
+                                profile_data['is_business'] = enriched_data.get('is_business', False)
+                                
+                                self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, {profile_data['following_count']} following")
+                            else:
+                                self.logger.warning(f"Could not get profile info for @{username}")
                             
                             # Go back to the list
                             self.device.press("back")
@@ -713,6 +723,16 @@ class ScrapingWorkflow:
                     
                     if scroll_detector.is_the_end():
                         self.logger.info("Reached end of list")
+                        break
+                    
+                    # Check for "And X others" indicator (limited list end)
+                    if self.detection_actions.is_followers_list_end_reached():
+                        self.logger.info("📋 Reached 'And X others' - end of accessible followers")
+                        break
+                    
+                    # Check for suggestions section
+                    if self.detection_actions.is_suggestions_section_visible():
+                        self.logger.info("📋 Reached suggestions section - end of real followers")
                         break
                 else:
                     # Reset counter when we find new users

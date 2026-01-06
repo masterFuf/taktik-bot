@@ -142,6 +142,27 @@ class DetectionActions(BaseAction):
     def is_following_list_open(self) -> bool:
         return self.is_followers_list_open()
     
+    def is_followers_list_limited(self) -> bool:
+        """
+        Detect if the followers list is limited (Meta Verified / Business accounts).
+        Instagram shows: "We limit the number of followers shown for certain Meta Verified and Business accounts."
+        """
+        return self._detect_element(self.detection_selectors.limited_followers_indicators, "Limited followers list", log_found=False)
+    
+    def is_followers_list_end_reached(self) -> bool:
+        """
+        Detect if we've reached the end of the followers list.
+        Instagram shows: "And X others" when there are more followers but they're hidden.
+        """
+        return self._detect_element(self.detection_selectors.followers_list_end_indicators, "Followers list end", log_found=False)
+    
+    def is_suggestions_section_visible(self) -> bool:
+        """
+        Detect if the suggestions section is visible (indicates end of real followers).
+        Instagram shows: "Suggested for you" header after the last real follower.
+        """
+        return self._detect_element(self.detection_selectors.suggestions_section_indicators, "Suggestions section", log_found=False)
+    
     def is_post_grid_visible(self) -> bool:
         return self._detect_element(self.detection_selectors.post_grid_visibility_indicators, "Post grid")
     

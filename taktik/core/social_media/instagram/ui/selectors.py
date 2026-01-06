@@ -434,35 +434,37 @@ class ProfileSelectors:
     
     # === Liens followers/following (pour navigation) ===
     followers_link: List[str] = field(default_factory=lambda: [
-        # Text-based selectors (EN/FR)
-        '//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]',
-        '//android.widget.TextView[contains(@text, "Followers") or contains(@text, "Abonnés")]',
+        # NEW Instagram UI (2024+) - clickable container with stacked layout
+        '//*[@resource-id="com.instagram.android:id/profile_header_followers_stacked_familiar"]',
+        # Content-desc selectors (most reliable - works on clickable containers)
+        '//*[contains(@content-desc, "followers") or contains(@content-desc, "abonnés")]',
+        '//*[contains(@content-desc, "Followers") or contains(@content-desc, "Abonnés")]',
         # Resource ID selectors (various Instagram versions)
         '//*[@resource-id="com.instagram.android:id/row_profile_header_followers_container"]',
         '//*[@resource-id="com.instagram.android:id/row_profile_header_textview_followers_count"]',
-        '//*[contains(@resource-id, "followers")]',
-        # Content-desc selectors
-        '//*[contains(@content-desc, "followers") or contains(@content-desc, "abonnés")]',
-        '//*[contains(@content-desc, "Followers") or contains(@content-desc, "Abonnés")]',
-        # Clickable container with followers text
+        # Clickable container with followers text (parent of TextView)
         '//android.view.ViewGroup[.//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]]',
-        '//android.widget.LinearLayout[.//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]]'
+        '//android.widget.LinearLayout[.//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]]',
+        # Text-based selectors (EN/FR) - LAST because TextView may not be clickable
+        '//android.widget.TextView[contains(@text, "followers") or contains(@text, "abonnés")]',
+        '//android.widget.TextView[contains(@text, "Followers") or contains(@text, "Abonnés")]'
     ])
     
     following_link: List[str] = field(default_factory=lambda: [
-        # Text-based selectors (EN/FR)
-        '//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]',
-        '//android.widget.TextView[contains(@text, "Following") or contains(@text, "Abonnements")]',
+        # NEW Instagram UI (2024+) - clickable container with stacked layout
+        '//*[@resource-id="com.instagram.android:id/profile_header_following_stacked_familiar"]',
+        # Content-desc selectors (most reliable - works on clickable containers)
+        '//*[contains(@content-desc, "following") or contains(@content-desc, "abonnements")]',
+        '//*[contains(@content-desc, "Following") or contains(@content-desc, "Abonnements")]',
         # Resource ID selectors
         '//*[@resource-id="com.instagram.android:id/row_profile_header_following_container"]',
         '//*[@resource-id="com.instagram.android:id/row_profile_header_textview_following_count"]',
-        '//*[contains(@resource-id, "following")]',
-        # Content-desc selectors
-        '//*[contains(@content-desc, "following") or contains(@content-desc, "abonnements")]',
-        '//*[contains(@content-desc, "Following") or contains(@content-desc, "Abonnements")]',
-        # Clickable container with following text
+        # Clickable container with following text (parent of TextView)
         '//android.view.ViewGroup[.//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]]',
-        '//android.widget.LinearLayout[.//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]]'
+        '//android.widget.LinearLayout[.//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]]',
+        # Text-based selectors (EN/FR) - LAST because TextView may not be clickable
+        '//android.widget.TextView[contains(@text, "following") or contains(@text, "abonnements")]',
+        '//android.widget.TextView[contains(@text, "Following") or contains(@text, "Abonnements")]'
     ])
     
     # === Full name ===
@@ -1408,7 +1410,32 @@ class DetectionSelectors:
         '//*[contains(@text, "See all suggestions")]',
         '//*[contains(@text, "Suggestions pour vous")]',
         '//*[contains(@text, "Suggestions for you")]',
-        '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]'
+        '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]',
+        # "Suggested for you" header in followers list (indicates end of real followers)
+        '//*[@resource-id="com.instagram.android:id/row_header_textview" and contains(@text, "Suggested for you")]',
+        '//*[@resource-id="com.instagram.android:id/row_header_textview" and contains(@text, "Suggestions pour vous")]'
+    ])
+    
+    # === Limited followers list detection (Meta Verified / Business accounts) ===
+    # Instagram limits the number of followers shown for certain accounts
+    limited_followers_indicators: List[str] = field(default_factory=lambda: [
+        # English message
+        '//*[@resource-id="com.instagram.android:id/row_text_textview" and contains(@text, "We limit the number of followers")]',
+        '//*[contains(@text, "We limit the number of followers shown")]',
+        # French message
+        '//*[contains(@text, "Nous limitons le nombre")]',
+        '//*[contains(@text, "nombre de followers affiché")]'
+    ])
+    
+    # === End of followers list indicators ===
+    # "And X others" message indicates there are more followers but they're hidden
+    followers_list_end_indicators: List[str] = field(default_factory=lambda: [
+        # "And 12.1K others" pattern (English)
+        '//*[@resource-id="com.instagram.android:id/row_text_textview" and contains(@text, "And ") and contains(@text, " others")]',
+        # "Et X autres" pattern (French)
+        '//*[@resource-id="com.instagram.android:id/row_text_textview" and contains(@text, "Et ") and contains(@text, " autres")]',
+        # Generic pattern
+        '//*[contains(@text, " others") and @resource-id="com.instagram.android:id/row_text_textview"]'
     ])
     
     # Sélecteurs pour détecter le spinner de chargement Instagram
