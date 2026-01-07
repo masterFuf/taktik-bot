@@ -24,6 +24,7 @@ from taktik.core.social_media.instagram.actions.atomic.scroll_actions import Scr
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
+from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, POST_SELECTORS
 from taktik.core.database import get_db_service
 from taktik.core.database.local_database import get_local_database
 
@@ -129,10 +130,14 @@ class ScrapingWorkflow:
         return elapsed < self.session_duration_minutes
     
     def _scrape_target(self) -> Dict[str, Any]:
-        """Scrape followers or following from target accounts."""
+        """Scrape followers, following, or post likers/commenters from target accounts."""
         target_usernames = self.config.get('target_usernames', [])
         scrape_type = self.config.get('scrape_type', 'followers')
         max_profiles_requested = self.config.get('max_profiles', 500)
+        
+        # Posts scraping options
+        scrape_post_likers = self.config.get('scrape_post_likers', True)
+        scrape_post_commenters = self.config.get('scrape_post_commenters', False)
         
         total_scraped = 0
         targets_info = []  # Store info about each target
@@ -159,15 +164,17 @@ class ScrapingWorkflow:
             console.print(f"[dim]📊 Getting profile info...[/dim]")
             profile_info = self.profile_manager.get_complete_profile_info(username=target, navigate_if_needed=False)
             
+            remaining_to_scrape = max_profiles_requested - total_scraped
+            
             if profile_info:
                 if scrape_type == 'followers':
                     available_count = profile_info.get('followers_count', 0)
-                else:
+                elif scrape_type == 'following':
                     available_count = profile_info.get('following_count', 0)
+                else:  # posts
+                    available_count = remaining_to_scrape  # Unknown for posts
                 
                 # Adjust max to what's actually available
-                remaining_to_scrape = max_profiles_requested - total_scraped
-                
                 # If count detection failed (0), use requested max and try anyway
                 if available_count == 0:
                     console.print(f"[yellow]⚠️ Could not detect {scrape_type} count for @{target}, trying anyway...[/yellow]")
@@ -175,9 +182,10 @@ class ScrapingWorkflow:
                     available_count = remaining_to_scrape  # Use requested as fallback
                 else:
                     actual_max = min(remaining_to_scrape, available_count)
-                    console.print(f"[green]✅ @{target}: {available_count:,} {scrape_type} available[/green]")
+                    if scrape_type != 'posts':
+                        console.print(f"[green]✅ @{target}: {available_count:,} {scrape_type} available[/green]")
                     
-                    if actual_max < remaining_to_scrape:
+                    if actual_max < remaining_to_scrape and scrape_type != 'posts':
                         console.print(f"[dim]   Adjusting target: {actual_max:,} (instead of {remaining_to_scrape:,})[/dim]")
                 
                 targets_info.append({
@@ -187,8 +195,21 @@ class ScrapingWorkflow:
                 })
             else:
                 self.logger.warning(f"Could not get profile info for @{target}")
-                actual_max = max_profiles_requested - total_scraped
+                actual_max = remaining_to_scrape
                 available_count = actual_max  # Unknown, use requested
+            
+            # Handle posts scraping differently
+            if scrape_type == 'posts':
+                console.print(f"[cyan]📍 Opening first post of @{target}...[/cyan]")
+                profiles_from_target = self._scrape_post_likers_commenters(
+                    target_username=target,
+                    max_count=actual_max,
+                    scrape_likers=scrape_post_likers,
+                    scrape_commenters=scrape_post_commenters
+                )
+                total_scraped += len(profiles_from_target)
+                console.print(f"[green]✅ Scraped {len(profiles_from_target):,} profiles from @{target}'s post[/green]")
+                continue
             
             # Open followers/following list
             console.print(f"[cyan]📍 Opening {scrape_type} list...[/cyan]")
@@ -234,6 +255,287 @@ class ScrapingWorkflow:
             "targets_processed": len(target_usernames),
             "targets_info": targets_info
         }
+    
+    def _scrape_post_likers_commenters(
+        self, 
+        target_username: str, 
+        max_count: int,
+        scrape_likers: bool = True,
+        scrape_commenters: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Scrape likers and/or commenters from the first post of a target profile.
+        
+        Args:
+            target_username: Username of the target profile (already navigated to)
+            max_count: Maximum number of profiles to scrape
+            scrape_likers: Whether to scrape likers
+            scrape_commenters: Whether to scrape commenters
+            
+        Returns:
+            List of scraped profiles
+        """
+        scraped_profiles = []
+        enrich_profiles = self.config.get('enrich_profiles', False)
+        
+        try:
+            # Open first post using the same logic as like.py
+            if not self._open_first_post_of_profile():
+                self.logger.warning(f"Could not open first post for @{target_username}")
+                return scraped_profiles
+            
+            # Scrape likers if enabled
+            if scrape_likers and len(scraped_profiles) < max_count:
+                console.print(f"[cyan]❤️ Scraping likers...[/cyan]")
+                likers = self._scrape_post_likers(
+                    max_count=max_count - len(scraped_profiles),
+                    source_name=target_username,
+                    enrich_on_the_fly=enrich_profiles
+                )
+                scraped_profiles.extend(likers)
+                self.logger.info(f"Scraped {len(likers)} likers from @{target_username}'s post")
+            
+            # Scrape commenters if enabled
+            if scrape_commenters and len(scraped_profiles) < max_count:
+                console.print(f"[cyan]💬 Scraping commenters...[/cyan]")
+                commenters = self._scrape_post_commenters(
+                    max_count=max_count - len(scraped_profiles),
+                    source_name=target_username,
+                    enrich_on_the_fly=enrich_profiles
+                )
+                # Filter out duplicates
+                existing_usernames = {p['username'] for p in scraped_profiles}
+                new_commenters = [c for c in commenters if c['username'] not in existing_usernames]
+                scraped_profiles.extend(new_commenters)
+                self.logger.info(f"Scraped {len(new_commenters)} unique commenters from @{target_username}'s post")
+            
+            # Go back to profile
+            self.device.press("back")
+            time.sleep(1)
+            
+        except Exception as e:
+            self.logger.error(f"Error scraping post likers/commenters: {e}")
+            self.device.press("back")
+        
+        return scraped_profiles
+    
+    def _open_first_post_of_profile(self) -> bool:
+        """Open the first post of the current profile (same logic as like.py)."""
+        try:
+            self.logger.info("Opening first post of profile...")
+            console.print(f"[dim]📸 Looking for first post...[/dim]")
+            
+            # Use the same selector as like.py
+            posts = self.device.xpath(DETECTION_SELECTORS.post_thumbnail_selectors[0]).all()
+            
+            if not posts:
+                # Try alternative selector
+                posts = self.device.xpath('//*[@resource-id="com.instagram.android:id/image_button"]').all()
+            
+            if not posts:
+                self.logger.error("No posts found in grid")
+                return False
+            
+            first_post = posts[0]
+            first_post.click()
+            self.logger.debug("Clicking on first post...")
+            
+            time.sleep(3)  # Wait for post to load
+            
+            if self._is_in_post_view():
+                self.logger.info("First post opened successfully")
+                return True
+            else:
+                self.logger.error("Failed to open first post")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error opening first post: {e}")
+            return False
+    
+    def _is_in_post_view(self) -> bool:
+        """Check if we're in a post view (same logic as like.py)."""
+        try:
+            # Use both post_view_indicators and post_detail_indicators for better detection
+            post_indicators = POST_SELECTORS.post_view_indicators + POST_SELECTORS.post_detail_indicators
+            
+            for indicator in post_indicators:
+                if self.device.xpath(indicator).exists:
+                    self.logger.debug(f"Post view detected via: {indicator[:50]}...")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error checking post view: {e}")
+            return False
+    
+    def _scrape_post_likers(
+        self, 
+        max_count: int, 
+        source_name: str,
+        enrich_on_the_fly: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Scrape likers from the current post."""
+        scraped = []
+        
+        try:
+            # Try to open likers list
+            # IMPORTANT: Click on "Liked by" at the START of the phrase, NOT on the username
+            # The full text is "Liked by username and others" - clicking username goes to profile
+            likers_opened = False
+            
+            # First priority: Click on "Liked by" / "Aimé par" text at the beginning
+            liked_by_selectors = [
+                '//*[starts-with(@text, "Liked by")]',
+                '//*[starts-with(@text, "Aimé par")]',  # French
+                '//*[starts-with(@text, "liked by")]',
+            ]
+            
+            for selector in liked_by_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    self.logger.debug(f"Found 'Liked by' element: {selector}")
+                    # Click on the left side of the element (where "Liked by" is)
+                    bounds = element.info.get('bounds', {})
+                    if bounds:
+                        # Click on the left 20% of the element to hit "Liked by"
+                        left = bounds.get('left', 0)
+                        top = bounds.get('top', 0)
+                        bottom = bounds.get('bottom', 0)
+                        click_x = left + 40  # 40 pixels from left edge
+                        click_y = (top + bottom) // 2
+                        self.device.click(click_x, click_y)
+                        self.logger.debug(f"Clicked at ({click_x}, {click_y}) - left side of 'Liked by'")
+                    else:
+                        element.click()
+                    time.sleep(2)
+                    likers_opened = True
+                    break
+            
+            if not likers_opened:
+                # Second priority: Try clicking on the like count directly (e.g., "1,234 likes")
+                like_count_selectors = [
+                    '//*[@resource-id="com.instagram.android:id/row_feed_textview_likes"]',
+                    '//*[contains(@text, " likes")]',
+                    '//*[contains(@text, " like")]',
+                    '//*[contains(@text, " J\'aime")]',  # French
+                ]
+                for selector in like_count_selectors:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        self.logger.debug(f"Found like count element: {selector}")
+                        element.click()
+                        time.sleep(2)
+                        likers_opened = True
+                        break
+            
+            if not likers_opened:
+                self.logger.warning("Could not open likers list")
+                return scraped
+            
+            # Now scrape the likers list
+            scraped = self._scrape_list(
+                max_count=max_count,
+                source_type='POST_LIKERS',
+                source_name=source_name,
+                total_available=max_count,
+                enrich_on_the_fly=enrich_on_the_fly
+            )
+            
+            # Go back from likers list
+            self.device.press("back")
+            time.sleep(1)
+            
+        except Exception as e:
+            self.logger.error(f"Error scraping post likers: {e}")
+        
+        return scraped
+    
+    def _scrape_post_commenters(
+        self, 
+        max_count: int, 
+        source_name: str,
+        enrich_on_the_fly: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Scrape commenters from the current post."""
+        scraped = []
+        
+        try:
+            # Click on comment button to open comments
+            comment_button_selectors = [
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
+                '//*[@content-desc="Comment"]',
+            ]
+            
+            comments_opened = False
+            for selector in comment_button_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    time.sleep(2)
+                    comments_opened = True
+                    break
+            
+            if not comments_opened:
+                self.logger.warning("Could not open comments")
+                return scraped
+            
+            # Extract commenters from the comments section
+            seen_usernames = set()
+            scroll_attempts = 0
+            max_scroll_attempts = 20
+            
+            while len(scraped) < max_count and scroll_attempts < max_scroll_attempts:
+                # Find comment author usernames
+                username_selectors = [
+                    '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment_container"]//android.widget.Button',
+                    '//android.widget.Button[contains(@content-desc, "@")]',
+                ]
+                
+                found_new = False
+                for selector in username_selectors:
+                    elements = self.device.xpath(selector).all()
+                    for elem in elements:
+                        try:
+                            username = elem.attrib.get('content-desc', '') or elem.text or ''
+                            # Clean username
+                            username = username.strip().lstrip('@')
+                            if username and username not in seen_usernames and username != source_name:
+                                seen_usernames.add(username)
+                                profile_data = {
+                                    'username': username,
+                                    'source': f'POST_COMMENTERS:{source_name}',
+                                    'scraped_at': datetime.now().isoformat()
+                                }
+                                scraped.append(profile_data)
+                                self.scraped_profiles.append(profile_data)
+                                found_new = True
+                                
+                                if len(scraped) >= max_count:
+                                    break
+                        except:
+                            continue
+                    if len(scraped) >= max_count:
+                        break
+                
+                if not found_new:
+                    scroll_attempts += 1
+                else:
+                    scroll_attempts = 0
+                
+                # Scroll to load more comments
+                self.scroll_actions.scroll_down()
+                time.sleep(1)
+            
+            # Go back from comments
+            self.device.press("back")
+            time.sleep(1)
+            
+        except Exception as e:
+            self.logger.error(f"Error scraping post commenters: {e}")
+        
+        return scraped
     
     def _scrape_hashtag(self) -> Dict[str, Any]:
         """Scrape profiles from hashtag posts."""
