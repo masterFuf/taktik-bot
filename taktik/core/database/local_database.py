@@ -1037,6 +1037,67 @@ class LocalDatabaseService:
             logger.error(f"Error updating scraping session {scraping_id}: {e}")
             return False
     
+    def update_scraping_session_count(self, scraping_id: int, total_scraped: int) -> bool:
+        """Update the scraped count for a session (called during scraping to save progress)."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE scraping_sessions SET total_scraped = ? WHERE scraping_id = ?",
+                (total_scraped, scraping_id)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.debug(f"Error updating scraping session count: {e}")
+            return False
+    
+    def cancel_scraping_session(self, scraping_id: int, total_scraped: int) -> bool:
+        """Mark a scraping session as cancelled (user stopped it)."""
+        from datetime import datetime
+        
+        session = self.get_scraping_session(scraping_id)
+        if not session:
+            return False
+        
+        start_time = datetime.fromisoformat(session['start_time'].replace('Z', '+00:00')) if session.get('start_time') else datetime.now()
+        end_time = datetime.now()
+        duration = int((end_time - start_time).total_seconds())
+        
+        return self.update_scraping_session(
+            scraping_id,
+            total_scraped=total_scraped,
+            end_time=end_time.isoformat(),
+            duration_seconds=duration,
+            status='CANCELLED'
+        )
+    
+    def cleanup_orphan_sessions(self) -> int:
+        """Mark any IN_PROGRESS sessions as INTERRUPTED (app crashed/closed unexpectedly)."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Find and update orphan sessions
+            cursor.execute("""
+                UPDATE scraping_sessions 
+                SET status = 'INTERRUPTED', 
+                    end_time = datetime('now'),
+                    error_message = 'Session interrupted (app closed unexpectedly)'
+                WHERE status = 'IN_PROGRESS'
+            """)
+            
+            affected = cursor.rowcount
+            conn.commit()
+            
+            if affected > 0:
+                logger.info(f"Cleaned up {affected} orphan scraping sessions")
+            
+            return affected
+        except Exception as e:
+            logger.error(f"Error cleaning up orphan sessions: {e}")
+            return 0
+    
     def complete_scraping_session(self, scraping_id: int, total_scraped: int, 
                                    csv_path: Optional[str] = None,
                                    error_message: Optional[str] = None) -> bool:

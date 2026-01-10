@@ -7,12 +7,30 @@ Connects the Electron app to the Python scraping workflow
 import sys
 import json
 import os
+import signal
+import threading
 
 # Force UTF-8 encoding for stdout/stderr to support emojis on Windows
 if sys.platform == 'win32':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+# Global flag for graceful shutdown
+_shutdown_requested = False
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    global _shutdown_requested
+    _shutdown_requested = True
+    print(json.dumps({"success": False, "error": "Scraping stopped by user", "stopped": True}))
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+if sys.platform == 'win32':
+    signal.signal(signal.SIGBREAK, signal_handler)
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

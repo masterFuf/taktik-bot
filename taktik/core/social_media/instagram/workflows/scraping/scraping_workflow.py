@@ -68,6 +68,7 @@ class ScrapingWorkflow:
         self.session_duration_minutes = config.get('session_duration_minutes', 60)
         self.scraping_session_id: Optional[int] = None
         self.csv_export_path: Optional[str] = None
+        self._save_immediately = config.get('save_to_db', True)  # Save profiles as we scrape them
         
     def run(self) -> Dict[str, Any]:
         """
@@ -510,6 +511,7 @@ class ScrapingWorkflow:
                                 }
                                 scraped.append(profile_data)
                                 self.scraped_profiles.append(profile_data)
+                                self._save_profile_immediately(profile_data)
                                 found_new = True
                                 
                                 if len(scraped) >= max_count:
@@ -578,12 +580,14 @@ class ScrapingWorkflow:
                     # Get post author
                     author = self._get_post_author()
                     if author and author not in [p['username'] for p in self.scraped_profiles]:
-                        self.scraped_profiles.append({
+                        profile_data = {
                             'username': author,
                             'source_type': 'HASHTAG_AUTHOR',
                             'source_name': hashtag,
                             'scraped_at': datetime.now().isoformat()
-                        })
+                        }
+                        self.scraped_profiles.append(profile_data)
+                        self._save_profile_immediately(profile_data)
                         total_scraped += 1
                         progress.update(task, advance=1)
                 else:
@@ -665,6 +669,7 @@ class ScrapingWorkflow:
                 'scraped_at': datetime.now().isoformat()
             }
             self.scraped_profiles.append(profile_data)
+            self._save_profile_immediately(profile_data)
         
         return {
             "success": True,
@@ -969,6 +974,7 @@ class ScrapingWorkflow:
                     
                     scraped.append(profile_data)
                     self.scraped_profiles.append(profile_data)
+                    self._save_profile_immediately(profile_data)
                     new_count += 1
                     
                     # Update progress with current count
@@ -1255,8 +1261,39 @@ class ScrapingWorkflow:
         console.print(f"\n[green]📁 Exported {len(self.scraped_profiles)} profiles to:[/green]")
         console.print(f"   [cyan]{filepath}[/cyan]")
     
+    def _save_profile_immediately(self, profile: Dict[str, Any]) -> bool:
+        """Save a single profile to database immediately as it's scraped."""
+        if not self._save_immediately:
+            return False
+            
+        try:
+            local_db = get_local_database()
+            username = profile['username']
+            
+            profile_data = {
+                'username': username,
+                'followers_count': profile.get('followers_count', 0),
+                'following_count': profile.get('following_count', 0),
+                'posts_count': profile.get('posts_count', 0),
+                'is_private': profile.get('is_private', False),
+                'biography': profile.get('biography', ''),
+                'full_name': profile.get('full_name', ''),
+                'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
+            }
+            
+            local_db.save_profile(profile_data)
+            
+            # Update session count in database
+            if self.scraping_session_id:
+                local_db.update_scraping_session_count(self.scraping_session_id, len(self.scraped_profiles))
+            
+            return True
+        except Exception as e:
+            self.logger.debug(f"Error saving @{profile.get('username', 'unknown')} immediately: {e}")
+            return False
+    
     def _save_to_database(self):
-        """Save scraped profiles to local database."""
+        """Save scraped profiles to local database (final save, handles any missed profiles)."""
         if not self.scraped_profiles:
             return
         
