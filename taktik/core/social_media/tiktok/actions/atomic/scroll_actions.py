@@ -1,19 +1,29 @@
-"""Atomic scroll actions for TikTok."""
+"""Atomic scroll actions for TikTok.
+
+Dernière mise à jour: 7 janvier 2026
+Basé sur les UI dumps réels de TikTok.
+"""
 
 from typing import Optional, Dict, Any
 from loguru import logger
 import time
+import random
 
 from ..core.base_action import BaseAction
 from ...ui.selectors import VIDEO_SELECTORS, SCROLL_SELECTORS
 
 
 class ScrollActions(BaseAction):
-    """Low-level scroll actions for TikTok."""
+    """Low-level scroll actions for TikTok.
+    
+    Actions de scroll spécifiques à TikTok (vidéos verticales).
+    """
     
     def __init__(self, device):
         super().__init__(device)
         self.logger = logger.bind(module="tiktok-scroll-atomic")
+        self.video_selectors = VIDEO_SELECTORS
+        self.scroll_selectors = SCROLL_SELECTORS
     
     def scroll_to_next_video(self) -> bool:
         """Scroll to next video in feed."""
@@ -98,7 +108,7 @@ class ScrollActions(BaseAction):
     
     def is_loading(self) -> bool:
         """Check if content is loading."""
-        return self._element_exists(SCROLL_SELECTORS.loading_indicator, timeout=1)
+        return self._element_exists(self.scroll_selectors.loading_indicator, timeout=1)
     
     def wait_for_loading_complete(self, timeout: float = 10.0) -> bool:
         """Wait for loading to complete."""
@@ -118,7 +128,7 @@ class ScrollActions(BaseAction):
     
     def is_end_of_list(self) -> bool:
         """Check if reached end of list/feed."""
-        return self._element_exists(SCROLL_SELECTORS.end_of_list, timeout=1)
+        return self._element_exists(self.scroll_selectors.end_of_list, timeout=1)
     
     def watch_video(self, duration: float = 3.0) -> bool:
         """Watch current video for specified duration."""

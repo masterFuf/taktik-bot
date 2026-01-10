@@ -1,18 +1,37 @@
-"""Atomic click actions for TikTok."""
+"""Atomic click actions for TikTok.
+
+Dernière mise à jour: 7 janvier 2026
+Basé sur les UI dumps réels de TikTok.
+"""
 
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import PROFILE_SELECTORS, VIDEO_SELECTORS, NAVIGATION_SELECTORS
+from ...ui.selectors import (
+    PROFILE_SELECTORS, 
+    VIDEO_SELECTORS, 
+    NAVIGATION_SELECTORS,
+    INBOX_SELECTORS,
+    POPUP_SELECTORS,
+)
 
 
 class ClickActions(BaseAction):
-    """Low-level click actions for TikTok UI elements."""
+    """Low-level click actions for TikTok UI elements.
+    
+    Toutes les actions utilisent des sélecteurs basés sur resource-id/content-desc
+    pour garantir la compatibilité multi-résolution.
+    """
     
     def __init__(self, device):
         super().__init__(device)
         self.logger = logger.bind(module="tiktok-click-atomic")
+        self.video_selectors = VIDEO_SELECTORS
+        self.profile_selectors = PROFILE_SELECTORS
+        self.navigation_selectors = NAVIGATION_SELECTORS
+        self.inbox_selectors = INBOX_SELECTORS
+        self.popup_selectors = POPUP_SELECTORS
     
     # === Profile Actions ===
     
@@ -49,15 +68,19 @@ class ClickActions(BaseAction):
     # === Video Interaction Actions ===
     
     def click_like_button(self) -> bool:
-        """Click Like button on video."""
-        self.logger.debug("❤️ Clicking Like button")
+        """Click Like button on video.
         
-        return self._find_and_click(VIDEO_SELECTORS.like_button, timeout=3)
+        Uses resource-id f57 with content-desc "Like video".
+        """
+        self.logger.debug("❤️ Clicking Like button")
+        return self._find_and_click(self.video_selectors.like_button, timeout=3)
     
     def double_tap_like(self) -> bool:
-        """Double tap to like video (TikTok specific)."""
-        self.logger.debug("❤️ Double tapping to like")
+        """Double tap to like video (TikTok specific).
         
+        Taps on the video container (gy_ or long_press_layout).
+        """
+        self.logger.debug("❤️ Double tapping to like")
         try:
             self._double_tap_to_like()
             return True
@@ -66,66 +89,108 @@ class ClickActions(BaseAction):
             return False
     
     def click_comment_button(self) -> bool:
-        """Click Comment button on video."""
+        """Click Comment button on video.
+        
+        Uses resource-id dtv with content-desc "Read or add comments".
+        """
         self.logger.debug("💬 Clicking Comment button")
-        
-        if self._find_and_click(VIDEO_SELECTORS.comment_button, timeout=5):
-            return True
-        
-        self.logger.warning("Comment button not found")
-        return False
+        return self._find_and_click(self.video_selectors.comment_button, timeout=5)
     
     def click_share_button(self) -> bool:
-        """Click Share button on video."""
+        """Click Share button on video.
+        
+        Uses resource-id f57 with content-desc "Share video".
+        """
         self.logger.debug("🔗 Clicking Share button")
-        
-        if self._find_and_click(VIDEO_SELECTORS.share_button, timeout=5):
-            return True
-        
-        self.logger.warning("Share button not found")
-        return False
+        return self._find_and_click(self.video_selectors.share_button, timeout=5)
     
     def click_favorite_button(self) -> bool:
-        """Click Favorite button on video."""
+        """Click Favorite button on video.
+        
+        Uses resource-id guh with content-desc "Add or remove this video from Favourites".
+        """
         self.logger.debug("⭐ Clicking Favorite button")
+        return self._find_and_click(self.video_selectors.favorite_button, timeout=5)
+    
+    def click_sound_button(self) -> bool:
+        """Click Sound button on video (rotating disc).
         
-        if self._find_and_click(VIDEO_SELECTORS.favorite_button, timeout=5):
-            return True
+        Uses resource-id nhe with content-desc "Sound: {sound_name}".
+        """
+        self.logger.debug("🎵 Clicking Sound button")
+        return self._find_and_click(self.video_selectors.sound_button, timeout=5)
+    
+    def click_creator_profile(self) -> bool:
+        """Click on creator's profile image on video.
         
-        self.logger.warning("Favorite button not found")
-        return False
+        Uses resource-id yx4 with content-desc "{username} profile".
+        """
+        self.logger.debug("👤 Clicking Creator profile")
+        return self._find_and_click(self.video_selectors.creator_profile_image, timeout=5)
+    
+    def click_video_follow_button(self) -> bool:
+        """Click Follow button on video (under creator profile).
+        
+        Uses resource-id hi1 with content-desc "Follow {username}".
+        """
+        self.logger.debug("👤 Clicking Follow button on video")
+        return self._find_and_click(self.video_selectors.follow_button, timeout=5)
     
     # === Navigation Actions ===
     
     def click_home_tab(self) -> bool:
-        """Click Home tab in bottom navigation."""
+        """Click Home tab in bottom navigation.
+        
+        Uses resource-id mkq with content-desc "Home".
+        """
         self.logger.debug("🏠 Clicking Home tab")
-        
-        return self._find_and_click(NAVIGATION_SELECTORS.home_tab, timeout=3)
+        return self._find_and_click(self.navigation_selectors.home_tab, timeout=3)
     
-    def click_discover_tab(self) -> bool:
-        """Click Discover tab in bottom navigation."""
-        self.logger.debug("🔍 Clicking Discover tab")
+    def click_friends_tab(self) -> bool:
+        """Click Friends tab in bottom navigation.
         
-        return self._find_and_click(NAVIGATION_SELECTORS.discover_tab, timeout=3)
+        Uses resource-id mkp with content-desc "Friends".
+        """
+        self.logger.debug("👥 Clicking Friends tab")
+        return self._find_and_click(self.navigation_selectors.friends_tab, timeout=3)
+    
+    def click_create_button(self) -> bool:
+        """Click Create button in bottom navigation.
+        
+        Uses resource-id mkn with content-desc "Create".
+        """
+        self.logger.debug("➕ Clicking Create button")
+        return self._find_and_click(self.navigation_selectors.create_button, timeout=3)
     
     def click_inbox_tab(self) -> bool:
-        """Click Inbox tab in bottom navigation."""
-        self.logger.debug("📥 Clicking Inbox tab")
+        """Click Inbox tab in bottom navigation.
         
-        return self._find_and_click(NAVIGATION_SELECTORS.inbox_tab, timeout=3)
+        Uses resource-id mkr with content-desc "Inbox".
+        """
+        self.logger.debug("📥 Clicking Inbox tab")
+        return self._find_and_click(self.navigation_selectors.inbox_tab, timeout=3)
     
     def click_profile_tab(self) -> bool:
-        """Click Profile tab in bottom navigation."""
-        self.logger.debug("👤 Clicking Profile tab")
+        """Click Profile tab in bottom navigation.
         
-        return self._find_and_click(NAVIGATION_SELECTORS.profile_tab, timeout=3)
+        Uses resource-id mks with content-desc "Profile".
+        """
+        self.logger.debug("👤 Clicking Profile tab")
+        return self._find_and_click(self.navigation_selectors.profile_tab, timeout=3)
+    
+    def click_search_button(self) -> bool:
+        """Click Search button in header.
+        
+        Uses resource-id irz with content-desc "Search".
+        """
+        self.logger.debug("🔍 Clicking Search button")
+        return self._find_and_click(self.navigation_selectors.search_button, timeout=3)
     
     def click_back_button(self) -> bool:
         """Click back button."""
         self.logger.debug("⬅️ Clicking Back button")
         
-        if self._find_and_click(NAVIGATION_SELECTORS.back_button, timeout=3):
+        if self._find_and_click(self.navigation_selectors.back_button, timeout=3):
             return True
         
         # Fallback: use hardware back button
@@ -134,6 +199,155 @@ class ClickActions(BaseAction):
             return True
         except Exception as e:
             self.logger.error(f"Error pressing back: {e}")
+            return False
+    
+    # === Header Tabs (For You page) ===
+    
+    def click_for_you_tab(self) -> bool:
+        """Click For You tab in header."""
+        self.logger.debug("📱 Clicking For You tab")
+        return self._find_and_click(self.navigation_selectors.for_you_tab, timeout=3)
+    
+    def click_following_tab(self) -> bool:
+        """Click Following tab in header."""
+        self.logger.debug("👥 Clicking Following tab")
+        return self._find_and_click(self.navigation_selectors.following_tab, timeout=3)
+    
+    def click_explore_tab(self) -> bool:
+        """Click Explore tab in header."""
+        self.logger.debug("🔍 Clicking Explore tab")
+        return self._find_and_click(self.navigation_selectors.explore_tab, timeout=3)
+    
+    def click_live_tab(self) -> bool:
+        """Click LIVE tab in header."""
+        self.logger.debug("🔴 Clicking LIVE tab")
+        return self._find_and_click(self.navigation_selectors.live_tab, timeout=3)
+    
+    # === Popup Actions ===
+    
+    def close_popup(self) -> bool:
+        """Try to close any popup or promotional banner.
+        
+        Handles various TikTok popups including:
+        - "Create shared collections" popup
+        - Promotional banners
+        - Age verification
+        - Notification requests
+        """
+        self.logger.debug("❌ Trying to close popup")
+        
+        # Try "Not now" button first (most common for feature popups)
+        if self._find_and_click(self.popup_selectors.dismiss_button, timeout=2):
+            self.logger.info("✅ Closed popup via 'Not now' button")
+            return True
+        
+        # Try close button (X icon)
+        if self._find_and_click(self.popup_selectors.close_button, timeout=2):
+            self.logger.info("✅ Closed popup via close button")
+            return True
+        
+        # Try promo close button
+        if self._find_and_click(self.popup_selectors.promo_close_button, timeout=2):
+            self.logger.info("✅ Closed promo banner")
+            return True
+        
+        return False
+    
+    def close_collections_popup(self) -> bool:
+        """Close the 'Create shared collections with a friend' popup.
+        
+        This popup appears after favoriting videos.
+        """
+        self.logger.debug("❌ Trying to close collections popup")
+        
+        # Try "Not now" button first
+        if self._find_and_click(self.popup_selectors.collections_not_now, timeout=2):
+            self.logger.info("✅ Closed collections popup via 'Not now'")
+            return True
+        
+        # Try close button (X)
+        if self._find_and_click(self.popup_selectors.collections_close, timeout=2):
+            self.logger.info("✅ Closed collections popup via X button")
+            return True
+        
+        # Fallback to generic close
+        return self.close_popup()
+    
+    # === Suggestion Page Actions ===
+    
+    def click_not_interested(self) -> bool:
+        """Click 'Not interested' on suggestion page.
+        
+        This dismisses the suggestion page and continues the For You feed.
+        """
+        self.logger.debug("❌ Clicking 'Not interested' on suggestion page")
+        
+        if self._find_and_click(self.popup_selectors.suggestion_not_interested, timeout=3):
+            self.logger.info("✅ Clicked 'Not interested'")
+            return True
+        
+        return False
+    
+    def click_follow_back(self) -> bool:
+        """Click 'Follow back' on suggestion page.
+        
+        This follows the suggested user and continues the For You feed.
+        """
+        self.logger.debug("👤 Clicking 'Follow back' on suggestion page")
+        
+        if self._find_and_click(self.popup_selectors.suggestion_follow_back, timeout=3):
+            self.logger.info("✅ Clicked 'Follow back'")
+            return True
+        
+        return False
+    
+    def close_suggestion_page(self) -> bool:
+        """Close suggestion page via X button."""
+        self.logger.debug("❌ Closing suggestion page")
+        
+        if self._find_and_click(self.popup_selectors.suggestion_close, timeout=2):
+            self.logger.info("✅ Closed suggestion page")
+            return True
+        
+        return False
+    
+    def handle_suggestion_page(self, follow_back: bool = False) -> bool:
+        """Handle suggestion page based on preference.
+        
+        Args:
+            follow_back: If True, click 'Follow back'. If False, click 'Not interested'.
+            
+        Returns:
+            True if handled successfully, False otherwise.
+        """
+        if follow_back:
+            return self.click_follow_back()
+        else:
+            return self.click_not_interested()
+    
+    # === Comments Section Actions ===
+    
+    def close_comments_section(self) -> bool:
+        """Close the comments section if it's open.
+        
+        This can happen accidentally when scrolling and clicking on the comment input area.
+        Uses back button as primary method since it's more reliable.
+        """
+        self.logger.debug("❌ Closing comments section")
+        
+        # Try close button first
+        if self._find_and_click(self.popup_selectors.comments_close_button, timeout=2):
+            self.logger.info("✅ Closed comments section via close button")
+            return True
+        
+        # Fallback: use back button/gesture
+        try:
+            self.device.press("back")
+            self._human_like_delay('click')
+            self.logger.info("✅ Closed comments section via back button")
+            return True
+        except Exception as e:
+            self.logger.warning(f"Failed to close comments section: {e}")
             return False
     
     # === Helper Methods ===
