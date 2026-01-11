@@ -38,7 +38,8 @@ class LikeBusiness(BaseBusinessAction):
                           should_comment: bool = False,
                           custom_comments: list = None,
                           comment_template_category: str = 'generic',
-                          max_comments: int = 1) -> dict:
+                          max_comments: int = 1,
+                          should_like: bool = True) -> dict:
         config = {**self.default_config, **(config or {})}
         
         stats = {
@@ -77,7 +78,8 @@ class LikeBusiness(BaseBusinessAction):
             sequential_stats = self.like_posts_with_sequential_scroll(
                 username, max_likes, config, profile_data=profile_info,
                 should_comment=should_comment, custom_comments=custom_comments,
-                comment_template_category=comment_template_category, max_comments=max_comments
+                comment_template_category=comment_template_category, max_comments=max_comments,
+                should_like=should_like
             )
             posts_liked = sequential_stats['posts_liked']
             posts_commented = sequential_stats.get('posts_commented', 0)
@@ -131,7 +133,13 @@ class LikeBusiness(BaseBusinessAction):
 
     def like_posts_with_sequential_scroll(self, username: str, max_likes: int = 3, config: dict = None, profile_data: dict = None,
                                          should_comment: bool = False, custom_comments: list = None,
-                                         comment_template_category: str = 'generic', max_comments: int = 1) -> dict:
+                                         comment_template_category: str = 'generic', max_comments: int = 1,
+                                         should_like: bool = True) -> dict:
+        """Like posts with sequential scroll method.
+        
+        Args:
+            should_like: If False, skip liking posts (only comment if should_comment is True)
+        """
         config = {**self.default_config, **(config or {})}
         
         stats = {
@@ -221,22 +229,27 @@ class LikeBusiness(BaseBusinessAction):
                     self.logger.success(f"Goal reached: {posts_liked}/{max_likes} posts liked - stopping scroll")
                     break
                 
-                base_probability = 0.70
-                
-                position_factor = 1.0
-                if unique_posts_seen <= 2:
-                    position_factor = 0.8
-                elif unique_posts_seen <= 5:
+                # Use should_like parameter to determine if we should attempt to like
+                # This respects the user's like_probability setting from the workflow
+                if should_like:
+                    # Add some randomness to which posts we like (not all of them)
+                    base_probability = 0.70
                     position_factor = 1.0
+                    if unique_posts_seen <= 2:
+                        position_factor = 0.8
+                    elif unique_posts_seen <= 5:
+                        position_factor = 1.0
+                    else:
+                        position_factor = 1.2
+                    
+                    final_probability = base_probability * position_factor
+                    should_like_this_post = random.random() < final_probability
+                    self.logger.debug(f"Post #{posts_seen}: like_probability={final_probability:.2f} (base={base_probability:.2f}, position_factor={position_factor:.1f})")
                 else:
-                    position_factor = 1.2
+                    should_like_this_post = False
+                    self.logger.debug(f"Post #{posts_seen}: liking disabled by config")
                 
-                final_probability = base_probability * position_factor
-                should_like = random.random() < final_probability
-                
-                self.logger.debug(f"Post #{posts_seen}: probability={final_probability:.2f} (base={base_probability:.2f}, position_factor={position_factor:.1f})")
-                
-                if should_like and posts_liked < max_likes:
+                if should_like_this_post and posts_liked < max_likes:
                     # Vérifier d'abord si le post est déjà liké
                     if self._is_post_already_liked():
                         self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")

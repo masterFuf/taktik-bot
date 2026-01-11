@@ -226,23 +226,39 @@ class NavigationActions(BaseAction):
                 self.logger.debug(f"Attempt {attempt + 1}/2 - Deep link to @{username}")
                 
                 deep_link_url = f"https://www.instagram.com/{username}/"
-                cmd = [
-                    'adb', '-s', device_serial, 'shell', 'am', 'start',
-                    '-W', '-a', 'android.intent.action.VIEW',
-                    '-d', deep_link_url,
-                    'com.instagram.android'
-                ]
                 
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                
-                if result.returncode == 0:
-                    self.logger.debug("Deep link executed successfully")
-                    self._human_like_delay('navigation')
+                # Use adbutils instead of subprocess to avoid PATH issues in packaged builds
+                try:
+                    from adbutils import adb
+                    device = adb.device(serial=device_serial)
+                    # Execute am start command via adbutils shell
+                    result = device.shell(f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" com.instagram.android')
+                    self.logger.debug(f"Deep link result: {result}")
                     
-                    if self._verify_profile_navigation(username):
-                        return True
-                else:
-                    self.logger.debug(f"Deep link failed: {result.stderr}")
+                    if 'Error' not in str(result) and 'Exception' not in str(result):
+                        self.logger.debug("Deep link executed successfully")
+                        self._human_like_delay('navigation')
+                        
+                        if self._verify_profile_navigation(username):
+                            return True
+                    else:
+                        self.logger.debug(f"Deep link failed: {result}")
+                except ImportError:
+                    # Fallback to subprocess if adbutils not available
+                    cmd = [
+                        'adb', '-s', device_serial, 'shell', 'am', 'start',
+                        '-W', '-a', 'android.intent.action.VIEW',
+                        '-d', deep_link_url,
+                        'com.instagram.android'
+                    ]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        self.logger.debug("Deep link executed successfully (subprocess)")
+                        self._human_like_delay('navigation')
+                        if self._verify_profile_navigation(username):
+                            return True
+                    else:
+                        self.logger.debug(f"Deep link failed: {result.stderr}")
                 
             except subprocess.TimeoutExpired:
                 self.logger.debug("Timeout during deep link execution")
@@ -250,7 +266,7 @@ class NavigationActions(BaseAction):
                 self.logger.debug(f"Deep link error: {e}")
             
             if attempt < max_attempts - 1:
-                self._human_like_delay('navigation')
+                self._random_sleep()
         
         return False
     

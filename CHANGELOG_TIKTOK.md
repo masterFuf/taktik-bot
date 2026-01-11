@@ -4,6 +4,151 @@ Historique des modifications de l'automatisation TikTok dans TAKTIK Desktop.
 
 ---
 
+## [1.3.0] - 2026-01-11
+
+### 🎉 Nouveau Workflow: TikTok Followers
+
+Workflow complet pour interagir avec les followers d'un compte cible.
+
+#### Backend Python
+
+- **Followers Workflow** (`followers_workflow.py`)
+  - Configuration complète (`FollowersConfig`) avec tous les paramètres
+  - Statistiques détaillées (`FollowersStats`) avec `completion_reason`
+  - Navigation vers un profil cible via recherche
+  - Ouverture de la liste des followers
+  - Parcours des followers avec extraction des usernames
+  - Visite des profils et interaction avec leurs vidéos
+  - Skip automatique des profils déjà interagis (via BDD)
+  - Skip des profils "Friends" (déjà suivis mutuellement)
+  - Gestion des limites (max profiles, max likes, max follows)
+
+- **Profile Actions** (`profile_actions.py`)
+  - `navigate_to_profile()` - Navigation vers son propre profil
+  - `_parse_count()` - Parsing robuste des compteurs (1.2K, 166 K, 1,5M, etc.)
+  - Support des formats avec espaces, virgules, points décimaux
+
+- **Sélecteurs Followers** (`selectors.py`)
+  - `FollowersSelectors` - Sélecteurs pour la liste des followers
+  - Boutons Follow/Friends/Following (`rdh`)
+  - Username dans la liste (`rdf`)
+  - Grille de vidéos profil (`gxd`, `e52`)
+  - Bouton back in-app (`b9b`)
+
+#### Détection de pages et navigation robuste
+
+- **Méthodes de détection**
+  - `_is_on_video_page()` - Détecte page de lecture vidéo (`long_press_layout`, `f57`)
+  - `_is_on_profile_page()` - Détecte page profil (`qh5`, `qfv`, `gxd`)
+  - `_is_on_followers_list()` - Détecte liste followers (`w4m`, `s6p`)
+
+- **Navigation sécurisée**
+  - `_safe_return_to_followers_list()` - Retour avec vérification après chaque back
+  - `_recover_to_followers_list()` - Recovery: restart TikTok + re-navigation si échec
+  - 3 tentatives max avant recovery automatique
+
+- **Comptage des posts**
+  - `_count_visible_posts()` - Compte les posts visibles sur un profil (max 9)
+  - Limite automatique des interactions au nombre de posts disponibles
+  - Évite les swipes dans le vide sur profils avec peu de posts
+
+#### Base de données locale
+
+- **Nouvelles tables TikTok** (`local_database.py`)
+  - `tiktok_accounts` - Comptes TikTok liés aux devices
+  - `tiktok_profiles` - Profils visités avec infos (followers, following, likes)
+  - `tiktok_interaction_history` - Historique des interactions
+  - `tiktok_sessions` - Sessions avec stats complètes et `completion_reason`
+
+- **Méthodes CRUD**
+  - `get_or_create_tiktok_account()` - Gestion des comptes
+  - `get_or_create_tiktok_profile()` - Gestion des profils avec upsert
+  - `record_tiktok_interaction()` - Enregistrement des interactions
+  - `has_interacted_with_tiktok_profile()` - Vérification anti-doublon
+  - `start_tiktok_session()` / `end_tiktok_session()` - Gestion sessions
+  - `update_tiktok_session_stats()` - Mise à jour stats en temps réel
+
+#### Frontend Electron
+
+- **Page TikTok Followers** (`TikTokFollowers.tsx`)
+  - Interface de configuration complète
+  - Sélection du compte cible (search_query)
+  - Sliders pour probabilités (like, follow, favorite)
+  - Configuration posts par profil, temps de visionnage
+  - Limites de session (max profiles, likes, follows)
+
+- **Session Live Panel** (`SessionLivePanelTikTok.tsx`)
+  - Affichage stats en temps réel (profiles visited, likes, follows)
+  - Log d'activité avec événements colorés
+  - Cartes de profils visités avec avatar et stats
+  - Affichage de la raison de fin de session
+
+- **Handlers IPC** (`tiktok.ts`)
+  - `tiktok:start-followers` - Démarrer workflow followers
+  - Communication bidirectionnelle avec le bridge Python
+
+- **Traductions** (`i18n.tsx`)
+  - Nouvelles clés pour les raisons de fin de session
+  - `tiktokSession.reasonMaxProfiles`, `reasonMaxLikes`, `reasonMaxFollows`
+  - `tiktokSession.reasonNoMoreFollowers`, `reasonStoppedByUser`
+
+#### Bridge Python
+
+- **TikTok Bridge** (`tiktok_bridge.py`)
+  - Support du workflow `followers`
+  - Envoi de `completion_reason` avec les stats finales
+  - Callbacks pour `bot_profile`, `skip_friends`, `skip_already_interacted`
+  - Message `status: completed` avec raison
+
+### 🛡️ Protections
+
+- **Skip des profils déjà interagis**
+  - Vérification en BDD avant chaque interaction
+  - Log `⏭️ Skipping @username - already interacted`
+
+- **Skip des "Friends"**
+  - Détection du statut "Friends" (suivi mutuel)
+  - Log `👥 Skipping @username - already friends`
+
+- **Recovery automatique**
+  - Si navigation échoue après 3 tentatives
+  - Restart TikTok + re-navigation vers followers list
+  - Reprise automatique grâce au skip des profils déjà traités
+
+- **Limite de posts intelligente**
+  - Compte les posts avant interaction
+  - N'essaie pas de swiper au-delà des posts disponibles
+
+### 📊 Nouvelles statistiques
+
+- `followers_seen` - Followers vus dans la liste
+- `profiles_visited` - Profils visités
+- `posts_watched` - Vidéos regardées
+- `likes` - Likes effectués
+- `follows` - Follows effectués
+- `favorites` - Favoris ajoutés
+- `already_friends` - Profils skippés (déjà amis)
+- `skipped` - Profils skippés (déjà interagis)
+- `completion_reason` - Raison de fin de session
+
+---
+
+## [1.2.0] - 2026-01-10
+
+### ✨ Améliorations Scheduler
+
+- **Scheduler Engine** (`scheduler-engine.ts`)
+  - Planification des workflows TikTok
+  - Support des schedules récurrents
+  - Vérification des triggers chaque minute
+
+- **Interface Scheduler** (`Scheduler.tsx`)
+  - Création/édition de schedules
+  - Sélection device et workflow
+  - Configuration horaires et jours
+
+---
+
 ## [1.1.0] - 2026-01-07
 
 ### ✨ Améliorations
@@ -201,4 +346,4 @@ Nouvelles métriques trackées:
 
 ---
 
-*Dernière mise à jour: 7 janvier 2026*
+*Dernière mise à jour: 11 janvier 2026*

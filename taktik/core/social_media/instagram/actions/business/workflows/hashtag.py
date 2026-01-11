@@ -981,8 +981,10 @@ class HashtagBusiness(BaseBusinessAction):
             self.logger.debug(f"🎯 Planned interactions for @{username}: {interactions_to_do}")
             
             # Like posts
-            if 'like' in interactions_to_do:
-                should_comment = 'comment' in interactions_to_do
+            should_like = 'like' in interactions_to_do
+            should_comment = 'comment' in interactions_to_do
+            
+            if should_like or should_comment:
                 likes_result = self.like_business.like_profile_posts(
                     username,
                     max_likes=config.get('max_likes_per_profile', 2),
@@ -992,7 +994,8 @@ class HashtagBusiness(BaseBusinessAction):
                     comment_template_category=config.get('comment_template_category', 'generic'),
                     max_comments=config.get('max_comments_per_profile', 1),
                     navigate_to_profile=False,
-                    profile_data=profile_data
+                    profile_data=profile_data,
+                    should_like=should_like
                 )
                 if likes_result:
                     result['likes'] = likes_result.get('posts_liked', 0)

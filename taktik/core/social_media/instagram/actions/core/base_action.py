@@ -11,13 +11,7 @@ from loguru import logger
 
 from .device_facade import DeviceFacade
 from .utils import ActionUtils
-
-
-# Taktik Keyboard constants (ADB Keyboard)
-TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
-TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
-IME_MESSAGE_B64 = 'ADB_INPUT_B64'
-IME_CLEAR_TEXT = 'ADB_CLEAR_TEXT'
+from ...utils.taktik_keyboard import run_adb_shell, TAKTIK_KEYBOARD_IME, IME_MESSAGE_B64, IME_CLEAR_TEXT
 
 
 class HumanBehavior:
@@ -439,11 +433,8 @@ class BaseAction:
         """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
         try:
             device_serial = self._get_device_serial()
-            result = subprocess.run(
-                ['adb', '-s', device_serial, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
-                capture_output=True, text=True, timeout=5
-            )
-            return TAKTIK_KEYBOARD_IME in result.stdout
+            result = run_adb_shell(device_serial, 'settings get secure default_input_method')
+            return TAKTIK_KEYBOARD_IME in result
         except Exception as e:
             self.logger.debug(f"Cannot check keyboard status: {e}")
             return False
@@ -454,22 +445,16 @@ class BaseAction:
             device_serial = self._get_device_serial()
             
             # Enable the IME
-            subprocess.run(
-                ['adb', '-s', device_serial, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
+            run_adb_shell(device_serial, f'ime enable {TAKTIK_KEYBOARD_IME}')
             
             # Set as default
-            result = subprocess.run(
-                ['adb', '-s', device_serial, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
+            result = run_adb_shell(device_serial, f'ime set {TAKTIK_KEYBOARD_IME}')
             
-            if 'selected' in result.stdout.lower():
+            if 'selected' in result.lower():
                 self.logger.debug("✅ Taktik Keyboard activated")
                 return True
             else:
-                self.logger.warning(f"⚠️ Failed to activate Taktik Keyboard: {result.stdout}")
+                self.logger.warning(f"⚠️ Failed to activate Taktik Keyboard: {result}")
                 return False
                 
         except Exception as e:
@@ -507,24 +492,17 @@ class BaseAction:
             text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
             
             # Send broadcast with text
-            cmd = [
-                'adb', '-s', device_serial, 'shell', 'am', 'broadcast',
-                '-a', IME_MESSAGE_B64,
-                '--es', 'msg', text_b64,
-                '--ei', 'delay_mean', str(delay_mean),
-                '--ei', 'delay_deviation', str(delay_deviation)
-            ]
+            broadcast_cmd = f'am broadcast -a {IME_MESSAGE_B64} --es msg {text_b64} --ei delay_mean {delay_mean} --ei delay_deviation {delay_deviation}'
+            result = run_adb_shell(device_serial, broadcast_cmd)
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            
-            if result.returncode == 0:
+            if result and 'error' not in result.lower():
                 # Wait for typing to complete
                 typing_time = (delay_mean * len(text) + delay_deviation) / 1000
                 self.logger.debug(f"⌨️ Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
                 time.sleep(typing_time + 0.5)  # Add small buffer
                 return True
             else:
-                self.logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result.stderr}")
+                self.logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result}")
                 # Fallback to send_keys
                 self.device.send_keys(text)
                 return True

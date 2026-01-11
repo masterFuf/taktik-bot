@@ -560,6 +560,8 @@ class ForYouWorkflow:
         if self.detection.has_suggestion_page():
             self.logger.info("💡 Suggestion page detected")
             
+            handled = False
+            
             if self.config.follow_back_suggestions:
                 self.logger.info("👤 Following back suggested user")
                 if self.click.click_follow_back():
@@ -567,21 +569,43 @@ class ForYouWorkflow:
                     self.stats.users_followed += 1
                     self._send_stats_update()
                     time.sleep(1)
-                    return True
+                    handled = True
             else:
                 self.logger.info("❌ Clicking 'Not interested'")
                 if self.click.click_not_interested():
                     self.stats.suggestions_handled += 1
                     self._send_stats_update()
                     time.sleep(1)
-                    return True
+                    handled = True
             
             # Fallback: try to close via X button
-            if self.click.close_suggestion_page():
+            if not handled:
+                if self.click.close_suggestion_page():
+                    self.stats.suggestions_handled += 1
+                    self._send_stats_update()
+                    time.sleep(0.5)
+                    handled = True
+            
+            # Ultimate fallback: swipe up to skip (as indicated by "Swipe up to skip" text)
+            if not handled:
+                self.logger.info("⬆️ Swiping up to skip suggestion page")
+                self.scroll.scroll_to_next_video()
                 self.stats.suggestions_handled += 1
                 self._send_stats_update()
-                time.sleep(0.5)
+                time.sleep(1)
                 return True
+            
+            # After handling, also swipe up to ensure we move to next video
+            # The suggestion page sometimes stays even after clicking buttons
+            if handled:
+                time.sleep(0.5)
+                # Check if still on suggestion page
+                if self.detection.has_suggestion_page():
+                    self.logger.info("⬆️ Still on suggestion page, swiping up")
+                    self.scroll.scroll_to_next_video()
+                    time.sleep(1)
+            
+            return True
         
         return False
     

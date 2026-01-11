@@ -5,6 +5,7 @@ from loguru import logger
 import re
 
 from ...core.base_business_action import BaseBusinessAction
+from ....utils.taktik_keyboard import run_adb_shell
 
 
 class ContentBusiness(BaseBusinessAction):
@@ -203,17 +204,12 @@ class ContentBusiness(BaseBusinessAction):
             
             post_id = post_id_match.group(1)
             
-            import subprocess
-            cmd = [
-                'adb', 'shell', 'am', 'start',
-                '-W', '-a', 'android.intent.action.VIEW',
-                '-d', f'https://www.instagram.com/p/{post_id}/',
-                'com.instagram.android'
-            ]
+            # Use adbutils via run_adb_shell for compatibility with packaged builds
+            device_serial = self._get_device_serial()
+            deep_link_url = f'https://www.instagram.com/p/{post_id}/'
+            result = run_adb_shell(device_serial, f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" com.instagram.android')
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            
-            if result.returncode == 0:
+            if result and 'Error' not in result:
                 self._human_like_delay('navigation')
                 return True
             

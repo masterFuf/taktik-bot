@@ -1617,10 +1617,11 @@ class FollowerBusiness(BaseBusinessAction):
                 self.logger.debug(f"Follow probability lost ({follow_roll:.3f} >= {follow_probability})")
             
             should_comment = comment_roll < comment_probability and not profile_info.get('is_private', False)
+            should_like = like_roll < like_probability
             
-            if like_roll < like_probability or should_comment:
+            if should_like or should_comment:
                 action_type = []
-                if like_roll < like_probability:
+                if should_like:
                     action_type.append("like")
                 if should_comment:
                     action_type.append("comment")
@@ -1637,7 +1638,8 @@ class FollowerBusiness(BaseBusinessAction):
                         profile_data=profile_info,
                         should_comment=should_comment,
                         custom_comments=custom_comments,
-                        comment_template_category=config.get('comment_template_category', 'generic')
+                        comment_template_category=config.get('comment_template_category', 'generic'),
+                        should_like=should_like
                     )
                     
                     likes_count = like_result.get('posts_liked', 0)

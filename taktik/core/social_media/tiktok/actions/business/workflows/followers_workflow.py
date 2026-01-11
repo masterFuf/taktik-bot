@@ -1,0 +1,1057 @@
+"""Followers Workflow for TikTok automation.
+
+Dernière mise à jour: 11 janvier 2026
+Basé sur les UI dumps réels de TikTok.
+
+Ce workflow permet d'interagir avec les followers d'un utilisateur cible:
+1. Rechercher un utilisateur cible
+2. Cliquer sur l'onglet Users
+3. Ouvrir le profil de l'utilisateur cible
+4. Cliquer sur le compteur Followers
+5. Pour chaque follower dans la liste:
+   a. Cliquer sur le profil du follower (pas le bouton Follow)
+   b. Ouvrir un de ses posts
+   c. Interagir (like, comment, share, favorite selon config)
+   d. Retour au profil
+   e. Retour à la liste des followers
+   f. Passer au follower suivant
+"""
+
+from typing import Optional, Dict, Any, List, Callable, Set
+from dataclasses import dataclass, field
+from loguru import logger
+import time
+import random
+
+from taktik.core.database.local_database import get_local_database
+
+from ...atomic.click_actions import ClickActions
+from ...atomic.navigation_actions import NavigationActions
+from ...atomic.scroll_actions import ScrollActions
+from ...atomic.detection_actions import DetectionActions
+from ....ui.selectors import FOLLOWERS_SELECTORS, SEARCH_SELECTORS, VIDEO_SELECTORS
+
+
+@dataclass
+class FollowersConfig:
+    """Configuration pour le workflow Followers."""
+    
+    # Search query (required) - username to search for
+    search_query: str = ""
+    
+    # Nombre de followers à traiter
+    max_followers: int = 50
+    
+    # Nombre de posts à voir par profil
+    posts_per_profile: int = 2
+    
+    # Watch time per video (seconds)
+    min_watch_time: float = 5.0
+    max_watch_time: float = 15.0
+    
+    # Probabilités d'interaction (0.0 à 1.0)
+    like_probability: float = 0.7
+    comment_probability: float = 0.1
+    share_probability: float = 0.05
+    favorite_probability: float = 0.3
+    follow_probability: float = 0.5
+    
+    # Limites de session
+    max_likes_per_session: int = 50
+    max_follows_per_session: int = 30
+    max_comments_per_session: int = 10
+    
+    # Délai entre les actions (secondes)
+    min_delay: float = 1.0
+    max_delay: float = 3.0
+    
+    # Pauses
+    pause_after_actions: int = 10
+    pause_duration_min: float = 30.0
+    pause_duration_max: float = 60.0
+    
+    # Comportement
+    include_friends: bool = False  # Inclure les comptes "Friends" (déjà amis)
+    skip_private_accounts: bool = False
+
+
+@dataclass
+class FollowersStats:
+    """Statistiques du workflow Followers."""
+    
+    followers_seen: int = 0
+    profiles_visited: int = 0
+    posts_watched: int = 0
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    favorites: int = 0
+    follows: int = 0
+    already_friends: int = 0
+    skipped: int = 0
+    errors: int = 0
+    completion_reason: str = ''
+    
+    start_time: float = field(default_factory=time.time)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert stats to dictionary."""
+        elapsed = time.time() - self.start_time
+        return {
+            'followers_seen': self.followers_seen,
+            'profiles_visited': self.profiles_visited,
+            'posts_watched': self.posts_watched,
+            'likes': self.likes,
+            'comments': self.comments,
+            'shares': self.shares,
+            'favorites': self.favorites,
+            'follows': self.follows,
+            'already_friends': self.already_friends,
+            'skipped': self.skipped,
+            'errors': self.errors,
+            'completion_reason': self.completion_reason,
+            'elapsed_seconds': elapsed,
+            'elapsed_formatted': f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+        }
+
+
+class FollowersWorkflow:
+    """Workflow pour interagir avec les followers d'un utilisateur cible sur TikTok."""
+    
+    def __init__(self, device, config: FollowersConfig):
+        self.device = device
+        self.config = config
+        self.stats = FollowersStats()
+        self.logger = logger.bind(module="tiktok-followers-workflow")
+        
+        # Actions
+        self.click = ClickActions(device)
+        self.navigation = NavigationActions(device)
+        self.scroll = ScrollActions(device)
+        self.detection = DetectionActions(device)
+        
+        # Selectors
+        self.followers_selectors = FOLLOWERS_SELECTORS
+        self.search_selectors = SEARCH_SELECTORS
+        self.video_selectors = VIDEO_SELECTORS
+        
+        # State
+        self._running = False
+        self._paused = False
+        self._actions_since_pause = 0
+        self._processed_usernames: Set[str] = set()  # Track usernames we've processed in this session
+        self._current_profile_username = ""  # Username of the profile we're currently interacting with
+        
+        # Database
+        self._db = get_local_database()
+        self._account_id: Optional[int] = None
+        self._session_id: Optional[int] = None
+        
+        # Callbacks
+        self._on_action_callback: Optional[Callable] = None
+        self._on_stats_callback: Optional[Callable] = None
+        self._on_pause_callback: Optional[Callable] = None
+        self._on_user_callback: Optional[Callable] = None
+    
+    def set_on_action_callback(self, callback: Callable):
+        """Set callback for action events (like, follow, etc.)."""
+        self._on_action_callback = callback
+    
+    def set_on_stats_callback(self, callback: Callable):
+        """Set callback for stats updates."""
+        self._on_stats_callback = callback
+    
+    def set_on_pause_callback(self, callback: Callable):
+        """Set callback for pause events."""
+        self._on_pause_callback = callback
+    
+    def set_on_user_callback(self, callback: Callable):
+        """Set callback for user info events."""
+        self._on_user_callback = callback
+    
+    def stop(self):
+        """Stop the workflow."""
+        self._running = False
+        self.logger.info("🛑 Stopping Followers workflow")
+    
+    def pause(self):
+        """Pause the workflow."""
+        self._paused = True
+        self.logger.info("⏸️ Pausing Followers workflow")
+    
+    def resume(self):
+        """Resume the workflow."""
+        self._paused = False
+        self.logger.info("▶️ Resuming Followers workflow")
+    
+    def run(self, bot_username: str = None) -> FollowersStats:
+        """Run the Followers workflow.
+        
+        Args:
+            bot_username: Username of the TikTok bot account (for database tracking)
+        """
+        self._running = True
+        self.stats = FollowersStats()
+        self._processed_usernames.clear()
+        
+        self.logger.info(f"🚀 Starting Followers workflow for: {self.config.search_query}")
+        self.logger.info(f"📊 Config: max_followers={self.config.max_followers}, posts_per_profile={self.config.posts_per_profile}")
+        
+        # Initialize database tracking
+        if bot_username:
+            try:
+                self._account_id, _ = self._db.get_or_create_tiktok_account(bot_username)
+                self._session_id = self._db.create_tiktok_session(
+                    account_id=self._account_id,
+                    session_name=f"Followers @{self.config.search_query}",
+                    workflow_type='FOLLOWERS',
+                    target=self.config.search_query,
+                    config_used=self.config.to_dict() if hasattr(self.config, 'to_dict') else None
+                )
+                self.logger.info(f"📊 Database session created: {self._session_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize database tracking: {e}")
+        
+        try:
+            # Navigate to target user's followers list
+            if not self._navigate_to_followers_list():
+                self.logger.error("❌ Failed to navigate to followers list")
+                self._end_session('ERROR', 'Failed to navigate to followers list')
+                return self.stats
+            
+            # Process followers one by one
+            completion_reason = 'unknown'
+            
+            while self._running and self.stats.profiles_visited < self.config.max_followers:
+                # Check if paused
+                while self._paused and self._running:
+                    time.sleep(1)
+                
+                if not self._running:
+                    completion_reason = 'stopped_by_user'
+                    break
+                
+                # Check limits
+                limit_reached = self._check_limits_reached()
+                if limit_reached:
+                    completion_reason = limit_reached
+                    self.logger.info(f"📊 Session limit reached: {limit_reached}")
+                    break
+                
+                # Find and process next follower
+                if not self._process_next_follower():
+                    # No more followers found, try scrolling multiple times
+                    scroll_attempts = 0
+                    max_scroll_attempts = 3
+                    found_new = False
+                    
+                    while scroll_attempts < max_scroll_attempts and not found_new:
+                        self.logger.debug(f"No new followers found, scrolling... (attempt {scroll_attempts + 1}/{max_scroll_attempts})")
+                        self._scroll_followers_list()
+                        # No need to clear _processed_usernames - usernames are stable across scrolls
+                        time.sleep(1.0)  # Wait for content to load
+                        
+                        if self._process_next_follower():
+                            found_new = True
+                            break
+                        
+                        scroll_attempts += 1
+                    
+                    if not found_new:
+                        completion_reason = 'no_more_followers'
+                        self.logger.info("No more followers to process after multiple scroll attempts")
+                        break
+                
+                # Check if pause needed
+                self._check_pause_needed()
+            
+            # Determine completion reason if not already set
+            if completion_reason == 'unknown':
+                if self.stats.profiles_visited >= self.config.max_followers:
+                    completion_reason = 'max_profiles_reached'
+            
+            self.logger.info(f"✅ Followers workflow completed: {self.stats.profiles_visited} profiles, {self.stats.likes} likes, {self.stats.follows} follows (reason: {completion_reason})")
+            self._end_session('COMPLETED', completion_reason=completion_reason)
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error in Followers workflow: {e}")
+            self.stats.errors += 1
+            self._end_session('ERROR', str(e))
+        
+        return self.stats
+    
+    def _end_session(self, status: str, error_message: str = None, completion_reason: str = None):
+        """End the database session with final stats.
+        
+        Args:
+            status: Session status (COMPLETED, ERROR, etc.)
+            error_message: Error message if status is ERROR
+            completion_reason: Reason for completion (max_profiles_reached, max_likes_reached, etc.)
+        """
+        # Store completion reason for stats
+        self.stats.completion_reason = completion_reason or 'unknown'
+        
+        if self._session_id and self._account_id:
+            try:
+                self._db.end_tiktok_session(
+                    session_id=self._session_id,
+                    status=status,
+                    error_message=error_message,
+                    stats={
+                        'profiles_visited': self.stats.profiles_visited,
+                        'posts_watched': self.stats.posts_watched,
+                        'likes': self.stats.likes,
+                        'follows': self.stats.follows,
+                        'favorites': self.stats.favorites,
+                        'comments': self.stats.comments,
+                        'shares': self.stats.shares,
+                        'errors': self.stats.errors,
+                        'completion_reason': completion_reason
+                    }
+                )
+                self.logger.info(f"📊 Database session {self._session_id} ended: {status} (reason: {completion_reason})")
+            except Exception as e:
+                self.logger.warning(f"Failed to end database session: {e}")
+    
+    def _navigate_to_followers_list(self) -> bool:
+        """Navigate to the followers list of the target user."""
+        self.logger.info(f"🔍 Navigating to followers of: {self.config.search_query}")
+        
+        try:
+            # Open search
+            if not self.navigation.open_search():
+                self.logger.error("Failed to open search")
+                return False
+            
+            self._human_delay()
+            
+            # Type search query
+            if not self.navigation.search_and_submit(self.config.search_query):
+                self.logger.error("Failed to submit search")
+                return False
+            
+            self._human_delay()
+            
+            # Click on Users tab
+            if not self._click_users_tab():
+                self.logger.warning("Could not click Users tab, trying to find users anyway")
+            
+            self._human_delay()
+            
+            # Click on first user result (the target user)
+            if not self._click_first_user():
+                self.logger.error("Failed to click on target user")
+                return False
+            
+            self._human_delay()
+            
+            # Click on Followers counter to open followers list
+            if not self._click_followers_counter():
+                self.logger.error("Failed to open followers list")
+                return False
+            
+            self._human_delay()
+            
+            self.logger.success("✅ Navigated to followers list")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error navigating to followers list: {e}")
+            return False
+    
+    def _click_users_tab(self) -> bool:
+        """Click on the Users tab in search results."""
+        self.logger.debug("Clicking Users tab")
+        selectors = self.followers_selectors.users_tab
+        return self.click._find_and_click(selectors, timeout=5)
+    
+    def _click_first_user(self) -> bool:
+        """Click on the first user in search results."""
+        self.logger.debug("Clicking first user result")
+        selectors = self.followers_selectors.first_user_result
+        if self.click._find_and_click(selectors, timeout=5):
+            return True
+        selectors = self.followers_selectors.user_search_item
+        return self.click._find_and_click(selectors, timeout=5)
+    
+    def _click_followers_counter(self) -> bool:
+        """Click on the Followers counter to open followers list."""
+        self.logger.debug("Clicking Followers counter")
+        selectors = self.followers_selectors.followers_counter
+        return self.click._find_and_click(selectors, timeout=5)
+    
+    def _process_next_follower(self) -> bool:
+        """Find and process the next unprocessed follower.
+        
+        Flow:
+        1. Find follower rows in the list
+        2. Check if username already processed (in session or in DB)
+        3. Click on the profile (the row, not the Follow button)
+        4. Open posts and interact
+        5. Go back to followers list
+        """
+        # Find all follower rows
+        follower_rows = self._find_follower_rows()
+        
+        for idx, row_info in enumerate(follower_rows):
+            if not self._running:
+                return False
+            
+            username = row_info.get('username', '')
+            
+            # Skip if already processed in this session (by username)
+            if username and username in self._processed_usernames:
+                continue
+            
+            # Skip if already interacted in database (past 7 days)
+            if username and self._account_id:
+                if self._db.check_tiktok_recent_interaction(username, self._account_id, hours=168):
+                    self.logger.debug(f"Skipping @{username} - already interacted in past 7 days")
+                    self._processed_usernames.add(username)
+                    continue
+            
+            self.stats.followers_seen += 1
+            
+            # Check if this is a "Friends" account
+            status = row_info.get('status', '')
+            if status in ['Friends', 'Following'] and not self.config.include_friends:
+                self.stats.already_friends += 1
+                if username:
+                    self._processed_usernames.add(username)
+                self._send_stats_update()
+                self._send_action('skip_friends', username or 'unknown')
+                self.logger.debug(f"Skipping Friends/Following account @{username}")
+                continue
+            
+            # Check if already interacted with this profile in database
+            if username and self._account_id:
+                try:
+                    if self._db.has_tiktok_interaction(self._account_id, username):
+                        self.stats.skipped += 1
+                        self._processed_usernames.add(username)
+                        self._send_stats_update()
+                        self._send_action('skip_already_interacted', username)
+                        self.logger.debug(f"Skipping already interacted profile @{username}")
+                        continue
+                except Exception as e:
+                    self.logger.debug(f"Error checking interaction history: {e}")
+            
+            # Mark as processed by username
+            if username:
+                self._processed_usernames.add(username)
+            
+            # Click on the profile row (not the button)
+            if not self._click_follower_profile(row_info):
+                self.logger.warning("Failed to click follower profile")
+                self.stats.errors += 1
+                continue
+            
+            self._human_delay()
+            
+            # Now we're on the follower's profile - get username and interact
+            self._current_profile_username = self._get_current_profile_username()
+            self.stats.profiles_visited += 1
+            self._send_stats_update()
+            
+            # Send profile visit action for Live Activity
+            self._send_action('profile_visit', self._current_profile_username)
+            
+            self.logger.info(f"👤 Visiting profile @{self._current_profile_username} ({self.stats.profiles_visited}/{self.config.max_followers})")
+            
+            # Interact with posts on this profile
+            self._interact_with_profile_posts()
+            
+            # Optionally follow this user
+            if random.random() < self.config.follow_probability:
+                if self.stats.follows < self.config.max_follows_per_session:
+                    self._try_follow_current_profile()
+            
+            # Safe return to followers list with verification
+            if not self._safe_return_to_followers_list():
+                self.logger.warning("⚠️ Failed to return to followers list, attempting recovery...")
+                if not self._recover_to_followers_list():
+                    self.logger.error("❌ Recovery failed, ending workflow")
+                    return False
+            
+            self._human_delay()
+            
+            return True
+        
+        return False
+    
+    def _find_follower_rows(self) -> List[Dict[str, Any]]:
+        """Find all follower rows on screen with username extraction."""
+        rows = []
+        
+        try:
+            # Find all Follow/Friends/Following buttons in the followers list
+            buttons = self.device.xpath('//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/rdh"]').all()
+            
+            self.logger.debug(f"Found {len(buttons)} follow buttons")
+            
+            for btn in buttons:
+                try:
+                    status = btn.text or ""
+                    btn_info = btn.info
+                    bounds = btn_info.get('bounds', {})
+                    
+                    # Extract username from the same row
+                    # Username is in a sibling TextView with resource-id ygv
+                    username = None
+                    btn_top = bounds.get('top', 0)
+                    btn_bottom = bounds.get('bottom', 0)
+                    
+                    # Find username TextViews and match by vertical position
+                    username_elements = self.device.xpath('//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/ygv"]').all()
+                    for elem in username_elements:
+                        elem_bounds = elem.info.get('bounds', {})
+                        elem_top = elem_bounds.get('top', 0)
+                        elem_bottom = elem_bounds.get('bottom', 0)
+                        
+                        # Check if this username is in the same row (overlapping vertical bounds)
+                        if elem_top < btn_bottom and elem_bottom > btn_top:
+                            username = elem.text
+                            break
+                    
+                    rows.append({
+                        'button': btn,
+                        'status': status,
+                        'bounds': bounds,
+                        'username': username,
+                    })
+                    self.logger.debug(f"Found follower @{username} with status: {status}")
+                except Exception as e:
+                    self.logger.debug(f"Error processing button: {e}")
+                    continue
+                    
+        except Exception as e:
+            self.logger.debug(f"Error finding follower rows: {e}")
+        
+        return rows
+    
+    def _click_follower_profile(self, row_info: Dict[str, Any]) -> bool:
+        """Click on a follower's profile (the row, not the Follow button).
+        
+        We click on the left side of the row (avatar/username area) to open the profile,
+        not on the Follow button on the right.
+        """
+        try:
+            bounds = row_info.get('bounds', {})
+            
+            if bounds:
+                # The button is on the right side, we want to click on the left (avatar/name area)
+                # Button bounds give us the row's vertical position
+                # Click on the left third of the screen at the button's vertical center
+                left = bounds.get('left', 0)
+                top = bounds.get('top', 0)
+                bottom = bounds.get('bottom', 0)
+                
+                # Click on the avatar/name area (left side of the row)
+                click_x = 150  # Avatar/name area is around x=150
+                click_y = (top + bottom) // 2
+                
+                self.logger.debug(f"Clicking profile at ({click_x}, {click_y})")
+                self.device.click(click_x, click_y)
+                time.sleep(1.5)  # Wait for profile to load
+                return True
+                
+        except Exception as e:
+            self.logger.debug(f"Error clicking follower profile: {e}")
+        return False
+    
+    def _interact_with_profile_posts(self):
+        """Interact with posts on the current profile.
+        
+        Flow:
+        1. Count available posts on profile (max 9 visible without scroll)
+        2. Click on first post to open video feed
+        3. Watch video, interact (like/favorite/etc)
+        4. Swipe up to next video (instead of going back and clicking next post)
+        5. Repeat for min(posts_per_profile, available_posts) times
+        6. Press back to return to profile page
+        """
+        # Count available posts before interacting
+        available_posts = self._count_visible_posts()
+        
+        if available_posts == 0:
+            self.logger.debug("No posts to interact with on this profile")
+            return
+        
+        # Limit interactions to available posts
+        posts_to_interact = min(self.config.posts_per_profile, available_posts)
+        self.logger.debug(f"📹 Will interact with {posts_to_interact} posts (available: {available_posts}, config: {self.config.posts_per_profile})")
+        
+        # Click on first post to enter video feed
+        if not self._click_profile_post(0):
+            self.logger.debug("Failed to click first post")
+            return
+        
+        self._human_delay()
+        
+        for i in range(posts_to_interact):
+            if not self._running:
+                break
+            
+            if self._check_limits_reached():
+                break
+            
+            # Watch the video
+            watch_time = random.uniform(self.config.min_watch_time, self.config.max_watch_time)
+            self.logger.debug(f"Watching video {i+1}/{posts_to_interact} for {watch_time:.1f}s")
+            time.sleep(watch_time)
+            
+            self.stats.posts_watched += 1
+            
+            # Interact with the video
+            self._interact_with_current_video()
+            
+            self._actions_since_pause += 1
+            
+            # Swipe up to next video (except for last one)
+            if i < posts_to_interact - 1:
+                self._swipe_to_next_video()
+                self._human_delay()
+        
+        self._send_stats_update()
+        
+        # Exit video feed back to profile
+        self._go_back()
+        time.sleep(0.5)
+    
+    def _swipe_to_next_video(self):
+        """Swipe up to go to next video in the feed."""
+        try:
+            # Get screen dimensions
+            info = self.device.info
+            width = info.get('displayWidth', 720)
+            height = info.get('displayHeight', 1520)
+            
+            # Swipe from bottom to top (like For You feed)
+            start_x = width // 2
+            start_y = int(height * 0.7)
+            end_y = int(height * 0.3)
+            
+            self.device.swipe(start_x, start_y, start_x, end_y, duration=0.3)
+            time.sleep(1.0)  # Wait for next video to load
+        except Exception as e:
+            self.logger.debug(f"Error swiping to next video: {e}")
+    
+    def _count_visible_posts(self) -> int:
+        """Count the number of visible posts on the current profile.
+        
+        Returns:
+            Number of posts visible in the grid (max 9 without scrolling).
+        """
+        try:
+            # Find posts in the grid - they have resource-id e52 and are clickable
+            posts = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/e52"][@clickable="true"]').all()
+            count = len(posts)
+            self.logger.debug(f"📊 Found {count} visible posts on profile")
+            return count
+        except Exception as e:
+            self.logger.debug(f"Error counting posts: {e}")
+            return 0
+    
+    def _click_profile_post(self, index: int = 0) -> bool:
+        """Click on a post in the profile grid."""
+        try:
+            # Find posts in the grid
+            posts = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/e52"][@clickable="true"]').all()
+            
+            if index < len(posts):
+                posts[index].click()
+                time.sleep(1)  # Wait for video to load
+                return True
+            
+            # Fallback: click first post
+            if self.click._find_and_click(self.followers_selectors.first_post, timeout=3):
+                time.sleep(1)
+                return True
+                
+        except Exception as e:
+            self.logger.debug(f"Error clicking profile post: {e}")
+        
+        return False
+    
+    def _interact_with_current_video(self):
+        """Interact with the currently playing video (like, comment, share, favorite)."""
+        
+        # Check if video is already liked
+        if self._is_video_already_liked():
+            self.logger.debug("Video already liked, skipping like")
+            self._send_action('already_liked', self._current_profile_username)
+        else:
+            # Like - use probability to distribute likes randomly across posts
+            if random.random() < self.config.like_probability:
+                if self.stats.likes < self.config.max_likes_per_session:
+                    if self._try_like_video():
+                        self.stats.likes += 1
+                        self._send_action('like', self._current_profile_username)
+                        self._record_interaction('LIKE', self._current_profile_username)
+        
+        # Favorite
+        if random.random() < self.config.favorite_probability:
+            if self._try_favorite_video():
+                self.stats.favorites += 1
+                self._send_action('favorite', self._current_profile_username)
+                self._record_interaction('FAVORITE', self._current_profile_username)
+        
+        # Comment (less frequent)
+        if random.random() < self.config.comment_probability:
+            if self.stats.comments < self.config.max_comments_per_session:
+                # TODO: Implement commenting
+                pass
+        
+        # Share (rare)
+        if random.random() < self.config.share_probability:
+            # TODO: Implement sharing
+            pass
+        
+        self._send_stats_update()
+    
+    def _is_video_already_liked(self) -> bool:
+        """Check if the current video is already liked."""
+        try:
+            # Check for "Video liked" content-desc (already liked)
+            liked_selectors = [
+                '//*[@content-desc="Video liked"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/f4u"][@selected="true"]',
+            ]
+            for selector in liked_selectors:
+                elem = self.device.xpath(selector)
+                if elem.exists:
+                    return True
+        except Exception as e:
+            self.logger.debug(f"Error checking if video liked: {e}")
+        return False
+    
+    def _try_like_video(self) -> bool:
+        """Try to like the current video."""
+        try:
+            # Use selectors that find unliked videos ("Like video" not "Video liked")
+            like_selectors = [
+                '//*[@content-desc="Like video"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/f57"][contains(@content-desc, "Like video")]',
+            ]
+            for selector in like_selectors:
+                elem = self.device.xpath(selector)
+                if elem.exists:
+                    elem.click()
+                    self.logger.info("❤️ Liked video")
+                    self._human_delay()
+                    return True
+        except Exception as e:
+            self.logger.debug(f"Error liking video: {e}")
+        return False
+    
+    def _try_favorite_video(self) -> bool:
+        """Try to favorite/bookmark the current video."""
+        try:
+            selectors = self.video_selectors.favorite_button
+            if self.click._find_and_click(selectors, timeout=2):
+                self.logger.info("⭐ Favorited video")
+                self._human_delay()
+                return True
+        except Exception as e:
+            self.logger.debug(f"Error favoriting video: {e}")
+        return False
+    
+    def _try_follow_current_profile(self) -> bool:
+        """Try to follow the user from their profile page."""
+        try:
+            # Look for Follow button on profile
+            selectors = self.followers_selectors.profile_follow_button
+            if self.click._find_and_click(selectors, timeout=2):
+                self.stats.follows += 1
+                self.logger.info(f"👤 Followed user ({self.stats.follows}/{self.config.max_follows_per_session})")
+                self._send_action('follow', self._current_profile_username)
+                self._record_interaction('FOLLOW', self._current_profile_username)
+                self._human_delay()
+                return True
+        except Exception as e:
+            self.logger.debug(f"Error following user: {e}")
+        return False
+    
+    def _record_interaction(self, interaction_type: str, target_username: str):
+        """Record an interaction in the database."""
+        if self._account_id and target_username:
+            try:
+                self._db.record_tiktok_interaction(
+                    account_id=self._account_id,
+                    target_username=target_username,
+                    interaction_type=interaction_type,
+                    success=True,
+                    session_id=self._session_id
+                )
+            except Exception as e:
+                self.logger.debug(f"Failed to record interaction: {e}")
+    
+    def _get_current_profile_username(self) -> str:
+        """Extract the username from the current profile page."""
+        try:
+            # Try to find username element on profile (starts with @)
+            # Resource-id for username on profile: qh5
+            username_elem = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]')
+            if username_elem.exists:
+                text = username_elem.get_text()
+                if text:
+                    # Remove @ prefix if present
+                    return text.lstrip('@')
+            
+            # Fallback: try content-desc
+            username_elem = self.device.xpath('//*[contains(@content-desc, "@")]')
+            if username_elem.exists:
+                desc = username_elem.info.get('contentDescription', '')
+                if '@' in desc:
+                    # Extract username from content-desc
+                    parts = desc.split('@')
+                    if len(parts) > 1:
+                        return parts[1].split()[0]  # Get first word after @
+                        
+        except Exception as e:
+            self.logger.debug(f"Error getting profile username: {e}")
+        
+        return "unknown"
+    
+    def _is_on_video_page(self) -> bool:
+        """Check if we're currently on a video playback page.
+        
+        Unique elements on video page:
+        - Like button with content-desc="Video liked" or "Like"
+        - resource-id="com.zhiliaoapp.musically:id/long_press_layout" with content-desc="Video"
+        - Share button with content-desc containing "Share video"
+        """
+        try:
+            # Check for video-specific elements
+            video_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/long_press_layout"][@content-desc="Video"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/f57"][@content-desc="Video liked"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/f57"][contains(@content-desc, "Like")]',
+                '//*[contains(@content-desc, "Share video")]',
+            ]
+            for selector in video_selectors:
+                if self.device.xpath(selector).exists:
+                    return True
+            return False
+        except Exception as e:
+            self.logger.debug(f"Error checking video page: {e}")
+            return False
+    
+    def _is_on_profile_page(self) -> bool:
+        """Check if we're currently on a user profile page.
+        
+        Unique elements on profile page:
+        - Username with resource-id="com.zhiliaoapp.musically:id/qh5" (starts with @)
+        - Stats labels (Following/Followers/Likes) with resource-id="com.zhiliaoapp.musically:id/qfv"
+        - Follow back / Message buttons
+        - Video grid with resource-id="com.zhiliaoapp.musically:id/gxd"
+        """
+        try:
+            profile_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]',  # @username
+                '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Followers"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Following"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/gxd"]',  # Video grid
+            ]
+            for selector in profile_selectors:
+                if self.device.xpath(selector).exists:
+                    return True
+            return False
+        except Exception as e:
+            self.logger.debug(f"Error checking profile page: {e}")
+            return False
+    
+    def _is_on_followers_list(self) -> bool:
+        """Check if we're currently on the followers list page.
+        
+        Unique elements on followers list:
+        - Title with resource-id="com.zhiliaoapp.musically:id/w4m" (username without @)
+        - Tabs: "Following X" / "Followers X" / "Suggested"
+        - RecyclerView with resource-id="com.zhiliaoapp.musically:id/s6p"
+        - Text "Only X can see all followers"
+        """
+        try:
+            followers_list_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"]',  # Title username
+                '//*[@resource-id="com.zhiliaoapp.musically:id/s6p"]',  # Followers RecyclerView
+                '//*[contains(@content-desc, "Followers")][@selected="true"]',  # Selected Followers tab
+                '//*[contains(@text, "can see all followers")]',  # Privacy message
+            ]
+            for selector in followers_list_selectors:
+                if self.device.xpath(selector).exists:
+                    return True
+            return False
+        except Exception as e:
+            self.logger.debug(f"Error checking followers list: {e}")
+            return False
+    
+    def _safe_return_to_followers_list(self) -> bool:
+        """Safely return to followers list with page verification.
+        
+        After interacting with videos, we need to:
+        1. Press back to exit video → should land on profile page
+        2. Press back again → should land on followers list
+        
+        Returns:
+            True if successfully returned to followers list, False otherwise.
+        """
+        max_attempts = 3
+        
+        for attempt in range(max_attempts):
+            self.logger.debug(f"Return to followers list attempt {attempt + 1}/{max_attempts}")
+            
+            # Check current page state
+            if self._is_on_followers_list():
+                self.logger.debug("✅ Already on followers list")
+                return True
+            
+            if self._is_on_video_page():
+                # We're on video page, need to go back to profile first
+                self.logger.debug("📹 On video page, pressing back to profile...")
+                self._go_back()
+                time.sleep(0.8)
+                
+                # Verify we landed on profile
+                if not self._is_on_profile_page():
+                    self.logger.debug("⚠️ Did not land on profile page after back from video")
+                    continue
+                
+                self.logger.debug("✅ Landed on profile page")
+            
+            if self._is_on_profile_page():
+                # We're on profile page, need to go back to followers list
+                self.logger.debug("👤 On profile page, pressing back to followers list...")
+                self._go_back()
+                time.sleep(0.8)
+                
+                # Verify we landed on followers list
+                if self._is_on_followers_list():
+                    self.logger.debug("✅ Successfully returned to followers list")
+                    return True
+                else:
+                    self.logger.debug("⚠️ Did not land on followers list after back from profile")
+            
+            # Unknown state, try pressing back
+            self.logger.debug("❓ Unknown page state, pressing back...")
+            self._go_back()
+            time.sleep(0.8)
+        
+        self.logger.warning("❌ Failed to return to followers list after max attempts")
+        return False
+    
+    def _recover_to_followers_list(self) -> bool:
+        """Recovery procedure: restart TikTok and navigate back to followers list.
+        
+        This is called when normal navigation fails. We:
+        1. Restart TikTok app
+        2. Navigate to the target user's followers list
+        3. Since we skip already-interacted profiles, we'll resume where we left off
+        
+        Returns:
+            True if recovery successful, False otherwise.
+        """
+        self.logger.info("🔄 Starting recovery procedure...")
+        
+        try:
+            # Restart TikTok
+            self.logger.info("🔄 Restarting TikTok...")
+            self.device.app_stop('com.zhiliaoapp.musically')
+            time.sleep(1)
+            self.device.app_start('com.zhiliaoapp.musically')
+            time.sleep(4)  # Wait for app to fully load
+            
+            # Navigate back to followers list
+            self.logger.info(f"🔄 Navigating back to followers of: {self.config.search_query}")
+            if self._navigate_to_followers_list():
+                self.logger.info("✅ Recovery successful - back on followers list")
+                return True
+            else:
+                self.logger.error("❌ Recovery failed - could not navigate to followers list")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Recovery error: {e}")
+            return False
+    
+    def _go_back(self):
+        """Press back button to return to previous screen.
+        
+        Prioritizes in-app back button (for phones without system back button),
+        falls back to system back if not found.
+        """
+        try:
+            # In-app back button with content-desc="Back" (most reliable)
+            back_selectors = [
+                '//android.widget.ImageView[@content-desc="Back"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/b9b"][@content-desc="Back"]',
+                '//*[@content-desc="Back"][@clickable="true"]',
+            ]
+            
+            if self.click._find_and_click(back_selectors, timeout=2):
+                time.sleep(0.5)
+                return
+            
+            # Fallback: system back button
+            self.device.press("back")
+            time.sleep(0.5)
+        except Exception as e:
+            self.logger.debug(f"Error going back: {e}")
+            self.device.press("back")
+    
+    def _scroll_followers_list(self):
+        """Scroll the followers list to load more."""
+        self.scroll.scroll_search_results(direction='down')
+        time.sleep(0.5)
+    
+    def _check_limits_reached(self) -> str:
+        """Check if session limits have been reached.
+        
+        Returns:
+            str: The limit reason if reached, empty string otherwise.
+            Possible values: 'max_likes_reached', 'max_follows_reached', ''
+        """
+        if self.stats.likes >= self.config.max_likes_per_session:
+            return 'max_likes_reached'
+        if self.stats.follows >= self.config.max_follows_per_session:
+            return 'max_follows_reached'
+        return ''
+    
+    def _check_pause_needed(self):
+        """Check if a pause is needed and execute it."""
+        if self._actions_since_pause >= self.config.pause_after_actions:
+            pause_duration = random.uniform(
+                self.config.pause_duration_min,
+                self.config.pause_duration_max
+            )
+            
+            self.logger.info(f"⏸️ Taking a break for {pause_duration:.0f}s")
+            
+            if self._on_pause_callback:
+                try:
+                    self._on_pause_callback(int(pause_duration))
+                except Exception as e:
+                    self.logger.warning(f"Pause callback error: {e}")
+            
+            time.sleep(pause_duration)
+            self._actions_since_pause = 0
+    
+    def _send_stats_update(self):
+        """Send stats update via callback."""
+        if self._on_stats_callback:
+            try:
+                self._on_stats_callback(self.stats.to_dict())
+            except Exception as e:
+                self.logger.warning(f"Stats callback error: {e}")
+    
+    def _send_action(self, action: str, target: str = ""):
+        """Send action event via callback."""
+        if self._on_action_callback:
+            try:
+                self._on_action_callback({'action': action, 'target': target})
+            except Exception as e:
+                self.logger.warning(f"Action callback error: {e}")
+    
+    def _human_delay(self):
+        """Add a human-like delay."""
+        delay = random.uniform(self.config.min_delay, self.config.max_delay)
+        time.sleep(delay)

@@ -38,6 +38,19 @@ class TikTokManager(SocialMediaBase):
         self.logger.info("Arrêt de TikTok...")
         return self.device_manager.stop_app(self.PACKAGE_NAME)
 
+    def restart(self) -> bool:
+        """Force stop and relaunch TikTok to ensure clean state."""
+        self.logger.info("🔄 Restarting TikTok (force stop + launch)...")
+        
+        # Force stop TikTok
+        if self.is_running():
+            self.stop()
+            import time
+            time.sleep(1)  # Wait for app to fully stop
+        
+        # Launch TikTok fresh
+        return self.launch()
+
     def login(self, username: str, password: str) -> bool:
         # À implémenter: login automatisé via UI
         self.logger.info(f"Tentative de connexion pour {username}")

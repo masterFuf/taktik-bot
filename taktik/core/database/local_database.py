@@ -279,6 +279,128 @@ class LocalDatabaseService:
             )
         """)
         
+        # ============================================
+        # TIKTOK TABLES
+        # ============================================
+        
+        # TikTok Accounts
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tiktok_accounts (
+                account_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                display_name TEXT,
+                is_bot INTEGER DEFAULT 1,
+                user_id INTEGER,
+                license_id INTEGER,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        
+        # TikTok Profiles (users we interact with)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tiktok_profiles (
+                profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                display_name TEXT DEFAULT '',
+                followers_count INTEGER DEFAULT 0,
+                following_count INTEGER DEFAULT 0,
+                likes_count INTEGER DEFAULT 0,
+                videos_count INTEGER DEFAULT 0,
+                is_private INTEGER DEFAULT 0,
+                is_verified INTEGER DEFAULT 0,
+                biography TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        
+        # TikTok Interaction History
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tiktok_interaction_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER,
+                account_id INTEGER NOT NULL,
+                profile_id INTEGER NOT NULL,
+                interaction_type TEXT NOT NULL,
+                interaction_time TEXT DEFAULT (datetime('now')),
+                success INTEGER DEFAULT 1,
+                content TEXT,
+                video_id TEXT,
+                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
+                FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE
+            )
+        """)
+        
+        # TikTok Sessions
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tiktok_sessions (
+                session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER NOT NULL,
+                session_name TEXT NOT NULL,
+                workflow_type TEXT NOT NULL,
+                target TEXT,
+                start_time TEXT DEFAULT (datetime('now')),
+                end_time TEXT,
+                duration_seconds INTEGER DEFAULT 0,
+                config_used TEXT,
+                status TEXT DEFAULT 'ACTIVE',
+                profiles_visited INTEGER DEFAULT 0,
+                posts_watched INTEGER DEFAULT 0,
+                likes INTEGER DEFAULT 0,
+                follows INTEGER DEFAULT 0,
+                favorites INTEGER DEFAULT 0,
+                comments INTEGER DEFAULT 0,
+                shares INTEGER DEFAULT 0,
+                errors INTEGER DEFAULT 0,
+                error_message TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE
+            )
+        """)
+        
+        # TikTok Filtered Profiles (profiles to skip)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tiktok_filtered_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                account_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                filtered_at TEXT DEFAULT (datetime('now')),
+                reason TEXT,
+                source_type TEXT DEFAULT 'GENERAL',
+                source_name TEXT DEFAULT 'unknown',
+                session_id INTEGER,
+                FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
+                UNIQUE(profile_id, account_id)
+            )
+        """)
+        
+        # TikTok Daily Stats
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tiktok_daily_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                total_likes INTEGER DEFAULT 0,
+                total_follows INTEGER DEFAULT 0,
+                total_favorites INTEGER DEFAULT 0,
+                total_comments INTEGER DEFAULT 0,
+                total_shares INTEGER DEFAULT 0,
+                total_profile_visits INTEGER DEFAULT 0,
+                total_posts_watched INTEGER DEFAULT 0,
+                total_sessions INTEGER DEFAULT 0,
+                completed_sessions INTEGER DEFAULT 0,
+                failed_sessions INTEGER DEFAULT 0,
+                total_duration_seconds INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
+                UNIQUE(account_id, date)
+            )
+        """)
+        
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_username ON instagram_accounts(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_username ON instagram_profiles(username)")
@@ -293,6 +415,18 @@ class LocalDatabaseService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_status ON scraping_sessions(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_source ON scraping_sessions(source_type, source_name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_processed_hashtag_posts_lookup ON processed_hashtag_posts(account_id, hashtag, post_author)")
+        
+        # TikTok indexes
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_accounts_username ON tiktok_accounts(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_profiles_username ON tiktok_profiles(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_session ON tiktok_interaction_history(session_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_account ON tiktok_interaction_history(account_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_time ON tiktok_interaction_history(interaction_time)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_account ON tiktok_sessions(account_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_status ON tiktok_sessions(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_account ON tiktok_filtered_profiles(account_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_username ON tiktok_filtered_profiles(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_daily_stats_account_date ON tiktok_daily_stats(account_id, date)")
         
         conn.commit()
     
@@ -1328,6 +1462,403 @@ class LocalDatabaseService:
         except Exception as e:
             logger.error(f"Error getting processed hashtag posts: {e}")
             return []
+    
+    # ============================================
+    # TIKTOK ACCOUNTS
+    # ============================================
+    
+    def get_or_create_tiktok_account(self, username: str, display_name: str = None,
+                                      is_bot: bool = True, user_id: Optional[int] = None,
+                                      license_id: Optional[int] = None) -> Tuple[int, bool]:
+        """Get existing TikTok account or create a new one."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT account_id FROM tiktok_accounts WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        
+        if row:
+            return row['account_id'], False
+        
+        cursor.execute("""
+            INSERT INTO tiktok_accounts (username, display_name, is_bot, user_id, license_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (username, display_name, 1 if is_bot else 0, user_id, license_id))
+        conn.commit()
+        
+        logger.debug(f"Created TikTok account: {username} (ID: {cursor.lastrowid})")
+        return cursor.lastrowid, True
+    
+    def get_tiktok_account_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get TikTok account by username."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM tiktok_accounts WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        
+        return dict(row) if row else None
+    
+    # ============================================
+    # TIKTOK PROFILES
+    # ============================================
+    
+    def get_or_create_tiktok_profile(self, profile_data: Dict[str, Any]) -> Tuple[int, bool]:
+        """Get existing TikTok profile or create a new one."""
+        username = profile_data.get('username')
+        if not username:
+            raise ValueError("Username is required")
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT profile_id FROM tiktok_profiles WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        
+        if row:
+            return row['profile_id'], False
+        
+        cursor.execute("""
+            INSERT INTO tiktok_profiles (username, display_name, followers_count, following_count,
+                                         likes_count, videos_count, is_private, is_verified, biography)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            username,
+            profile_data.get('display_name', ''),
+            profile_data.get('followers_count', 0),
+            profile_data.get('following_count', 0),
+            profile_data.get('likes_count', 0),
+            profile_data.get('videos_count', 0),
+            1 if profile_data.get('is_private') else 0,
+            1 if profile_data.get('is_verified') else 0,
+            profile_data.get('biography', '')
+        ))
+        conn.commit()
+        
+        logger.debug(f"Created TikTok profile: {username}")
+        return cursor.lastrowid, True
+    
+    def get_tiktok_profile_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get TikTok profile by username."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM tiktok_profiles WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        
+        return dict(row) if row else None
+    
+    # ============================================
+    # TIKTOK SESSIONS
+    # ============================================
+    
+    def create_tiktok_session(self, account_id: int, session_name: str, workflow_type: str,
+                               target: str = None, config_used: Optional[Dict] = None) -> Optional[int]:
+        """Create a new TikTok automation session."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO tiktok_sessions (account_id, session_name, workflow_type, target, config_used)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                account_id,
+                session_name[:100],
+                workflow_type,
+                target[:50] if target else None,
+                json.dumps(config_used) if config_used else None
+            ))
+            conn.commit()
+            
+            session_id = cursor.lastrowid
+            logger.info(f"Created TikTok session {session_id}: {session_name} ({workflow_type})")
+            return session_id
+            
+        except Exception as e:
+            logger.error(f"Error creating TikTok session: {e}")
+            return None
+    
+    def update_tiktok_session(self, session_id: int, **kwargs) -> bool:
+        """Update TikTok session with new values."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Build dynamic update query
+            updates = []
+            values = []
+            for key, value in kwargs.items():
+                if key in ['status', 'end_time', 'duration_seconds', 'profiles_visited',
+                           'posts_watched', 'likes', 'follows', 'favorites', 'comments',
+                           'shares', 'errors', 'error_message']:
+                    updates.append(f"{key} = ?")
+                    values.append(value)
+            
+            if not updates:
+                return True
+            
+            updates.append("updated_at = datetime('now')")
+            values.append(session_id)
+            
+            cursor.execute(f"""
+                UPDATE tiktok_sessions SET {', '.join(updates)}
+                WHERE session_id = ?
+            """, values)
+            conn.commit()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating TikTok session: {e}")
+            return False
+    
+    def end_tiktok_session(self, session_id: int, status: str = 'COMPLETED',
+                           error_message: str = None, stats: Dict = None) -> bool:
+        """End a TikTok session with final stats."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Get session start time to calculate duration
+            cursor.execute("SELECT start_time FROM tiktok_sessions WHERE session_id = ?", (session_id,))
+            row = cursor.fetchone()
+            
+            duration = 0
+            if row and row['start_time']:
+                from datetime import datetime
+                start = datetime.fromisoformat(row['start_time'].replace('Z', '+00:00'))
+                duration = int((datetime.now() - start.replace(tzinfo=None)).total_seconds())
+            
+            update_data = {
+                'status': status,
+                'end_time': datetime.now().isoformat(),
+                'duration_seconds': duration,
+                'error_message': error_message
+            }
+            
+            if stats:
+                update_data.update({
+                    'profiles_visited': stats.get('profiles_visited', 0),
+                    'posts_watched': stats.get('posts_watched', 0),
+                    'likes': stats.get('likes', 0),
+                    'follows': stats.get('follows', 0),
+                    'favorites': stats.get('favorites', 0),
+                    'comments': stats.get('comments', 0),
+                    'shares': stats.get('shares', 0),
+                    'errors': stats.get('errors', 0)
+                })
+            
+            return self.update_tiktok_session(session_id, **update_data)
+            
+        except Exception as e:
+            logger.error(f"Error ending TikTok session: {e}")
+            return False
+    
+    def get_tiktok_sessions(self, account_id: int = None, limit: int = 50,
+                            workflow_type: str = None) -> List[Dict[str, Any]]:
+        """Get TikTok sessions with optional filters."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        query = "SELECT * FROM tiktok_sessions WHERE 1=1"
+        params = []
+        
+        if account_id:
+            query += " AND account_id = ?"
+            params.append(account_id)
+        
+        if workflow_type:
+            query += " AND workflow_type = ?"
+            params.append(workflow_type)
+        
+        query += " ORDER BY start_time DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
+    # ============================================
+    # TIKTOK INTERACTIONS
+    # ============================================
+    
+    def record_tiktok_interaction(self, account_id: int, target_username: str,
+                                   interaction_type: str, success: bool = True,
+                                   content: str = None, video_id: str = None,
+                                   session_id: int = None) -> bool:
+        """Record a TikTok interaction (like, follow, favorite, comment, etc.)."""
+        try:
+            profile_id, _ = self.get_or_create_tiktok_profile({'username': target_username})
+            
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO tiktok_interaction_history 
+                (session_id, account_id, profile_id, interaction_type, success, content, video_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                session_id,
+                account_id,
+                profile_id,
+                interaction_type.upper(),
+                1 if success else 0,
+                content,
+                video_id
+            ))
+            conn.commit()
+            
+            # Update daily stats
+            self._update_tiktok_daily_stats(account_id, interaction_type)
+            
+            logger.debug(f"Recorded TikTok {interaction_type} on @{target_username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error recording TikTok interaction: {e}")
+            return False
+    
+    def check_tiktok_recent_interaction(self, target_username: str, account_id: int,
+                                         hours: int = 168) -> bool:
+        """Check if there was a recent TikTok interaction with a profile."""
+        profile = self.get_tiktok_profile_by_username(target_username)
+        if not profile:
+            return False
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM tiktok_interaction_history
+            WHERE account_id = ? AND profile_id = ?
+            AND interaction_time >= datetime('now', '-' || ? || ' hours')
+        """, (account_id, profile['profile_id'], hours))
+        
+        row = cursor.fetchone()
+        return row['count'] > 0
+    
+    def get_tiktok_interactions(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent TikTok interactions for an account."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT ih.*, tp.username as target_username
+            FROM tiktok_interaction_history ih
+            JOIN tiktok_profiles tp ON ih.profile_id = tp.profile_id
+            WHERE ih.account_id = ?
+            ORDER BY ih.interaction_time DESC
+            LIMIT ?
+        """, (account_id, limit))
+        
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def has_tiktok_interaction(self, account_id: int, target_username: str, hours: int = 168) -> bool:
+        """Check if we have already interacted with a TikTok profile.
+        
+        Args:
+            account_id: The bot account ID
+            target_username: Username to check
+            hours: Time window in hours (default 7 days)
+            
+        Returns:
+            True if interaction exists within the time window
+        """
+        return self.check_tiktok_recent_interaction(target_username, account_id, hours)
+    
+    # ============================================
+    # TIKTOK FILTERED PROFILES
+    # ============================================
+    
+    def record_tiktok_filtered_profile(self, account_id: int, username: str, reason: str,
+                                        source_type: str, source_name: str,
+                                        session_id: Optional[int] = None) -> bool:
+        """Record a filtered (skipped) TikTok profile."""
+        try:
+            profile_id, _ = self.get_or_create_tiktok_profile({'username': username})
+            
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO tiktok_filtered_profiles 
+                (profile_id, account_id, username, reason, source_type, source_name, session_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (profile_id, account_id, username, reason, source_type, source_name, session_id))
+            conn.commit()
+            
+            logger.debug(f"Recorded TikTok filtered profile: {username} ({reason})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error recording TikTok filtered profile: {e}")
+            return False
+    
+    def is_tiktok_profile_filtered(self, username: str, account_id: int) -> bool:
+        """Check if a TikTok profile is filtered for an account."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM tiktok_filtered_profiles
+            WHERE username = ? AND account_id = ?
+        """, (username, account_id))
+        
+        row = cursor.fetchone()
+        return row['count'] > 0
+    
+    # ============================================
+    # TIKTOK DAILY STATS
+    # ============================================
+    
+    def _update_tiktok_daily_stats(self, account_id: int, interaction_type: str) -> None:
+        """Update TikTok daily stats for an interaction."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # Map interaction type to column
+            column_map = {
+                'LIKE': 'total_likes',
+                'FOLLOW': 'total_follows',
+                'FAVORITE': 'total_favorites',
+                'COMMENT': 'total_comments',
+                'SHARE': 'total_shares',
+                'PROFILE_VISIT': 'total_profile_visits',
+                'POST_WATCH': 'total_posts_watched'
+            }
+            
+            column = column_map.get(interaction_type.upper())
+            if not column:
+                return
+            
+            # Upsert daily stats
+            cursor.execute(f"""
+                INSERT INTO tiktok_daily_stats (account_id, date, {column})
+                VALUES (?, ?, 1)
+                ON CONFLICT(account_id, date) DO UPDATE SET
+                    {column} = {column} + 1,
+                    updated_at = datetime('now')
+            """, (account_id, today))
+            conn.commit()
+            
+        except Exception as e:
+            logger.error(f"Error updating TikTok daily stats: {e}")
+    
+    def get_tiktok_daily_stats(self, account_id: int, days: int = 7) -> List[Dict[str, Any]]:
+        """Get TikTok daily stats for an account."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM tiktok_daily_stats
+            WHERE account_id = ? AND date >= date('now', '-' || ? || ' days')
+            ORDER BY date DESC
+        """, (account_id, days))
+        
+        return [dict(row) for row in cursor.fetchall()]
 
 
 # Singleton instance
