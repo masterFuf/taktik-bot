@@ -45,6 +45,8 @@ class LocalDatabaseService:
         
         # Initialize tables
         self._create_tables()
+        # Run migrations for existing tables
+        self._run_migrations()
         logger.info(f"✅ Local database initialized at: {self.db_path}")
     
     def _get_connection(self) -> sqlite3.Connection:
@@ -401,6 +403,97 @@ class LocalDatabaseService:
             )
         """)
         
+        # ============================================
+        # DISCOVERY TABLES
+        # ============================================
+        
+        # Discovery Campaigns
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discovery_campaigns (
+                campaign_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER,
+                name TEXT NOT NULL,
+                niche_keywords TEXT DEFAULT '[]',
+                target_hashtags TEXT DEFAULT '[]',
+                target_accounts TEXT DEFAULT '[]',
+                target_post_urls TEXT DEFAULT '[]',
+                total_discovered INTEGER DEFAULT 0,
+                total_qualified INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'ACTIVE',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL
+            )
+        """)
+        
+        # Discovery Progress (for resume capability)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discovery_progress (
+                progress_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER NOT NULL,
+                source_type TEXT NOT NULL,
+                source_value TEXT NOT NULL,
+                current_post_index INTEGER DEFAULT 0,
+                total_posts INTEGER DEFAULT 0,
+                current_phase TEXT DEFAULT 'profile',
+                likers_scraped INTEGER DEFAULT 0,
+                likers_total INTEGER DEFAULT 0,
+                comments_scraped INTEGER DEFAULT 0,
+                comments_total INTEGER DEFAULT 0,
+                last_scroll_position TEXT DEFAULT '{}',
+                status TEXT DEFAULT 'pending',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE CASCADE,
+                UNIQUE(campaign_id, source_type, source_value)
+            )
+        """)
+        
+        # Discovered Profiles
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS discovered_profiles (
+                profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                source_type TEXT,
+                source_name TEXT,
+                biography TEXT,
+                followers_count INTEGER DEFAULT 0,
+                following_count INTEGER DEFAULT 0,
+                posts_count INTEGER DEFAULT 0,
+                is_private INTEGER DEFAULT 0,
+                is_verified INTEGER DEFAULT 0,
+                is_business INTEGER DEFAULT 0,
+                category TEXT,
+                engagement_score REAL,
+                ai_score REAL,
+                status TEXT DEFAULT 'new',
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE CASCADE
+            )
+        """)
+        
+        # Scraped Comments
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scraped_comments (
+                comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scraping_session_id INTEGER,
+                profile_id INTEGER,
+                target_username TEXT,
+                post_url TEXT,
+                username TEXT NOT NULL,
+                content TEXT,
+                likes_count INTEGER DEFAULT 0,
+                is_reply INTEGER DEFAULT 0,
+                parent_comment_id INTEGER,
+                scraped_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (scraping_session_id) REFERENCES scraping_sessions(scraping_id) ON DELETE SET NULL,
+                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL
+            )
+        """)
+        
+        # Add index for scraped_comments (indexes created in _run_migrations after columns are added)
+        
         # Create indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_username ON instagram_accounts(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_username ON instagram_profiles(username)")
@@ -427,6 +520,47 @@ class LocalDatabaseService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_account ON tiktok_filtered_profiles(account_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_username ON tiktok_filtered_profiles(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_daily_stats_account_date ON tiktok_daily_stats(account_id, date)")
+        
+        conn.commit()
+    
+    def _run_migrations(self) -> None:
+        """Run migrations to add missing columns to existing tables."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Migration: Add missing columns to scraped_comments table
+        try:
+            cursor.execute("SELECT scraping_session_id FROM scraped_comments LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            logger.info("Migration: Adding scraping_session_id to scraped_comments")
+            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN scraping_session_id INTEGER")
+        
+        try:
+            cursor.execute("SELECT profile_id FROM scraped_comments LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migration: Adding profile_id to scraped_comments")
+            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN profile_id INTEGER")
+        
+        try:
+            cursor.execute("SELECT target_username FROM scraped_comments LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migration: Adding target_username to scraped_comments")
+            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN target_username TEXT")
+        
+        try:
+            cursor.execute("SELECT is_reply FROM scraped_comments LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migration: Adding is_reply to scraped_comments")
+            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN is_reply INTEGER DEFAULT 0")
+        
+        # Create indexes if they don't exist (safe to run multiple times)
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_session ON scraped_comments(scraping_session_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_username ON scraped_comments(username)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_target ON scraped_comments(target_username)")
+        except sqlite3.OperationalError:
+            pass  # Indexes might fail if columns don't exist yet
         
         conn.commit()
     
@@ -702,6 +836,59 @@ class LocalDatabaseService:
         """, (account_id, limit))
         
         return [dict(row) for row in cursor.fetchall()]
+    
+    def is_profile_recently_scraped(self, username: str, days: int = 7) -> bool:
+        """
+        Check if a profile was recently scraped/updated in the database.
+        
+        This is used by Discovery workflow to avoid re-visiting profiles
+        that were already scraped in recent sessions.
+        
+        Args:
+            username: Instagram username to check
+            days: Number of days to consider as "recent" (default 7)
+            
+        Returns:
+            True if profile exists and was updated within the time window
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT profile_id, updated_at 
+            FROM instagram_profiles 
+            WHERE username = ? 
+            AND updated_at >= datetime('now', '-' || ? || ' days')
+        """, (username, days))
+        
+        row = cursor.fetchone()
+        return row is not None
+    
+    def get_recently_scraped_usernames(self, days: int = 7, limit: int = 10000) -> set:
+        """
+        Get a set of usernames that were recently scraped.
+        
+        This is used to bulk-load usernames for efficient checking
+        during Discovery workflow.
+        
+        Args:
+            days: Number of days to consider as "recent" (default 7)
+            limit: Maximum number of usernames to return
+            
+        Returns:
+            Set of usernames that were recently scraped
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT username 
+            FROM instagram_profiles 
+            WHERE updated_at >= datetime('now', '-' || ? || ' days')
+            LIMIT ?
+        """, (days, limit))
+        
+        return {row['username'] for row in cursor.fetchall()}
     
     # ============================================
     # FILTERED PROFILES
@@ -1319,6 +1506,112 @@ class LocalDatabaseService:
         
         row = cursor.fetchone()
         return dict(row) if row else {}
+    
+    # ============================================
+    # SCRAPED COMMENTS
+    # ============================================
+    
+    def save_scraped_comment(
+        self,
+        username: str,
+        content: str,
+        target_username: str,
+        post_url: Optional[str] = None,
+        scraping_session_id: Optional[int] = None,
+        likes_count: int = 0,
+        is_reply: bool = False,
+        parent_comment_id: Optional[int] = None
+    ) -> Optional[int]:
+        """
+        Save a scraped comment to the database.
+        
+        Args:
+            username: Username of the commenter
+            content: Comment text content
+            target_username: Username of the target account (whose post was commented)
+            post_url: URL of the post
+            scraping_session_id: ID of the scraping session
+            likes_count: Number of likes on the comment
+            is_reply: Whether this is a reply to another comment
+            parent_comment_id: ID of parent comment if this is a reply
+            
+        Returns:
+            comment_id if successful, None otherwise
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            # Get or create profile for the commenter
+            profile_id = None
+            try:
+                profile_id, _ = self.get_or_create_profile({'username': username})
+            except:
+                pass
+            
+            cursor.execute("""
+                INSERT INTO scraped_comments 
+                (scraping_session_id, profile_id, target_username, post_url, username, content, likes_count, is_reply, parent_comment_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                scraping_session_id,
+                profile_id,
+                target_username,
+                post_url,
+                username,
+                content,
+                likes_count,
+                1 if is_reply else 0,
+                parent_comment_id
+            ))
+            conn.commit()
+            
+            comment_id = cursor.lastrowid
+            logger.debug(f"Saved comment from @{username} on @{target_username}'s post: {content[:50]}...")
+            return comment_id
+            
+        except Exception as e:
+            logger.error(f"Error saving scraped comment: {e}")
+            return None
+    
+    def get_comments_by_username(self, username: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get all comments made by a specific user."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM scraped_comments 
+            WHERE username = ?
+            ORDER BY scraped_at DESC LIMIT ?
+        """, (username, limit))
+        
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_comments_on_target(self, target_username: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get all comments on a target's posts."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM scraped_comments 
+            WHERE target_username = ?
+            ORDER BY scraped_at DESC LIMIT ?
+        """, (target_username, limit))
+        
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_comments_by_session(self, scraping_session_id: int) -> List[Dict[str, Any]]:
+        """Get all comments from a specific scraping session."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM scraped_comments 
+            WHERE scraping_session_id = ?
+            ORDER BY scraped_at ASC
+        """, (scraping_session_id,))
+        
+        return [dict(row) for row in cursor.fetchall()]
     
     # ============================================
     # PROCESSED HASHTAG POSTS
