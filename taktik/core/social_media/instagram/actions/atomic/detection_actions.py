@@ -483,3 +483,209 @@ class DetectionActions(BaseAction):
         except Exception as e:
             self.logger.error(f"Error in batch text extraction: {e}")
             return results
+
+    def get_enriched_profile_data(self) -> Dict[str, Any]:
+        """
+        Get all enriched profile data in a single XML dump.
+        Extracts: username, full_name, bio, business_category, website, linked_accounts.
+        Also detects if bio has "more" button to expand.
+        
+        Returns:
+            Dict with all enriched profile fields
+        """
+        from lxml import etree
+        
+        results = {
+            'username': None,
+            'full_name': None,
+            'biography': None,
+            'business_category': None,  # "Digital creator", "Entrepreneur", etc.
+            'website': None,
+            'linked_accounts': [],  # List of {platform, name, url}
+            'bio_truncated': False,  # True if "more" button detected
+        }
+        
+        xml_content = self.device.get_xml_dump()
+        if not xml_content:
+            return results
+        
+        try:
+            tree = etree.fromstring(xml_content.encode('utf-8'))
+            
+            # Extract username from action bar
+            username_selectors = [
+                '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
+                '//*[@resource-id="com.instagram.android:id/action_bar_username_container"]//android.widget.TextView',
+            ]
+            for selector in username_selectors:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['username'] = text.replace('@', '')
+                            break
+                except Exception:
+                    continue
+            
+            # Extract full name
+            full_name_selectors = [
+                '//*[@resource-id="com.instagram.android:id/profile_header_full_name_above_vanity"]',
+                '//*[@resource-id="com.instagram.android:id/profile_header_full_name"]',
+            ]
+            for selector in full_name_selectors:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['full_name'] = text
+                            break
+                except Exception:
+                    continue
+            
+            # Extract business category (Digital creator, Entrepreneur, etc.)
+            category_selectors = [
+                '//*[@resource-id="com.instagram.android:id/profile_header_business_category"]',
+            ]
+            for selector in category_selectors:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['business_category'] = text
+                            break
+                except Exception:
+                    continue
+            
+            # Extract biography from compose view
+            bio_selectors = [
+                '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView',
+                '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[@class="android.widget.TextView"]',
+                '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
+            ]
+            for selector in bio_selectors:
+                try:
+                    elements = tree.xpath(selector)
+                    self.logger.debug(f"Bio selector '{selector[:60]}...' found {len(elements)} elements")
+                    # Iterate through all TextViews to find one with actual bio text
+                    for element in elements:
+                        text = element.get('text', '').strip()
+                        # Skip empty, "See translation", or very short texts that are likely not bio
+                        if text and text != 'See translation' and len(text) > 3:
+                            # Check if bio is truncated (contains "more" or "… more")
+                            if 'more' in text.lower() and ('…' in text or '...' in text):
+                                results['bio_truncated'] = True
+                            results['biography'] = text
+                            self.logger.debug(f"Bio found: {text[:50]}...")
+                            break
+                    if results.get('biography'):
+                        break
+                except Exception as e:
+                    self.logger.debug(f"Bio selector error: {e}")
+                    continue
+            
+            # Extract website from profile_links_view
+            website_selectors = [
+                '//*[@resource-id="com.instagram.android:id/profile_links_view"]//*[@resource-id="com.instagram.android:id/text_view"]',
+                '//*[@resource-id="com.instagram.android:id/profile_header_website"]',
+            ]
+            for selector in website_selectors:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        text = elements[0].get('text', '').strip()
+                        if text:
+                            results['website'] = text
+                            break
+                except Exception:
+                    continue
+            
+            # Extract linked accounts from banner_row (Thread, Facebook, etc.)
+            banner_selectors = [
+                '//*[@resource-id="com.instagram.android:id/banner_row"]//*[@resource-id="com.instagram.android:id/profile_header_banner_item_layout"]',
+            ]
+            for selector in banner_selectors:
+                try:
+                    elements = tree.xpath(selector)
+                    for elem in elements:
+                        # Get the title (account name)
+                        title_elem = elem.xpath('.//*[@resource-id="com.instagram.android:id/profile_header_banner_item_title"]')
+                        if title_elem:
+                            account_name = title_elem[0].get('text', '').strip()
+                            if account_name:
+                                # Try to detect platform from icon or context
+                                # For now, just store the name
+                                results['linked_accounts'].append({
+                                    'name': account_name,
+                                    'platform': 'unknown'  # Could be Thread, Facebook, etc.
+                                })
+                except Exception:
+                    continue
+            
+            if results['username']:
+                self.logger.debug(f"📊 Enriched profile: @{results['username']}, category={results['business_category']}, website={results['website']}, bio={results.get('biography', 'N/A')[:50] if results.get('biography') else 'None'}")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error in enriched profile extraction: {e}")
+            return results
+
+    def click_bio_more_button(self) -> bool:
+        """
+        Click on the 'more' button in bio to expand truncated biography.
+        
+        The bio TextView contains both @username links and "more" text.
+        Clicking in the center might trigger a @username link instead of "more".
+        We need to click on the RIGHT side of the TextView where "more" is located.
+        
+        Returns:
+            True if button was found and clicked, False otherwise
+        """
+        try:
+            # Look for text containing "more" in the bio area
+            more_selectors = [
+                '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[contains(@text, "more")]',
+                '//*[contains(@text, "… more")]',
+                '//*[contains(@text, "...more")]',
+            ]
+            
+            for selector in more_selectors:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    # Get element bounds to click on the RIGHT side where "more" is
+                    try:
+                        info = element.info
+                        bounds = info.get('bounds', {})
+                        if bounds:
+                            # Click on the right side of the element (where "more" text is)
+                            # Use 90% of the width to avoid edge issues
+                            right = bounds.get('right', 0)
+                            left = bounds.get('left', 0)
+                            top = bounds.get('top', 0)
+                            bottom = bounds.get('bottom', 0)
+                            
+                            # Calculate click position: far right side, vertically centered
+                            click_x = left + int((right - left) * 0.92)  # 92% from left = near right edge
+                            click_y = (top + bottom) // 2  # Vertically centered
+                            
+                            self.logger.debug(f"Clicking 'more' at right side: ({click_x}, {click_y}) - bounds: [{left},{top}][{right},{bottom}]")
+                            self.device.click(click_x, click_y)
+                            self._human_like_delay('click')
+                            self.logger.debug("Clicked 'more' button to expand bio (right-side click)")
+                            return True
+                    except Exception as e:
+                        self.logger.debug(f"Could not get bounds for right-side click: {e}, falling back to center click")
+                    
+                    # Fallback: center click (may trigger @username links)
+                    element.click()
+                    self.logger.debug("Clicked 'more' button to expand bio (center click fallback)")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error clicking bio more button: {e}")
+            return False

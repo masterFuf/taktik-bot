@@ -14,7 +14,8 @@ class ProfileBusiness(BaseBusinessAction):
         super().__init__(device, session_manager, automation=None, module_name="profile")
     
     def get_complete_profile_info(self, username: str = None, 
-                                 navigate_if_needed: bool = True) -> Optional[Dict[str, Any]]:
+                                 navigate_if_needed: bool = True,
+                                 enrich: bool = False) -> Optional[Dict[str, Any]]:
         try:
             if navigate_if_needed:
                 if username:
@@ -38,8 +39,30 @@ class ProfileBusiness(BaseBusinessAction):
             # Use batch detection for boolean flags (1 ADB call instead of 3)
             profile_flags = self.detection_actions.get_profile_flags_batch()
             
-            # Use batch text extraction (1 ADB call instead of 3)
-            profile_text = self.detection_actions.get_profile_text_batch()
+            # Use enriched extraction if requested (gets more data: business_category, website, linked_accounts)
+            if enrich:
+                profile_text = self.detection_actions.get_enriched_profile_data()
+                original_username = profile_text.get('username')
+                
+                # If bio is truncated, click "more" to expand and re-extract
+                if profile_text.get('bio_truncated'):
+                    if self.detection_actions.click_bio_more_button():
+                        self._random_sleep(0.3, 0.5)
+                        # Re-extract with full bio
+                        new_profile_text = self.detection_actions.get_enriched_profile_data()
+                        
+                        # IMPORTANT: Verify we're still on the same profile
+                        # Clicking "more" might have navigated to a @username link in the bio
+                        new_username = new_profile_text.get('username')
+                        if new_username and original_username and new_username.lower() != original_username.lower():
+                            self.logger.warning(f"⚠️ Profile changed after 'more' click: {original_username} → {new_username}. Going back.")
+                            self.device.press("back")
+                            self._random_sleep(0.3, 0.5)
+                            # Keep original profile_text (truncated bio is better than wrong profile)
+                        else:
+                            profile_text = new_profile_text
+            else:
+                profile_text = self.detection_actions.get_profile_text_batch()
             
             # Get counts (these are fast, ~300ms each)
             followers_count = self._get_followers_count_robust()
@@ -69,6 +92,12 @@ class ProfileBusiness(BaseBusinessAction):
                 'visible_posts_count': visible_posts,
                 'visible_stories_count': self.detection_actions.count_visible_stories()
             }
+            
+            # Add enriched fields if available
+            if enrich:
+                profile_info['business_category'] = profile_text.get('business_category')
+                profile_info['website'] = profile_text.get('website')
+                profile_info['linked_accounts'] = profile_text.get('linked_accounts', [])
             
             # Clean username if necessary
             if profile_info['username']:
