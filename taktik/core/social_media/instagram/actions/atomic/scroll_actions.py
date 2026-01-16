@@ -94,6 +94,54 @@ class ScrollActions(BaseAction):
             self.logger.error(f"Error scrolling followers list: {e}")
             return False
     
+    def scroll_comments_down(self) -> bool:
+        """Scroll down in the comments bottom sheet view."""
+        self.logger.debug("💬 Scrolling comments list down")
+        
+        try:
+            # Try to scroll within the comments RecyclerView (sticky_header_list)
+            # The comments view is a bottom sheet that covers most of the screen
+            # We need to scroll within its bounds, not the full screen
+            comments_list = self.device.xpath('//*[@resource-id="com.instagram.android:id/sticky_header_list"]')
+            
+            if comments_list.exists:
+                # Get the bounds of the comments list
+                try:
+                    info = comments_list.info
+                    bounds = info.get('bounds', {})
+                    if bounds:
+                        left = bounds.get('left', 0)
+                        top = bounds.get('top', 162)
+                        right = bounds.get('right', self.screen_width)
+                        bottom = bounds.get('bottom', int(self.screen_height * 0.83))
+                        
+                        # Scroll within the comments list bounds
+                        center_x = (left + right) // 2
+                        start_y = top + int((bottom - top) * 0.75)
+                        end_y = top + int((bottom - top) * 0.25)
+                        
+                        self.logger.debug(f"💬 Scrolling in comments bounds: ({center_x}, {start_y}) → ({center_x}, {end_y})")
+                        self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.6)
+                        self._human_like_delay('scroll')
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"Could not get comments list bounds: {e}")
+            
+            # Fallback: scroll in the bottom sheet area (typically y=200 to y=1200)
+            center_x = self.screen_width // 2
+            # Comments bottom sheet typically starts around y=160 and ends around y=1260
+            start_y = int(self.screen_height * 0.75)  # ~1140 on 1520 screen
+            end_y = int(self.screen_height * 0.30)    # ~456 on 1520 screen
+            
+            self.logger.debug(f"💬 Fallback scroll: ({center_x}, {start_y}) → ({center_x}, {end_y})")
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.6)
+            self._human_like_delay('scroll')
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error scrolling comments list: {e}")
+            return False
+    
     def check_and_click_load_more(self) -> bool:
         try:
             for selector in self.detection_selectors.load_more_selectors:
