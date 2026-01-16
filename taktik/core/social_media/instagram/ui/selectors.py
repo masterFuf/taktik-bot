@@ -1472,11 +1472,12 @@ class DetectionSelectors:
         '//*[contains(@content-desc, "Ce compte est privé")]'
     ])
     
-    # === Verified account detection ===
+    # === Verified account detection (Meta Verified / Blue badge) ===
     verified_account_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Verified")]',
         '//*[contains(@content-desc, "Vérifié")]',
-        '//*[@resource-id="com.instagram.android:id/verified_badge"]'
+        '//*[@resource-id="com.instagram.android:id/verified_badge"]',
+        '//*[@resource-id="com.instagram.android:id/action_bar_title_verified_badge"]'
     ])
     
     # === Business account detection ===
