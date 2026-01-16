@@ -1074,6 +1074,105 @@ def generate_url_scraping_workflow():
     return scraping_config
 
 
+def generate_discovery_workflow():
+    """Generate configuration for AI-powered prospect discovery."""
+    console.print("\n[bold green]🎯 Discovery Workflow Configuration[/bold green]")
+    console.print("[dim]Find and qualify prospects based on engagement patterns and AI scoring[/dim]\n")
+    
+    # Campaign name
+    campaign_name = Prompt.ask("[cyan]Campaign name[/cyan]", default=f"Discovery {datetime.now().strftime('%Y-%m-%d')}")
+    
+    # Niche keywords for scoring
+    console.print("\n[yellow]🔑 Niche Keywords (for AI scoring)[/yellow]")
+    console.print("[dim]Enter keywords that define your target audience (comma-separated)[/dim]")
+    console.print("[dim]Example: automation, growth, marketing, instagram bot[/dim]")
+    keywords_input = Prompt.ask("[cyan]Keywords[/cyan]", default="")
+    niche_keywords = [k.strip() for k in keywords_input.split(',') if k.strip()] if keywords_input else []
+    
+    # Sources configuration
+    console.print("\n[yellow]📍 Discovery Sources[/yellow]")
+    
+    # Hashtags
+    console.print("\n[bold]Hashtags[/bold] [dim](find users engaging with these hashtags)[/dim]")
+    hashtags_input = Prompt.ask("[cyan]Hashtags (comma-separated, without #)[/cyan]", default="")
+    hashtags = [f"#{h.strip().lstrip('#')}" for h in hashtags_input.split(',') if h.strip()] if hashtags_input else []
+    
+    # Target accounts
+    console.print("\n[bold]Target Accounts[/bold] [dim](find users engaging with these accounts' posts)[/dim]")
+    accounts_input = Prompt.ask("[cyan]Accounts (comma-separated, without @)[/cyan]", default="")
+    target_accounts = [f"@{a.strip().lstrip('@')}" for a in accounts_input.split(',') if a.strip()] if accounts_input else []
+    
+    # Post URLs
+    console.print("\n[bold]Specific Post URLs[/bold] [dim](find likers/commenters of specific posts)[/dim]")
+    urls_input = Prompt.ask("[cyan]Post URLs (comma-separated)[/cyan]", default="")
+    post_urls = [u.strip() for u in urls_input.split(',') if u.strip() and 'instagram.com' in u] if urls_input else []
+    
+    if not hashtags and not target_accounts and not post_urls:
+        console.print("[red]❌ At least one source (hashtag, account, or URL) is required[/red]")
+        return None
+    
+    # Limits
+    console.print("\n[yellow]📊 Limits[/yellow]")
+    max_profiles = int(Prompt.ask("[cyan]Maximum profiles to discover[/cyan]", default="200"))
+    max_posts_per_source = int(Prompt.ask("[cyan]Max posts to check per source[/cyan]", default="5"))
+    max_profiles_to_enrich = int(Prompt.ask("[cyan]Max profiles to enrich (visit profile)[/cyan]", default="50"))
+    
+    # Scoring
+    console.print("\n[yellow]🤖 AI Scoring[/yellow]")
+    min_score = int(Prompt.ask("[cyan]Minimum score to qualify (0-100)[/cyan]", default="60"))
+    
+    # Session settings
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    # Options
+    console.print("\n[yellow]⚙️ Options[/yellow]")
+    enrich_profiles = Confirm.ask("[cyan]Enrich profiles (visit each profile for bio/stats)?[/cyan]", default=True)
+    score_profiles = Confirm.ask("[cyan]Score profiles with AI?[/cyan]", default=True)
+    
+    discovery_config = {
+        "campaign_name": campaign_name,
+        "niche_keywords": niche_keywords,
+        "hashtags": hashtags,
+        "target_accounts": target_accounts,
+        "post_urls": post_urls,
+        "max_profiles": max_profiles,
+        "max_posts_per_source": max_posts_per_source,
+        "max_profiles_to_enrich": max_profiles_to_enrich,
+        "min_score_threshold": min_score,
+        "session_duration_minutes": session_duration,
+        "enrich_profiles": enrich_profiles,
+        "score_profiles": score_profiles,
+    }
+    
+    # Summary
+    console.print("\n[green]📋 Discovery Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("Campaign", campaign_name)
+    table.add_row("Niche keywords", ", ".join(niche_keywords) if niche_keywords else "None")
+    table.add_row("Hashtags", ", ".join(hashtags) if hashtags else "None")
+    table.add_row("Target accounts", ", ".join(target_accounts) if target_accounts else "None")
+    table.add_row("Post URLs", str(len(post_urls)) + " URLs" if post_urls else "None")
+    table.add_row("Max profiles", str(max_profiles))
+    table.add_row("Posts per source", str(max_posts_per_source))
+    table.add_row("Profiles to enrich", str(max_profiles_to_enrich))
+    table.add_row("Min score", str(min_score))
+    table.add_row("Session duration", f"{session_duration} min")
+    table.add_row("Enrich profiles", "Yes" if enrich_profiles else "No")
+    table.add_row("AI scoring", "Yes" if score_profiles else "No")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start discovery with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return discovery_config
+
+
 @click.group(invoke_without_command=True)
 @click.option('--lang', '-l', type=click.Choice(['fr', 'en']), help='Language (fr/en)')
 @click.pass_context
@@ -1368,45 +1467,69 @@ def cli(ctx, lang=None):
                     # Mode Scraping
                     console.print("\n[bold cyan]🔍 Scraping Mode[/bold cyan]")
                     console.print("[bold]1.[/bold] 👥 Target Scraping (Followers/Following)")
-                    # console.print("[bold]2.[/bold] #️⃣ Hashtag Scraping")  # TODO: À implémenter
                     console.print("[bold]2.[/bold] 🔗 Post URL Scraping (Likers)")
-                    console.print("[bold]3.[/bold] ← Back")
+                    console.print("[bold]3.[/bold] 🎯 Discovery (AI-powered prospect finding)")
+                    console.print("[bold]4.[/bold] ← Back")
                     
-                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 3), show_choices=False)
+                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
                     
-                    if scraping_choice == 3:
+                    if scraping_choice == 4:
                         continue
                     
                     # Générer la config de scraping selon le choix
                     if scraping_choice == 1:
                         scraping_config = generate_target_scraping_workflow()
-                    # elif scraping_choice == 2:
-                    #     scraping_config = generate_hashtag_scraping_workflow()  # TODO: À implémenter
                     elif scraping_choice == 2:
                         scraping_config = generate_url_scraping_workflow()
+                    elif scraping_choice == 3:
+                        # Discovery Workflow
+                        discovery_config = generate_discovery_workflow()
+                        if not discovery_config:
+                            console.print("[red]❌ Discovery configuration cancelled.[/red]")
+                            continue
+                        
+                        # Connexion au device
+                        if not device_manager.connect(device_id):
+                            console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                            continue
+                        
+                        if not device_manager.device:
+                            console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                            continue
+                        
+                        # Lancer le Discovery Workflow
+                        from taktik.core.social_media.instagram.workflows.discovery import DiscoveryWorkflow
+                        
+                        console.print("[blue]🎯 Initializing discovery workflow...[/blue]")
+                        discovery_workflow = DiscoveryWorkflow(device_manager, discovery_config)
+                        discovery_workflow.run()
+                        
+                        console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                        sys.exit(0)
                     
-                    if not scraping_config:
-                        console.print("[red]❌ Scraping configuration cancelled.[/red]")
-                        continue
-                    
-                    # Connexion au device
-                    if not device_manager.connect(device_id):
-                        console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
-                        continue
-                    
-                    if not device_manager.device:
-                        console.print(f"[red]{current_translations['device_init_error']}[/red]")
-                        continue
-                    
-                    # Lancer le scraping
-                    from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
-                    
-                    console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
-                    scraping_workflow = ScrapingWorkflow(device_manager, scraping_config)
-                    scraping_workflow.run()
-                    
-                    console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
-                    sys.exit(0)
+                    if scraping_choice in [1, 2]:
+                        if not scraping_config:
+                            console.print("[red]❌ Scraping configuration cancelled.[/red]")
+                            continue
+                        
+                        # Connexion au device
+                        if not device_manager.connect(device_id):
+                            console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                            continue
+                        
+                        if not device_manager.device:
+                            console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                            continue
+                        
+                        # Lancer le scraping
+                        from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
+                        
+                        console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
+                        scraping_workflow = ScrapingWorkflow(device_manager, scraping_config)
+                        scraping_workflow.run()
+                        
+                        console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                        sys.exit(0)
             
             elif choice == 'tiktok':
                 # Menu TikTok
