@@ -939,10 +939,11 @@ class ScrapingWorkflow:
                             element.click()
                             time.sleep(1.5)
                             
-                            # Use get_complete_profile_info (same as automation workflows)
+                            # Use get_complete_profile_info with enrich=True for full data
                             enriched_data = self.profile_manager.get_complete_profile_info(
                                 username=username,
-                                navigate_if_needed=False
+                                navigate_if_needed=False,
+                                enrich=True
                             )
                             
                             if enriched_data:
@@ -954,8 +955,11 @@ class ScrapingWorkflow:
                                 profile_data['full_name'] = enriched_data.get('full_name', '')
                                 profile_data['is_verified'] = enriched_data.get('is_verified', False)
                                 profile_data['is_business'] = enriched_data.get('is_business', False)
+                                profile_data['business_category'] = enriched_data.get('business_category', '')
+                                profile_data['website'] = enriched_data.get('website', '')
+                                profile_data['linked_accounts'] = enriched_data.get('linked_accounts', [])
                                 
-                                self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, {profile_data['following_count']} following")
+                                self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
                             else:
                                 self.logger.warning(f"Could not get profile info for @{username}")
                             
