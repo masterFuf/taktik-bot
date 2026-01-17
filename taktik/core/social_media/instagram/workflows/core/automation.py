@@ -304,6 +304,10 @@ class InstagramAutomation:
         if not session_id:
             return
         
+        # Track consecutive failures to stop after too many errors
+        consecutive_failures = 0
+        max_consecutive_failures = 3
+        
         try:
             should_continue, stop_reason = self.session_manager.should_continue()
             while should_continue:
@@ -329,6 +333,7 @@ class InstagramAutomation:
                         executed = self.workflow_runner.run_workflow_step(action)
                         if executed:
                             actions_executed = True
+                            consecutive_failures = 0  # Reset on success
                         
                         delay = self.session_manager.get_delay_between_actions()
                         if delay > 0:
@@ -337,6 +342,16 @@ class InstagramAutomation:
                     except Exception as e:
                         self.logger.error(f"Error executing action: {str(e)[:200]}", exc_info=True)
                         time.sleep(5)
+                
+                # Check if no actions were executed in this iteration
+                if not actions_executed:
+                    consecutive_failures += 1
+                    self.logger.warning(f"No actions executed in this iteration ({consecutive_failures}/{max_consecutive_failures} failures)")
+                    
+                    if consecutive_failures >= max_consecutive_failures:
+                        self.logger.error(f"Too many consecutive failures ({consecutive_failures}), stopping session")
+                        self._finalize_session(status='ERROR', reason=f'Too many consecutive failures ({consecutive_failures})')
+                        return
                 
                 should_continue, stop_reason = self.session_manager.should_continue()
                 if not should_continue:

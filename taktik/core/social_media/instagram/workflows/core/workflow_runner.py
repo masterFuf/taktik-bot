@@ -120,10 +120,11 @@ class WorkflowRunner:
         
         self.automation._record_action_performed('hashtag', self.automation.active_username)
         
-        if result:
-            self.logger.debug(f"Hashtag workflow completed: {result.get('users_interacted', 0)} users interacted")
+        users_interacted = result.get('users_interacted', 0) if result else 0
+        self.logger.debug(f"Hashtag workflow completed: {users_interacted} users interacted")
         
-        return True
+        # Return True only if we actually interacted with users
+        return users_interacted > 0
     
     def _run_post_url_workflow(self, action: Dict[str, Any]) -> bool:
         if not self.automation._check_action_limits('post_url', self.automation.active_username):
@@ -149,7 +150,8 @@ class WorkflowRunner:
         self.automation.stats['comments'] += result.get('comments_made', 0)
         self.automation.stats['interactions'] += result.get('users_interacted', 0)
         
-        return True
+        # Return True only if we actually interacted with users
+        return result.get('users_interacted', 0) > 0
     
     def _run_place_workflow_handler(self, action: Dict[str, Any]) -> bool:
         if not self.automation._check_action_limits('place', self.automation.active_username):
@@ -165,7 +167,8 @@ class WorkflowRunner:
         self.automation.stats['comments'] += result.get('comments_made', 0)
         self.automation.stats['interactions'] += result.get('users_interacted', 0)
         
-        return True
+        # Return True only if we actually interacted with users
+        return result.get('users_interacted', 0) > 0
     
     def _run_place_workflow_impl(self, action: Dict[str, Any]) -> Dict[str, int]:
         import time
