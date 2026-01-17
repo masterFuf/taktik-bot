@@ -1285,7 +1285,11 @@ class ScrapingWorkflow:
                 'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
             }
             
-            local_db.save_profile(profile_data)
+            result = local_db.save_profile(profile_data)
+            
+            # Link profile to scraping session in junction table
+            if self.scraping_session_id and result and result.get('profile_id'):
+                local_db.link_profile_to_session(self.scraping_session_id, result['profile_id'])
             
             # Update session count in database
             if self.scraping_session_id:
@@ -1326,6 +1330,10 @@ class ScrapingWorkflow:
                     result = local_db.save_profile(profile_data)
                     
                     if result:
+                        # Link profile to scraping session in junction table
+                        if self.scraping_session_id and result.get('profile_id'):
+                            local_db.link_profile_to_session(self.scraping_session_id, result['profile_id'])
+                        
                         if result.get('created'):
                             saved_count += 1
                         else:
