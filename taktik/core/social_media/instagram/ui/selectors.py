@@ -257,17 +257,17 @@ class NavigationSelectors:
     """Sélecteurs pour la navigation et les boutons système."""
     
     # === Navigation principale (listes pour fallbacks) ===
+    # Use resource-id selectors first to avoid clicking Android system buttons
     home_tab: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "com.instagram.android:id/feed_tab")]',
         '//*[contains(@content-desc, "Accueil")]',
-        '//*[contains(@content-desc, "Home")]',
-        '//*[contains(@resource-id, "tab_bar_icon") and contains(@content-desc, "Accueil")]',
-        '//*[contains(@resource-id, "bottom_navigation_icon") and contains(@content-desc, "Home")]'
+        '//*[contains(@content-desc, "Home")]'
     ])
     
     search_tab: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "com.instagram.android:id/search_tab")]',
         '//*[contains(@content-desc, "Rechercher")]',
-        '//*[contains(@content-desc, "Search")]',
-        '//*[contains(@resource-id, "tab_bar_icon") and contains(@content-desc, "Rechercher")]'
+        '//*[contains(@content-desc, "Search")]'
     ])
     
     reels_tab: List[str] = field(default_factory=lambda: [
@@ -1213,9 +1213,16 @@ class DetectionSelectors:
     ])
     
     search_screen_indicators: List[str] = field(default_factory=lambda: [
+        # Tab selected indicators
         '//*[contains(@content-desc, "Rechercher") and @selected="true"]',
         '//*[contains(@content-desc, "Search") and @selected="true"]',
-        '//*[contains(@resource-id, "search_edit_text")]'
+        # Search bar (when active)
+        '//*[contains(@resource-id, "search_edit_text")]',
+        # Explore page specific indicators
+        '//*[contains(@resource-id, "com.instagram.android:id/clips_tab")]',
+        '//*[contains(@resource-id, "com.instagram.android:id/search_tab")]',
+        # Search bar on Explore page (clickable text "Search" or "Rechercher")
+        '//android.widget.TextView[@package="com.instagram.android" and (contains(@text, "Search") or contains(@text, "Rechercher"))]'
     ])
     
     profile_screen_indicators: List[str] = field(default_factory=lambda: [

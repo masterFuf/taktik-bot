@@ -291,7 +291,7 @@ class DiscoveryWorkflowV2:
         
         This is called at the beginning of each workflow to ensure
         Instagram starts from a known state (home feed).
-        Same approach as TikTok workflows.
+        Uses deep link approach (like navigate_to_profile) which properly waits for app to load.
         """
         self.logger.info("🔄 Restarting Instagram for clean state...")
         console.print("[dim]🔄 Restarting Instagram...[/dim]")
@@ -309,14 +309,15 @@ class DiscoveryWorkflowV2:
                 # Wait a bit for clean shutdown
                 time.sleep(1.5)
                 
-                # Relaunch Instagram
+                # Relaunch Instagram using deep link to home feed (same approach as navigate_to_profile)
+                # Using -W flag to wait for app to fully load, and VIEW intent to properly open Instagram
                 self.logger.info("🚀 Relaunching Instagram...")
-                launch_cmd = f'adb -s {device_serial} shell am start -n com.instagram.android/com.instagram.mainactivity.MainActivity'
-                subprocess.run(launch_cmd, shell=True, capture_output=True, timeout=10)
-                self.logger.info("✅ Instagram relaunched")
+                launch_cmd = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "https://www.instagram.com/" com.instagram.android'
+                result = subprocess.run(launch_cmd, shell=True, capture_output=True, text=True, timeout=15)
+                self.logger.info(f"✅ Instagram relaunched: {result.stdout.strip() if result.stdout else 'OK'}")
                 
-                # Wait for app to fully load
-                time.sleep(4)
+                # Small additional wait for UI to stabilize
+                time.sleep(2)
                 console.print("[green]✅ Instagram restarted[/green]")
             else:
                 self.logger.warning("⚠️ Could not get device serial, skipping restart")
@@ -697,9 +698,8 @@ class DiscoveryWorkflowV2:
         
         console.print(f"\n[bold cyan]#️⃣ Processing {len(hashtags)} hashtags...[/bold cyan]")
         
-        # Navigate to home first to ensure clean state for hashtag navigation
-        self.nav_actions.navigate_to_home()
-        time.sleep(2)
+        # Note: navigate_to_hashtag() handles navigation to search screen internally
+        # No need to navigate_to_home() first - same approach as HashtagBusiness workflow
         
         for hashtag in hashtags:
             if not self._should_continue():
