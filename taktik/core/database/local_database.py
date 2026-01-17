@@ -1,6 +1,7 @@
 """
 TAKTIK Local SQLite Database Service
 Replaces API calls with local database operations for privacy
+Uses Repository Pattern for clean data access
 """
 
 import sqlite3
@@ -11,11 +12,22 @@ from typing import Optional, Dict, Any, List, Tuple
 from pathlib import Path
 from loguru import logger
 
+# Import repositories for new code
+from .repositories import (
+    AccountRepository,
+    ProfileRepository,
+    InteractionRepository,
+    SessionRepository,
+    DiscoveryRepository,
+    TikTokRepository
+)
+
 
 class LocalDatabaseService:
     """
     Local SQLite database service for storing Instagram automation data.
     Uses the same database as Electron app for shared access.
+    Now includes Repository Pattern for cleaner code organization.
     """
     
     def __init__(self, db_path: Optional[str] = None):
@@ -34,6 +46,15 @@ class LocalDatabaseService:
             self.db_path = os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
         
         self._connection: Optional[sqlite3.Connection] = None
+        
+        # Repositories (initialized after connection)
+        self._accounts: Optional[AccountRepository] = None
+        self._profiles: Optional[ProfileRepository] = None
+        self._interactions: Optional[InteractionRepository] = None
+        self._sessions: Optional[SessionRepository] = None
+        self._discovery: Optional[DiscoveryRepository] = None
+        self._tiktok: Optional[TikTokRepository] = None
+        
         self._ensure_database()
     
     def _ensure_database(self) -> None:
@@ -47,7 +68,62 @@ class LocalDatabaseService:
         self._create_tables()
         # Run migrations for existing tables
         self._run_migrations()
+        # Initialize repositories
+        self._init_repositories()
         logger.info(f"✅ Local database initialized at: {self.db_path}")
+    
+    def _init_repositories(self) -> None:
+        """Initialize all repositories with the database connection."""
+        conn = self._get_connection()
+        self._accounts = AccountRepository(conn)
+        self._profiles = ProfileRepository(conn)
+        self._interactions = InteractionRepository(conn)
+        self._sessions = SessionRepository(conn)
+        self._discovery = DiscoveryRepository(conn)
+        self._tiktok = TikTokRepository(conn)
+    
+    # Repository accessors for new code
+    @property
+    def accounts(self) -> AccountRepository:
+        """Access AccountRepository for instagram_accounts operations."""
+        if not self._accounts:
+            self._init_repositories()
+        return self._accounts
+    
+    @property
+    def profiles(self) -> ProfileRepository:
+        """Access ProfileRepository for instagram_profiles operations."""
+        if not self._profiles:
+            self._init_repositories()
+        return self._profiles
+    
+    @property
+    def interactions(self) -> InteractionRepository:
+        """Access InteractionRepository for interaction_history operations."""
+        if not self._interactions:
+            self._init_repositories()
+        return self._interactions
+    
+    @property
+    def sessions(self) -> SessionRepository:
+        """Access SessionRepository for sessions operations."""
+        if not self._sessions:
+            self._init_repositories()
+        return self._sessions
+    
+    @property
+    def discovery(self) -> DiscoveryRepository:
+        """Access DiscoveryRepository for discovery operations."""
+        if not self._discovery:
+            self._init_repositories()
+        return self._discovery
+    
+    @property
+    def tiktok(self) -> TikTokRepository:
+        """Access TikTokRepository for TikTok operations."""
+        if not self._tiktok:
+            self._init_repositories()
+        return self._tiktok
     
     def _get_connection(self) -> sqlite3.Connection:
         """Get or create a database connection with WAL mode."""
@@ -91,6 +167,11 @@ class LocalDatabaseService:
                 following_count INTEGER DEFAULT 0,
                 posts_count INTEGER DEFAULT 0,
                 is_private INTEGER DEFAULT 0,
+                is_verified INTEGER DEFAULT 0,
+                is_business INTEGER DEFAULT 0,
+                business_category TEXT,
+                website TEXT,
+                linked_accounts TEXT,
                 profile_pic_path TEXT,
                 notes TEXT,
                 created_at TEXT DEFAULT (datetime('now')),
@@ -231,8 +312,10 @@ class LocalDatabaseService:
                 status TEXT DEFAULT 'RUNNING',
                 error_message TEXT,
                 config_used TEXT,
+                discovery_campaign_id INTEGER,
                 created_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL
+                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL,
+                FOREIGN KEY (discovery_campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE SET NULL
             )
         """)
         
@@ -473,6 +556,24 @@ class LocalDatabaseService:
             )
         """)
         
+        # Scraped Profiles (junction table linking scraping sessions to profiles)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scraped_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scraping_id INTEGER NOT NULL,
+                profile_id INTEGER NOT NULL,
+                scraped_at TEXT DEFAULT (datetime('now')),
+                ai_score INTEGER,
+                ai_qualified INTEGER DEFAULT 0,
+                ai_analysis TEXT,
+                qualification_criteria TEXT,
+                scored_at TEXT,
+                FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
+                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
+                UNIQUE(scraping_id, profile_id)
+            )
+        """)
+        
         # Scraped Comments
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scraped_comments (
@@ -508,6 +609,8 @@ class LocalDatabaseService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_status ON scraping_sessions(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_source ON scraping_sessions(source_type, source_name)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_processed_hashtag_posts_lookup ON processed_hashtag_posts(account_id, hashtag, post_author)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_session ON scraped_profiles(scraping_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_profile ON scraped_profiles(profile_id)")
         
         # TikTok indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_accounts_username ON tiktok_accounts(username)")
@@ -562,6 +665,48 @@ class LocalDatabaseService:
         except sqlite3.OperationalError:
             pass  # Indexes might fail if columns don't exist yet
         
+        # Migration: Add missing columns to instagram_profiles
+        for col_name, col_def in [
+            ("is_verified", "INTEGER DEFAULT 0"),
+            ("is_business", "INTEGER DEFAULT 0"),
+            ("business_category", "TEXT"),
+            ("website", "TEXT"),
+            ("linked_accounts", "TEXT"),
+        ]:
+            try:
+                cursor.execute(f"SELECT {col_name} FROM instagram_profiles LIMIT 1")
+            except sqlite3.OperationalError:
+                logger.info(f"Migration: Adding {col_name} to instagram_profiles")
+                cursor.execute(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} {col_def}")
+        
+        # Migration: Add discovery_campaign_id to scraping_sessions
+        try:
+            cursor.execute("SELECT discovery_campaign_id FROM scraping_sessions LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migration: Adding discovery_campaign_id to scraping_sessions")
+            cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN discovery_campaign_id INTEGER")
+        
+        # Migration: Add AI qualification columns to scraped_profiles
+        for col_name, col_def in [
+            ("ai_score", "INTEGER"),
+            ("ai_qualified", "INTEGER DEFAULT 0"),
+            ("ai_analysis", "TEXT"),
+            ("qualification_criteria", "TEXT"),
+            ("scored_at", "TEXT"),
+        ]:
+            try:
+                cursor.execute(f"SELECT {col_name} FROM scraped_profiles LIMIT 1")
+            except sqlite3.OperationalError:
+                logger.info(f"Migration: Adding {col_name} to scraped_profiles")
+                cursor.execute(f"ALTER TABLE scraped_profiles ADD COLUMN {col_name} {col_def}")
+        
+        # Create indexes for AI qualification
+        try:
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_qualified ON scraped_profiles(ai_qualified)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_score ON scraped_profiles(ai_score)")
+        except sqlite3.OperationalError:
+            pass
+        
         conn.commit()
     
     def close(self) -> None:
@@ -572,135 +717,35 @@ class LocalDatabaseService:
             logger.info("Database connection closed")
     
     # ============================================
-    # ACCOUNTS
+    # ACCOUNTS (delegated to AccountRepository)
     # ============================================
     
     def get_or_create_account(self, username: str, is_bot: bool = True, 
                                user_id: Optional[int] = None, 
                                license_id: Optional[int] = None) -> Tuple[int, bool]:
-        """
-        Get existing account or create a new one.
-        
-        Returns:
-            Tuple of (account_id, created)
-        """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Check if exists
-        cursor.execute("SELECT account_id FROM instagram_accounts WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        
-        if row:
-            return row['account_id'], False
-        
-        # Create new
-        cursor.execute("""
-            INSERT INTO instagram_accounts (username, is_bot, user_id, license_id)
-            VALUES (?, ?, ?, ?)
-        """, (username, 1 if is_bot else 0, user_id, license_id))
-        conn.commit()
-        
-        logger.debug(f"Created account: {username} (ID: {cursor.lastrowid})")
-        return cursor.lastrowid, True
+        """Get existing account or create a new one."""
+        return self.accounts.get_or_create(username, is_bot, user_id, license_id)
     
     def get_account_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Get account by username."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM instagram_accounts WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        
-        if row:
-            return dict(row)
-        return None
+        return self.accounts.find_by_username(username)
     
     # ============================================
-    # PROFILES
+    # PROFILES (delegated to ProfileRepository)
     # ============================================
     
     def get_or_create_profile(self, profile_data: Dict[str, Any]) -> Tuple[int, bool]:
-        """
-        Get existing profile or create/update one.
-        
-        Returns:
-            Tuple of (profile_id, created)
-        """
+        """Get existing profile or create/update one."""
         username = profile_data.get('username')
         if not username:
             raise ValueError("Username is required")
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Check if exists
-        cursor.execute("SELECT profile_id FROM instagram_profiles WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        
-        if row:
-            # Update existing
-            profile_id = row['profile_id']
-            cursor.execute("""
-                UPDATE instagram_profiles SET
-                    full_name = COALESCE(?, full_name),
-                    biography = COALESCE(?, biography),
-                    followers_count = COALESCE(?, followers_count),
-                    following_count = COALESCE(?, following_count),
-                    posts_count = COALESCE(?, posts_count),
-                    is_private = COALESCE(?, is_private),
-                    profile_pic_path = COALESCE(?, profile_pic_path),
-                    notes = COALESCE(?, notes),
-                    updated_at = datetime('now')
-                WHERE profile_id = ?
-            """, (
-                profile_data.get('full_name'),
-                profile_data.get('biography'),
-                profile_data.get('followers_count'),
-                profile_data.get('following_count'),
-                profile_data.get('posts_count'),
-                1 if profile_data.get('is_private') else 0 if profile_data.get('is_private') is not None else None,
-                profile_data.get('profile_pic_path'),
-                profile_data.get('notes'),
-                profile_id
-            ))
-            conn.commit()
-            return profile_id, False
-        
-        # Create new
-        cursor.execute("""
-            INSERT INTO instagram_profiles 
-            (username, full_name, biography, followers_count, following_count, posts_count, is_private, profile_pic_path, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            username,
-            profile_data.get('full_name', ''),
-            profile_data.get('biography'),
-            profile_data.get('followers_count', 0),
-            profile_data.get('following_count', 0),
-            profile_data.get('posts_count', 0),
-            1 if profile_data.get('is_private') else 0,
-            profile_data.get('profile_pic_path'),
-            profile_data.get('notes')
-        ))
-        conn.commit()
-        
-        logger.debug(f"Created profile: {username} (ID: {cursor.lastrowid})")
-        return cursor.lastrowid, True
+        # Remove username from kwargs to avoid duplicate argument
+        kwargs = {k: v for k, v in profile_data.items() if k != 'username'}
+        return self.profiles.get_or_create(username, **kwargs)
     
     def get_profile_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Get profile by username."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM instagram_profiles WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        
-        if row:
-            result = dict(row)
-            result['is_private'] = bool(result.get('is_private'))
-            return result
-        return None
+        return self.profiles.find_by_username(username)
     
     def save_profile(self, profile_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -750,54 +795,28 @@ class LocalDatabaseService:
         return {'profile_id': profile_id, 'created': created}
     
     # ============================================
-    # INTERACTIONS
+    # INTERACTIONS (delegated to InteractionRepository)
     # ============================================
     
     def record_interaction(self, account_id: int, target_username: str, 
                           interaction_type: str, success: bool = True,
                           content: Optional[str] = None, 
                           session_id: Optional[int] = None) -> bool:
-        """
-        Record an interaction with a profile.
-        
-        Args:
-            account_id: The bot account ID
-            target_username: Username of the target profile
-            interaction_type: Type of interaction (LIKE, FOLLOW, etc.)
-            success: Whether the interaction was successful
-            content: Optional content (e.g., comment text)
-            session_id: Optional session ID
-            
-        Returns:
-            True if recorded successfully
-        """
+        """Record an interaction with a profile."""
         try:
-            # Get or create the target profile
             profile_id, _ = self.get_or_create_profile({'username': target_username})
-            
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO interaction_history 
-                (session_id, account_id, profile_id, interaction_type, success, content)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                session_id,
-                account_id,
-                profile_id,
-                interaction_type.upper(),
-                1 if success else 0,
-                content
-            ))
-            conn.commit()
-            
+            interaction_id = self.interactions.record(
+                account_id=account_id,
+                profile_id=profile_id,
+                interaction_type=interaction_type,
+                success=success,
+                content=content,
+                session_id=session_id
+            )
             # Update daily stats
             self._update_daily_stats(account_id, interaction_type)
-            
             logger.debug(f"Recorded {interaction_type} on {target_username}")
-            return True
-            
+            return interaction_id is not None
         except Exception as e:
             logger.error(f"Error recording interaction: {e}")
             return False
@@ -808,34 +827,11 @@ class LocalDatabaseService:
         profile = self.get_profile_by_username(target_username)
         if not profile:
             return False
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM interaction_history
-            WHERE account_id = ? AND profile_id = ?
-            AND interaction_time >= datetime('now', '-' || ? || ' days')
-        """, (account_id, profile['profile_id'], days))
-        
-        row = cursor.fetchone()
-        return row['count'] > 0
+        return self.interactions.has_recent_interaction(account_id, profile['profile_id'], days)
     
     def get_interactions(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
         """Get recent interactions for an account."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT ih.*, ip.username as target_username
-            FROM interaction_history ih
-            JOIN instagram_profiles ip ON ih.profile_id = ip.profile_id
-            WHERE ih.account_id = ?
-            ORDER BY ih.interaction_time DESC
-            LIMIT ?
-        """, (account_id, limit))
-        
-        return [dict(row) for row in cursor.fetchall()]
+        return self.interactions.find_by_account(account_id, limit)
     
     def is_profile_recently_scraped(self, username: str, days: int = 7) -> bool:
         """
@@ -891,7 +887,7 @@ class LocalDatabaseService:
         return {row['username'] for row in cursor.fetchall()}
     
     # ============================================
-    # FILTERED PROFILES
+    # FILTERED PROFILES (delegated to InteractionRepository)
     # ============================================
     
     def record_filtered_profile(self, account_id: int, username: str, reason: str,
@@ -900,149 +896,70 @@ class LocalDatabaseService:
         """Record a filtered (skipped) profile."""
         try:
             profile_id, _ = self.get_or_create_profile({'username': username})
-            
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT OR REPLACE INTO filtered_profiles 
-                (profile_id, account_id, username, reason, source_type, source_name, session_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (profile_id, account_id, username, reason, source_type, source_name, session_id))
-            conn.commit()
-            
+            result = self.interactions.record_filtered(
+                account_id=account_id,
+                profile_id=profile_id,
+                username=username,
+                reason=reason,
+                source_type=source_type,
+                source_name=source_name,
+                session_id=session_id
+            )
             logger.debug(f"Recorded filtered profile: {username} ({reason})")
-            return True
-            
+            return result
         except Exception as e:
             logger.error(f"Error recording filtered profile: {e}")
             return False
     
     def is_profile_filtered(self, username: str, account_id: int) -> bool:
         """Check if a profile is filtered for an account."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM filtered_profiles
-            WHERE username = ? AND account_id = ?
-        """, (username, account_id))
-        
-        row = cursor.fetchone()
-        return row['count'] > 0
+        return self.interactions.is_filtered(username, account_id)
     
     def check_filtered_profiles_batch(self, usernames: List[str], account_id: int) -> List[str]:
         """Check multiple profiles at once, return list of filtered usernames."""
-        if not usernames:
-            return []
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        placeholders = ','.join(['?' for _ in usernames])
-        cursor.execute(f"""
-            SELECT username FROM filtered_profiles
-            WHERE account_id = ? AND username IN ({placeholders})
-        """, [account_id] + usernames)
-        
-        return [row['username'] for row in cursor.fetchall()]
+        return self.interactions.get_filtered_usernames(usernames, account_id)
     
     # ============================================
-    # SESSIONS
+    # SESSIONS (delegated to SessionRepository)
     # ============================================
     
     def create_session(self, account_id: int, session_name: str, target_type: str,
                        target: str, config_used: Optional[Dict] = None) -> Optional[int]:
         """Create a new automation session."""
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO sessions (account_id, session_name, target_type, target, config_used)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                account_id,
-                session_name[:100],  # Truncate
-                target_type,
-                target[:50],  # Truncate
-                json.dumps(config_used) if config_used else None
-            ))
-            conn.commit()
-            
-            session_id = cursor.lastrowid
-            
-            # Update daily stats
+        session_id = self.sessions.create(
+            account_id=account_id,
+            session_name=session_name,
+            target_type=target_type,
+            target=target,
+            config_used=config_used
+        )
+        if session_id:
             self._increment_daily_session_count(account_id)
-            
             logger.info(f"Created session {session_id}: {session_name}")
-            return session_id
-            
-        except Exception as e:
-            logger.error(f"Error creating session: {e}")
-            return None
+        return session_id
     
     def update_session(self, session_id: int, **kwargs) -> bool:
-        """
-        Update a session.
-        
-        Supported kwargs: status, end_time, duration_seconds, error_message
-        """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            updates = ["updated_at = datetime('now')"]
-            values = []
-            
-            if 'status' in kwargs:
-                updates.append("status = ?")
-                values.append(kwargs['status'])
-            if 'end_time' in kwargs:
-                updates.append("end_time = ?")
-                values.append(kwargs['end_time'])
-            if 'duration_seconds' in kwargs:
-                updates.append("duration_seconds = ?")
-                values.append(kwargs['duration_seconds'])
-            if 'error_message' in kwargs:
-                updates.append("error_message = ?")
-                values.append(kwargs['error_message'])
-            
-            values.append(session_id)
-            
-            cursor.execute(f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?", values)
-            conn.commit()
-            
-            # Update daily stats for completed/failed sessions
-            status = kwargs.get('status')
-            if status in ('COMPLETED', 'FAILED', 'ERROR'):
-                session = self.get_session(session_id)
-                if session:
-                    self._update_daily_session_status(
-                        session['account_id'], 
-                        status, 
-                        kwargs.get('duration_seconds', 0)
-                    )
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error updating session {session_id}: {e}")
-            return False
+        """Update a session. Supported kwargs: status, end_time, duration_seconds, error_message"""
+        result = self.sessions.update(session_id, **kwargs)
+        # Update daily stats for completed/failed sessions
+        status = kwargs.get('status')
+        if result and status in ('COMPLETED', 'FAILED', 'ERROR'):
+            session = self.get_session(session_id)
+            if session:
+                self._update_daily_session_status(
+                    session['account_id'], 
+                    status, 
+                    kwargs.get('duration_seconds', 0)
+                )
+        return result
     
     def get_session(self, session_id: int) -> Optional[Dict[str, Any]]:
         """Get a session by ID."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM sessions WHERE session_id = ?", (session_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            result = dict(row)
-            result['synced_to_api'] = bool(result.get('synced_to_api'))
-            return result
-        return None
+        return self.sessions.find_by_id(session_id)
+    
+    def get_sessions_by_account(self, account_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get sessions by account."""
+        return self.sessions.find_by_account(account_id, limit)
     
     def get_session_stats(self, session_id: int) -> Optional[Dict[str, int]]:
         """Get aggregated stats for a session."""
@@ -1392,6 +1309,31 @@ class LocalDatabaseService:
             duration_seconds=duration,
             status='CANCELLED'
         )
+    
+    def link_profile_to_session(self, scraping_id: int, profile_id: int) -> bool:
+        """
+        Link a profile to a scraping session in the scraped_profiles junction table.
+        
+        Args:
+            scraping_id: The scraping session ID
+            profile_id: The profile ID
+            
+        Returns:
+            True if linked successfully
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT OR IGNORE INTO scraped_profiles (scraping_id, profile_id)
+                VALUES (?, ?)
+            """, (scraping_id, profile_id))
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.debug(f"Error linking profile {profile_id} to session {scraping_id}: {e}")
+            return False
     
     def cleanup_orphan_sessions(self) -> int:
         """Mark any IN_PROGRESS sessions as INTERRUPTED (app crashed/closed unexpectedly)."""
