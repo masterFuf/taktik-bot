@@ -1601,6 +1601,9 @@ class FollowerBusiness(BaseBusinessAction):
                             result['error'] = f"Follow cancelled - API quotas not updated: {e}"
                             return result
                         
+                        # Record FOLLOW in database
+                        self._record_action(username, 'FOLLOW', 1)
+                        
                         # Envoyer l'événement follow en temps réel au frontend
                         try:
                             import json

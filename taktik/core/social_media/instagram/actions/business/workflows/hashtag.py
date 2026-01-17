@@ -250,9 +250,9 @@ class HashtagBusiness(BaseBusinessAction):
                     should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(username, account_id, hours_limit=24*60)
                     if should_skip:
                         if skip_reason == "already_processed":
-                            self.logger.info(f"⏭️ @{username} already processed, skipping")
+                            self.logger.info(f"🔄 Profil @{username} déjà traité")
                         elif skip_reason == "already_filtered":
-                            self.logger.info(f"⏭️ @{username} already filtered in DB, skipping")
+                            self.logger.info(f"🚫 Profil @{username} déjà filtré")
                             stats['profiles_filtered'] += 1
                         stats['skipped'] += 1
                         self.stats_manager.increment('skipped')
@@ -356,20 +356,21 @@ class HashtagBusiness(BaseBusinessAction):
                         self.stats_manager.increment('profiles_visited')
                         
                         # Record interactions in database
+                        # Note: LIKE is already recorded in LikeBusiness.like_profile_posts via _record_action
                         if interaction_result.get('likes', 0) > 0:
                             self.stats_manager.increment('likes', interaction_result['likes'])
-                            DatabaseHelpers.record_individual_actions(username, 'LIKE', interaction_result['likes'], account_id, session_id)
                         if interaction_result.get('follows', 0) > 0:
                             self.stats_manager.increment('follows', interaction_result['follows'])
                             DatabaseHelpers.record_individual_actions(username, 'FOLLOW', interaction_result['follows'], account_id, session_id)
+                        # Note: STORY_WATCH is already recorded in StoryBusiness via _record_action
                         if interaction_result.get('stories', 0) > 0:
                             self.stats_manager.increment('stories_watched', interaction_result['stories'])
-                            DatabaseHelpers.record_individual_actions(username, 'STORY_WATCH', interaction_result['stories'], account_id, session_id)
+                        # Note: COMMENT is already recorded in CommentBusiness.comment_on_post via _record_action
                         if interaction_result.get('comments', 0) > 0:
-                            DatabaseHelpers.record_individual_actions(username, 'COMMENT', interaction_result['comments'], account_id, session_id)
+                            pass  # Already recorded in comment.py
+                        # Note: STORY_LIKE is already recorded in StoryBusiness via _record_action
                         if interaction_result.get('stories_liked', 0) > 0:
                             self.stats_manager.increment('stories_liked', interaction_result['stories_liked'])
-                            DatabaseHelpers.record_individual_actions(username, 'STORY_LIKE', interaction_result['stories_liked'], account_id, session_id)
                         
                         self.stats_manager.display_stats(current_profile=username)
                     else:
