@@ -247,6 +247,7 @@ class LikeBusiness(BaseBusinessAction):
                     self.logger.debug(f"Post #{posts_seen}: like_probability={final_probability:.2f} (base={base_probability:.2f}, position_factor={position_factor:.1f})")
                 else:
                     should_like_this_post = False
+                    final_probability = 0.0
                     self.logger.debug(f"Post #{posts_seen}: liking disabled by config")
                 
                 if should_like_this_post and posts_liked < max_likes:
