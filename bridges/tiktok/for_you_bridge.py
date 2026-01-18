@@ -46,6 +46,30 @@ def run_for_you_workflow(config: Dict[str, Any]):
         
         time.sleep(4)  # Wait for app to fully load
         
+        # Fetch own profile info for database tracking
+        try:
+            from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
+            
+            logger.info("📊 Fetching own profile info...")
+            send_status("fetching_profile", "Fetching your TikTok profile info")
+            
+            profile_actions = ProfileActions(manager.device_manager.device)
+            profile_info = profile_actions.fetch_own_profile()
+            
+            if profile_info:
+                logger.info(f"✅ Bot account: @{profile_info.username} ({profile_info.display_name})")
+                
+                # Send profile info to frontend for session tracking
+                from .base import send_message
+                send_message("bot_profile", profile={
+                    "username": profile_info.username,
+                    "display_name": profile_info.display_name,
+                    "followers_count": profile_info.followers_count,
+                    "following_count": profile_info.following_count,
+                })
+        except Exception as e:
+            logger.warning(f"Could not fetch profile info: {e}")
+        
         # Create workflow config from frontend config
         workflow_config = ForYouConfig(
             max_videos=config.get('maxVideos', 50),
