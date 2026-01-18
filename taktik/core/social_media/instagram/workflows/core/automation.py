@@ -298,6 +298,7 @@ class InstagramAutomation:
             return
             
         self.update_session_manager_config()
+        self.session_finalized = False  # Reset flag at start
         self.logger.info("=== Starting Instagram automation session ===")
         
         session_id = self.helpers.initialize_session()
@@ -334,6 +335,11 @@ class InstagramAutomation:
                         if executed:
                             actions_executed = True
                             consecutive_failures = 0  # Reset on success
+                        
+                        # Check if session was finalized by the workflow itself
+                        if self.session_finalized:
+                            self.logger.info("Session was finalized by workflow, exiting run_workflow")
+                            return
                         
                         delay = self.session_manager.get_delay_between_actions()
                         if delay > 0:

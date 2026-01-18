@@ -26,6 +26,9 @@ class WorkflowHelpers:
     def finalize_session(self, status='COMPLETED', reason='Limits reached'):
         self.logger.info(f"🏁 Finalizing session: {reason}")
         
+        # Mark session as finalized to prevent further iterations
+        self.automation.session_finalized = True
+        
         # Send stop reason to frontend
         import json
         stop_message = {
