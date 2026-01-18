@@ -174,6 +174,9 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
                     unfollowed_this_round += 1
                     logger.info(f"✅ Unfollowed user ({unfollowed_count}/{max_unfollows})")
                     
+                    # Send unfollow event to frontend
+                    send_message("unfollow_event", event="unfollowed", count=unfollowed_count)
+                    
                     # Send stats update to frontend
                     send_message("unfollow_stats", stats={
                         "unfollowed": unfollowed_count,
