@@ -24,7 +24,8 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # Add the bot directory to path to find taktik module
-bot_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# dm_bridge.py is in bot/bridges/instagram/, so we need to go up 3 levels to get to bot/
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, bot_dir)
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
