@@ -246,12 +246,32 @@ class FollowersWorkflow:
                     max_scroll_attempts = self._calculate_smart_scroll_attempts()
                     scroll_attempts = 0
                     found_new = False
+                    consecutive_zero_buttons = 0  # Track consecutive scrolls with 0 buttons
                     
                     while scroll_attempts < max_scroll_attempts and not found_new:
                         self.logger.debug(f"No new followers found, scrolling... (attempt {scroll_attempts + 1}/{max_scroll_attempts})")
                         self._scroll_followers_list()
                         # No need to clear _processed_usernames - usernames are stable across scrolls
                         time.sleep(1.0)  # Wait for content to load
+                        
+                        # Check if we can find any follow buttons at all
+                        follower_rows = self._find_follower_rows()
+                        if len(follower_rows) == 0:
+                            consecutive_zero_buttons += 1
+                            # If we've had 3+ scrolls with 0 buttons, we might not be on the followers list
+                            if consecutive_zero_buttons >= 3:
+                                self.logger.warning("⚠️ No follow buttons found after multiple scrolls, checking page state...")
+                                if not self._is_on_followers_list():
+                                    self.logger.warning("⚠️ Not on followers list! Attempting recovery...")
+                                    if self._recover_to_followers_list():
+                                        self.logger.info("✅ Recovery successful, continuing workflow")
+                                        consecutive_zero_buttons = 0
+                                        continue
+                                    else:
+                                        self.logger.error("❌ Recovery failed")
+                                        break
+                        else:
+                            consecutive_zero_buttons = 0
                         
                         if self._process_next_follower():
                             found_new = True
@@ -388,11 +408,10 @@ class FollowersWorkflow:
         # Try to extract followers count before clicking
         try:
             for selector in selectors:
-                elements = self.device.find_elements(selector)
-                if elements:
-                    element = elements[0]
+                element = self.device.xpath(selector)
+                if element and element.exists:
                     # Try to get the text which contains the count
-                    text = element.get_attribute('text') or element.get_attribute('content-desc') or ''
+                    text = element.get_text() or ''
                     # Parse count from text like "267 Followers" or "1.2K Followers"
                     count = self._parse_followers_count(text)
                     if count > 0:
@@ -925,21 +944,38 @@ class FollowersWorkflow:
         """Check if we're currently on the followers list page.
         
         Unique elements on followers list:
-        - Title with resource-id="com.zhiliaoapp.musically:id/w4m" (username without @)
-        - Tabs: "Following X" / "Followers X" / "Suggested"
+        - Tabs: "Following X" / "Followers X" / "Suggested" with selected state
         - RecyclerView with resource-id="com.zhiliaoapp.musically:id/s6p"
+        - Follow buttons in the list
         - Text "Only X can see all followers"
+        
+        We need to be careful: profile pages also have some similar elements.
+        The key differentiator is the presence of Follow buttons in a list format.
         """
         try:
-            followers_list_selectors = [
-                '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"]',  # Title username
-                '//*[@resource-id="com.zhiliaoapp.musically:id/s6p"]',  # Followers RecyclerView
+            # Most reliable: check for the Followers tab being selected
+            # This is unique to the followers list page
+            followers_tab_selectors = [
                 '//*[contains(@content-desc, "Followers")][@selected="true"]',  # Selected Followers tab
-                '//*[contains(@text, "can see all followers")]',  # Privacy message
+                '//*[@resource-id="com.zhiliaoapp.musically:id/s6p"]',  # Followers RecyclerView
             ]
-            for selector in followers_list_selectors:
+            
+            for selector in followers_tab_selectors:
                 if self.device.xpath(selector).exists:
-                    return True
+                    # Double-check by looking for Follow buttons in the list
+                    # This distinguishes from profile page
+                    follow_buttons = self.device.xpath('//android.widget.Button[contains(@text, "Follow")]')
+                    if follow_buttons.exists:
+                        return True
+                    # Also check for "Following" status buttons (already following)
+                    following_buttons = self.device.xpath('//android.widget.Button[@text="Following"]')
+                    if following_buttons.exists:
+                        return True
+                    # Check for Friends buttons
+                    friends_buttons = self.device.xpath('//android.widget.Button[@text="Friends"]')
+                    if friends_buttons.exists:
+                        return True
+            
             return False
         except Exception as e:
             self.logger.debug(f"Error checking followers list: {e}")
@@ -955,10 +991,11 @@ class FollowersWorkflow:
         Returns:
             True if successfully returned to followers list, False otherwise.
         """
-        max_attempts = 3
+        max_attempts = 5  # Increased from 3 to handle edge cases
         
         for attempt in range(max_attempts):
             self.logger.debug(f"Return to followers list attempt {attempt + 1}/{max_attempts}")
+            time.sleep(0.5)  # Small delay to let UI settle
             
             # Check current page state
             if self._is_on_followers_list():
@@ -969,20 +1006,14 @@ class FollowersWorkflow:
                 # We're on video page, need to go back to profile first
                 self.logger.debug("📹 On video page, pressing back to profile...")
                 self._go_back()
-                time.sleep(0.8)
-                
-                # Verify we landed on profile
-                if not self._is_on_profile_page():
-                    self.logger.debug("⚠️ Did not land on profile page after back from video")
-                    continue
-                
-                self.logger.debug("✅ Landed on profile page")
+                time.sleep(1.0)
+                continue  # Re-check state after back
             
             if self._is_on_profile_page():
                 # We're on profile page, need to go back to followers list
                 self.logger.debug("👤 On profile page, pressing back to followers list...")
                 self._go_back()
-                time.sleep(0.8)
+                time.sleep(1.0)
                 
                 # Verify we landed on followers list
                 if self._is_on_followers_list():
@@ -990,11 +1021,12 @@ class FollowersWorkflow:
                     return True
                 else:
                     self.logger.debug("⚠️ Did not land on followers list after back from profile")
+                    continue
             
             # Unknown state, try pressing back
             self.logger.debug("❓ Unknown page state, pressing back...")
             self._go_back()
-            time.sleep(0.8)
+            time.sleep(1.0)
         
         self.logger.warning("❌ Failed to return to followers list after max attempts")
         return False
@@ -1124,37 +1156,51 @@ class FollowersWorkflow:
           we can estimate how many scrolls are needed to find new followers.
         - If we've visited < 50% of followers, scroll more aggressively
         - If we've visited > 80% of followers, we're likely near the end
-        - Default to 3 scrolls if we don't have data
+        - If we don't have total count but have visited count, use heuristics
         
         Returns:
             Number of scroll attempts to make before giving up.
         """
-        # Default if we don't have follower count data
-        if self._target_followers_count == 0:
-            return 3
-        
-        # Calculate total visited (DB + this session)
         total_visited = self._already_visited_count + self.stats.profiles_visited
-        visited_ratio = total_visited / self._target_followers_count
         
-        # Calculate remaining followers we could potentially visit
-        remaining = self._target_followers_count - total_visited
+        # If we have the target's follower count, use ratio-based logic
+        if self._target_followers_count > 0:
+            visited_ratio = total_visited / self._target_followers_count
+            remaining = self._target_followers_count - total_visited
+            
+            self.logger.debug(f"📊 Smart scroll: {total_visited}/{self._target_followers_count} visited ({visited_ratio:.0%}), {remaining} remaining")
+            
+            if visited_ratio >= 0.9:
+                # We've visited 90%+ of followers - very few left, minimal scrolling
+                return 5
+            elif visited_ratio >= 0.7:
+                # We've visited 70-90% - some left, moderate scrolling
+                return 10
+            elif visited_ratio >= 0.5:
+                # We've visited 50-70% - many left, more scrolling
+                return 15
+            else:
+                # We've visited < 50% - lots of followers left, scroll aggressively
+                return 20
         
-        self.logger.debug(f"📊 Smart scroll: {total_visited}/{self._target_followers_count} visited ({visited_ratio:.0%}), {remaining} remaining")
+        # Fallback: we don't know total count, but we know how many we've visited
+        # Use heuristics based on visited count
+        if total_visited > 0:
+            # If we've visited many profiles, there are likely more to find
+            # Scroll more aggressively to find them
+            if total_visited < 50:
+                scroll_attempts = 15  # We've visited few, likely many more exist
+            elif total_visited < 100:
+                scroll_attempts = 10  # Moderate visited count
+            else:
+                scroll_attempts = 5   # We've visited many, might be near the end
+            
+            self.logger.debug(f"📊 Smart scroll (no total): {total_visited} visited, using {scroll_attempts} scroll attempts")
+            return scroll_attempts
         
-        if visited_ratio >= 0.9:
-            # We've visited 90%+ of followers - very few left, minimal scrolling
-            return 5
-        elif visited_ratio >= 0.7:
-            # We've visited 70-90% - some left, moderate scrolling
-            return 10
-        elif visited_ratio >= 0.5:
-            # We've visited 50-70% - many left, more scrolling
-            return 15
-        else:
-            # We've visited < 50% - lots of followers left, scroll aggressively
-            # This means there should be many new followers to find
-            return 20
+        # No data at all - use default
+        self.logger.debug("📊 Smart scroll: no data, using default 3 attempts")
+        return 3
     
     def _get_visited_ratio(self) -> float:
         """Get the ratio of visited followers to total followers.
