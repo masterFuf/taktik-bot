@@ -141,6 +141,8 @@ class FollowersWorkflow:
         self._actions_since_pause = 0
         self._processed_usernames: Set[str] = set()  # Track usernames we've processed in this session
         self._current_profile_username = ""  # Username of the profile we're currently interacting with
+        self._target_followers_count: int = 0  # Number of followers the target has
+        self._already_visited_count: int = 0  # Number of target's followers we've already visited
         
         # Database
         self._db = get_local_database()
@@ -240,9 +242,9 @@ class FollowersWorkflow:
                 
                 # Find and process next follower
                 if not self._process_next_follower():
-                    # No more followers found, try scrolling multiple times
+                    # No more followers found - use smart scroll logic
+                    max_scroll_attempts = self._calculate_smart_scroll_attempts()
                     scroll_attempts = 0
-                    max_scroll_attempts = 3
                     found_new = False
                     
                     while scroll_attempts < max_scroll_attempts and not found_new:
@@ -259,7 +261,8 @@ class FollowersWorkflow:
                     
                     if not found_new:
                         completion_reason = 'no_more_followers'
-                        self.logger.info("No more followers to process after multiple scroll attempts")
+                        visited_ratio = self._get_visited_ratio()
+                        self.logger.info(f"No more followers to process after {scroll_attempts} scroll attempts (visited {visited_ratio:.0%} of target's followers)")
                         break
                 
                 # Check if pause needed
@@ -375,10 +378,67 @@ class FollowersWorkflow:
         return self.click._find_and_click(selectors, timeout=5)
     
     def _click_followers_counter(self) -> bool:
-        """Click on the Followers counter to open followers list."""
+        """Click on the Followers counter to open followers list.
+        
+        Also extracts and stores the followers count for smart scroll logic.
+        """
         self.logger.debug("Clicking Followers counter")
         selectors = self.followers_selectors.followers_counter
+        
+        # Try to extract followers count before clicking
+        try:
+            for selector in selectors:
+                elements = self.device.find_elements(selector)
+                if elements:
+                    element = elements[0]
+                    # Try to get the text which contains the count
+                    text = element.get_attribute('text') or element.get_attribute('content-desc') or ''
+                    # Parse count from text like "267 Followers" or "1.2K Followers"
+                    count = self._parse_followers_count(text)
+                    if count > 0:
+                        self._target_followers_count = count
+                        self.logger.info(f"📊 Target has {count} followers")
+                        break
+        except Exception as e:
+            self.logger.debug(f"Could not extract followers count: {e}")
+        
+        # Get count of already visited followers for this target
+        if self._account_id and self.config.search_query:
+            self._already_visited_count = self._db.count_tiktok_interactions_for_target(
+                self._account_id, 
+                self.config.search_query,
+                hours=168  # 7 days
+            )
+            self.logger.info(f"📊 Already visited {self._already_visited_count} followers of @{self.config.search_query}")
+        
         return self.click._find_and_click(selectors, timeout=5)
+    
+    def _parse_followers_count(self, text: str) -> int:
+        """Parse followers count from text like '267 Followers', '1.2K', '1M'."""
+        import re
+        if not text:
+            return 0
+        
+        # Remove "Followers" and clean up
+        text = text.lower().replace('followers', '').replace('follower', '').strip()
+        
+        # Handle K (thousands) and M (millions)
+        multiplier = 1
+        if 'k' in text:
+            multiplier = 1000
+            text = text.replace('k', '')
+        elif 'm' in text:
+            multiplier = 1000000
+            text = text.replace('m', '')
+        
+        # Extract number
+        match = re.search(r'[\d.]+', text)
+        if match:
+            try:
+                return int(float(match.group()) * multiplier)
+            except ValueError:
+                pass
+        return 0
     
     def _process_next_follower(self) -> bool:
         """Find and process the next unprocessed follower.
@@ -1055,3 +1115,55 @@ class FollowersWorkflow:
         """Add a human-like delay."""
         delay = random.uniform(self.config.min_delay, self.config.max_delay)
         time.sleep(delay)
+    
+    def _calculate_smart_scroll_attempts(self) -> int:
+        """Calculate the number of scroll attempts based on visited ratio.
+        
+        Logic:
+        - If we know the target's follower count and how many we've visited,
+          we can estimate how many scrolls are needed to find new followers.
+        - If we've visited < 50% of followers, scroll more aggressively
+        - If we've visited > 80% of followers, we're likely near the end
+        - Default to 3 scrolls if we don't have data
+        
+        Returns:
+            Number of scroll attempts to make before giving up.
+        """
+        # Default if we don't have follower count data
+        if self._target_followers_count == 0:
+            return 3
+        
+        # Calculate total visited (DB + this session)
+        total_visited = self._already_visited_count + self.stats.profiles_visited
+        visited_ratio = total_visited / self._target_followers_count
+        
+        # Calculate remaining followers we could potentially visit
+        remaining = self._target_followers_count - total_visited
+        
+        self.logger.debug(f"📊 Smart scroll: {total_visited}/{self._target_followers_count} visited ({visited_ratio:.0%}), {remaining} remaining")
+        
+        if visited_ratio >= 0.9:
+            # We've visited 90%+ of followers - very few left, minimal scrolling
+            return 5
+        elif visited_ratio >= 0.7:
+            # We've visited 70-90% - some left, moderate scrolling
+            return 10
+        elif visited_ratio >= 0.5:
+            # We've visited 50-70% - many left, more scrolling
+            return 15
+        else:
+            # We've visited < 50% - lots of followers left, scroll aggressively
+            # This means there should be many new followers to find
+            return 20
+    
+    def _get_visited_ratio(self) -> float:
+        """Get the ratio of visited followers to total followers.
+        
+        Returns:
+            Ratio between 0.0 and 1.0, or 0.0 if unknown.
+        """
+        if self._target_followers_count == 0:
+            return 0.0
+        
+        total_visited = self._already_visited_count + self.stats.profiles_visited
+        return min(total_visited / self._target_followers_count, 1.0)

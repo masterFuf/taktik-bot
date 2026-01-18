@@ -2042,6 +2042,36 @@ class LocalDatabaseService:
         row = cursor.fetchone()
         return row['count'] > 0
     
+    def count_tiktok_interactions_for_target(self, account_id: int, target_username: str, hours: int = 168) -> int:
+        """Count how many unique profiles we've interacted with from a target's followers.
+        
+        This is used to determine if we should continue scrolling through a target's followers list.
+        
+        Args:
+            account_id: The bot account ID
+            target_username: The target account whose followers we're processing
+            hours: Time window in hours (default 7 days = 168 hours)
+            
+        Returns:
+            Number of unique profiles interacted with
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Count unique profiles we've interacted with in the time window
+        # We use the session's target field to identify interactions from this target's followers
+        cursor.execute("""
+            SELECT COUNT(DISTINCT ih.profile_id) as count
+            FROM tiktok_interaction_history ih
+            JOIN tiktok_sessions ts ON ih.session_id = ts.session_id
+            WHERE ih.account_id = ?
+            AND ts.target = ?
+            AND ih.interaction_time >= datetime('now', '-' || ? || ' hours')
+        """, (account_id, target_username, hours))
+        
+        row = cursor.fetchone()
+        return row['count'] if row else 0
+    
     # ============================================
     # TIKTOK DAILY STATS
     # ============================================
