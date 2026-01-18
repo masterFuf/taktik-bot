@@ -8,8 +8,11 @@ import os
 import shutil
 
 # Get the directory where this script is located
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Bot root directory (parent of scripts/)
+BASE_DIR = os.path.dirname(SCRIPT_DIR)
 DIST_DIR = os.path.join(BASE_DIR, 'dist', 'taktik-bot')
+BRIDGES_DIR = os.path.join(BASE_DIR, 'bridges')
 
 def get_uiautomator2_assets_path():
     """Get the path to uiautomator2 assets folder"""
@@ -20,7 +23,7 @@ def build_desktop_bridge():
     """Build the main desktop_bridge.py as standalone executable"""
     u2_assets = get_uiautomator2_assets_path()
     PyInstaller.__main__.run([
-        os.path.join(BASE_DIR, 'desktop_bridge.py'),
+        os.path.join(BRIDGES_DIR, 'instagram', 'desktop_bridge.py'),
         '--name=desktop_bridge',
         '--onefile',
         '--console',  # Keep console for subprocess communication
@@ -55,7 +58,7 @@ def build_dm_bridge():
     """Build dm_bridge.py as standalone executable"""
     u2_assets = get_uiautomator2_assets_path()
     PyInstaller.__main__.run([
-        os.path.join(BASE_DIR, 'dm_bridge.py'),
+        os.path.join(BRIDGES_DIR, 'instagram', 'dm_bridge.py'),
         '--name=dm_bridge',
         '--onefile',
         '--console',
@@ -76,7 +79,7 @@ def build_scraping_bridge():
     """Build scraping_bridge.py as standalone executable"""
     u2_assets = get_uiautomator2_assets_path()
     PyInstaller.__main__.run([
-        os.path.join(BASE_DIR, 'scraping_bridge.py'),
+        os.path.join(BRIDGES_DIR, 'instagram', 'scraping_bridge.py'),
         '--name=scraping_bridge',
         '--onefile',
         '--console',
@@ -93,6 +96,76 @@ def build_scraping_bridge():
         f'--add-data={u2_assets};uiautomator2/assets',
     ])
 
+def build_cold_dm_bridge():
+    """Build cold_dm_bridge.py as standalone executable"""
+    u2_assets = get_uiautomator2_assets_path()
+    PyInstaller.__main__.run([
+        os.path.join(BRIDGES_DIR, 'instagram', 'cold_dm_bridge.py'),
+        '--name=cold_dm_bridge',
+        '--onefile',
+        '--console',
+        f'--distpath={DIST_DIR}',
+        f'--workpath={os.path.join(BASE_DIR, "build")}',
+        f'--specpath={os.path.join(BASE_DIR, "build")}',
+        '--clean',
+        '--hidden-import=taktik',
+        '--hidden-import=adbutils',
+        '--hidden-import=uiautomator2',
+        '--hidden-import=PIL',
+        '--hidden-import=loguru',
+        f'--add-data={os.path.join(BASE_DIR, "taktik")};taktik',
+        f'--add-data={u2_assets};uiautomator2/assets',
+    ])
+
+def build_discovery_bridge():
+    """Build discovery_bridge.py as standalone executable"""
+    u2_assets = get_uiautomator2_assets_path()
+    PyInstaller.__main__.run([
+        os.path.join(BRIDGES_DIR, 'instagram', 'discovery_bridge.py'),
+        '--name=discovery_bridge',
+        '--onefile',
+        '--console',
+        f'--distpath={DIST_DIR}',
+        f'--workpath={os.path.join(BASE_DIR, "build")}',
+        f'--specpath={os.path.join(BASE_DIR, "build")}',
+        '--clean',
+        '--hidden-import=taktik',
+        '--hidden-import=adbutils',
+        '--hidden-import=uiautomator2',
+        '--hidden-import=PIL',
+        '--hidden-import=loguru',
+        f'--add-data={os.path.join(BASE_DIR, "taktik")};taktik',
+        f'--add-data={u2_assets};uiautomator2/assets',
+    ])
+
+def build_tiktok_bridge():
+    """Build tiktok_bridge.py as standalone executable"""
+    u2_assets = get_uiautomator2_assets_path()
+    PyInstaller.__main__.run([
+        os.path.join(BRIDGES_DIR, 'tiktok', 'tiktok_bridge.py'),
+        '--name=tiktok_bridge',
+        '--onefile',
+        '--console',
+        f'--distpath={DIST_DIR}',
+        f'--workpath={os.path.join(BASE_DIR, "build")}',
+        f'--specpath={os.path.join(BASE_DIR, "build")}',
+        '--clean',
+        '--hidden-import=taktik',
+        '--hidden-import=adbutils',
+        '--hidden-import=uiautomator2',
+        '--hidden-import=PIL',
+        '--hidden-import=loguru',
+        '--hidden-import=bridges.tiktok.base',
+        '--hidden-import=bridges.tiktok.for_you_bridge',
+        '--hidden-import=bridges.tiktok.dm_read_bridge',
+        '--hidden-import=bridges.tiktok.dm_send_bridge',
+        '--hidden-import=bridges.tiktok.search_bridge',
+        '--hidden-import=bridges.tiktok.followers_bridge',
+        f'--add-data={os.path.join(BASE_DIR, "taktik")};taktik',
+        f'--add-data={os.path.join(BASE_DIR, "bridges")};bridges',
+        f'--add-data={u2_assets};uiautomator2/assets',
+    ])
+
 def main():
     print("=" * 50)
     print("TAKTIK Bot - Building Executables")
@@ -105,14 +178,23 @@ def main():
     
     os.makedirs(DIST_DIR, exist_ok=True)
     
-    print("\n[1/3] Building desktop_bridge.exe...")
+    print("\n[1/6] Building desktop_bridge.exe...")
     build_desktop_bridge()
     
-    print("\n[2/3] Building dm_bridge.exe...")
+    print("\n[2/6] Building dm_bridge.exe...")
     build_dm_bridge()
     
-    print("\n[3/3] Building scraping_bridge.exe...")
+    print("\n[3/6] Building scraping_bridge.exe...")
     build_scraping_bridge()
+    
+    print("\n[4/6] Building cold_dm_bridge.exe...")
+    build_cold_dm_bridge()
+    
+    print("\n[5/6] Building discovery_bridge.exe...")
+    build_discovery_bridge()
+    
+    print("\n[6/6] Building tiktok_bridge.exe...")
+    build_tiktok_bridge()
     
     print("\n" + "=" * 50)
     print("Build complete!")
