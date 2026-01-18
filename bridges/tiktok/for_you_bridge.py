@@ -49,6 +49,7 @@ def run_for_you_workflow(config: Dict[str, Any]):
         # Fetch own profile info for database tracking
         try:
             from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
+            from .base import send_message
             
             logger.info("📊 Fetching own profile info...")
             send_status("fetching_profile", "Fetching your TikTok profile info")
@@ -58,17 +59,22 @@ def run_for_you_workflow(config: Dict[str, Any]):
             
             if profile_info:
                 logger.info(f"✅ Bot account: @{profile_info.username} ({profile_info.display_name})")
+                logger.info(f"   Followers: {profile_info.followers_count}, Following: {profile_info.following_count}")
                 
                 # Send profile info to frontend for session tracking
-                from .base import send_message
                 send_message("bot_profile", profile={
                     "username": profile_info.username,
                     "display_name": profile_info.display_name,
                     "followers_count": profile_info.followers_count,
                     "following_count": profile_info.following_count,
                 })
+                logger.info("📤 Bot profile message sent to frontend")
+            else:
+                logger.warning("❌ Could not fetch profile info - profile_info is None")
         except Exception as e:
-            logger.warning(f"Could not fetch profile info: {e}")
+            logger.error(f"❌ Error fetching profile info: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
         
         # Create workflow config from frontend config
         workflow_config = ForYouConfig(
