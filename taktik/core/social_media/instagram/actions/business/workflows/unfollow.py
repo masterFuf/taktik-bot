@@ -55,6 +55,20 @@ class UnfollowBusiness(BaseBusinessAction):
                 '//android.widget.Button[contains(@text, "abonnements")]',
                 '//*[contains(@content-desc, "following")]',
                 '//*[contains(@content-desc, "abonnements")]'
+            ],
+            # Sorting selectors - for sorting the following list
+            'sort_button': [
+                '//*[@resource-id="com.instagram.android:id/sorting_entry_row_icon"]',
+                '//*[@content-desc="Sort by"]'
+            ],
+            'sort_option_default': [
+                '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Default"]'
+            ],
+            'sort_option_latest': [
+                '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Date followed: Latest"]'
+            ],
+            'sort_option_earliest': [
+                '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Date followed: Earliest"]'
             ]
         }
     
@@ -101,6 +115,18 @@ class UnfollowBusiness(BaseBusinessAction):
                 return stats
             
             time.sleep(2)
+            
+            # Apply sorting based on unfollow mode
+            unfollow_mode = effective_config.get('unfollow_mode', 'non-followers')
+            if unfollow_mode == 'oldest':
+                # Sort by "Date followed: Earliest" to unfollow oldest first
+                self._set_following_list_sort('earliest')
+                time.sleep(1.5)
+            elif unfollow_mode == 'all':
+                # Sort by "Date followed: Latest" for "all following" mode
+                self._set_following_list_sort('latest')
+                time.sleep(1.5)
+            # For 'non-followers' mode, we keep default sorting
             
             # Extraire les comptes à potentiellement unfollow
             accounts_to_check = self._extract_following_accounts(
@@ -593,3 +619,55 @@ class UnfollowBusiness(BaseBusinessAction):
             stats['errors'] += 1
         
         return stats
+    
+    def _set_following_list_sort(self, sort_order: str = 'default') -> bool:
+        """
+        Set the sorting order for the following list.
+        
+        Args:
+            sort_order: 'default', 'latest', or 'earliest'
+            
+        Returns:
+            True if sorting was changed successfully, False otherwise
+        """
+        try:
+            self.logger.info(f"📊 Setting following list sort order to: {sort_order}")
+            
+            # Click on the sort button to open the sort modal
+            sort_button_clicked = False
+            for selector in self._unfollow_selectors['sort_button']:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    sort_button_clicked = True
+                    self.logger.debug("Clicked sort button")
+                    break
+            
+            if not sort_button_clicked:
+                self.logger.warning("Could not find sort button")
+                return False
+            
+            time.sleep(1)  # Wait for modal to appear
+            
+            # Select the appropriate sort option
+            sort_selector_key = f'sort_option_{sort_order}'
+            if sort_selector_key not in self._unfollow_selectors:
+                self.logger.warning(f"Unknown sort order: {sort_order}")
+                return False
+            
+            for selector in self._unfollow_selectors[sort_selector_key]:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    self.logger.info(f"✅ Selected sort option: {sort_order}")
+                    time.sleep(0.5)
+                    return True
+            
+            self.logger.warning(f"Could not find sort option: {sort_order}")
+            # Press back to close the modal if we couldn't select an option
+            self.device.press('back')
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error setting sort order: {e}")
+            return False
