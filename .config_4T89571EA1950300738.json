@@ -1,15 +1,15 @@
 {
   "deviceId": "4T89571EA1950300738",
-  "workflowType": "target_followers",
-  "target": "myboost_off",
+  "workflowType": "hashtags",
+  "target": "metz",
   "limits": {
-    "maxProfiles": 10,
+    "maxProfiles": 20,
     "maxLikesPerProfile": 4
   },
   "probabilities": {
     "like": 100,
     "follow": 5,
-    "comment": 0,
+    "comment": 5,
     "watchStories": 0,
     "likeStories": 0
   },
