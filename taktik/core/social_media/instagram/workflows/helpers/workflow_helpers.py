@@ -135,6 +135,14 @@ class WorkflowHelpers:
         self.automation.current_session_id = session_id
         self.logger.info(f"Session created with ID: {session_id}")
         
+        # Send session_id to frontend for tracking
+        import json
+        session_start_message = {
+            "type": "session_start",
+            "session_id": session_id
+        }
+        print(json.dumps(session_start_message), flush=True)
+        
         return session_id
     
     def create_workflow_session(self, action_override: Optional[Dict[str, Any]] = None) -> Optional[int]:
