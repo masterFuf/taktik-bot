@@ -152,11 +152,30 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
                 try:
                     btn_text = elem.text or ''
                     
+                    # Try to get the username from the same row
+                    # The username is in a sibling element with resource-id ygv
+                    username = None
+                    try:
+                        # Get button bounds to find the row
+                        btn_bounds = elem.bounds
+                        if btn_bounds:
+                            # Search for username in the same vertical area
+                            username_elem = device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/ygv"]').all()
+                            for ue in username_elem:
+                                ue_bounds = ue.bounds
+                                # Check if username is in same row (similar Y position)
+                                if ue_bounds and abs(ue_bounds[1] - btn_bounds[1]) < 50:
+                                    username = ue.text
+                                    break
+                    except Exception:
+                        pass
+                    
                     # Skip if it's a "Friends" button (mutual follow)
                     if 'Friends' in btn_text and not include_friends:
                         skipped_friends += 1
-                        # Send skip event to frontend
-                        send_message("unfollow_event", event="skipped", reason="friends")
+                        # Send skip event to frontend with username
+                        send_message("unfollow_event", event="skipped", reason="friends", username=username)
+                        logger.info(f"⏭️ Skipped friend: @{username or 'unknown'}")
                         continue
                     
                     # Click the button to unfollow
@@ -172,10 +191,10 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
                     
                     unfollowed_count += 1
                     unfollowed_this_round += 1
-                    logger.info(f"✅ Unfollowed user ({unfollowed_count}/{max_unfollows})")
+                    logger.info(f"✅ Unfollowed @{username or 'unknown'} ({unfollowed_count}/{max_unfollows})")
                     
-                    # Send unfollow event to frontend
-                    send_message("unfollow_event", event="unfollowed", count=unfollowed_count)
+                    # Send unfollow event to frontend with username
+                    send_message("unfollow_event", event="unfollowed", username=username, count=unfollowed_count)
                     
                     # Send stats update to frontend
                     send_message("unfollow_stats", stats={
