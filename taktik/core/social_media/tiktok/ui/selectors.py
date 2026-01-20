@@ -320,6 +320,21 @@ class ProfileSelectors:
     message_button: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Message"]',
         '//android.widget.Button[@text="Message"]',
+        '//*[@resource-id="com.zhiliaoapp.musically:id/eme"][@text="Message"]',
+        '//android.widget.TextView[@text="Message"]',
+    ])
+    
+    # === Privacy blocked conversation indicators ===
+    unable_to_send_message: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"][@text="Unable to send message"]',
+        '//*[@text="Unable to send message"]',
+        '//*[contains(@text, "Unable to send")]',
+    ])
+    
+    privacy_blocked_message: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.zhiliaoapp.musically:id/uq5"]',
+        '//*[contains(@text, "privacy settings")]',
+        '//*[contains(@text, "Cannot send message")]',
     ])
 
 # =============================================================================
