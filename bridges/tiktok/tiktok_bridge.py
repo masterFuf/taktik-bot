@@ -61,6 +61,10 @@ def main():
             from bridges.tiktok.dm_send_bridge import run_dm_send_workflow
             success = run_dm_send_workflow(config)
             
+        elif workflow_type == 'scraping':
+            from bridges.tiktok.scraping_bridge import run_scraping_workflow
+            success = run_scraping_workflow(config)
+            
         else:
             send_error(f"Unknown workflow type: {workflow_type}")
             logger.error(f"Unknown workflow type: {workflow_type}")
