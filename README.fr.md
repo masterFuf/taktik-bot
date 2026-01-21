@@ -198,9 +198,9 @@ Pour une compatibilité et un fonctionnement optimaux, utilisez ces versions sp�
 | Application | Version Recommandée | Langue |
 |-------------|---------------------|--------|
 | **Instagram** | `410.0.0.53.71` | Anglais (requis) |
-| **TikTok** | `43.1.4` | Toute langue |
+| **TikTok** | `43.1.4` | Anglais (requis) |
 
-> 💡 **Important :** Instagram doit être configuré en **anglais** pour que toutes les fonctionnalités fonctionnent correctement. Ces versions ont été entièrement testées et vérifiées.
+> 💡 **Important :** Instagram et TikTok doivent être configurés en **anglais** pour que toutes les fonctionnalités fonctionnent correctement. Ces versions ont été entièrement testées et vérifiées.
 
 ### Appareils Compatibles
 

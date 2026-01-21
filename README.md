@@ -198,9 +198,9 @@ For optimal compatibility and functionality, use these specific app versions:
 | App | Recommended Version | Language |
 |-----|---------------------|----------|
 | **Instagram** | `410.0.0.53.71` | English (required) |
-| **TikTok** | `43.1.4` | Any |
+| **TikTok** | `43.1.4` | English (required) |
 
-> 💡 **Important:** Instagram must be set to **English** for all features to work correctly. These versions have been fully tested and verified.
+> 💡 **Important:** Both Instagram and TikTok must be set to **English** for all features to work correctly. These versions have been fully tested and verified.
 
 ### Compatible Devices
 
