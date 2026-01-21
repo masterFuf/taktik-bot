@@ -260,7 +260,7 @@ TAKTIK uses a simple, flexible pricing model with **degressive rates** — the m
 
 ## 📚 Documentation
 
-Full documentation available at **[taktik-bot.com/en/documentation](https://taktik-bot.com/en/documentation)**
+Full documentation available at **[taktik-bot.com/en/docs](https://taktik-bot.com/en/docs)**
 
 - 📖 Getting Started Guide
 - ⚙️ Configuration Options
