@@ -532,6 +532,9 @@ class FollowersWorkflow:
             self.stats.profiles_visited += 1
             self._send_stats_update()
             
+            # Extract and save profile data (followers, likes, bio, etc.)
+            self._extract_and_save_profile_data()
+            
             # Send profile visit action for Live Activity
             self._send_action('profile_visit', self._current_profile_username)
             
@@ -891,6 +894,127 @@ class FollowersWorkflow:
             self.logger.debug(f"Error getting profile username: {e}")
         
         return "unknown"
+    
+    def _extract_and_save_profile_data(self):
+        """Extract profile data from the current profile page and save to database.
+        
+        Extracts:
+        - Display name (resource-id: qf8)
+        - Username (resource-id: qh5)
+        - Following count
+        - Followers count
+        - Likes count
+        - Bio (if visible)
+        - Videos count (from profile grid)
+        """
+        if not self._current_profile_username or self._current_profile_username == "unknown":
+            return
+        
+        profile_data = {
+            'username': self._current_profile_username,
+            'display_name': None,
+            'followers_count': 0,
+            'following_count': 0,
+            'likes_count': 0,
+            'videos_count': 0,
+            'biography': None,
+            'is_private': False,
+            'is_verified': False,
+        }
+        
+        try:
+            # Get display name (resource-id: qf8)
+            display_elem = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/qf8"]')
+            if display_elem.exists:
+                profile_data['display_name'] = display_elem.get_text()
+            
+            # Get stats - values have resource-id qfw, labels have resource-id qfv
+            stat_values = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/qfw"]').all()
+            stat_labels = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/qfv"]').all()
+            
+            for i, label_elem in enumerate(stat_labels):
+                try:
+                    label_text = (label_elem.text or '').lower()
+                    if i < len(stat_values):
+                        value_text = stat_values[i].text or '0'
+                        count = self._parse_count_value(value_text)
+                        
+                        if 'following' in label_text:
+                            profile_data['following_count'] = count
+                        elif 'follower' in label_text:
+                            profile_data['followers_count'] = count
+                        elif 'like' in label_text:
+                            profile_data['likes_count'] = count
+                except Exception as e:
+                    self.logger.debug(f"Error parsing stat {i}: {e}")
+            
+            # Get bio if visible (resource-id: qfx for bio text)
+            bio_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/qfx"]',  # Bio text
+            ]
+            for selector in bio_selectors:
+                bio_elem = self.device.xpath(selector)
+                if bio_elem.exists:
+                    bio_text = bio_elem.get_text()
+                    if bio_text and len(bio_text) > 3:
+                        profile_data['biography'] = bio_text
+                        break
+            
+            # Count visible videos in profile grid
+            posts = self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/e52"][@clickable="true"]').all()
+            if posts:
+                profile_data['videos_count'] = len(posts)
+            
+            # Check for verified badge
+            verified_elem = self.device.xpath('//*[contains(@content-desc, "Verified")]')
+            if verified_elem.exists:
+                profile_data['is_verified'] = True
+            
+            # Check for private account indicator
+            private_elem = self.device.xpath('//*[contains(@text, "private")]')
+            if private_elem.exists:
+                profile_data['is_private'] = True
+            
+            # Save to database
+            if self._db and self._account_id:
+                try:
+                    self._db.get_or_create_tiktok_profile(profile_data)
+                    self.logger.debug(f"📊 Saved profile data for @{self._current_profile_username}: "
+                                     f"{profile_data['followers_count']} followers, "
+                                     f"{profile_data['likes_count']} likes")
+                except Exception as e:
+                    self.logger.debug(f"Error saving profile data: {e}")
+                    
+        except Exception as e:
+            self.logger.debug(f"Error extracting profile data: {e}")
+    
+    def _parse_count_value(self, text: str) -> int:
+        """Parse a count string like '1,750', '1.2K', '1.5M', '166 K' to an integer."""
+        if not text:
+            return 0
+        
+        try:
+            text_str = str(text).strip().replace('\xa0', ' ').strip()
+            
+            multipliers = {
+                'K': 1000, 'k': 1000,
+                'M': 1000000, 'm': 1000000,
+                'B': 1000000000, 'b': 1000000000
+            }
+            
+            for suffix, multiplier in multipliers.items():
+                if text_str.endswith(f' {suffix}') or text_str.endswith(f' {suffix.lower()}'):
+                    number_part = text_str[:-2].strip().replace(',', '.')
+                    return int(float(number_part) * multiplier)
+                elif text_str.upper().endswith(suffix.upper()):
+                    number_part = text_str[:-1].strip().replace(',', '.')
+                    return int(float(number_part) * multiplier)
+            
+            number_str = text_str.replace(' ', '').replace(',', '')
+            return int(float(number_str)) if number_str else 0
+            
+        except (ValueError, AttributeError):
+            return 0
     
     def _is_on_video_page(self) -> bool:
         """Check if we're currently on a video playback page.
