@@ -1,6 +1,6 @@
 """Centralized real-time statistics manager for Instagram workflows."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 from datetime import datetime
 import time
 from loguru import logger
@@ -13,6 +13,19 @@ class BaseStatsManager:
         self.start_time = datetime.now()
         self.session_manager = session_manager
         self.stats = self._initialize_stats()
+        self._on_stats_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+    
+    def set_on_stats_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Set callback called after each stat increment to send real-time stats (like TikTok IPC)."""
+        self._on_stats_callback = callback
+    
+    def _send_stats_update(self):
+        """Send stats update via callback if set."""
+        if self._on_stats_callback:
+            try:
+                self._on_stats_callback(self.get_summary())
+            except Exception as e:
+                logger.warning(f"Error sending stats callback: {e}")
         
     def _initialize_stats(self) -> Dict[str, Any]:
         return {
@@ -46,6 +59,8 @@ class BaseStatsManager:
             if isinstance(self.stats[stat_name], (int, float)):
                 self.stats[stat_name] += value
                 logger.debug(f"📊 {stat_name}: {self.stats[stat_name]} (+{value})")
+                # Send real-time stats update via IPC callback (like TikTok)
+                self._send_stats_update()
             else:
                 logger.warning(f"Cannot increment {stat_name}: type {type(self.stats[stat_name])}")
         else:
