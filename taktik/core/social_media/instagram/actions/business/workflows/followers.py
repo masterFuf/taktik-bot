@@ -336,12 +336,12 @@ class FollowerBusiness(BaseBusinessAction):
             'resumed_from_checkpoint': False
         }
         
-        max_interactions = min(len(followers), config['max_interactions_per_session'])
+        max_profiles_to_interact = config['max_interactions_per_session']
         start_index = 0
         
         self.logger.info(f"Probabilities: like={config.get('like_probability', 'N/A')}, follow={config.get('follow_probability', 'N/A')}")
         self.logger.info(f"Config: {config}")
-        self.logger.info(f"Max interactions: {max_interactions} (followers: {len(followers)}, config: {config['max_interactions_per_session']})")
+        self.logger.info(f"Target: {max_profiles_to_interact} profiles to interact with (available: {len(followers)})")
         if session_id and target_username:
             checkpoint_data = self._load_checkpoint(session_id, target_username)
             if checkpoint_data:
@@ -352,10 +352,15 @@ class FollowerBusiness(BaseBusinessAction):
             else:
                 self._create_checkpoint(session_id, target_username, followers, 0)
         
-        self.logger.info(f"Starting interactions with {max_interactions} followers (start index: {start_index})")
+        self.logger.info(f"Starting interactions - goal: {max_profiles_to_interact} profiles interacted (start index: {start_index})")
         
         try:
-            for i in range(start_index, min(len(followers), max_interactions)):
+            i = start_index
+            while i < len(followers) and stats['processed'] < max_profiles_to_interact:
+                # Get current follower and increment index for next iteration
+                follower = followers[i]
+                i += 1  # Increment here so continue statements don't skip it
+                
                 # Vérifier si la session doit continuer (durée, limites, etc.)
                 if hasattr(self, 'session_manager') and self.session_manager:
                     should_continue, stop_reason = self.session_manager.should_continue()
@@ -363,18 +368,17 @@ class FollowerBusiness(BaseBusinessAction):
                         self.logger.warning(f"🛑 Session stopped: {stop_reason}")
                         break
                 
-                follower = followers[i]
                 username = follower.get('username', '')
                 
                 try:
                     if not username:
                         stats['skipped'] += 1
-                        self._update_checkpoint_index(i + 1)
+                        self._update_checkpoint_index(i)
                         continue
                     
-                    self.logger.info(f"[{i+1}/{max_interactions}] Interacting with @{username}")
+                    self.logger.info(f"[{stats['processed']+1}/{max_profiles_to_interact}] Interacting with @{username}")
                     if session_id and target_username:
-                        self._update_checkpoint_index(i)
+                        self._update_checkpoint_index(i - 1)
                     
                     account_id = follower.get('source_account_id')
                     if account_id:
@@ -401,6 +405,14 @@ class FollowerBusiness(BaseBusinessAction):
                         stats['errors'] += 1
                         self.stats_manager.add_error(f"Navigation error @{username}: {str(e)}")
                         continue
+                    
+                    # Emit IPC event for frontend (WorkflowAnalyzer + SessionLivePanel)
+                    try:
+                        import json
+                        msg = {"type": "instagram_profile_visit", "username": username}
+                        print(json.dumps(msg), flush=True)
+                    except:
+                        pass  # Ignore IPC errors
                     
                     self._random_sleep()
                     
@@ -556,7 +568,8 @@ class FollowerBusiness(BaseBusinessAction):
                     
                     self.stats_manager.display_stats(current_profile=username)
                     
-                    if i < max_interactions - 1:
+                    # Delay before next profile (if not reached goal yet)
+                    if stats['processed'] < max_profiles_to_interact:
                         delay = random.randint(*config['interaction_delay_range'])
                         self.logger.debug(f"Delay {delay}s before next interaction")
                         time.sleep(delay)
@@ -567,9 +580,7 @@ class FollowerBusiness(BaseBusinessAction):
                     self.stats_manager.add_error(f"Critical error @{username}: {str(e)}")
                     
                     if session_id and target_username:
-                        self._update_checkpoint_index(i + 1)
-                    
-                    continue
+                        self._update_checkpoint_index(i)
         
         finally:
             if session_id and target_username:
@@ -947,6 +958,14 @@ class FollowerBusiness(BaseBusinessAction):
                     stats['visited'] += 1
                     self.stats_manager.increment('profiles_visited')
                     
+                    # Emit IPC event for frontend (WorkflowAnalyzer + SessionLivePanel)
+                    try:
+                        import json
+                        msg = {"type": "instagram_profile_visit", "username": username}
+                        print(json.dumps(msg), flush=True)
+                    except:
+                        pass  # Ignore IPC errors
+                    
                     # Tracker: enregistrer la visite
                     tracker.log_profile_visit(username, idx, already_in_db=False)
                     
@@ -1168,15 +1187,19 @@ class FollowerBusiness(BaseBusinessAction):
                     # Vérifier si on a parcouru ~95% des followers (comme dans l'ancienne fonction)
                     if target_followers_count > 0 and total_usernames_seen >= target_followers_count * 0.95:
                         self.logger.info(f"🏁 Reached end of list: seen {total_usernames_seen:,}/{target_followers_count:,} followers (~95%)")
+                        session_stop_reason = f"End of followers list ({total_usernames_seen:,}/{target_followers_count:,} seen)"
                         should_stop = True
                     elif scroll_detector.is_the_end():
                         self.logger.info("🏁 ScrollEndDetector: end of list reached")
+                        session_stop_reason = f"No new followers found ({total_usernames_seen} profiles seen)"
                         should_stop = True
                     elif tracker.is_end_of_list():
                         self.logger.info("🏁 Tracker: same followers seen multiple times - end of list")
+                        session_stop_reason = f"End of followers list (same profiles repeated)"
                         should_stop = True
                     elif no_new_profiles_count >= 20:
                         self.logger.info(f"🏁 No new usernames found after 20 attempts (seen {total_usernames_seen:,} usernames)")
+                        session_stop_reason = f"No new followers after 20 scroll attempts ({total_usernames_seen} seen)"
                         should_stop = True
                     elif no_new_profiles_count >= 10:
                         # Après 10 tentatives, log la progression pour debug
@@ -1604,11 +1627,19 @@ class FollowerBusiness(BaseBusinessAction):
                         # Record FOLLOW in database
                         self._record_action(username, 'FOLLOW', 1)
                         
-                        # Envoyer l'événement follow en temps réel au frontend
+                        # Envoyer l'événement follow en temps réel au frontend avec données profil pour vérification filtres
                         try:
                             import json
-                            followers_count = profile_info.get('followers_count', 0)
-                            msg = {"type": "follow_event", "username": username, "followers_count": followers_count, "success": True}
+                            msg = {
+                                "type": "follow_event", 
+                                "username": username, 
+                                "success": True,
+                                "profile_data": {
+                                    "followers_count": profile_info.get('followers_count', 0),
+                                    "following_count": profile_info.get('following_count', 0),
+                                    "posts_count": profile_info.get('posts_count', 0)
+                                }
+                            }
                             print(json.dumps(msg), flush=True)
                         except:
                             pass  # Ignorer les erreurs d'envoi (CLI mode)
@@ -1652,6 +1683,23 @@ class FollowerBusiness(BaseBusinessAction):
                         result['liked'] = True
                         result['likes_count'] = likes_count
                         self.logger.debug(f"Likes completed - {likes_count} posts liked")
+                        
+                        # Emit like event with profile data for WorkflowAnalyzer filter verification
+                        try:
+                            import json
+                            msg = {
+                                "type": "like_event",
+                                "username": username,
+                                "likes_count": likes_count,
+                                "profile_data": {
+                                    "followers_count": profile_info.get('followers_count', 0),
+                                    "following_count": profile_info.get('following_count', 0),
+                                    "posts_count": profile_info.get('posts_count', 0)
+                                }
+                            }
+                            print(json.dumps(msg), flush=True)
+                        except:
+                            pass
                     
                     if comments_count > 0:
                         result['commented'] = True
