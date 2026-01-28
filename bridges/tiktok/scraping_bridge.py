@@ -95,56 +95,114 @@ def save_scraping_session(source_type: str, source_name: str, total_scraped: int
 
 
 def save_scraped_profile(session_id: int, profile: Dict[str, Any], platform: str = 'tiktok'):
-    """Save a scraped profile to database."""
+    """Save a scraped profile to database.
+    
+    Architecture (like Instagram):
+    - tiktok_profiles: main table with all profile data
+    - tiktok_scraped_profiles: junction table linking scraping sessions to profiles
+    """
     db_path = get_db_path()
     if not os.path.exists(db_path):
         return
     
     try:
         conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Use a separate table for TikTok scraped profiles
+        username = profile.get('username', '')
+        if not username:
+            return
+        
+        # First, get or create the profile in tiktok_profiles (main table)
+        cursor.execute("SELECT profile_id FROM tiktok_profiles WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        
+        if row:
+            profile_id = row['profile_id']
+            # Update existing profile with new data if we have better data
+            updates = []
+            values = []
+            
+            if profile.get('display_name'):
+                updates.append("display_name = COALESCE(?, display_name)")
+                values.append(profile['display_name'])
+            if profile.get('followers_count', 0) > 0:
+                updates.append("followers_count = ?")
+                values.append(profile['followers_count'])
+            if profile.get('following_count', 0) > 0:
+                updates.append("following_count = ?")
+                values.append(profile['following_count'])
+            if profile.get('likes_count', 0) > 0:
+                updates.append("likes_count = ?")
+                values.append(profile['likes_count'])
+            if profile.get('posts_count', 0) > 0:
+                updates.append("videos_count = ?")
+                values.append(profile['posts_count'])
+            if profile.get('bio'):
+                updates.append("biography = COALESCE(?, biography)")
+                values.append(profile['bio'])
+            if profile.get('is_private') is not None:
+                updates.append("is_private = ?")
+                values.append(1 if profile['is_private'] else 0)
+            if profile.get('is_verified') is not None:
+                updates.append("is_verified = ?")
+                values.append(1 if profile['is_verified'] else 0)
+            
+            if updates:
+                updates.append("updated_at = datetime('now')")
+                values.append(profile_id)
+                cursor.execute(
+                    f"UPDATE tiktok_profiles SET {', '.join(updates)} WHERE profile_id = ?",
+                    tuple(values)
+                )
+        else:
+            # Create new profile
+            cursor.execute("""
+                INSERT INTO tiktok_profiles (username, display_name, followers_count, following_count,
+                                             likes_count, videos_count, is_private, is_verified, biography)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                username,
+                profile.get('display_name', ''),
+                profile.get('followers_count', 0),
+                profile.get('following_count', 0),
+                profile.get('likes_count', 0),
+                profile.get('posts_count', 0),
+                1 if profile.get('is_private', False) else 0,
+                1 if profile.get('is_verified', False) else 0,
+                profile.get('bio', '')
+            ))
+            profile_id = cursor.lastrowid
+        
+        # Now create the junction table entry (tiktok_scraped_profiles)
+        # This links the scraping session to the profile
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tiktok_scraped_profiles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scraping_id INTEGER,
-                username TEXT NOT NULL,
-                display_name TEXT,
-                followers_count INTEGER,
-                following_count INTEGER,
-                likes_count INTEGER,
-                posts_count INTEGER,
-                bio TEXT,
-                website TEXT,
-                is_private INTEGER DEFAULT 0,
-                is_verified INTEGER DEFAULT 0,
+                scraping_id INTEGER NOT NULL,
+                profile_id INTEGER NOT NULL,
                 is_enriched INTEGER DEFAULT 0,
                 scraped_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id)
+                FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
+                FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
+                UNIQUE(scraping_id, profile_id)
             )
         """)
         
+        # Insert or ignore (in case profile was already scraped in this session)
         cursor.execute("""
-            INSERT INTO tiktok_scraped_profiles (scraping_id, username, display_name, followers_count, following_count, likes_count, posts_count, bio, website, is_private, is_verified, is_enriched)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO tiktok_scraped_profiles (scraping_id, profile_id, is_enriched)
+            VALUES (?, ?, ?)
         """, (
             session_id,
-            profile.get('username', ''),
-            profile.get('display_name', ''),
-            profile.get('followers_count', 0),
-            profile.get('following_count', 0),
-            profile.get('likes_count', 0),
-            profile.get('posts_count', 0),
-            profile.get('bio', ''),
-            profile.get('website', ''),
-            1 if profile.get('is_private', False) else 0,
-            1 if profile.get('is_verified', False) else 0,
+            profile_id,
             1 if profile.get('is_enriched', False) else 0
         ))
         
         conn.commit()
         conn.close()
+        logger.debug(f"Saved TikTok profile @{username} (profile_id={profile_id}) to session {session_id}")
     except Exception as e:
         logger.warning(f"Error saving scraped profile: {e}")
 
