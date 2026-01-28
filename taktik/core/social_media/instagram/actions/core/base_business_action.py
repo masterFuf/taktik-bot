@@ -80,7 +80,7 @@ class BaseBusinessAction(BaseAction):
     
     def _record_action(self, username: str, action_type: str, count: int = 1) -> bool:
         """
-        Record an action in the database.
+        Record an action in the database and emit IPC event for WorkflowAnalyzer.
         Centralized method to avoid code duplication across business actions.
         
         Args:
@@ -109,6 +109,16 @@ class BaseBusinessAction(BaseAction):
                 session_id=session_id
             )
             self.logger.debug(f"✅ {count} {action_type} action(s) recorded for @{username}")
+            
+            # Emit IPC event for WorkflowAnalyzer (if bridge is available)
+            try:
+                from bridges.instagram.desktop_bridge import send_instagram_action
+                send_instagram_action(action_type.lower(), username, {"count": count})
+            except ImportError:
+                pass  # Bridge not available (CLI mode)
+            except Exception:
+                pass  # Ignore IPC errors
+            
             return True
             
         except Exception as e:
