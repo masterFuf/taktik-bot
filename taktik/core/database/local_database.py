@@ -707,6 +707,75 @@ class LocalDatabaseService:
         except sqlite3.OperationalError:
             pass
         
+        # Migration: Migrate old tiktok_scraped_profiles data to tiktok_profiles
+        # This ensures profiles scraped before the architecture change are in the main table
+        try:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tiktok_scraped_profiles'")
+            if cursor.fetchone():
+                # Check if old table has the old schema (with all profile data)
+                cursor.execute("PRAGMA table_info(tiktok_scraped_profiles)")
+                columns = [col[1] for col in cursor.fetchall()]
+                
+                if 'bio' in columns and 'followers_count' in columns:
+                    # Old schema detected - migrate data to tiktok_profiles
+                    logger.info("Migration: Migrating old tiktok_scraped_profiles data to tiktok_profiles")
+                    
+                    # Insert profiles that don't exist yet
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO tiktok_profiles 
+                            (username, display_name, followers_count, following_count, likes_count, 
+                             videos_count, biography, is_private, is_verified)
+                        SELECT DISTINCT 
+                            username, display_name, followers_count, following_count, likes_count,
+                            posts_count, bio, is_private, is_verified
+                        FROM tiktok_scraped_profiles
+                        WHERE username IS NOT NULL AND username != ''
+                    """)
+                    migrated = cursor.rowcount
+                    if migrated > 0:
+                        logger.info(f"Migration: Migrated {migrated} TikTok profiles to main table")
+                    
+                    # Now recreate tiktok_scraped_profiles as junction table
+                    # First, backup the scraping_id -> username mappings
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS _tiktok_scraped_profiles_backup AS
+                        SELECT scraping_id, username, is_enriched, scraped_at
+                        FROM tiktok_scraped_profiles
+                    """)
+                    
+                    # Drop old table
+                    cursor.execute("DROP TABLE IF EXISTS tiktok_scraped_profiles")
+                    
+                    # Create new junction table
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS tiktok_scraped_profiles (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            scraping_id INTEGER NOT NULL,
+                            profile_id INTEGER NOT NULL,
+                            is_enriched INTEGER DEFAULT 0,
+                            scraped_at TEXT DEFAULT (datetime('now')),
+                            FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
+                            FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
+                            UNIQUE(scraping_id, profile_id)
+                        )
+                    """)
+                    
+                    # Restore mappings using profile_id from tiktok_profiles
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO tiktok_scraped_profiles (scraping_id, profile_id, is_enriched, scraped_at)
+                        SELECT b.scraping_id, tp.profile_id, b.is_enriched, b.scraped_at
+                        FROM _tiktok_scraped_profiles_backup b
+                        JOIN tiktok_profiles tp ON tp.username = b.username
+                        WHERE b.scraping_id IS NOT NULL
+                    """)
+                    
+                    # Drop backup table
+                    cursor.execute("DROP TABLE IF EXISTS _tiktok_scraped_profiles_backup")
+                    
+                    logger.info("Migration: TikTok scraped profiles table converted to junction table")
+        except sqlite3.OperationalError as e:
+            logger.warning(f"Migration warning (tiktok_scraped_profiles): {e}")
+        
         conn.commit()
     
     def close(self) -> None:
@@ -1739,7 +1808,11 @@ class LocalDatabaseService:
     # ============================================
     
     def get_or_create_tiktok_profile(self, profile_data: Dict[str, Any]) -> Tuple[int, bool]:
-        """Get existing TikTok profile or create a new one."""
+        """Get existing TikTok profile or create/update one.
+        
+        If profile exists, updates it with any non-null values from profile_data.
+        This allows enriching profiles with data extracted from the UI.
+        """
         username = profile_data.get('username')
         if not username:
             raise ValueError("Username is required")
@@ -1751,7 +1824,37 @@ class LocalDatabaseService:
         row = cursor.fetchone()
         
         if row:
-            return row['profile_id'], False
+            profile_id = row['profile_id']
+            # Update existing profile with non-null values
+            updates = []
+            values = []
+            
+            for field in ('display_name', 'biography'):
+                if profile_data.get(field):
+                    updates.append(f"{field} = COALESCE(?, {field})")
+                    values.append(profile_data[field])
+            
+            for field in ('followers_count', 'following_count', 'likes_count', 'videos_count'):
+                if profile_data.get(field) and profile_data[field] > 0:
+                    updates.append(f"{field} = ?")
+                    values.append(profile_data[field])
+            
+            for field in ('is_private', 'is_verified'):
+                if field in profile_data and profile_data[field] is not None:
+                    updates.append(f"{field} = ?")
+                    values.append(1 if profile_data[field] else 0)
+            
+            if updates:
+                updates.append("updated_at = datetime('now')")
+                values.append(profile_id)
+                cursor.execute(
+                    f"UPDATE tiktok_profiles SET {', '.join(updates)} WHERE profile_id = ?",
+                    tuple(values)
+                )
+                conn.commit()
+                logger.debug(f"Updated TikTok profile: {username}")
+            
+            return profile_id, False
         
         cursor.execute("""
             INSERT INTO tiktok_profiles (username, display_name, followers_count, following_count,
