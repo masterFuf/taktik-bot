@@ -145,9 +145,12 @@ def setup_stats_callback():
     except Exception as e:
         logger.warning(f"Could not setup stats callback: {e}")
 
-def send_error(error: str):
-    """Send error to desktop app."""
-    send_message("error", error=error)
+def send_error(error: str, error_code: str = None):
+    """Send error to desktop app with optional error code for translation."""
+    if error_code:
+        send_message("error", error=error, error_code=error_code)
+    else:
+        send_message("error", error=error)
 
 def send_log(level: str, message: str):
     """Send log message to desktop app."""
@@ -156,6 +159,20 @@ def send_log(level: str, message: str):
 def send_unfollow_event(username: str, success: bool = True):
     """Send unfollow event to desktop app for real-time activity."""
     send_message("unfollow_event", username=username, success=success)
+
+def send_follow_event(username: str, success: bool = True, profile_data: dict = None):
+    """Send follow event to desktop app for real-time activity and WorkflowAnalyzer."""
+    data = {"username": username, "success": success}
+    if profile_data:
+        data["profile_data"] = profile_data
+    send_message("follow_event", **data)
+
+def send_like_event(username: str, likes_count: int = 1, profile_data: dict = None):
+    """Send like event to desktop app for real-time activity and WorkflowAnalyzer."""
+    data = {"username": username, "likes_count": likes_count}
+    if profile_data:
+        data["profile_data"] = profile_data
+    send_message("like_event", **data)
 
 def send_post_skipped(author: str, reason: str = "already_processed", hashtag: str = None):
     """Send post skipped event to desktop app for real-time activity."""
@@ -424,19 +441,35 @@ class DesktopBridge:
             
             instagram = InstagramManager(self.device_id)
             
+            # Check ATX health first - this is critical for the bot to work
+            atx_status = instagram.device_manager.get_atx_status()
+            if not atx_status.get("atx_healthy"):
+                error_detail = atx_status.get("error", "Unknown ATX error")
+                logger.error(f"ATX agent unhealthy: {error_detail}")
+                send_error(
+                    f"UIAutomator2 agent is not responding. The bot cannot interact with the device. Error: {error_detail}",
+                    error_code="ATX_AGENT_FAILED"
+                )
+                return False
+            
             if not instagram.is_installed():
-                send_error("Instagram is not installed on this device")
+                send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
                 return False
             
             if not instagram.launch():
-                send_error("Failed to launch Instagram")
+                send_error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
                 return False
             
             send_status("instagram_ready", "Instagram launched successfully")
             return True
             
         except Exception as e:
-            send_error(f"Failed to launch Instagram: {str(e)}")
+            error_msg = str(e)
+            # Detect ATX-related errors
+            if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
+                send_error(f"UIAutomator2 connection failed: {error_msg}", error_code="ATX_AGENT_FAILED")
+            else:
+                send_error(f"Failed to launch Instagram: {error_msg}")
             logger.exception("Instagram launch failed")
             return False
     

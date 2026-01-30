@@ -86,16 +86,8 @@ class ClickActions(BaseAction):
                 
                 if self._verify_follow_success(username):
                     self.logger.info(f"✅ Successfully followed @{username}")
-                    
-                    # Envoyer l'événement follow en temps réel au frontend
-                    try:
-                        import json
-                        import sys
-                        msg = {"type": "follow_event", "username": username, "success": True}
-                        print(json.dumps(msg), flush=True)
-                    except:
-                        pass  # Ignorer les erreurs d'envoi (CLI mode)
-                    
+                    # Note: L'événement follow_event est émis par le workflow (followers.py)
+                    # pour inclure les données du profil. Ne pas dupliquer ici.
                     return True
                 else:
                     self.logger.warning(f"❌ Clicked but not on the right button for @{username}")

@@ -568,11 +568,12 @@ class FeedBusiness(BaseBusinessAction):
                     
                     # Envoyer l'événement follow en temps réel au frontend
                     try:
-                        import json
-                        msg = {"type": "follow_event", "username": username, "success": True}
-                        print(json.dumps(msg), flush=True)
-                    except:
-                        pass  # Ignorer les erreurs d'envoi (CLI mode)
+                        from bridges.instagram.desktop_bridge import send_follow_event
+                        send_follow_event(username, success=True)
+                    except ImportError:
+                        pass  # Bridge not available (CLI mode)
+                    except Exception:
+                        pass  # Ignore IPC errors
                     
                     return True
         except Exception as e:

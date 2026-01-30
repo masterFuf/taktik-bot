@@ -408,10 +408,11 @@ class FollowerBusiness(BaseBusinessAction):
                     
                     # Emit IPC event for frontend (WorkflowAnalyzer + SessionLivePanel)
                     try:
-                        import json
-                        msg = {"type": "instagram_profile_visit", "username": username}
-                        print(json.dumps(msg), flush=True)
-                    except:
+                        from bridges.instagram.desktop_bridge import send_instagram_profile_visit
+                        send_instagram_profile_visit(username)
+                    except ImportError:
+                        pass  # Bridge not available (CLI mode)
+                    except Exception:
                         pass  # Ignore IPC errors
                     
                     self._random_sleep()
@@ -960,10 +961,11 @@ class FollowerBusiness(BaseBusinessAction):
                     
                     # Emit IPC event for frontend (WorkflowAnalyzer + SessionLivePanel)
                     try:
-                        import json
-                        msg = {"type": "instagram_profile_visit", "username": username}
-                        print(json.dumps(msg), flush=True)
-                    except:
+                        from bridges.instagram.desktop_bridge import send_instagram_profile_visit
+                        send_instagram_profile_visit(username)
+                    except ImportError:
+                        pass  # Bridge not available (CLI mode)
+                    except Exception:
                         pass  # Ignore IPC errors
                     
                     # Tracker: enregistrer la visite
@@ -1629,20 +1631,16 @@ class FollowerBusiness(BaseBusinessAction):
                         
                         # Envoyer l'événement follow en temps réel au frontend avec données profil pour vérification filtres
                         try:
-                            import json
-                            msg = {
-                                "type": "follow_event", 
-                                "username": username, 
-                                "success": True,
-                                "profile_data": {
-                                    "followers_count": profile_info.get('followers_count', 0),
-                                    "following_count": profile_info.get('following_count', 0),
-                                    "posts_count": profile_info.get('posts_count', 0)
-                                }
-                            }
-                            print(json.dumps(msg), flush=True)
-                        except:
-                            pass  # Ignorer les erreurs d'envoi (CLI mode)
+                            from bridges.instagram.desktop_bridge import send_follow_event
+                            send_follow_event(username, success=True, profile_data={
+                                "followers_count": profile_info.get('followers_count', 0),
+                                "following_count": profile_info.get('following_count', 0),
+                                "posts_count": profile_info.get('posts_count', 0)
+                            })
+                        except ImportError:
+                            pass  # Bridge not available (CLI mode)
+                        except Exception:
+                            pass  # Ignore IPC errors
                         
                         self._handle_follow_suggestions_popup()
                     else:
@@ -1686,20 +1684,16 @@ class FollowerBusiness(BaseBusinessAction):
                         
                         # Emit like event with profile data for WorkflowAnalyzer filter verification
                         try:
-                            import json
-                            msg = {
-                                "type": "like_event",
-                                "username": username,
-                                "likes_count": likes_count,
-                                "profile_data": {
-                                    "followers_count": profile_info.get('followers_count', 0),
-                                    "following_count": profile_info.get('following_count', 0),
-                                    "posts_count": profile_info.get('posts_count', 0)
-                                }
-                            }
-                            print(json.dumps(msg), flush=True)
-                        except:
-                            pass
+                            from bridges.instagram.desktop_bridge import send_like_event
+                            send_like_event(username, likes_count=likes_count, profile_data={
+                                "followers_count": profile_info.get('followers_count', 0),
+                                "following_count": profile_info.get('following_count', 0),
+                                "posts_count": profile_info.get('posts_count', 0)
+                            })
+                        except ImportError:
+                            pass  # Bridge not available (CLI mode)
+                        except Exception:
+                            pass  # Ignore IPC errors
                     
                     if comments_count > 0:
                         result['commented'] = True
