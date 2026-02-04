@@ -45,11 +45,13 @@ def main():
             from bridges.tiktok.for_you_bridge import run_for_you_workflow
             success = run_for_you_workflow(config)
             
-        elif workflow_type == 'search' or workflow_type == 'target':
+        elif workflow_type == 'search' or workflow_type == 'hashtag':
+            # Search and Hashtag workflows use search_bridge (Videos tab)
             from bridges.tiktok.search_bridge import run_search_workflow
             success = run_search_workflow(config)
             
-        elif workflow_type == 'followers':
+        elif workflow_type == 'target' or workflow_type == 'followers':
+            # Target workflow uses followers bridge (targets = accounts to scrape followers from)
             from bridges.tiktok.followers_bridge import run_followers_workflow
             success = run_followers_workflow(config)
             
