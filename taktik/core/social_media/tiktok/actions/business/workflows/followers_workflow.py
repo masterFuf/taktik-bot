@@ -55,6 +55,7 @@ class FollowersConfig:
     share_probability: float = 0.05
     favorite_probability: float = 0.3
     follow_probability: float = 0.5
+    story_like_probability: float = 0.5  # Probability to like stories when encountered
     
     # Limites de session
     max_likes_per_session: int = 50
@@ -176,6 +177,57 @@ class FollowersWorkflow:
         self._running = False
         self.logger.info("🛑 Stopping Followers workflow")
     
+    def _handle_popups(self):
+        """Check for and close any popups that might block interaction."""
+        # First check for Android system popups (input method selection, etc.)
+        if self.click.close_system_popup():
+            self.logger.info("✅ System popup closed")
+            time.sleep(0.5)
+            return True
+        
+        # Check for notification banner
+        if self.click.dismiss_notification_banner():
+            self.logger.info("✅ Notification banner dismissed")
+            time.sleep(0.5)
+            return True
+        
+        # Check if accidentally on Inbox page
+        if self.detection.is_on_inbox_page():
+            self.click.escape_inbox_page()
+            self.logger.info("✅ Escaped from Inbox page")
+            time.sleep(0.5)
+            return True
+        
+        # Check for "Link email" popup
+        if self.detection.has_link_email_popup():
+            if self.click.close_link_email_popup():
+                self.logger.info("✅ 'Link email' popup closed")
+                time.sleep(0.5)
+                return True
+        
+        # Check for "Follow your friends" popup
+        if self.detection.has_follow_friends_popup():
+            if self.click.close_follow_friends_popup():
+                self.logger.info("✅ 'Follow your friends' popup closed")
+                time.sleep(0.5)
+                return True
+        
+        # Check for collections popup
+        if self.detection.has_collections_popup():
+            if self.click.close_collections_popup():
+                self.logger.info("✅ Collections popup closed")
+                time.sleep(0.5)
+                return True
+        
+        # Try generic popup close
+        if self.detection.has_popup():
+            if self.click.close_popup():
+                self.logger.info("✅ Popup closed")
+                time.sleep(0.5)
+                return True
+        
+        return False
+    
     def pause(self):
         """Pause the workflow."""
         self._paused = True
@@ -218,7 +270,7 @@ class FollowersWorkflow:
             # Navigate to target user's followers list
             if not self._navigate_to_followers_list():
                 self.logger.error("❌ Failed to navigate to followers list")
-                self._end_session('ERROR', 'Failed to navigate to followers list')
+                self._end_session('ERROR', 'Failed to navigate to followers list', completion_reason='navigation_failed')
                 return self.stats
             
             # Process followers one by one
@@ -232,6 +284,9 @@ class FollowersWorkflow:
                 if not self._running:
                     completion_reason = 'stopped_by_user'
                     break
+                
+                # Handle any popups that might block interaction
+                self._handle_popups()
                 
                 # Check limits
                 limit_reached = self._check_limits_reached()
@@ -354,6 +409,22 @@ class FollowersWorkflow:
                 return False
             
             self._human_delay()
+            
+            # Check if we accidentally landed on Inbox page (notification clicked)
+            if self.detection.is_on_inbox_page():
+                self.logger.warning("⚠️ Accidentally on Inbox page, going back...")
+                self.click.escape_inbox_page()
+                time.sleep(1)
+                # Try search again
+                if not self.navigation.open_search():
+                    return False
+                self._human_delay()
+                if not self.navigation.search_and_submit(self.config.search_query):
+                    return False
+                self._human_delay()
+            
+            # Dismiss any notification banner that might interfere
+            self.click.dismiss_notification_banner()
             
             # Click on Users tab
             if not self._click_users_tab():
@@ -612,29 +683,38 @@ class FollowersWorkflow:
         return rows
     
     def _click_follower_profile(self, row_info: Dict[str, Any]) -> bool:
-        """Click on a follower's profile (the row, not the Follow button).
+        """Click on a follower's profile (the username text, not the avatar).
         
-        We click on the left side of the row (avatar/username area) to open the profile,
-        not on the Follow button on the right.
+        IMPORTANT: We click on the USERNAME TEXT area, not the avatar!
+        Clicking on the avatar opens the story if the user has one active.
+        Clicking on the username text opens the profile directly.
+        
+        Layout of a follower row:
+        [Avatar ~0-120] [Username/Name ~120-350] [Follow Button ~350+]
         """
         try:
             bounds = row_info.get('bounds', {})
+            username = row_info.get('username', '')
             
             if bounds:
-                # The button is on the right side, we want to click on the left (avatar/name area)
-                # Button bounds give us the row's vertical position
-                # Click on the left third of the screen at the button's vertical center
-                left = bounds.get('left', 0)
                 top = bounds.get('top', 0)
                 bottom = bounds.get('bottom', 0)
                 
-                # Click on the avatar/name area (left side of the row)
-                click_x = 150  # Avatar/name area is around x=150
+                # Click on the USERNAME area (center of the row, after avatar)
+                # Avatar is roughly 0-120px, username text starts around 120-350px
+                # We click at x=280 to be safely in the username/display name area
+                click_x = 280  # Username text area (avoids avatar which triggers story)
                 click_y = (top + bottom) // 2
                 
-                self.logger.debug(f"Clicking profile at ({click_x}, {click_y})")
+                self.logger.debug(f"Clicking username area at ({click_x}, {click_y}) for @{username}")
                 self.device.click(click_x, click_y)
                 time.sleep(1.5)  # Wait for profile to load
+                
+                # Check if we accidentally landed on a story
+                if self._is_on_story_page():
+                    self.logger.info(f"📖 Landed on story for @{username}, handling story first...")
+                    self._handle_story_view()
+                
                 return True
                 
         except Exception as e:
@@ -656,7 +736,8 @@ class FollowersWorkflow:
         available_posts = self._count_visible_posts()
         
         if available_posts == 0:
-            self.logger.debug("No posts to interact with on this profile")
+            self.logger.info(f"⚠️ No posts to interact with on profile @{self._current_profile_username}")
+            self._send_action('no_posts', self._current_profile_username)
             return
         
         # Limit interactions to available posts
@@ -701,20 +782,12 @@ class FollowersWorkflow:
         time.sleep(0.5)
     
     def _swipe_to_next_video(self):
-        """Swipe up to go to next video in the feed."""
+        """Swipe up to go to next video in the feed.
+        
+        Uses the scroll action for consistent behavior across all screen sizes.
+        """
         try:
-            # Get screen dimensions
-            info = self.device.info
-            width = info.get('displayWidth', 720)
-            height = info.get('displayHeight', 1520)
-            
-            # Swipe from bottom to top (like For You feed)
-            start_x = width // 2
-            start_y = int(height * 0.7)
-            end_y = int(height * 0.3)
-            
-            self.device.swipe(start_x, start_y, start_x, end_y, duration=0.3)
-            time.sleep(1.0)  # Wait for next video to load
+            self.scroll.scroll_to_next_video()
         except Exception as e:
             self.logger.debug(f"Error swiping to next video: {e}")
     
@@ -1048,6 +1121,7 @@ class FollowersWorkflow:
         - Stats labels (Following/Followers/Likes) with resource-id="com.zhiliaoapp.musically:id/qfv"
         - Follow back / Message buttons
         - Video grid with resource-id="com.zhiliaoapp.musically:id/gxd"
+        - "No videos yet" message when profile has no posts
         """
         try:
             profile_selectors = [
@@ -1055,6 +1129,7 @@ class FollowersWorkflow:
                 '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Followers"]',
                 '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Following"]',
                 '//*[@resource-id="com.zhiliaoapp.musically:id/gxd"]',  # Video grid
+                '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"][@text="No videos yet"]',  # No videos state
             ]
             for selector in profile_selectors:
                 if self.device.xpath(selector).exists:
@@ -1064,41 +1139,154 @@ class FollowersWorkflow:
             self.logger.debug(f"Error checking profile page: {e}")
             return False
     
+    def _is_on_story_page(self) -> bool:
+        """Check if we're currently viewing a TikTok story.
+        
+        Story page unique elements:
+        - Timestamp like "· 16h ago" with resource-id="com.zhiliaoapp.musically:id/xyx"
+        - Close button with content-desc="Close"
+        - Follow button with resource-id="com.zhiliaoapp.musically:id/rdo" (different from profile)
+        - player_view for story video
+        - Message input with text="Message..."
+        """
+        try:
+            story_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/xyx"]',  # Timestamp "· 16h ago"
+                '//*[@content-desc="Close"][@clickable="true"]',  # Close button (X)
+                '//*[@resource-id="com.zhiliaoapp.musically:id/rdo"]',  # Story Follow button
+                '//*[@resource-id="com.zhiliaoapp.musically:id/qwz"][@text="Message..."]',  # Message input
+            ]
+            
+            # Need at least 2 matches to confirm it's a story page
+            matches = 0
+            for selector in story_selectors:
+                if self.device.xpath(selector).exists:
+                    matches += 1
+                    if matches >= 2:
+                        return True
+            
+            return False
+        except Exception as e:
+            self.logger.debug(f"Error checking story page: {e}")
+            return False
+    
+    def _handle_story_view(self):
+        """Handle when we accidentally land on a story instead of profile.
+        
+        Strategy:
+        1. Watch the story briefly (simulates human behavior)
+        2. Optionally like the story
+        3. Click on the username to go to the profile
+        
+        This turns an "accident" into an opportunity for engagement!
+        """
+        try:
+            self.logger.info("📖 Handling story view...")
+            
+            # Watch story for a bit (human-like behavior)
+            watch_time = random.uniform(3.0, 6.0)
+            self.logger.debug(f"Watching story for {watch_time:.1f}s")
+            time.sleep(watch_time)
+            
+            # Optionally like the story (use story_like_probability from config)
+            if random.random() < self.config.story_like_probability:
+                if self.stats.likes < self.config.max_likes_per_session:
+                    if self._try_like_story():
+                        self.stats.likes += 1
+                        self._send_action('like_story', self._current_profile_username or 'unknown')
+                        self._send_stats_update()
+            
+            # Now click on the username to go to the profile
+            # The username/title is clickable and leads to the profile
+            username_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/title"][@clickable="true"]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/s28"]//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/title"]',
+            ]
+            
+            for selector in username_selectors:
+                elem = self.device.xpath(selector)
+                if elem.exists:
+                    self.logger.debug("Clicking username to go to profile from story")
+                    elem.click()
+                    time.sleep(1.5)  # Wait for profile to load
+                    
+                    # Verify we're now on the profile
+                    if self._is_on_profile_page():
+                        self.logger.info("✅ Successfully navigated from story to profile")
+                        return
+                    break
+            
+            # Fallback: if clicking username didn't work, close the story
+            self.logger.debug("Username click didn't work, closing story...")
+            close_btn = self.device.xpath('//*[@content-desc="Close"][@clickable="true"]')
+            if close_btn.exists:
+                close_btn.click()
+                time.sleep(1.0)
+            else:
+                # Last resort: press back
+                self._go_back()
+                time.sleep(1.0)
+                
+        except Exception as e:
+            self.logger.debug(f"Error handling story view: {e}")
+            # Try to recover by pressing back
+            self._go_back()
+            time.sleep(1.0)
+    
+    def _try_like_story(self) -> bool:
+        """Try to like the current story."""
+        try:
+            # Story like button has content-desc containing "Like video"
+            like_selectors = [
+                '//*[@resource-id="com.zhiliaoapp.musically:id/f57"][contains(@content-desc, "Like video")]',
+                '//*[@resource-id="com.zhiliaoapp.musically:id/f4u"][@content-desc="Like"]',
+            ]
+            
+            for selector in like_selectors:
+                elem = self.device.xpath(selector)
+                if elem.exists:
+                    elem.click()
+                    self.logger.info("❤️ Liked story")
+                    self._human_delay()
+                    return True
+        except Exception as e:
+            self.logger.debug(f"Error liking story: {e}")
+        return False
+    
     def _is_on_followers_list(self) -> bool:
         """Check if we're currently on the followers list page.
         
         Unique elements on followers list:
         - Tabs: "Following X" / "Followers X" / "Suggested" with selected state
         - RecyclerView with resource-id="com.zhiliaoapp.musically:id/s6p"
-        - Follow buttons in the list
+        - Follow buttons in the list with resource-id="com.zhiliaoapp.musically:id/rdh"
         - Text "Only X can see all followers"
         
         We need to be careful: profile pages also have some similar elements.
-        The key differentiator is the presence of Follow buttons in a list format.
+        The key differentiator is the presence of Follow buttons WITH the specific
+        resource-id used in the followers list (rdh), not the profile Follow button.
         """
         try:
-            # Most reliable: check for the Followers tab being selected
-            # This is unique to the followers list page
-            followers_tab_selectors = [
+            # First, make sure we're NOT on a profile page (has @username element)
+            # Profile pages have qh5 (the @username) which followers list doesn't have
+            if self.device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]').exists:
+                return False
+            
+            # Check for followers list specific elements
+            followers_list_selectors = [
                 '//*[contains(@content-desc, "Followers")][@selected="true"]',  # Selected Followers tab
                 '//*[@resource-id="com.zhiliaoapp.musically:id/s6p"]',  # Followers RecyclerView
             ]
             
-            for selector in followers_tab_selectors:
+            for selector in followers_list_selectors:
                 if self.device.xpath(selector).exists:
-                    # Double-check by looking for Follow buttons in the list
-                    # This distinguishes from profile page
-                    follow_buttons = self.device.xpath('//android.widget.Button[contains(@text, "Follow")]')
-                    if follow_buttons.exists:
-                        return True
-                    # Also check for "Following" status buttons (already following)
-                    following_buttons = self.device.xpath('//android.widget.Button[@text="Following"]')
-                    if following_buttons.exists:
-                        return True
-                    # Check for Friends buttons
-                    friends_buttons = self.device.xpath('//android.widget.Button[@text="Friends"]')
-                    if friends_buttons.exists:
-                        return True
+                    return True
+            
+            # Also check for Follow buttons with the specific resource-id used in followers list
+            # This is different from the profile Follow button which has resource-id eme
+            follow_list_buttons = self.device.xpath('//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/rdh"]')
+            if follow_list_buttons.exists:
+                return True
             
             return False
         except Exception as e:
@@ -1111,6 +1299,8 @@ class FollowersWorkflow:
         After interacting with videos, we need to:
         1. Press back to exit video → should land on profile page
         2. Press back again → should land on followers list
+        
+        Also handles edge cases like being on a story page.
         
         Returns:
             True if successfully returned to followers list, False otherwise.
@@ -1125,6 +1315,18 @@ class FollowersWorkflow:
             if self._is_on_followers_list():
                 self.logger.debug("✅ Already on followers list")
                 return True
+            
+            if self._is_on_story_page():
+                # We're on a story page, close it first
+                self.logger.debug("📖 On story page, closing story...")
+                close_btn = self.device.xpath('//*[@content-desc="Close"][@clickable="true"]')
+                if close_btn.exists:
+                    close_btn.click()
+                    time.sleep(1.0)
+                else:
+                    self._go_back()
+                    time.sleep(1.0)
+                continue  # Re-check state after closing story
             
             if self._is_on_video_page():
                 # We're on video page, need to go back to profile first
