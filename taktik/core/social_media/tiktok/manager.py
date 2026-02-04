@@ -42,14 +42,29 @@ class TikTokManager(SocialMediaBase):
         """Force stop and relaunch TikTok to ensure clean state."""
         self.logger.info("🔄 Restarting TikTok (force stop + launch)...")
         
-        # Force stop TikTok
-        if self.is_running():
-            self.stop()
-            import time
-            time.sleep(1)  # Wait for app to fully stop
+        import time
         
-        # Launch TikTok fresh
-        return self.launch()
+        # Always force stop TikTok (even if not detected as running)
+        # This ensures we clear any background state
+        self.stop()
+        time.sleep(1.5)  # Wait for app to fully stop
+        
+        # Launch TikTok with stop=True flag to ensure clean start
+        if not self.device_manager.connect():
+            return False
+        
+        try:
+            # Use app_start with stop=True to force a fresh start
+            self.device_manager.device.app_start(
+                self.PACKAGE_NAME, 
+                self.MAIN_ACTIVITY,
+                stop=True  # Force stop before starting
+            )
+            self.logger.info("✅ TikTok launched with clean state")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to restart TikTok: {e}")
+            return False
 
     def login(self, username: str, password: str) -> bool:
         # À implémenter: login automatisé via UI
