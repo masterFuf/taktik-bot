@@ -173,6 +173,43 @@ class DMWorkflow:
         self._running = False
         self.logger.info("🛑 DM Workflow stopped")
     
+    def _handle_popups(self):
+        """Check for and close any popups that might block interaction."""
+        # First check for Android system popups (input method selection, etc.)
+        if self.click.close_system_popup():
+            self.logger.info("✅ System popup closed")
+            time.sleep(0.5)
+            return True
+        
+        # Check for notification banner
+        if self.click.dismiss_notification_banner():
+            self.logger.info("✅ Notification banner dismissed")
+            time.sleep(0.5)
+            return True
+        
+        # Check for "Link email" popup
+        if self.detection.has_link_email_popup():
+            if self.click.close_link_email_popup():
+                self.logger.info("✅ 'Link email' popup closed")
+                time.sleep(0.5)
+                return True
+        
+        # Check for "Follow your friends" popup
+        if self.detection.has_follow_friends_popup():
+            if self.click.close_follow_friends_popup():
+                self.logger.info("✅ 'Follow your friends' popup closed")
+                time.sleep(0.5)
+                return True
+        
+        # Try generic popup close
+        if self.detection.has_popup():
+            if self.click.close_popup():
+                self.logger.info("✅ Popup closed")
+                time.sleep(0.5)
+                return True
+        
+        return False
+    
     # ==========================================================================
     # MAIN WORKFLOW: READ CONVERSATIONS
     # ==========================================================================
@@ -206,6 +243,9 @@ class DMWorkflow:
             no_new_items_count = 0
             
             while self.stats.conversations_read < target_count and self._running:
+                # Handle any popups that might block interaction
+                self._handle_popups()
+                
                 # Get visible inbox items
                 inbox_items = self.dm.get_inbox_items()
                 self.logger.info(f"📋 Found {len(inbox_items)} visible items in inbox")
