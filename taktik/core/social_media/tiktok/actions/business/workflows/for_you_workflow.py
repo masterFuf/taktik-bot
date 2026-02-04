@@ -206,6 +206,10 @@ class ForYouWorkflow:
                 self.logger.error("❌ Failed to navigate to For You feed")
                 return self.stats
             
+            # Track last video to detect stuck state
+            last_video_author = None
+            same_video_count = 0
+            
             # Process videos
             while self._running and self.stats.videos_watched < self.config.max_videos:
                 # Check if paused
@@ -234,6 +238,31 @@ class ForYouWorkflow:
                 # Get video info immediately for real-time display
                 video_info = self.detection.get_video_info()
                 
+                # Detect stuck state (same video appearing multiple times)
+                current_author = video_info.get('author', '')
+                current_likes = video_info.get('like_count', '')
+                video_signature = f"{current_author}_{current_likes}"
+                
+                if video_signature == last_video_author and current_author:
+                    same_video_count += 1
+                    self.logger.warning(f"⚠️ Same video detected {same_video_count} times: @{current_author}")
+                    
+                    if same_video_count >= 3:
+                        self.logger.error("🚨 Stuck on same video! Checking for blocking popups...")
+                        # Aggressive popup clearing
+                        self.click.close_system_popup()
+                        time.sleep(0.3)
+                        self._handle_popups()
+                        time.sleep(0.3)
+                        # Press back to clear any overlay
+                        self.device.press("back")
+                        time.sleep(0.5)
+                        same_video_count = 0
+                        continue  # Skip processing and try again
+                else:
+                    same_video_count = 0
+                    last_video_author = video_signature
+                
                 # Send video info callback immediately (before any processing)
                 if self._on_video_callback:
                     try:
@@ -260,10 +289,17 @@ class ForYouWorkflow:
                 # Scroll to next video
                 if not self.scroll.scroll_to_next_video():
                     self.logger.warning("❌ Failed to scroll to next video")
-                    self.stats.errors += 1
-                    if self.stats.errors > 5:
-                        self.logger.error("❌ Too many errors, stopping")
-                        break
+                    # Check if a system popup appeared and blocked the swipe
+                    if self.click.close_system_popup():
+                        self.logger.info("✅ System popup was blocking, closed it")
+                        time.sleep(0.5)
+                        # Retry the scroll
+                        self.scroll.scroll_to_next_video()
+                    else:
+                        self.stats.errors += 1
+                        if self.stats.errors > 5:
+                            self.logger.error("❌ Too many errors, stopping")
+                            break
             
             self.logger.success(f"✅ Workflow completed: {self.stats.to_dict()}")
             
@@ -534,8 +570,47 @@ class ForYouWorkflow:
     
     def _handle_popups(self):
         """Check for and close any popups that might block interaction."""
+        # First check for Android system popups (input method selection, etc.)
+        # These can completely block swipes and interactions
+        if self.click.close_system_popup():
+            self.stats.popups_closed += 1
+            self.logger.info("✅ System popup closed")
+            time.sleep(0.5)
+            return
+        
+        # Check for notification banner (e.g., "X sent you new messages")
+        if self.click.dismiss_notification_banner():
+            self.stats.popups_closed += 1
+            self.logger.info("✅ Notification banner dismissed")
+            time.sleep(0.5)
+            return
+        
+        # Check if accidentally on Inbox page
+        if self.detection.is_on_inbox_page():
+            self.click.escape_inbox_page()
+            self.stats.popups_closed += 1
+            self.logger.info("✅ Escaped from Inbox page")
+            time.sleep(0.5)
+            return
+        
+        # Check for "Link email" popup
+        if self.detection.has_link_email_popup():
+            if self.click.close_link_email_popup():
+                self.stats.popups_closed += 1
+                self.logger.info("✅ 'Link email' popup closed")
+                time.sleep(0.5)
+                return
+        
         if self.detection.has_popup():
             self.logger.info("🚨 Popup detected, attempting to close")
+            
+            # Try to close "Follow your friends" popup
+            if self.detection.has_follow_friends_popup():
+                if self.click.close_follow_friends_popup():
+                    self.stats.popups_closed += 1
+                    self.logger.info("✅ 'Follow your friends' popup closed")
+                    time.sleep(0.5)
+                    return
             
             # Try to close collections popup specifically
             if self.detection.has_collections_popup():
