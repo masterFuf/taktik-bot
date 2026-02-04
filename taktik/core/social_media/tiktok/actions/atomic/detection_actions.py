@@ -274,11 +274,30 @@ class DetectionActions(BaseAction):
         # Check for collections popup
         if self._element_exists(self.popup_selectors.collections_popup, timeout=1):
             return True
+        # Check for "Follow your friends" popup
+        if self._element_exists(self.popup_selectors.follow_friends_popup, timeout=1):
+            return True
         return False
     
     def has_collections_popup(self) -> bool:
         """Check if the 'Create shared collections' popup is visible."""
         return self._element_exists(self.popup_selectors.collections_popup, timeout=1)
+    
+    def has_follow_friends_popup(self) -> bool:
+        """Check if the 'Follow your friends' popup is visible."""
+        return self._element_exists(self.popup_selectors.follow_friends_popup, timeout=1)
+    
+    def has_link_email_popup(self) -> bool:
+        """Check if the 'Link email' popup is visible."""
+        return self._element_exists(self.popup_selectors.link_email_popup, timeout=1)
+    
+    def has_notification_banner(self) -> bool:
+        """Check if a notification banner is visible (e.g., 'X sent you new messages')."""
+        return self._element_exists(self.popup_selectors.notification_banner, timeout=1)
+    
+    def is_on_inbox_page(self) -> bool:
+        """Check if currently on the Inbox page (accidentally navigated there)."""
+        return self._element_exists(self.popup_selectors.inbox_page_indicator, timeout=1)
     
     def has_suggestion_page(self) -> bool:
         """Check if on a suggestion page (Follow back / Not interested).
