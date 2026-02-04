@@ -281,16 +281,43 @@ class DebugBridge:
             return 1
     
     def _detect(self, device) -> int:
-        """Detect and handle problematic pages."""
-        from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+        """Detect and handle problematic pages (Instagram or TikTok)."""
+        # Detect which app is in foreground
+        try:
+            current_app = device.app_current()
+            package = current_app.get('package', '')
+            send_log("info", f"Current app: {package}")
+        except Exception as e:
+            send_log("warning", f"Could not detect current app: {e}")
+            package = ''
         
-        detector = ProblematicPageDetector(device, debug_mode=True)
-        detected = detector.detect_and_handle_problematic_pages()
+        # Use appropriate detector based on app
+        if 'musically' in package or 'tiktok' in package.lower():
+            # TikTok app
+            send_log("info", "Using TikTok problematic page detector")
+            from taktik.core.social_media.tiktok.ui.detectors.problematic_page import TikTokProblematicPageDetector
+            detector = TikTokProblematicPageDetector(device, debug_mode=True)
+            result_data = detector.detect_and_handle_problematic_pages()
+            detected = result_data.get('detected', False)
+            handled = result_data.get('closed', False)
+        else:
+            # Default to Instagram
+            send_log("info", "Using Instagram problematic page detector")
+            from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+            detector = ProblematicPageDetector(device, debug_mode=True)
+            result_data = detector.detect_and_handle_problematic_pages()
+            # Instagram detector returns dict or bool
+            if isinstance(result_data, dict):
+                detected = result_data.get('detected', False)
+                handled = result_data.get('closed', False)
+            else:
+                detected = bool(result_data)
+                handled = detected
         
         result = {
             'success': True,
             'detected': detected,
-            'handled': detected
+            'handled': handled
         }
         
         if detected:
@@ -442,15 +469,24 @@ class DesktopBridge:
             instagram = InstagramManager(self.device_id)
             
             # Check ATX health first - this is critical for the bot to work
+            # Try to repair automatically if unhealthy
             atx_status = instagram.device_manager.get_atx_status()
             if not atx_status.get("atx_healthy"):
                 error_detail = atx_status.get("error", "Unknown ATX error")
-                logger.error(f"ATX agent unhealthy: {error_detail}")
-                send_error(
-                    f"UIAutomator2 agent is not responding. The bot cannot interact with the device. Error: {error_detail}",
-                    error_code="ATX_AGENT_FAILED"
-                )
-                return False
+                logger.warning(f"ATX agent unhealthy: {error_detail}. Attempting automatic repair...")
+                send_status("repairing_atx", "UIAutomator2 agent not responding, attempting repair...")
+                
+                # Try to repair ATX with retries
+                if instagram.device_manager._verify_and_repair_atx(max_retries=3):
+                    logger.info("ATX agent repaired successfully")
+                    send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
+                else:
+                    logger.error(f"ATX agent repair failed: {error_detail}")
+                    send_error(
+                        f"UIAutomator2 agent is not responding and could not be repaired. Please try: 1) Unplug and replug the USB cable, 2) Restart the phone, 3) Restart the app. Error: {error_detail}",
+                        error_code="ATX_AGENT_FAILED"
+                    )
+                    return False
             
             if not instagram.is_installed():
                 send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
