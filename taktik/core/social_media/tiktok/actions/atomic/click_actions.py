@@ -273,6 +273,78 @@ class ClickActions(BaseAction):
         # Fallback to generic close
         return self.close_popup()
     
+    def close_follow_friends_popup(self) -> bool:
+        """Close the 'Follow your friends' popup.
+        
+        This popup appears when TikTok wants to suggest contacts to follow.
+        """
+        self.logger.debug("❌ Trying to close 'Follow your friends' popup")
+        
+        # Try close button (X) - resource-id dga
+        if self._find_and_click(self.popup_selectors.follow_friends_close, timeout=2):
+            self.logger.info("✅ Closed 'Follow your friends' popup")
+            return True
+        
+        # Try direct uiautomator2 selector (more reliable)
+        try:
+            close_elem = self.device(description='Close')
+            if close_elem.exists:
+                close_elem.click()
+                self._human_like_delay('click')
+                self.logger.info("✅ Closed 'Follow your friends' popup via description")
+                return True
+        except Exception as e:
+            self.logger.debug(f"Direct close failed: {e}")
+        
+        # Fallback to generic close
+        return self.close_popup()
+    
+    def dismiss_notification_banner(self) -> bool:
+        """Dismiss notification banner by pressing back or swiping it away.
+        
+        This banner appears at top: "X sent you new messages" with Reply button.
+        We need to dismiss it to avoid accidentally clicking on it.
+        """
+        self.logger.debug("🔔 Trying to dismiss notification banner")
+        
+        # Check if banner exists
+        if self._element_exists(self.popup_selectors.notification_banner, timeout=0.5):
+            self.logger.warning("⚠️ Notification banner detected, dismissing...")
+            # Press back to dismiss the banner
+            self.device.press("back")
+            self._human_like_delay('click')
+            return True
+        
+        return False
+    
+    def escape_inbox_page(self) -> bool:
+        """Escape from Inbox page back to previous screen.
+        
+        This is called when we accidentally navigated to Inbox.
+        """
+        self.logger.warning("⚠️ On Inbox page, escaping...")
+        
+        # Press back to go back to previous screen
+        self.device.press("back")
+        self._human_like_delay('navigation')
+        return True
+    
+    def close_link_email_popup(self) -> bool:
+        """Close the 'Link email' popup by clicking 'Not now'.
+        
+        This popup asks to link Android email addresses for discovery.
+        """
+        self.logger.debug("📧 Trying to close 'Link email' popup")
+        
+        if self._find_and_click(self.popup_selectors.link_email_not_now, timeout=2):
+            self.logger.info("✅ Closed 'Link email' popup")
+            return True
+        
+        # Fallback: try pressing back
+        self.device.press("back")
+        self._human_like_delay('click')
+        return True
+    
     # === Suggestion Page Actions ===
     
     def click_not_interested(self) -> bool:
@@ -419,4 +491,77 @@ class ClickActions(BaseAction):
             
         except Exception as e:
             self.logger.error(f"Error liking video: {e}")
+            return False
+    
+    def close_system_popup(self) -> bool:
+        """Close Android system popups that may block the app.
+        
+        This handles popups like:
+        - Input method selection ("Sélectionnez le mode de saisie" / "Choose input method")
+        - Permission dialogs (contacts, notifications, etc.) - auto-deny
+        - System alerts
+        
+        Returns:
+            True if a popup was closed, False otherwise.
+        """
+        self.logger.debug("🔍 Checking for system popups")
+        
+        try:
+            # Check for permission dialogs and DENY them (FR + EN)
+            # These are Android permission requests that we should refuse
+            deny_button_selectors = [
+                # Package installer (contacts, storage, etc.) - most common
+                '//*[@resource-id="com.android.packageinstaller:id/permission_deny_button"]',
+                # Permission controller variants
+                '//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]',
+                '//*[@resource-id="com.google.android.permissioncontroller:id/permission_deny_button"]',
+                # French text variants
+                '//*[@text="REFUSER"][@clickable="true"]',
+                '//*[@text="Refuser"][@clickable="true"]',
+                '//*[@text="Ne pas autoriser"][@clickable="true"]',
+                '//*[@text="Non"][@clickable="true"]',
+                # English text variants
+                '//*[@text="DENY"][@clickable="true"]',
+                '//*[@text="Deny"][@clickable="true"]',
+                '//*[@text="Don\'t allow"][@clickable="true"]',
+                '//*[@text="DON\'T ALLOW"][@clickable="true"]',
+                '//*[@text="No"][@clickable="true"]',
+                '//*[@text="NO"][@clickable="true"]',
+            ]
+            
+            if self._find_and_click(deny_button_selectors, timeout=0.5):
+                self.logger.warning("⚠️ Permission popup detected, denied automatically")
+                self._human_like_delay('click')
+                return True
+            
+            # Check for input method selection popup (package: android)
+            input_method_selectors = [
+                '//*[@resource-id="android:id/alertTitle"][contains(@text, "saisie")]',
+                '//*[@resource-id="android:id/alertTitle"][contains(@text, "input")]',
+                '//*[@resource-id="android:id/alertTitle"][contains(@text, "keyboard")]',
+                '//*[@resource-id="android:id/alertTitle"][contains(@text, "Keyboard")]',
+                '//*[@resource-id="android:id/select_dialog_listview"]',
+            ]
+            
+            if self._element_exists(input_method_selectors, timeout=0.5):
+                self.logger.warning("⚠️ System input method popup detected, pressing back")
+                self.device.press("back")
+                self._human_like_delay('click')
+                return True
+            
+            # Check for generic Android system dialogs
+            system_dialog_selectors = [
+                '//*[@package="android"][@resource-id="android:id/parentPanel"]',
+            ]
+            
+            if self._element_exists(system_dialog_selectors, timeout=0.5):
+                self.logger.warning("⚠️ System dialog detected, pressing back")
+                self.device.press("back")
+                self._human_like_delay('click')
+                return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.debug(f"Error checking system popups: {e}")
             return False
