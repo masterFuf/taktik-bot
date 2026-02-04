@@ -991,12 +991,26 @@ class PopupSelectors:
     
     # === Boutons de fermeture ===
     close_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.zhiliaoapp.musically:id/dga"][@content-desc="Close"]',  # Follow your friends popup
         '//*[@resource-id="com.zhiliaoapp.musically:id/jyh"][@content-desc="Close"]',  # Popup collections
         '//*[@resource-id="com.zhiliaoapp.musically:id/fac"]',
         '//android.widget.ImageView[@content-desc="Close"]',
         '//android.widget.ImageButton[@content-desc="Close"]',
         '//android.widget.ImageButton[@content-desc="Fermer"]',
         '//android.widget.Button[@content-desc="Close"]',
+    ])
+    
+    # === Popup "Follow your friends" ===
+    follow_friends_popup: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.zhiliaoapp.musically:id/w4h"]',  # Title "Follow your friends"
+        '//*[contains(@text, "Follow your friends")]',
+        '//*[contains(@text, "Suivez vos amis")]',
+    ])
+    
+    follow_friends_close: List[str] = field(default_factory=lambda: [
+        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/dga"]',
+        '//*[@resource-id="com.zhiliaoapp.musically:id/dga"]',
+        '//android.widget.ImageView[@content-desc="Close"][@clickable="true"]',
     ])
     
     dismiss_button: List[str] = field(default_factory=lambda: [
@@ -1045,6 +1059,40 @@ class PopupSelectors:
     promo_close_button: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/fad"]',
         '//*[@resource-id="com.zhiliaoapp.musically:id/fac"][@content-desc="Close"]',
+    ])
+    
+    # === Notification banner (messages from users) ===
+    # Banner that appears at top: "gucci, mabhiza and others sent you new messages"
+    notification_banner: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "sent you new messages")]',
+        '//*[contains(@text, "sent you a message")]',
+        '//*[contains(@text, "vous a envoyé")]',
+        '//*[contains(@text, "Reply")][@clickable="true"]',
+        '//*[contains(@text, "Répondre")][@clickable="true"]',
+    ])
+    
+    # === Inbox page detection ===
+    # Detected when accidentally navigated to Inbox
+    inbox_page_indicator: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.zhiliaoapp.musically:id/title"][@text="Inbox"]',
+        '//*[@resource-id="com.zhiliaoapp.musically:id/jld"]',  # Inbox title container
+        '//*[@text="New followers"]',
+        '//*[@text="Activity"]',
+        '//*[@text="System notifications"]',
+    ])
+    
+    # === Link email popup ===
+    # Popup asking to link Android email addresses
+    link_email_popup: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"][@text="Link email"]',
+        '//*[@text="Link email"]',
+        '//*[contains(@text, "linking your Android email")]',
+    ])
+    
+    link_email_not_now: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Not now"]',
+        '//*[@text="Not now"][@clickable="true"]',
+        '//*[@text="Pas maintenant"][@clickable="true"]',
     ])
     
     invite_button: List[str] = field(default_factory=lambda: [
