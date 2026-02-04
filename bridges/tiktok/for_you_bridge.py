@@ -46,6 +46,20 @@ def run_for_you_workflow(config: Dict[str, Any]):
         
         time.sleep(4)  # Wait for app to fully load
         
+        # Ensure we're on the For You feed (TikTok may restore previous state)
+        try:
+            from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+            nav_actions = NavigationActions(manager.device_manager.device)
+            
+            # Press back to close any keyboard/popup, then navigate to Home
+            nav_actions._press_back()
+            time.sleep(0.5)
+            nav_actions.navigate_to_home()
+            time.sleep(1)
+            logger.info("✅ Navigated to For You feed")
+        except Exception as e:
+            logger.warning(f"Could not navigate to Home: {e}")
+        
         # Fetch own profile info for database tracking
         try:
             from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
