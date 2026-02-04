@@ -166,13 +166,29 @@ class DeviceFacade:
             return None
     
     def swipe_up(self, scale: float = 0.8):
-        """Swipe up (scroll down content)."""
-        width, height = self.get_screen_size()
-        x = width // 2
-        y_start = int(height * 0.8)
-        y_end = int(height * 0.2)
+        """Swipe up (scroll down content).
         
-        self.swipe_coordinates(x, y_start, x, y_end, duration=0.3)
+        Adaptive swipe for TikTok video scrolling that works on all screen resolutions:
+        - Uses percentage-based coordinates to adapt to any screen size
+        - Swipes on LEFT side of screen to avoid interaction buttons on the right
+        - Avoids bottom ~20% (navigation bar + interaction buttons area)
+        - Avoids top ~15% (search bar/status bar area)
+        - Results in ~65% screen distance swipe for reliable video switching
+        """
+        width, height = self.get_screen_size()
+        
+        # Use LEFT side of screen (30% from left) to avoid interaction buttons on right
+        # Interaction buttons (like, comment, share) are on the right side (x > 80%)
+        x = int(width * 0.30)
+        
+        # Percentage-based swipe that adapts to any resolution
+        # Start at 80% from top (avoids bottom nav + buttons area ~20%)
+        # End at 15% from top (avoids search bar + header)
+        y_start = int(height * 0.80)
+        y_end = int(height * 0.15)
+        
+        self.logger.debug(f"Swipe up: screen={width}x{height}, y={y_start}->{y_end}")
+        self.swipe_coordinates(x, y_start, x, y_end, duration=0.35)
     
     def swipe_down(self, scale: float = 0.8):
         """Swipe down (scroll up content)."""
