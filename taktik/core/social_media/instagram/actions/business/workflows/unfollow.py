@@ -23,14 +23,8 @@ class UnfollowBusiness(BaseBusinessAction):
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "unfollow", init_business_modules=False)
         
-        self.default_config = {
-            'max_unfollows': 20,
-            'unfollow_delay_range': (30, 60),  # Délais plus longs pour éviter les bans
-            'unfollow_non_followers': True,  # Unfollow ceux qui ne follow pas en retour
-            'min_days_since_follow': 3,  # Attendre X jours avant d'unfollow
-            'skip_verified': True,  # Ne pas unfollow les comptes vérifiés
-            'skip_business': False  # Ne pas unfollow les comptes business
-        }
+        from ..common.workflow_defaults import UNFOLLOW_DEFAULTS
+        self.default_config = {**UNFOLLOW_DEFAULTS}
         
         # Sélecteurs spécifiques à l'unfollow
         self._unfollow_selectors = {
