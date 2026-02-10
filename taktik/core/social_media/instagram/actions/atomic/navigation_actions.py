@@ -429,19 +429,25 @@ class NavigationActions(BaseAction):
     def _verify_profile_navigation(self, expected_username: str) -> bool:
         # NOTE: _check_and_close_problematic_pages() removed here - already called by navigate_to_profile()
         
-        # === FAST PATH: try the most reliable username selector directly ===
-        # If it exists, we're on a profile screen AND we have the username (1 call instead of 18)
-        try:
-            title_el = self.device.xpath('//*[@resource-id="com.instagram.android:id/action_bar_large_title_auto_size"]')
-            if title_el.exists:
-                current_username = (title_el.get_text() or '').strip().replace('@', '')
-                if current_username:
-                    expected_clean = self._clean_username(expected_username)
-                    current_clean = self._clean_username(current_username)
-                    self.logger.debug(f"✅ On profile screen, username: '{current_clean}' vs '{expected_clean}'")
-                    return current_clean == expected_clean
-        except Exception:
-            pass
+        # === FAST PATH: try the top username selectors directly ===
+        # If one exists, we're on a profile screen AND we have the username (2-3 calls max instead of 18)
+        _fast_selectors = [
+            '//*[@resource-id="com.instagram.android:id/action_bar_large_title_auto_size"]',
+            '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
+            '//*[contains(@resource-id, "action_bar_title")]',
+        ]
+        for selector in _fast_selectors:
+            try:
+                el = self.device.xpath(selector)
+                if el.exists:
+                    current_username = (el.get_text() or '').strip().replace('@', '')
+                    if current_username:
+                        expected_clean = self._clean_username(expected_username)
+                        current_clean = self._clean_username(current_username)
+                        self.logger.debug(f"✅ On profile screen, username: '{current_clean}' vs '{expected_clean}'")
+                        return current_clean == expected_clean
+            except Exception:
+                continue
         
         # === FALLBACK: full check (slower but covers edge cases) ===
         if not self._is_profile_screen():
