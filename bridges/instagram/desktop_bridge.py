@@ -231,59 +231,21 @@ class DesktopBridge:
         return True
     
     def setup_license(self) -> bool:
-        """Setup and verify license using API key from desktop app."""
+        """Setup database service for the bot process."""
         try:
-            send_status("initializing", "Setting up API credentials...")
+            send_status("initializing", "Setting up database service...")
             
-            # Check if API key was passed from desktop app
-            if self.api_key:
-                send_log("info", "Using API key from desktop app")
-                
-                # Set API key in environment (required by bot internals)
-                os.environ['TAKTIK_API_KEY'] = self.api_key
-                
-                # Configure database service with the API key
-                from taktik.core.database import configure_db_service
-                configure_db_service(self.api_key)
-                
-                # Configure unified_license_manager with API key (use _api_key internal attribute)
-                from taktik.core.license.unified_license_manager import unified_license_manager
-                unified_license_manager._api_key = self.api_key
-                # Also update the api_client to use the API key
-                from taktik.core.database.api_client import TaktikAPIClient
-                unified_license_manager.api_client = TaktikAPIClient(api_key=self.api_key)
-                send_log("debug", f"unified_license_manager._api_key configured: {self.api_key[:20]}...")
-                
-                send_status("license_valid", "API credentials configured")
-                return True
+            # Configure local database service (SQLite)
+            # The api_key param is kept for backward compat but no longer used for remote calls
+            from taktik.core.database import configure_db_service
+            configure_db_service(self.api_key or 'local-mode')
             
-            # Fallback: Try to load from local config (for CLI compatibility)
-            send_log("info", "No API key from desktop, trying local config...")
-            from taktik.core.license import unified_license_manager
-            
-            config = unified_license_manager.load_config()
-            if config and config.get('license_key'):
-                license_key = config['license_key']
-                
-                # Verify and get API key
-                is_valid, api_key, license_data = unified_license_manager.verify_and_setup_license(license_key)
-                
-                if is_valid and api_key:
-                    self.api_key = api_key
-                    os.environ['TAKTIK_API_KEY'] = api_key
-                    
-                    from taktik.core.database import configure_db_service
-                    configure_db_service(api_key)
-                    
-                    send_status("license_valid", f"License verified for {license_data.get('user', 'Unknown') if license_data else 'Unknown'}")
-                    return True
-            
-            send_error("No valid API key found. Please log in to the desktop app first.", error_code="LICENSE_NO_API_KEY")
-            return False
+            send_status("license_valid", "Database service configured")
+            return True
             
         except Exception as e:
-            send_error(f"License setup failed: {str(e)}", error_code="LICENSE_SETUP_FAILED")
-            logger.exception("License setup failed")
+            send_error(f"Database setup failed: {str(e)}", error_code="LICENSE_SETUP_FAILED")
+            logger.exception("Database setup failed")
             return False
     
     def connect_device(self) -> bool:
@@ -594,9 +556,6 @@ class DesktopBridge:
             # Create automation instance (matching CLI usage)
             send_status("initializing", "Initializing automation...")
             self.automation = InstagramAutomation(self.device_manager)
-            
-            # Initialize license limits
-            self.automation._initialize_license_limits(self.api_key)
             
             # Apply config
             self.automation.config = workflow_config

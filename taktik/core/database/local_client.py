@@ -106,47 +106,17 @@ class LocalDatabaseClient:
         except:
             return False
     
-    def verify_license(self, license_key: str) -> Dict[str, Any]:
-        """Verify license with remote API."""
-        data = {'license_key': license_key}
-        result = self._remote_request('POST', '/auth/verify-license', data)
-        return result or {'valid': False, 'message': 'Could not verify license'}
-    
     def check_action_limits(self) -> Dict[str, Any]:
-        """Check action limits from remote API."""
-        try:
-            if self.api_key:
-                result = self._remote_request('GET', '/usage/remaining-actions-by-api-key')
-                if result:
-                    max_actions = result.get('max_actions_per_day', 0)
-                    remaining = result.get('remaining_actions', max_actions)
-                    return {
-                        'can_perform_action': remaining > 0,
-                        'remaining_actions': remaining,
-                        'actions_used_today': max_actions - remaining,
-                        'max_actions_per_day': max_actions
-                    }
-            
-            logger.warning("Could not check action limits")
-            return {'can_perform_action': True, 'remaining_actions': 1000, 'max_actions_per_day': 1000}
-            
-        except Exception as e:
-            logger.error(f"Error checking action limits: {e}")
-            return {'can_perform_action': True, 'remaining_actions': 1000, 'max_actions_per_day': 1000}
+        """Action limits are no longer enforced. Always allow."""
+        return {'can_perform_action': True, 'remaining_actions': 999999, 'max_actions_per_day': 999999}
     
     def record_api_action(self, action_type: str = 'UNKNOWN') -> bool:
-        """Record an action to the remote API for usage tracking."""
-        try:
-            data = {'action_type': action_type}
-            result = self._remote_request('POST', '/usage/record-action', data)
-            return result.get('success', False) if result else False
-        except Exception as e:
-            logger.error(f"Error recording action: {e}")
-            return False
+        """Action recording to remote API is no longer used. No-op."""
+        return True
     
     def record_action_usage(self, action_type: str) -> bool:
-        """Record action usage to remote API."""
-        return self.record_api_action(action_type)
+        """Action recording to remote API is no longer used. No-op."""
+        return True
     
     # ============================================
     # ACCOUNTS (Local Database)
@@ -402,24 +372,16 @@ class LocalDatabaseClient:
         return results
 
 
-# Factory function to get the appropriate client
+# Factory function to get the database client
 def get_database_client(api_url: str = None, api_key: str = None, 
                         config_mode: bool = False, use_local: bool = True):
     """
-    Get the appropriate database client.
+    Get the local database client (SQLite).
     
     Args:
-        api_url: Remote API URL
-        api_key: API key
+        api_url: Remote API URL (kept for backward compat, unused)
+        api_key: API key (kept for backward compat, unused)
         config_mode: Config mode flag
-        use_local: If True (default), use local SQLite. If False, use remote API.
-        
-    Returns:
-        LocalDatabaseClient or TaktikAPIClient
+        use_local: Always True — local SQLite is the only mode now.
     """
-    if use_local:
-        return LocalDatabaseClient(api_url=api_url, api_key=api_key, config_mode=config_mode)
-    else:
-        # Fallback to original API client
-        from .api_client import TaktikAPIClient
-        return TaktikAPIClient(api_url=api_url, api_key=api_key, config_mode=config_mode)
+    return LocalDatabaseClient(api_url=api_url, api_key=api_key, config_mode=config_mode)
