@@ -94,3 +94,84 @@ def set_workflow(workflow):
 def signal_handler(signum, frame):
     """Handle interrupt signals gracefully (delegates to shared handler)."""
     _sig_mod._handle_signal(signum, frame)
+
+
+# ── TikTok startup helper ────────────────────────────────────────────
+
+def tiktok_startup(device_id: str, fetch_profile: bool = True):
+    """
+    Common TikTok startup sequence used by most workflow bridges.
+
+    1. Create TikTokManager and restart app
+    2. Navigate to Home (For You feed)
+    3. Optionally fetch own profile info and send bot_profile IPC message
+
+    Args:
+        device_id: The Android device serial.
+        fetch_profile: If True, navigate to profile tab, fetch info, and return it.
+
+    Returns:
+        (manager, bot_username) — manager is the TikTokManager instance,
+        bot_username is the fetched username (or None if fetch_profile=False or failed).
+    """
+    import time
+    from taktik.core.social_media.tiktok import TikTokManager
+
+    # Connect + restart
+    logger.info("📱 Connecting to device...")
+    send_status("connecting", "Connecting to device")
+
+    manager = TikTokManager(device_id=device_id)
+
+    logger.info("📱 Restarting TikTok (clean state)...")
+    send_status("launching", "Restarting TikTok app")
+
+    if not manager.restart():
+        raise RuntimeError("Failed to restart TikTok app")
+
+    time.sleep(4)  # Wait for app to fully load
+
+    # Navigate to Home
+    try:
+        from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+        nav_actions = NavigationActions(manager.device_manager.device)
+        nav_actions._press_back()
+        time.sleep(0.5)
+        nav_actions.navigate_to_home()
+        time.sleep(1)
+        logger.info("✅ Navigated to For You feed")
+    except Exception as e:
+        logger.warning(f"Could not navigate to Home: {e}")
+
+    # Fetch own profile
+    bot_username = None
+    if fetch_profile:
+        try:
+            from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
+
+            logger.info("📊 Fetching own profile info...")
+            send_status("fetching_profile", "Fetching your TikTok profile info")
+
+            profile_actions = ProfileActions(manager.device_manager.device)
+            profile_info = profile_actions.fetch_own_profile()
+
+            if profile_info:
+                bot_username = profile_info.username
+                logger.info(f"✅ Bot account: @{profile_info.username} ({profile_info.display_name})")
+                logger.info(f"   Followers: {profile_info.followers_count}, Following: {profile_info.following_count}")
+
+                send_message("bot_profile", profile={
+                    "username": profile_info.username,
+                    "display_name": profile_info.display_name,
+                    "followers_count": profile_info.followers_count,
+                    "following_count": profile_info.following_count,
+                })
+                logger.info("📤 Bot profile message sent to frontend")
+            else:
+                logger.warning("❌ Could not fetch profile info - profile_info is None")
+        except Exception as e:
+            logger.error(f"❌ Error fetching profile info: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+    return manager, bot_username
