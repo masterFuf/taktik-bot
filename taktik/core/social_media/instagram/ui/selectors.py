@@ -922,6 +922,7 @@ class DirectMessageSelectors:
     # Bouton DM dans la tab bar (depuis le profil ou le feed)
     direct_tab: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]'
     direct_tab_content_desc: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="Message"]',
         '//*[@content-desc="Envoyer un message"]',
         '//*[@content-desc="Direct"]',
         '//*[@content-desc="Messages"]',
