@@ -38,34 +38,22 @@ import os
 import time
 import random
 import re
-import base64
 import subprocess
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
-# Add the bot directory to path
+# Bootstrap: UTF-8 + loguru + sys.path in one call
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, bot_dir)
+from bridges.common.bootstrap import setup_environment
+setup_environment()
 
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from bridges.common.connection import ConnectionService
+from bridges.common.app_manager import AppService
+from bridges.common.keyboard import KeyboardService
 from loguru import logger
-
-# Configure loguru
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
-
-
-# Taktik Keyboard constants
-TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
-IME_MESSAGE_B64 = 'ADB_INPUT_B64'
 
 
 def send_event(event_type: str, **kwargs):
@@ -129,6 +117,11 @@ class SmartCommentBridge:
     def __init__(self, device_id: str, config: Dict[str, Any]):
         self.device_id = device_id
         self.config = config
+        # Shared services
+        self._connection = ConnectionService(device_id)
+        self._app = None  # initialized after connect
+        self._keyboard = KeyboardService(device_id)
+        # Backward-compatible aliases
         self.device_manager = None
         self.device = None
         self.screen_width = 1080
@@ -143,17 +136,13 @@ class SmartCommentBridge:
         self._comment_list_bounds = None
 
     def connect(self) -> bool:
-        """Connect to the device."""
-        logger.info(f"Connecting to device: {self.device_id}")
-        self.device_manager = DeviceManager(device_id=self.device_id)
-
-        if not self.device_manager.connect():
+        """Connect to the device using ConnectionService."""
+        if not self._connection.connect():
             return False
-
-        self.device = self.device_manager.device
-        screen_info = self.device.info
-        self.screen_width = screen_info.get('displayWidth', 1080)
-        self.screen_height = screen_info.get('displayHeight', 2340)
+        self.device_manager = self._connection.device_manager
+        self.device = self._connection.device
+        self.screen_width, self.screen_height = self._connection.screen_size
+        self._app = AppService(self._connection, platform="instagram")
         return True
 
     # =========================================================================
@@ -161,18 +150,8 @@ class SmartCommentBridge:
     # =========================================================================
 
     def restart_instagram(self):
-        """Restart Instagram for clean state (ensures we're on home page).
-        
-        Reuses self.device_manager (already connected) to avoid creating a new
-        InstagramManager with an unconnected DeviceManager that triggers redundant ATX checks.
-        """
-        INSTAGRAM_PACKAGE = "com.instagram.android"
-        INSTAGRAM_ACTIVITY = "com.instagram.mainactivity.InstagramMainActivity"
-        logger.info("Restarting Instagram for clean state...")
-        self.device_manager.stop_app(INSTAGRAM_PACKAGE)
-        time.sleep(1)
-        self.device_manager.launch_app(INSTAGRAM_PACKAGE, INSTAGRAM_ACTIVITY)
-        time.sleep(4)
+        """Restart Instagram for clean state via AppService."""
+        self._app.restart()
         logger.info("Instagram restarted successfully")
 
     def navigate_to_target_profile(self, username: str) -> bool:
@@ -1459,50 +1438,8 @@ class SmartCommentBridge:
                 break
 
     def _type_with_taktik_keyboard(self, text: str) -> bool:
-        """Type text using Taktik Keyboard (ADB Keyboard) via broadcast."""
-        if not text:
-            return True
-
-        try:
-            # Check if Taktik Keyboard is active
-            result = subprocess.run(
-                ['adb', '-s', self.device_id, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
-                capture_output=True, text=True, timeout=5
-            )
-
-            if TAKTIK_KEYBOARD_IME not in result.stdout:
-                subprocess.run(
-                    ['adb', '-s', self.device_id, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
-                    capture_output=True, text=True, timeout=5
-                )
-                result = subprocess.run(
-                    ['adb', '-s', self.device_id, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
-                    capture_output=True, text=True, timeout=5
-                )
-
-            # Encode text as base64
-            text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-
-            cmd = [
-                'adb', '-s', self.device_id, 'shell', 'am', 'broadcast',
-                '-a', IME_MESSAGE_B64,
-                '--es', 'msg', text_b64,
-                '--ei', 'delay_mean', '80',
-                '--ei', 'delay_deviation', '30'
-            ]
-
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-
-            if result.returncode == 0:
-                typing_time = (80 * len(text) + 30) / 1000
-                time.sleep(typing_time + 0.5)
-                return True
-
-            return False
-
-        except Exception as e:
-            logger.error(f"Taktik Keyboard error: {e}")
-            return False
+        """Type text using Taktik Keyboard via shared KeyboardService."""
+        return self._keyboard.type_text(text)
 
     # =========================================================================
     # ORCHESTRATION
