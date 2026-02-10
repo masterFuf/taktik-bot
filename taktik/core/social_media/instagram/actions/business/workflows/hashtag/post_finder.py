@@ -300,29 +300,11 @@ class HashtagPostFinderMixin:
             return None
     
     def _validate_hashtag_limits(self, post_metadata: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
-        requested_interactions = config.get('max_interactions', 30)
-        available_likes = post_metadata.get('likes_count', 0)
-        
-        result = {
-            'valid': True,
-            'warning': None,
-            'suggestion': None,
-            'adjusted_max': None
-        }
-        
-        if available_likes == 0:
-            result['valid'] = False
-            result['warning'] = "Post has no likes, cannot extract likers"
-            result['suggestion'] = "Choose a hashtag with posts that have likes"
-            return result
-        
-        if requested_interactions > available_likes:
-            result['valid'] = False
-            result['warning'] = f"Requested {requested_interactions} interactions but only {available_likes} likes available on selected post"
-            result['suggestion'] = f"Automatically adjusting to maximum {available_likes} interactions"
-            result['adjusted_max'] = available_likes
-        
-        return result
+        return self._validate_resource_limits(
+            available=post_metadata.get('likes_count', 0),
+            requested=config.get('max_interactions', 30),
+            resource_name="likes"
+        )
     
     # ============================================
     # POST METADATA EXTRACTION

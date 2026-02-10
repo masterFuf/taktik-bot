@@ -112,52 +112,10 @@ class PostUrlExtractorsMixin:
             self.logger.error(f"Error opening first post: {e}")
             return False
     
-    def _extract_likers_from_current_post(self) -> List[str]:
-        try:
-            if self._is_reel_post():
-                self.logger.debug("Reel type post detected")
-                return self._extract_likers_from_reel()
-            else:
-                self.logger.debug("Regular post detected")
-                return self._extract_likers_from_regular_post()
-                
-        except Exception as e:
-            self.logger.error(f"Error extracting likers: {e}")
-            return []
-    
-    def _extract_likers_from_regular_post(self) -> List[str]:
-        return super()._extract_likers_from_regular_post(max_interactions=None, multiply_by=2)
-    
-    def _extract_likers_from_reel(self) -> List[str]:
-        return super()._extract_likers_from_reel(max_interactions=None, multiply_by=2)
-    
-    def _interact_with_user(self, username: str, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        return super()._interact_with_user(username, config)
-    
-    def _get_filter_criteria_from_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        return super()._get_filter_criteria_from_config(config)
-    
-    def _determine_interactions_from_config(self, config: Dict[str, Any]) -> List[str]:
-        return super()._determine_interactions_from_config(config)
-    
-    def _is_like_count_text(self, text: str) -> bool:
-        return self.ui_extractors.is_like_count_text(text)
-    
-    def _extract_usernames_from_likers_popup(self) -> List[str]:
-        max_users = getattr(self, 'current_max_interactions', self.default_config['max_interactions'])
-        
-        return self.ui_extractors.extract_usernames_from_likers_popup(
-            current_max_interactions_attr=max_users,
-            automation=self.automation,
-            logger_instance=self.logger,
-            add_initial_sleep=False
-        )
-    
-    def _extract_visible_usernames(self) -> List[str]:
-        return self.ui_extractors.extract_visible_usernames(logger_instance=self.logger)
-    
-    def _extract_username_from_element(self, element) -> Optional[str]:
-        return self.ui_extractors.extract_username_from_element(element, logger_instance=self.logger)
+    # _extract_likers_from_current_post, _extract_likers_from_regular_post,
+    # _extract_likers_from_reel, _interact_with_user, _get_filter_criteria_from_config,
+    # _determine_interactions_from_config, etc.
+    # are all inherited from LikersWorkflowBase / BaseBusinessAction — no wrappers needed.
     
     def _get_popup_bounds(self) -> Optional[Dict]:
         try:

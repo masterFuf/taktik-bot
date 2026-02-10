@@ -621,6 +621,80 @@ class BaseBusinessAction(BaseAction):
             self.logger.debug(f"Error handling suggestions popup: {e}")
     
     
+    def _update_stats_from_interaction_result(
+        self,
+        username: str,
+        interaction_result: Dict[str, Any],
+        account_id: int = None,
+        session_id: int = None
+    ) -> None:
+        """
+        Update stats_manager and record DB actions from a unified interaction result.
+        Used by workflows that call _perform_interactions_on_profile (hashtag, post_url).
+        
+        Args:
+            username: Target username
+            interaction_result: Dict with keys: likes, follows, comments, stories, stories_liked, actually_interacted
+            account_id: Account ID for DB recording
+            session_id: Session ID for DB recording
+        """
+        from ..business.common.database_helpers import DatabaseHelpers
+        
+        self.stats_manager.increment('profiles_visited')
+        self.stats_manager.increment('profiles_interacted')
+
+        if interaction_result.get('likes', 0) > 0:
+            self.stats_manager.increment('likes', interaction_result['likes'])
+        if interaction_result.get('follows', 0) > 0:
+            self.stats_manager.increment('follows', interaction_result['follows'])
+            DatabaseHelpers.record_individual_actions(
+                username, 'FOLLOW', interaction_result['follows'],
+                account_id, session_id
+            )
+        if interaction_result.get('stories', 0) > 0:
+            self.stats_manager.increment('stories_watched', interaction_result['stories'])
+        if interaction_result.get('stories_liked', 0) > 0:
+            self.stats_manager.increment('stories_liked', interaction_result['stories_liked'])
+
+    def _validate_resource_limits(self, available: int, requested: int, resource_name: str = "resources") -> Dict[str, Any]:
+        """
+        Generic validation of interaction limits vs available resources.
+        Replaces duplicated _validate_follower_limits, _validate_hashtag_limits,
+        _validate_interaction_limits across workflows.
+        
+        Args:
+            available: Number of available resources (followers, likes, etc.)
+            requested: Number of requested interactions
+            resource_name: Human-readable name for log messages (e.g. "followers", "likes")
+            
+        Returns:
+            Dict with keys: valid, warning, suggestion, adjusted_max
+        """
+        result = {
+            'valid': True,
+            'warning': None,
+            'suggestion': None,
+            'adjusted_max': None
+        }
+        
+        if available == 0:
+            result['valid'] = False
+            result['warning'] = f"No {resource_name} available, cannot proceed"
+            result['suggestion'] = f"Choose a source with {resource_name}"
+            return result
+        
+        if requested > available:
+            result['valid'] = False
+            result['warning'] = f"Requested {requested} interactions but only {available} {resource_name} available"
+            result['suggestion'] = f"Automatically adjusting to maximum {available} interactions"
+            result['adjusted_max'] = available
+        
+        return result
+
+    def _is_valid_username(self, username: str) -> bool:
+        """Validate an Instagram username. Delegates to ui_extractors."""
+        return self.ui_extractors.is_valid_username(username)
+
     def _is_reel_post(self) -> bool:
         return self.ui_extractors.is_reel_post(logger_instance=self.logger)
     

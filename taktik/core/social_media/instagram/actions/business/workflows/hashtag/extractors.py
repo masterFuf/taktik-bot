@@ -68,50 +68,6 @@ class HashtagExtractorsMixin:
             self.logger.error(f"Error extracting likers: {e}")
             return []
     
-    def _extract_likers_from_current_post(self, is_reel: bool = None, max_interactions: int = None) -> List[str]:
-        try:
-            if is_reel is None:
-                is_reel = self._is_reel_post()
-            
-            if is_reel:
-                self.logger.debug("Reel post detected")
-                return self._extract_likers_from_reel(max_interactions=max_interactions)
-            else:
-                self.logger.debug("Regular post detected")
-                return self._extract_likers_from_regular_post(max_interactions=max_interactions)
-                
-        except Exception as e:
-            self.logger.error(f"Error extracting likers: {e}")
-            return []
-    
-    def _extract_likers_from_regular_post(self, max_interactions: int = None) -> List[str]:
-        return super()._extract_likers_from_regular_post(max_interactions=max_interactions, multiply_by=2)
-    
-    def _extract_likers_from_reel(self, max_interactions: int = None) -> List[str]:
-        return super()._extract_likers_from_reel(max_interactions=max_interactions, multiply_by=2)
-    
-    def _interact_with_user(self, username: str, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        return super()._interact_with_user(username, config)
-    
-    def _get_filter_criteria_from_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        return super()._get_filter_criteria_from_config(config)
-    
-    def _is_like_count_text(self, text: str) -> bool:
-        return self.ui_extractors.is_like_count_text(text)
-    
-    def _extract_usernames_from_likers_popup(self, max_interactions: int = None) -> List[str]:
-        return self.ui_extractors.extract_usernames_from_likers_popup(
-            max_interactions=max_interactions,
-            automation=self.automation,
-            logger_instance=self.logger,
-            add_initial_sleep=True
-        )
-    
-    def _extract_visible_usernames(self) -> List[str]:
-        return self.ui_extractors.extract_visible_usernames(logger_instance=self.logger)
-    
-    def _extract_username_from_element(self, element) -> Optional[str]:
-        return self.ui_extractors.extract_username_from_element(element, logger_instance=self.logger)
-    
-    def _is_valid_username(self, username: str) -> bool:
-        return self.ui_extractors.is_valid_username(username)
+    # _extract_likers_from_current_post, _extract_likers_from_regular_post,
+    # _extract_likers_from_reel, _interact_with_user, _get_filter_criteria_from_config,
+    # _is_valid_username, etc. are all inherited from LikersWorkflowBase / BaseBusinessAction.

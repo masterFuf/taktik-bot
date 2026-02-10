@@ -187,22 +187,9 @@ class LikersWorkflowBase(BaseBusinessAction):
                     )
 
                     self.logger.success(f"✅ Successful interaction with @{username}")
-                    self.stats_manager.increment('profiles_visited')
-                    self.stats_manager.increment('profiles_interacted')
-
-                    if interaction_result.get('likes', 0) > 0:
-                        self.stats_manager.increment('likes', interaction_result['likes'])
-                    if interaction_result.get('follows', 0) > 0:
-                        self.stats_manager.increment('follows', interaction_result['follows'])
-                        DatabaseHelpers.record_individual_actions(
-                            username, 'FOLLOW', interaction_result['follows'],
-                            account_id, session_id
-                        )
-                    if interaction_result.get('stories', 0) > 0:
-                        self.stats_manager.increment('stories_watched', interaction_result['stories'])
-                    if interaction_result.get('stories_liked', 0) > 0:
-                        self.stats_manager.increment('stories_liked', interaction_result['stories_liked'])
-
+                    self._update_stats_from_interaction_result(
+                        username, interaction_result, account_id, session_id
+                    )
                     self.stats_manager.display_stats(current_profile=username)
                 else:
                     self.logger.debug(f"@{username} visited but no interaction (probability)")
@@ -229,6 +216,26 @@ class LikersWorkflowBase(BaseBusinessAction):
                 self._human_like_delay('scroll')
             else:
                 scroll_attempts = 0
+
+    # ─── Liker extraction from current post ─────────────────────────────
+
+    def _extract_likers_from_current_post(self, is_reel: bool = None, max_interactions: int = None) -> list:
+        """Extract likers from the currently displayed post (regular or reel).
+        Shared by HashtagBusiness and PostUrlBusiness."""
+        try:
+            if is_reel is None:
+                is_reel = self._is_reel_post()
+
+            if is_reel:
+                self.logger.debug("Reel post detected")
+                return self._extract_likers_from_reel(max_interactions=max_interactions)
+            else:
+                self.logger.debug("Regular post detected")
+                return self._extract_likers_from_regular_post(max_interactions=max_interactions)
+
+        except Exception as e:
+            self.logger.error(f"Error extracting likers: {e}")
+            return []
 
     # ─── Perform interactions on a single profile ────────────────────────
 

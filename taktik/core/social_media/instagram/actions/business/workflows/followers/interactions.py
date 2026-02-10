@@ -124,25 +124,8 @@ class FollowerInteractionsMixin:
         return self.stats_manager.get_summary()
     
     def _validate_follower_limits(self, profile_info: Dict[str, Any], requested_interactions: int) -> Dict[str, Any]:
-        available_followers = profile_info.get('followers_count', 0)
-        
-        result = {
-            'valid': True,
-            'warning': None,
-            'suggestion': None,
-            'adjusted_max': None
-        }
-        
-        if available_followers == 0:
-            result['valid'] = False
-            result['warning'] = "Profile has no followers, cannot extract followers"
-            result['suggestion'] = "Choose a profile with followers"
-            return result
-        
-        if requested_interactions > available_followers:
-            result['valid'] = False
-            result['warning'] = f"Requested {requested_interactions} interactions but only {available_followers} followers available"
-            result['suggestion'] = f"Automatically adjusting to maximum {available_followers} interactions"
-            result['adjusted_max'] = available_followers
-        
-        return result
+        return self._validate_resource_limits(
+            available=profile_info.get('followers_count', 0),
+            requested=requested_interactions,
+            resource_name="followers"
+        )

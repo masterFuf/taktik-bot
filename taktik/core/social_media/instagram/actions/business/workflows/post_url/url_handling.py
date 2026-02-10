@@ -132,43 +132,14 @@ class PostUrlHandlingMixin:
             self.logger.error(f"Error extracting username: {e}")
             return None
     
-    def _is_valid_username(self, username: str) -> bool:
-        if not username or len(username) < 1 or len(username) > 30:
-            return False
-        
-        if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._]*$', username):
-            return False
-        
-        ui_texts = ['j\'aime', 'likes', 'vues', 'views', 'abonné', 'suivre', 'follow']
-        if username.lower() in ui_texts:
-            return False
-        
-        return True
-    
+    # _is_valid_username is inherited from BaseBusinessAction (delegates to ui_extractors)
+
     def _validate_interaction_limits(self, post_metadata: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
-        requested_interactions = config.get('max_interactions', 20)
-        available_likes = post_metadata.get('likes_count', 0)
-        
-        result = {
-            'valid': True,
-            'warning': None,
-            'suggestion': None,
-            'adjusted_max': None
-        }
-        
-        if available_likes == 0:
-            result['valid'] = False
-            result['warning'] = "Post has no likes, cannot extract likers"
-            result['suggestion'] = "Choose a post with likes"
-            return result
-        
-        if requested_interactions > available_likes:
-            result['valid'] = False
-            result['warning'] = f"Requested {requested_interactions} interactions but only {available_likes} likes available"
-            result['suggestion'] = f"Automatically adjusting to maximum {available_likes} interactions"
-            result['adjusted_max'] = available_likes
-        
-        return result
+        return self._validate_resource_limits(
+            available=post_metadata.get('likes_count', 0),
+            requested=config.get('max_interactions', 20),
+            resource_name="likes"
+        )
     
     def _calculate_adaptive_tolerance(self, target_likes: int) -> int:
         """
