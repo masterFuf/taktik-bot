@@ -199,7 +199,7 @@ class PostUrlBusiness(LikersWorkflowBase):
             
             # PRIORITY 1: Try extracting from Reel-specific content-desc (e.g., "Reel by username")
             try:
-                reel_container = self.device.xpath('//*[contains(@content-desc, "Reel by")]')
+                reel_container = self.device.xpath(self._hashtag_sel.reel_author_container[0])
                 if reel_container.exists:
                     content_desc = reel_container.info.get('contentDescription', '')
                     self.logger.debug(f"Reel container content-desc: '{content_desc}'")
