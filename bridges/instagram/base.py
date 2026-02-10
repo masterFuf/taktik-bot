@@ -161,3 +161,49 @@ def set_workflow(workflow):
 def signal_handler(signum, frame):
     """Handle interrupt signals gracefully (delegates to shared handler)."""
     _sig_mod._handle_signal(signum, frame)
+
+
+# ── Base class for Instagram bridges ─────────────────────────────────
+
+class InstagramBridgeBase:
+    """
+    Base class for Instagram bridge scripts that need device connection.
+
+    Handles:
+    - ConnectionService + AppService initialization
+    - Backward-compatible aliases (self.device_manager, self.device, self.screen_width/height)
+    - restart_instagram() via AppService
+
+    Usage:
+        class MyBridge(InstagramBridgeBase):
+            def __init__(self, device_id):
+                super().__init__(device_id)
+                # add your own init here
+    """
+
+    def __init__(self, device_id: str):
+        from bridges.common.connection import ConnectionService
+        self.device_id = device_id
+        # Shared services
+        self._connection = ConnectionService(device_id)
+        self._app = None  # initialized after connect
+        # Backward-compatible aliases
+        self.device_manager = None
+        self.device = None
+        self.screen_width = 1080
+        self.screen_height = 2340
+
+    def connect(self) -> bool:
+        """Connect to the device using ConnectionService."""
+        from bridges.common.app_manager import AppService
+        if not self._connection.connect():
+            return False
+        self.device_manager = self._connection.device_manager
+        self.device = self._connection.device
+        self.screen_width, self.screen_height = self._connection.screen_size
+        self._app = AppService(self._connection, platform="instagram")
+        return True
+
+    def restart_instagram(self):
+        """Restart Instagram for clean state via AppService."""
+        self._app.restart()
