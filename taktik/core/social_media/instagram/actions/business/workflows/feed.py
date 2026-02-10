@@ -24,36 +24,19 @@ class FeedBusiness(BaseBusinessAction):
         super().__init__(device, session_manager, automation, "feed", init_business_modules=True)
         
         from ..common.workflow_defaults import FEED_DEFAULTS
+        from ....ui.selectors import FEED_SELECTORS
         self.default_config = {**FEED_DEFAULTS}
         
-        # Sélecteurs spécifiques au feed
+        # Sélecteurs centralisés (depuis selectors.py)
+        self._feed_sel = FEED_SELECTORS
+        # Backward-compatible dict wrapper for existing code
         self._feed_selectors = {
-            'feed_post_container': [
-                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]',
-                '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
-            ],
-            'post_author_username': [
-                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
-                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]'
-            ],
-            'post_author_avatar': [
-                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]'
-            ],
-            'sponsored_indicators': [
-                '//*[contains(@text, "Sponsorisé")]',
-                '//*[contains(@text, "Sponsored")]',
-                '//*[contains(@text, "Publicité")]',
-                '//*[contains(@text, "Ad")]'
-            ],
-            'reel_indicators': [
-                '//*[contains(@content-desc, "Reel")]',
-                '//*[@resource-id="com.instagram.android:id/clips_video_container"]'
-            ],
-            'likes_count_button': [
-                '//*[@resource-id="com.instagram.android:id/row_feed_textview_likes"]',
-                '//*[contains(@text, "J\'aime")]',
-                '//*[contains(@text, "likes")]'
-            ]
+            'feed_post_container': self._feed_sel.post_container,
+            'post_author_username': self._feed_sel.post_author_username,
+            'post_author_avatar': self._feed_sel.post_author_avatar,
+            'sponsored_indicators': self._feed_sel.sponsored_indicators,
+            'reel_indicators': self._feed_sel.reel_indicators,
+            'likes_count_button': self._feed_sel.likes_count_button,
         }
     
     def interact_with_feed(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -284,13 +267,7 @@ class FeedBusiness(BaseBusinessAction):
     def _like_current_post(self) -> bool:
         """Liker le post actuellement visible dans le feed."""
         try:
-            # Sélecteurs pour le bouton like dans le feed
-            like_button_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
-                '//*[contains(@content-desc, "J\'aime")]',
-                '//*[contains(@content-desc, "Like")]',
-                '//*[@resource-id="com.instagram.android:id/like_button"]'
-            ]
+            like_button_selectors = self._feed_sel.like_button
             
             # D'abord vérifier si le post est déjà liké
             for selector in like_button_selectors:
@@ -309,12 +286,7 @@ class FeedBusiness(BaseBusinessAction):
             
             # Fallback: vérifier via l'icône du coeur si le post est déjà liké
             # avant de faire un double tap
-            already_liked_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
-                '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Ne plus aimer")]',
-                '//*[contains(@content-desc, "Unlike")]',
-                '//*[contains(@content-desc, "Ne plus aimer")]'
-            ]
+            already_liked_selectors = self._feed_sel.already_liked_indicators
             
             for selector in already_liked_selectors:
                 element = self.device.xpath(selector)
@@ -356,11 +328,7 @@ class FeedBusiness(BaseBusinessAction):
     def _is_reel_post(self) -> bool:
         """Vérifier si le post actuel est un Reel."""
         try:
-            reel_indicators = [
-                '//*[@resource-id="com.instagram.android:id/clips_viewer_view_pager"]',
-                '//*[contains(@content-desc, "Reel")]',
-                '//*[@resource-id="com.instagram.android:id/clips_audio_attribution_button"]'
-            ]
+            reel_indicators = self._feed_sel.reel_indicators
             
             for selector in reel_indicators:
                 element = self.device.xpath(selector)
@@ -382,12 +350,7 @@ class FeedBusiness(BaseBusinessAction):
             
             comment_text = random.choice(custom_comments)
             
-            # Sélecteurs pour le bouton commentaire dans le feed
-            comment_button_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
-                '//*[contains(@content-desc, "Comment")]',
-                '//*[contains(@content-desc, "Commenter")]'
-            ]
+            comment_button_selectors = self._feed_sel.comment_button
             
             # Cliquer sur le bouton commentaire
             for selector in comment_button_selectors:
@@ -402,13 +365,7 @@ class FeedBusiness(BaseBusinessAction):
             
             time.sleep(1)
             
-            # Trouver le champ de saisie et écrire le commentaire
-            comment_input_selectors = [
-                '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
-                '//*[contains(@text, "Add a comment")]',
-                '//*[contains(@text, "Ajouter un commentaire")]',
-                '//android.widget.EditText'
-            ]
+            comment_input_selectors = self._feed_sel.comment_input
             
             for selector in comment_input_selectors:
                 element = self.device.xpath(selector)
@@ -426,13 +383,7 @@ class FeedBusiness(BaseBusinessAction):
                 self.device.press('back')
                 return False
             
-            # Cliquer sur le bouton envoyer
-            send_button_selectors = [
-                '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',
-                '//*[contains(@content-desc, "Post")]',
-                '//*[contains(@content-desc, "Publier")]',
-                '//*[contains(@text, "Post")]'
-            ]
+            send_button_selectors = self._feed_sel.comment_send_button
             
             for selector in send_button_selectors:
                 element = self.device.xpath(selector)
