@@ -24,7 +24,7 @@ class TaktikAPIClient:
         
         if config_mode:
             self.api_key = None
-            logger.info("Configuration mode enabled - API key not required")
+            logger.debug("Configuration mode enabled - API key not required")
         else:
             if not api_key:
                 logger.error("API key required. Pass the API key retrieved from server as parameter.")
