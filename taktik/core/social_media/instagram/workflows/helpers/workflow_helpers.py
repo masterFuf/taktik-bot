@@ -121,7 +121,20 @@ class WorkflowHelpers:
         
         if not self.automation.active_account_id:
             self.logger.info("Detecting active Instagram account...")
-            self.automation.get_profile_info(username=None, save_to_db=True, log_result=False)
+            profile_info = self.automation.get_profile_info(username=None, save_to_db=True, log_result=False)
+            
+            # Send active_account IPC message to frontend (authoritative, replaces log parsing)
+            if profile_info and profile_info.get('username'):
+                import json
+                active_account_msg = {
+                    "type": "active_account",
+                    "username": profile_info.get('username', ''),
+                    "followers": profile_info.get('followers_count', 0),
+                    "following": profile_info.get('following_count', 0),
+                    "posts": profile_info.get('posts_count', 0),
+                }
+                print(json.dumps(active_account_msg), flush=True)
+                self.logger.info(f"Active account sent to frontend: @{profile_info['username']}")
             
         if not self.automation.active_account_id:
             self.logger.error("Cannot detect active Instagram account")
