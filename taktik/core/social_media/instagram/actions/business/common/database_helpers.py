@@ -143,14 +143,10 @@ class DatabaseHelpers:
             return False
         
         try:
-            # Accéder directement à l'API client
-            db_service = get_db_service()
-            if hasattr(db_service, 'api_client'):
-                is_filtered = db_service.api_client.is_profile_filtered(username, account_id)
-                if is_filtered:
-                    log.debug(f"🚫 Profil @{username} déjà filtré")
-                return is_filtered
-            return False
+            is_filtered = get_db_service().is_profile_filtered(username, account_id)
+            if is_filtered:
+                log.debug(f"🚫 Profil @{username} déjà filtré")
+            return is_filtered
             
         except Exception as e:
             log.debug(f"Erreur vérification filtrage @{username}: {e}")
@@ -210,7 +206,7 @@ class DatabaseHelpers:
             return False
         
         try:
-            from taktik.core.database.local_database import get_local_database
+            from taktik.core.database.local.service import get_local_database
             local_db = get_local_database()
             
             is_processed = local_db.is_hashtag_post_processed(
@@ -264,7 +260,7 @@ class DatabaseHelpers:
             return False
         
         try:
-            from taktik.core.database.local_database import get_local_database
+            from taktik.core.database.local.service import get_local_database
             local_db = get_local_database()
             
             success = local_db.record_processed_hashtag_post(

@@ -226,7 +226,10 @@ class FollowerDirectWorkflowMixin:
                         did_interact_this_iteration = True
                     
                     # Retour à la liste des followers avec vérification robuste
-                    if not self._ensure_on_followers_list(target_username, force_back=True):
+                    # force_back=False: _process_single_follower_direct already calls
+                    # _ensure_on_followers_list for filtered/private/error cases, so we only
+                    # need to force a back when coming from an actual interaction (like/follow)
+                    if not self._ensure_on_followers_list(target_username, force_back=False):
                         self.logger.error("Could not return to followers list, stopping")
                         break
                     

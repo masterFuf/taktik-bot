@@ -13,7 +13,7 @@ from pathlib import Path
 from loguru import logger
 
 # Import repositories for new code
-from .repositories import (
+from ..repositories import (
     AccountRepository,
     ProfileRepository,
     InteractionRepository,

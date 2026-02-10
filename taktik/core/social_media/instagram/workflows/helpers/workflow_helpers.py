@@ -5,7 +5,7 @@ import random
 from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
-from .....database.local_database import get_local_database
+from .....database.local.service import get_local_database
 
 
 class WorkflowHelpers:

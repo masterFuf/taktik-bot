@@ -9,12 +9,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from loguru import logger
 from dotenv import load_dotenv
-from ..database.api_client import TaktikAPIClient
-
 load_dotenv()
 
 
 class UnifiedLicenseManager:
+    """
+    License manager singleton.
+    NOTE: License verification is now handled by Electron's license-service (JWT).
+    This class only stores license state for backward compatibility.
+    The old remote API calls (/auth/verify-license, /usage/*, /api-keys/*) have been removed.
+    """
     
     _instance = None
     
@@ -28,7 +32,6 @@ class UnifiedLicenseManager:
         if self._initialized:
             return
             
-        self.api_client = TaktikAPIClient(api_url, api_key, config_mode=True)
         self.logger = logger.bind(module="unified-license-manager")
         self._api_key = api_key
         self._license_key = None

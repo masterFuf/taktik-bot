@@ -23,7 +23,7 @@ from loguru import logger
 import time
 import random
 
-from taktik.core.database.local_database import get_local_database
+from taktik.core.database.local.service import get_local_database
 
 from ...atomic.click_actions import ClickActions
 from ...atomic.navigation_actions import NavigationActions

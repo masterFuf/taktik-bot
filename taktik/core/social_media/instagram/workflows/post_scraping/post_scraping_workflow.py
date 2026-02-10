@@ -23,7 +23,7 @@ from taktik.core.social_media.instagram.actions.core.device_manager import Devic
 from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.scroll_actions import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
-from taktik.core.database.local_database import get_local_database
+from taktik.core.database.local.service import get_local_database
 
 
 console = Console()

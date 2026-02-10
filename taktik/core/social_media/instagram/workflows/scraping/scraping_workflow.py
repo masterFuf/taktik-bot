@@ -26,7 +26,7 @@ from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEnd
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, POST_SELECTORS
 from taktik.core.database import get_db_service
-from taktik.core.database.local_database import get_local_database
+from taktik.core.database.local.service import get_local_database
 
 
 console = Console()

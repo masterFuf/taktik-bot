@@ -1,40 +1,41 @@
-"""Database management package for Taktik Instagram.
+"""
+Database package for TAKTIK Bot.
 
-Supports two modes:
-- Local SQLite database (default, privacy-focused)
-- Remote API (legacy, for backwards compatibility)
+All data is stored locally in SQLite (%APPDATA%/taktik-desktop/taktik-data.db).
+See README.md in this directory for full documentation.
+
+Structure:
+    database/
+    ├── __init__.py         ← Public API (this file)
+    ├── models.py           ← Data models (InstagramProfile, etc.)
+    ├── local/
+    │   ├── service.py      ← SQLite engine (LocalDatabaseService)
+    │   └── client.py       ← Public client (LocalDatabaseClient)
+    └── repositories/       ← Repository pattern for data access
 """
 
 from .models import InstagramProfile
-from .api_database_service import APIBasedDatabaseService
-from .config import API_CONFIG
-from .local_database import LocalDatabaseService, get_local_database
-from .local_client import LocalDatabaseClient, get_database_client
+from .local.service import LocalDatabaseService, get_local_database
+from .local.client import LocalDatabaseClient, get_database_client
 
 db_service = None
 
-def configure_db_service(api_key: str = None, use_local: bool = None):
-    """
-    Configure the database service (local SQLite).
-    
-    Args:
-        api_key: Kept for backward compat, no longer used for remote calls.
-        use_local: Ignored — always uses local SQLite.
-    """
+
+def configure_db_service(api_key: str = None, **kwargs):
+    """Configure the database service. Returns LocalDatabaseClient."""
     global db_service
-    
-    client = LocalDatabaseClient(api_key=api_key)
-    db_service = APIBasedDatabaseService(api_client=client)
-    
+    db_service = LocalDatabaseClient(api_key=api_key)
     return db_service
 
-def get_db_service():
+
+def get_db_service() -> LocalDatabaseClient:
+    """Get the database service singleton. Call configure_db_service() first."""
     if db_service is None:
-        raise ValueError("Database service not configured. Call configure_db_service() with API key.")
+        raise ValueError("Database service not configured. Call configure_db_service() first.")
     return db_service
+
 
 __all__ = [
-    'APIBasedDatabaseService',
     'LocalDatabaseService',
     'LocalDatabaseClient',
     'InstagramProfile',
@@ -42,5 +43,4 @@ __all__ = [
     'get_db_service',
     'get_local_database',
     'get_database_client',
-    'API_CONFIG'
 ]
