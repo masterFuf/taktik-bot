@@ -14,15 +14,8 @@ class PostUrlBusiness(LikersWorkflowBase):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "post-url", init_business_modules=True)
-        self.default_config = {
-            'max_interactions': 20,
-            'like_percentage': 70,
-            'follow_percentage': 15,
-            'comment_percentage': 5,
-            'story_watch_percentage': 10,
-            'max_likes_per_profile': 3,
-            'min_likes_per_profile': 2  # Changed from 1 to 2
-        }
+        from ..common.workflow_defaults import POST_URL_DEFAULTS
+        self.default_config = {**POST_URL_DEFAULTS}
     
     def interact_with_post_likers(self, post_url: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
