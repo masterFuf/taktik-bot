@@ -8,21 +8,32 @@ import json
 import os
 from pathlib import Path
 
-from ...core.base_business_action import BaseBusinessAction
+from ....core.base_business_action import BaseBusinessAction
 from taktik.core.database import get_db_service
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 
-from ..common import DatabaseHelpers
-from .followers_tracker import FollowersTracker
+from ...common import DatabaseHelpers
+from ..followers_tracker import FollowersTracker
+
+from .navigation import FollowerNavigationMixin
+from .checkpoints import FollowerCheckpointsMixin
+from .extraction import FollowerExtractionMixin
+from .interactions import FollowerInteractionsMixin
 
 
-class FollowerBusiness(BaseBusinessAction):
+class FollowerBusiness(
+    FollowerNavigationMixin,
+    FollowerCheckpointsMixin,
+    FollowerExtractionMixin,
+    FollowerInteractionsMixin,
+    BaseBusinessAction
+):
     """Business logic for Instagram follower interactions."""
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "follower", init_business_modules=True)
         
-        from ..common.workflow_defaults import FOLLOWERS_DEFAULTS
+        from ...common.workflow_defaults import FOLLOWERS_DEFAULTS
         self.default_config = {**FOLLOWERS_DEFAULTS}
         # Use AppData folder for checkpoints to avoid permission issues
         app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
@@ -33,269 +44,12 @@ class FollowerBusiness(BaseBusinessAction):
         self.current_index = 0
         
         # Sélecteurs centralisés (depuis selectors.py)
-        from ....ui.selectors import NAVIGATION_SELECTORS, FOLLOWERS_LIST_SELECTORS
+        from .....ui.selectors import NAVIGATION_SELECTORS, FOLLOWERS_LIST_SELECTORS
         self._back_button_selectors = NAVIGATION_SELECTORS.back_buttons
         self._followers_list_selectors = FOLLOWERS_LIST_SELECTORS
     
-    def _go_back_to_list(self) -> bool:
-        """
-        Clique sur le bouton retour de l'app Instagram pour revenir à la liste.
-        Plus fiable que device.press('back') qui peut causer des scrolls indésirables.
-        """
-        try:
-            # Essayer de cliquer sur le bouton retour de l'app
-            clicked = False
-            for selector in self._back_button_selectors:
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        element.click()
-                        self.logger.debug("⬅️ Clicked Instagram back button")
-                        self._human_like_delay('navigation')
-                        clicked = True
-                        break
-                except Exception:
-                    continue
-            
-            if not clicked:
-                # Fallback: utiliser le bouton système
-                self.logger.debug("⬅️ Using system back button (fallback)")
-                self.device.press('back')
-                self._human_like_delay('click')
-            
-            # Vérifier qu'on est bien revenu sur la liste des followers
-            if self.detection_actions.is_followers_list_open():
-                self.logger.debug("✅ Back to followers list confirmed")
-                return True
-            else:
-                self.logger.warning("⚠️ Back clicked but not on followers list")
-                return False
-            
-        except Exception as e:
-            self.logger.error(f"Error going back: {e}")
-            self.device.press('back')
-            self._human_like_delay('click')
-            return False
-    
-    def _ensure_on_followers_list(self, target_username: str = None, force_back: bool = False) -> bool:
-        """
-        S'assure qu'on est sur la liste des followers.
-        Essaie plusieurs fois de revenir avec back, puis en dernier recours navigue vers la target.
-        
-        Args:
-            target_username: Username de la target pour recovery en dernier recours
-            force_back: Si True, fait toujours un back d'abord (à utiliser après avoir visité un profil)
-        
-        Retourne True si on est sur la liste, False sinon.
-        """
-        # Si force_back=False, vérifier si on est déjà sur la liste
-        if not force_back and self.detection_actions.is_followers_list_open():
-            return True
-        
-        # Sélecteurs UNIQUES à la liste des followers (depuis selectors.py)
-        quick_check_selectors = self._followers_list_selectors.list_indicators
-        
-        # Fonction helper pour vérifier si on est sur la liste
-        def is_on_followers_list() -> bool:
-            for selector in quick_check_selectors:
-                try:
-                    exists = self.device.xpath(selector).exists
-                    self.logger.debug(f"🔍 Checking selector: {selector[:50]}... = {exists}")
-                    if exists:
-                        return True
-                except Exception as e:
-                    self.logger.debug(f"❌ Selector error: {e}")
-                    continue
-            return False
-        
-        # Sélecteurs pour le bouton back UI d'Instagram (depuis selectors.py)
-        back_button_selectors = self.navigation_selectors.back_buttons_action_bar
-        
-        # Fonction helper pour cliquer sur le bouton back UI
-        def click_ui_back_button() -> bool:
-            for selector in back_button_selectors:
-                try:
-                    elem = self.device.xpath(selector)
-                    if elem.exists:
-                        elem.click()
-                        self.logger.info(f"✅ Clicked UI back button")
-                        return True
-                except Exception as e:
-                    self.logger.debug(f"❌ Back button error: {e}")
-                    continue
-            # Fallback: device.press('back') si le bouton UI n'est pas trouvé
-            self.logger.warning(f"⚠️ UI back button not found, using device.press('back')")
-            self.device.press('back')
-            return True
-        
-        # Premier back (on vient d'un profil)
-        self.logger.info(f"🔄 Recovery - clicking back button (1st) to return to followers list")
-        click_ui_back_button()
-        self.logger.info(f"⏳ Waiting 2s after 1st back...")
-        self._random_sleep(2.0, 2.5)
-        
-        self.logger.info(f"🔍 Checking if on followers list after 1st back...")
-        if is_on_followers_list():
-            self.logger.info(f"✅ Recovered to followers list (1st back)")
-            return True
-        
-        # Si le premier back n'a pas suffi, on est peut-être sur le profil
-        # (cas: post → profil après back, il faut un 2ème back pour la liste)
-        self.logger.info(f"🔄 First back didn't reach list, trying 2nd back...")
-        click_ui_back_button()
-        self.logger.info(f"⏳ Waiting 2s after 2nd back...")
-        self._random_sleep(2.0, 2.5)
-        
-        self.logger.info(f"🔍 Checking if on followers list after 2nd back...")
-        if is_on_followers_list():
-            self.logger.info(f"✅ Recovered to followers list (2nd back)")
-            return True
-        
-        # Attendre un peu plus et réessayer la détection
-        self.logger.info(f"🔄 Detection failed, waiting 1s more and retrying...")
-        self._random_sleep(1.0, 1.5)
-        
-        if is_on_followers_list():
-            self.logger.info(f"✅ Recovered to followers list (after wait)")
-            return True
-        
-        # Dernier recours: naviguer vers la target (on perd la position)
-        if target_username:
-            self.logger.warning(f"⚠️ Could not recover via back, navigating to @{target_username}")
-            if self.nav_actions.navigate_to_profile(target_username):
-                self._random_sleep(0.5, 1.0)  # Short delay after navigation
-                if self.nav_actions.open_followers_list():
-                    self._random_sleep(0.5, 1.0)  # Short delay
-                    self.logger.warning("⚠️ Recovered but position in list is lost")
-                    return True
-        
-        self.logger.error("❌ Could not recover to followers list")
-        return False
+    # ─── Workflow 1: interact_with_followers (legacy, uses scraped list) ──
 
-    def extract_followers_from_profile(self, target_username: str, 
-                                     max_followers: int = 50,
-                                     filter_criteria: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        try:
-            self.logger.info(f"Extracting followers from @{target_username} (max: {max_followers})")
-            
-            if not self.nav_actions.navigate_to_profile(target_username):
-                self.logger.error(f"Failed to navigate to @{target_username}")
-                return []
-            
-            # Vérifier que le profil est accessible
-            if self.detection_actions.is_private_account():
-                self.logger.warning(f"@{target_username} is a private account")
-                return []
-            
-            if not self.nav_actions.open_followers_list():
-                self.logger.error("Failed to open followers list")
-                return []
-            
-            self._random_sleep()
-            
-            followers = self._extract_followers_with_scroll(max_followers)
-            
-            if not followers:
-                self.logger.warning("No followers extracted")
-                return []
-            
-            self.logger.info(f"{len(followers)} followers extracted from @{target_username}")
-            
-            if filter_criteria:
-                filtered_followers = self._filter_followers(followers, filter_criteria)
-                self.logger.info(f"{len(filtered_followers)}/{len(followers)} followers after filtering")
-                return filtered_followers
-            
-            return followers
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting followers from @{target_username}: {e}")
-            return []
-    
-    def _create_checkpoint(self, session_id: str, target_username: str, followers: List[Dict[str, Any]], current_index: int = 0) -> str:
-        try:
-            checkpoint_data = {
-                'session_id': session_id,
-                'target_username': target_username,
-                'followers': followers,
-                'current_index': current_index,
-                'total_followers': len(followers),
-                'created_at': time.time(),
-                'status': 'active'
-            }
-            
-            checkpoint_filename = f"checkpoint_{session_id}_{target_username}.json"
-            checkpoint_path = self.checkpoint_dir / checkpoint_filename
-            
-            with open(checkpoint_path, 'w', encoding='utf-8') as f:
-                json.dump(checkpoint_data, f, indent=2, ensure_ascii=False)
-            
-            self.current_checkpoint_file = str(checkpoint_path)
-            self.current_followers_list = followers
-            self.current_index = current_index
-            
-            self.logger.info(f"Checkpoint created: {checkpoint_filename} (index: {current_index}/{len(followers)})")
-            return str(checkpoint_path)
-            
-        except Exception as e:
-            self.logger.error(f"Error creating checkpoint: {e}")
-            return None
-    
-    def _load_checkpoint(self, session_id: str, target_username: str) -> Dict[str, Any]:
-        try:
-            checkpoint_filename = f"checkpoint_{session_id}_{target_username}.json"
-            checkpoint_path = self.checkpoint_dir / checkpoint_filename
-            
-            if not checkpoint_path.exists():
-                return None
-            
-            with open(checkpoint_path, 'r', encoding='utf-8') as f:
-                checkpoint_data = json.load(f)
-            
-            self.current_checkpoint_file = str(checkpoint_path)
-            self.current_followers_list = checkpoint_data.get('followers', [])
-            self.current_index = checkpoint_data.get('current_index', 0)
-            
-            self.logger.info(f"Checkpoint loaded: {checkpoint_filename} (index: {self.current_index}/{len(self.current_followers_list)})")
-            return checkpoint_data
-            
-        except Exception as e:
-            self.logger.error(f"Error loading checkpoint: {e}")
-            return None
-    
-    def _update_checkpoint_index(self, new_index: int):
-        try:
-            if not self.current_checkpoint_file or not os.path.exists(self.current_checkpoint_file):
-                return
-            
-            with open(self.current_checkpoint_file, 'r', encoding='utf-8') as f:
-                checkpoint_data = json.load(f)
-            
-            checkpoint_data['current_index'] = new_index
-            checkpoint_data['updated_at'] = time.time()
-            
-            with open(self.current_checkpoint_file, 'w', encoding='utf-8') as f:
-                json.dump(checkpoint_data, f, indent=2, ensure_ascii=False)
-            
-            self.current_index = new_index
-            self.logger.debug(f"Checkpoint updated: index {new_index}/{len(self.current_followers_list)}")
-            
-        except Exception as e:
-            self.logger.error(f"Error updating checkpoint: {e}")
-    
-    def _cleanup_checkpoint(self):
-        try:
-            if self.current_checkpoint_file and os.path.exists(self.current_checkpoint_file):
-                os.remove(self.current_checkpoint_file)
-                self.logger.info(f"Checkpoint cleaned: {os.path.basename(self.current_checkpoint_file)}")
-            
-            self.current_checkpoint_file = None
-            self.current_followers_list = []
-            self.current_index = 0
-            
-        except Exception as e:
-            self.logger.error(f"Error cleaning checkpoint: {e}")
-    
     def interact_with_followers(self, followers: List[Dict[str, Any]], 
                               interaction_config: Dict[str, Any] = None,
                               session_id: str = None,
@@ -579,6 +333,8 @@ class FollowerBusiness(BaseBusinessAction):
             'resumed_from_checkpoint': stats.get('resumed_from_checkpoint', False)
         }
     
+    # ─── Workflow 2: interact_with_followers_direct (main workflow) ───────
+
     def interact_with_followers_direct(self, target_username: str,
                                        max_interactions: int = 30,
                                        config: Dict[str, Any] = None,
@@ -1281,6 +1037,8 @@ class FollowerBusiness(BaseBusinessAction):
             self.logger.error(f"Error in direct followers workflow: {e}")
             return stats
     
+    # ─── Workflow 3: interact_with_target_followers (multi-target) ────────
+
     def interact_with_target_followers(self, target_username: str = None, target_usernames: List[str] = None,
                                      max_interactions: int = 10,
                                      like_posts: bool = True,
@@ -1422,255 +1180,3 @@ class FollowerBusiness(BaseBusinessAction):
                 'profiles_processed': 0,
                 'error': str(e)
             }
-    
-    def _extract_followers_with_scroll(self, max_followers: int, account_id: int = None, target_username: str = None, max_followers_count: int = 0) -> List[Dict[str, Any]]:
-        followers_data = []
-        processed_usernames = set()
-        scroll_attempts = 0
-        max_scroll_attempts = 10
-        total_usernames_seen = 0  # Track total usernames seen (including filtered ones)
-        
-        def follower_callback(follower_username):
-            if follower_username in processed_usernames:
-                return True
-            
-            processed_usernames.add(follower_username)
-            
-            if account_id:
-                try:
-                    should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
-                        follower_username, account_id, hours_limit=24*60
-                    )
-                    if should_skip:
-                        self.logger.info(f"Profile @{follower_username} skipped ({skip_reason})")
-                        return True
-                except Exception as e:
-                    self.logger.warning(f"Error checking @{follower_username}: {e}")
-            
-            follower_data = {
-                'username': follower_username,
-                'source_account_id': account_id,
-                'source_username': target_username,
-                'full_name': None,
-                'is_verified': False,
-                'is_private': False,
-                'followers_count': None,
-                'following_count': None,
-                'timestamp': time.time()
-            }
-            followers_data.append(follower_data)
-            
-            if len(followers_data) >= max_followers:
-                return False
-            
-            return True
-        
-        self.logger.info(f"Extracting with individual filtering (max: {max_followers})")
-        
-        while len(followers_data) < max_followers and scroll_attempts < max_scroll_attempts:
-            current_usernames = self.content_business.extract_usernames_from_follow_list()
-            
-            if not current_usernames:
-                self.logger.debug("No new followers found")
-                scroll_attempts += 1
-            else:
-                new_found = 0
-                for username in current_usernames:
-                    if username:
-                        total_usernames_seen += 1
-                        continue_extraction = follower_callback(username)
-                        if continue_extraction:
-                            new_found += 1
-                        else:
-                            self.logger.info(f"{len(followers_data)} eligible followers collected")
-                            return followers_data
-                
-                # Check if we've seen approximately all followers from this profile
-                if max_followers_count > 0 and total_usernames_seen >= max_followers_count * 0.95:
-                    self.logger.info(f"🏁 Reached end of list: seen {total_usernames_seen}/{max_followers_count} followers from @{target_username}")
-                    break
-                
-                if new_found == 0:
-                    scroll_attempts += 1
-                    if scroll_attempts >= max_scroll_attempts:
-                        self.logger.info(f"No new eligible followers found after {scroll_attempts} scrolls - end of list reached")
-                        break
-                else:
-                    scroll_attempts = 0
-                
-                self.logger.debug(f"{new_found} new eligible, total: {len(followers_data)} (seen: {total_usernames_seen}/{max_followers_count if max_followers_count > 0 else '?'})")
-            
-            if len(followers_data) < max_followers:
-                load_more_result = self.scroll_actions.check_and_click_load_more()
-                if load_more_result:
-                    self.logger.info("'Load more' button clicked, 25 new followers loaded")
-                    self._human_like_delay('load_more')
-                    scroll_attempts = 0
-                elif load_more_result is False:
-                    self.logger.info("End of followers list detected")
-                    break
-                elif load_more_result is None:
-                    self.scroll_actions.scroll_followers_list_down()
-                    self._human_like_delay('scroll')
-        
-        self.logger.info(f"Extraction completed: {len(followers_data)} eligible followers")
-        return followers_data
-    
-    def _filter_followers(self, followers: List[Dict[str, Any]], 
-                         criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
-        filtered = []
-        
-        for follower in followers:
-            username = follower.get('username', '')
-            if not username:
-                continue
-            
-            # DISABLED: Bot username detection - too many false positives
-            # if criteria.get('exclude_bots', True):
-            #     if self.utils.is_likely_bot_username(username):
-            #         continue
-            
-            filtered.append(follower)
-        
-        return filtered
-    
-    def _perform_profile_interactions(self, username: str, 
-                                    config: Dict[str, Any],
-                                    profile_data: dict = None) -> Dict[str, bool]:
-        result = {
-            'liked': False,
-            'followed': False,
-            'story_viewed': False,
-            'commented': False
-        }
-        
-        try:
-            # ✅ Utiliser profile_data si déjà fourni (évite extraction inutile)
-            if profile_data:
-                profile_info = profile_data
-            else:
-                profile_info = self.profile_business.get_complete_profile_info(username=username, navigate_if_needed=False)
-            
-            if not profile_info:
-                return result
-            
-            if profile_info.get('is_private', False):
-                self.logger.debug(f"@{username} is a private profile")
-            
-            # === FILTERING (specific to followers workflow) ===
-            filter_criteria = config.get('filter_criteria', config.get('filters', {}))
-            
-            self.logger.debug(f"Filter criteria for @{username}: {filter_criteria}")
-            
-            filter_result = self.filtering_business.apply_comprehensive_filter(
-                profile_info, filter_criteria
-            )
-            
-            if not filter_result.get('suitable', False):
-                reasons = filter_result.get('reasons', [])
-                self.logger.info(f"@{username} filtered: {', '.join(reasons)}")
-                
-                posts_count = profile_info.get('posts_count', 0)
-                min_posts = filter_criteria.get('min_posts', 0)
-                if posts_count < min_posts:
-                    self.logger.warning(f"@{username} has {posts_count} posts (minimum required: {min_posts})")
-                
-                result['filtered'] = True
-                result['filter_reasons'] = reasons
-                self.stats_manager.increment('profiles_filtered')
-                return result
-            
-            # === INTERACTIONS (delegated to unified method) ===
-            # Note: record_profile_processed est appelé dans interact_with_followers_direct
-            # SEULEMENT après qu'une interaction réelle ait eu lieu (actually_interacted=True)
-            interaction = self._perform_interactions_on_profile(username, config, profile_data=profile_info)
-            
-            # Convert unified result dict to boolean format expected by callers
-            if interaction.get('likes', 0) > 0:
-                result['liked'] = True
-                result['likes_count'] = interaction['likes']
-            if interaction.get('follows', 0) > 0:
-                result['followed'] = True
-            if interaction.get('stories', 0) > 0:
-                result['story_viewed'] = True
-            if interaction.get('stories_liked', 0) > 0:
-                result['story_liked'] = True
-            if interaction.get('comments', 0) > 0:
-                result['commented'] = True
-            if interaction.get('error'):
-                result['error'] = interaction['error']
-            
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Error interacting with @{username}: {e}")
-            return result
-    
-    def _view_stories(self, username: str, like_stories: bool = False) -> Optional[Dict[str, int]]:
-        try:
-            if not self.detection_actions.has_stories():
-                return None
-            
-            if self.click_actions.click_story_ring():
-                self._human_like_delay('story_load')
-                
-                stories_viewed = 0
-                stories_liked = 0
-                
-                for _ in range(3):
-                    self._human_like_delay(2, 5)
-                    stories_viewed += 1
-                    
-                    if like_stories:
-                        try:
-                            if self.click_actions.like_story():
-                                stories_liked += 1
-                                self.logger.debug(f"Story liked")
-                        except Exception as e:
-                            self.logger.debug(f"Error liking story: {e}")
-                    
-                    if not self.nav_actions.navigate_to_next_story():
-                        break
-                
-                self.device.back()
-                self._human_like_delay('navigation')
-                
-                if stories_viewed > 0:
-                    self.logger.debug(f"{stories_viewed} stories viewed, {stories_liked} liked")
-                    return {
-                        'stories_viewed': stories_viewed,
-                        'stories_liked': stories_liked
-                    }
-            
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"Error viewing stories @{username}: {e}")
-            return None
-    
-    def get_session_stats(self) -> Dict[str, Any]:
-        return self.stats_manager.get_summary()
-    
-    def _validate_follower_limits(self, profile_info: Dict[str, Any], requested_interactions: int) -> Dict[str, Any]:
-        available_followers = profile_info.get('followers_count', 0)
-        
-        result = {
-            'valid': True,
-            'warning': None,
-            'suggestion': None,
-            'adjusted_max': None
-        }
-        
-        if available_followers == 0:
-            result['valid'] = False
-            result['warning'] = "Profile has no followers, cannot extract followers"
-            result['suggestion'] = "Choose a profile with followers"
-            return result
-        
-        if requested_interactions > available_followers:
-            result['valid'] = False
-            result['warning'] = f"Requested {requested_interactions} interactions but only {available_followers} followers available"
-            result['suggestion'] = f"Automatically adjusting to maximum {available_followers} interactions"
-            result['adjusted_max'] = available_followers
-        
-        return result
