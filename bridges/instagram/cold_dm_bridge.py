@@ -16,11 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from bridges.common.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
-from bridges.common.connection import ConnectionService
-from bridges.common.app_manager import AppService
 from bridges.common.keyboard import KeyboardService
-from bridges.common.database import get_db_path, SentDMService
-from loguru import logger
+from bridges.common.database import SentDMService
+from bridges.instagram.base import logger, InstagramBridgeBase
 
 
 
@@ -34,40 +32,17 @@ def record_sent_dm(account_id: int, recipient_username: str, message: str, succe
     SentDMService.record(account_id, recipient_username, message, success, error_message, session_id, platform='instagram')
 
 
-class ColdDMWorkflow:
+class ColdDMWorkflow(InstagramBridgeBase):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
     
     def __init__(self, device_id: str):
-        self.device_id = device_id
-        # Shared services
-        self._connection = ConnectionService(device_id)
-        self._app = None  # initialized after connect
+        super().__init__(device_id)
         self._keyboard = KeyboardService(device_id)
-        # Backward-compatible aliases
-        self.device_manager = None
-        self.device = None
-        self.screen_width = 1080
-        self.screen_height = 2340
         # Stats
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
-    
-    def connect(self) -> bool:
-        """Connect to the device using ConnectionService."""
-        if not self._connection.connect():
-            return False
-        # Expose for backward compatibility with rest of class
-        self.device_manager = self._connection.device_manager
-        self.device = self._connection.device
-        self.screen_width, self.screen_height = self._connection.screen_size
-        self._app = AppService(self._connection, platform="instagram")
-        return True
-    
-    def restart_instagram(self):
-        """Restart Instagram for clean state via AppService."""
-        self._app.restart()
     
     def navigate_to_search(self) -> bool:
         """Navigate to the search/explore tab."""
