@@ -495,24 +495,37 @@ class NavigationActions(BaseAction):
     
     def navigate_to_post_via_deep_link(self, post_url: str) -> bool:
         try:
-            import subprocess
+            from urllib.parse import urlparse
             
             self.logger.info(f"🔗 Navigating to post via deep link: {post_url}")
             
+            # Clean URL: remove tracking params (?utm_source=...&igsh=...)
+            # The & character causes shell splitting on the device
+            parsed = urlparse(post_url)
+            clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            if clean_url != post_url:
+                self.logger.debug(f"Cleaned URL: {clean_url}")
+            
             device_serial = self._get_device_serial()
-            adb_command = [
-                "adb", "-s", device_serial,
-                "shell", "am", "start",
-                "-W", "-a", "android.intent.action.VIEW",
-                "-d", post_url,
-                "com.instagram.android"
-            ]
             
-            result = subprocess.run(adb_command, capture_output=True, text=True, timeout=10)
-            
-            if result.returncode != 0:
-                self.logger.error(f"❌ ADB error opening post: {result.stderr}")
-                return False
+            # Use adbutils (same pattern as navigate_to_profile deep link)
+            try:
+                from adbutils import adb
+                device = adb.device(serial=device_serial)
+                result = device.shell(f'am start -W -a android.intent.action.VIEW -d "{clean_url}" com.instagram.android')
+                self.logger.debug(f"Deep link result: {result}")
+                
+                if 'Error' in str(result) or 'Exception' in str(result):
+                    self.logger.error(f"❌ ADB error opening post: {result}")
+                    return False
+            except ImportError:
+                # Fallback to subprocess if adbutils not available
+                import subprocess
+                adb_command = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "{clean_url}" com.instagram.android'
+                sub_result = subprocess.run(adb_command, shell=True, capture_output=True, text=True, timeout=10)
+                if sub_result.returncode != 0:
+                    self.logger.error(f"❌ ADB error opening post: {sub_result.stderr}")
+                    return False
                 
             self._human_like_delay('page_load')
             

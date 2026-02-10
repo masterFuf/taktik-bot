@@ -3,7 +3,7 @@
 import time
 from typing import Dict, Any, List, Optional
 
-from ...common import DatabaseHelpers
+from ....common import DatabaseHelpers
 
 
 class FollowerExtractionMixin:

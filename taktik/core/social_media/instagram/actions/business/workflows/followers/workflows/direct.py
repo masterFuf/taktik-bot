@@ -4,9 +4,9 @@ import time
 import json
 from typing import Dict, Any, List
 
-from ...common import DatabaseHelpers
+from ....common import DatabaseHelpers
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
-from ..followers_tracker import FollowersTracker
+from ...followers_tracker import FollowersTracker
 
 
 class FollowerDirectWorkflowMixin:

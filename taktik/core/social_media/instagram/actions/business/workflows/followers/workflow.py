@@ -13,13 +13,17 @@ from typing import Dict, Any
 
 from ....core.base_business_action import BaseBusinessAction
 
-from .navigation import FollowerNavigationMixin
-from .checkpoints import FollowerCheckpointsMixin
-from .extraction import FollowerExtractionMixin
-from .interactions import FollowerInteractionsMixin
-from .workflow_legacy import FollowerLegacyWorkflowMixin
-from .workflow_direct import FollowerDirectWorkflowMixin
-from .workflow_multi_target import FollowerMultiTargetWorkflowMixin
+from .mixins import (
+    FollowerNavigationMixin,
+    FollowerCheckpointsMixin,
+    FollowerExtractionMixin,
+    FollowerInteractionsMixin,
+)
+from .workflows import (
+    FollowerLegacyWorkflowMixin,
+    FollowerDirectWorkflowMixin,
+    FollowerMultiTargetWorkflowMixin,
+)
 
 
 class FollowerBusiness(

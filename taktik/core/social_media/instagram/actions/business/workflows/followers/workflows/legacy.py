@@ -4,7 +4,7 @@ import time
 import random
 from typing import Dict, Any, List
 
-from ...common import DatabaseHelpers
+from ....common import DatabaseHelpers
 
 
 class FollowerLegacyWorkflowMixin:
