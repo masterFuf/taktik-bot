@@ -23,16 +23,8 @@ class NotificationsBusiness(BaseBusinessAction):
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "notifications", init_business_modules=True)
         
-        self.default_config = {
-            'max_interactions': 20,
-            'interaction_delay_range': (20, 40),
-            'like_percentage': 70,
-            'follow_percentage': 15,
-            'comment_percentage': 5,
-            'story_watch_percentage': 10,
-            'max_likes_per_profile': 3,
-            'notification_types': ['likes', 'follows', 'comments']  # Types to process
-        }
+        from ..common.workflow_defaults import NOTIFICATIONS_DEFAULTS
+        self.default_config = {**NOTIFICATIONS_DEFAULTS}
         
         # Sélecteurs spécifiques aux notifications
         self._notification_selectors = {
