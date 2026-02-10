@@ -10,11 +10,20 @@ import sys
 import json
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Bootstrap: UTF-8 + loguru + sys.path in one call
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if bot_dir not in sys.path:
+    sys.path.insert(0, bot_dir)
+from bridges.common.bootstrap import setup_environment
+setup_environment()
 
+from bridges.common.connection import ConnectionService
+from bridges.common.signal_handler import setup_signal_handlers
 from taktik.core.social_media.instagram.workflows.discovery import DiscoveryWorkflowV2
 from taktik.core.database import configure_db_service
 from loguru import logger
+
+setup_signal_handlers()
 
 def main():
     if len(sys.argv) < 2:
