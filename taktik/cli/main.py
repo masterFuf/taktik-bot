@@ -1074,6 +1074,241 @@ def generate_url_scraping_workflow():
     return scraping_config
 
 
+def generate_post_scraping_workflow():
+    """Generate configuration for full post scraping (stats + likers + comments)."""
+    console.print("\n[bold green]📊 Full Post Scraping Configuration[/bold green]")
+    console.print("[dim]Scrape post stats, likers, and comments with profile enrichment[/dim]\n")
+    
+    post_url = Prompt.ask("[cyan]Instagram post URL[/cyan]")
+    if not post_url:
+        console.print("[red]❌ Post URL required[/red]")
+        return None
+    
+    if not _validate_instagram_url(post_url):
+        console.print("[red]❌ Invalid Instagram URL. Must be a post, reel, or IGTV URL.[/red]")
+        return None
+    
+    console.print("\n[yellow]📊 What to scrape[/yellow]")
+    scrape_stats = Confirm.ask("[cyan]Scrape post stats (likes, comments count)?[/cyan]", default=True)
+    scrape_likers = Confirm.ask("[cyan]Scrape likers?[/cyan]", default=True)
+    scrape_comments = Confirm.ask("[cyan]Scrape comments?[/cyan]", default=True)
+    
+    console.print("\n[yellow]📊 Limits[/yellow]")
+    max_likers = int(Prompt.ask("[cyan]Maximum likers to scrape[/cyan]", default="100"))
+    max_comments = int(Prompt.ask("[cyan]Maximum comments to scrape[/cyan]", default="50"))
+    
+    console.print("\n[yellow]🔍 Profile Enrichment[/yellow]")
+    enrich_profiles = Confirm.ask("[cyan]Enrich profiles (visit each profile for bio/stats)?[/cyan]", default=True)
+    max_profiles_to_enrich = int(Prompt.ask("[cyan]Max profiles to enrich[/cyan]", default="30")) if enrich_profiles else 0
+    
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    scraping_config = {
+        "type": "post_scraping",
+        "post_url": post_url,
+        "post_id": _extract_post_id_from_url(post_url),
+        "scrape_stats": scrape_stats,
+        "scrape_likers": scrape_likers,
+        "scrape_comments": scrape_comments,
+        "max_likers": max_likers,
+        "max_comments": max_comments,
+        "enrich_profiles": enrich_profiles,
+        "max_profiles_to_enrich": max_profiles_to_enrich,
+        "session_duration_minutes": session_duration,
+        "save_to_db": True,
+        "export_csv": True
+    }
+    
+    console.print("\n[green]📋 Post Scraping Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("Post URL", post_url[:50] + "..." if len(post_url) > 50 else post_url)
+    table.add_row("Post ID", scraping_config["post_id"] or "Unknown")
+    table.add_row("Scrape stats", "Yes" if scrape_stats else "No")
+    table.add_row("Scrape likers", f"Yes (max {max_likers})" if scrape_likers else "No")
+    table.add_row("Scrape comments", f"Yes (max {max_comments})" if scrape_comments else "No")
+    table.add_row("Enrich profiles", f"Yes (max {max_profiles_to_enrich})" if enrich_profiles else "No")
+    table.add_row("Session duration", f"{session_duration} min")
+    table.add_row("Save to database", "Yes")
+    table.add_row("Export to CSV", "Yes")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start post scraping with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return scraping_config
+
+
+def generate_cold_dm_workflow():
+    """Generate configuration for Cold DM workflow."""
+    console.print("\n[bold green]💬 Cold DM Workflow Configuration[/bold green]")
+    console.print("[dim]Send personalized DMs to a list of recipients[/dim]\n")
+    
+    console.print("[yellow]👥 Recipients[/yellow]")
+    console.print("[dim]Enter usernames separated by commas, or path to a CSV/TXT file[/dim]")
+    recipients_input = Prompt.ask("[cyan]Recipients (usernames or file path)[/cyan]")
+    
+    recipients = []
+    if recipients_input:
+        import os
+        if os.path.exists(recipients_input):
+            # Load from file
+            try:
+                with open(recipients_input, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    recipients = [r.strip().lstrip('@') for r in content.replace('\n', ',').split(',') if r.strip()]
+                console.print(f"[green]✅ Loaded {len(recipients)} recipients from file[/green]")
+            except Exception as e:
+                console.print(f"[red]❌ Error loading file: {e}[/red]")
+                return None
+        else:
+            recipients = [r.strip().lstrip('@') for r in recipients_input.split(',') if r.strip()]
+    
+    if not recipients:
+        console.print("[red]❌ At least one recipient is required[/red]")
+        return None
+    
+    console.print(f"[green]✅ {len(recipients)} recipients configured[/green]")
+    
+    console.print("\n[yellow]💬 Message Configuration[/yellow]")
+    console.print("[bold]1.[/bold] 📝 Manual (predefined messages)")
+    console.print("[bold]2.[/bold] 🤖 AI-generated (coming soon)")
+    
+    mode_choice = click.prompt("\n[bold]Message mode[/bold]", type=click.IntRange(1, 2), default=1, show_choices=False)
+    message_mode = "manual" if mode_choice == 1 else "ai"
+    
+    messages = []
+    if message_mode == "manual":
+        console.print("\n[dim]Enter your message templates (one per line, empty line to finish)[/dim]")
+        console.print("[dim]Use {username} for personalization[/dim]")
+        
+        while True:
+            msg = Prompt.ask("[cyan]Message template[/cyan]", default="")
+            if not msg:
+                break
+            messages.append(msg)
+        
+        if not messages:
+            default_msg = Prompt.ask("[cyan]Enter at least one message[/cyan]")
+            if default_msg:
+                messages.append(default_msg)
+            else:
+                console.print("[red]❌ At least one message is required[/red]")
+                return None
+    
+    console.print("\n[yellow]⚙️ Settings[/yellow]")
+    delay_min = int(Prompt.ask("[cyan]Minimum delay between DMs (seconds)[/cyan]", default="30"))
+    delay_max = int(Prompt.ask("[cyan]Maximum delay between DMs (seconds)[/cyan]", default="60"))
+    max_dms = int(Prompt.ask("[cyan]Maximum DMs to send[/cyan]", default="50"))
+    skip_private = Confirm.ask("[cyan]Skip private accounts?[/cyan]", default=True)
+    
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    config = {
+        "recipients": recipients,
+        "message_mode": message_mode,
+        "messages": messages,
+        "delay_min": delay_min,
+        "delay_max": delay_max,
+        "max_dms": max_dms,
+        "skip_private": skip_private,
+        "session_duration_minutes": session_duration
+    }
+    
+    console.print("\n[green]📋 Cold DM Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("Recipients", str(len(recipients)))
+    table.add_row("Message mode", message_mode.capitalize())
+    table.add_row("Messages", str(len(messages)))
+    table.add_row("Delay", f"{delay_min}-{delay_max}s")
+    table.add_row("Max DMs", str(max_dms))
+    table.add_row("Skip private", "Yes" if skip_private else "No")
+    table.add_row("Session duration", f"{session_duration} min")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start Cold DM workflow with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return config
+
+
+def generate_dm_auto_reply_workflow():
+    """Generate configuration for DM Auto-Reply workflow."""
+    console.print("\n[bold green]🤖 DM Auto-Reply Workflow Configuration[/bold green]")
+    console.print("[dim]Automatically reply to incoming DMs using AI[/dim]\n")
+    
+    console.print("[yellow]🔑 API Configuration[/yellow]")
+    fal_api_key = Prompt.ask("[cyan]Fal.ai API Key[/cyan]", default="")
+    
+    if not fal_api_key:
+        console.print("[yellow]⚠️ No API key provided. You can set it later via environment variable FAL_KEY[/yellow]")
+    
+    console.print("\n[yellow]👤 Persona Configuration[/yellow]")
+    persona_name = Prompt.ask("[cyan]Your name/brand name[/cyan]", default="")
+    persona_description = Prompt.ask("[cyan]Brief description of who you are[/cyan]", default="")
+    business_context = Prompt.ask("[cyan]What is your business/service about?[/cyan]", default="")
+    
+    console.print("\n[yellow]⚙️ Behavior Settings[/yellow]")
+    check_interval_min = int(Prompt.ask("[cyan]Min interval to check new messages (seconds)[/cyan]", default="30"))
+    check_interval_max = int(Prompt.ask("[cyan]Max interval to check new messages (seconds)[/cyan]", default="120"))
+    reply_delay_min = int(Prompt.ask("[cyan]Min delay before replying (seconds)[/cyan]", default="5"))
+    reply_delay_max = int(Prompt.ask("[cyan]Max delay before replying (seconds)[/cyan]", default="30"))
+    max_replies = int(Prompt.ask("[cyan]Maximum replies per session[/cyan]", default="50"))
+    
+    console.print("\n[yellow]🚫 Filters[/yellow]")
+    ignore_input = Prompt.ask("[cyan]Usernames to ignore (comma-separated)[/cyan]", default="")
+    ignore_usernames = [u.strip().lstrip('@') for u in ignore_input.split(',') if u.strip()] if ignore_input else []
+    
+    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
+    
+    config = {
+        "fal_api_key": fal_api_key,
+        "persona_name": persona_name,
+        "persona_description": persona_description,
+        "business_context": business_context,
+        "check_interval_min": check_interval_min,
+        "check_interval_max": check_interval_max,
+        "reply_delay_min": reply_delay_min,
+        "reply_delay_max": reply_delay_max,
+        "max_replies_per_session": max_replies,
+        "ignore_usernames": ignore_usernames,
+        "session_duration_minutes": session_duration
+    }
+    
+    console.print("\n[green]📋 DM Auto-Reply Configuration Summary:[/green]")
+    
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="yellow")
+    
+    table.add_row("API Key", "Configured" if fal_api_key else "Not set")
+    table.add_row("Persona", persona_name or "Not set")
+    table.add_row("Check interval", f"{check_interval_min}-{check_interval_max}s")
+    table.add_row("Reply delay", f"{reply_delay_min}-{reply_delay_max}s")
+    table.add_row("Max replies", str(max_replies))
+    table.add_row("Ignored users", str(len(ignore_usernames)))
+    table.add_row("Session duration", f"{session_duration} min")
+    
+    console.print(table)
+    
+    if not Confirm.ask("\n[bold cyan]Start DM Auto-Reply workflow with this configuration?[/bold cyan]", default=True):
+        return None
+    
+    return config
+
+
 def generate_discovery_workflow():
     """Generate configuration for AI-powered prospect discovery."""
     console.print("\n[bold green]🎯 Discovery Workflow Configuration[/bold green]")
@@ -1259,12 +1494,14 @@ def cli(ctx, lang=None):
                     console.print("[bold]1.[/bold] 🔐 Login")
                     console.print("[bold]2.[/bold] 📸 Post Content")
                     console.print("[bold]3.[/bold] 📱 Post Story")
-                    console.print("[bold]4.[/bold] 💬 Manage DMs (Coming soon)")
-                    console.print("[bold]5.[/bold] ← Back")
+                    console.print("[bold]4.[/bold] 💬 Cold DM (Send DMs to list)")
+                    console.print("[bold]5.[/bold] 🤖 DM Auto-Reply (AI-powered)")
+                    console.print("[bold]6.[/bold] 📥 View DM Inbox")
+                    console.print("[bold]7.[/bold] ← Back")
                     
-                    mgmt_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
+                    mgmt_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 7), show_choices=False)
                     
-                    if mgmt_choice == 5:
+                    if mgmt_choice == 7:
                         continue
                     
                     elif mgmt_choice == 1:
@@ -1425,7 +1662,107 @@ def cli(ctx, lang=None):
                         continue
                     
                     elif mgmt_choice == 4:
-                        console.print("[yellow]💬 DM management coming soon![/yellow]")
+                        # Cold DM Workflow
+                        cold_dm_config = generate_cold_dm_workflow()
+                        if not cold_dm_config:
+                            console.print("[red]❌ Cold DM configuration cancelled.[/red]")
+                            input("\nPress Enter to continue...")
+                            continue
+                        
+                        # Connexion au device
+                        if not device_manager.connect(device_id):
+                            console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                            continue
+                        
+                        if not device_manager.device:
+                            console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                            continue
+                        
+                        from taktik.core.social_media.instagram.workflows.cold_dm import ColdDMWorkflow
+                        
+                        console.print("[blue]💬 Initializing Cold DM workflow...[/blue]")
+                        cold_dm_workflow = ColdDMWorkflow(device_manager, cold_dm_config)
+                        cold_dm_workflow.run()
+                        
+                        console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                        sys.exit(0)
+                    
+                    elif mgmt_choice == 5:
+                        # DM Auto-Reply Workflow
+                        auto_reply_config = generate_dm_auto_reply_workflow()
+                        if not auto_reply_config:
+                            console.print("[red]❌ DM Auto-Reply configuration cancelled.[/red]")
+                            input("\nPress Enter to continue...")
+                            continue
+                        
+                        # Connexion au device
+                        if not device_manager.connect(device_id):
+                            console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                            continue
+                        
+                        if not device_manager.device:
+                            console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                            continue
+                        
+                        from taktik.core.social_media.instagram.workflows.management.dm_auto_reply_workflow import DMAutoReplyWorkflow, DMAutoReplyConfig
+                        
+                        console.print("[blue]🤖 Initializing DM Auto-Reply workflow...[/blue]")
+                        
+                        # Convert dict config to DMAutoReplyConfig
+                        dm_config = DMAutoReplyConfig(
+                            fal_api_key=auto_reply_config.get('fal_api_key', ''),
+                            persona_name=auto_reply_config.get('persona_name', ''),
+                            persona_description=auto_reply_config.get('persona_description', ''),
+                            business_context=auto_reply_config.get('business_context', ''),
+                            check_interval_min=auto_reply_config.get('check_interval_min', 30),
+                            check_interval_max=auto_reply_config.get('check_interval_max', 120),
+                            reply_delay_min=auto_reply_config.get('reply_delay_min', 5),
+                            reply_delay_max=auto_reply_config.get('reply_delay_max', 30),
+                            max_replies_per_session=auto_reply_config.get('max_replies_per_session', 50),
+                            ignore_usernames=auto_reply_config.get('ignore_usernames', []),
+                            session_duration_minutes=auto_reply_config.get('session_duration_minutes', 60)
+                        )
+                        
+                        import uiautomator2 as u2
+                        device = u2.connect(device_id)
+                        auto_reply_workflow = DMAutoReplyWorkflow(device, dm_config)
+                        auto_reply_workflow.run()
+                        
+                        console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                        sys.exit(0)
+                    
+                    elif mgmt_choice == 6:
+                        # View DM Inbox - redirect to existing dm inbox command logic
+                        from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
+                        import uiautomator2 as u2
+                        
+                        console.print("\n[bold green]📥 DM Inbox[/bold green]")
+                        
+                        try:
+                            device = u2.connect(device_id)
+                            
+                            console.print("[yellow]📥 Navigating to DM inbox...[/yellow]")
+                            
+                            dm_tab = device.xpath(DM_SELECTORS.direct_tab)
+                            if dm_tab.exists:
+                                dm_tab.click()
+                                time.sleep(2)
+                                console.print("[green]✅ Navigated to DMs[/green]")
+                            else:
+                                for selector in DM_SELECTORS.direct_tab_content_desc:
+                                    dm_btn = device.xpath(selector)
+                                    if dm_btn.exists:
+                                        dm_btn.click()
+                                        time.sleep(2)
+                                        console.print("[green]✅ Navigated to DMs[/green]")
+                                        break
+                            
+                            console.print("[cyan]📬 DM inbox is now visible on device.[/cyan]")
+                            console.print("[dim]Use CLI commands 'taktik management dm inbox' for detailed listing.[/dim]")
+                            
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
+                        
                         input("\nPress Enter to continue...")
                         continue
                 
@@ -1467,21 +1804,64 @@ def cli(ctx, lang=None):
                     # Mode Scraping
                     console.print("\n[bold cyan]🔍 Scraping Mode[/bold cyan]")
                     console.print("[bold]1.[/bold] 👥 Target Scraping (Followers/Following)")
-                    console.print("[bold]2.[/bold] 🔗 Post URL Scraping (Likers)")
-                    console.print("[bold]3.[/bold] 🎯 Discovery (AI-powered prospect finding)")
-                    console.print("[bold]4.[/bold] ← Back")
+                    console.print("[bold]2.[/bold] #️⃣ Hashtag Scraping (Authors/Likers)")
+                    console.print("[bold]3.[/bold] 🔗 Post URL Scraping (Likers/Comments)")
+                    console.print("[bold]4.[/bold] 🎯 Discovery (AI-powered prospect finding)")
+                    console.print("[bold]5.[/bold] ← Back")
                     
-                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
+                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
                     
-                    if scraping_choice == 4:
+                    if scraping_choice == 5:
                         continue
+                    
+                    scraping_config = None
                     
                     # Générer la config de scraping selon le choix
                     if scraping_choice == 1:
                         scraping_config = generate_target_scraping_workflow()
                     elif scraping_choice == 2:
-                        scraping_config = generate_url_scraping_workflow()
+                        scraping_config = generate_hashtag_scraping_workflow()
                     elif scraping_choice == 3:
+                        # Post URL Scraping with enhanced options
+                        console.print("\n[bold cyan]🔗 Post Scraping Options[/bold cyan]")
+                        console.print("[bold]1.[/bold] ❤️ Scrape Likers only")
+                        console.print("[bold]2.[/bold] 💬 Scrape Comments only")
+                        console.print("[bold]3.[/bold] 📊 Full Post Scraping (Stats + Likers + Comments)")
+                        console.print("[bold]4.[/bold] ← Back")
+                        
+                        post_scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
+                        
+                        if post_scraping_choice == 4:
+                            continue
+                        
+                        if post_scraping_choice == 3:
+                            # Full Post Scraping Workflow
+                            scraping_config = generate_post_scraping_workflow()
+                            if scraping_config:
+                                # Connexion au device
+                                if not device_manager.connect(device_id):
+                                    console.print(f"[red]{current_translations['cannot_connect_device'].format(device_id)}[/red]")
+                                    continue
+                                
+                                if not device_manager.device:
+                                    console.print(f"[red]{current_translations['device_init_error']}[/red]")
+                                    continue
+                                
+                                from taktik.core.social_media.instagram.workflows.post_scraping import PostScrapingWorkflow
+                                
+                                console.print("[blue]📊 Initializing post scraping workflow...[/blue]")
+                                post_workflow = PostScrapingWorkflow(device_manager, scraping_config)
+                                post_workflow.run()
+                                
+                                console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
+                                sys.exit(0)
+                            continue
+                        else:
+                            scraping_config = generate_url_scraping_workflow()
+                            if scraping_config:
+                                scraping_config['scrape_type'] = 'likers' if post_scraping_choice == 1 else 'comments'
+                    
+                    elif scraping_choice == 4:
                         # Discovery Workflow
                         discovery_config = generate_discovery_workflow()
                         if not discovery_config:
@@ -1507,7 +1887,7 @@ def cli(ctx, lang=None):
                         console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                         sys.exit(0)
                     
-                    if scraping_choice in [1, 2]:
+                    if scraping_choice in [1, 2] or (scraping_choice == 3 and scraping_config):
                         if not scraping_config:
                             console.print("[red]❌ Scraping configuration cancelled.[/red]")
                             continue
@@ -1634,7 +2014,7 @@ def tiktok():
 def list_devices():
     console.print(Panel.fit("[bold green]Liste des appareils connectés[/bold green]"))
     
-    devices = SimpleDeviceManager.list_devices()
+    devices = DeviceManager.list_devices()
     
     if not devices:
         console.print("[yellow]Aucun appareil connecté.[/yellow]")
@@ -1645,7 +2025,8 @@ def list_devices():
     table.add_column("ID", style="cyan")
     table.add_column("Statut", style="green")
     
-    for i, device_id in enumerate(devices):
+    for i, device_info in enumerate(devices):
+        device_id = device_info['id'] if isinstance(device_info, dict) else device_info
         table.add_row(device_id, "Connecté")
     
     console.print(table)
@@ -1660,7 +2041,7 @@ def workflow_instagram(device_id, config):
     console.print(Panel.fit("[bold green]Lancement du workflow Instagram[/bold green]"))
     
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]Aucun appareil connecté.[/red]")
             return
@@ -1696,7 +2077,7 @@ def workflow_instagram(device_id, config):
         final_config = {}
     
     try:
-        device_manager = SimpleDeviceManager(device_id)
+        device_manager = DeviceManager()
         if not device_manager.connect(device_id):
             console.print(f"[red]Impossible de se connecter à l'appareil {device_id}[/red]")
             return
@@ -1734,7 +2115,7 @@ def launch_tiktok(device_id):
     """Lance TikTok sur l'appareil spécifié."""
     console.print(Panel.fit("[bold green]Lancement de TikTok[/bold green]"))
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]Aucun appareil connecté.[/red]")
             return
@@ -1758,7 +2139,7 @@ def launch(network, device_id):
     """Lance l'application du réseau social choisi sur l'appareil spécifié."""
     console.print(Panel.fit(f"[bold green]Lancement de {network.capitalize()}[/bold green]"))
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]Aucun appareil connecté.[/red]")
             return
@@ -1827,7 +2208,7 @@ def login_instagram(device_id, username, password, save_session, save_instagram_
     
     # Sélectionner le device
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             console.print("[blue]💡 Assurez-vous que l'appareil est connecté et que ADB est configuré.[/blue]")
@@ -2566,7 +2947,7 @@ def post_single(device_id, image, caption, location, hashtags):
     
     # Sélectionner le device
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             return
@@ -2646,7 +3027,7 @@ def post_bulk(device_id, images, captions, delay):
     
     # Sélectionner le device
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             return
@@ -2716,7 +3097,7 @@ def post_story(device_id, image):
     
     # Sélectionner le device
     if not device_id:
-        devices = SimpleDeviceManager().list_devices()
+        devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             return
