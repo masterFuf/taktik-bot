@@ -11,88 +11,18 @@ import random
 import os
 import sqlite3
 import hashlib
-import base64
-import subprocess
+
+# Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from bridges.common.bootstrap import setup_environment
+setup_environment(log_level="INFO")
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from bridges.common.connection import ConnectionService
+from bridges.common.app_manager import AppService
+from bridges.common.keyboard import KeyboardService
 from loguru import logger
 
-# Configure loguru
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="INFO", colorize=False)
-
-
-# Taktik Keyboard constants
-TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
-IME_MESSAGE_B64 = 'ADB_INPUT_B64'
-
-
-def type_with_taktik_keyboard(device_id: str, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
-    """
-    Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
-    This is more reliable than uiautomator2's send_keys for special characters and emojis.
-    """
-    if not text:
-        return True
-    
-    try:
-        # Check if Taktik Keyboard is active
-        result = subprocess.run(
-            ['adb', '-s', device_id, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
-            capture_output=True, text=True, timeout=5
-        )
-        
-        if TAKTIK_KEYBOARD_IME not in result.stdout:
-            # Activate Taktik Keyboard
-            subprocess.run(
-                ['adb', '-s', device_id, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            result = subprocess.run(
-                ['adb', '-s', device_id, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            if 'selected' not in result.stdout.lower():
-                logger.warning("Could not activate Taktik Keyboard")
-                return False
-        
-        # Encode text as base64
-        text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-        
-        # Send broadcast with text
-        cmd = [
-            'adb', '-s', device_id, 'shell', 'am', 'broadcast',
-            '-a', IME_MESSAGE_B64,
-            '--es', 'msg', text_b64,
-            '--ei', 'delay_mean', str(delay_mean),
-            '--ei', 'delay_deviation', str(delay_deviation)
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        
-        if result.returncode == 0:
-            # Wait for typing to complete
-            typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-            logger.debug(f"Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
-            time.sleep(typing_time + 0.5)
-            return True
-        else:
-            logger.warning(f"Taktik Keyboard broadcast failed: {result.stderr}")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Error using Taktik Keyboard: {e}")
-        return False
 
 
 def get_db_path() -> str:
@@ -172,42 +102,35 @@ class ColdDMWorkflow:
     
     def __init__(self, device_id: str):
         self.device_id = device_id
+        # Shared services
+        self._connection = ConnectionService(device_id)
+        self._app = None  # initialized after connect
+        self._keyboard = KeyboardService(device_id)
+        # Backward-compatible aliases
         self.device_manager = None
         self.device = None
         self.screen_width = 1080
         self.screen_height = 2340
+        # Stats
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
     
     def connect(self) -> bool:
-        """Connect to the device."""
-        logger.info(f"Connecting to device: {self.device_id}")
-        self.device_manager = DeviceManager(device_id=self.device_id)
-        
-        if not self.device_manager.connect():
+        """Connect to the device using ConnectionService."""
+        if not self._connection.connect():
             return False
-        
-        self.device = self.device_manager.device
-        screen_info = self.device.info
-        self.screen_width = screen_info.get('displayWidth', 1080)
-        self.screen_height = screen_info.get('displayHeight', 2340)
+        # Expose for backward compatibility with rest of class
+        self.device_manager = self._connection.device_manager
+        self.device = self._connection.device
+        self.screen_width, self.screen_height = self._connection.screen_size
+        self._app = AppService(self._connection, platform="instagram")
         return True
     
     def restart_instagram(self):
-        """Restart Instagram for clean state.
-        
-        Reuses self.device_manager (already connected) to avoid creating a new
-        InstagramManager with an unconnected DeviceManager that triggers redundant ATX checks.
-        """
-        INSTAGRAM_PACKAGE = "com.instagram.android"
-        INSTAGRAM_ACTIVITY = "com.instagram.mainactivity.InstagramMainActivity"
-        logger.info("Restarting Instagram...")
-        self.device_manager.stop_app(INSTAGRAM_PACKAGE)
-        time.sleep(1)
-        self.device_manager.launch_app(INSTAGRAM_PACKAGE, INSTAGRAM_ACTIVITY)
-        time.sleep(4)
+        """Restart Instagram for clean state via AppService."""
+        self._app.restart()
     
     def navigate_to_search(self) -> bool:
         """Navigate to the search/explore tab."""
@@ -375,7 +298,7 @@ class ColdDMWorkflow:
         time.sleep(typing_time)
         
         # Use Taktik Keyboard for reliable input (supports emojis, special chars, etc.)
-        if type_with_taktik_keyboard(self.device_id, message):
+        if self._keyboard.type_text(message):
             logger.info("Text set via Taktik Keyboard")
         else:
             # Fallback to set_text or send_keys
