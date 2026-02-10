@@ -307,11 +307,21 @@ class NavigationSelectors:
         '//*[contains(@content-desc, "Cancel")]'
     ])
     
-    # === Boutons de retour multiples ===
+    # === Boutons de retour Instagram (complet, FR+EN) ===
     back_buttons: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
+        '//android.widget.ImageView[@content-desc="Retour"]',
+        '//android.widget.ImageView[@content-desc="Back"]',
+        '//*[@content-desc="Retour"]',
         '//*[@content-desc="Back"]',
-        '//*[@resource-id="com.instagram.android:id/action_bar_button_back" and @content-desc="Back"]'
+        '//*[@content-desc="Précédent"]',
+    ])
+    
+    # === Boutons de retour pour la liste followers/following ===
+    back_buttons_action_bar: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]//android.widget.ImageView[@clickable="true"]',
+        '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]/android.widget.ImageView',
+        '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
     ])
     
     # === Onglets de profil ===
@@ -1776,10 +1786,264 @@ class DebugSelectors:
     image_buttons: str = '//*[contains(@resource-id, "image_button")]'
 
 # =============================================================================
+# 📱 FEED (sélecteurs spécifiques au feed principal)
+# =============================================================================
+
+@dataclass
+class FeedSelectors:
+    """Sélecteurs pour le feed principal Instagram."""
+    
+    # === Conteneurs de posts dans le feed ===
+    post_container: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]',
+        '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
+    ])
+    
+    # === Username de l'auteur du post ===
+    post_author_username: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]'
+    ])
+    
+    # === Avatar de l'auteur ===
+    post_author_avatar: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]'
+    ])
+    
+    # === Indicateurs de post sponsorisé ===
+    sponsored_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Sponsorisé")]',
+        '//*[contains(@text, "Sponsored")]',
+        '//*[contains(@text, "Publicité")]',
+        '//*[contains(@text, "Ad")]'
+    ])
+    
+    # === Indicateurs de Reel dans le feed ===
+    reel_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Reel")]',
+        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
+        '//*[@resource-id="com.instagram.android:id/clips_viewer_view_pager"]',
+        '//*[@resource-id="com.instagram.android:id/clips_audio_attribution_button"]'
+    ])
+    
+    # === Compteur de likes dans le feed ===
+    likes_count_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_textview_likes"]',
+        '//*[contains(@text, "J\'aime")]',
+        '//*[contains(@text, "likes")]'
+    ])
+    
+    # === Bouton like dans le feed ===
+    like_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
+        '//*[contains(@content-desc, "J\'aime")]',
+        '//*[contains(@content-desc, "Like")]',
+        '//*[@resource-id="com.instagram.android:id/like_button"]'
+    ])
+    
+    # === Détection post déjà liké ===
+    already_liked_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Ne plus aimer")]',
+        '//*[contains(@content-desc, "Unlike")]',
+        '//*[contains(@content-desc, "Ne plus aimer")]'
+    ])
+    
+    # === Bouton commentaire dans le feed ===
+    comment_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
+        '//*[contains(@content-desc, "Comment")]',
+        '//*[contains(@content-desc, "Commenter")]'
+    ])
+    
+    # === Champ de saisie commentaire ===
+    comment_input: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
+        '//*[contains(@text, "Add a comment")]',
+        '//*[contains(@text, "Ajouter un commentaire")]',
+        '//android.widget.EditText'
+    ])
+    
+    # === Bouton envoyer commentaire ===
+    comment_send_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',
+        '//*[contains(@content-desc, "Post")]',
+        '//*[contains(@content-desc, "Publier")]',
+        '//*[contains(@text, "Post")]'
+    ])
+
+
+# =============================================================================
+# 🔓 UNFOLLOW (sélecteurs spécifiques au workflow unfollow)
+# =============================================================================
+
+@dataclass
+class UnfollowSelectors:
+    """Sélecteurs pour le workflow d'unfollow."""
+    
+    # === Bouton Following/Abonné sur un profil ===
+    following_button: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Abonné")]',
+        '//*[contains(@text, "Following")]',
+        '//*[contains(@text, "Suivi(e)")]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]'
+    ])
+    
+    # === Confirmation d'unfollow dans la popup ===
+    unfollow_confirm: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Ne plus suivre")]',
+        '//*[contains(@text, "Unfollow")]',
+        '//android.widget.Button[contains(@text, "Ne plus suivre")]',
+        '//android.widget.Button[contains(@text, "Unfollow")]'
+    ])
+    
+    # === Username dans la liste following ===
+    following_list_item: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
+    ])
+    
+    # === Onglet following/abonnements ===
+    following_tab: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[contains(@text, "following")]',
+        '//android.widget.Button[contains(@text, "abonnements")]',
+        '//*[contains(@content-desc, "following")]',
+        '//*[contains(@content-desc, "abonnements")]'
+    ])
+    
+    # === Tri de la liste ===
+    sort_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/sorting_entry_row_icon"]',
+        '//*[@content-desc="Sort by"]'
+    ])
+    
+    sort_option_default: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Default"]'
+    ])
+    
+    sort_option_latest: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Date followed: Latest"]'
+    ])
+    
+    sort_option_earliest: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Date followed: Earliest"]'
+    ])
+    
+    # === Détection "follows you back" ===
+    follows_back_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Follows you")]',
+        '//*[contains(@text, "Vous suit")]',
+        '//*[contains(@text, "vous suit")]',
+        '//*[contains(@content-desc, "Follows you")]',
+        '//*[contains(@content-desc, "Vous suit")]'
+    ])
+    
+    # === Détection bouton Follow après unfollow ===
+    follow_button_after_unfollow: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Suivre") and not(contains(@text, "Abonné"))]',
+        '//*[contains(@text, "Follow") and not(contains(@text, "Following"))]'
+    ])
+
+
+# =============================================================================
+# 🔔 NOTIFICATIONS (sélecteurs spécifiques au workflow notifications)
+# =============================================================================
+
+@dataclass
+class NotificationSelectors:
+    """Sélecteurs pour le workflow notifications/activité."""
+    
+    # === Onglet activité ===
+    activity_tab: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Activité")]',
+        '//*[contains(@content-desc, "Activity")]',
+        '//*[contains(@content-desc, "Notifications")]'
+    ])
+    
+    # === Éléments de notification ===
+    notification_item: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_news_text"]',
+        '//*[@resource-id="com.instagram.android:id/row_news_container"]',
+        '//android.widget.LinearLayout[contains(@resource-id, "news")]'
+    ])
+    
+    # === Username dans une notification ===
+    notification_username: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_news_text"]//android.widget.TextView[1]',
+        '//android.widget.TextView[contains(@text, "@")]'
+    ])
+    
+    # === Texte d'action de notification ===
+    notification_action_text: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_news_text"]',
+        '//android.widget.TextView[contains(@text, "liked") or contains(@text, "aimé")]',
+        '//android.widget.TextView[contains(@text, "started following") or contains(@text, "a commencé")]',
+        '//android.widget.TextView[contains(@text, "commented") or contains(@text, "commenté")]'
+    ])
+    
+    # === Section demandes d'abonnement ===
+    follow_requests_section: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Follow requests")]',
+        '//*[contains(@text, "Demandes d\'abonnement")]'
+    ])
+    
+    # === Détection écran activité ===
+    activity_screen_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Activité")]',
+        '//*[contains(@text, "Activity")]',
+        '//*[contains(@resource-id, "news")]',
+        '//*[contains(@resource-id, "activity")]'
+    ])
+
+
+# =============================================================================
+# #️⃣ HASHTAG (sélecteurs spécifiques au workflow hashtag)
+# =============================================================================
+
+@dataclass
+class HashtagSelectors:
+    """Sélecteurs pour le workflow hashtag."""
+    
+    # === Détection page hashtag ===
+    hashtag_header: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "posts")]',
+        '//*[contains(@text, "publications")]',
+        '//*[@resource-id="com.instagram.android:id/action_bar_title"]'
+    ])
+    
+    # === Extraction auteur Reel (content-desc "Reel by username") ===
+    reel_author_container: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Reel by")]',
+        '//*[@resource-id="com.instagram.android:id/clips_media_component"]'
+    ])
+
+
+# =============================================================================
+# 👥 FOLLOWERS LIST (sélecteurs spécifiques à la liste followers/following)
+# =============================================================================
+
+@dataclass
+class FollowersListSelectors:
+    """Sélecteurs pour la détection et navigation dans la liste followers/following."""
+    
+    # === Détection liste followers (éléments UNIQUES à cette vue) ===
+    list_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
+        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
+        '//android.widget.Button[contains(@text, "mutual")]',
+    ])
+
+
+# =============================================================================
 # 🚀 INSTANCES PRÉDÉFINIES
 # =============================================================================
 
 # Instances globales pour une utilisation facile dans tous les modules
+FEED_SELECTORS = FeedSelectors()
+UNFOLLOW_SELECTORS = UnfollowSelectors()
+NOTIFICATION_SELECTORS = NotificationSelectors()
+HASHTAG_SELECTORS = HashtagSelectors()
+FOLLOWERS_LIST_SELECTORS = FollowersListSelectors()
 AUTH_SELECTORS = AuthSelectors()
 NAVIGATION_SELECTORS = NavigationSelectors()
 BUTTON_SELECTORS = ButtonSelectors()
