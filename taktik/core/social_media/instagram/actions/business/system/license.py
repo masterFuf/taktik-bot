@@ -26,7 +26,7 @@ class LicenseBusiness(BaseAction):
     
     def can_perform_action(self, action_type: str, api_key: str = None) -> Tuple[bool, str]:
         try:
-            from taktik.core.license.unified_license_manager import unified_license_manager
+            from taktik.core.license.manager import unified_license_manager
             
             if not unified_license_manager:
                 self.logger.warning("License manager not available")
@@ -49,7 +49,7 @@ class LicenseBusiness(BaseAction):
     def record_action(self, action_type: str, username: str = None, 
                      api_key: str = None, metadata: Dict[str, Any] = None) -> bool:
         try:
-            from taktik.core.license.unified_license_manager import unified_license_manager
+            from taktik.core.license.manager import unified_license_manager
             
             if not unified_license_manager:
                 self.logger.warning("License manager not available for recording")
@@ -75,7 +75,7 @@ class LicenseBusiness(BaseAction):
     
     def get_license_status(self, api_key: str = None) -> Dict[str, Any]:
         try:
-            from taktik.core.license.unified_license_manager import unified_license_manager
+            from taktik.core.license.manager import unified_license_manager
             
             if not unified_license_manager:
                 return {

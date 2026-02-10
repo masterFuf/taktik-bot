@@ -1427,7 +1427,7 @@ def cli(ctx, lang=None):
     
     os.environ['TAKTIK_API_KEY'] = api_key
     
-    from taktik.core.license.unified_license_manager import unified_license_manager
+    from taktik.core.license.manager import unified_license_manager
     
     configure_db_service(api_key)
     
@@ -2089,7 +2089,7 @@ def workflow_instagram(device_id, config):
         console.print("[blue]Initialisation de l'automatisation Instagram...[/blue]")
         automation = InstagramAutomation(device_manager, config=final_config)
         
-        from taktik.core.license.unified_license_manager import unified_license_manager
+        from taktik.core.license.manager import unified_license_manager
         console.print("[green]Automatisation initialisée avec succès[/green]")
         
         if final_config:

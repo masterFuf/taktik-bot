@@ -1,4 +1,4 @@
-"""Unified license manager for Taktik Bot."""
+"""License manager for TAKTIK Bot."""
 import os
 import platform
 import uuid
@@ -12,19 +12,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-class UnifiedLicenseManager:
+class LicenseManager:
     """
     License manager singleton.
-    NOTE: License verification is now handled by Electron's license-service (JWT).
-    This class only stores license state for backward compatibility.
-    The old remote API calls (/auth/verify-license, /usage/*, /api-keys/*) have been removed.
+    Stores license config locally (~/.taktik/license_config.json).
+    License verification is handled by Electron's license-service (JWT).
+    Quota methods are no-ops — quotas are no longer enforced remotely.
     """
     
     _instance = None
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(UnifiedLicenseManager, cls).__new__(cls)
+            cls._instance = super(LicenseManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
     
@@ -32,7 +32,7 @@ class UnifiedLicenseManager:
         if self._initialized:
             return
             
-        self.logger = logger.bind(module="unified-license-manager")
+        self.logger = logger.bind(module="license-manager")
         self._api_key = api_key
         self._license_key = None
         self._license_info = None
@@ -162,4 +162,8 @@ class UnifiedLicenseManager:
         self.logger.info("🔄 Configuration reset")
 
 
-unified_license_manager = UnifiedLicenseManager()
+# Singleton instance
+license_manager = LicenseManager()
+
+# Backward-compatible alias
+unified_license_manager = license_manager
