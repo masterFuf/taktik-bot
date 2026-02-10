@@ -6,12 +6,12 @@ import random
 import re
 import time
 
-from .._likers_common import LikersWorkflowBase
+from ..common.likers_base import LikersWorkflowBase
 from ...common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
 
-from .url_handling import PostUrlHandlingMixin
-from .extractors import PostUrlExtractorsMixin
+from .mixins.url_handling import PostUrlHandlingMixin
+from .mixins.extractors import PostUrlExtractorsMixin
 
 
 class PostUrlBusiness(

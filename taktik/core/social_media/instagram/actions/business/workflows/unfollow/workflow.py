@@ -16,8 +16,8 @@ from ....core.base_business_action import BaseBusinessAction
 from ...common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
 
-from .decision import UnfollowDecisionMixin
-from .actions import UnfollowActionsMixin
+from .mixins.decision import UnfollowDecisionMixin
+from .mixins.actions import UnfollowActionsMixin
 
 
 class UnfollowBusiness(

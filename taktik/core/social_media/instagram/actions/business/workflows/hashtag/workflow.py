@@ -6,13 +6,13 @@ import re
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from .._likers_common import LikersWorkflowBase
+from ..common.likers_base import LikersWorkflowBase
 from ...common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
-from .post_finder import HashtagPostFinderMixin
-from .extractors import HashtagExtractorsMixin
+from .mixins.post_finder import HashtagPostFinderMixin
+from .mixins.extractors import HashtagExtractorsMixin
 
 
 class HashtagBusiness(
