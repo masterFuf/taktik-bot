@@ -90,7 +90,7 @@ class ProfileBusiness(BaseBusinessAction):
                 'follow_button_state': self.click_actions.get_follow_button_state(),
                 'has_posts': visible_posts > 0,
                 'visible_posts_count': visible_posts,
-                'visible_stories_count': self.detection_actions.count_visible_stories()
+                'visible_stories_count': 0  # Skipped — costs 13-20s per profile. Story viewing checks this separately.
             }
             
             # Add enriched fields if available
