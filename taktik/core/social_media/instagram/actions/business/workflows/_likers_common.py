@@ -240,71 +240,9 @@ class LikersWorkflowBase(BaseBusinessAction):
     ) -> Optional[Dict[str, Any]]:
         """
         Perform interactions (like, follow, story, comment) on a profile.
-        Shared by hashtag and post_url workflows.
+        Delegates to unified _perform_interactions_on_profile (BaseBusinessAction).
         """
-        result = {
-            'likes': 0,
-            'follows': 0,
-            'comments': 0,
-            'stories': 0,
-            'stories_liked': 0,
-            'actually_interacted': False
-        }
-
-        try:
-            interactions_to_do = self._determine_interactions_from_config(config)
-            self.logger.debug(f"🎯 Planned interactions for @{username}: {interactions_to_do}")
-
-            # Like posts
-            should_like = 'like' in interactions_to_do
-            should_comment = 'comment' in interactions_to_do
-
-            if should_like or should_comment:
-                likes_result = self.like_business.like_profile_posts(
-                    username,
-                    max_likes=config.get('max_likes_per_profile', 3),
-                    config={'randomize_order': True},
-                    should_comment=should_comment,
-                    custom_comments=config.get('custom_comments', []),
-                    comment_template_category=config.get('comment_template_category', 'generic'),
-                    max_comments=config.get('max_comments_per_profile', 1),
-                    navigate_to_profile=False,
-                    profile_data=profile_data,
-                    should_like=should_like
-                )
-                if likes_result:
-                    result['likes'] = likes_result.get('posts_liked', 0)
-                    result['comments'] = likes_result.get('posts_commented', 0)
-                    if result['likes'] > 0 or result['comments'] > 0:
-                        result['actually_interacted'] = True
-
-            # Follow
-            if 'follow' in interactions_to_do:
-                if self.click_actions.click_follow_button():
-                    result['follows'] = 1
-                    result['actually_interacted'] = True
-                    self.logger.info(f"✅ Followed @{username}")
-
-            # Watch stories
-            if 'story' in interactions_to_do or 'story_like' in interactions_to_do:
-                should_like_story = 'story_like' in interactions_to_do
-                story_result = self.story_business.watch_user_stories(
-                    username,
-                    max_stories=config.get('max_stories_per_profile', 3),
-                    should_like=should_like_story,
-                    navigate_to_profile=False
-                )
-                if story_result:
-                    result['stories'] = story_result.get('stories_watched', 0)
-                    result['stories_liked'] = story_result.get('stories_liked', 0)
-                    if result['stories'] > 0:
-                        result['actually_interacted'] = True
-
-            return result
-
-        except Exception as e:
-            self.logger.error(f"Error performing interactions on @{username}: {e}")
-            return result
+        return self._perform_interactions_on_profile(username, config, profile_data=profile_data)
 
     # ─── Likers popup navigation helpers ─────────────────────────────────
 
