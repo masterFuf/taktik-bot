@@ -23,23 +23,8 @@ class FeedBusiness(BaseBusinessAction):
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "feed", init_business_modules=True)
         
-        self.default_config = {
-            'max_interactions': 20,
-            'max_posts_to_check': 30,
-            'interaction_delay_range': (2, 5),  # Délai court entre les likes
-            'like_percentage': 100,  # Liker tous les posts
-            'follow_percentage': 0,  # Pas de follow depuis le feed
-            'comment_percentage': 0,  # Pas de commentaires
-            'story_watch_percentage': 0,  # Pas de stories
-            'max_likes_per_profile': 3,
-            'interact_with_post_author': False,  # Ne pas aller sur les profils
-            'interact_with_post_likers': False,  # Ne pas extraire les likers
-            'skip_reels': False,  # Liker aussi les reels
-            'skip_ads': True,  # Ignorer les publicités
-            'like_posts_directly': True,  # Liker directement dans le feed
-            'min_post_likes': 0,  # Filtre: nombre minimum de likes sur le post
-            'max_post_likes': 0  # Filtre: nombre maximum de likes (0 = pas de limite)
-        }
+        from ..common.workflow_defaults import FEED_DEFAULTS
+        self.default_config = {**FEED_DEFAULTS}
         
         # Sélecteurs spécifiques au feed
         self._feed_selectors = {
