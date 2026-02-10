@@ -193,9 +193,6 @@ class DesktopBridge:
         self.unfollow_config = config.get('unfollow', {})  # Unfollow specific settings
         self.language = config.get('language', 'en')
         self.running = True
-        # API credentials passed from desktop app
-        self.api_key = config.get('apiKey')
-        self.license_key = config.get('licenseKey')
         # Shared services
         self._connection = ConnectionService(self.device_id) if self.device_id else None
         self._app = None  # initialized after connect
@@ -236,9 +233,8 @@ class DesktopBridge:
             send_status("initializing", "Setting up database service...")
             
             # Configure local database service (SQLite)
-            # The api_key param is kept for backward compat but no longer used for remote calls
             from taktik.core.database import configure_db_service
-            configure_db_service(self.api_key or 'local-mode')
+            configure_db_service()
             
             send_status("license_valid", "Database service configured")
             return True

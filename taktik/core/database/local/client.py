@@ -24,8 +24,8 @@ class LocalDatabaseClient:
     calls via get_db_service(). It delegates to LocalDatabaseService internally.
     """
     
-    def __init__(self, api_key: str = None, **kwargs):
-        """Initialize with local SQLite database. Extra kwargs kept for backward compat."""
+    def __init__(self, **kwargs):
+        """Initialize with local SQLite database."""
         self.local_db: LocalDatabaseService = get_local_database()
         logger.info("✅ LocalDatabaseClient initialized (local SQLite)")
     

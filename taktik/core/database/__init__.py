@@ -21,10 +21,10 @@ from .local.client import LocalDatabaseClient, get_database_client
 db_service = None
 
 
-def configure_db_service(api_key: str = None, **kwargs):
+def configure_db_service(**kwargs):
     """Configure the database service. Returns LocalDatabaseClient."""
     global db_service
-    db_service = LocalDatabaseClient(api_key=api_key)
+    db_service = LocalDatabaseClient()
     return db_service
 
 

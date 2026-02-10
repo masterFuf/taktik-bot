@@ -44,11 +44,9 @@ def main():
         print(json.dumps({"success": False, "error": "No deviceId provided"}))
         sys.exit(1)
     
-    # Configure database service with API key from config or environment
-    api_key = config.get('apiKey') or os.environ.get('TAKTIK_API_KEY', 'local-mode')
     try:
-        configure_db_service(api_key, use_local=True)
-        logger.info("Database service configured (local mode)")
+        configure_db_service()
+        logger.info("Database service configured (local SQLite)")
     except Exception as e:
         logger.warning(f"Could not configure database service: {e}")
     

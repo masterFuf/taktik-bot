@@ -12,7 +12,6 @@ from ..business.workflows.hashtag import HashtagBusiness
 from ..business.workflows.post_url import PostUrlBusiness
 from ..business.actions.like import LikeBusiness
 from ..business.actions.story import StoryBusiness
-from ..business.system.license import LicenseBusiness
 from ..business.system.config import ConfigBusiness
 
 
@@ -34,7 +33,6 @@ class ModernInstagramActions(BaseAction):
         self.post_url_business = PostUrlBusiness(device, session_manager, automation)
         self.like_business = LikeBusiness(device, session_manager, automation)
         self.story_business = StoryBusiness(device, session_manager)
-        self.license_business = LicenseBusiness(device, session_manager)
         self.config_business = ConfigBusiness(device, session_manager)
         
         self.logger.info("ModernInstagramActions initialized with BaseStatsManager and new architecture")

@@ -16,7 +16,7 @@ Tous les imports historiques restent compatibles.
 from .workflows import PostUrlBusiness, HashtagBusiness, FollowerBusiness
 from .actions import LikeBusiness, StoryBusiness, InteractionBusiness
 from .management import ProfileBusiness, ContentBusiness, FilteringBusiness
-from .system import ConfigBusiness, LicenseBusiness
+from .system import ConfigBusiness
 from .common import DatabaseHelpers
 
 __all__ = [
@@ -34,7 +34,6 @@ __all__ = [
     'FilteringBusiness',
     # System
     'ConfigBusiness',
-    'LicenseBusiness',
     # Common
     'DatabaseHelpers'
 ]
