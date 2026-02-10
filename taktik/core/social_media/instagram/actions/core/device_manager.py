@@ -61,11 +61,14 @@ class DeviceManager:
             logger.info(f"Connected to device: {self.device_id}")
             
             # Verify ATX agent is working (only once per session)
+            # Non-blocking: log warning but don't prevent connection
+            # The workflow can still work even if ATX is temporarily unhealthy
             if verify_atx and not self._atx_verified:
-                if not self._verify_and_repair_atx():
-                    logger.error("ATX agent verification failed - uiautomator2 may not work properly")
-                    return False
-                self._atx_verified = True
+                if self._verify_and_repair_atx():
+                    self._atx_verified = True
+                else:
+                    logger.warning("⚠️ ATX agent verification failed - continuing anyway (workflow may still work)")
+                    # Don't return False: let the workflow attempt to proceed
             
             return True
             
