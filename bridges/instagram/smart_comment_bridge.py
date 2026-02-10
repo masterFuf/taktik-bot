@@ -50,19 +50,8 @@ sys.path.insert(0, bot_dir)
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.connection import ConnectionService
-from bridges.common.app_manager import AppService
 from bridges.common.keyboard import KeyboardService
-from loguru import logger
-
-
-def send_event(event_type: str, **kwargs):
-    """Send a structured JSON event to the Electron app via stdout."""
-    try:
-        message = {"type": event_type, **kwargs}
-        print(json.dumps(message, ensure_ascii=False), flush=True)
-    except Exception:
-        pass
+from bridges.instagram.base import logger, InstagramBridgeBase, send_message as send_event
 
 
 @dataclass
@@ -111,21 +100,13 @@ class PostContext:
     post_url: str = ""  # Instagram post URL (e.g. https://www.instagram.com/p/ABC123/)
 
 
-class SmartCommentBridge:
+class SmartCommentBridge(InstagramBridgeBase):
     """Bridge for AI-powered comment reply marketing."""
 
     def __init__(self, device_id: str, config: Dict[str, Any]):
-        self.device_id = device_id
+        super().__init__(device_id)
         self.config = config
-        # Shared services
-        self._connection = ConnectionService(device_id)
-        self._app = None  # initialized after connect
         self._keyboard = KeyboardService(device_id)
-        # Backward-compatible aliases
-        self.device_manager = None
-        self.device = None
-        self.screen_width = 1080
-        self.screen_height = 2340
 
         # Results
         self.post_context = PostContext()
@@ -135,23 +116,13 @@ class SmartCommentBridge:
         # UI state cache
         self._comment_list_bounds = None
 
-    def connect(self) -> bool:
-        """Connect to the device using ConnectionService."""
-        if not self._connection.connect():
-            return False
-        self.device_manager = self._connection.device_manager
-        self.device = self._connection.device
-        self.screen_width, self.screen_height = self._connection.screen_size
-        self._app = AppService(self._connection, platform="instagram")
-        return True
-
     # =========================================================================
     # PHASE 0: TARGET NAVIGATION (uses existing framework classes)
     # =========================================================================
 
     def restart_instagram(self):
         """Restart Instagram for clean state via AppService."""
-        self._app.restart()
+        super().restart_instagram()
         logger.info("Instagram restarted successfully")
 
     def navigate_to_target_profile(self, username: str) -> bool:
