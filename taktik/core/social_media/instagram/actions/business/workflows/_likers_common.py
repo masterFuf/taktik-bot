@@ -19,15 +19,6 @@ from ..common.database_helpers import DatabaseHelpers
 class LikersWorkflowBase(BaseBusinessAction):
     """Base class for workflows that interact with profiles from a likers popup."""
 
-    # Sélecteurs pour le bouton back d'Instagram
-    _back_button_selectors = [
-        '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
-        '//android.widget.ImageView[@content-desc="Retour"]',
-        '//android.widget.ImageView[@content-desc="Back"]',
-        '//*[@content-desc="Retour"]',
-        '//*[@content-desc="Back"]'
-    ]
-
     # ─── Main interaction loop ───────────────────────────────────────────
 
     def _interact_with_likers_list(
@@ -351,7 +342,7 @@ class LikersWorkflowBase(BaseBusinessAction):
     def _close_comments_view(self) -> bool:
         """Close comments view if accidentally opened."""
         try:
-            for selector in self._back_button_selectors[:3]:
+            for selector in self.navigation_selectors.back_buttons[:3]:
                 try:
                     element = self.device.xpath(selector)
                     if element.exists:
@@ -374,7 +365,7 @@ class LikersWorkflowBase(BaseBusinessAction):
         """Go back to the likers list using Instagram's back button."""
         try:
             clicked = False
-            for selector in self._back_button_selectors:
+            for selector in self.navigation_selectors.back_buttons:
                 try:
                     element = self.device.xpath(selector)
                     if element.exists:
