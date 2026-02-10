@@ -6,11 +6,11 @@ import random
 import re
 import time
 
-from ...core.base_business_action import BaseBusinessAction
+from ._likers_common import LikersWorkflowBase
 from ..common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
 
-class PostUrlBusiness(BaseBusinessAction):
+class PostUrlBusiness(LikersWorkflowBase):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "post-url", init_business_modules=True)
@@ -118,189 +118,16 @@ class PostUrlBusiness(BaseBusinessAction):
             
             self.logger.info(f"🚀 Starting direct interactions in likers list (target: {max_interactions})")
             
-            # Variables pour le suivi
-            processed_usernames = set()
-            scroll_attempts = 0
-            max_scroll_attempts = 50
-            account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
-            session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
-            
             effective_config['source'] = post_url
             
-            # 3. Boucle principale d'interaction directe
-            while stats['users_interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
-                # Vérifier si la session doit continuer
-                if self.session_manager:
-                    should_continue, stop_reason = self.session_manager.should_continue()
-                    if not should_continue:
-                        self.logger.warning(f"🛑 Session stopped: {stop_reason}")
-                        break
-                
-                # Récupérer les likers visibles avec leurs éléments cliquables
-                visible_likers = self.detection_actions.get_visible_followers_with_elements()
-                
-                if not visible_likers:
-                    self.logger.debug("No visible likers found on screen")
-                    scroll_attempts += 1
-                    self._scroll_likers_popup_up()
-                    self._human_like_delay('scroll')
-                    continue
-                
-                new_likers_found = False
-                
-                for liker_data in visible_likers:
-                    username = liker_data['username']
-                    
-                    # Skip si déjà traité dans cette session
-                    if username in processed_usernames:
-                        continue
-                    
-                    processed_usernames.add(username)
-                    new_likers_found = True
-                    stats['users_found'] += 1
-                    
-                    # Vérifier si déjà traité OU déjà filtré en DB
-                    should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(username, account_id, hours_limit=24*60)
-                    if should_skip:
-                        if skip_reason == "already_processed":
-                            self.logger.info(f"🔄 @{username} already processed")
-                        elif skip_reason == "already_filtered":
-                            self.logger.info(f"🚫 @{username} already filtered")
-                            stats['profiles_filtered'] += 1
-                        stats['skipped'] += 1
-                        self.stats_manager.increment('skipped')
-                        continue
-                    
-                    # Afficher la progression
-                    self.logger.info(f"[{stats['users_interacted']}/{max_interactions}] 👆 Clicking on @{username}")
-                    
-                    # Cliquer sur le profil dans la liste
-                    if not self.detection_actions.click_follower_in_list(username):
-                        self.logger.warning(f"Could not click on @{username}")
-                        stats['errors'] += 1
-                        continue
-                    
-                    self._human_like_delay('navigation')
-                    
-                    # Vérifier qu'on est bien sur un profil
-                    if not self.detection_actions.is_on_profile_screen():
-                        self.logger.warning(f"Not on profile screen after clicking @{username}")
-                        if not self._ensure_on_likers_popup():
-                            self.logger.error("Could not recover to likers popup, stopping")
-                            break
-                        stats['errors'] += 1
-                        continue
-                    
-                    # Extraire les infos du profil
-                    profile_data = self.profile_business.get_complete_profile_info(
-                        username=username, 
-                        navigate_if_needed=False
-                    )
-                    
-                    if not profile_data:
-                        self.logger.warning(f"Could not get profile data for @{username}")
-                        if not self._ensure_on_likers_popup(force_back=True):
-                            self.logger.error("Could not recover to likers popup, stopping")
-                            break
-                        stats['errors'] += 1
-                        continue
-                    
-                    # Vérifier si profil privé
-                    if profile_data.get('is_private', False):
-                        self.logger.info(f"🔒 Private profile @{username} - skipped")
-                        stats['skipped'] += 1
-                        self.stats_manager.increment('private_profiles')
-                        DatabaseHelpers.record_filtered_profile(
-                            username=username,
-                            reason='Private profile',
-                            source_type='POST_URL',
-                            source_name=post_url,
-                            account_id=account_id,
-                            session_id=session_id
-                        )
-                        if not self._ensure_on_likers_popup(force_back=True):
-                            self.logger.error("Could not recover to likers popup, stopping")
-                            break
-                        continue
-                    
-                    # Appliquer les filtres
-                    filter_criteria = effective_config.get('filter_criteria', {})
-                    filter_result = self.filtering_business.apply_comprehensive_filter(
-                        profile_data, filter_criteria
-                    )
-                    
-                    if not filter_result.get('suitable', False):
-                        reasons = filter_result.get('reasons', [])
-                        self.logger.info(f"🚫 @{username} filtered: {', '.join(reasons)}")
-                        stats['profiles_filtered'] += 1
-                        self.stats_manager.increment('profiles_filtered')
-                        DatabaseHelpers.record_filtered_profile(
-                            username=username,
-                            reason=', '.join(reasons),
-                            source_type='POST_URL',
-                            source_name=post_url,
-                            account_id=account_id,
-                            session_id=session_id
-                        )
-                        if not self._ensure_on_likers_popup(force_back=True):
-                            self.logger.error("Could not recover to likers popup, stopping")
-                            break
-                        continue
-                    
-                    # === EFFECTUER LES INTERACTIONS ===
-                    interaction_result = self._perform_post_url_interactions(
-                        username, 
-                        effective_config, 
-                        profile_data=profile_data
-                    )
-                    
-                    if interaction_result and interaction_result.get('actually_interacted', False):
-                        stats['users_interacted'] += 1
-                        stats['likes_made'] += interaction_result.get('likes', 0)
-                        stats['follows_made'] += interaction_result.get('follows', 0)
-                        stats['comments_made'] += interaction_result.get('comments', 0)
-                        stats['stories_watched'] += interaction_result.get('stories', 0)
-                        stats['stories_liked'] += interaction_result.get('stories_liked', 0)
-                        
-                        DatabaseHelpers.mark_profile_as_processed(username, post_url, account_id, session_id)
-                        
-                        self.logger.success(f"✅ Successful interaction with @{username}")
-                        self.stats_manager.increment('profiles_visited')
-                        self.stats_manager.increment('profiles_interacted')
-                        
-                        if interaction_result.get('likes', 0) > 0:
-                            self.stats_manager.increment('likes', interaction_result['likes'])
-                        if interaction_result.get('follows', 0) > 0:
-                            self.stats_manager.increment('follows', interaction_result['follows'])
-                        if interaction_result.get('stories', 0) > 0:
-                            self.stats_manager.increment('stories_watched', interaction_result['stories'])
-                        if interaction_result.get('stories_liked', 0) > 0:
-                            self.stats_manager.increment('stories_liked', interaction_result['stories_liked'])
-                        
-                        self.stats_manager.display_stats(current_profile=username)
-                    else:
-                        self.logger.debug(f"@{username} visited but no interaction (probability)")
-                        stats['skipped'] += 1
-                    
-                    # Retour à la liste des likers
-                    if not self._ensure_on_likers_popup(force_back=True):
-                        self.logger.error("Could not return to likers popup, stopping")
-                        break
-                    
-                    # Vérifier si on a atteint le max
-                    if stats['users_interacted'] >= max_interactions:
-                        self.logger.info(f"✅ Reached target of {max_interactions} successful interactions")
-                        break
-                    
-                    self._human_like_delay('interaction_gap')
-                
-                # Si aucun nouveau liker trouvé, scroller
-                if not new_likers_found:
-                    scroll_attempts += 1
-                    self._scroll_likers_popup_up()
-                    self._human_like_delay('scroll')
-                else:
-                    scroll_attempts = 0
+            # Shared interaction loop (from LikersWorkflowBase)
+            self._interact_with_likers_list(
+                stats=stats,
+                effective_config=effective_config,
+                max_interactions=max_interactions,
+                source_type='POST_URL',
+                source_name=post_url,
+            )
             
             stats['success'] = stats['users_interacted'] > 0
             self.logger.info(f"Workflow completed: {stats['users_interacted']} interactions out of {stats['users_found']} users")
@@ -627,9 +454,6 @@ class PostUrlBusiness(BaseBusinessAction):
     def _extract_likers_from_reel(self) -> List[str]:
         return super()._extract_likers_from_reel(max_interactions=None, multiply_by=2)
     
-    def _find_like_count_element(self):
-        return self.ui_extractors.find_like_count_element(logger_instance=self.logger)
-    
     def _is_like_count_text(self, text: str) -> bool:
         return self.ui_extractors.is_like_count_text(text)
     
@@ -648,13 +472,6 @@ class PostUrlBusiness(BaseBusinessAction):
     
     def _extract_username_from_element(self, element) -> Optional[str]:
         return self.ui_extractors.extract_username_from_element(element, logger_instance=self.logger)
-    
-    def _scroll_likers_popup_up(self) -> bool:
-        return self.ui_extractors.scroll_likers_popup_up(
-            logger_instance=self.logger,
-            is_likers_popup_open_checker=self._is_likers_popup_open,
-            verbose_logs=True
-        )
     
     def _get_popup_bounds(self) -> Optional[Dict]:
         try:
@@ -734,193 +551,4 @@ class PostUrlBusiness(BaseBusinessAction):
         
         return result
     
-    def _open_likers_popup(self, is_reel: bool = False) -> bool:
-        """Ouvre la popup des likers du post actuel."""
-        try:
-            like_count_element = self._find_like_count_element()
-            
-            if not like_count_element:
-                self.logger.warning("⚠️ No like counter found - post may not have visible like count")
-                return False
-            
-            like_count_element.click()
-            self._human_like_delay('click')
-            time.sleep(1.5)
-            
-            # Check if we accidentally opened comments instead of likers
-            if self._is_comments_view_open():
-                self.logger.warning("⚠️ Opened comments view instead of likers popup - closing and aborting")
-                self._close_comments_view()
-                return False
-            
-            if self._is_likers_popup_open():
-                post_type = "reel" if is_reel else "post"
-                self.logger.info(f"✅ Likers popup opened ({post_type})")
-                return True
-            
-            self.logger.error("❌ Could not open likers popup")
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error opening likers popup: {e}")
-            return False
-    
-    def _close_comments_view(self) -> bool:
-        """Ferme la vue des commentaires si elle est ouverte."""
-        try:
-            back_selectors = [
-                '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
-                '//android.widget.ImageView[@content-desc="Retour"]',
-                '//android.widget.ImageView[@content-desc="Back"]'
-            ]
-            for selector in back_selectors:
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        element.click()
-                        time.sleep(0.5)
-                        if not self._is_comments_view_open():
-                            self.logger.debug("✅ Comments view closed")
-                            return True
-                except:
-                    continue
-            
-            self.device.press('back')
-            time.sleep(0.5)
-            return not self._is_comments_view_open()
-        except Exception as e:
-            self.logger.debug(f"Error closing comments view: {e}")
-            return False
-    
-    def _is_comments_view_open(self) -> bool:
-        """Vérifie si la vue des commentaires est ouverte."""
-        try:
-            comments_indicators = [
-                '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
-                '//*[contains(@text, "Ajouter un commentaire")]',
-                '//*[contains(@text, "Add a comment")]'
-            ]
-            for selector in comments_indicators:
-                if self.device.xpath(selector).exists:
-                    return True
-            return False
-        except:
-            return False
-    
-    def _ensure_on_likers_popup(self, force_back: bool = False) -> bool:
-        """
-        S'assure qu'on est sur la popup des likers.
-        Essaie plusieurs fois de revenir avec back.
-        """
-        if not force_back and self._is_likers_popup_open():
-            return True
-        
-        for attempt in range(3):
-            self.logger.debug(f"🔙 Back attempt {attempt + 1}/3 to return to likers popup")
-            if self._go_back_to_likers_list():
-                return True
-            time.sleep(0.5)
-        
-        self.logger.error("❌ Could not return to likers popup after 3 attempts")
-        return False
-    
-    def _go_back_to_likers_list(self) -> bool:
-        """Revient à la liste des likers en utilisant le bouton back."""
-        try:
-            back_selectors = [
-                '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
-                '//android.widget.ImageView[@content-desc="Retour"]',
-                '//android.widget.ImageView[@content-desc="Back"]',
-                '//*[@content-desc="Retour"]',
-                '//*[@content-desc="Back"]'
-            ]
-            
-            for selector in back_selectors:
-                try:
-                    back_btn = self.device.xpath(selector)
-                    if back_btn.exists:
-                        back_btn.click()
-                        self._human_like_delay('click')
-                        if self._is_likers_popup_open():
-                            self.logger.debug("✅ Back to likers popup successful")
-                            return True
-                except Exception:
-                    continue
-            
-            self.device.press("back")
-            self._human_like_delay('click')
-            
-            if self._is_likers_popup_open():
-                self.logger.debug("✅ Back to likers popup via Android back")
-                return True
-            
-            return False
-        except Exception as e:
-            self.logger.debug(f"Error going back to likers list: {e}")
-            return False
-    
-    def _perform_post_url_interactions(self, username: str, config: Dict[str, Any], 
-                                       profile_data: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
-        """
-        Effectue les interactions sur un profil (like, follow, story, comment).
-        """
-        result = {
-            'likes': 0,
-            'follows': 0,
-            'comments': 0,
-            'stories': 0,
-            'stories_liked': 0,
-            'actually_interacted': False
-        }
-        
-        try:
-            interactions_to_do = self._determine_interactions_from_config(config)
-            self.logger.debug(f"🎯 Planned interactions for @{username}: {interactions_to_do}")
-            
-            should_like = 'like' in interactions_to_do
-            should_comment = 'comment' in interactions_to_do
-            
-            if should_like or should_comment:
-                likes_result = self.like_business.like_profile_posts(
-                    username,
-                    max_likes=config.get('max_likes_per_profile', 3),
-                    config={'randomize_order': True},
-                    should_comment=should_comment,
-                    custom_comments=config.get('custom_comments', []),
-                    comment_template_category=config.get('comment_template_category', 'generic'),
-                    max_comments=config.get('max_comments_per_profile', 1),
-                    navigate_to_profile=False,
-                    profile_data=profile_data,
-                    should_like=should_like
-                )
-                if likes_result:
-                    result['likes'] = likes_result.get('posts_liked', 0)
-                    result['comments'] = likes_result.get('posts_commented', 0)
-                    if result['likes'] > 0 or result['comments'] > 0:
-                        result['actually_interacted'] = True
-            
-            if 'follow' in interactions_to_do:
-                if self.click_actions.click_follow_button():
-                    result['follows'] = 1
-                    result['actually_interacted'] = True
-                    self.logger.info(f"✅ Followed @{username}")
-            
-            if 'story' in interactions_to_do or 'story_like' in interactions_to_do:
-                should_like_story = 'story_like' in interactions_to_do
-                story_result = self.story_business.watch_user_stories(
-                    username,
-                    max_stories=config.get('max_stories_per_profile', 3),
-                    should_like=should_like_story,
-                    navigate_to_profile=False
-                )
-                if story_result:
-                    result['stories'] = story_result.get('stories_watched', 0)
-                    result['stories_liked'] = story_result.get('stories_liked', 0)
-                    if result['stories'] > 0:
-                        result['actually_interacted'] = True
-            
-            return result
-        except Exception as e:
-            self.logger.error(f"Error performing interactions on @{username}: {e}")
-            return result
 
