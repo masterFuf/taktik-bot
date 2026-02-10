@@ -32,15 +32,10 @@ class FollowerBusiness(BaseBusinessAction):
         self.current_followers_list = []
         self.current_index = 0
         
-        # Sélecteurs pour le bouton retour Instagram
-        self._back_button_selectors = [
-            '//*[@content-desc="Retour"]',
-            '//*[@content-desc="Back"]',
-            '//*[@content-desc="Précédent"]',
-            '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
-            '//android.widget.ImageView[@content-desc="Retour"]',
-            '//android.widget.ImageView[@content-desc="Back"]'
-        ]
+        # Sélecteurs centralisés (depuis selectors.py)
+        from ....ui.selectors import NAVIGATION_SELECTORS, FOLLOWERS_LIST_SELECTORS
+        self._back_button_selectors = NAVIGATION_SELECTORS.back_buttons
+        self._followers_list_selectors = FOLLOWERS_LIST_SELECTORS
     
     def _go_back_to_list(self) -> bool:
         """
@@ -97,13 +92,8 @@ class FollowerBusiness(BaseBusinessAction):
         if not force_back and self.detection_actions.is_followers_list_open():
             return True
         
-        # Sélecteurs UNIQUES à la liste des followers (pas présents sur les profils)
-        # unified_follow_list_tab_layout et unified_follow_list_view_pager n'existent QUE sur la liste
-        quick_check_selectors = [
-            '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
-            '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
-            '//android.widget.Button[contains(@text, "mutual")]',
-        ]
+        # Sélecteurs UNIQUES à la liste des followers (depuis selectors.py)
+        quick_check_selectors = self._followers_list_selectors.list_indicators
         
         # Fonction helper pour vérifier si on est sur la liste
         def is_on_followers_list() -> bool:
@@ -118,12 +108,8 @@ class FollowerBusiness(BaseBusinessAction):
                     continue
             return False
         
-        # Sélecteurs pour le bouton back UI d'Instagram (flèche en haut à gauche)
-        back_button_selectors = [
-            '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]//android.widget.ImageView[@clickable="true"]',
-            '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]/android.widget.ImageView',
-            '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
-        ]
+        # Sélecteurs pour le bouton back UI d'Instagram (depuis selectors.py)
+        back_button_selectors = self.navigation_selectors.back_buttons_action_bar
         
         # Fonction helper pour cliquer sur le bouton back UI
         def click_ui_back_button() -> bool:
