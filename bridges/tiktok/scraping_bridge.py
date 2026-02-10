@@ -534,24 +534,11 @@ class TikTokScrapingWorkflow:
             logger.warning(f"Error enriching profile @{username}: {e}")
             return None
     
-    def _parse_count(self, text: str) -> int:
+    @staticmethod
+    def _parse_count(text: str) -> int:
         """Parse count text like '1.2K', '3.5M' to integer."""
-        if not text:
-            return 0
-        
-        text = text.strip().replace(',', '').replace(' ', '')
-        
-        try:
-            if 'K' in text.upper():
-                return int(float(text.upper().replace('K', '')) * 1000)
-            elif 'M' in text.upper():
-                return int(float(text.upper().replace('M', '')) * 1000000)
-            elif 'B' in text.upper():
-                return int(float(text.upper().replace('B', '')) * 1000000000)
-            else:
-                return int(text)
-        except:
-            return 0
+        from bridges.common.utils import parse_count
+        return parse_count(text)
     
     def scrape_hashtag(self, hashtag: str, max_profiles: int, max_videos: int) -> List[Dict[str, Any]]:
         """Scrape profiles from hashtag videos."""
