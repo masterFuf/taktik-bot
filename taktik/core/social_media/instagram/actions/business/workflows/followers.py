@@ -1557,6 +1557,7 @@ class FollowerBusiness(BaseBusinessAction):
             if profile_info.get('is_private', False):
                 self.logger.debug(f"@{username} is a private profile")
             
+            # === FILTERING (specific to followers workflow) ===
             filter_criteria = config.get('filter_criteria', config.get('filters', {}))
             
             self.logger.debug(f"Filter criteria for @{username}: {filter_criteria}")
@@ -1579,129 +1580,25 @@ class FollowerBusiness(BaseBusinessAction):
                 self.stats_manager.increment('profiles_filtered')
                 return result
             
+            # === INTERACTIONS (delegated to unified method) ===
             # Note: record_profile_processed est appelé dans interact_with_followers_direct
             # SEULEMENT après qu'une interaction réelle ait eu lieu (actually_interacted=True)
+            interaction = self._perform_interactions_on_profile(username, config, profile_data=profile_info)
             
-            like_probability = config.get('like_probability', 0.8)
-            follow_probability = config.get('follow_probability', 0.2)
-            comment_probability = config.get('comment_probability', 0.1)
-            
-            self.logger.debug(f"Probabilities: like={like_probability}, follow={follow_probability}, comment={comment_probability}")
-            self.logger.debug(f"Config: {config}")
-            
-            like_roll = random.random()
-            follow_roll = random.random()
-            comment_roll = random.random()
-            
-            if follow_roll < follow_probability:
-                self.logger.debug(f"Follow probability won ({follow_roll:.3f} < {follow_probability})")
-                
-                # Check if we already follow this user (button shows "Following" instead of "Follow")
-                follow_button_state = profile_info.get('follow_button_state', 'unknown')
-                if follow_button_state in ['following', 'unfollow', 'requested']:
-                    self.logger.info(f"⏭️ Already following @{username} (button: {follow_button_state}) - skipping follow")
-                    result['already_following'] = True
-                else:
-                    follow_result = self.click_actions.follow_user(username)
-                    if follow_result:
-                        result['followed'] = True
-                        try:
-                            self.stats_manager.increment('follows')
-                        except Exception as e:
-                            self.logger.error(f"Critical error: Follow of @{username} cancelled - {e}")
-                            self.logger.error(f"Security: Follow of @{username} cancelled to avoid quota leak")
-                            
-                            result['followed'] = False
-                            result['error'] = f"Follow cancelled - API quotas not updated: {e}"
-                            return result
-                        
-                        # Record FOLLOW in database
-                        self._record_action(username, 'FOLLOW', 1)
-                        
-                        # Envoyer l'événement follow en temps réel au frontend avec données profil pour vérification filtres
-                        try:
-                            from bridges.instagram.desktop_bridge import send_follow_event
-                            send_follow_event(username, success=True, profile_data={
-                                "followers_count": profile_info.get('followers_count', 0),
-                                "following_count": profile_info.get('following_count', 0),
-                                "posts_count": profile_info.get('posts_count', 0)
-                            })
-                        except ImportError:
-                            pass  # Bridge not available (CLI mode)
-                        except Exception:
-                            pass  # Ignore IPC errors
-                        
-                        self._handle_follow_suggestions_popup()
-                    else:
-                        self.logger.debug(f"Follow failed for @{username}")
-            else:
-                self.logger.debug(f"Follow probability lost ({follow_roll:.3f} >= {follow_probability})")
-            
-            should_comment = comment_roll < comment_probability and not profile_info.get('is_private', False)
-            should_like = like_roll < like_probability
-            
-            if should_like or should_comment:
-                action_type = []
-                if should_like:
-                    action_type.append("like")
-                if should_comment:
-                    action_type.append("comment")
-                
-                self.logger.debug(f"Opening posts for: {', '.join(action_type)}")
-                
-                try:
-                    custom_comments = config.get('custom_comments', [])
-                    like_result = self.like_business.like_profile_posts(
-                        username=username,
-                        max_likes=3,
-                        navigate_to_profile=False,
-                        config=config,
-                        profile_data=profile_info,
-                        should_comment=should_comment,
-                        custom_comments=custom_comments,
-                        comment_template_category=config.get('comment_template_category', 'generic'),
-                        should_like=should_like
-                    )
-                    
-                    likes_count = like_result.get('posts_liked', 0)
-                    comments_count = like_result.get('posts_commented', 0)
-                    
-                    if likes_count > 0:
-                        result['liked'] = True
-                        result['likes_count'] = likes_count
-                        self.logger.debug(f"Likes completed - {likes_count} posts liked")
-                        
-                        # Emit like event with profile data for WorkflowAnalyzer filter verification
-                        try:
-                            from bridges.instagram.desktop_bridge import send_like_event
-                            send_like_event(username, likes_count=likes_count, profile_data={
-                                "followers_count": profile_info.get('followers_count', 0),
-                                "following_count": profile_info.get('following_count', 0),
-                                "posts_count": profile_info.get('posts_count', 0)
-                            })
-                        except ImportError:
-                            pass  # Bridge not available (CLI mode)
-                        except Exception:
-                            pass  # Ignore IPC errors
-                    
-                    if comments_count > 0:
-                        result['commented'] = True
-                        self.logger.info(f"✅ {comments_count} comment(s) posted on @{username}'s posts")
-                    
-                    if likes_count == 0 and comments_count == 0:
-                        self.logger.debug(f"No actions performed for @{username}")
-                        
-                except Exception as e:
-                    self.logger.error(f"Error during post interactions for @{username}: {e}")
-            else:
-                if like_roll >= like_probability:
-                    self.logger.debug(f"Like probability lost ({like_roll:.3f} >= {like_probability})")
-                if comment_roll >= comment_probability:
-                    self.logger.debug(f"Comment probability lost ({comment_roll:.3f} >= {comment_probability})")
-            
-            if random.random() < config.get('story_probability', 0.3):
-                if self._view_stories(username):
-                    result['story_viewed'] = True
+            # Convert unified result dict to boolean format expected by callers
+            if interaction.get('likes', 0) > 0:
+                result['liked'] = True
+                result['likes_count'] = interaction['likes']
+            if interaction.get('follows', 0) > 0:
+                result['followed'] = True
+            if interaction.get('stories', 0) > 0:
+                result['story_viewed'] = True
+            if interaction.get('stories_liked', 0) > 0:
+                result['story_liked'] = True
+            if interaction.get('comments', 0) > 0:
+                result['commented'] = True
+            if interaction.get('error'):
+                result['error'] = interaction['error']
             
             return result
             
