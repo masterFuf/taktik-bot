@@ -12,8 +12,6 @@ from loguru import logger
 from .....database import InstagramProfile, get_db_service
 from ...utils.filters import InstagramFilters, DefaultFilters
 from ..management.session import SessionManager
-from .....license import unified_license_manager
-
 from ...actions.core.base_action import BaseAction
 from ...actions.compatibility.modern_instagram_actions import ModernInstagramActions
 
@@ -21,7 +19,6 @@ from ...ui.selectors import POST_SELECTORS, POPUP_SELECTORS
 from ..management.config import WorkflowConfigBuilder
 from .workflow_runner import WorkflowRunner
 from ..helpers.workflow_helpers import WorkflowHelpers
-from ..helpers.license_helpers import LicenseHelpers
 from ..helpers.filtering_helpers import FilteringHelpers
 
 
@@ -85,7 +82,6 @@ class InstagramAutomation:
         
         self.workflow_runner = WorkflowRunner(self)
         self.helpers = WorkflowHelpers(self)
-        self.license_helpers = LicenseHelpers(self)
         self.filtering_helpers = FilteringHelpers(self)
         
         from ..helpers.ui_helpers import UIHelpers
@@ -93,19 +89,11 @@ class InstagramAutomation:
         
         self.helpers.setup_signal_handlers()
         
-    def _get_license_key_from_config(self) -> str:
-        return self.license_helpers.get_license_key_from_config()
-
-    def _initialize_license_limits(self, api_key: str = None):
-        result = self.license_helpers.initialize_license_limits(api_key)
-        self.license_limits_enabled = self.license_helpers.license_limits_enabled
-        return result
-    
     def _check_action_limits(self, action_type: str, account_username: str = None) -> bool:
-        return self.license_helpers.check_action_limits(action_type, account_username)
+        return True
     
     def _record_action_performed(self, action_type: str, account_username: str = None):
-        return self.license_helpers.record_action_performed(action_type, account_username)
+        pass
     
     def load_config(self, config_path: str) -> bool:
         try:

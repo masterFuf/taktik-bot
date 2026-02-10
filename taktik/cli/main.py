@@ -14,7 +14,6 @@ from loguru import logger
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
 from taktik.core.social_media.tiktok.manager import TikTokManager
-from taktik.core.license import unified_license_manager
 from taktik.core.database import configure_db_service
 from taktik.locales import fr, en
 from taktik import __version__
@@ -1419,17 +1418,7 @@ def cli(ctx, lang=None):
     
     console = Console()
     
-    from taktik.cli.license_prompt import check_license_on_startup
-    
-    license_valid, api_key = check_license_on_startup()
-    if not license_valid:
-        sys.exit(1)
-    
-    os.environ['TAKTIK_API_KEY'] = api_key
-    
-    from taktik.core.license.manager import unified_license_manager
-    
-    configure_db_service(api_key)
+    configure_db_service()
     
     if ctx.invoked_subcommand is None:
         display_banner()
@@ -2089,7 +2078,6 @@ def workflow_instagram(device_id, config):
         console.print("[blue]Initialisation de l'automatisation Instagram...[/blue]")
         automation = InstagramAutomation(device_manager, config=final_config)
         
-        from taktik.core.license.manager import unified_license_manager
         console.print("[green]Automatisation initialisée avec succès[/green]")
         
         if final_config:
