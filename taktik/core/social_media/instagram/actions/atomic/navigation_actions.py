@@ -529,6 +529,14 @@ class NavigationActions(BaseAction):
                 
             self._human_like_delay('page_load')
             
+            # Check POSITIVE indicators FIRST (Like/Comment buttons = we're on a post)
+            # This avoids false positives from broad error selectors matching post captions
+            for indicator in self.detection_selectors.post_screen_indicators:
+                if self._wait_for_element(indicator, timeout=3, silent=True):
+                    self.logger.success(f"✅ Successfully navigated to post")
+                    return True
+            
+            # Only check error indicators if no positive match found
             for selector in self.detection_selectors.post_error_indicators:
                 try:
                     if self._wait_for_element(selector, timeout=2, silent=True):
@@ -537,11 +545,6 @@ class NavigationActions(BaseAction):
                         return False
                 except Exception:
                     continue
-            
-            for indicator in self.detection_selectors.post_screen_indicators:
-                if self._wait_for_element(indicator, timeout=3, silent=True):
-                    self.logger.success(f"✅ Successfully navigated to post")
-                    return True
             
             self.logger.warning(f"⚠️ Navigation to post uncertain: {post_url}")
             return True

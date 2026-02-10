@@ -307,27 +307,26 @@ class LikersWorkflowBase(BaseBusinessAction):
             return False
 
     def _go_back_to_likers_list(self) -> bool:
-        """Go back to the likers list using Instagram's back button."""
+        """Go back to the likers list using Instagram's UI back button."""
         try:
-            clicked = False
-            for selector in self.navigation_selectors.back_buttons:
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        element.click()
-                        self.logger.debug("⬅️ Clicked Instagram back button")
-                        self._human_like_delay('click')
-                        clicked = True
-                        break
-                except Exception:
-                    continue
-
-            if not clicked:
-                self.logger.debug("⬅️ Using system back button (fallback)")
+            # Fast path: combined XPath to find any back button in 1 round-trip
+            back_selectors = self.navigation_selectors.back_buttons
+            combined = ' | '.join(back_selectors[:5])  # Top 5 most reliable
+            try:
+                element = self.device.xpath(combined)
+                if element.exists:
+                    element.click()
+                    self.logger.debug("⬅️ Clicked Instagram back button")
+                    self._human_like_delay('click')
+                else:
+                    # Fallback: system back (some devices may not support it)
+                    self.logger.debug("⬅️ No UI back button found, using system back (fallback)")
+                    self.device.press('back')
+                    self._human_like_delay('click')
+            except Exception:
                 self.device.press('back')
                 self._human_like_delay('click')
 
-            time.sleep(0.5)
             if self._is_likers_popup_open():
                 self.logger.debug("✅ Back to likers list confirmed")
                 return True
@@ -337,8 +336,6 @@ class LikersWorkflowBase(BaseBusinessAction):
 
         except Exception as e:
             self.logger.error(f"Error going back: {e}")
-            self.device.press('back')
-            self._human_like_delay('click')
             return False
 
     def _ensure_on_likers_popup(self, force_back: bool = False) -> bool:
