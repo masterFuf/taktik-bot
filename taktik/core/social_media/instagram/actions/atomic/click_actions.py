@@ -255,44 +255,28 @@ class ClickActions(BaseAction):
         """
         Detect the follow button state by checking the button text.
         Returns: 'follow', 'following', 'requested', 'message', or 'unknown'
+        
+        Optimized: tries resource-id lookup first (1 XPath call → read text)
+        instead of iterating 16+ selectors sequentially (~0.5-1s each when absent).
         """
-        # Check for "Following" button FIRST (we already follow this user)
-        # Must check before "Follow" because resource-id is the same!
-        following_selectors = [
-            '//android.widget.Button[contains(@text, "Following")]',
-            '//android.widget.Button[contains(@text, "Abonné")]',
-            '//android.widget.Button[contains(@text, "Suivi")]',
-            '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]',
-            '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]',
-        ]
-        for selector in following_selectors:
-            if self.device.xpath(selector).exists:
-                return 'following'
+        # === FAST PATH: find button by resource-id, then read its text ===
+        try:
+            btn = self.device.xpath('//*[@resource-id="com.instagram.android:id/profile_header_follow_button"]')
+            if btn.exists:
+                text = (btn.get_text() or '').strip().lower()
+                if text:
+                    if any(kw in text for kw in ('following', 'abonné', 'suivi')):
+                        return 'following'
+                    if any(kw in text for kw in ('requested', 'demandé')):
+                        return 'requested'
+                    if any(kw in text for kw in ('follow', 'suivre')):
+                        return 'follow'
+                    if any(kw in text for kw in ('message', 'envoyer')):
+                        return 'message'
+        except Exception:
+            pass
         
-        # Check for "Requested" button (pending follow request)
-        requested_selectors = [
-            '//android.widget.Button[contains(@text, "Requested")]',
-            '//android.widget.Button[contains(@text, "Demandé")]',
-            '//*[contains(@text, "Requested")]',
-        ]
-        for selector in requested_selectors:
-            if self.device.xpath(selector).exists:
-                return 'requested'
-        
-        # Check for "Follow" button (we don't follow this user)
-        follow_selectors = [
-            '//android.widget.Button[@text="Follow"]',
-            '//android.widget.Button[@text="Suivre"]',
-            '//android.widget.Button[contains(@text, "Follow") and not(contains(@text, "Following"))]',
-            '//android.widget.Button[contains(@text, "Suivre") and not(contains(@text, "Abonné"))]',
-            '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and @text="Follow"]',
-            '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and @text="Suivre"]',
-        ]
-        for selector in follow_selectors:
-            if self.device.xpath(selector).exists:
-                return 'follow'
-        
-        # Check for Message button (usually means we follow them)
+        # === FALLBACK: check Message button (means we already follow) ===
         if self._is_element_present(self.profile_selectors.message_button):
             return 'message'
         
