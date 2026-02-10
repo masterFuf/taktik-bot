@@ -22,18 +22,8 @@ class FollowerBusiness(BaseBusinessAction):
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "follower", init_business_modules=True)
         
-        self.default_config = {
-            'max_followers_to_extract': 50,
-            'max_interactions_per_session': 20,
-            'interaction_delay_range': (5, 12),
-            'scroll_attempts': 5,
-            'like_probability': 0.8,
-            'follow_probability': 0.2,
-            'story_probability': 0.15,
-            'like_posts': True,
-            'max_likes_per_profile': 4,
-            'comment_probability': 0.05
-        }
+        from ..common.workflow_defaults import FOLLOWERS_DEFAULTS
+        self.default_config = {**FOLLOWERS_DEFAULTS}
         # Use AppData folder for checkpoints to avoid permission issues
         app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
         self.checkpoint_dir = Path(app_data) / 'taktik-desktop' / 'temp' / 'checkpoints'
