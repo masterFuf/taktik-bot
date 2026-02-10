@@ -441,20 +441,11 @@ class SmartCommentBridge(InstagramBridgeBase):
         except Exception as e:
             logger.warning(f"Error extracting post stats: {e}")
 
-    def _parse_count(self, text: str) -> int:
+    @staticmethod
+    def _parse_count(text: str) -> int:
         """Parse count strings like '18.5K', '1.2M', '424'."""
-        text = text.strip().replace(',', '')
-        multiplier = 1
-        if text.upper().endswith('K'):
-            multiplier = 1000
-            text = text[:-1]
-        elif text.upper().endswith('M'):
-            multiplier = 1000000
-            text = text[:-1]
-        try:
-            return int(float(text) * multiplier)
-        except:
-            return 0
+        from bridges.common.utils import parse_count
+        return parse_count(text)
 
     def extract_post_url(self) -> str:
         """Extract the current post's URL via Share → Copy Link.
