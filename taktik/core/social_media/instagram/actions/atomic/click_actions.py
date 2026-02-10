@@ -311,13 +311,9 @@ class ClickActions(BaseAction):
             self.logger.info(f"✅ Found {len(posts)} posts in grid")
             
             first_post = posts[0]
-            if first_post.exists:
-                first_post.click()
-                self.logger.info("✅ Successfully clicked first post")
-                return True
-            else:
-                self.logger.warning("❌ First post no longer exists")
-                return False
+            first_post.click()
+            self.logger.info("✅ Successfully clicked first post")
+            return True
                 
         except Exception as e:
             self.logger.error(f"❌ Error clicking first post: {e}")
