@@ -20,6 +20,7 @@ bot_dir = os.path.dirname(bridges_dir)
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
+from bridges.common.database import get_db_path
 from bridges.tiktok.base import (
     logger, send_status, send_message, send_error, set_workflow, get_workflow
 )
@@ -42,17 +43,6 @@ def send_scraped_profile(profile: Dict[str, Any]):
 def send_scraping_completed(total_scraped: int):
     """Send scraping completed event."""
     send_message("scraping_completed", totalScraped=total_scraped)
-
-
-def get_db_path() -> str:
-    """Get the path to the local SQLite database."""
-    if sys.platform == 'win32':
-        appdata = os.environ.get('APPDATA', '')
-        return os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
-    elif sys.platform == 'darwin':
-        return os.path.expanduser('~/Library/Application Support/taktik-desktop/taktik-data.db')
-    else:
-        return os.path.expanduser('~/.config/taktik-desktop/taktik-data.db')
 
 
 def save_scraping_session(source_type: str, source_name: str, total_scraped: int, 

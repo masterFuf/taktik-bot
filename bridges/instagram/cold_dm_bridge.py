@@ -9,8 +9,6 @@ import json
 import time
 import random
 import os
-import sqlite3
-import hashlib
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
@@ -21,80 +19,19 @@ setup_environment(log_level="INFO")
 from bridges.common.connection import ConnectionService
 from bridges.common.app_manager import AppService
 from bridges.common.keyboard import KeyboardService
+from bridges.common.database import get_db_path, SentDMService
 from loguru import logger
 
 
 
-def get_db_path() -> str:
-    """Get the path to the local SQLite database."""
-    if sys.platform == 'win32':
-        appdata = os.environ.get('APPDATA', '')
-        return os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
-    elif sys.platform == 'darwin':
-        return os.path.expanduser('~/Library/Application Support/taktik-desktop/taktik-data.db')
-    else:
-        return os.path.expanduser('~/.config/taktik-desktop/taktik-data.db')
-
-
 def check_dm_already_sent(account_id: int, recipient_username: str) -> bool:
-    """Check if a DM was already sent to this recipient."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        return False
-    
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM sent_dms WHERE account_id = ? AND recipient_username = ?",
-            (account_id, recipient_username.lower())
-        )
-        result = cursor.fetchone()
-        conn.close()
-        return result is not None
-    except Exception as e:
-        logger.warning(f"Error checking sent DMs: {e}")
-        return False
+    """Check if a DM was already sent to this recipient (Instagram)."""
+    return SentDMService.check_already_sent(account_id, recipient_username, platform='instagram')
 
 
 def record_sent_dm(account_id: int, recipient_username: str, message: str, success: bool, error_message: str = None, session_id: str = None):
-    """Record a sent DM in the database."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        logger.warning(f"Database not found at {db_path}")
-        return
-    
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # Create table if not exists (for safety)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sent_dms (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                recipient_username TEXT NOT NULL,
-                message_hash TEXT,
-                sent_at TEXT DEFAULT (datetime('now')),
-                success INTEGER DEFAULT 1,
-                error_message TEXT,
-                session_id TEXT,
-                UNIQUE(account_id, recipient_username)
-            )
-        """)
-        
-        message_hash = hashlib.md5(message.encode()).hexdigest() if message else None
-        
-        cursor.execute("""
-            INSERT OR REPLACE INTO sent_dms (account_id, recipient_username, message_hash, success, error_message, session_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (account_id, recipient_username.lower(), message_hash, 1 if success else 0, error_message, session_id))
-        
-        conn.commit()
-        conn.close()
-        logger.info(f"Recorded DM to {recipient_username} in database")
-    except Exception as e:
-        logger.warning(f"Error recording sent DM: {e}")
+    """Record a sent DM in the database (Instagram)."""
+    SentDMService.record(account_id, recipient_username, message, success, error_message, session_id, platform='instagram')
 
 
 class ColdDMWorkflow:

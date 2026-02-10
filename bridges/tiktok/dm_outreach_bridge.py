@@ -9,8 +9,6 @@ import json
 import time
 import random
 import os
-import sqlite3
-import hashlib
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -19,110 +17,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.ipc import IPC
-from loguru import logger
+from bridges.common.database import SentDMService
+from bridges.tiktok.base import (
+    logger, send_message, send_status, send_error, set_workflow
+)
 
-# Shared IPC singleton
-_ipc = IPC()
-
-
-def send_message(msg_type: str, **kwargs):
-    """Send a JSON message to Electron."""
-    _ipc.send(msg_type, **kwargs)
-
-def send_status(status: str, message: str):
-    """Send status update."""
-    _ipc.status(status, message)
 
 def send_progress(current: int, total: int, username: str):
     """Send progress update."""
-    _ipc.send("progress", current=current, total=total, username=username)
+    send_message("progress", current=current, total=total, username=username)
 
 def send_dm_result(username: str, success: bool, error: str = None):
     """Send DM result."""
-    _ipc.send("dm_result", username=username, success=success, error=error)
+    send_message("dm_result", username=username, success=success, error=error)
 
 def send_stats(stats: dict):
     """Send stats update."""
-    _ipc.send("stats", stats=stats)
-
-def send_error(error: str):
-    """Send error message."""
-    _ipc.error(error)
-
-
-def get_db_path() -> str:
-    """Get the path to the local SQLite database."""
-    if sys.platform == 'win32':
-        appdata = os.environ.get('APPDATA', '')
-        return os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
-    elif sys.platform == 'darwin':
-        return os.path.expanduser('~/Library/Application Support/taktik-desktop/taktik-data.db')
-    else:
-        return os.path.expanduser('~/.config/taktik-desktop/taktik-data.db')
+    send_message("stats", stats=stats)
 
 
 def check_dm_already_sent(account_id: int, recipient_username: str, platform: str = 'tiktok') -> bool:
-    """Check if a DM was already sent to this recipient."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        return False
-    
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM sent_dms WHERE account_id = ? AND recipient_username = ? AND platform = ?",
-            (account_id, recipient_username.lower(), platform)
-        )
-        result = cursor.fetchone()
-        conn.close()
-        return result is not None
-    except Exception as e:
-        logger.warning(f"Error checking sent DMs: {e}")
-        return False
+    """Check if a DM was already sent to this recipient (TikTok)."""
+    return SentDMService.check_already_sent(account_id, recipient_username, platform=platform)
 
 
-def record_sent_dm(account_id: int, recipient_username: str, message: str, success: bool, 
+def record_sent_dm(account_id: int, recipient_username: str, message: str, success: bool,
                    error_message: str = None, session_id: str = None, platform: str = 'tiktok'):
-    """Record a sent DM in the database."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        logger.warning(f"Database not found at {db_path}")
-        return
-    
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # Create table if not exists (add platform column)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sent_dms (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                recipient_username TEXT NOT NULL,
-                message_hash TEXT,
-                sent_at TEXT DEFAULT (datetime('now')),
-                success INTEGER DEFAULT 1,
-                error_message TEXT,
-                session_id TEXT,
-                platform TEXT DEFAULT 'instagram',
-                UNIQUE(account_id, recipient_username, platform)
-            )
-        """)
-        
-        message_hash = hashlib.md5(message.encode()).hexdigest() if message else None
-        
-        cursor.execute("""
-            INSERT OR REPLACE INTO sent_dms (account_id, recipient_username, message_hash, success, error_message, session_id, platform)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (account_id, recipient_username.lower(), message_hash, 1 if success else 0, error_message, session_id, platform))
-        
-        conn.commit()
-        conn.close()
-        logger.info(f"Recorded DM to {recipient_username} in database")
-    except Exception as e:
-        logger.warning(f"Error recording sent DM: {e}")
+    """Record a sent DM in the database (TikTok)."""
+    SentDMService.record(account_id, recipient_username, message, success, error_message, session_id, platform=platform)
 
 
 class TikTokDMOutreachWorkflow:
