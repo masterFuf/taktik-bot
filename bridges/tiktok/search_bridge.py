@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from .base import (
     logger, send_status, send_stats, send_video_info, send_action, 
-    send_pause, send_error, set_workflow
+    send_pause, send_error, set_workflow, tiktok_startup
 )
 
 
@@ -31,41 +31,12 @@ def run_search_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok Search workflow on {device_id}")
     
     try:
-        # Import TikTok modules
-        from taktik.core.social_media.tiktok import TikTokManager
         from taktik.core.social_media.tiktok.actions.business.workflows.search_workflow import (
             SearchWorkflow, SearchConfig
         )
         
-        # Create TikTok manager
-        logger.info("📱 Connecting to device...")
-        send_status("connecting", "Connecting to device")
-        
-        manager = TikTokManager(device_id=device_id)
-        
-        # Launch TikTok app
-        logger.info("📱 Restarting TikTok (clean state)...")
-        send_status("launching", "Restarting TikTok app")
-        
-        if not manager.restart():
-            send_error("Failed to restart TikTok app")
-            return False
-        
-        time.sleep(4)  # Wait for app to fully load
-        
-        # Ensure we're on the For You feed (TikTok may restore previous state)
-        try:
-            from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-            nav_actions = NavigationActions(manager.device_manager.device)
-            
-            # Press back to close any keyboard/popup, then navigate to Home
-            nav_actions._press_back()
-            time.sleep(0.5)
-            nav_actions.navigate_to_home()
-            time.sleep(1)
-            logger.info("✅ Navigated to For You feed")
-        except Exception as e:
-            logger.warning(f"Could not navigate to Home: {e}")
+        # Common startup: connect, restart, navigate home (no profile fetch needed)
+        manager, _bot_username = tiktok_startup(device_id, fetch_profile=False)
         
         # Create workflow config from frontend config
         workflow_config = SearchConfig(
