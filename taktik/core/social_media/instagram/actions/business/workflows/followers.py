@@ -664,7 +664,7 @@ class FollowerBusiness(BaseBusinessAction):
                 self.logger.error(f"Failed to navigate to @{target_username}")
                 return stats
             
-            self._human_like_delay('profile_view')
+            self._human_like_delay('click')  # Minimal delay — navigate_to_profile already includes sleep + page checks
             
             # Récupérer le profil complet (inclut is_private via batch check)
             profile_info = self.profile_business.get_complete_profile_info(target_username, navigate_if_needed=False)
@@ -681,6 +681,19 @@ class FollowerBusiness(BaseBusinessAction):
             else:
                 self.logger.warning(f"⚠️ Could not get followers count for @{target_username}")
             
+            # Emit authoritative target_account IPC message for the frontend
+            try:
+                target_msg = {
+                    "type": "target_account",
+                    "username": target_username,
+                    "followers": target_followers_count,
+                    "following": profile_info.get('following_count', 0) if profile_info else 0,
+                    "posts": profile_info.get('media_count', 0) if profile_info else 0,
+                }
+                print(json.dumps(target_msg), flush=True)
+            except Exception:
+                pass
+            
             # 2. Ouvrir la liste des followers OU following selon interaction_type
             interaction_type = config.get('interaction_type', 'followers')
             
@@ -695,7 +708,7 @@ class FollowerBusiness(BaseBusinessAction):
                     self.logger.error("Failed to open followers list")
                     return stats
             
-            self._human_like_delay('navigation')
+            self._human_like_delay('click')  # Minimal delay — list loading is handled by get_visible_followers
             
             # Démarrer la phase d'interaction
             if self.session_manager:
