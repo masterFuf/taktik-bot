@@ -274,16 +274,7 @@ class UnfollowBusiness(BaseBusinessAction):
     def _does_user_follow_back(self, username: str) -> bool:
         """Vérifier si un utilisateur nous follow en retour."""
         try:
-            # Chercher le bouton "Follows you" ou "Vous suit"
-            follows_back_indicators = [
-                '//*[contains(@text, "Follows you")]',
-                '//*[contains(@text, "Vous suit")]',
-                '//*[contains(@text, "vous suit")]',
-                '//*[contains(@content-desc, "Follows you")]',
-                '//*[contains(@content-desc, "Vous suit")]'
-            ]
-            
-            return self._is_element_present(follows_back_indicators)
+            return self._is_element_present(self._unfollow_sel.follows_back_indicators)
             
         except Exception as e:
             self.logger.debug(f"Error checking if @{username} follows back: {e}")
