@@ -18,7 +18,9 @@ class HashtagBusiness(LikersWorkflowBase):
         super().__init__(device, session_manager, automation, "hashtag", init_business_modules=True)
         
         from ..common.workflow_defaults import HASHTAG_DEFAULTS
+        from ....ui.selectors import HASHTAG_SELECTORS
         self.default_config = {**HASHTAG_DEFAULTS}
+        self._hashtag_sel = HASHTAG_SELECTORS
     
     def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
@@ -345,13 +347,8 @@ class HashtagBusiness(LikersWorkflowBase):
                     self.logger.debug(f"✅ Hashtag grid detected ({len(posts)} posts visible)")
                     return True
             
-            # Vérifier si on voit le header du hashtag
-            hashtag_header_selectors = [
-                '//*[contains(@text, "posts")]',
-                '//*[contains(@text, "publications")]',
-                '//*[@resource-id="com.instagram.android:id/action_bar_title"]'
-            ]
-            for selector in hashtag_header_selectors:
+            # Vérifier si on voit le header du hashtag (depuis selectors.py)
+            for selector in self._hashtag_sel.hashtag_header:
                 if self.device.xpath(selector).exists:
                     self.logger.debug("✅ Hashtag page header detected")
                     return True
