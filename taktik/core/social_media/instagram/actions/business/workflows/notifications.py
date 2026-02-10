@@ -24,34 +24,18 @@ class NotificationsBusiness(BaseBusinessAction):
         super().__init__(device, session_manager, automation, "notifications", init_business_modules=True)
         
         from ..common.workflow_defaults import NOTIFICATIONS_DEFAULTS
+        from ....ui.selectors import NOTIFICATION_SELECTORS
         self.default_config = {**NOTIFICATIONS_DEFAULTS}
         
-        # Sélecteurs spécifiques aux notifications
+        # Sélecteurs centralisés (depuis selectors.py)
+        self._notif_sel = NOTIFICATION_SELECTORS
+        # Backward-compatible dict wrapper for existing code
         self._notification_selectors = {
-            'activity_tab': [
-                '//*[contains(@content-desc, "Activité")]',
-                '//*[contains(@content-desc, "Activity")]',
-                '//*[contains(@content-desc, "Notifications")]'
-            ],
-            'notification_item': [
-                '//*[@resource-id="com.instagram.android:id/row_news_text"]',
-                '//*[@resource-id="com.instagram.android:id/row_news_container"]',
-                '//android.widget.LinearLayout[contains(@resource-id, "news")]'
-            ],
-            'notification_username': [
-                '//*[@resource-id="com.instagram.android:id/row_news_text"]//android.widget.TextView[1]',
-                '//android.widget.TextView[contains(@text, "@")]'
-            ],
-            'notification_action_text': [
-                '//*[@resource-id="com.instagram.android:id/row_news_text"]',
-                '//android.widget.TextView[contains(@text, "liked") or contains(@text, "aimé")]',
-                '//android.widget.TextView[contains(@text, "started following") or contains(@text, "a commencé")]',
-                '//android.widget.TextView[contains(@text, "commented") or contains(@text, "commenté")]'
-            ],
-            'follow_requests_section': [
-                '//*[contains(@text, "Follow requests")]',
-                '//*[contains(@text, "Demandes d\'abonnement")]'
-            ]
+            'activity_tab': self._notif_sel.activity_tab,
+            'notification_item': self._notif_sel.notification_item,
+            'notification_username': self._notif_sel.notification_username,
+            'notification_action_text': self._notif_sel.notification_action_text,
+            'follow_requests_section': self._notif_sel.follow_requests_section,
         }
     
     def interact_with_notifications(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -190,13 +174,7 @@ class NotificationsBusiness(BaseBusinessAction):
     
     def _is_on_activity_screen(self) -> bool:
         """Vérifier si on est sur l'écran d'activité."""
-        indicators = [
-            '//*[contains(@text, "Activité")]',
-            '//*[contains(@text, "Activity")]',
-            '//*[contains(@resource-id, "news")]',
-            '//*[contains(@resource-id, "activity")]'
-        ]
-        return self._is_element_present(indicators)
+        return self._is_element_present(self._notif_sel.activity_screen_indicators)
     
     def _extract_users_from_notifications(self, max_users: int = 50, 
                                           notification_types: List[str] = None) -> List[str]:
