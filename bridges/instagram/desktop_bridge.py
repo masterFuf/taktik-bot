@@ -12,22 +12,18 @@ import signal
 import logging
 import math
 from typing import Optional, Dict, Any
+
+# Bootstrap: UTF-8 + loguru + sys.path in one call
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if bot_dir not in sys.path:
+    sys.path.insert(0, bot_dir)
+from bridges.common.bootstrap import setup_environment
+setup_environment()
+
+from bridges.common.ipc import IPC
+from bridges.common.connection import ConnectionService
+from bridges.common.app_manager import AppService
 from loguru import logger
-
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
-# Configure loguru - the UTF-8 encoding is already set via the TextIOWrapper above
-logger.remove()  # Remove default handler
-logger.add(
-    sys.stderr,
-    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}",
-    level="DEBUG",
-    colorize=False
-)
 
 # Configure logging for desktop integration
 logging.basicConfig(
@@ -35,46 +31,25 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-# Keep a reference to the original stdout buffer before any wrapping
-_original_stdout_fd = None
-try:
-    _original_stdout_fd = os.dup(1)  # Duplicate file descriptor 1 (stdout)
-except Exception:
-    pass
+# Shared IPC singleton — all send_* functions delegate to this
+_ipc = IPC()
 
-# Structured message output for desktop app
+# ── Module-level IPC wrappers (backward-compatible) ──────────────────
 def send_message(msg_type: str, **kwargs):
     """Send a structured JSON message to the desktop app."""
-    global _original_stdout_fd
-    try:
-        message = {"type": msg_type, **kwargs}
-        msg_bytes = (json.dumps(message) + '\n').encode('utf-8')
-        # Write directly to the original stdout file descriptor
-        if _original_stdout_fd is not None:
-            try:
-                os.write(_original_stdout_fd, msg_bytes)
-            except (OSError, ValueError):
-                pass
-        else:
-            # Fallback to os.write on fd 1
-            try:
-                os.write(1, msg_bytes)
-            except (OSError, ValueError):
-                pass
-    except Exception:
-        pass  # Ignore all errors
+    _ipc.send(msg_type, **kwargs)
 
 def send_status(status: str, message: str = ""):
     """Send status update to desktop app."""
-    send_message("status", status=status, message=message)
+    _ipc.status(status, message)
 
 def send_progress(current: int, total: int, action: str = ""):
     """Send progress update to desktop app."""
-    send_message("progress", current=current, total=total, action=action)
+    _ipc.progress(current, total, action)
 
 def send_stats(likes: int = 0, follows: int = 0, comments: int = 0, profiles: int = 0, unfollows: int = 0):
     """Send stats update to desktop app."""
-    send_message("stats", likes=likes, follows=follows, comments=comments, profiles=profiles, unfollows=unfollows)
+    _ipc.send("stats", likes=likes, follows=follows, comments=comments, profiles=profiles, unfollows=unfollows)
 
 def send_instagram_stats(
     profiles_visited: int = 0,
@@ -87,32 +62,26 @@ def send_instagram_stats(
     stories_watched: int = 0,
     errors: int = 0
 ):
-    """Send comprehensive Instagram stats update to desktop app (like TikTok IPC)."""
-    send_message("instagram_stats", stats={
-        "profiles_visited": profiles_visited,
-        "profiles_interacted": profiles_interacted,
-        "profiles_filtered": profiles_filtered,
-        "private_profiles": private_profiles,
-        "likes": likes,
-        "follows": follows,
-        "comments": comments,
-        "stories_watched": stories_watched,
-        "errors": errors
-    })
+    """Send comprehensive Instagram stats update to desktop app."""
+    _ipc.instagram_stats(
+        profiles_visited=profiles_visited,
+        profiles_interacted=profiles_interacted,
+        profiles_filtered=profiles_filtered,
+        private_profiles=private_profiles,
+        likes=likes,
+        follows=follows,
+        comments=comments,
+        stories_watched=stories_watched,
+        errors=errors,
+    )
 
 def send_instagram_action(action: str, username: str, details: dict = None):
-    """Send Instagram action event to desktop app (like, follow, filter, etc.)."""
-    data = {"action": action, "username": username}
-    if details:
-        data["details"] = details
-    send_message("instagram_action", **data)
+    """Send Instagram action event to desktop app."""
+    _ipc.instagram_action(action, username, details)
 
 def send_instagram_profile_visit(username: str, followers: int = None, is_private: bool = False):
     """Send profile visit event to desktop app."""
-    send_message("instagram_profile_visit", 
-                 username=username, 
-                 followers=followers,
-                 is_private=is_private)
+    _ipc.profile_visit(username, followers, is_private)
 
 def _on_stats_update(stats_dict: dict):
     """Callback for BaseStatsManager to send stats via IPC."""
@@ -147,32 +116,23 @@ def setup_stats_callback():
 
 def send_error(error: str, error_code: str = None):
     """Send error to desktop app with optional error code for translation."""
-    if error_code:
-        send_message("error", error=error, error_code=error_code)
-    else:
-        send_message("error", error=error)
+    _ipc.error(error, error_code)
 
 def send_log(level: str, message: str):
     """Send log message to desktop app."""
-    send_message("log", level=level, message=message)
+    _ipc.log(level, message)
 
 def send_unfollow_event(username: str, success: bool = True):
     """Send unfollow event to desktop app for real-time activity."""
-    send_message("unfollow_event", username=username, success=success)
+    _ipc.unfollow_event(username, success)
 
 def send_follow_event(username: str, success: bool = True, profile_data: dict = None):
     """Send follow event to desktop app for real-time activity and WorkflowAnalyzer."""
-    data = {"username": username, "success": success}
-    if profile_data:
-        data["profile_data"] = profile_data
-    send_message("follow_event", **data)
+    _ipc.follow_event(username, success, profile_data)
 
 def send_like_event(username: str, likes_count: int = 1, profile_data: dict = None):
     """Send like event to desktop app for real-time activity and WorkflowAnalyzer."""
-    data = {"username": username, "likes_count": likes_count}
-    if profile_data:
-        data["profile_data"] = profile_data
-    send_message("like_event", **data)
+    _ipc.like_event(username, likes_count, profile_data)
 
 def send_post_skipped(author: str, reason: str = "already_processed", hashtag: str = None):
     """Send post skipped event to desktop app for real-time activity."""
@@ -348,7 +308,10 @@ class DesktopBridge:
         # API credentials passed from desktop app
         self.api_key = config.get('apiKey')
         self.license_key = config.get('licenseKey')
-        self.device_manager = None
+        # Shared services
+        self._connection = ConnectionService(self.device_id) if self.device_id else None
+        self._app = None  # initialized after connect
+        self.device_manager = None  # backward-compatible alias
         self.automation = None
         
         # Media capture service
@@ -356,6 +319,8 @@ class DesktopBridge:
         self.media_capture_service = None
         
         # Setup signal handlers for graceful shutdown
+        from bridges.common.signal_handler import setup_signal_handlers
+        setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._handle_shutdown)
         signal.signal(signal.SIGINT, self._handle_shutdown)
     
@@ -434,22 +399,20 @@ class DesktopBridge:
             return False
     
     def connect_device(self) -> bool:
-        """Connect to the specified device."""
+        """Connect to the specified device using ConnectionService."""
         try:
-            from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-            
             send_status("connecting", f"Connecting to device {self.device_id}...")
             
-            self.device_manager = DeviceManager()
-            result = self.device_manager.connect(self.device_id)
+            if not self._connection:
+                self._connection = ConnectionService(self.device_id)
             
-            if not result:
+            if not self._connection.connect():
                 send_error(f"Failed to connect to device {self.device_id}")
                 return False
             
-            if not self.device_manager.device:
-                send_error("Device initialization error - device is None")
-                return False
+            # Backward-compatible alias
+            self.device_manager = self._connection.device_manager
+            self._app = AppService(self._connection, platform="instagram")
             
             send_status("connected", f"Connected to {self.device_id}")
             return True
@@ -460,46 +423,27 @@ class DesktopBridge:
             return False
     
     def launch_instagram(self) -> bool:
-        """Launch Instagram on the device.
-        
-        Reuses self.device_manager (already connected) to avoid creating a second
-        DeviceManager with a redundant ATX check that could fail and block startup.
-        """
+        """Launch Instagram on the device using ConnectionService + AppService."""
         try:
             send_status("launching", "Launching Instagram...")
             
-            # Reuse the already-connected device_manager instead of creating a new InstagramManager
-            # This avoids a second ATX health check on an unconnected DeviceManager
-            INSTAGRAM_PACKAGE = "com.instagram.android"
-            INSTAGRAM_ACTIVITY = "com.instagram.mainactivity.InstagramMainActivity"
-            
-            # Check ATX health on the ALREADY-CONNECTED device_manager (non-blocking)
-            try:
-                atx_status = self.device_manager.get_atx_status()
-                if not atx_status.get("atx_healthy"):
-                    error_detail = atx_status.get("error", "Unknown ATX error")
-                    logger.warning(f"ATX agent unhealthy: {error_detail}. Attempting automatic repair...")
-                    send_status("repairing_atx", "UIAutomator2 agent not responding, attempting repair...")
-                    
-                    if self.device_manager._verify_and_repair_atx(max_retries=3):
-                        logger.info("ATX agent repaired successfully")
-                        send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
-                    else:
-                        logger.warning(f"ATX agent repair failed: {error_detail} - continuing anyway")
-                        send_log("warning", f"ATX repair failed ({error_detail}) but continuing - workflow may still work")
+            # Check ATX health via ConnectionService (non-blocking)
+            atx_result = self._connection.check_atx_health(repair=True, max_retries=3)
+            if not atx_result["atx_healthy"]:
+                error_detail = atx_result.get("error", "Unknown")
+                if atx_result.get("repaired"):
+                    send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
                 else:
-                    logger.debug("ATX agent is healthy")
-            except Exception as atx_err:
-                logger.warning(f"ATX health check error: {atx_err} - continuing anyway")
-                send_log("warning", f"ATX health check error: {atx_err} - continuing")
+                    logger.warning(f"ATX repair failed: {error_detail} - continuing anyway")
+                    send_log("warning", f"ATX repair failed ({error_detail}) but continuing - workflow may still work")
             
-            # Check Instagram is installed (uses ADB fallback if u2 fails)
-            if not self.device_manager.is_app_installed(INSTAGRAM_PACKAGE):
+            # Check Instagram is installed
+            if not self._app.is_installed():
                 send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
                 return False
             
-            # Launch Instagram using the already-connected device
-            if not self.device_manager.launch_app(INSTAGRAM_PACKAGE, INSTAGRAM_ACTIVITY):
+            # Launch Instagram
+            if not self._app.launch():
                 send_error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
                 return False
             
