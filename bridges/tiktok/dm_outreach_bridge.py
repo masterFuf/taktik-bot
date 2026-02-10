@@ -14,51 +14,41 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Bootstrap: UTF-8 + loguru + sys.path in one call
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from bridges.common.bootstrap import setup_environment
+setup_environment()
 
-# Add parent directories to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
+from bridges.common.ipc import IPC
 from loguru import logger
 
-# Configure loguru
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
+# Shared IPC singleton
+_ipc = IPC()
 
 
 def send_message(msg_type: str, **kwargs):
-    """Send a JSON message to stdout for Electron to parse."""
-    message = {"type": msg_type, **kwargs}
-    print(json.dumps(message), flush=True)
-
+    """Send a JSON message to Electron."""
+    _ipc.send(msg_type, **kwargs)
 
 def send_status(status: str, message: str):
     """Send status update."""
-    send_message("status", status=status, message=message)
-
+    _ipc.status(status, message)
 
 def send_progress(current: int, total: int, username: str):
     """Send progress update."""
-    send_message("progress", current=current, total=total, username=username)
-
+    _ipc.send("progress", current=current, total=total, username=username)
 
 def send_dm_result(username: str, success: bool, error: str = None):
     """Send DM result."""
-    send_message("dm_result", username=username, success=success, error=error)
-
+    _ipc.send("dm_result", username=username, success=success, error=error)
 
 def send_stats(stats: dict):
     """Send stats update."""
-    send_message("stats", stats=stats)
-
+    _ipc.send("stats", stats=stats)
 
 def send_error(error: str):
     """Send error message."""
-    send_message("error", error=error)
+    _ipc.error(error)
 
 
 def get_db_path() -> str:
