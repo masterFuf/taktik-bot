@@ -25,7 +25,6 @@ if sys.platform == 'win32':
 sys.path.insert(0, str(Path(__file__).parent))
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-from taktik.core.social_media.instagram.core.manager import InstagramManager
 from loguru import logger
 
 # Configure loguru
@@ -197,12 +196,17 @@ class ColdDMWorkflow:
         return True
     
     def restart_instagram(self):
-        """Restart Instagram for clean state."""
-        instagram_manager = InstagramManager(self.device_id)
+        """Restart Instagram for clean state.
+        
+        Reuses self.device_manager (already connected) to avoid creating a new
+        InstagramManager with an unconnected DeviceManager that triggers redundant ATX checks.
+        """
+        INSTAGRAM_PACKAGE = "com.instagram.android"
+        INSTAGRAM_ACTIVITY = "com.instagram.mainactivity.InstagramMainActivity"
         logger.info("Restarting Instagram...")
-        instagram_manager.stop()
+        self.device_manager.stop_app(INSTAGRAM_PACKAGE)
         time.sleep(1)
-        instagram_manager.launch()
+        self.device_manager.launch_app(INSTAGRAM_PACKAGE, INSTAGRAM_ACTIVITY)
         time.sleep(4)
     
     def navigate_to_search(self) -> bool:

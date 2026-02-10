@@ -164,6 +164,12 @@ class TikTokDMOutreachWorkflow:
             from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
             
             self.manager = TikTokManager(device_id=self.device_id)
+            
+            # Must call connect() before accessing device
+            if not self.manager.device_manager.connect():
+                logger.error("Failed to connect to device via device_manager")
+                return False
+            
             self.device = self.manager.device_manager.device
             
             # Initialize actions

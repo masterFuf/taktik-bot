@@ -29,7 +29,6 @@ bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 sys.path.insert(0, bot_dir)
 
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-from taktik.core.social_media.instagram.core.manager import InstagramManager
 from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
 from loguru import logger
 
@@ -126,48 +125,64 @@ class DMBridge:
         return True
     
     def restart_instagram(self):
-        """Restart Instagram for clean state."""
-        instagram_manager = InstagramManager(self.device_id)
+        """Restart Instagram for clean state.
+        
+        Reuses self.device_manager (already connected) to avoid creating a new
+        InstagramManager with an unconnected DeviceManager that triggers redundant ATX checks.
+        """
+        INSTAGRAM_PACKAGE = "com.instagram.android"
+        INSTAGRAM_ACTIVITY = "com.instagram.mainactivity.InstagramMainActivity"
         logger.info("Restarting Instagram...")
-        instagram_manager.stop()
+        self.device_manager.stop_app(INSTAGRAM_PACKAGE)
         time.sleep(1)
-        instagram_manager.launch()
+        self.device_manager.launch_app(INSTAGRAM_PACKAGE, INSTAGRAM_ACTIVITY)
         time.sleep(4)
     
     def navigate_to_dm_inbox(self) -> bool:
         """Navigate to DM inbox using multiple methods."""
         logger.info("Navigating to DM inbox...")
         
-        # Method 1: DM_SELECTORS.direct_tab (xpath)
-        logger.info("Trying method 1: direct_tab resource-id...")
+        # Method 1: Bottom tab bar direct_tab by resource-id (uiautomator2 selector)
+        # In Instagram 410+, DM is in the bottom tab bar with resource-id="direct_tab" and content-desc="Message"
+        logger.info("Trying method 1: direct_tab resource-id (uiautomator2)...")
+        dm_tab = self.device(resourceId="com.instagram.android:id/direct_tab")
+        if dm_tab.exists:
+            dm_tab.click()
+            time.sleep(2)
+            logger.info("Navigated via direct_tab (uiautomator2)")
+            return True
+        
+        # Method 2: Bottom tab bar by content-desc "Message"
+        logger.info("Trying method 2: content-desc 'Message'...")
+        for desc in ["Message", "Messages", "Direct", "Messenger"]:
+            btn = self.device(description=desc)
+            if btn.exists:
+                btn.click()
+                time.sleep(2)
+                logger.info(f"Navigated via content-desc: {desc}")
+                return True
+        
+        # Method 3: DM_SELECTORS.direct_tab (xpath)
+        logger.info("Trying method 3: direct_tab xpath...")
         dm_tab = self.device.xpath(DM_SELECTORS.direct_tab)
         if dm_tab.exists:
             dm_tab.click()
             time.sleep(2)
-            logger.info("Navigated via direct_tab")
+            logger.info("Navigated via direct_tab xpath")
             return True
         
-        # Method 2: content-desc selectors
-        logger.info("Trying method 2: content-desc selectors...")
+        # Method 4: content-desc xpath selectors from DM_SELECTORS
+        logger.info("Trying method 4: DM_SELECTORS content-desc xpaths...")
         for selector in DM_SELECTORS.direct_tab_content_desc:
             dm_btn = self.device.xpath(selector)
             if dm_btn.exists:
                 dm_btn.click()
                 time.sleep(2)
-                logger.info(f"Navigated via content-desc: {selector}")
+                logger.info(f"Navigated via content-desc xpath: {selector}")
                 return True
         
-        # Method 3: Direct icon by description
-        logger.info("Trying method 3: Direct icon description...")
-        direct_icon = self.device(description="Direct")
-        if direct_icon.exists:
-            direct_icon.click()
-            time.sleep(2)
-            logger.info("Navigated via Direct icon")
-            return True
-        
-        # Method 4: Messenger icon (action bar)
-        logger.info("Trying method 4: action_bar_inbox_button...")
+        # Method 5: Messenger icon in action bar (older Instagram versions)
+        logger.info("Trying method 5: action_bar_inbox_button...")
         messenger = self.device(resourceId="com.instagram.android:id/action_bar_inbox_button")
         if messenger.exists:
             messenger.click()
@@ -175,44 +190,39 @@ class DMBridge:
             logger.info("Navigated via messenger icon")
             return True
         
-        # Method 5: Try clicking on top-right corner where DM icon usually is
-        logger.info("Trying method 5: tap on DM icon position (top-right)...")
-        try:
-            # DM icon is typically in top-right corner of the screen
-            self.device.click(self.screen_width - 80, 150)
-            time.sleep(2)
-            # Check if we're in DM inbox
-            inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
-            if inbox.exists:
-                logger.info("Navigated via tap on top-right")
-                return True
-        except:
-            pass
-        
-        # Method 6: Try messenger description variations
-        logger.info("Trying method 6: messenger description variations...")
-        for desc in ["Messenger", "Messages", "Inbox", "Boîte de réception"]:
+        # Method 6: descriptionContains variations
+        logger.info("Trying method 6: descriptionContains variations...")
+        for desc in ["Message", "Messenger", "Inbox", "Boîte de réception", "Envoyer un message"]:
             btn = self.device(descriptionContains=desc)
             if btn.exists:
                 btn.click()
                 time.sleep(2)
-                logger.info(f"Navigated via description: {desc}")
-                return True
+                # Verify we actually reached DM inbox
+                inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                if inbox.exists:
+                    logger.info(f"Navigated via descriptionContains: {desc}")
+                    return True
+                else:
+                    logger.warning(f"Clicked '{desc}' but did not reach DM inbox, pressing back")
+                    self.device.press("back")
+                    time.sleep(1)
         
-        # Method 7: Try by class and position (ImageView in action bar)
+        # Method 7: Try by class and position (ImageView in action bar) - OLD versions only
         logger.info("Trying method 7: ImageView in action bar...")
         action_bar = self.device(resourceId="com.instagram.android:id/action_bar_container")
         if action_bar.exists:
-            # Find clickable ImageViews in action bar
             images = action_bar.child(className="android.widget.ImageView", clickable=True)
             if images.count > 0:
-                # Usually the last one is the DM icon
                 images[images.count - 1].click()
                 time.sleep(2)
                 inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
                 if inbox.exists:
                     logger.info("Navigated via action bar ImageView")
                     return True
+                else:
+                    logger.warning("Clicked action bar ImageView but did not reach DM inbox, pressing back")
+                    self.device.press("back")
+                    time.sleep(1)
         
         logger.error("Cannot find DM button - all methods failed")
         return False

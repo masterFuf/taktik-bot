@@ -460,39 +460,46 @@ class DesktopBridge:
             return False
     
     def launch_instagram(self) -> bool:
-        """Launch Instagram on the device."""
+        """Launch Instagram on the device.
+        
+        Reuses self.device_manager (already connected) to avoid creating a second
+        DeviceManager with a redundant ATX check that could fail and block startup.
+        """
         try:
-            from taktik.core.social_media.instagram.core.manager import InstagramManager
-            
             send_status("launching", "Launching Instagram...")
             
-            instagram = InstagramManager(self.device_id)
+            # Reuse the already-connected device_manager instead of creating a new InstagramManager
+            # This avoids a second ATX health check on an unconnected DeviceManager
+            INSTAGRAM_PACKAGE = "com.instagram.android"
+            INSTAGRAM_ACTIVITY = "com.instagram.mainactivity.InstagramMainActivity"
             
-            # Check ATX health first - this is critical for the bot to work
-            # Try to repair automatically if unhealthy
-            atx_status = instagram.device_manager.get_atx_status()
-            if not atx_status.get("atx_healthy"):
-                error_detail = atx_status.get("error", "Unknown ATX error")
-                logger.warning(f"ATX agent unhealthy: {error_detail}. Attempting automatic repair...")
-                send_status("repairing_atx", "UIAutomator2 agent not responding, attempting repair...")
-                
-                # Try to repair ATX with retries
-                if instagram.device_manager._verify_and_repair_atx(max_retries=3):
-                    logger.info("ATX agent repaired successfully")
-                    send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
+            # Check ATX health on the ALREADY-CONNECTED device_manager (non-blocking)
+            try:
+                atx_status = self.device_manager.get_atx_status()
+                if not atx_status.get("atx_healthy"):
+                    error_detail = atx_status.get("error", "Unknown ATX error")
+                    logger.warning(f"ATX agent unhealthy: {error_detail}. Attempting automatic repair...")
+                    send_status("repairing_atx", "UIAutomator2 agent not responding, attempting repair...")
+                    
+                    if self.device_manager._verify_and_repair_atx(max_retries=3):
+                        logger.info("ATX agent repaired successfully")
+                        send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
+                    else:
+                        logger.warning(f"ATX agent repair failed: {error_detail} - continuing anyway")
+                        send_log("warning", f"ATX repair failed ({error_detail}) but continuing - workflow may still work")
                 else:
-                    logger.error(f"ATX agent repair failed: {error_detail}")
-                    send_error(
-                        f"UIAutomator2 agent is not responding and could not be repaired. Please try: 1) Unplug and replug the USB cable, 2) Restart the phone, 3) Restart the app. Error: {error_detail}",
-                        error_code="ATX_AGENT_FAILED"
-                    )
-                    return False
+                    logger.debug("ATX agent is healthy")
+            except Exception as atx_err:
+                logger.warning(f"ATX health check error: {atx_err} - continuing anyway")
+                send_log("warning", f"ATX health check error: {atx_err} - continuing")
             
-            if not instagram.is_installed():
+            # Check Instagram is installed (uses ADB fallback if u2 fails)
+            if not self.device_manager.is_app_installed(INSTAGRAM_PACKAGE):
                 send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
                 return False
             
-            if not instagram.launch():
+            # Launch Instagram using the already-connected device
+            if not self.device_manager.launch_app(INSTAGRAM_PACKAGE, INSTAGRAM_ACTIVITY):
                 send_error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
                 return False
             
@@ -501,7 +508,6 @@ class DesktopBridge:
             
         except Exception as e:
             error_msg = str(e)
-            # Detect ATX-related errors
             if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
                 send_error(f"UIAutomator2 connection failed: {error_msg}", error_code="ATX_AGENT_FAILED")
             else:
