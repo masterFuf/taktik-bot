@@ -193,8 +193,7 @@ class NavigationActions(BaseAction):
             success = self._navigate_via_search(username)
         
         if success:
-            self._random_sleep()
-            # Vérifier et fermer les popups problématiques
+            # Vérifier et fermer les popups problématiques (no extra sleep — deep_link/search already have delays)
             self._check_and_close_problematic_pages()
             return True
         
@@ -203,14 +202,12 @@ class NavigationActions(BaseAction):
             self.logger.debug("Fallback attempt with deep link")
             success = self._navigate_via_deep_link(username)
             if success:
-                self._random_sleep()
                 self._check_and_close_problematic_pages()
                 return True
         elif use_deep_link:
             self.logger.debug("Fallback attempt with search")
             success = self._navigate_via_search(username)
             if success:
-                self._random_sleep()
                 self._check_and_close_problematic_pages()
                 return True
         
@@ -237,7 +234,7 @@ class NavigationActions(BaseAction):
                     
                     if 'Error' not in str(result) and 'Exception' not in str(result):
                         self.logger.debug("Deep link executed successfully")
-                        self._human_like_delay('navigation')
+                        self._human_like_delay('click')  # Minimal — am start -W already waits for activity
                         
                         if self._verify_profile_navigation(username):
                             return True
@@ -254,7 +251,7 @@ class NavigationActions(BaseAction):
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
                     if result.returncode == 0:
                         self.logger.debug("Deep link executed successfully (subprocess)")
-                        self._human_like_delay('navigation')
+                        self._human_like_delay('click')  # Minimal — am start -W already waits for activity
                         if self._verify_profile_navigation(username):
                             return True
                     else:
