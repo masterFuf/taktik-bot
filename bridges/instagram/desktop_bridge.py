@@ -278,11 +278,11 @@ class DesktopBridge:
                     send_status("license_valid", f"License verified for {license_data.get('user', 'Unknown') if license_data else 'Unknown'}")
                     return True
             
-            send_error("No valid API key found. Please log in to the desktop app first.")
+            send_error("No valid API key found. Please log in to the desktop app first.", error_code="LICENSE_NO_API_KEY")
             return False
             
         except Exception as e:
-            send_error(f"License setup failed: {str(e)}")
+            send_error(f"License setup failed: {str(e)}", error_code="LICENSE_SETUP_FAILED")
             logger.exception("License setup failed")
             return False
     
@@ -295,7 +295,7 @@ class DesktopBridge:
                 self._connection = ConnectionService(self.device_id)
             
             if not self._connection.connect():
-                send_error(f"Failed to connect to device {self.device_id}")
+                send_error(f"Failed to connect to device {self.device_id}", error_code="DEVICE_CONNECTION_FAILED")
                 return False
             
             # Backward-compatible alias
@@ -306,7 +306,11 @@ class DesktopBridge:
             return True
             
         except Exception as e:
-            send_error(f"Failed to connect to device: {str(e)}")
+            error_msg = str(e)
+            if "timeout" in error_msg.lower():
+                send_error(f"Device connection timed out: {error_msg}", error_code="DEVICE_CONNECTION_TIMEOUT")
+            else:
+                send_error(f"Failed to connect to device: {error_msg}", error_code="DEVICE_CONNECTION_FAILED")
             logger.exception("Device connection failed")
             return False
     
@@ -343,7 +347,7 @@ class DesktopBridge:
             if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
                 send_error(f"UIAutomator2 connection failed: {error_msg}", error_code="ATX_AGENT_FAILED")
             else:
-                send_error(f"Failed to launch Instagram: {error_msg}")
+                send_error(f"Failed to launch Instagram: {error_msg}", error_code="INSTAGRAM_LAUNCH_FAILED")
             logger.exception("Instagram launch failed")
             return False
     
@@ -616,7 +620,13 @@ class DesktopBridge:
             return True
                 
         except Exception as e:
-            send_error(f"Workflow error: {str(e)}")
+            error_msg = str(e)
+            if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
+                send_error(f"UIAutomator2 crashed during workflow: {error_msg}", error_code="ATX_AGENT_CRASHED")
+            elif "timeout" in error_msg.lower():
+                send_error(f"Workflow timed out: {error_msg}", error_code="WORKFLOW_TIMEOUT")
+            else:
+                send_error(f"Workflow error: {error_msg}", error_code="WORKFLOW_ERROR")
             logger.exception("Workflow error")
             return False
     
