@@ -801,8 +801,8 @@ class HashtagBusiness(LikersWorkflowBase):
             if not metadata['author'] and is_reel:
                 self.logger.debug("Trying fallback: extracting author from 'Reel by' content-desc")
                 try:
-                    # Chercher l'élément clips_media_component qui contient "Reel by username"
-                    reel_element = self.device.xpath('//*[@resource-id="com.instagram.android:id/clips_media_component"]')
+                    # Chercher l'élément clips_media_component qui contient "Reel by username" (depuis selectors.py)
+                    reel_element = self.device.xpath(self._hashtag_sel.reel_author_container[-1])
                     if reel_element.exists:
                         info = reel_element.info
                         # Essayer plusieurs clés possibles pour content-desc
