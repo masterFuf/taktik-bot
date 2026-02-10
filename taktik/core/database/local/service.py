@@ -313,6 +313,7 @@ class LocalDatabaseService:
                 error_message TEXT,
                 config_used TEXT,
                 discovery_campaign_id INTEGER,
+                platform TEXT DEFAULT 'instagram',
                 created_at TEXT DEFAULT (datetime('now')),
                 FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL,
                 FOREIGN KEY (discovery_campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE SET NULL
@@ -685,6 +686,13 @@ class LocalDatabaseService:
         except sqlite3.OperationalError:
             logger.info("Migration: Adding discovery_campaign_id to scraping_sessions")
             cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN discovery_campaign_id INTEGER")
+        
+        # Migration: Add platform column to scraping_sessions
+        try:
+            cursor.execute("SELECT platform FROM scraping_sessions LIMIT 1")
+        except sqlite3.OperationalError:
+            logger.info("Migration: Adding platform to scraping_sessions")
+            cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN platform TEXT DEFAULT 'instagram'")
         
         # Migration: Add AI qualification columns to scraped_profiles
         for col_name, col_def in [

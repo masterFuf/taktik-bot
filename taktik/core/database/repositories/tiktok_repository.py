@@ -122,6 +122,40 @@ class TikTokRepository(BaseRepository):
         )
         return self._map_profile_row(row)
     
+    def link_scraped_profile(self, scraping_id: int, profile_id: int, is_enriched: bool = False) -> bool:
+        """Link a scraped profile to a scraping session via junction table."""
+        try:
+            self.execute(
+                """INSERT OR IGNORE INTO tiktok_scraped_profiles (scraping_id, profile_id, is_enriched)
+                   VALUES (?, ?, ?)""",
+                (scraping_id, profile_id, 1 if is_enriched else 0)
+            )
+            return True
+        except Exception as e:
+            print(f"Error linking scraped profile: {e}")
+            return False
+    
+    def save_scraped_profile(self, scraping_id: int, profile: dict) -> None:
+        """Upsert a TikTok profile and link it to a scraping session."""
+        username = profile.get('username', '')
+        if not username:
+            return
+        
+        profile_id, _ = self.get_or_create_profile(
+            username,
+            display_name=profile.get('display_name', ''),
+            followers_count=profile.get('followers_count', 0),
+            following_count=profile.get('following_count', 0),
+            likes_count=profile.get('likes_count', 0),
+            videos_count=profile.get('posts_count', 0),
+            is_private=profile.get('is_private', False),
+            is_verified=profile.get('is_verified', False),
+            biography=profile.get('bio', '')
+        )
+        
+        if scraping_id:
+            self.link_scraped_profile(scraping_id, profile_id, profile.get('is_enriched', False))
+    
     # ============================================
     # SESSIONS
     # ============================================

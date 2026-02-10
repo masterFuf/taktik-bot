@@ -9,18 +9,12 @@ import json
 import time
 import random
 import os
-from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-# Bootstrap: UTF-8 + loguru + sys.path in one call
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from bridges.common.bootstrap import setup_environment
-setup_environment()
-
-from bridges.common.database import SentDMService
 from bridges.tiktok.base import (
     logger, send_message, send_status, send_error, set_workflow
 )
+from bridges.common.database import SentDMService
 
 
 def send_progress(current: int, total: int, username: str):

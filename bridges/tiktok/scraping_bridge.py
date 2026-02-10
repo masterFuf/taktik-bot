@@ -7,23 +7,15 @@ Runs as standalone script, reads config from stdin
 import sys
 import time
 import json
-import os
-import sqlite3
-from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-# Add parent directories to path for imports when run as standalone script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-bridges_dir = os.path.dirname(script_dir)
-bot_dir = os.path.dirname(bridges_dir)
-if bot_dir not in sys.path:
-    sys.path.insert(0, bot_dir)
-
-from bridges.common.database import get_db_path
 from bridges.tiktok.base import (
     logger, send_status, send_message, send_error, set_workflow, get_workflow
 )
+from bridges.common.database import get_repository
+from taktik.core.database.repositories.tiktok_repository import TikTokRepository
+from taktik.core.database.repositories.session_repository import SessionRepository
 
 
 def send_scraping_progress(scraped: int, total: int, current: str):
@@ -48,35 +40,14 @@ def send_scraping_completed(total_scraped: int):
 def save_scraping_session(source_type: str, source_name: str, total_scraped: int, 
                           status: str, duration_seconds: int, platform: str = 'tiktok') -> Optional[int]:
     """Save scraping session to database and return session ID."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        logger.warning(f"Database not found at {db_path}")
-        return None
-    
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # Check if platform column exists, add it if not
-        cursor.execute("PRAGMA table_info(scraping_sessions)")
-        columns = [col[1] for col in cursor.fetchall()]
-        
-        if 'platform' not in columns:
-            try:
-                cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN platform TEXT DEFAULT 'instagram'")
-                logger.info("Added 'platform' column to scraping_sessions table")
-            except Exception as e:
-                logger.warning(f"Could not add platform column: {e}")
-        
-        cursor.execute("""
-            INSERT INTO scraping_sessions (scraping_type, source_type, source_name, total_scraped, status, duration_seconds, platform)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (source_type, source_type, source_name, total_scraped, status, duration_seconds, platform))
-        
-        session_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
+        session_repo = get_repository(SessionRepository)
+        session_id = session_repo.create_scraping(
+            scraping_type=source_type,
+            source_type=source_type,
+            source_name=source_name,
+            platform=platform
+        )
         logger.info(f"Saved scraping session {session_id} to database")
         return session_id
     except Exception as e:
@@ -85,136 +56,26 @@ def save_scraping_session(source_type: str, source_name: str, total_scraped: int
 
 
 def save_scraped_profile(session_id: int, profile: Dict[str, Any], platform: str = 'tiktok'):
-    """Save a scraped profile to database.
-    
-    Architecture (like Instagram):
-    - tiktok_profiles: main table with all profile data
-    - tiktok_scraped_profiles: junction table linking scraping sessions to profiles
-    """
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        return
-    
+    """Save a scraped profile to database via TikTokRepository."""
     try:
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        username = profile.get('username', '')
-        if not username:
-            return
-        
-        # First, get or create the profile in tiktok_profiles (main table)
-        cursor.execute("SELECT profile_id FROM tiktok_profiles WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        
-        if row:
-            profile_id = row['profile_id']
-            # Update existing profile with new data if we have better data
-            updates = []
-            values = []
-            
-            if profile.get('display_name'):
-                updates.append("display_name = COALESCE(?, display_name)")
-                values.append(profile['display_name'])
-            if profile.get('followers_count', 0) > 0:
-                updates.append("followers_count = ?")
-                values.append(profile['followers_count'])
-            if profile.get('following_count', 0) > 0:
-                updates.append("following_count = ?")
-                values.append(profile['following_count'])
-            if profile.get('likes_count', 0) > 0:
-                updates.append("likes_count = ?")
-                values.append(profile['likes_count'])
-            if profile.get('posts_count', 0) > 0:
-                updates.append("videos_count = ?")
-                values.append(profile['posts_count'])
-            if profile.get('bio'):
-                updates.append("biography = COALESCE(?, biography)")
-                values.append(profile['bio'])
-            if profile.get('is_private') is not None:
-                updates.append("is_private = ?")
-                values.append(1 if profile['is_private'] else 0)
-            if profile.get('is_verified') is not None:
-                updates.append("is_verified = ?")
-                values.append(1 if profile['is_verified'] else 0)
-            
-            if updates:
-                updates.append("updated_at = datetime('now')")
-                values.append(profile_id)
-                cursor.execute(
-                    f"UPDATE tiktok_profiles SET {', '.join(updates)} WHERE profile_id = ?",
-                    tuple(values)
-                )
-        else:
-            # Create new profile
-            cursor.execute("""
-                INSERT INTO tiktok_profiles (username, display_name, followers_count, following_count,
-                                             likes_count, videos_count, is_private, is_verified, biography)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                username,
-                profile.get('display_name', ''),
-                profile.get('followers_count', 0),
-                profile.get('following_count', 0),
-                profile.get('likes_count', 0),
-                profile.get('posts_count', 0),
-                1 if profile.get('is_private', False) else 0,
-                1 if profile.get('is_verified', False) else 0,
-                profile.get('bio', '')
-            ))
-            profile_id = cursor.lastrowid
-        
-        # Now create the junction table entry (tiktok_scraped_profiles)
-        # This links the scraping session to the profile
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_scraped_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scraping_id INTEGER NOT NULL,
-                profile_id INTEGER NOT NULL,
-                is_enriched INTEGER DEFAULT 0,
-                scraped_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
-                FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
-                UNIQUE(scraping_id, profile_id)
-            )
-        """)
-        
-        # Insert or ignore (in case profile was already scraped in this session)
-        cursor.execute("""
-            INSERT OR IGNORE INTO tiktok_scraped_profiles (scraping_id, profile_id, is_enriched)
-            VALUES (?, ?, ?)
-        """, (
-            session_id,
-            profile_id,
-            1 if profile.get('is_enriched', False) else 0
-        ))
-        
-        conn.commit()
-        conn.close()
-        logger.debug(f"Saved TikTok profile @{username} (profile_id={profile_id}) to session {session_id}")
+        tiktok_repo = get_repository(TikTokRepository)
+        tiktok_repo.save_scraped_profile(session_id, profile)
+        logger.debug(f"Saved TikTok profile @{profile.get('username', '?')} to session {session_id}")
     except Exception as e:
         logger.warning(f"Error saving scraped profile: {e}")
 
 
 def update_scraping_session(session_id: int, total_scraped: int, status: str, duration_seconds: int):
     """Update scraping session in database."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        return
-    
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            UPDATE scraping_sessions 
-            SET total_scraped = ?, status = ?, duration_seconds = ?, end_time = datetime('now')
-            WHERE scraping_id = ?
-        """, (total_scraped, status, duration_seconds, session_id))
-        
-        conn.commit()
-        conn.close()
+        session_repo = get_repository(SessionRepository)
+        session_repo.update_scraping(
+            scraping_id=session_id,
+            total_scraped=total_scraped,
+            status=status,
+            duration_seconds=duration_seconds,
+            end_time=datetime.now().isoformat()
+        )
     except Exception as e:
         logger.warning(f"Error updating scraping session: {e}")
 

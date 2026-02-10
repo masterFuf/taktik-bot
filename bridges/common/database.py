@@ -35,6 +35,21 @@ def get_db_path() -> str:
         return os.path.expanduser('~/.config/taktik-desktop/taktik-data.db')
 
 
+def get_repository(repo_class):
+    """Get a repository instance connected to the local SQLite database.
+    
+    Usage:
+        from taktik.core.database.repositories.tiktok_repository import TikTokRepository
+        repo = get_repository(TikTokRepository)
+        repo.get_or_create_profile("someuser")
+    """
+    db_path = get_db_path()
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Database not found at {db_path}")
+    conn = sqlite3.connect(db_path)
+    return repo_class(conn)
+
+
 class SentDMService:
     """
     Check and record sent DMs in the local SQLite database.
