@@ -24,46 +24,21 @@ class UnfollowBusiness(BaseBusinessAction):
         super().__init__(device, session_manager, automation, "unfollow", init_business_modules=False)
         
         from ..common.workflow_defaults import UNFOLLOW_DEFAULTS
+        from ....ui.selectors import UNFOLLOW_SELECTORS
         self.default_config = {**UNFOLLOW_DEFAULTS}
         
-        # Sélecteurs spécifiques à l'unfollow
+        # Sélecteurs centralisés (depuis selectors.py)
+        self._unfollow_sel = UNFOLLOW_SELECTORS
+        # Backward-compatible dict wrapper for existing code
         self._unfollow_selectors = {
-            'following_button': [
-                '//*[contains(@text, "Abonné")]',
-                '//*[contains(@text, "Following")]',
-                '//*[contains(@text, "Suivi(e)")]',
-                '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]',
-                '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]'
-            ],
-            'unfollow_confirm': [
-                '//*[contains(@text, "Ne plus suivre")]',
-                '//*[contains(@text, "Unfollow")]',
-                '//android.widget.Button[contains(@text, "Ne plus suivre")]',
-                '//android.widget.Button[contains(@text, "Unfollow")]'
-            ],
-            'following_list_item': [
-                '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
-            ],
-            'following_tab': [
-                '//android.widget.Button[contains(@text, "following")]',
-                '//android.widget.Button[contains(@text, "abonnements")]',
-                '//*[contains(@content-desc, "following")]',
-                '//*[contains(@content-desc, "abonnements")]'
-            ],
-            # Sorting selectors - for sorting the following list
-            'sort_button': [
-                '//*[@resource-id="com.instagram.android:id/sorting_entry_row_icon"]',
-                '//*[@content-desc="Sort by"]'
-            ],
-            'sort_option_default': [
-                '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Default"]'
-            ],
-            'sort_option_latest': [
-                '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Date followed: Latest"]'
-            ],
-            'sort_option_earliest': [
-                '//*[@resource-id="com.instagram.android:id/follow_list_sorting_option"][@text="Date followed: Earliest"]'
-            ]
+            'following_button': self._unfollow_sel.following_button,
+            'unfollow_confirm': self._unfollow_sel.unfollow_confirm,
+            'following_list_item': self._unfollow_sel.following_list_item,
+            'following_tab': self._unfollow_sel.following_tab,
+            'sort_button': self._unfollow_sel.sort_button,
+            'sort_option_default': self._unfollow_sel.sort_option_default,
+            'sort_option_latest': self._unfollow_sel.sort_option_latest,
+            'sort_option_earliest': self._unfollow_sel.sort_option_earliest,
         }
     
     def run_unfollow_workflow(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -376,10 +351,7 @@ class UnfollowBusiness(BaseBusinessAction):
             
             # Si pas de confirmation trouvée, peut-être que l'unfollow est direct
             # Vérifier si le bouton est maintenant "Follow" / "Suivre"
-            follow_button_indicators = [
-                '//*[contains(@text, "Suivre") and not(contains(@text, "Abonné"))]',
-                '//*[contains(@text, "Follow") and not(contains(@text, "Following"))]'
-            ]
+            follow_button_indicators = self._unfollow_sel.follow_button_after_unfollow
             
             if self._is_element_present(follow_button_indicators):
                 self.logger.debug(f"✅ Unfollow successful for @{username} (no confirmation needed)")
