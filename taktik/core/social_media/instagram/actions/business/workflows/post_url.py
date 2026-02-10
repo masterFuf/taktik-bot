@@ -15,7 +15,9 @@ class PostUrlBusiness(LikersWorkflowBase):
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "post-url", init_business_modules=True)
         from ..common.workflow_defaults import POST_URL_DEFAULTS
+        from ....ui.selectors import HASHTAG_SELECTORS
         self.default_config = {**POST_URL_DEFAULTS}
+        self._hashtag_sel = HASHTAG_SELECTORS
     
     def interact_with_post_likers(self, post_url: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
