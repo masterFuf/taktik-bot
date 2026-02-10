@@ -6,16 +6,8 @@ Routes to specific workflow bridges based on workflowType in config
 
 import sys
 import json
-from loguru import logger
 
-# Configure loguru for stderr output
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}")
-
-
-def send_error(message: str):
-    """Send error message to frontend."""
-    print(json.dumps({"type": "error", "message": message}), flush=True)
+from .base import logger, send_error
 
 
 def main():
