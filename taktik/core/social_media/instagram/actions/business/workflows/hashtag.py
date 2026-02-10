@@ -17,18 +17,8 @@ class HashtagBusiness(LikersWorkflowBase):
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "hashtag", init_business_modules=True)
         
-        self.default_config = {
-            'max_posts_to_analyze': 20,
-            'min_likes': 100,
-            'max_likes': 50000,
-            'max_interactions': 30,
-            'interaction_delay_range': (20, 40),
-            'like_percentage': 80,
-            'follow_percentage': 15,
-            'comment_percentage': 10,
-            'story_watch_percentage': 10,
-            'max_likes_per_profile': 2
-        }
+        from ..common.workflow_defaults import HASHTAG_DEFAULTS
+        self.default_config = {**HASHTAG_DEFAULTS}
     
     def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
