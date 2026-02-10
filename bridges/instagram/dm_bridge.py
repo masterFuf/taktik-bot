@@ -21,42 +21,18 @@ sys.path.insert(0, bot_dir)
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.connection import ConnectionService
-from bridges.common.app_manager import AppService
 from bridges.common.keyboard import KeyboardService
+from bridges.instagram.base import logger, InstagramBridgeBase
 from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
-from loguru import logger
 
 
 
-class DMBridge:
+class DMBridge(InstagramBridgeBase):
     """Bridge for DM operations between TAKTIK Desktop and Instagram."""
     
     def __init__(self, device_id: str):
-        self.device_id = device_id
-        # Shared services
-        self._connection = ConnectionService(device_id)
-        self._app = None  # initialized after connect
+        super().__init__(device_id)
         self._keyboard = KeyboardService(device_id)
-        # Backward-compatible aliases
-        self.device_manager = None
-        self.device = None
-        self.screen_width = 1080
-        self.screen_height = 2340
-    
-    def connect(self) -> bool:
-        """Connect to the device using ConnectionService."""
-        if not self._connection.connect():
-            return False
-        self.device_manager = self._connection.device_manager
-        self.device = self._connection.device
-        self.screen_width, self.screen_height = self._connection.screen_size
-        self._app = AppService(self._connection, platform="instagram")
-        return True
-    
-    def restart_instagram(self):
-        """Restart Instagram for clean state via AppService."""
-        self._app.restart()
     
     def navigate_to_dm_inbox(self) -> bool:
         """Navigate to DM inbox using multiple methods."""
