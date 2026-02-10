@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from .base import (
     logger, send_status, send_message, send_action, 
-    send_pause, send_error, set_workflow
+    send_pause, send_error, set_workflow, tiktok_startup
 )
 
 
@@ -61,70 +61,12 @@ def run_followers_workflow(config: Dict[str, Any]):
     logger.info(f"📊 Distribution: {profiles_per_target} profiles per target (total: {max_followers_total})")
     
     try:
-        # Import TikTok modules
-        from taktik.core.social_media.tiktok import TikTokManager
         from taktik.core.social_media.tiktok.actions.business.workflows.followers_workflow import (
             FollowersWorkflow, FollowersConfig
         )
         
-        # Create TikTok manager
-        logger.info("📱 Connecting to device...")
-        send_status("connecting", "Connecting to device")
-        
-        manager = TikTokManager(device_id=device_id)
-        
-        # Restart TikTok app (force stop + launch) to ensure clean state
-        logger.info("📱 Restarting TikTok (clean state)...")
-        send_status("launching", "Restarting TikTok app")
-        
-        if not manager.restart():
-            send_error("Failed to restart TikTok app")
-            return False
-        
-        time.sleep(4)  # Wait for app to fully load
-        
-        # Ensure we're on the For You feed (TikTok may restore previous state)
-        try:
-            from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-            nav_actions = NavigationActions(manager.device_manager.device)
-            
-            # Press back to close any keyboard/popup, then navigate to Home
-            nav_actions._press_back()
-            time.sleep(0.5)
-            nav_actions.navigate_to_home()
-            time.sleep(1)
-            logger.info("✅ Navigated to For You feed")
-        except Exception as e:
-            logger.warning(f"Could not navigate to Home: {e}")
-        
-        # Fetch own profile info for database tracking
-        fetched_bot_username = None
-        try:
-            from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
-            
-            logger.info("📊 Fetching own profile info...")
-            send_status("fetching_profile", "Fetching your TikTok profile info")
-            
-            profile_actions = ProfileActions(manager.device_manager.device)
-            profile_info = profile_actions.fetch_own_profile()
-            
-            if profile_info:
-                fetched_bot_username = profile_info.username
-                logger.info(f"✅ Bot account: @{fetched_bot_username} ({profile_info.display_name})")
-                logger.info(f"   Followers: {profile_info.followers_count}, Following: {profile_info.following_count}")
-                
-                # Send profile info to frontend
-                send_message("bot_profile", profile={
-                    "username": profile_info.username,
-                    "display_name": profile_info.display_name,
-                    "followers_count": profile_info.followers_count,
-                    "following_count": profile_info.following_count,
-                    "likes_count": profile_info.likes_count
-                })
-            else:
-                logger.warning("⚠️ Could not fetch own profile info, database tracking will be limited")
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to fetch profile info: {e}")
+        # Common startup: connect, restart, navigate home, fetch profile
+        manager, fetched_bot_username = tiktok_startup(device_id, fetch_profile=True)
         
         # Use fetched username if available, otherwise fall back to config
         effective_bot_username = fetched_bot_username or bot_username
