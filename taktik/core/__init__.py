@@ -11,7 +11,7 @@ def get_device_facade():
 
 def get_direction():
     """Retourne Direction de manière paresseuse."""
-    from .shared.device_facade import Direction
+    from .shared.device.facade import Direction
     return Direction
 
 __all__ = [
