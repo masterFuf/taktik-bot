@@ -55,10 +55,6 @@ class WorkflowRunner:
             return False
     
     def _run_target_workflow(self, action: Dict[str, Any]) -> bool:
-        if not self.automation._check_action_limits('interact_with_followers', self.automation.active_username):
-            self.logger.warning("Interaction with followers blocked by license limits")
-            return False
-        
         # Support multi-targets
         target_usernames = action.get('target_usernames', [])
         if not target_usernames and 'target_username' in action:
@@ -81,14 +77,9 @@ class WorkflowRunner:
             max_likes_per_profile=action.get('max_likes_per_profile', 1),
             config=config
         )
-        self.automation._record_action_performed('interact_with_followers', self.automation.active_username)
         return True
     
     def _run_hashtag_workflow(self, action: Dict[str, Any]) -> bool:
-        if not self.automation._check_action_limits('hashtag', self.automation.active_username):
-            self.logger.warning("Hashtag interaction blocked by license limits")
-            return False
-        
         hashtag = action.get('hashtag')
         hashtags = action.get('hashtags', [])
         
@@ -118,8 +109,6 @@ class WorkflowRunner:
             config=config
         )
         
-        self.automation._record_action_performed('hashtag', self.automation.active_username)
-        
         users_interacted = result.get('users_interacted', 0) if result else 0
         self.logger.debug(f"Hashtag workflow completed: {users_interacted} users interacted")
         
@@ -127,10 +116,6 @@ class WorkflowRunner:
         return users_interacted > 0
     
     def _run_post_url_workflow(self, action: Dict[str, Any]) -> bool:
-        if not self.automation._check_action_limits('post_url', self.automation.active_username):
-            self.logger.warning("Post URL interaction blocked by license limits")
-            return False
-        
         post_url = action.get('post_url')
         if not post_url:
             self.logger.error("No post URL provided for post_url action")
@@ -143,8 +128,6 @@ class WorkflowRunner:
             config=config
         )
         
-        self.automation._record_action_performed('post_url', self.automation.active_username)
-        
         self.automation.stats['likes'] += result.get('likes_made', 0)
         self.automation.stats['follows'] += result.get('follows_made', 0)
         self.automation.stats['comments'] += result.get('comments_made', 0)
@@ -154,13 +137,7 @@ class WorkflowRunner:
         return result.get('users_interacted', 0) > 0
     
     def _run_place_workflow_handler(self, action: Dict[str, Any]) -> bool:
-        if not self.automation._check_action_limits('place', self.automation.active_username):
-            self.logger.warning("Place interaction blocked by license limits")
-            return False
-        
         result = self._run_place_workflow_impl(action)
-        
-        self.automation._record_action_performed('place', self.automation.active_username)
         
         self.automation.stats['likes'] += result.get('likes_made', 0)
         self.automation.stats['follows'] += result.get('follows_made', 0)
@@ -236,22 +213,22 @@ class WorkflowRunner:
                     posts_checked += 1
                     self.logger.info(f"📱 Analyzing post {posts_checked}/{max_posts_check}")
                     
-                    is_reel = self.automation._is_current_post_reel()
+                    is_reel = self.automation.ui_helpers.is_current_post_reel()
                     if is_reel:
                         self.logger.info("🎬 Post detected as Reel - moving to next")
-                        self.automation._scroll_to_next_post()
+                        self.automation.ui_helpers.scroll_to_next_post()
                         time.sleep(2)
                         continue
                     
-                    if self.automation._has_likes_on_current_post():
+                    if self.automation.ui_helpers.has_likes_on_current_post():
                         self.logger.info("❤️ Post with likes detected - opening list")
                         
-                        if self.automation._open_likes_list():
+                        if self.automation.ui_helpers.open_likes_list():
                             self.logger.info("✅ Likers list opened")
                             time.sleep(2)
                             
                             try:
-                                interactions = self.automation._interact_with_likers(
+                                interactions = self.automation.ui_helpers.interact_with_likers(
                                     max_interactions=min(5, max_users - processed_posts),
                                     like_percentage=like_percentage,
                                     follow_percentage=follow_percentage,
@@ -266,19 +243,19 @@ class WorkflowRunner:
                             except Exception as e:
                                 self.logger.error(f"❌ Error interacting with likers: {e}")
                             
-                            self.automation._close_likes_popup()
+                            self.automation.ui_helpers.close_likes_popup()
                             time.sleep(1)
                         else:
                             self.logger.warning("❌ Unable to open likes list")
                     else:
                         self.logger.info("💭 No likes on this post - moving to next")
                     
-                    self.automation._scroll_to_next_post()
+                    self.automation.ui_helpers.scroll_to_next_post()
                     time.sleep(2)
                     
                 except Exception as e:
                     self.logger.error(f"❌ Error processing post in feed: {e}")
-                    self.automation._scroll_to_next_post()
+                    self.automation.ui_helpers.scroll_to_next_post()
                     time.sleep(2)
             
             self.logger.info(f"🎉 Workflow completed: {processed_posts} interactions on {stats['posts_processed']} posts")
@@ -290,10 +267,6 @@ class WorkflowRunner:
     
     def _run_notifications_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the notifications workflow."""
-        if not self.automation._check_action_limits('notifications', self.automation.active_username):
-            self.logger.warning("Notifications interaction blocked by license limits")
-            return False
-        
         config = {
             'max_interactions': action.get('max_interactions', 20),
             'like_percentage': action.get('like_percentage', 70),
@@ -318,8 +291,6 @@ class WorkflowRunner:
             )
             result = notifications_business.interact_with_notifications(config)
         
-        self.automation._record_action_performed('notifications', self.automation.active_username)
-        
         # Mettre à jour les stats
         self.automation.stats['likes'] += result.get('likes_made', 0)
         self.automation.stats['follows'] += result.get('follows_made', 0)
@@ -334,10 +305,6 @@ class WorkflowRunner:
         Utilise la méthode SIMPLE: clic direct sur les boutons "Following" dans la liste,
         sans visiter chaque profil individuellement.
         """
-        if not self.automation._check_action_limits('unfollow', self.automation.active_username):
-            self.logger.warning("Unfollow action blocked by license limits")
-            return False
-        
         config = {
             'max_unfollows': action.get('max_unfollows', 50),
             'unfollow_delay_range': (
@@ -380,8 +347,6 @@ class WorkflowRunner:
         # 3. Lancer le workflow simple (clic direct sur boutons)
         result = unfollow_business.run_simple_unfollow_from_list(config)
         
-        self.automation._record_action_performed('unfollow', self.automation.active_username)
-        
         # Mettre à jour les stats
         self.automation.stats['unfollows'] = self.automation.stats.get('unfollows', 0) + result.get('unfollows_made', 0)
         
@@ -389,10 +354,6 @@ class WorkflowRunner:
     
     def _run_feed_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the feed workflow."""
-        if not self.automation._check_action_limits('feed', self.automation.active_username):
-            self.logger.warning("Feed interaction blocked by license limits")
-            return False
-        
         config = {
             'max_interactions': action.get('max_interactions', 20),
             'max_posts_to_check': action.get('max_posts_to_check', 30),
@@ -423,8 +384,6 @@ class WorkflowRunner:
                 self.automation
             )
             result = feed_business.interact_with_feed(config)
-        
-        self.automation._record_action_performed('feed', self.automation.active_username)
         
         # Mettre à jour les stats
         self.automation.stats['likes'] += result.get('likes_made', 0)
