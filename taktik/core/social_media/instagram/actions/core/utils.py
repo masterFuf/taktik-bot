@@ -5,7 +5,7 @@ Re-exports shared ActionUtils and adds Instagram-specific overrides.
 Instagram usernames: 1-30 characters.
 """
 
-from taktik.core.shared.utils import ActionUtils as _SharedActionUtils
+from taktik.core.shared.utils.action_utils import ActionUtils as _SharedActionUtils
 from typing import Optional
 
 

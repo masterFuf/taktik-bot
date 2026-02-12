@@ -5,7 +5,7 @@ Re-exports everything from the shared taktik_keyboard module.
 Existing Instagram code can continue importing from here without changes.
 """
 
-from taktik.core.shared.taktik_keyboard import (
+from taktik.core.shared.input.taktik_keyboard import (
     run_adb_shell,
     TAKTIK_KEYBOARD_PKG,
     TAKTIK_KEYBOARD_IME,

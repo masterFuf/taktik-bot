@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple, Union
 from loguru import logger
 
-from taktik.core.shared.base_action import SharedBaseAction
+from taktik.core.shared.actions.base_action import SharedBaseAction
 from .device_facade import DeviceFacade
 from .utils import ActionUtils
 from ...utils.taktik_keyboard import run_adb_shell, TAKTIK_KEYBOARD_IME, IME_MESSAGE_B64, IME_CLEAR_TEXT
