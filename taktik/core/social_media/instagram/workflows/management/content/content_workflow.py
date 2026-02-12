@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from loguru import logger
 
-from ...ui.selectors import CONTENT_CREATION_SELECTORS
-from ...utils.taktik_keyboard import type_with_taktik_keyboard
+from ....ui.selectors import CONTENT_CREATION_SELECTORS
+from ....utils.taktik_keyboard import type_with_taktik_keyboard
 
 
 class ContentWorkflow:

@@ -8,9 +8,9 @@ incluant la gestion des erreurs, des popups et de la persistance de session.
 from typing import Optional, Dict, Any
 from loguru import logger
 
-from ...auth.login import InstagramLogin, LoginResult
-from ...auth.session_manager import SessionManager
-from ..helpers.workflow_helpers import WorkflowHelpers
+from ....auth.login import InstagramLogin, LoginResult
+from ....auth.session_manager import SessionManager
+from ...helpers.workflow_helpers import WorkflowHelpers
 
 
 class LoginWorkflow:

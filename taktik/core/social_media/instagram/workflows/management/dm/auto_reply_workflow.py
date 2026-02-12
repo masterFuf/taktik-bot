@@ -21,8 +21,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from loguru import logger
 
-from ...ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS
-from ...utils.taktik_keyboard import type_with_taktik_keyboard
+from ....ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS
+from ....utils.taktik_keyboard import type_with_taktik_keyboard
 
 
 @dataclass

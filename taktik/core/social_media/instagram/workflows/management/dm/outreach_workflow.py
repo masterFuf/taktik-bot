@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from loguru import logger
 
-from ...ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
-from ...utils.taktik_keyboard import type_with_taktik_keyboard
+from ....ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
+from ....utils.taktik_keyboard import type_with_taktik_keyboard
 
 
 @dataclass

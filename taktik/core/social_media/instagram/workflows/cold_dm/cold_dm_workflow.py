@@ -12,7 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
-from taktik.core.social_media.instagram.actions.business.messaging import send_dm
+from taktik.core.social_media.instagram.actions.business.workflows.messaging.workflow import send_dm
 
 console = Console()
 
