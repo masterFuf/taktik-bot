@@ -9,6 +9,7 @@ from typing import Optional
 from loguru import logger
 
 from ...core.base_action import BaseAction
+from ...core.utils import parse_count
 
 
 @dataclass
@@ -87,63 +88,8 @@ class ProfileActions(BaseAction):
         return False
     
     def _parse_count(self, text: str) -> int:
-        """Parse a count string like '1,750', '1.2K', '1.5M', '166 K', etc. to an integer.
-        
-        Handles formats:
-        - Plain numbers: '1234', '1,234'
-        - K suffix: '1.5K', '1,5K', '166 K', '166K'
-        - M suffix: '1.2M', '2 M'
-        - B suffix: '1B', '1.5 B'
-        """
-        if not text:
-            return 0
-        
-        try:
-            # Normalize: remove non-breaking spaces and extra whitespace
-            text_str = str(text).strip().replace('\xa0', ' ').strip()
-            
-            multipliers = {
-                'K': 1000, 'k': 1000,
-                'M': 1000000, 'm': 1000000,
-                'B': 1000000000, 'b': 1000000000
-            }
-            
-            # Check for suffix with or without space (e.g., "166K", "166 K", "1.2 M")
-            for suffix, multiplier in multipliers.items():
-                # Handle "166 K" format (space before suffix)
-                if text_str.endswith(f' {suffix}') or text_str.endswith(f' {suffix.lower()}'):
-                    try:
-                        # Use comma as decimal separator too (European format)
-                        number_part = text_str[:-2].strip().replace(',', '.')
-                        return int(float(number_part) * multiplier)
-                    except (ValueError, AttributeError):
-                        continue
-                # Handle "166K" format (no space)
-                elif text_str.upper().endswith(suffix.upper()):
-                    try:
-                        number_part = text_str[:-1].strip().replace(',', '.')
-                        return int(float(number_part) * multiplier)
-                    except (ValueError, AttributeError):
-                        continue
-            
-            # No suffix found - extract digits only
-            # Remove spaces and normalize separators
-            number_str = text_str.replace(' ', '').replace(',', '')
-            
-            # Try direct parse
-            try:
-                return int(number_str)
-            except ValueError:
-                # Try float then int
-                try:
-                    return int(float(number_str))
-                except ValueError:
-                    # Last resort: extract only digits
-                    digits_only = ''.join(c for c in text_str if c.isdigit())
-                    return int(digits_only) if digits_only else 0
-                    
-        except (ValueError, AttributeError):
-            return 0
+        """Parse a count string like '1,750', '1.2K', '1.5M', '166 K', etc. to an integer."""
+        return parse_count(text)
     
     def get_own_profile_info(self) -> Optional[TikTokProfileInfo]:
         """Get information about the user's own profile.

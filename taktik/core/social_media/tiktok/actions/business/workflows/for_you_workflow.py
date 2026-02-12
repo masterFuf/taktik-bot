@@ -10,16 +10,12 @@ Ce workflow permet d'automatiser les interactions sur le feed For You:
 - Extraire les informations des vidéos
 """
 
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
-from loguru import logger
 import time
 import random
 
-from ...atomic.click_actions import ClickActions
-from ...atomic.navigation_actions import NavigationActions
-from ...atomic.scroll_actions import ScrollActions
-from ...atomic.detection_actions import DetectionActions
+from ._base_video_workflow import BaseVideoWorkflow, VideoWorkflowStats
 
 
 @dataclass
@@ -60,41 +56,11 @@ class ForYouConfig:
     follow_back_suggestions: bool = False  # Si True, follow back les suggestions. Si False, click "Not interested"
 
 
-@dataclass
-class ForYouStats:
-    """Statistiques du workflow For You."""
-    
-    videos_watched: int = 0
-    videos_liked: int = 0
-    users_followed: int = 0
-    videos_favorited: int = 0
-    videos_skipped: int = 0
-    ads_skipped: int = 0  # Publicités passées
-    popups_closed: int = 0  # Popups fermées
-    suggestions_handled: int = 0  # Pages de suggestion gérées
-    errors: int = 0
-    
-    start_time: float = field(default_factory=time.time)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert stats to dictionary."""
-        elapsed = time.time() - self.start_time
-        return {
-            'videos_watched': self.videos_watched,
-            'videos_liked': self.videos_liked,
-            'users_followed': self.users_followed,
-            'videos_favorited': self.videos_favorited,
-            'videos_skipped': self.videos_skipped,
-            'ads_skipped': self.ads_skipped,
-            'popups_closed': self.popups_closed,
-            'suggestions_handled': self.suggestions_handled,
-            'errors': self.errors,
-            'elapsed_seconds': elapsed,
-            'elapsed_formatted': f"{int(elapsed // 60)}m {int(elapsed % 60)}s",
-        }
+# Backward-compat alias
+ForYouStats = VideoWorkflowStats
 
 
-class ForYouWorkflow:
+class ForYouWorkflow(BaseVideoWorkflow):
     """Workflow d'automatisation du feed For You TikTok.
     
     Ce workflow permet de:
@@ -112,82 +78,15 @@ class ForYouWorkflow:
             device: Device facade for UI interactions
             config: Optional configuration, uses defaults if not provided
         """
-        self.device = device
+        super().__init__(device, module_name="tiktok-for-you-workflow")
         self.config = config or ForYouConfig()
-        self.stats = ForYouStats()
-        
-        # Initialize atomic actions
-        self.click = ClickActions(device)
-        self.navigation = NavigationActions(device)
-        self.scroll = ScrollActions(device)
-        self.detection = DetectionActions(device)
-        
-        self.logger = logger.bind(module="tiktok-for-you-workflow")
-        
-        # Callbacks
-        self._on_video_callback: Optional[Callable] = None
-        self._on_like_callback: Optional[Callable] = None
-        self._on_follow_callback: Optional[Callable] = None
-        self._on_stats_callback: Optional[Callable] = None
-        self._on_pause_callback: Optional[Callable] = None
-        
-        # State
-        self._running = False
-        self._paused = False
-        self._actions_since_pause = 0
+        self.stats = VideoWorkflowStats()
     
-    def set_on_video_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Set callback called for each video processed."""
-        self._on_video_callback = callback
-    
-    def set_on_like_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Set callback called when a video is liked."""
-        self._on_like_callback = callback
-    
-    def set_on_follow_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Set callback called when a user is followed."""
-        self._on_follow_callback = callback
-    
-    def set_on_stats_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Set callback called after each action to send real-time stats."""
-        self._on_stats_callback = callback
-    
-    def set_on_pause_callback(self, callback: Callable[[int], None]):
-        """Set callback called when workflow takes a pause.
-        
-        Args:
-            callback: Function that receives pause duration in seconds.
-        """
-        self._on_pause_callback = callback
-    
-    def _send_stats_update(self):
-        """Send current stats via callback."""
-        if self._on_stats_callback:
-            try:
-                self._on_stats_callback(self.stats.to_dict())
-            except Exception as e:
-                self.logger.warning(f"Error sending stats: {e}")
-    
-    def stop(self):
-        """Stop the workflow."""
-        self._running = False
-        self.logger.info("🛑 Workflow stop requested")
-    
-    def pause(self):
-        """Pause the workflow."""
-        self._paused = True
-        self.logger.info("⏸️ Workflow paused")
-    
-    def resume(self):
-        """Resume the workflow."""
-        self._paused = False
-        self.logger.info("▶️ Workflow resumed")
-    
-    def run(self) -> ForYouStats:
+    def run(self) -> VideoWorkflowStats:
         """Run the For You workflow.
         
         Returns:
-            ForYouStats: Statistics from the workflow run
+            VideoWorkflowStats: Statistics from the workflow run
         """
         self.logger.info("🚀 Starting For You workflow")
         self.logger.info(f"📊 Config: max_videos={self.config.max_videos}, "
@@ -195,7 +94,7 @@ class ForYouWorkflow:
                         f"follow_prob={self.config.follow_probability}")
         
         self._running = True
-        self.stats = ForYouStats()
+        self.stats = VideoWorkflowStats()
         
         try:
             # Force restart TikTok to ensure clean state
@@ -206,17 +105,9 @@ class ForYouWorkflow:
                 self.logger.error("❌ Failed to navigate to For You feed")
                 return self.stats
             
-            # Track last video to detect stuck state
-            last_video_author = None
-            same_video_count = 0
-            
             # Process videos
             while self._running and self.stats.videos_watched < self.config.max_videos:
-                # Check if paused
-                while self._paused and self._running:
-                    time.sleep(1)
-                
-                if not self._running:
+                if not self._wait_if_paused():
                     break
                 
                 # Check and close any popups first
@@ -224,11 +115,11 @@ class ForYouWorkflow:
                 
                 # Check for comments section accidentally opened
                 if self._handle_comments_section():
-                    continue  # Skip to next iteration after closing comments
+                    continue
                 
                 # Check for suggestion page (Follow back / Not interested)
                 if self._handle_suggestion_page():
-                    continue  # Skip to next iteration after handling suggestion
+                    continue
                 
                 # Check limits
                 if self._check_limits_reached():
@@ -238,30 +129,9 @@ class ForYouWorkflow:
                 # Get video info immediately for real-time display
                 video_info = self.detection.get_video_info()
                 
-                # Detect stuck state (same video appearing multiple times)
-                current_author = video_info.get('author', '')
-                current_likes = video_info.get('like_count', '')
-                video_signature = f"{current_author}_{current_likes}"
-                
-                if video_signature == last_video_author and current_author:
-                    same_video_count += 1
-                    self.logger.warning(f"⚠️ Same video detected {same_video_count} times: @{current_author}")
-                    
-                    if same_video_count >= 3:
-                        self.logger.error("🚨 Stuck on same video! Checking for blocking popups...")
-                        # Aggressive popup clearing
-                        self.click.close_system_popup()
-                        time.sleep(0.3)
-                        self._handle_popups()
-                        time.sleep(0.3)
-                        # Press back to clear any overlay
-                        self.device.press("back")
-                        time.sleep(0.5)
-                        same_video_count = 0
-                        continue  # Skip processing and try again
-                else:
-                    same_video_count = 0
-                    last_video_author = video_signature
+                # Detect stuck state
+                if self._handle_stuck_video(video_info):
+                    continue
                 
                 # Send video info callback immediately (before any processing)
                 if self._on_video_callback:
@@ -275,7 +145,6 @@ class ForYouWorkflow:
                     self.logger.info("📺 Skipping advertisement")
                     self.stats.ads_skipped += 1
                     self._send_stats_update()
-                    # Scroll to next video without processing
                     if not self.scroll.scroll_to_next_video():
                         self.stats.errors += 1
                     continue
@@ -289,11 +158,9 @@ class ForYouWorkflow:
                 # Scroll to next video
                 if not self.scroll.scroll_to_next_video():
                     self.logger.warning("❌ Failed to scroll to next video")
-                    # Check if a system popup appeared and blocked the swipe
                     if self.click.close_system_popup():
                         self.logger.info("✅ System popup was blocking, closed it")
                         time.sleep(0.5)
-                        # Retry the scroll
                         self.scroll.scroll_to_next_video()
                     else:
                         self.stats.errors += 1
@@ -422,7 +289,7 @@ class ForYouWorkflow:
         self._decide_and_execute_actions(video_info)
     
     def _should_skip_video(self, video_info: Dict[str, Any]) -> bool:
-        """Check if video should be skipped based on filters."""
+        """Check if video should be skipped based on filters (incl. hashtags)."""
         # Skip if already liked and config says so
         if self.config.skip_already_liked and video_info.get('is_liked'):
             return True
@@ -461,170 +328,9 @@ class ForYouWorkflow:
         
         return False
     
-    def _decide_and_execute_actions(self, video_info: Dict[str, Any]):
-        """Decide and execute actions based on probabilities."""
-        # Like
-        if (self.stats.videos_liked < self.config.max_likes_per_session and
-            random.random() < self.config.like_probability and
-            not video_info.get('is_liked')):
-            
-            if self._like_video(video_info):
-                self._actions_since_pause += 1
-        
-        # Follow
-        if (self.stats.users_followed < self.config.max_follows_per_session and
-            random.random() < self.config.follow_probability):
-            
-            if self._follow_user(video_info):
-                self._actions_since_pause += 1
-        
-        # Favorite
-        if (random.random() < self.config.favorite_probability and
-            not video_info.get('is_favorited')):
-            
-            if self._favorite_video(video_info):
-                self._actions_since_pause += 1
-    
-    def _like_video(self, video_info: Dict[str, Any]) -> bool:
-        """Like the current video."""
-        self.logger.info(f"❤️ Liking video by @{video_info.get('author')}")
-        
-        if self.click.click_like_button():
-            self.stats.videos_liked += 1
-            self._send_stats_update()  # Real-time stats
-            
-            if self._on_like_callback:
-                try:
-                    self._on_like_callback(video_info)
-                except Exception as e:
-                    self.logger.warning(f"Like callback error: {e}")
-            
-            return True
-        
-        return False
-    
-    def _follow_user(self, video_info: Dict[str, Any]) -> bool:
-        """Follow the current video's author."""
-        self.logger.info(f"👤 Following @{video_info.get('author')}")
-        
-        if self.click.click_video_follow_button():
-            self.stats.users_followed += 1
-            self._send_stats_update()  # Real-time stats
-            
-            if self._on_follow_callback:
-                try:
-                    self._on_follow_callback(video_info)
-                except Exception as e:
-                    self.logger.warning(f"Follow callback error: {e}")
-            
-            return True
-        
-        return False
-    
-    def _favorite_video(self, video_info: Dict[str, Any]) -> bool:
-        """Add current video to favorites."""
-        self.logger.info(f"⭐ Adding to favorites: @{video_info.get('author')}")
-        
-        if self.click.click_favorite_button():
-            self.stats.videos_favorited += 1
-            self._send_stats_update()  # Real-time stats
-            return True
-        
-        return False
-    
-    def _check_limits_reached(self) -> bool:
-        """Check if session limits are reached."""
-        if self.stats.videos_liked >= self.config.max_likes_per_session:
-            self.logger.info("📊 Max likes per session reached")
-            return True
-        
-        if self.stats.users_followed >= self.config.max_follows_per_session:
-            self.logger.info("📊 Max follows per session reached")
-            return True
-        
-        return False
-    
-    def _check_pause_needed(self):
-        """Check if a pause is needed and execute it."""
-        if self._actions_since_pause >= self.config.pause_after_actions:
-            pause_duration = random.uniform(
-                self.config.pause_duration_min,
-                self.config.pause_duration_max
-            )
-            pause_seconds = int(pause_duration)
-            self.logger.info(f"⏸️ Taking a break for {pause_seconds}s")
-            
-            # Send pause callback to frontend
-            if self._on_pause_callback:
-                try:
-                    self._on_pause_callback(pause_seconds)
-                except Exception as e:
-                    self.logger.warning(f"Error sending pause callback: {e}")
-            
-            time.sleep(pause_duration)
-            self._actions_since_pause = 0
-    
     def _is_ad_video(self) -> bool:
         """Check if current video is an advertisement."""
         return self.detection.is_ad_video()
-    
-    def _handle_popups(self):
-        """Check for and close any popups that might block interaction."""
-        # First check for Android system popups (input method selection, etc.)
-        # These can completely block swipes and interactions
-        if self.click.close_system_popup():
-            self.stats.popups_closed += 1
-            self.logger.info("✅ System popup closed")
-            time.sleep(0.5)
-            return
-        
-        # Check for notification banner (e.g., "X sent you new messages")
-        if self.click.dismiss_notification_banner():
-            self.stats.popups_closed += 1
-            self.logger.info("✅ Notification banner dismissed")
-            time.sleep(0.5)
-            return
-        
-        # Check if accidentally on Inbox page
-        if self.detection.is_on_inbox_page():
-            self.click.escape_inbox_page()
-            self.stats.popups_closed += 1
-            self.logger.info("✅ Escaped from Inbox page")
-            time.sleep(0.5)
-            return
-        
-        # Check for "Link email" popup
-        if self.detection.has_link_email_popup():
-            if self.click.close_link_email_popup():
-                self.stats.popups_closed += 1
-                self.logger.info("✅ 'Link email' popup closed")
-                time.sleep(0.5)
-                return
-        
-        if self.detection.has_popup():
-            self.logger.info("🚨 Popup detected, attempting to close")
-            
-            # Try to close "Follow your friends" popup
-            if self.detection.has_follow_friends_popup():
-                if self.click.close_follow_friends_popup():
-                    self.stats.popups_closed += 1
-                    self.logger.info("✅ 'Follow your friends' popup closed")
-                    time.sleep(0.5)
-                    return
-            
-            # Try to close collections popup specifically
-            if self.detection.has_collections_popup():
-                if self.click.close_collections_popup():
-                    self.stats.popups_closed += 1
-                    self.logger.info("✅ Collections popup closed")
-                    time.sleep(0.5)
-                    return
-            
-            # Try generic popup close
-            if self.click.close_popup():
-                self.stats.popups_closed += 1
-                self.logger.info("✅ Popup closed")
-                time.sleep(0.5)
     
     def _handle_suggestion_page(self) -> bool:
         """Check for and handle suggestion page (Follow back / Not interested).
@@ -704,26 +410,3 @@ class ForYouWorkflow:
         
         return False
     
-    def _parse_count(self, count_str: str) -> int:
-        """Parse count string (e.g., '1.2K', '500', '1M') to integer."""
-        if not count_str:
-            return 0
-        
-        count_str = count_str.strip().upper()
-        
-        try:
-            if 'K' in count_str:
-                return int(float(count_str.replace('K', '')) * 1000)
-            elif 'M' in count_str:
-                return int(float(count_str.replace('M', '')) * 1000000)
-            elif 'B' in count_str:
-                return int(float(count_str.replace('B', '')) * 1000000000)
-            else:
-                # Remove commas and parse
-                return int(count_str.replace(',', '').replace('.', ''))
-        except (ValueError, AttributeError):
-            return 0
-    
-    def get_stats(self) -> Dict[str, Any]:
-        """Get current workflow statistics."""
-        return self.stats.to_dict()

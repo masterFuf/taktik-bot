@@ -21,23 +21,6 @@ class NavigationActions(BaseAction):
         self.profile_selectors = PROFILE_SELECTORS
         self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
     
-    def _get_device_serial(self) -> str:
-        try:
-            device_serial = getattr(self.device.device, 'serial', None)
-            if not device_serial:
-                device_info = getattr(self.device.device, '_device_info', {})
-                device_serial = device_info.get('serial', 'emulator-5554')
-            
-            if not device_serial:
-                self.logger.warning("⚠️ Device ID not found, using emulator-5554")
-                device_serial = "emulator-5554"
-                
-        except Exception as e:
-            self.logger.warning(f"⚠️ Device ID error: {e}, using emulator-5554")
-            device_serial = "emulator-5554"
-        
-        return device_serial
-    
     def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func) -> bool:
         """
         Generic method to navigate to a tab.

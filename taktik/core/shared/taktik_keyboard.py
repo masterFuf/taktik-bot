@@ -1,11 +1,11 @@
 """
-Taktik Keyboard Utility Module (Instagram compatibility shim)
+Taktik Keyboard (compatibility shim)
 
-Re-exports everything from the shared taktik_keyboard module.
-Existing Instagram code can continue importing from here without changes.
+Canonical location: taktik.core.shared.input.taktik_keyboard
+This file re-exports for backward compatibility.
 """
 
-from taktik.core.shared.taktik_keyboard import (
+from taktik.core.shared.input.taktik_keyboard import (
     run_adb_shell,
     TAKTIK_KEYBOARD_PKG,
     TAKTIK_KEYBOARD_IME,

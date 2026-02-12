@@ -11,28 +11,7 @@ import time
 
 from ...atomic.navigation_actions import NavigationActions
 from ...core.base_action import BaseAction
-
-
-def _parse_count(text: str) -> int:
-    """Parse count strings like '18.5K', '1.2M', '3B', '424' to integer."""
-    if not text:
-        return 0
-    text = text.strip().replace(',', '').replace(' ', '')
-    multiplier = 1
-    upper = text.upper()
-    if upper.endswith('K'):
-        multiplier = 1000
-        text = text[:-1]
-    elif upper.endswith('M'):
-        multiplier = 1000000
-        text = text[:-1]
-    elif upper.endswith('B'):
-        multiplier = 1000000000
-        text = text[:-1]
-    try:
-        return int(float(text) * multiplier)
-    except (ValueError, OverflowError):
-        return 0
+from ...core.utils import parse_count as _parse_count
 
 
 @dataclass

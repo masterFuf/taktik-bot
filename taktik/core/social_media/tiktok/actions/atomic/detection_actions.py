@@ -3,41 +3,35 @@
 Dernière mise à jour: 7 janvier 2026
 Basé sur les UI dumps réels de TikTok.
 
-Ce module permet de détecter l'état actuel de l'UI TikTok:
-- Page courante (For You, Profile, Inbox, etc.)
-- État des éléments (vidéo likée, utilisateur suivi, etc.)
-- Popups et erreurs
+This module aggregates VideoDetector and PopupDetector and adds
+page-detection, error/state detection, and app-state helpers.
+Existing code can continue to ``from ...atomic.detection_actions import DetectionActions``
+and get every method via a single class.
 """
 
-from typing import Optional, Dict, Any, Tuple
+from typing import Tuple
 from loguru import logger
 
-from ..core.base_action import BaseAction
+from .video_detector import VideoDetector
+from .popup_detector import PopupDetector
 from ...ui.selectors import (
     NAVIGATION_SELECTORS,
-    VIDEO_SELECTORS,
-    PROFILE_SELECTORS,
     INBOX_SELECTORS,
-    POPUP_SELECTORS,
     DETECTION_SELECTORS,
 )
 
 
-class DetectionActions(BaseAction):
-    """Low-level detection actions for TikTok UI state.
+class DetectionActions(VideoDetector, PopupDetector):
+    """Backward-compatible aggregate of all atomic detection actions.
     
-    Permet de détecter la page courante, l'état des éléments,
-    et les conditions d'erreur.
+    Inherits video + popup detectors and adds page/error/app-state detection.
     """
     
     def __init__(self, device):
         super().__init__(device)
         self.logger = logger.bind(module="tiktok-detection-atomic")
         self.navigation_selectors = NAVIGATION_SELECTORS
-        self.video_selectors = VIDEO_SELECTORS
-        self.profile_selectors = PROFILE_SELECTORS
         self.inbox_selectors = INBOX_SELECTORS
-        self.popup_selectors = POPUP_SELECTORS
         self.detection_selectors = DETECTION_SELECTORS
     
     # === Page Detection ===
@@ -140,178 +134,7 @@ class DetectionActions(BaseAction):
         
         return 'unknown'
     
-    # === Video State Detection ===
-    
-    def is_video_liked(self) -> bool:
-        """Check if current video is liked.
-        
-        Détecte via le content-desc qui change de "Like" à "Unlike".
-        """
-        unlike_indicators = [
-            '//*[contains(@content-desc, "Unlike")]',
-            '//*[contains(@content-desc, "Liked")]',
-            '//*[@resource-id="com.zhiliaoapp.musically:id/f57"][contains(@content-desc, "Unlike")]',
-        ]
-        return self._element_exists(unlike_indicators, timeout=1)
-    
-    def is_video_favorited(self) -> bool:
-        """Check if current video is in favorites."""
-        favorited_indicators = [
-            '//*[contains(@content-desc, "Remove from Favourites")]',
-            '//*[contains(@content-desc, "Retirer des favoris")]',
-        ]
-        return self._element_exists(favorited_indicators, timeout=1)
-    
-    def is_user_followed(self) -> bool:
-        """Check if current user is followed.
-        
-        Détecte via le texte du bouton qui change de "Follow" à "Following" ou "Friends".
-        """
-        following_indicators = [
-            '//android.widget.Button[@text="Following"]',
-            '//android.widget.Button[@text="Abonné"]',
-            '//android.widget.Button[contains(@text, "Friends")]',
-            '//*[contains(@content-desc, "Unfollow")]',
-        ]
-        return self._element_exists(following_indicators, timeout=1)
-    
-    # === Video Info Extraction ===
-    
-    def get_video_author(self) -> Optional[str]:
-        """Get current video author username."""
-        return self._get_element_text(self.video_selectors.author_username, timeout=1)
-    
-    def get_video_description(self) -> Optional[str]:
-        """Get current video description."""
-        return self._get_element_text(self.video_selectors.video_description, timeout=1)
-    
-    def get_video_like_count(self) -> Optional[str]:
-        """Get current video like count."""
-        return self._get_element_text(self.video_selectors.like_count, timeout=1)
-    
-    def get_video_comment_count(self) -> Optional[str]:
-        """Get current video comment count."""
-        return self._get_element_text(self.video_selectors.comment_count, timeout=1)
-    
-    def get_video_info(self, include_comment_count: bool = False) -> Dict[str, Any]:
-        """Get all available info about current video.
-        
-        Args:
-            include_comment_count: If True, also fetch comment count (slower).
-        """
-        info = {
-            'author': self.get_video_author(),
-            'description': self.get_video_description(),
-            'like_count': self.get_video_like_count(),
-            'is_liked': self.is_video_liked(),
-            'is_favorited': self.is_video_favorited(),
-            'is_ad': self.is_ad_video(),
-        }
-        if include_comment_count:
-            info['comment_count'] = self.get_video_comment_count()
-        return info
-    
-    # === Profile Info Extraction ===
-    
-    def get_profile_display_name(self) -> Optional[str]:
-        """Get profile display name."""
-        return self._get_element_text(self.profile_selectors.display_name, timeout=2)
-    
-    def get_profile_username(self) -> Optional[str]:
-        """Get profile @username."""
-        return self._get_element_text(self.profile_selectors.username, timeout=2)
-    
-    def get_profile_stats(self) -> Dict[str, Optional[str]]:
-        """Get profile statistics (following, followers, likes)."""
-        # Get all stat values
-        stat_values = []
-        stat_elements = self.profile_selectors.stat_value
-        
-        # Try to get the three values
-        for i in range(3):
-            selector = f'(//*[@resource-id="com.zhiliaoapp.musically:id/qfw"])[{i+1}]'
-            value = self._get_element_text([selector], timeout=1)
-            stat_values.append(value)
-        
-        return {
-            'following': stat_values[0] if len(stat_values) > 0 else None,
-            'followers': stat_values[1] if len(stat_values) > 1 else None,
-            'likes': stat_values[2] if len(stat_values) > 2 else None,
-        }
-    
-    def get_profile_info(self) -> Dict[str, Any]:
-        """Get all available info about current profile."""
-        stats = self.get_profile_stats()
-        return {
-            'display_name': self.get_profile_display_name(),
-            'username': self.get_profile_username(),
-            'following': stats.get('following'),
-            'followers': stats.get('followers'),
-            'likes': stats.get('likes'),
-            'is_followed': self.is_user_followed(),
-        }
-    
-    # === Ad Detection ===
-    
-    def is_ad_video(self) -> bool:
-        """Check if current video is an advertisement.
-        
-        Détecte via le label "Ad" visible sur les vidéos sponsorisées.
-        Resource-id: com.zhiliaoapp.musically:id/ru3
-        """
-        return self._element_exists(self.video_selectors.ad_label, timeout=1)
-    
-    # === Error & Popup Detection ===
-    
-    def has_popup(self) -> bool:
-        """Check if there's a popup on screen."""
-        if self._element_exists(self.popup_selectors.close_button, timeout=1):
-            return True
-        if self._element_exists(self.popup_selectors.dismiss_button, timeout=1):
-            return True
-        if self._element_exists(self.popup_selectors.promo_banner, timeout=1):
-            return True
-        # Check for collections popup
-        if self._element_exists(self.popup_selectors.collections_popup, timeout=1):
-            return True
-        # Check for "Follow your friends" popup
-        if self._element_exists(self.popup_selectors.follow_friends_popup, timeout=1):
-            return True
-        return False
-    
-    def has_collections_popup(self) -> bool:
-        """Check if the 'Create shared collections' popup is visible."""
-        return self._element_exists(self.popup_selectors.collections_popup, timeout=1)
-    
-    def has_follow_friends_popup(self) -> bool:
-        """Check if the 'Follow your friends' popup is visible."""
-        return self._element_exists(self.popup_selectors.follow_friends_popup, timeout=1)
-    
-    def has_link_email_popup(self) -> bool:
-        """Check if the 'Link email' popup is visible."""
-        return self._element_exists(self.popup_selectors.link_email_popup, timeout=1)
-    
-    def has_notification_banner(self) -> bool:
-        """Check if a notification banner is visible (e.g., 'X sent you new messages')."""
-        return self._element_exists(self.popup_selectors.notification_banner, timeout=1)
-    
-    def is_on_inbox_page(self) -> bool:
-        """Check if currently on the Inbox page (accidentally navigated there)."""
-        return self._element_exists(self.popup_selectors.inbox_page_indicator, timeout=1)
-    
-    def has_suggestion_page(self) -> bool:
-        """Check if on a suggestion page (Follow back / Not interested).
-        
-        This page appears in the For You feed suggesting users to follow back.
-        """
-        return self._element_exists(self.popup_selectors.suggestion_page_indicator, timeout=1)
-    
-    def has_comments_section_open(self) -> bool:
-        """Check if the comments section is open.
-        
-        This can happen accidentally when scrolling and clicking on the comment input area.
-        """
-        return self._element_exists(self.popup_selectors.comments_section_indicator, timeout=1)
+    # === Error & State Detection ===
     
     def has_error(self) -> bool:
         """Check if there's an error message on screen."""

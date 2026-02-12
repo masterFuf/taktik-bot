@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple, Union
 from loguru import logger
 
+from taktik.core.shared.base_action import SharedBaseAction
 from .device_facade import DeviceFacade
 from .utils import ActionUtils
 from ...utils.taktik_keyboard import run_adb_shell, TAKTIK_KEYBOARD_IME, IME_MESSAGE_B64, IME_CLEAR_TEXT
@@ -117,19 +118,35 @@ class HumanBehavior:
         )
 
 
-class BaseAction:
+class BaseAction(SharedBaseAction):
+    """Instagram-specific base action.
+    
+    Inherits common element interaction methods from SharedBaseAction:
+    - _find_and_click, _wait_for_element, _is_element_present
+    - _get_text_from_element, _get_element_attribute
+    - _get_device_serial, _clear_text_with_taktik_keyboard
+    - get_method_stats, reset_stats
+    - _extract_number_from_text, _clean_username, _is_valid_username
+    
+    Overrides/adds Instagram-specific behavior:
+    - HumanBehavior singleton (fatigue, gaussian delays, break management)
+    - Extended action types for _human_like_delay
+    - Human-like scroll with random offsets
+    - Taktik Keyboard with send_keys fallback
+    - Instagram app management
+    """
+    
+    _device_facade_class = DeviceFacade
+    
     def __init__(self, device):
-        self.device = device if isinstance(device, DeviceFacade) else DeviceFacade(device)
+        super().__init__(device)
         self.logger = logger.bind(module=f"instagram.actions.{self.__class__.__name__.lower()}")
         self.utils = ActionUtils()
         self.human = HumanBehavior()  # Singleton partagé
-        
-        self._method_stats = {
-            'clicks': 0,
-            'waits': 0,
-            'sleeps': 0,
-            'errors': 0
-        }
+    
+    # =========================================================================
+    # Delays — overrides SharedBaseAction (gaussian + fatigue + more types)
+    # =========================================================================
         
     def _random_sleep(self, min_delay: float = 0.3, max_delay: float = 0.8) -> None:
         """Sleep avec distribution gaussienne et fatigue de session."""
@@ -176,114 +193,9 @@ class BaseAction:
         
         return False
     
-    def _find_and_click(self, selectors: Union[List[str], str], timeout: float = 5.0, 
-                       human_delay: bool = True) -> bool:
-        if isinstance(selectors, str):
-            selectors = [selectors]
-        
-        start_time = time.time()
-        last_error = None
-        
-        self.logger.debug(f"🔍 Searching for elements with {len(selectors)} selectors")
-        
-        while time.time() - start_time < timeout:
-            for i, selector in enumerate(selectors):
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        self.logger.debug(f"✅ Element found with selector #{i+1}: {selector[:50]}...")
-                        element.click()
-                        self._method_stats['clicks'] += 1
-                        
-                        if human_delay:
-                            self._human_like_delay('click')
-                        
-                        return True
-                except Exception as e:
-                    last_error = e
-                    self.logger.debug(f"❌ Selector #{i+1} failed: {str(e)[:100]}")
-                    continue
-            
-            time.sleep(0.5)
-        
-        self.logger.warning(f"🚫 No element found after {timeout}s")
-        if last_error:
-            self.logger.debug(f"Last error: {last_error}")
-        
-        self._method_stats['errors'] += 1
-        return False
-    
-    def _wait_for_element(self, selectors: Union[List[str], str], timeout: float = 10.0, 
-                         check_interval: float = 0.5, silent: bool = False) -> bool:
-        if isinstance(selectors, str):
-            selectors = [selectors]
-        
-        start_time = time.time()
-        if not silent:
-            self.logger.debug(f"⏳ Waiting for element with {len(selectors)} selectors")
-        
-        while time.time() - start_time < timeout:
-            for selector in selectors:
-                try:
-                    if self.device.xpath(selector).exists:
-                        if not silent:
-                            self.logger.debug(f"✅ Element appeared: {selector[:50]}...")
-                        self._method_stats['waits'] += 1
-                        return True
-                except Exception:
-                    continue
-            
-            time.sleep(check_interval)
-        
-        if not silent:
-            self.logger.warning(f"⏰ Timeout: element not found after {timeout}s")
-        self._method_stats['errors'] += 1
-        return False
-    
-    def _is_element_present(self, selectors: Union[List[str], str]) -> bool:
-        if isinstance(selectors, str):
-            selectors = [selectors]
-        
-        for selector in selectors:
-            try:
-                if self.device.xpath(selector).exists:
-                    return True
-            except Exception:
-                continue
-        
-        return False
-    
-    def _get_text_from_element(self, selectors: Union[List[str], str]) -> Optional[str]:    
-        if isinstance(selectors, str):
-            selectors = [selectors]
-        
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    text = element.get_text()
-                    if text:
-                        return text.strip()
-            except Exception as e:
-                self.logger.debug(f"Error getting text: {e}")
-                continue
-        
-        return None
-    
-    def _get_element_attribute(self, selectors: Union[List[str], str], 
-                             attribute: str) -> Optional[str]:
-        if isinstance(selectors, str):
-            selectors = [selectors]
-        
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element.attrib.get(attribute)
-            except Exception:
-                continue
-        
-        return None
+    # =========================================================================
+    # Scroll — Instagram-specific (human-like variance with random offsets)
+    # =========================================================================
 
     def _scroll_down(self, distance: int = 500) -> None:
         """Scroll vers le bas avec variance naturelle."""
@@ -325,10 +237,18 @@ class BaseAction:
         self.device.swipe(start_x, start_y, end_x, end_y, duration=duration)
         self._human_like_delay('scroll')
     
+    # =========================================================================
+    # Navigation — override _press_back (uses IG DeviceFacade.press path)
+    # =========================================================================
+    
     def _press_back(self, count: int = 1) -> None:
         for _ in range(count):
             self.device.press('back')
             self._human_like_delay('click')
+    
+    # =========================================================================
+    # Instagram app management
+    # =========================================================================
     
     def _is_instagram_open(self) -> bool:
         try:
@@ -357,21 +277,9 @@ class BaseAction:
         except Exception as e:
             self.logger.debug(f"Debug error: {e}")
     
-    def get_method_stats(self) -> Dict[str, int]:
-        return self._method_stats.copy()
-    
-    def reset_stats(self) -> None:
-        self._method_stats = {key: 0 for key in self._method_stats}
-        self.logger.debug("📊 Stats reset")
-        
-    def _extract_number_from_text(self, text: str) -> Optional[int]:
-        return self.utils.parse_number_from_text(text)
-    
-    def _clean_username(self, username: str) -> str:
-        return self.utils.clean_username(username)
-    
-    def _is_valid_username(self, username: str) -> bool:
-        return self.utils.is_valid_username(username)
+    # =========================================================================
+    # Typing — Instagram-specific (character-by-character human simulation)
+    # =========================================================================
     
     def _type_like_human(self, text: str, min_delay: float = 0.05, max_delay: float = 0.15) -> None:
         """
@@ -411,23 +319,9 @@ class BaseAction:
         
         self.logger.debug(f"✅ Finished typing '{text}'")
     
-    def _get_device_serial(self) -> str:
-        """Get the device serial for ADB commands."""
-        try:
-            device_serial = getattr(self.device.device, 'serial', None)
-            if not device_serial:
-                device_info = getattr(self.device.device, '_device_info', {})
-                device_serial = device_info.get('serial', 'emulator-5554')
-            
-            if not device_serial:
-                self.logger.warning("⚠️ Device ID not found, using emulator-5554")
-                device_serial = "emulator-5554"
-                
-        except Exception as e:
-            self.logger.warning(f"⚠️ Device ID error: {e}, using emulator-5554")
-            device_serial = "emulator-5554"
-        
-        return device_serial
+    # =========================================================================
+    # Taktik Keyboard — overrides SharedBaseAction (has send_keys fallback)
+    # =========================================================================
     
     def _is_taktik_keyboard_active(self) -> bool:
         """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
@@ -465,6 +359,9 @@ class BaseAction:
         """
         Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
         This is more reliable than uiautomator2's send_keys for special characters.
+        
+        IMPORTANT: This override adds send_keys fallback that SharedBaseAction lacks.
+        If Taktik Keyboard fails, falls back to device.send_keys() instead of returning False.
         
         Args:
             text: Text to type

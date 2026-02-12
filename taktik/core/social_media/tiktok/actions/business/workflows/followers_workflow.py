@@ -28,6 +28,7 @@ from taktik.core.database.local.service import get_local_database
 from ...atomic.click_actions import ClickActions
 from ...atomic.navigation_actions import NavigationActions
 from ...atomic.scroll_actions import ScrollActions
+from ._popup_handler import PopupHandler
 from ...atomic.detection_actions import DetectionActions
 from ....ui.selectors import FOLLOWERS_SELECTORS, SEARCH_SELECTORS, VIDEO_SELECTORS
 
@@ -131,6 +132,9 @@ class FollowersWorkflow:
         self.scroll = ScrollActions(device)
         self.detection = DetectionActions(device)
         
+        # Shared popup handler
+        self._popup_handler = PopupHandler(self.click, self.detection)
+        
         # Selectors
         self.followers_selectors = FOLLOWERS_SELECTORS
         self.search_selectors = SEARCH_SELECTORS
@@ -179,54 +183,7 @@ class FollowersWorkflow:
     
     def _handle_popups(self):
         """Check for and close any popups that might block interaction."""
-        # First check for Android system popups (input method selection, etc.)
-        if self.click.close_system_popup():
-            self.logger.info("✅ System popup closed")
-            time.sleep(0.5)
-            return True
-        
-        # Check for notification banner
-        if self.click.dismiss_notification_banner():
-            self.logger.info("✅ Notification banner dismissed")
-            time.sleep(0.5)
-            return True
-        
-        # Check if accidentally on Inbox page
-        if self.detection.is_on_inbox_page():
-            self.click.escape_inbox_page()
-            self.logger.info("✅ Escaped from Inbox page")
-            time.sleep(0.5)
-            return True
-        
-        # Check for "Link email" popup
-        if self.detection.has_link_email_popup():
-            if self.click.close_link_email_popup():
-                self.logger.info("✅ 'Link email' popup closed")
-                time.sleep(0.5)
-                return True
-        
-        # Check for "Follow your friends" popup
-        if self.detection.has_follow_friends_popup():
-            if self.click.close_follow_friends_popup():
-                self.logger.info("✅ 'Follow your friends' popup closed")
-                time.sleep(0.5)
-                return True
-        
-        # Check for collections popup
-        if self.detection.has_collections_popup():
-            if self.click.close_collections_popup():
-                self.logger.info("✅ Collections popup closed")
-                time.sleep(0.5)
-                return True
-        
-        # Try generic popup close
-        if self.detection.has_popup():
-            if self.click.close_popup():
-                self.logger.info("✅ Popup closed")
-                time.sleep(0.5)
-                return True
-        
-        return False
+        return self._popup_handler.close_all()
     
     def pause(self):
         """Pause the workflow."""

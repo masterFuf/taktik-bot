@@ -1,11 +1,12 @@
 """
-Taktik Keyboard Utility Module (Instagram compatibility shim)
-
-Re-exports everything from the shared taktik_keyboard module.
-Existing Instagram code can continue importing from here without changes.
+Shared core modules for Taktik.
+Contains base classes and utilities shared between Instagram and TikTok.
 """
 
-from taktik.core.shared.taktik_keyboard import (
+from .device_facade import BaseDeviceFacade, Direction
+from .base_action import SharedBaseAction
+from .utils import ActionUtils, parse_count
+from .taktik_keyboard import (
     run_adb_shell,
     TAKTIK_KEYBOARD_PKG,
     TAKTIK_KEYBOARD_IME,
@@ -18,6 +19,11 @@ from taktik.core.shared.taktik_keyboard import (
 )
 
 __all__ = [
+    'BaseDeviceFacade',
+    'Direction',
+    'SharedBaseAction',
+    'ActionUtils',
+    'parse_count',
     'run_adb_shell',
     'TAKTIK_KEYBOARD_PKG',
     'TAKTIK_KEYBOARD_IME',
