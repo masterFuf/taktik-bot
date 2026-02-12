@@ -13,7 +13,7 @@ from rich.prompt import Prompt, Confirm, IntPrompt
 from loguru import logger
 from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
-from taktik.core.social_media.tiktok.manager import TikTokManager
+from taktik.core.social_media.tiktok.core.manager import TikTokManager
 from taktik.core.database import configure_db_service
 from taktik.locales import fr, en
 from taktik import __version__
@@ -1179,7 +1179,7 @@ def cli(ctx, lang=None):
                     
                     elif mgmt_choice == 1:
                         # Login interactif
-                        from taktik.core.social_media.instagram.workflows.management.login_workflow import LoginWorkflow
+                        from taktik.core.social_media.instagram.workflows.management.login.login_workflow import LoginWorkflow
                         import uiautomator2 as u2
                         from getpass import getpass
                         
@@ -1232,7 +1232,7 @@ def cli(ctx, lang=None):
                     
                     elif mgmt_choice == 2:
                         # Post Content interactif
-                        from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+                        from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
                         from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
                         from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
                         import uiautomator2 as u2
@@ -1290,7 +1290,7 @@ def cli(ctx, lang=None):
                     
                     elif mgmt_choice == 3:
                         # Post Story interactif
-                        from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+                        from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
                         from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
                         from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
                         import uiautomator2 as u2
@@ -1367,7 +1367,7 @@ def cli(ctx, lang=None):
                         if not _connect(device_manager, device_id, current_translations):
                             continue
                         
-                        from taktik.core.social_media.instagram.workflows.management.dm_auto_reply_workflow import DMAutoReplyWorkflow, DMAutoReplyConfig
+                        from taktik.core.social_media.instagram.workflows.management.dm.auto_reply_workflow import DMAutoReplyWorkflow, DMAutoReplyConfig
                         
                         console.print("[blue]🤖 Initializing DM Auto-Reply workflow...[/blue]")
                         
@@ -1835,7 +1835,7 @@ def auth():
 @click.option('--save-instagram-login/--no-save-instagram-login', default=False, help="Sauvegarder les infos de login dans Instagram")
 def login_instagram(device_id, username, password, save_session, save_instagram_login):
     """Se connecter à un compte Instagram."""
-    from taktik.core.social_media.instagram.workflows.management.login_workflow import LoginWorkflow
+    from taktik.core.social_media.instagram.workflows.management.login.login_workflow import LoginWorkflow
     import uiautomator2 as u2
     from getpass import getpass
     
@@ -2572,7 +2572,7 @@ def content():
 @click.option('--hashtags', '-h', help="Hashtags séparés par des espaces (ex: 'travel nature sunset')")
 def post_single(device_id, image, caption, location, hashtags):
     """Poster une photo unique sur Instagram."""
-    from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+    from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
     from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
@@ -2648,7 +2648,7 @@ def post_single(device_id, image, caption, location, hashtags):
 @click.option('--delay', default=60, help="Délai entre chaque post en secondes (défaut: 60)")
 def post_bulk(device_id, images, captions, delay):
     """Poster plusieurs photos successivement."""
-    from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+    from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
     from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
@@ -2722,7 +2722,7 @@ def post_bulk(device_id, images, captions, delay):
 @click.option('--image', '-i', required=True, type=click.Path(exists=True), help="Chemin vers l'image de la story")
 def post_story(device_id, image):
     """Poster une story sur Instagram."""
-    from taktik.core.social_media.instagram.workflows.management.content_workflow import ContentWorkflow
+    from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
     from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
