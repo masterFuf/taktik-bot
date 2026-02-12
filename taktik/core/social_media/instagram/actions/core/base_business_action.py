@@ -8,7 +8,7 @@ from ..atomic.navigation_actions import NavigationActions
 from ..atomic.detection_actions import DetectionActions
 from ..atomic.click_actions import ClickActions
 from ..atomic.scroll_actions import ScrollActions
-from ..base_stats import BaseStatsManager
+from .base_stats import BaseStatsManager
 from ...ui.selectors import (
     POPUP_SELECTORS, POST_SELECTORS, DETECTION_SELECTORS, 
     NAVIGATION_SELECTORS, PROFILE_SELECTORS, BUTTON_SELECTORS
