@@ -101,7 +101,6 @@ class WorkflowHelpers:
         
         stats_output += "=" * 80 + "\n"
         
-        print(stats_output)
         self.logger.info(stats_output)
     
     def initialize_session(self) -> Optional[int]:
