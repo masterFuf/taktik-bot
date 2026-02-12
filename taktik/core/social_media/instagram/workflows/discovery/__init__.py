@@ -10,7 +10,6 @@ V2 Architecture:
 - Tracking de progression pour reprendre si interrompu
 """
 
-from .discovery_workflow import DiscoveryWorkflow
-from .discovery_workflow_v2 import DiscoveryWorkflowV2
+from .discovery_workflow_v2 import DiscoveryWorkflowV2 as DiscoveryWorkflow
 
-__all__ = ['DiscoveryWorkflow', 'DiscoveryWorkflowV2']
+__all__ = ['DiscoveryWorkflow']
