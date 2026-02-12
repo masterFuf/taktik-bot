@@ -15,12 +15,8 @@ from loguru import logger
 import time
 import random
 
-from ...atomic.click_actions import ClickActions
-from ...atomic.navigation_actions import NavigationActions
-from ...atomic.scroll_actions import ScrollActions
-from ...atomic.detection_actions import DetectionActions
 from ...core.utils import parse_count
-from ._popup_handler import PopupHandler
+from ._base_workflow import BaseTikTokWorkflow
 
 
 # ---------------------------------------------------------------------------
@@ -64,46 +60,35 @@ class VideoWorkflowStats:
 # Base workflow
 # ---------------------------------------------------------------------------
 
-class BaseVideoWorkflow:
+class BaseVideoWorkflow(BaseTikTokWorkflow):
     """Base class for video-feed workflows (ForYou, Search, …).
 
-    Provides:
+    Inherits from BaseTikTokWorkflow:
         - atomic-action helpers (click, navigation, scroll, detection)
-        - 5 callback setters + stats emitter
-        - stop / pause / resume
+        - popup handler
+        - stop / pause / resume / _wait_if_paused
+        - _send_stats_update, set_on_stats_callback
+
+    Adds:
+        - 4 video-specific callback setters
         - _like_video, _follow_user, _favorite_video
         - _decide_and_execute_actions
         - _check_limits_reached, _check_pause_needed
-        - _handle_popups (full popup chain)
         - _handle_stuck_video (stuck-video detection)
         - _parse_count (delegate to utils.parse_count)
         - get_stats
     """
 
     def __init__(self, device, *, module_name: str = "tiktok-video-workflow"):
-        self.device = device
+        super().__init__(device, module_name=module_name)
 
-        # Atomic actions
-        self.click = ClickActions(device)
-        self.navigation = NavigationActions(device)
-        self.scroll = ScrollActions(device)
-        self.detection = DetectionActions(device)
-
-        # Shared popup handler
-        self._popup_handler = PopupHandler(self.click, self.detection)
-
-        self.logger = logger.bind(module=module_name)
-
-        # Callbacks
+        # Video-specific callbacks
         self._on_video_callback: Optional[Callable] = None
         self._on_like_callback: Optional[Callable] = None
         self._on_follow_callback: Optional[Callable] = None
-        self._on_stats_callback: Optional[Callable] = None
         self._on_pause_callback: Optional[Callable] = None
 
-        # State
-        self._running = False
-        self._paused = False
+        # Video-specific state
         self._actions_since_pause = 0
 
         # Stuck-video tracking
@@ -126,50 +111,9 @@ class BaseVideoWorkflow:
         """Set callback called when a user is followed."""
         self._on_follow_callback = callback
 
-    def set_on_stats_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Set callback called after each action to send real-time stats."""
-        self._on_stats_callback = callback
-
     def set_on_pause_callback(self, callback: Callable[[int], None]):
         """Set callback called when workflow takes a pause."""
         self._on_pause_callback = callback
-
-    # ------------------------------------------------------------------
-    # Stats helper
-    # ------------------------------------------------------------------
-
-    def _send_stats_update(self):
-        """Send current stats via callback."""
-        if self._on_stats_callback:
-            try:
-                self._on_stats_callback(self.stats.to_dict())
-            except Exception as e:
-                self.logger.warning(f"Error sending stats: {e}")
-
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-
-    def stop(self):
-        """Stop the workflow."""
-        self._running = False
-        self.logger.info("🛑 Workflow stop requested")
-
-    def pause(self):
-        """Pause the workflow."""
-        self._paused = True
-        self.logger.info("⏸️ Workflow paused")
-
-    def resume(self):
-        """Resume the workflow."""
-        self._paused = False
-        self.logger.info("▶️ Workflow resumed")
-
-    def _wait_if_paused(self):
-        """Block while paused, return False if stopped during pause."""
-        while self._paused and self._running:
-            time.sleep(1)
-        return self._running
 
     # ------------------------------------------------------------------
     # Video actions
@@ -282,12 +226,8 @@ class BaseVideoWorkflow:
             time.sleep(pause_duration)
             self._actions_since_pause = 0
 
-    # ------------------------------------------------------------------
-    # Popup handling (shared by ForYou, Search, Followers)
-    # ------------------------------------------------------------------
-
     def _handle_popups(self):
-        """Check for and close any popups that might block interaction."""
+        """Override to also track popup stats."""
         if self._popup_handler.close_all():
             self.stats.popups_closed += 1
 

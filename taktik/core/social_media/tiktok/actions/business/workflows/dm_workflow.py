@@ -14,10 +14,7 @@ from dataclasses import dataclass, field
 from loguru import logger
 import time
 
-from ...atomic.click_actions import ClickActions
-from ...atomic.navigation_actions import NavigationActions
-from ...atomic.scroll_actions import ScrollActions
-from ...atomic.detection_actions import DetectionActions
+from ._base_workflow import BaseTikTokWorkflow
 from ...atomic.dm_actions import DMActions
 
 
@@ -96,14 +93,18 @@ class ConversationData:
         }
 
 
-class DMWorkflow:
+class DMWorkflow(BaseTikTokWorkflow):
     """Workflow d'automatisation des DM TikTok.
     
-    Ce workflow permet de:
-    - Naviguer vers la boîte de réception
-    - Lire les conversations
-    - Extraire les messages
-    - Envoyer des réponses
+    Inherits from BaseTikTokWorkflow:
+        - atomic actions (click, navigation, scroll, detection)
+        - popup handler + _handle_popups
+        - lifecycle (stop/pause/resume/_wait_if_paused)
+        - _send_stats_update, set_on_stats_callback
+    
+    Adds:
+        - DMActions for DM-specific interactions
+        - DM-specific callbacks and progress tracking
     """
     
     def __init__(self, device, config: Optional[DMConfig] = None):
@@ -113,27 +114,19 @@ class DMWorkflow:
             device: Device facade for UI interactions
             config: Optional configuration, uses defaults if not provided
         """
-        self.device = device
+        super().__init__(device, module_name="tiktok-dm-workflow")
         self.config = config or DMConfig()
         self.stats = DMStats()
         
-        # Initialize atomic actions
-        self.click = ClickActions(device)
-        self.navigation = NavigationActions(device)
-        self.scroll = ScrollActions(device)
-        self.detection = DetectionActions(device)
+        # DM-specific atomic actions
         self.dm = DMActions(device)
         
-        self.logger = logger.bind(module="tiktok-dm-workflow")
-        
-        # Callbacks
+        # DM-specific callbacks
         self._on_conversation_callback: Optional[Callable] = None
         self._on_message_sent_callback: Optional[Callable] = None
-        self._on_stats_callback: Optional[Callable] = None
         self._on_progress_callback: Optional[Callable] = None
         
-        # State
-        self._running = False
+        # DM-specific state
         self._conversations: List[ConversationData] = []
     
     def set_on_conversation_callback(self, callback: Callable[[Dict[str, Any]], None]):
@@ -144,21 +137,9 @@ class DMWorkflow:
         """Set callback called when a message is sent."""
         self._on_message_sent_callback = callback
     
-    def set_on_stats_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Set callback called after each action to send real-time stats."""
-        self._on_stats_callback = callback
-    
     def set_on_progress_callback(self, callback: Callable[[int, int, str], None]):
         """Set callback for progress updates (current, total, name)."""
         self._on_progress_callback = callback
-    
-    def _send_stats_update(self):
-        """Send current stats via callback."""
-        if self._on_stats_callback:
-            try:
-                self._on_stats_callback(self.stats.to_dict())
-            except Exception as e:
-                self.logger.warning(f"Error sending stats: {e}")
     
     def _send_progress_update(self, current: int, total: int, name: str):
         """Send progress update via callback."""
@@ -167,48 +148,6 @@ class DMWorkflow:
                 self._on_progress_callback(current, total, name)
             except Exception as e:
                 self.logger.warning(f"Error sending progress: {e}")
-    
-    def stop(self):
-        """Stop the workflow."""
-        self._running = False
-        self.logger.info("🛑 DM Workflow stopped")
-    
-    def _handle_popups(self):
-        """Check for and close any popups that might block interaction."""
-        # First check for Android system popups (input method selection, etc.)
-        if self.click.close_system_popup():
-            self.logger.info("✅ System popup closed")
-            time.sleep(0.5)
-            return True
-        
-        # Check for notification banner
-        if self.click.dismiss_notification_banner():
-            self.logger.info("✅ Notification banner dismissed")
-            time.sleep(0.5)
-            return True
-        
-        # Check for "Link email" popup
-        if self.detection.has_link_email_popup():
-            if self.click.close_link_email_popup():
-                self.logger.info("✅ 'Link email' popup closed")
-                time.sleep(0.5)
-                return True
-        
-        # Check for "Follow your friends" popup
-        if self.detection.has_follow_friends_popup():
-            if self.click.close_follow_friends_popup():
-                self.logger.info("✅ 'Follow your friends' popup closed")
-                time.sleep(0.5)
-                return True
-        
-        # Try generic popup close
-        if self.detection.has_popup():
-            if self.click.close_popup():
-                self.logger.info("✅ Popup closed")
-                time.sleep(0.5)
-                return True
-        
-        return False
     
     # ==========================================================================
     # MAIN WORKFLOW: READ CONVERSATIONS

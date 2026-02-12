@@ -25,11 +25,8 @@ import random
 
 from taktik.core.database.local.service import get_local_database
 
+from ._base_workflow import BaseTikTokWorkflow
 from ...atomic.click_actions import ClickActions
-from ...atomic.navigation_actions import NavigationActions
-from ...atomic.scroll_actions import ScrollActions
-from ._popup_handler import PopupHandler
-from ...atomic.detection_actions import DetectionActions
 from ....ui.selectors import FOLLOWERS_SELECTORS, SEARCH_SELECTORS, VIDEO_SELECTORS
 
 
@@ -117,32 +114,27 @@ class FollowersStats:
         }
 
 
-class FollowersWorkflow:
-    """Workflow pour interagir avec les followers d'un utilisateur cible sur TikTok."""
+class FollowersWorkflow(BaseTikTokWorkflow):
+    """Workflow pour interagir avec les followers d'un utilisateur cible sur TikTok.
+    
+    Inherits from BaseTikTokWorkflow:
+        - atomic actions (click, navigation, scroll, detection)
+        - popup handler + _handle_popups
+        - lifecycle (stop/pause/resume/_wait_if_paused)
+        - _send_stats_update, set_on_stats_callback
+    """
     
     def __init__(self, device, config: FollowersConfig):
-        self.device = device
+        super().__init__(device, module_name="tiktok-followers-workflow")
         self.config = config
         self.stats = FollowersStats()
-        self.logger = logger.bind(module="tiktok-followers-workflow")
-        
-        # Actions
-        self.click = ClickActions(device)
-        self.navigation = NavigationActions(device)
-        self.scroll = ScrollActions(device)
-        self.detection = DetectionActions(device)
-        
-        # Shared popup handler
-        self._popup_handler = PopupHandler(self.click, self.detection)
         
         # Selectors
         self.followers_selectors = FOLLOWERS_SELECTORS
         self.search_selectors = SEARCH_SELECTORS
         self.video_selectors = VIDEO_SELECTORS
         
-        # State
-        self._running = False
-        self._paused = False
+        # Followers-specific state
         self._actions_since_pause = 0
         self._processed_usernames: Set[str] = set()  # Track usernames we've processed in this session
         self._current_profile_username = ""  # Username of the profile we're currently interacting with
@@ -154,19 +146,14 @@ class FollowersWorkflow:
         self._account_id: Optional[int] = None
         self._session_id: Optional[int] = None
         
-        # Callbacks
+        # Followers-specific callbacks
         self._on_action_callback: Optional[Callable] = None
-        self._on_stats_callback: Optional[Callable] = None
         self._on_pause_callback: Optional[Callable] = None
         self._on_user_callback: Optional[Callable] = None
     
     def set_on_action_callback(self, callback: Callable):
         """Set callback for action events (like, follow, etc.)."""
         self._on_action_callback = callback
-    
-    def set_on_stats_callback(self, callback: Callable):
-        """Set callback for stats updates."""
-        self._on_stats_callback = callback
     
     def set_on_pause_callback(self, callback: Callable):
         """Set callback for pause events."""
@@ -175,25 +162,6 @@ class FollowersWorkflow:
     def set_on_user_callback(self, callback: Callable):
         """Set callback for user info events."""
         self._on_user_callback = callback
-    
-    def stop(self):
-        """Stop the workflow."""
-        self._running = False
-        self.logger.info("🛑 Stopping Followers workflow")
-    
-    def _handle_popups(self):
-        """Check for and close any popups that might block interaction."""
-        return self._popup_handler.close_all()
-    
-    def pause(self):
-        """Pause the workflow."""
-        self._paused = True
-        self.logger.info("⏸️ Pausing Followers workflow")
-    
-    def resume(self):
-        """Resume the workflow."""
-        self._paused = False
-        self.logger.info("▶️ Resuming Followers workflow")
     
     def run(self, bot_username: str = None) -> FollowersStats:
         """Run the Followers workflow.
@@ -1409,14 +1377,6 @@ class FollowersWorkflow:
             
             time.sleep(pause_duration)
             self._actions_since_pause = 0
-    
-    def _send_stats_update(self):
-        """Send stats update via callback."""
-        if self._on_stats_callback:
-            try:
-                self._on_stats_callback(self.stats.to_dict())
-            except Exception as e:
-                self.logger.warning(f"Stats callback error: {e}")
     
     def _send_action(self, action: str, target: str = ""):
         """Send action event via callback."""
