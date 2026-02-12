@@ -14,11 +14,11 @@ import time
 from typing import Optional, Callable, Dict, Any
 from loguru import logger
 
-from ...atomic.click_actions import ClickActions
-from ...atomic.navigation_actions import NavigationActions
-from ...atomic.scroll_actions import ScrollActions
-from ...atomic.detection_actions import DetectionActions
-from ._popup_handler import PopupHandler
+from ....atomic.click_actions import ClickActions
+from ....atomic.navigation_actions import NavigationActions
+from ....atomic.scroll_actions import ScrollActions
+from ....atomic.detection_actions import DetectionActions
+from .popup_handler import PopupHandler
 
 
 class BaseTikTokWorkflow:

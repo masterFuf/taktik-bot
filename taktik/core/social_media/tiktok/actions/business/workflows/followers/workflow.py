@@ -25,9 +25,9 @@ import random
 
 from taktik.core.database.local.service import get_local_database
 
-from ._base_workflow import BaseTikTokWorkflow
-from ...atomic.click_actions import ClickActions
-from ....ui.selectors import FOLLOWERS_SELECTORS, SEARCH_SELECTORS, VIDEO_SELECTORS
+from .._internal import BaseTikTokWorkflow
+from ....atomic.click_actions import ClickActions
+from .....ui.selectors import FOLLOWERS_SELECTORS, SEARCH_SELECTORS, VIDEO_SELECTORS
 
 
 @dataclass

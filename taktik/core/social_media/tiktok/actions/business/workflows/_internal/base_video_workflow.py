@@ -15,8 +15,8 @@ from loguru import logger
 import time
 import random
 
-from ...core.utils import parse_count
-from ._base_workflow import BaseTikTokWorkflow
+from ....core.utils import parse_count
+from .base_workflow import BaseTikTokWorkflow
 
 
 # ---------------------------------------------------------------------------

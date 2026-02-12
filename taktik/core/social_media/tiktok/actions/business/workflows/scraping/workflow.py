@@ -9,9 +9,9 @@ from dataclasses import dataclass, field
 from loguru import logger
 import time
 
-from ...atomic.navigation_actions import NavigationActions
-from ...core.base_action import BaseAction
-from ...core.utils import parse_count as _parse_count
+from ....atomic.navigation_actions import NavigationActions
+from ....core.base_action import BaseAction
+from ....core.utils import parse_count as _parse_count
 
 
 @dataclass

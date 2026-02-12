@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from loguru import logger
 import time
 
-from ._base_workflow import BaseTikTokWorkflow
-from ...atomic.dm_actions import DMActions
+from .._internal import BaseTikTokWorkflow
+from ....atomic.dm_actions import DMActions
 
 
 @dataclass

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import time
 import random
 
-from ._base_video_workflow import BaseVideoWorkflow, VideoWorkflowStats
+from .._internal import BaseVideoWorkflow, VideoWorkflowStats
 
 
 @dataclass
