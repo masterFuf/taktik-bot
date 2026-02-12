@@ -68,16 +68,6 @@ class BaseBusinessAction(BaseAction):
         self.like_business = LikeBusiness(self.device, self.session_manager, self.automation)
         self.comment_business = CommentBusiness(self.device, self.session_manager, self.automation)
         
-    def _get_account_id(self) -> Optional[int]:
-        if hasattr(self, 'automation') and self.automation:
-            return getattr(self.automation, 'active_account_id', None)
-        return None
-    
-    def _get_session_id(self) -> Optional[int]:
-        if hasattr(self, 'automation') and self.automation:
-            return getattr(self.automation, 'current_session_id', None)
-        return None
-    
     def _record_action(self, username: str, action_type: str, count: int = 1) -> bool:
         """
         Record an action in the database and emit IPC event for WorkflowAnalyzer.
@@ -491,6 +481,39 @@ class BaseBusinessAction(BaseAction):
             self.logger.error(f"❌ Error interacting with @{username}: {e}")
             return None
     
+    def _extract_likers_after_click(self, max_interactions: int = None,
+                                    multiply_by: int = 2) -> List[str]:
+        """Extract usernames from likers popup after the like-count element has been clicked.
+        
+        Shared logic used by both regular post and reel extraction.
+        """
+        if max_interactions is None:
+            max_interactions = getattr(self, 'current_max_interactions', 
+                                      self.default_config.get('max_interactions', 20))
+        
+        target_users = max_interactions * multiply_by
+        
+        if hasattr(self, 'current_max_interactions'):
+            original_max = self.current_max_interactions
+            self.current_max_interactions = target_users
+            likers = self.ui_extractors.extract_usernames_from_likers_popup(
+                current_max_interactions_attr=target_users,
+                automation=self.automation,
+                logger_instance=self.logger,
+                add_initial_sleep=False
+            )
+            self.current_max_interactions = original_max
+        else:
+            likers = self.ui_extractors.extract_usernames_from_likers_popup(
+                max_interactions=target_users,
+                automation=self.automation,
+                logger_instance=self.logger,
+                add_initial_sleep=True
+            )
+        
+        self._close_likers_popup()
+        return likers
+
     def _extract_likers_from_regular_post(self, max_interactions: int = None, 
                                          multiply_by: int = 2) -> List[str]:
         try:
@@ -503,33 +526,7 @@ class BaseBusinessAction(BaseAction):
             like_count_element.click()
             self._human_like_delay('popup_open')
             
-            if max_interactions is None:
-                max_interactions = getattr(self, 'current_max_interactions', 
-                                          self.default_config.get('max_interactions', 20))
-            
-            target_users = max_interactions * multiply_by
-            
-            if hasattr(self, 'current_max_interactions'):
-                original_max = self.current_max_interactions
-                self.current_max_interactions = target_users
-                likers = self.ui_extractors.extract_usernames_from_likers_popup(
-                    current_max_interactions_attr=target_users,
-                    automation=self.automation,
-                    logger_instance=self.logger,
-                    add_initial_sleep=False
-                )
-                self.current_max_interactions = original_max
-            else:
-                likers = self.ui_extractors.extract_usernames_from_likers_popup(
-                    max_interactions=target_users,
-                    automation=self.automation,
-                    logger_instance=self.logger,
-                    add_initial_sleep=True
-                )
-            
-            self._close_likers_popup()
-            
-            return likers
+            return self._extract_likers_after_click(max_interactions, multiply_by)
             
         except Exception as e:
             self.logger.error(f"❌ Error extracting likers from regular post: {e}")
@@ -572,33 +569,7 @@ class BaseBusinessAction(BaseAction):
             like_element.click()
             self._human_like_delay('popup_open')
             
-            if max_interactions is None:
-                max_interactions = getattr(self, 'current_max_interactions', 
-                                          self.default_config.get('max_interactions', 20))
-            
-            target_users = max_interactions * multiply_by
-            
-            if hasattr(self, 'current_max_interactions'):
-                original_max = self.current_max_interactions
-                self.current_max_interactions = target_users
-                likers = self.ui_extractors.extract_usernames_from_likers_popup(
-                    current_max_interactions_attr=target_users,
-                    automation=self.automation,
-                    logger_instance=self.logger,
-                    add_initial_sleep=False
-                )
-                self.current_max_interactions = original_max
-            else:
-                likers = self.ui_extractors.extract_usernames_from_likers_popup(
-                    max_interactions=target_users,
-                    automation=self.automation,
-                    logger_instance=self.logger,
-                    add_initial_sleep=True
-                )
-            
-            self._close_likers_popup()
-            
-            return likers
+            return self._extract_likers_after_click(max_interactions, multiply_by)
             
         except Exception as e:
             self.logger.error(f"❌ Error extracting likers from Reel: {e}")

@@ -129,25 +129,6 @@ class BaseStatsManager:
             'error_list': self.stats.get('error_list', [])
         }
     
-    def to_dict(self) -> Dict[str, Any]:
-        return self.stats.copy()
-    
-    def update_automation_stats(self, automation) -> None:
-        if hasattr(automation, 'stats'):
-            automation.stats['likes'] = max(
-                automation.stats.get('likes', 0),
-                self.stats.get('likes', 0),
-                self.stats.get('likes_made', 0)
-            )
-            automation.stats['follows'] = max(
-                automation.stats.get('follows', 0),
-                self.stats.get('follows', 0),
-                self.stats.get('follows_made', 0)
-            )
-            automation.stats['interactions'] = self.stats.get('profiles_interacted', 0)
-            
-            logger.debug(f"Automation stats synchronized: {automation.stats}")
-    
     def display_stats(self, current_profile: Optional[str] = None) -> None:
         summary = self.get_summary()
         
