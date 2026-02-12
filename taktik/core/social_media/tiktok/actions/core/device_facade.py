@@ -4,7 +4,7 @@ import time
 import re
 from loguru import logger
 
-from taktik.core.shared.device_facade import BaseDeviceFacade, Direction
+from taktik.core.shared.device.facade import BaseDeviceFacade, Direction
 
 
 class DeviceFacade(BaseDeviceFacade):

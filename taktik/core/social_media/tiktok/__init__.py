@@ -15,7 +15,7 @@ Dernière mise à jour: 7 janvier 2026
 Basé sur les UI dumps réels de TikTok.
 """
 
-from .manager import TikTokManager
+from .core.manager import TikTokManager
 from .actions import (
     ClickActions,
     NavigationActions,

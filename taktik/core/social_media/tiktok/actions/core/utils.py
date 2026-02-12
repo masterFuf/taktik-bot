@@ -5,7 +5,7 @@ Re-exports shared ActionUtils/parse_count and adds TikTok-specific overrides.
 TikTok usernames: 2-24 characters.
 """
 
-from taktik.core.shared.utils import ActionUtils as _SharedActionUtils, parse_count
+from taktik.core.shared.utils.action_utils import ActionUtils as _SharedActionUtils, parse_count
 
 
 class ActionUtils(_SharedActionUtils):

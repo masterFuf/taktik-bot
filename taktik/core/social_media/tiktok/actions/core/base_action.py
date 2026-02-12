@@ -9,8 +9,8 @@ from loguru import logger
 from .device_facade import DeviceFacade
 from .utils import ActionUtils
 
-from taktik.core.shared.base_action import SharedBaseAction
-from taktik.core.shared.taktik_keyboard import run_adb_shell, TAKTIK_KEYBOARD_IME, IME_MESSAGE_B64, IME_CLEAR_TEXT
+from taktik.core.shared.actions.base_action import SharedBaseAction
+from taktik.core.shared.input.taktik_keyboard import run_adb_shell, TAKTIK_KEYBOARD_IME, IME_MESSAGE_B64, IME_CLEAR_TEXT
 
 # Re-export for backward compatibility (some files import these from here)
 TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
