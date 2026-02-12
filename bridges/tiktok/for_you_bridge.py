@@ -24,7 +24,7 @@ def run_for_you_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok For You workflow on {device_id}")
     
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.for_you_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow import (
             ForYouWorkflow, ForYouConfig
         )
         

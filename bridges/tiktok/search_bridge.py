@@ -31,7 +31,7 @@ def run_search_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok Search workflow on {device_id}")
     
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.search_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.search.workflow import (
             SearchWorkflow, SearchConfig
         )
         

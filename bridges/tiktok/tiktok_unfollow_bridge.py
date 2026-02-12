@@ -33,7 +33,7 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
     
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import (
             UnfollowWorkflow, UnfollowConfig
         )
         

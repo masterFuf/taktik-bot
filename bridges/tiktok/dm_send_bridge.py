@@ -30,7 +30,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
     send_status("starting", f"Sending {len(messages)} messages")
     
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
             DMWorkflow, DMConfig
         )
         

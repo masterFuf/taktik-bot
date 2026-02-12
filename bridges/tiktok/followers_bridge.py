@@ -61,7 +61,7 @@ def run_followers_workflow(config: Dict[str, Any]):
     logger.info(f"📊 Distribution: {profiles_per_target} profiles per target (total: {max_followers_total})")
     
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.followers_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow import (
             FollowersWorkflow, FollowersConfig
         )
         
