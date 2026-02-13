@@ -345,6 +345,21 @@ class NavigationSelectors:
         '//*[contains(@text, "Populaires")]',
         '//*[contains(@content-desc, "Top")]'
     ])
+    
+    # === Search bar on explore page ===
+    explore_search_bar: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[contains(@text, "Rechercher")]',
+        '//android.widget.TextView[contains(@text, "Search")]',
+        '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
+        '//android.widget.EditText[contains(@hint, "Rechercher")]',
+        '//android.widget.EditText[contains(@hint, "Search")]',
+        '//*[contains(@content-desc, "Rechercher")]',
+        '//*[contains(@content-desc, "Search")]',
+    ])
+    
+    # === Search result selectors (use .format(username=...) for dynamic parts) ===
+    search_result_container_resource_id: str = 'com.instagram.android:id/row_search_user_container'
+    search_result_username_resource_id: str = 'com.instagram.android:id/row_search_user_username'
 
 @dataclass
 class ButtonSelectors:
@@ -481,6 +496,44 @@ class ProfileSelectors:
     full_name: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_header_full_name"]',
         '//*[contains(@resource-id, "full_name")]'
+    ])
+    
+    # === Enrichment selectors (XML-based profile extraction) ===
+    enrichment_username_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
+        '//*[@resource-id="com.instagram.android:id/action_bar_username_container"]//android.widget.TextView',
+    ])
+    
+    enrichment_full_name_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_header_full_name_above_vanity"]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_full_name"]',
+    ])
+    
+    enrichment_category_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_header_business_category"]',
+    ])
+    
+    enrichment_bio_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView',
+        '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[@class="android.widget.TextView"]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
+    ])
+    
+    enrichment_website_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_links_view"]//*[@resource-id="com.instagram.android:id/text_view"]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_website"]',
+    ])
+    
+    enrichment_banner_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/banner_row"]//*[@resource-id="com.instagram.android:id/profile_header_banner_item_layout"]',
+    ])
+    
+    enrichment_banner_title_selector: str = './/*[@resource-id="com.instagram.android:id/profile_header_banner_item_title"]'
+    
+    enrichment_bio_more_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[contains(@text, "more")]',
+        '//*[contains(@text, "… more")]',
+        '//*[contains(@text, "...more")]',
     ])
     
     # === Détection de profils privés ===
