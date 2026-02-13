@@ -148,18 +148,25 @@ class CommentAction(BaseBusinessAction):
     
     def _post_comment(self) -> bool:
         try:
-            post_button = self.device.xpath(self.post_selectors.post_comment_button_selector)
+            # Try each selector, with a retry after a short wait
+            for attempt in range(2):
+                for selector in self.post_selectors.post_comment_button_selectors:
+                    try:
+                        element = self.device.xpath(selector)
+                        if element.exists:
+                            element.click()
+                            self.logger.debug(f"Post comment button clicked with selector: {selector}")
+                            time.sleep(1)
+                            return True
+                    except Exception:
+                        continue
+                
+                if attempt == 0:
+                    self.logger.debug("Post comment button not found, waiting 2s and retrying...")
+                    time.sleep(2)
             
-            if not post_button.exists:
-                self.logger.error("Post comment button not found")
-                return False
-            
-            post_button.click()
-            self.logger.debug("Post comment button clicked")
-            
-            time.sleep(1)
-            
-            return True
+            self.logger.error("Post comment button not found after retries")
+            return False
             
         except Exception as e:
             self.logger.error(f"Error posting comment: {e}")
