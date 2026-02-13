@@ -5,8 +5,14 @@ Runs as standalone script, reads config from stdin
 """
 
 import sys
+import os
 import json
 from typing import Dict, Any
+
+# Bootstrap sys.path so absolute imports work when run as standalone script
+_bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _bot_dir not in sys.path:
+    sys.path.insert(0, _bot_dir)
 
 from bridges.tiktok.base import (
     logger, send_status, send_message,

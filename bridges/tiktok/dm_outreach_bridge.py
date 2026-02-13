@@ -5,11 +5,16 @@ Sends DMs to a list of recipients (cold outreach)
 """
 
 import sys
+import os
 import json
 import time
 import random
-import os
 from typing import Dict, Any, List, Optional
+
+# Bootstrap sys.path so absolute imports work when run as standalone script
+_bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _bot_dir not in sys.path:
+    sys.path.insert(0, _bot_dir)
 
 from bridges.tiktok.base import (
     logger, send_message, send_status, send_error, set_workflow
