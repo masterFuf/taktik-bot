@@ -19,16 +19,17 @@ from typing import Dict, Any, List, Optional
 from loguru import logger
 from rich.console import Console
 
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
-from taktik.core.social_media.instagram.actions.atomic.scroll_actions import ScrollActions
+from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
+from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 
 from .post_scraping_helpers import ScrapingPostHelpersMixin
 from .list_scraping import ScrapingListMixin
 from .persistence import ScrapingPersistenceMixin
+from ..common.session import should_continue_session
 
 
 console = Console()
@@ -130,11 +131,7 @@ class ScrapingWorkflow(
     
     def _should_continue(self) -> bool:
         """Check if scraping should continue based on time limit."""
-        if not self.start_time:
-            return True
-        
-        elapsed = (datetime.now() - self.start_time).total_seconds() / 60
-        return elapsed < self.session_duration_minutes
+        return should_continue_session(self.start_time, self.session_duration_minutes)
     
     def _scrape_target(self) -> Dict[str, Any]:
         """Scrape followers, following, or post likers/commenters from target accounts."""

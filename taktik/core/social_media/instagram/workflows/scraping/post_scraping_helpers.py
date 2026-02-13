@@ -8,6 +8,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, POST_SELECTORS, BUTTON_SELECTORS
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
+from ..common.detection import is_reel_post, is_in_post_view
+from ..common.post_navigation import open_first_post_of_profile
 
 console = Console()
 
@@ -79,55 +81,13 @@ class ScrapingPostHelpersMixin:
         return scraped_profiles
 
     def _open_first_post_of_profile(self) -> bool:
-        """Open the first post of the current profile (same logic as like.py)."""
-        try:
-            self.logger.info("Opening first post of profile...")
-            console.print(f"[dim]📸 Looking for first post...[/dim]")
-            
-            # Use the same selector as like.py
-            posts = self.device.xpath(DETECTION_SELECTORS.post_thumbnail_selectors[0]).all()
-            
-            if not posts:
-                # Try alternative selector
-                posts = self.device.xpath(POST_SELECTORS.first_post_grid).all()
-            
-            if not posts:
-                self.logger.error("No posts found in grid")
-                return False
-            
-            first_post = posts[0]
-            first_post.click()
-            self.logger.debug("Clicking on first post...")
-            
-            time.sleep(3)  # Wait for post to load
-            
-            if self._is_in_post_view():
-                self.logger.info("First post opened successfully")
-                return True
-            else:
-                self.logger.error("Failed to open first post")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"Error opening first post: {e}")
-            return False
+        """Open the first post of the current profile."""
+        console.print(f"[dim]📸 Looking for first post...[/dim]")
+        return open_first_post_of_profile(self.device, self.logger)
 
     def _is_in_post_view(self) -> bool:
-        """Check if we're in a post view (same logic as like.py)."""
-        try:
-            # Use both post_view_indicators and post_detail_indicators for better detection
-            post_indicators = POST_SELECTORS.post_view_indicators + POST_SELECTORS.post_detail_indicators
-            
-            for indicator in post_indicators:
-                if self.device.xpath(indicator).exists:
-                    self.logger.debug(f"Post view detected via: {indicator[:50]}...")
-                    return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error checking post view: {e}")
-            return False
+        """Check if we're in a post view."""
+        return is_in_post_view(self.device, self.logger)
 
     def _scrape_post_likers(
         self, 
@@ -284,16 +244,7 @@ class ScrapingPostHelpersMixin:
 
     def _is_reel_post(self) -> bool:
         """Check if current post is a Reel."""
-        reel_indicators = POST_SELECTORS.reel_indicators
-        
-        for selector in reel_indicators:
-            try:
-                if self.device.xpath(selector).exists:
-                    return True
-            except Exception:
-                continue
-        
-        return False
+        return is_reel_post(self.device, self.logger)
 
     def _extract_likers_from_regular_post(self, max_count: int) -> List[str]:
         """Extract likers from a regular post by clicking on likes count."""

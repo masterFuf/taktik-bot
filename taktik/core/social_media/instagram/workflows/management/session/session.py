@@ -94,46 +94,6 @@ class SessionManager:
 
         return True, ""
 
-    def should_perform_action(self, action_type: str, source: Optional[str] = None) -> bool:
-        """Determine if action should be performed based on probabilities and limits.
-
-        Args:
-            action_type: Action type ('like_posts', 'follow_user', 'watch_stories', 'comment_posts')
-            source: Action source (optional, for per-source limits)
-
-        Returns:
-            bool: True if action should be performed, False otherwise
-        """
-        if source:
-            if source not in self.source_counters:
-                self.source_counters[source] = {
-                    'interactions': 0,
-                    'follows': 0,
-                    'likes': 0,
-                    'comments': 0
-                }
-            
-            source_limits = self.config.get('limits_per_source', {})
-            source_counter = self.source_counters[source]
-            
-            if source_counter['interactions'] >= source_limits.get('interactions', float('inf')):
-                return False
-                
-            if action_type == 'follow_user' and source_counter['follows'] >= source_limits.get('follows', float('inf')):
-                return False
-                
-            if action_type in ['like_posts', 'watch_stories'] and source_counter['likes'] >= source_limits.get('likes', float('inf')):
-                return False
-                
-            if action_type == 'comment_posts' and source_counter['comments'] >= source_limits.get('comments', float('inf')):
-                return False
-
-        probability = self.config.get('action_probabilities', {}).get(action_type, 0)
-        if random.randint(1, 100) > probability:
-            return False
-
-        return True
-
     def record_profile_processed(self):
         """Record that a profile has been processed (visited for interaction).
         

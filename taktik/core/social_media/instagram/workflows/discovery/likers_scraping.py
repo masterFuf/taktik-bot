@@ -6,6 +6,8 @@ from rich.console import Console
 
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS
+from ..common.detection import is_likers_popup_open
+from ..common.post_navigation import open_likers_list
 from .models import ScrapedProfile
 
 console = Console()
@@ -172,35 +174,8 @@ class DiscoveryLikersScrapingMixin:
 
     def _open_likers_list(self) -> bool:
         """Open the likers list by clicking on like count."""
-        try:
-            like_count_element = self.ui_extractors.find_like_count_element(logger_instance=self.logger)
-            
-            if not like_count_element:
-                self.logger.warning("No like counter found")
-                return False
-            
-            like_count_element.click()
-            time.sleep(1.5)
-            
-            # Verify likers popup opened
-            if self._is_likers_popup_open():
-                self.logger.debug("Likers popup opened successfully")
-                return True
-            
-            self.logger.warning("Could not verify likers popup opened")
-            return False
-        except Exception as e:
-            self.logger.error(f"Error opening likers list: {e}")
-            return False
+        return open_likers_list(self.device, self.ui_extractors, self.logger)
 
     def _is_likers_popup_open(self) -> bool:
         """Check if likers popup is open."""
-        try:
-            # Look for typical likers popup indicators
-            indicators = POPUP_SELECTORS.likers_popup_indicators
-            for selector in indicators:
-                if self.device.xpath(selector).exists:
-                    return True
-        except:
-            pass
-        return False
+        return is_likers_popup_open(self.device, self.logger)

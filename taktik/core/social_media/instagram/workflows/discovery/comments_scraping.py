@@ -7,6 +7,7 @@ from rich.console import Console
 
 from taktik.core.database.local.service import get_local_database
 from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS
+from ..common.detection import is_comments_view_open
 from .models import ScrapedProfile
 
 console = Console()
@@ -250,14 +251,7 @@ class DiscoveryCommentsScrapingMixin:
 
     def _is_comments_view_open(self) -> bool:
         """Check if comments view is open."""
-        try:
-            indicators = POST_SELECTORS.comments_view_indicators
-            for selector in indicators:
-                if self.device.xpath(selector).exists:
-                    return True
-        except:
-            pass
-        return False
+        return is_comments_view_open(self.device, self.logger)
 
     def _change_comment_sort(self):
         """Change comment sorting."""

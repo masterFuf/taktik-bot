@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ....auth.login import InstagramLogin, LoginResult
-from ....auth.session_manager import SessionManager
+from ....auth.session import SessionManager
 from ...helpers.workflow_helpers import WorkflowHelpers
 
 
@@ -133,55 +133,3 @@ class LoginWorkflow:
         
         return result
     
-    def check_existing_session(self, username: str) -> Optional[Dict]:
-        """
-        Vérifie si une session existe pour cet utilisateur.
-        
-        Args:
-            username: Nom d'utilisateur Instagram
-            
-        Returns:
-            Données de session si trouvées, None sinon
-        """
-        return self.session_manager.load_session(username, self.device_id)
-    
-    def logout_and_clear_session(self, username: str) -> bool:
-        """
-        Déconnecte l'utilisateur et supprime la session sauvegardée.
-        
-        Args:
-            username: Nom d'utilisateur Instagram
-            
-        Returns:
-            True si succès, False sinon
-        """
-        self.logger.info(f"🔓 Logging out {username}...")
-        
-        # TODO: Implémenter la déconnexion via l'UI Instagram
-        # Pour l'instant, on supprime juste la session
-        
-        success = self.session_manager.delete_session(username, self.device_id)
-        
-        if success:
-            self.logger.success(f"✅ Session cleared for {username}")
-        else:
-            self.logger.error(f"❌ Failed to clear session for {username}")
-        
-        return success
-    
-    def list_saved_sessions(self) -> list:
-        """
-        Liste toutes les sessions sauvegardées pour ce device.
-        
-        Returns:
-            Liste des sessions avec leurs métadonnées
-        """
-        all_sessions = self.session_manager.list_sessions()
-        
-        # Filtrer par device_id
-        device_sessions = [
-            s for s in all_sessions 
-            if s.get('device_id') == self.device_id
-        ]
-        
-        return device_sessions

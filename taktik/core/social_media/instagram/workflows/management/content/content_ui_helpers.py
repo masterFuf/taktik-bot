@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from ....utils.taktik_keyboard import type_with_taktik_keyboard
+from ....utils.input.keyboard import type_with_taktik_keyboard
 
 
 class ContentUIHelpersMixin:

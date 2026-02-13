@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 from rich.console import Console
 
 from .models import ProgressState
+from ..common.session import should_continue_session
 
 console = Console()
 
@@ -57,10 +58,7 @@ class DiscoverySessionMixin:
 
     def _should_continue(self) -> bool:
         """Check if we should continue based on time limit."""
-        if not self.start_time:
-            return True
-        elapsed = (datetime.now() - self.start_time).total_seconds() / 60
-        return elapsed < self.session_duration_minutes
+        return should_continue_session(self.start_time, self.session_duration_minutes)
 
     def _create_campaign(self):
         """Create a new campaign in the database."""

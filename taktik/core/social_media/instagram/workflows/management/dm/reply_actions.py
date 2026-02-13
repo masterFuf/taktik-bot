@@ -4,7 +4,7 @@ import time
 from typing import Dict, List, Optional
 from datetime import datetime
 
-from ....utils.taktik_keyboard import type_with_taktik_keyboard
+from ....utils.input.keyboard import type_with_taktik_keyboard
 from ....ui.selectors import DM_SELECTORS
 from .auto_reply_models import ConversationMessage
 

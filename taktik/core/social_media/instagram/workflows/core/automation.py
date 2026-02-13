@@ -10,7 +10,6 @@ from pathlib import Path
 from loguru import logger
 
 from .....database import InstagramProfile, get_db_service
-from ...utils.filters import InstagramFilters, DefaultFilters
 from ..management.session import SessionManager
 from ...actions.core.base_action import BaseAction
 from ...actions.compatibility.modern_instagram_actions import ModernInstagramActions
@@ -63,11 +62,6 @@ class InstagramAutomation:
             'stories_liked': 0,
             'start_time': time.time()
         }
-        self.limits = self.config.get('limits', {})
-        if not self.limits:
-            self.limits = DefaultFilters.get_safe_filters()
-        self.filters = InstagramFilters(self.config.get('filters', {}))
-        
         self.min_sleep = self.config.get('min_sleep_between_actions', 1.0)
         self.max_sleep = self.config.get('max_sleep_between_actions', 4.0)
         
@@ -100,9 +94,6 @@ class InstagramAutomation:
                 self.session_manager.update_config(self.config)
             else:
                 self.session_manager = SessionManager(self.config)
-            
-            if 'filters' in self.config:
-                self.filters = InstagramFilters(self.config['filters'])
             
             self.logger.info(f"Configuration loaded from {config_path}")
             return True

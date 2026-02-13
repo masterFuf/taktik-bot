@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
+from ..common.post_navigation import open_likers_list
 
 console = Console()
 
@@ -379,12 +380,4 @@ class ScrapingListMixin:
 
     def _open_likers_list(self) -> bool:
         """Open the likers list by clicking on like count (for hashtag scraping)."""
-        try:
-            like_count_element = self.ui_extractors.find_like_count_element(logger_instance=self.logger)
-            if not like_count_element:
-                return False
-            like_count_element.click()
-            time.sleep(1.5)
-            return True
-        except:
-            return False
+        return open_likers_list(self.device, self.ui_extractors, self.logger)

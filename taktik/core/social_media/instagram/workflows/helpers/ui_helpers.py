@@ -3,6 +3,8 @@ import random
 from typing import Optional
 from loguru import logger
 
+from ..common.detection import is_reel_post, is_likers_popup_open
+
 
 class UIHelpers:        
     def __init__(self, automation):
@@ -46,30 +48,7 @@ class UIHelpers:
         return self._find_element(selectors) is not None
     
     def is_current_post_reel(self) -> bool:
-        try:
-            if not self.POST_SELECTORS:
-                return False
-            
-            if self._element_exists(self.POST_SELECTORS.automation_reel_specific_indicators):
-                self.logger.debug("Reel detected via selector")
-                return True
-            
-            # Fallback: check text/description
-            for text in ['Reel', 'reels', 'REEL']:
-                if self.device(textContains=text).exists:
-                    self.logger.debug(f"Reel detected via text: {text}")
-                    return True
-            
-            for desc in ['reel', 'Reel']:
-                if self.device(descriptionContains=desc).exists:
-                    self.logger.debug(f"Reel detected via description: {desc}")
-                    return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.debug(f"Error detecting Reel: {e}")
-            return False
+        return is_reel_post(self.device, self.logger)
     
     def has_likes_on_current_post(self) -> bool:
         try:
@@ -131,20 +110,7 @@ class UIHelpers:
             return False
     
     def is_likes_popup_open(self) -> bool:
-        try:
-            if not self.POPUP_SELECTORS:
-                return False
-                
-            for indicator in self.POPUP_SELECTORS.automation_popup_indicators:
-                if self.device.xpath(indicator).exists:
-                    self.logger.debug(f"Popup detected via: {indicator}")
-                    return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.debug(f"❌ Error checking likes popup: {e}")
-            return False
+        return is_likers_popup_open(self.device, self.logger)
     
     def close_likes_popup(self) -> bool:
         try:

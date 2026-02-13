@@ -26,10 +26,10 @@ from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-from taktik.core.social_media.instagram.actions.atomic.scroll_actions import ScrollActions
-from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.database.local.service import get_local_database
