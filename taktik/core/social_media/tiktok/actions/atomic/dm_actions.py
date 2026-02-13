@@ -10,10 +10,11 @@ Basé sur les UI dumps:
 """
 
 import time
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 from loguru import logger
 
 from ..core.base_action import BaseAction
+from ..core.utils import extract_resource_id
 from ...ui.selectors import (
     INBOX_SELECTORS,
     CONVERSATION_SELECTORS,
@@ -34,6 +35,14 @@ class DMActions(BaseAction):
         self.inbox_selectors = INBOX_SELECTORS
         self.conversation_selectors = CONVERSATION_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
+    
+    @staticmethod
+    def _extract_resource_id(selectors: List[str]) -> str:
+        """Extract resource-id value from the first xpath selector.
+        
+        e.g. '//*[@resource-id="com.zhiliaoapp.musically:id/z05"]' → 'com.zhiliaoapp.musically:id/z05'
+        """
+        return extract_resource_id(selectors)
     
     # ==========================================================================
     # INBOX NAVIGATION
@@ -59,14 +68,9 @@ class DMActions(BaseAction):
                 return True
         
         # Fallback: check if we can see conversations (might be on inbox without title)
-        try:
-            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-            username_elements = raw_device(resourceId='com.zhiliaoapp.musically:id/z05')
-            if username_elements.exists:
-                self.logger.debug("Found conversations, assuming on Inbox")
-                return True
-        except Exception as e:
-            self.logger.debug(f"Fallback check failed: {e}")
+        if self._element_exists(self.inbox_selectors.conversation_username, timeout=1):
+            self.logger.debug("Found conversations, assuming on Inbox")
+            return True
         
         self.logger.warning("Failed to navigate to Inbox")
         return False
@@ -106,7 +110,8 @@ class DMActions(BaseAction):
         
         for title, notif_type in notification_types:
             try:
-                selector = f'//*[@resource-id="com.zhiliaoapp.musically:id/b8h"][@text="{title}"]'
+                # Use centralized section_title resource-id with dynamic text
+                selector = f'{self.inbox_selectors.section_title[0]}[@text="{title}"]'
                 if self._element_exists([selector], timeout=1):
                     notifications.append({
                         'type': 'notification',
@@ -131,9 +136,9 @@ class DMActions(BaseAction):
             # Get the underlying uiautomator2 device for advanced queries
             raw_device = self.device._device if hasattr(self.device, '_device') else self.device
             
-            # Find all username elements (z05 resource-id)
-            username_selector = 'com.zhiliaoapp.musically:id/z05'
-            username_elements = raw_device(resourceId=username_selector)
+            # Find all username elements via centralized conversation_username resource-id
+            username_rid = self._extract_resource_id(self.inbox_selectors.conversation_username)
+            username_elements = raw_device(resourceId=username_rid)
             
             if not username_elements.exists:
                 self.logger.debug("No conversation usernames found")
@@ -187,7 +192,8 @@ class DMActions(BaseAction):
             raw_device = self.device._device if hasattr(self.device, '_device') else self.device
             
             # Find all username elements and match by text
-            username_elements = raw_device(resourceId='com.zhiliaoapp.musically:id/z05')
+            username_rid = self._extract_resource_id(self.inbox_selectors.conversation_username)
+            username_elements = raw_device(resourceId=username_rid)
             
             if username_elements.exists:
                 count = username_elements.count
@@ -210,7 +216,7 @@ class DMActions(BaseAction):
                         continue
             
             # Fallback: try XPath with exact match
-            selector = f'//*[@resource-id="com.zhiliaoapp.musically:id/z05"][@text="{name}"]'
+            selector = f'{self.inbox_selectors.conversation_username[0]}[@text="{name}"]'
             if self._find_and_click([selector], timeout=2):
                 time.sleep(1)
                 return self.is_in_conversation()
@@ -246,10 +252,6 @@ class DMActions(BaseAction):
         """Check if currently in a conversation view."""
         # Check for message input field
         return self._element_exists(self.conversation_selectors.message_input_field, timeout=2)
-    
-    def is_group_conversation(self) -> bool:
-        """Check if current conversation is a group."""
-        return self._element_exists(self.conversation_selectors.group_member_count, timeout=1)
     
     def get_conversation_info(self) -> Dict[str, Any]:
         """Get info about the current conversation.
@@ -297,9 +299,9 @@ class DMActions(BaseAction):
             # Get the underlying uiautomator2 device
             raw_device = self.device._device if hasattr(self.device, '_device') else self.device
             
-            # Find all text message elements (jay resource-id)
-            text_selector = 'com.zhiliaoapp.musically:id/jay'
-            text_elements = raw_device(resourceId=text_selector)
+            # Find all text message elements via centralized message_text resource-id
+            text_rid = self._extract_resource_id(self.conversation_selectors.message_text)
+            text_elements = raw_device(resourceId=text_rid)
             
             if text_elements.exists:
                 count = min(text_elements.count, limit)
@@ -322,8 +324,8 @@ class DMActions(BaseAction):
                         continue
             
             # Also check for stickers/GIFs
-            sticker_selector = 'com.zhiliaoapp.musically:id/p10'
-            sticker_elements = raw_device(resourceId=sticker_selector)
+            sticker_rid = self._extract_resource_id(self.conversation_selectors.message_sticker)
+            sticker_elements = raw_device(resourceId=sticker_rid)
             
             if sticker_elements.exists:
                 sticker_count = min(sticker_elements.count, limit - len(messages))
@@ -339,23 +341,6 @@ class DMActions(BaseAction):
             self.logger.warning(f"Error getting messages: {e}")
         
         return messages
-    
-    def scroll_messages(self, direction: str = 'up') -> bool:
-        """Scroll messages in conversation.
-        
-        Args:
-            direction: 'up' to see older messages, 'down' for newer
-        """
-        try:
-            if direction == 'up':
-                self._scroll_up()
-            else:
-                self._scroll_down()
-            time.sleep(0.5)
-            return True
-        except Exception as e:
-            self.logger.warning(f"Failed to scroll messages: {e}")
-            return False
     
     # ==========================================================================
     # MESSAGE SENDING
@@ -430,35 +415,6 @@ class DMActions(BaseAction):
         
         return self.send_message()
     
-    def click_emoji_button(self) -> bool:
-        """Click the emoji/sticker button."""
-        return self._find_and_click(self.conversation_selectors.emoji_button, timeout=2)
-    
-    # ==========================================================================
-    # REACTIONS
-    # ==========================================================================
-    
-    def send_reaction(self, reaction_type: str = 'heart') -> bool:
-        """Send a quick reaction.
-        
-        Args:
-            reaction_type: 'heart', 'lol', or 'thumbsup'
-        """
-        self.logger.debug(f"❤️ Sending reaction: {reaction_type}")
-        
-        reaction_selectors = {
-            'heart': self.conversation_selectors.reaction_heart,
-            'lol': self.conversation_selectors.reaction_lol,
-            'thumbsup': self.conversation_selectors.reaction_thumbsup,
-        }
-        
-        selectors = reaction_selectors.get(reaction_type)
-        if not selectors:
-            self.logger.warning(f"Unknown reaction type: {reaction_type}")
-            return False
-        
-        return self._find_and_click(selectors, timeout=2)
-    
     # ==========================================================================
     # NAVIGATION
     # ==========================================================================
@@ -488,40 +444,3 @@ class DMActions(BaseAction):
             timeout=1
         )
     
-    # ==========================================================================
-    # HELPER METHODS
-    # ==========================================================================
-    
-    def _find_elements(self, selectors: List[str], timeout: int = 3) -> List:
-        """Find all elements matching any of the selectors.
-        
-        Args:
-            selectors: List of XPath selectors
-            timeout: Timeout in seconds
-            
-        Returns:
-            List of UI elements found
-        """
-        elements = []
-        
-        for selector in selectors:
-            try:
-                # Use DeviceFacade xpath method
-                element = self.device.xpath(selector)
-                if element.exists:
-                    # For now, we can only get one element per selector with DeviceFacade
-                    # We'll need to use the underlying device for multiple elements
-                    elements.append(element)
-            except Exception as e:
-                self.logger.debug(f"Error finding elements with {selector}: {e}")
-                continue
-        
-        return elements
-    
-    def _scroll_down(self):
-        """Scroll down in the current view (swipe up gesture)."""
-        self.device.swipe_up()
-    
-    def _scroll_up(self):
-        """Scroll up in the current view (swipe down gesture)."""
-        self.device.swipe_down()

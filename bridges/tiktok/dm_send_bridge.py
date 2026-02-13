@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from .base import (
     logger, send_status, send_dm_sent, send_dm_progress, 
-    send_dm_stats, send_error, set_workflow
+    send_dm_stats, send_error, set_workflow, tiktok_startup
 )
 
 
@@ -30,27 +30,12 @@ def run_dm_send_workflow(config: Dict[str, Any]):
     send_status("starting", f"Sending {len(messages)} messages")
     
     try:
-        # Import TikTok modules
-        from taktik.core.social_media.tiktok import TikTokManager
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
             DMWorkflow, DMConfig
         )
         
-        # Create TikTok manager
-        logger.info("📱 Connecting to device...")
-        send_status("connecting", "Connecting to device")
-        
-        manager = TikTokManager(device_id=device_id)
-        
-        # Launch TikTok app
-        logger.info("📱 Restarting TikTok (clean state)...")
-        send_status("launching", "Restarting TikTok app")
-        
-        if not manager.restart():
-            send_error("Failed to restart TikTok app")
-            return False
-        
-        time.sleep(4)  # Wait for app to fully load
+        # Common startup: connect, restart, navigate home (no profile fetch)
+        manager, _ = tiktok_startup(device_id, fetch_profile=False)
         
         # Create workflow
         workflow_config = DMConfig(

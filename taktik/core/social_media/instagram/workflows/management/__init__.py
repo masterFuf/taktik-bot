@@ -2,9 +2,9 @@
 
 from .session import SessionManager
 from .config import WorkflowConfigBuilder, ActionProbabilities, FilterCriteria
-from .login_workflow import LoginWorkflow
-from .dm_outreach_workflow import DMOutreachWorkflow, DMOutreachConfig, DMOutreachResult
-from .dm_auto_reply_workflow import DMAutoReplyWorkflow, DMAutoReplyConfig, AutoReplyResult
+from .login import LoginWorkflow
+from .dm import DMOutreachWorkflow, DMOutreachConfig, DMOutreachResult
+from .dm import DMAutoReplyWorkflow, DMAutoReplyConfig, AutoReplyResult
 
 __all__ = [
     'SessionManager', 

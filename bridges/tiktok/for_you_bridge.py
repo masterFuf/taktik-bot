@@ -8,8 +8,8 @@ import time
 from typing import Dict, Any
 
 from .base import (
-    logger, send_status, send_stats, send_video_info, send_action, 
-    send_pause, send_error, set_workflow
+    logger, send_status, send_error, set_workflow, tiktok_startup,
+    setup_video_workflow_callbacks, send_final_video_stats
 )
 
 
@@ -24,71 +24,12 @@ def run_for_you_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok For You workflow on {device_id}")
     
     try:
-        # Import TikTok modules
-        from taktik.core.social_media.tiktok import TikTokManager
-        from taktik.core.social_media.tiktok.actions.business.workflows.for_you_workflow import (
+        from taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow import (
             ForYouWorkflow, ForYouConfig
         )
         
-        # Create TikTok manager
-        logger.info("📱 Connecting to device...")
-        send_status("connecting", "Connecting to device")
-        
-        manager = TikTokManager(device_id=device_id)
-        
-        # Launch TikTok app
-        logger.info("📱 Restarting TikTok (clean state)...")
-        send_status("launching", "Restarting TikTok app")
-        
-        if not manager.restart():
-            send_error("Failed to restart TikTok app")
-            return False
-        
-        time.sleep(4)  # Wait for app to fully load
-        
-        # Ensure we're on the For You feed (TikTok may restore previous state)
-        try:
-            from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-            nav_actions = NavigationActions(manager.device_manager.device)
-            
-            # Press back to close any keyboard/popup, then navigate to Home
-            nav_actions._press_back()
-            time.sleep(0.5)
-            nav_actions.navigate_to_home()
-            time.sleep(1)
-            logger.info("✅ Navigated to For You feed")
-        except Exception as e:
-            logger.warning(f"Could not navigate to Home: {e}")
-        
-        # Fetch own profile info for database tracking
-        try:
-            from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
-            from .base import send_message
-            
-            logger.info("📊 Fetching own profile info...")
-            send_status("fetching_profile", "Fetching your TikTok profile info")
-            
-            profile_actions = ProfileActions(manager.device_manager.device)
-            profile_info = profile_actions.fetch_own_profile()
-            
-            if profile_info:
-                logger.info(f"✅ Bot account: @{profile_info.username} ({profile_info.display_name})")
-                logger.info(f"   Followers: {profile_info.followers_count}, Following: {profile_info.following_count}")
-                
-                # Send profile info to frontend for session tracking
-                send_message("bot_profile", profile={
-                    "username": profile_info.username,
-                    "display_name": profile_info.display_name,
-                    "followers_count": profile_info.followers_count,
-                    "following_count": profile_info.following_count,
-                })
-                logger.info("📤 Bot profile message sent to frontend")
-            else:
-                logger.warning("❌ Could not fetch profile info - profile_info is None")
-        except Exception as e:
-            logger.error(f"❌ Error fetching profile info: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+        # Common startup: connect, restart, navigate home, fetch profile
+        manager, _bot_username = tiktok_startup(device_id, fetch_profile=True)
         
         # Create workflow config from frontend config
         workflow_config = ForYouConfig(
@@ -119,61 +60,15 @@ def run_for_you_workflow(config: Dict[str, Any]):
         workflow = ForYouWorkflow(manager.device_manager.device, workflow_config)
         set_workflow(workflow)
         
-        # Set callbacks for real-time updates
-        def on_video(video_info):
-            send_video_info(
-                author=video_info.get('author', 'unknown'),
-                description=video_info.get('description'),
-                like_count=video_info.get('like_count'),
-                is_liked=video_info.get('is_liked', False),
-                is_followed=video_info.get('is_followed', False),
-                is_ad=video_info.get('is_ad', False)
-            )
-        
-        def on_like(video_info):
-            send_action("like", video_info.get('author', 'unknown'))
-            logger.info(f"❤️ Liked video by @{video_info.get('author', 'unknown')}")
-        
-        def on_follow(video_info):
-            send_action("follow", video_info.get('author', 'unknown'))
-            logger.info(f"👤 Followed @{video_info.get('author', 'unknown')}")
-        
-        def on_stats(stats_dict):
-            send_stats(
-                videos_watched=stats_dict.get('videos_watched', 0),
-                videos_liked=stats_dict.get('videos_liked', 0),
-                users_followed=stats_dict.get('users_followed', 0),
-                videos_favorited=stats_dict.get('videos_favorited', 0),
-                videos_skipped=stats_dict.get('videos_skipped', 0),
-                errors=stats_dict.get('errors', 0)
-            )
-        
-        def on_pause(duration: int):
-            send_pause(duration)
-            logger.info(f"⏸️ Taking a break for {duration}s")
-        
-        workflow.set_on_video_callback(on_video)
-        workflow.set_on_like_callback(on_like)
-        workflow.set_on_follow_callback(on_follow)
-        workflow.set_on_stats_callback(on_stats)
-        workflow.set_on_pause_callback(on_pause)
+        # Wire up standard IPC callbacks
+        setup_video_workflow_callbacks(workflow)
         
         # Run workflow
         logger.info("▶️ Running workflow...")
         stats = workflow.run()
         
-        # Send final stats
-        send_stats(
-            videos_watched=stats.videos_watched,
-            videos_liked=stats.videos_liked,
-            users_followed=stats.users_followed,
-            videos_favorited=stats.videos_favorited,
-            videos_skipped=stats.videos_skipped,
-            errors=stats.errors
-        )
-        
-        logger.success(f"✅ Workflow completed: {stats.to_dict()}")
-        send_status("completed", f"Workflow completed: {stats.videos_watched} videos, {stats.videos_liked} likes, {stats.users_followed} follows")
+        # Send final stats + completion status
+        send_final_video_stats(stats, "For You workflow")
         
         return True
         

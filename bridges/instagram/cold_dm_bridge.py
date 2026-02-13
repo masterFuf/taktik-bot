@@ -9,201 +9,40 @@ import json
 import time
 import random
 import os
-import sqlite3
-import hashlib
-import base64
-import subprocess
+
+# Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from bridges.common.bootstrap import setup_environment
+setup_environment(log_level="INFO")
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+from bridges.common.keyboard import KeyboardService
+from bridges.common.database import SentDMService
+from bridges.instagram.base import logger, InstagramBridgeBase
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-from taktik.core.social_media.instagram.core.manager import InstagramManager
-from loguru import logger
-
-# Configure loguru
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="INFO", colorize=False)
-
-
-# Taktik Keyboard constants
-TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
-IME_MESSAGE_B64 = 'ADB_INPUT_B64'
-
-
-def type_with_taktik_keyboard(device_id: str, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
-    """
-    Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
-    This is more reliable than uiautomator2's send_keys for special characters and emojis.
-    """
-    if not text:
-        return True
-    
-    try:
-        # Check if Taktik Keyboard is active
-        result = subprocess.run(
-            ['adb', '-s', device_id, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
-            capture_output=True, text=True, timeout=5
-        )
-        
-        if TAKTIK_KEYBOARD_IME not in result.stdout:
-            # Activate Taktik Keyboard
-            subprocess.run(
-                ['adb', '-s', device_id, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            result = subprocess.run(
-                ['adb', '-s', device_id, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            if 'selected' not in result.stdout.lower():
-                logger.warning("Could not activate Taktik Keyboard")
-                return False
-        
-        # Encode text as base64
-        text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-        
-        # Send broadcast with text
-        cmd = [
-            'adb', '-s', device_id, 'shell', 'am', 'broadcast',
-            '-a', IME_MESSAGE_B64,
-            '--es', 'msg', text_b64,
-            '--ei', 'delay_mean', str(delay_mean),
-            '--ei', 'delay_deviation', str(delay_deviation)
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        
-        if result.returncode == 0:
-            # Wait for typing to complete
-            typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-            logger.debug(f"Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
-            time.sleep(typing_time + 0.5)
-            return True
-        else:
-            logger.warning(f"Taktik Keyboard broadcast failed: {result.stderr}")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Error using Taktik Keyboard: {e}")
-        return False
-
-
-def get_db_path() -> str:
-    """Get the path to the local SQLite database."""
-    if sys.platform == 'win32':
-        appdata = os.environ.get('APPDATA', '')
-        return os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
-    elif sys.platform == 'darwin':
-        return os.path.expanduser('~/Library/Application Support/taktik-desktop/taktik-data.db')
-    else:
-        return os.path.expanduser('~/.config/taktik-desktop/taktik-data.db')
 
 
 def check_dm_already_sent(account_id: int, recipient_username: str) -> bool:
-    """Check if a DM was already sent to this recipient."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        return False
-    
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM sent_dms WHERE account_id = ? AND recipient_username = ?",
-            (account_id, recipient_username.lower())
-        )
-        result = cursor.fetchone()
-        conn.close()
-        return result is not None
-    except Exception as e:
-        logger.warning(f"Error checking sent DMs: {e}")
-        return False
+    """Check if a DM was already sent to this recipient (Instagram)."""
+    return SentDMService.check_already_sent(account_id, recipient_username, platform='instagram')
 
 
 def record_sent_dm(account_id: int, recipient_username: str, message: str, success: bool, error_message: str = None, session_id: str = None):
-    """Record a sent DM in the database."""
-    db_path = get_db_path()
-    if not os.path.exists(db_path):
-        logger.warning(f"Database not found at {db_path}")
-        return
-    
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # Create table if not exists (for safety)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sent_dms (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                recipient_username TEXT NOT NULL,
-                message_hash TEXT,
-                sent_at TEXT DEFAULT (datetime('now')),
-                success INTEGER DEFAULT 1,
-                error_message TEXT,
-                session_id TEXT,
-                UNIQUE(account_id, recipient_username)
-            )
-        """)
-        
-        message_hash = hashlib.md5(message.encode()).hexdigest() if message else None
-        
-        cursor.execute("""
-            INSERT OR REPLACE INTO sent_dms (account_id, recipient_username, message_hash, success, error_message, session_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (account_id, recipient_username.lower(), message_hash, 1 if success else 0, error_message, session_id))
-        
-        conn.commit()
-        conn.close()
-        logger.info(f"Recorded DM to {recipient_username} in database")
-    except Exception as e:
-        logger.warning(f"Error recording sent DM: {e}")
+    """Record a sent DM in the database (Instagram)."""
+    SentDMService.record(account_id, recipient_username, message, success, error_message, session_id, platform='instagram')
 
 
-class ColdDMWorkflow:
+class ColdDMWorkflow(InstagramBridgeBase):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
     
     def __init__(self, device_id: str):
-        self.device_id = device_id
-        self.device_manager = None
-        self.device = None
-        self.screen_width = 1080
-        self.screen_height = 2340
+        super().__init__(device_id)
+        self._keyboard = KeyboardService(device_id)
+        # Stats
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
-    
-    def connect(self) -> bool:
-        """Connect to the device."""
-        logger.info(f"Connecting to device: {self.device_id}")
-        self.device_manager = DeviceManager(device_id=self.device_id)
-        
-        if not self.device_manager.connect():
-            return False
-        
-        self.device = self.device_manager.device
-        screen_info = self.device.info
-        self.screen_width = screen_info.get('displayWidth', 1080)
-        self.screen_height = screen_info.get('displayHeight', 2340)
-        return True
-    
-    def restart_instagram(self):
-        """Restart Instagram for clean state."""
-        instagram_manager = InstagramManager(self.device_id)
-        logger.info("Restarting Instagram...")
-        instagram_manager.stop()
-        time.sleep(1)
-        instagram_manager.launch()
-        time.sleep(4)
     
     def navigate_to_search(self) -> bool:
         """Navigate to the search/explore tab."""
@@ -371,7 +210,7 @@ class ColdDMWorkflow:
         time.sleep(typing_time)
         
         # Use Taktik Keyboard for reliable input (supports emojis, special chars, etc.)
-        if type_with_taktik_keyboard(self.device_id, message):
+        if self._keyboard.type_text(message):
             logger.info("Text set via Taktik Keyboard")
         else:
             # Fallback to set_text or send_keys

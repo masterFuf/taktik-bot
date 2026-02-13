@@ -6,32 +6,18 @@ Runs as standalone script, reads config from stdin
 
 import sys
 import os
-import time
 import json
 from typing import Dict, Any
 
-# Add parent directories to path for imports when run as standalone script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-bridges_dir = os.path.dirname(script_dir)
-bot_dir = os.path.dirname(bridges_dir)
-if bot_dir not in sys.path:
-    sys.path.insert(0, bot_dir)
+# Bootstrap sys.path so absolute imports work when run as standalone script
+_bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _bot_dir not in sys.path:
+    sys.path.insert(0, _bot_dir)
 
 from bridges.tiktok.base import (
-    logger, send_status, send_message, send_action,
-    send_pause, send_error, set_workflow
+    logger, send_status, send_message,
+    send_error, set_workflow, tiktok_startup
 )
-
-
-def send_unfollow_event(username: str, success: bool, error: str = None):
-    """Send unfollow event to frontend."""
-    data = {
-        "username": username,
-        "success": success
-    }
-    if error:
-        data["error"] = error
-    send_message("unfollow", **data)
 
 
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
@@ -53,187 +39,47 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
     
     try:
-        # Import TikTok modules
-        from taktik.core.social_media.tiktok import TikTokManager
-        from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-        from taktik.core.social_media.tiktok.actions.atomic.scroll_actions import ScrollActions
-        from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import (
+            UnfollowWorkflow, UnfollowConfig
+        )
         
-        # Create TikTok manager
-        logger.info("📱 Connecting to device...")
-        send_status("connecting", "Connecting to device")
+        # Common startup: connect, restart, navigate home
+        manager, _ = tiktok_startup(device_id, fetch_profile=False)
         
-        manager = TikTokManager(device_id=device_id)
+        # Create workflow config
+        wf_config = UnfollowConfig(
+            max_unfollows=max_unfollows,
+            include_friends=include_friends,
+            min_delay=config.get('minDelay', 1.0),
+            max_delay=config.get('maxDelay', 3.0),
+        )
         
-        # Force stop then launch TikTok to ensure clean state
-        logger.info("📱 Stopping TikTok...")
-        send_status("launching", "Restarting TikTok app")
-        manager.stop()  # Always stop first, even if not running
-        time.sleep(2)
+        workflow = UnfollowWorkflow(manager.device_manager.device, wf_config)
+        set_workflow(workflow)
         
-        logger.info("📱 Launching TikTok...")
-        if not manager.launch():
-            send_error("Failed to launch TikTok app")
-            return False
+        # Wire IPC callbacks
+        def on_unfollow(username, count):
+            send_message("unfollow_event", event="unfollowed", username=username, count=count)
         
-        time.sleep(6)  # Wait for app to fully load (TikTok is slow)
+        def on_skip(username):
+            send_message("unfollow_event", event="skipped", reason="friends", username=username)
         
-        # Get device reference after restart (device is connected during restart)
-        device = manager.device_manager.device
-        if device is None:
-            send_error("Device not connected")
-            return False
+        def on_stats(stats_dict):
+            stats_dict["target"] = max_unfollows
+            send_message("unfollow_stats", stats=stats_dict)
         
-        # Initialize action helpers
-        nav_actions = NavigationActions(device)
-        scroll_actions = ScrollActions(device)
-        base_action = BaseAction(device)
+        workflow.set_on_unfollow_callback(on_unfollow)
+        workflow.set_on_skip_callback(on_skip)
+        workflow.set_on_stats_callback(on_stats)
         
-        # Navigate to profile
-        logger.info("👤 Navigating to profile...")
-        send_status("navigating", "Going to profile")
-        
-        if not nav_actions.navigate_to_profile():
-            send_error("Failed to navigate to profile")
-            return False
-        
-        time.sleep(2)
-        
-        # Click on Following count to open following list
-        logger.info("📋 Opening following list...")
-        send_status("running", "Opening following list")
-        
-        following_selectors = [
-            '//*[contains(@content-desc, "Following")]',
-            '//*[contains(@text, "Following")]',
-            '//android.widget.TextView[contains(@text, "Following")]',
-        ]
-        
-        if not base_action._find_and_click(following_selectors, timeout=5):
-            send_error("Failed to open following list")
-            return False
-        
-        time.sleep(2)
-        
-        # Unfollow loop
-        unfollowed_count = 0
-        scroll_attempts = 0
-        max_scroll_attempts = 10
-        
+        # Run
         send_status("running", f"Unfollowing users (0/{max_unfollows})")
+        stats = workflow.run()
         
-        while unfollowed_count < max_unfollows:
-            # Find all Following/Friends buttons at once
-            all_buttons_selector = '//*[@text="Following" or @text="Friends"][@clickable="true"]'
-            elements = device.xpath(all_buttons_selector).all()
-            
-            if not elements:
-                # No buttons found, try scrolling
-                scroll_attempts += 1
-                if scroll_attempts >= max_scroll_attempts:
-                    logger.info("No more users to unfollow (no buttons found)")
-                    break
-                
-                logger.info("No buttons found, scrolling...")
-                scroll_actions.scroll_profile_videos(direction='down')
-                time.sleep(1)
-                continue
-            
-            logger.info(f"Found {len(elements)} buttons")
-            
-            # Track if we unfollowed anyone this iteration
-            unfollowed_this_round = 0
-            skipped_friends = 0
-            
-            for elem in elements:
-                if unfollowed_count >= max_unfollows:
-                    break
-                
-                try:
-                    btn_text = elem.text or ''
-                    
-                    # Try to get the username from the same row
-                    # The username is in a sibling element with resource-id ygv
-                    username = None
-                    try:
-                        # Get button bounds to find the row
-                        btn_bounds = elem.bounds
-                        if btn_bounds:
-                            # Search for username in the same vertical area
-                            username_elem = device.xpath('//*[@resource-id="com.zhiliaoapp.musically:id/ygv"]').all()
-                            for ue in username_elem:
-                                ue_bounds = ue.bounds
-                                # Check if username is in same row (similar Y position)
-                                if ue_bounds and abs(ue_bounds[1] - btn_bounds[1]) < 50:
-                                    username = ue.text
-                                    break
-                    except Exception:
-                        pass
-                    
-                    # Skip if it's a "Friends" button (mutual follow)
-                    if 'Friends' in btn_text and not include_friends:
-                        skipped_friends += 1
-                        # Send skip event to frontend with username
-                        send_message("unfollow_event", event="skipped", reason="friends", username=username)
-                        logger.info(f"⏭️ Skipped friend: @{username or 'unknown'}")
-                        continue
-                    
-                    # Click the button to unfollow
-                    elem.click()
-                    time.sleep(1)
-                    
-                    # Handle confirmation dialog if present
-                    confirm_selectors = [
-                        '//*[@text="Unfollow"][@clickable="true"]',
-                        '//*[contains(@text, "Unfollow")][@clickable="true"]',
-                    ]
-                    base_action._find_and_click(confirm_selectors, timeout=2, human_delay=False)
-                    
-                    unfollowed_count += 1
-                    unfollowed_this_round += 1
-                    logger.info(f"✅ Unfollowed @{username or 'unknown'} ({unfollowed_count}/{max_unfollows})")
-                    
-                    # Send unfollow event to frontend with username
-                    send_message("unfollow_event", event="unfollowed", username=username, count=unfollowed_count)
-                    
-                    # Send stats update to frontend
-                    send_message("unfollow_stats", stats={
-                        "unfollowed": unfollowed_count,
-                        "skipped": skipped_friends,
-                        "target": max_unfollows
-                    })
-                    
-                    # Human-like delay
-                    delay = config.get('minDelay', 1.0) + (config.get('maxDelay', 3.0) - config.get('minDelay', 1.0)) * 0.5
-                    time.sleep(delay)
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to unfollow: {e}")
-                    continue
-            
-            # If we only found Friends buttons and skipped them all, scroll
-            if unfollowed_this_round == 0:
-                if skipped_friends > 0:
-                    logger.info(f"Skipped {skipped_friends} Friends buttons, scrolling...")
-                scroll_attempts += 1
-                if scroll_attempts >= max_scroll_attempts:
-                    logger.info("No more users to unfollow (only Friends remaining)")
-                    break
-                
-                scroll_actions.scroll_profile_videos(direction='down')
-                time.sleep(1)
-            else:
-                # Reset scroll attempts if we made progress
-                scroll_attempts = 0
-        
-        # Send final stats
-        send_message("unfollow_stats", stats={
-            "unfollowed": unfollowed_count,
-            "target": max_unfollows
-        })
-        
-        logger.success(f"✅ Unfollow workflow completed: {unfollowed_count} users unfollowed")
-        send_status("completed", f"Unfollowed {unfollowed_count} users")
+        # Final stats + completion
+        send_message("unfollow_stats", stats={"unfollowed": stats.unfollowed, "target": max_unfollows})
+        logger.success(f"✅ Unfollow workflow completed: {stats.unfollowed} users unfollowed")
+        send_status("completed", f"Unfollowed {stats.unfollowed} users")
         
         return True
         

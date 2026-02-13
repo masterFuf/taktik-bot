@@ -1,0 +1,177 @@
+"""Content extraction from Instagram UI (users, likers, posts, stats)."""
+
+from typing import Optional, Dict, Any, List
+from loguru import logger
+
+from ....core.base_business import BaseBusinessAction
+
+
+class ContentExtraction(BaseBusinessAction):
+    
+    def __init__(self, device, session_manager=None):
+        super().__init__(device, session_manager, automation=None, module_name="content")
+    
+    def extract_usernames_from_follow_list(self) -> List[str]:
+        return self.detection_actions.extract_usernames_from_follow_list()
+    
+    def _extract_users_from_list(self, username: str, list_type: str, 
+                                  max_users: int = 100, scroll_attempts: int = 10) -> List[str]:
+        """
+        Generic method to extract users from followers or following list.
+        
+        Args:
+            username: Profile username to extract from
+            list_type: 'followers' or 'following'
+            max_users: Maximum number of users to extract
+            scroll_attempts: Maximum scroll attempts
+            
+        Returns:
+            List of extracted usernames
+        """
+        users = []
+        
+        try:
+            if not self.nav_actions.navigate_to_profile(username):
+                self.logger.error(f"Failed to navigate to @{username}")
+                return users
+            
+            # Open the appropriate list
+            if list_type == 'followers':
+                if not self.nav_actions.open_followers_list():
+                    self.logger.error("Failed to open followers list")
+                    return users
+            else:
+                if not self.nav_actions.open_following_list():
+                    self.logger.error("Failed to open following list")
+                    return users
+            
+            self.logger.info(f"Extracting {list_type} from @{username} (max: {max_users})")
+            
+            extracted_count = 0
+            scroll_count = 0
+            no_new_users_count = 0
+            
+            while extracted_count < max_users and scroll_count < scroll_attempts:
+                current_usernames = self.detection_actions.extract_usernames_from_follow_list()
+                
+                new_users_found = 0
+                for username_found in current_usernames:
+                    if username_found not in users:
+                        users.append(username_found)
+                        extracted_count += 1
+                        new_users_found += 1
+                        
+                        if extracted_count >= max_users:
+                            break
+                
+                self.logger.debug(f"Extraction: {new_users_found} new, total: {extracted_count}")
+                
+                if new_users_found == 0:
+                    no_new_users_count += 1
+                    if no_new_users_count >= 3:
+                        self.logger.info("No new users found, stopping extraction")
+                        break
+                else:
+                    no_new_users_count = 0
+                
+                if extracted_count < max_users:
+                    self.scroll_actions.scroll_followers_list_down()
+                    self._human_like_delay('scroll')
+                    scroll_count += 1
+            
+            self.logger.info(f"Extraction completed: {len(users)} {list_type} extracted")
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting {list_type}: {e}")
+        
+        return users
+    
+    def extract_followers_from_profile(self, username: str, max_followers: int = 100, 
+                                     scroll_attempts: int = 10) -> List[str]:
+        """Extract followers from a profile."""
+        return self._extract_users_from_list(username, 'followers', max_followers, scroll_attempts)
+    
+    
+    def extract_hashtag_posts(self, hashtag: str, max_posts: int = 20, 
+                            post_type: str = "recent") -> List[Dict[str, Any]]:
+        posts = []
+        
+        try:
+            from .navigation import navigate_to_hashtag
+            if not navigate_to_hashtag(self, hashtag):
+                self.logger.error(f"Failed to navigate to #{hashtag}")
+                return posts
+            
+            if post_type == "recent":
+                self._find_and_click(self.navigation_selectors.recent_tab_selectors, timeout=3)
+            
+            self.logger.info(f"Extracting posts from #{hashtag} (max: {max_posts}, type: {post_type})")
+            
+            extracted_count = 0
+            scroll_attempts = 0
+            max_scroll_attempts = 5
+            
+            while extracted_count < max_posts and scroll_attempts < max_scroll_attempts:
+                visible_posts = self.detection_actions.count_visible_posts()
+                
+                for i in range(min(visible_posts, max_posts - extracted_count)):
+                    try:
+                        if self.click_actions.click_post_thumbnail(i):
+                            self._human_like_delay('navigation')
+                            
+                            post_info = self._extract_post_information()
+                            if post_info:
+                                posts.append(post_info)
+                                extracted_count += 1
+                            
+                            self._press_back(1)
+                            self._human_like_delay('navigation')
+                    
+                    except Exception as e:
+                        self.logger.debug(f"Error extracting post {i}: {e}")
+                        continue
+                
+                if extracted_count < max_posts:
+                    self.scroll_actions.scroll_post_grid_down()
+                    self._human_like_delay('scroll')
+                    scroll_attempts += 1
+            
+            self.logger.info(f"Extraction completed: {len(posts)} posts extracted")
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting hashtag: {e}")
+        
+        return posts
+    
+    def _extract_post_information(self) -> Optional[Dict[str, Any]]:
+        try:
+            post_info = {
+                'author_username': None,
+                'caption': None,
+                'likes_count': None,
+                'comments_count': None,
+                'is_video': False,
+                'hashtags': [],
+                'mentions': []
+            }
+            
+            author_text = self._get_text_from_element(self.post_selectors.username_extraction_selectors)
+            if author_text:
+                post_info['author_username'] = self._clean_username(author_text)
+            
+            caption_text = self._get_text_from_element(self.post_selectors.caption_selectors)
+            if caption_text:
+                post_info['caption'] = caption_text
+                post_info['hashtags'] = self.utils.extract_hashtags_from_text(caption_text)
+                post_info['mentions'] = self.utils.extract_mentions_from_text(caption_text)
+            
+            likes_text = self._get_text_from_element(self.post_selectors.likes_count_click_selectors)
+            if likes_text:
+                post_info['likes_count'] = self._extract_number_from_text(likes_text)
+            
+            return post_info
+            
+        except Exception as e:
+            self.logger.debug(f"Error extracting post info: {e}")
+            return None
+    

@@ -14,160 +14,71 @@ import os
 import time
 import random
 import re
-import base64
-import subprocess
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
-# Add the bot directory to path to find taktik module
-# dm_bridge.py is in bot/bridges/instagram/, so we need to go up 3 levels to get to bot/
+# Bootstrap: UTF-8 + loguru + sys.path in one call
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, bot_dir)
+from bridges.common.bootstrap import setup_environment
+setup_environment()
 
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-from taktik.core.social_media.instagram.core.manager import InstagramManager
+from bridges.common.keyboard import KeyboardService
+from bridges.instagram.base import logger, InstagramBridgeBase
 from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
-from loguru import logger
-
-# Configure loguru for UTF-8 output
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
 
 
-# Taktik Keyboard constants
-TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
-IME_MESSAGE_B64 = 'ADB_INPUT_B64'
 
-
-def type_with_taktik_keyboard(device_id: str, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
-    """
-    Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
-    This is more reliable than uiautomator2's send_keys for special characters and emojis.
-    """
-    if not text:
-        return True
-    
-    try:
-        # Check if Taktik Keyboard is active
-        result = subprocess.run(
-            ['adb', '-s', device_id, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
-            capture_output=True, text=True, timeout=5
-        )
-        
-        if TAKTIK_KEYBOARD_IME not in result.stdout:
-            # Activate Taktik Keyboard
-            subprocess.run(
-                ['adb', '-s', device_id, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            result = subprocess.run(
-                ['adb', '-s', device_id, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            if 'selected' not in result.stdout.lower():
-                logger.warning("Could not activate Taktik Keyboard")
-                return False
-        
-        # Encode text as base64
-        text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-        
-        # Send broadcast with text
-        cmd = [
-            'adb', '-s', device_id, 'shell', 'am', 'broadcast',
-            '-a', IME_MESSAGE_B64,
-            '--es', 'msg', text_b64,
-            '--ei', 'delay_mean', str(delay_mean),
-            '--ei', 'delay_deviation', str(delay_deviation)
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        
-        if result.returncode == 0:
-            # Wait for typing to complete
-            typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-            logger.debug(f"Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
-            time.sleep(typing_time + 0.5)
-            return True
-        else:
-            logger.warning(f"Taktik Keyboard broadcast failed: {result.stderr}")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Error using Taktik Keyboard: {e}")
-        return False
-
-
-class DMBridge:
+class DMBridge(InstagramBridgeBase):
     """Bridge for DM operations between TAKTIK Desktop and Instagram."""
     
     def __init__(self, device_id: str):
-        self.device_id = device_id
-        self.device_manager = None
-        self.device = None
-        self.screen_width = 1080
-        self.screen_height = 2340
-    
-    def connect(self) -> bool:
-        """Connect to the device."""
-        logger.info(f"Connecting to device: {self.device_id}")
-        self.device_manager = DeviceManager(device_id=self.device_id)
-        
-        if not self.device_manager.connect():
-            return False
-        
-        self.device = self.device_manager.device
-        screen_info = self.device.info
-        self.screen_width = screen_info.get('displayWidth', 1080)
-        self.screen_height = screen_info.get('displayHeight', 2340)
-        return True
-    
-    def restart_instagram(self):
-        """Restart Instagram for clean state."""
-        instagram_manager = InstagramManager(self.device_id)
-        logger.info("Restarting Instagram...")
-        instagram_manager.stop()
-        time.sleep(1)
-        instagram_manager.launch()
-        time.sleep(4)
+        super().__init__(device_id)
+        self._keyboard = KeyboardService(device_id)
     
     def navigate_to_dm_inbox(self) -> bool:
         """Navigate to DM inbox using multiple methods."""
         logger.info("Navigating to DM inbox...")
         
-        # Method 1: DM_SELECTORS.direct_tab (xpath)
-        logger.info("Trying method 1: direct_tab resource-id...")
+        # Method 1: Bottom tab bar direct_tab by resource-id (uiautomator2 selector)
+        # In Instagram 410+, DM is in the bottom tab bar with resource-id="direct_tab" and content-desc="Message"
+        logger.info("Trying method 1: direct_tab resource-id (uiautomator2)...")
+        dm_tab = self.device(resourceId="com.instagram.android:id/direct_tab")
+        if dm_tab.exists:
+            dm_tab.click()
+            time.sleep(2)
+            logger.info("Navigated via direct_tab (uiautomator2)")
+            return True
+        
+        # Method 2: Bottom tab bar by content-desc "Message"
+        logger.info("Trying method 2: content-desc 'Message'...")
+        for desc in ["Message", "Messages", "Direct", "Messenger"]:
+            btn = self.device(description=desc)
+            if btn.exists:
+                btn.click()
+                time.sleep(2)
+                logger.info(f"Navigated via content-desc: {desc}")
+                return True
+        
+        # Method 3: DM_SELECTORS.direct_tab (xpath)
+        logger.info("Trying method 3: direct_tab xpath...")
         dm_tab = self.device.xpath(DM_SELECTORS.direct_tab)
         if dm_tab.exists:
             dm_tab.click()
             time.sleep(2)
-            logger.info("Navigated via direct_tab")
+            logger.info("Navigated via direct_tab xpath")
             return True
         
-        # Method 2: content-desc selectors
-        logger.info("Trying method 2: content-desc selectors...")
+        # Method 4: content-desc xpath selectors from DM_SELECTORS
+        logger.info("Trying method 4: DM_SELECTORS content-desc xpaths...")
         for selector in DM_SELECTORS.direct_tab_content_desc:
             dm_btn = self.device.xpath(selector)
             if dm_btn.exists:
                 dm_btn.click()
                 time.sleep(2)
-                logger.info(f"Navigated via content-desc: {selector}")
+                logger.info(f"Navigated via content-desc xpath: {selector}")
                 return True
         
-        # Method 3: Direct icon by description
-        logger.info("Trying method 3: Direct icon description...")
-        direct_icon = self.device(description="Direct")
-        if direct_icon.exists:
-            direct_icon.click()
-            time.sleep(2)
-            logger.info("Navigated via Direct icon")
-            return True
-        
-        # Method 4: Messenger icon (action bar)
-        logger.info("Trying method 4: action_bar_inbox_button...")
+        # Method 5: Messenger icon in action bar (older Instagram versions)
+        logger.info("Trying method 5: action_bar_inbox_button...")
         messenger = self.device(resourceId="com.instagram.android:id/action_bar_inbox_button")
         if messenger.exists:
             messenger.click()
@@ -175,44 +86,39 @@ class DMBridge:
             logger.info("Navigated via messenger icon")
             return True
         
-        # Method 5: Try clicking on top-right corner where DM icon usually is
-        logger.info("Trying method 5: tap on DM icon position (top-right)...")
-        try:
-            # DM icon is typically in top-right corner of the screen
-            self.device.click(self.screen_width - 80, 150)
-            time.sleep(2)
-            # Check if we're in DM inbox
-            inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
-            if inbox.exists:
-                logger.info("Navigated via tap on top-right")
-                return True
-        except:
-            pass
-        
-        # Method 6: Try messenger description variations
-        logger.info("Trying method 6: messenger description variations...")
-        for desc in ["Messenger", "Messages", "Inbox", "Boîte de réception"]:
+        # Method 6: descriptionContains variations
+        logger.info("Trying method 6: descriptionContains variations...")
+        for desc in ["Message", "Messenger", "Inbox", "Boîte de réception", "Envoyer un message"]:
             btn = self.device(descriptionContains=desc)
             if btn.exists:
                 btn.click()
                 time.sleep(2)
-                logger.info(f"Navigated via description: {desc}")
-                return True
+                # Verify we actually reached DM inbox
+                inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                if inbox.exists:
+                    logger.info(f"Navigated via descriptionContains: {desc}")
+                    return True
+                else:
+                    logger.warning(f"Clicked '{desc}' but did not reach DM inbox, pressing back")
+                    self.device.press("back")
+                    time.sleep(1)
         
-        # Method 7: Try by class and position (ImageView in action bar)
+        # Method 7: Try by class and position (ImageView in action bar) - OLD versions only
         logger.info("Trying method 7: ImageView in action bar...")
         action_bar = self.device(resourceId="com.instagram.android:id/action_bar_container")
         if action_bar.exists:
-            # Find clickable ImageViews in action bar
             images = action_bar.child(className="android.widget.ImageView", clickable=True)
             if images.count > 0:
-                # Usually the last one is the DM icon
                 images[images.count - 1].click()
                 time.sleep(2)
                 inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
                 if inbox.exists:
                     logger.info("Navigated via action bar ImageView")
                     return True
+                else:
+                    logger.warning("Clicked action bar ImageView but did not reach DM inbox, pressing back")
+                    self.device.press("back")
+                    time.sleep(1)
         
         logger.error("Cannot find DM button - all methods failed")
         return False
@@ -383,7 +289,7 @@ class DMBridge:
         self._simulate_typing_delay(message)
         
         # Use Taktik Keyboard for reliable input (supports emojis, special chars, etc.)
-        if type_with_taktik_keyboard(self.device_id, message):
+        if self._keyboard.type_text(message):
             logger.info("Text set via Taktik Keyboard")
         else:
             # Fallback to set_text or send_keys

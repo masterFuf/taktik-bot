@@ -155,3 +155,74 @@ python main.py --workflow target --target-username XXX
 ---
 
 **Status:** ✅ **REFACTORISATION TERMINÉE**
+
+---
+
+## 🔄 Phase 2 — Extraction core/shared/ & refactoring CLI (12 février 2026)
+
+### **Nouveau dossier `core/shared/`**
+Modules de base partagés entre Instagram et TikTok :
+
+```
+core/shared/
+├── __init__.py                  # Re-exports publics
+├── actions/
+│   └── base_action.py           # SharedBaseAction (delays, clicks, keyboard input)
+├── device/
+│   ├── facade.py                # BaseDeviceFacade + Direction enum (ADB/uiautomator2)
+│   └── manager.py               # DeviceManager (device listing, connection)
+├── input/
+│   └── taktik_keyboard.py       # ADB Keyboard utilities (type, clear, activate)
+├── platform/
+│   └── social_media_base.py     # SocialMediaBase (abstract platform interface)
+└── utils/
+    └── action_utils.py          # ActionUtils + parse_count (common parsers)
+```
+
+### **Héritage Instagram/TikTok → shared**
+
+| Classe plateforme                    | Hérite de                          |
+|--------------------------------------|------------------------------------|
+| `instagram.DeviceFacade`             | `shared.BaseDeviceFacade`          |
+| `instagram.BaseAction`               | `shared.SharedBaseAction`          |
+| `instagram.ActionUtils`              | `shared.ActionUtils`               |
+| `instagram.taktik_keyboard`          | re-export de `shared.taktik_keyboard` |
+| `tiktok.DeviceFacade`                | `shared.BaseDeviceFacade`          |
+| `tiktok.BaseAction`                  | `shared.SharedBaseAction`          |
+| `tiktok.ActionUtils`                 | `shared.ActionUtils`               |
+
+### **Nouveau dossier `cli/common/`**
+Helpers CLI partagés pour réduire la duplication dans `cli/main.py` :
+
+```
+cli/common/
+├── __init__.py
+├── workflow_builder.py          # collect_probabilities, collect_filters, collect_session_settings,
+│                                # build_*_config, display_*_rows, display_estimates
+└── device_selector.py           # select_device, connect_device, select_and_connect_device
+```
+
+### **Refactoring cli/main.py**
+- `generate_target_workflow`, `generate_hashtags_workflow`, `generate_post_url_workflow` → utilisent `workflow_builder.py`
+- 2× device selection blocks (Instagram + TikTok) → `select_device()`
+- 6× connect+check blocks → `connect_device()`
+- Fix bugs copier-coller dans `generate_place_workflow` (prompt dupliqué, variables inexistantes)
+
+### **Discovery Workflow**
+- Suppression de `discovery_workflow.py` (v1)
+- `DiscoveryWorkflowV2` aliasé comme `DiscoveryWorkflow` dans `__init__.py`
+- CLI mis à jour pour passer `device_id` au lieu de `device_manager`
+
+### **Nettoyage**
+- Suppression du dossier `business/legacy/` (vide)
+- Déduplication logique extraction likers dans `BaseBusinessAction._extract_likers_after_click()`
+- Nouveaux modules atomiques TikTok (popup, video, search actions/detectors)
+
+### **Statistiques Phase 2**
+
+| Métrique                          | Valeur          |
+|-----------------------------------|-----------------|
+| Lignes supprimées (duplication)   | ~800            |
+| Nouveaux modules partagés         | 6 (core/shared) |
+| Nouveaux helpers CLI              | 2 (cli/common)  |
+| Commits                           | 7               |

@@ -5,17 +5,15 @@ Routes to specific workflow bridges based on workflowType in config
 """
 
 import sys
+import os
 import json
-from loguru import logger
 
-# Configure loguru for stderr output
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}")
+# Bootstrap sys.path so absolute imports work when run as standalone script
+_bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _bot_dir not in sys.path:
+    sys.path.insert(0, _bot_dir)
 
-
-def send_error(message: str):
-    """Send error message to frontend."""
-    print(json.dumps({"type": "error", "message": message}), flush=True)
+from bridges.tiktok.base import logger, send_error
 
 
 def main():

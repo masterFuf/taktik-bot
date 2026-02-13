@@ -7,42 +7,23 @@ Connects the Electron app to the Python scraping workflow
 import sys
 import json
 import os
-import signal
 import threading
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Bootstrap: UTF-8 + loguru + sys.path in one call
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if bot_dir not in sys.path:
+    sys.path.insert(0, bot_dir)
+from bridges.common.bootstrap import setup_environment
+setup_environment()
 
-# Global flag for graceful shutdown
-_shutdown_requested = False
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals gracefully"""
-    global _shutdown_requested
-    _shutdown_requested = True
-    print(json.dumps({"success": False, "error": "Scraping stopped by user", "stopped": True}))
-    sys.exit(0)
-
-# Register signal handlers
-signal.signal(signal.SIGTERM, signal_handler)
-signal.signal(signal.SIGINT, signal_handler)
-if sys.platform == 'win32':
-    signal.signal(signal.SIGBREAK, signal_handler)
-
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from bridges.common.connection import ConnectionService
+from bridges.common.signal_handler import setup_signal_handlers
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from taktik.core.database import configure_db_service
 from loguru import logger
 
-# Configure loguru for UTF-8 output
-logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}", level="DEBUG", colorize=False)
+# Signal handlers for graceful shutdown
+setup_signal_handlers()
 
 def main():
     if len(sys.argv) < 2:
@@ -63,23 +44,19 @@ def main():
         print(json.dumps({"success": False, "error": "No deviceId provided"}))
         sys.exit(1)
     
-    # Configure database service with API key from config or environment
-    api_key = config.get('apiKey') or os.environ.get('TAKTIK_API_KEY', 'local-mode')
     try:
-        configure_db_service(api_key, use_local=True)
-        logger.info("Database service configured (local mode)")
+        configure_db_service()
+        logger.info("Database service configured (local SQLite)")
     except Exception as e:
         logger.warning(f"Could not configure database service: {e}")
     
-    device_manager = None
+    connection = ConnectionService(device_id)
     try:
-        # Initialize device manager
-        logger.info(f"Connecting to device: {device_id}")
-        device_manager = DeviceManager(device_id=device_id)
-        
-        if not device_manager.connect():
+        # Connect via ConnectionService
+        if not connection.connect():
             print(json.dumps({"success": False, "error": "Failed to connect to device"}))
             sys.exit(1)
+        device_manager = connection.device_manager
         
         # Build scraping config
         scraping_config = {
@@ -133,11 +110,10 @@ def main():
         print(json.dumps({"success": False, "error": str(e)}))
         sys.exit(1)
     finally:
-        if device_manager:
-            try:
-                device_manager.disconnect()
-            except:
-                pass
+        try:
+            connection.disconnect()
+        except:
+            pass
 
 if __name__ == '__main__':
     main()

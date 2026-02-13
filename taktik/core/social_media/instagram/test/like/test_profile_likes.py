@@ -21,7 +21,7 @@ root_dir = Path(__file__).resolve().parents[6]
 sys.path.insert(0, str(root_dir))
 
 # Imports relatifs basés sur la structure du projet
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from taktik.core.social_media.instagram.actions.core.device import DeviceManager
 from taktik.core.social_media.instagram.actions.like.like_profile_posts import LikeProfilePostsManager
 from taktik.core.social_media.instagram.actions.navigation.navigation_manager import NavigationManager
 from taktik.core.social_media.instagram.core.session_manager import SessionManager

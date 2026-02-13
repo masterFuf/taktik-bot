@@ -1,8 +1,8 @@
-from .navigation_actions import NavigationActions
-from .click_actions import ClickActions
-from .scroll_actions import ScrollActions
-from .text_actions import TextActions
-from .detection_actions import DetectionActions
+from .navigation import NavigationActions
+from .interaction import ClickActions
+from .scroll import ScrollActions
+from .text import TextActions
+from .detection import DetectionActions
 
 __all__ = [
     'NavigationActions',

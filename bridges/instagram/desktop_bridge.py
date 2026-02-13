@@ -12,21 +12,22 @@ import signal
 import logging
 import math
 from typing import Optional, Dict, Any
-from loguru import logger
 
-# Force UTF-8 encoding for stdout/stderr to support emojis on Windows
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Bootstrap: UTF-8 + loguru + sys.path in one call
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if bot_dir not in sys.path:
+    sys.path.insert(0, bot_dir)
 
-# Configure loguru - the UTF-8 encoding is already set via the TextIOWrapper above
-logger.remove()  # Remove default handler
-logger.add(
-    sys.stderr,
-    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}",
-    level="DEBUG",
-    colorize=False
+from bridges.common.connection import ConnectionService
+from bridges.common.app_manager import AppService
+from bridges.instagram.base import (
+    logger, _ipc,
+    send_message, send_status, send_progress, send_stats,
+    send_instagram_stats, send_instagram_action, send_instagram_profile_visit,
+    send_error, send_log,
+    send_unfollow_event, send_follow_event, send_like_event,
+    send_post_skipped, send_current_post,
+    setup_stats_callback,
 )
 
 # Configure logging for desktop integration
@@ -34,159 +35,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-
-# Keep a reference to the original stdout buffer before any wrapping
-_original_stdout_fd = None
-try:
-    _original_stdout_fd = os.dup(1)  # Duplicate file descriptor 1 (stdout)
-except Exception:
-    pass
-
-# Structured message output for desktop app
-def send_message(msg_type: str, **kwargs):
-    """Send a structured JSON message to the desktop app."""
-    global _original_stdout_fd
-    try:
-        message = {"type": msg_type, **kwargs}
-        msg_bytes = (json.dumps(message) + '\n').encode('utf-8')
-        # Write directly to the original stdout file descriptor
-        if _original_stdout_fd is not None:
-            try:
-                os.write(_original_stdout_fd, msg_bytes)
-            except (OSError, ValueError):
-                pass
-        else:
-            # Fallback to os.write on fd 1
-            try:
-                os.write(1, msg_bytes)
-            except (OSError, ValueError):
-                pass
-    except Exception:
-        pass  # Ignore all errors
-
-def send_status(status: str, message: str = ""):
-    """Send status update to desktop app."""
-    send_message("status", status=status, message=message)
-
-def send_progress(current: int, total: int, action: str = ""):
-    """Send progress update to desktop app."""
-    send_message("progress", current=current, total=total, action=action)
-
-def send_stats(likes: int = 0, follows: int = 0, comments: int = 0, profiles: int = 0, unfollows: int = 0):
-    """Send stats update to desktop app."""
-    send_message("stats", likes=likes, follows=follows, comments=comments, profiles=profiles, unfollows=unfollows)
-
-def send_instagram_stats(
-    profiles_visited: int = 0,
-    profiles_interacted: int = 0,
-    profiles_filtered: int = 0,
-    private_profiles: int = 0,
-    likes: int = 0,
-    follows: int = 0,
-    comments: int = 0,
-    stories_watched: int = 0,
-    errors: int = 0
-):
-    """Send comprehensive Instagram stats update to desktop app (like TikTok IPC)."""
-    send_message("instagram_stats", stats={
-        "profiles_visited": profiles_visited,
-        "profiles_interacted": profiles_interacted,
-        "profiles_filtered": profiles_filtered,
-        "private_profiles": private_profiles,
-        "likes": likes,
-        "follows": follows,
-        "comments": comments,
-        "stories_watched": stories_watched,
-        "errors": errors
-    })
-
-def send_instagram_action(action: str, username: str, details: dict = None):
-    """Send Instagram action event to desktop app (like, follow, filter, etc.)."""
-    data = {"action": action, "username": username}
-    if details:
-        data["details"] = details
-    send_message("instagram_action", **data)
-
-def send_instagram_profile_visit(username: str, followers: int = None, is_private: bool = False):
-    """Send profile visit event to desktop app."""
-    send_message("instagram_profile_visit", 
-                 username=username, 
-                 followers=followers,
-                 is_private=is_private)
-
-def _on_stats_update(stats_dict: dict):
-    """Callback for BaseStatsManager to send stats via IPC."""
-    send_instagram_stats(
-        profiles_visited=stats_dict.get('profiles_visited', 0),
-        profiles_interacted=stats_dict.get('profiles_interacted', 0),
-        profiles_filtered=stats_dict.get('profiles_filtered', 0),
-        private_profiles=stats_dict.get('private_profiles', 0),
-        likes=stats_dict.get('likes', 0),
-        follows=stats_dict.get('follows', 0),
-        comments=stats_dict.get('comments', 0),
-        stories_watched=stats_dict.get('stories_watched', 0),
-        errors=stats_dict.get('errors', 0)
-    )
-
-def setup_stats_callback():
-    """Setup the stats callback on BaseStatsManager for IPC updates."""
-    try:
-        from taktik.core.social_media.instagram.actions.base_stats import BaseStatsManager
-        # Store original __init__ to wrap it
-        original_init = BaseStatsManager.__init__
-        
-        def patched_init(self, *args, **kwargs):
-            original_init(self, *args, **kwargs)
-            # Automatically set the IPC callback on every new StatsManager
-            self.set_on_stats_callback(_on_stats_update)
-        
-        BaseStatsManager.__init__ = patched_init
-        logger.info("✅ Stats IPC callback configured for BaseStatsManager")
-    except Exception as e:
-        logger.warning(f"Could not setup stats callback: {e}")
-
-def send_error(error: str, error_code: str = None):
-    """Send error to desktop app with optional error code for translation."""
-    if error_code:
-        send_message("error", error=error, error_code=error_code)
-    else:
-        send_message("error", error=error)
-
-def send_log(level: str, message: str):
-    """Send log message to desktop app."""
-    send_message("log", level=level, message=message)
-
-def send_unfollow_event(username: str, success: bool = True):
-    """Send unfollow event to desktop app for real-time activity."""
-    send_message("unfollow_event", username=username, success=success)
-
-def send_follow_event(username: str, success: bool = True, profile_data: dict = None):
-    """Send follow event to desktop app for real-time activity and WorkflowAnalyzer."""
-    data = {"username": username, "success": success}
-    if profile_data:
-        data["profile_data"] = profile_data
-    send_message("follow_event", **data)
-
-def send_like_event(username: str, likes_count: int = 1, profile_data: dict = None):
-    """Send like event to desktop app for real-time activity and WorkflowAnalyzer."""
-    data = {"username": username, "likes_count": likes_count}
-    if profile_data:
-        data["profile_data"] = profile_data
-    send_message("like_event", **data)
-
-def send_post_skipped(author: str, reason: str = "already_processed", hashtag: str = None):
-    """Send post skipped event to desktop app for real-time activity."""
-    send_message("post_skipped", author=author, reason=reason, hashtag=hashtag)
-
-def send_current_post(author: str, likes_count: int = None, comments_count: int = None, caption: str = None, hashtag: str = None):
-    """Send current post metadata to desktop app for live panel display."""
-    # Use send_message which already has error handling
-    send_message("current_post", 
-                 author=author, 
-                 likes_count=likes_count, 
-                 comments_count=comments_count,
-                 caption=caption[:100] if caption else None,
-                 hashtag=hashtag)
 
 
 class DebugBridge:
@@ -293,13 +141,10 @@ class DebugBridge:
         
         # Use appropriate detector based on app
         if 'musically' in package or 'tiktok' in package.lower():
-            # TikTok app
-            send_log("info", "Using TikTok problematic page detector")
-            from taktik.core.social_media.tiktok.ui.detectors.problematic_page import TikTokProblematicPageDetector
-            detector = TikTokProblematicPageDetector(device, debug_mode=True)
-            result_data = detector.detect_and_handle_problematic_pages()
-            detected = result_data.get('detected', False)
-            handled = result_data.get('closed', False)
+            # TikTok popup handling is done by popup_handler.py in workflows
+            send_log("info", "TikTok detected — popup handling is managed by workflow popup_handler")
+            detected = False
+            handled = False
         else:
             # Default to Instagram
             send_log("info", "Using Instagram problematic page detector")
@@ -345,10 +190,10 @@ class DesktopBridge:
         self.unfollow_config = config.get('unfollow', {})  # Unfollow specific settings
         self.language = config.get('language', 'en')
         self.running = True
-        # API credentials passed from desktop app
-        self.api_key = config.get('apiKey')
-        self.license_key = config.get('licenseKey')
-        self.device_manager = None
+        # Shared services
+        self._connection = ConnectionService(self.device_id) if self.device_id else None
+        self._app = None  # initialized after connect
+        self.device_manager = None  # backward-compatible alias
         self.automation = None
         
         # Media capture service
@@ -356,6 +201,8 @@ class DesktopBridge:
         self.media_capture_service = None
         
         # Setup signal handlers for graceful shutdown
+        from bridges.common.signal_handler import setup_signal_handlers
+        setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._handle_shutdown)
         signal.signal(signal.SIGINT, self._handle_shutdown)
     
@@ -378,121 +225,72 @@ class DesktopBridge:
         return True
     
     def setup_license(self) -> bool:
-        """Setup and verify license using API key from desktop app."""
+        """Setup database service for the bot process."""
         try:
-            send_status("initializing", "Setting up API credentials...")
+            send_status("initializing", "Setting up database service...")
             
-            # Check if API key was passed from desktop app
-            if self.api_key:
-                send_log("info", "Using API key from desktop app")
-                
-                # Set API key in environment (required by bot internals)
-                os.environ['TAKTIK_API_KEY'] = self.api_key
-                
-                # Configure database service with the API key
-                from taktik.core.database import configure_db_service
-                configure_db_service(self.api_key)
-                
-                # Configure unified_license_manager with API key (use _api_key internal attribute)
-                from taktik.core.license.unified_license_manager import unified_license_manager
-                unified_license_manager._api_key = self.api_key
-                # Also update the api_client to use the API key
-                from taktik.core.database.api_client import TaktikAPIClient
-                unified_license_manager.api_client = TaktikAPIClient(api_key=self.api_key)
-                send_log("debug", f"unified_license_manager._api_key configured: {self.api_key[:20]}...")
-                
-                send_status("license_valid", "API credentials configured")
-                return True
+            # Configure local database service (SQLite)
+            from taktik.core.database import configure_db_service
+            configure_db_service()
             
-            # Fallback: Try to load from local config (for CLI compatibility)
-            send_log("info", "No API key from desktop, trying local config...")
-            from taktik.core.license import unified_license_manager
-            
-            config = unified_license_manager.load_config()
-            if config and config.get('license_key'):
-                license_key = config['license_key']
-                
-                # Verify and get API key
-                is_valid, api_key, license_data = unified_license_manager.verify_and_setup_license(license_key)
-                
-                if is_valid and api_key:
-                    self.api_key = api_key
-                    os.environ['TAKTIK_API_KEY'] = api_key
-                    
-                    from taktik.core.database import configure_db_service
-                    configure_db_service(api_key)
-                    
-                    send_status("license_valid", f"License verified for {license_data.get('user', 'Unknown') if license_data else 'Unknown'}")
-                    return True
-            
-            send_error("No valid API key found. Please log in to the desktop app first.")
-            return False
+            send_status("license_valid", "Database service configured")
+            return True
             
         except Exception as e:
-            send_error(f"License setup failed: {str(e)}")
-            logger.exception("License setup failed")
+            send_error(f"Database setup failed: {str(e)}", error_code="LICENSE_SETUP_FAILED")
+            logger.exception("Database setup failed")
             return False
     
     def connect_device(self) -> bool:
-        """Connect to the specified device."""
+        """Connect to the specified device using ConnectionService."""
         try:
-            from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
-            
             send_status("connecting", f"Connecting to device {self.device_id}...")
             
-            self.device_manager = DeviceManager()
-            result = self.device_manager.connect(self.device_id)
+            if not self._connection:
+                self._connection = ConnectionService(self.device_id)
             
-            if not result:
-                send_error(f"Failed to connect to device {self.device_id}")
+            if not self._connection.connect():
+                send_error(f"Failed to connect to device {self.device_id}", error_code="DEVICE_CONNECTION_FAILED")
                 return False
             
-            if not self.device_manager.device:
-                send_error("Device initialization error - device is None")
-                return False
+            # Backward-compatible alias
+            self.device_manager = self._connection.device_manager
+            self._app = AppService(self._connection, platform="instagram")
             
             send_status("connected", f"Connected to {self.device_id}")
             return True
             
         except Exception as e:
-            send_error(f"Failed to connect to device: {str(e)}")
+            error_msg = str(e)
+            if "timeout" in error_msg.lower():
+                send_error(f"Device connection timed out: {error_msg}", error_code="DEVICE_CONNECTION_TIMEOUT")
+            else:
+                send_error(f"Failed to connect to device: {error_msg}", error_code="DEVICE_CONNECTION_FAILED")
             logger.exception("Device connection failed")
             return False
     
     def launch_instagram(self) -> bool:
-        """Launch Instagram on the device."""
+        """Launch Instagram on the device using ConnectionService + AppService."""
         try:
-            from taktik.core.social_media.instagram.core.manager import InstagramManager
-            
             send_status("launching", "Launching Instagram...")
             
-            instagram = InstagramManager(self.device_id)
-            
-            # Check ATX health first - this is critical for the bot to work
-            # Try to repair automatically if unhealthy
-            atx_status = instagram.device_manager.get_atx_status()
-            if not atx_status.get("atx_healthy"):
-                error_detail = atx_status.get("error", "Unknown ATX error")
-                logger.warning(f"ATX agent unhealthy: {error_detail}. Attempting automatic repair...")
-                send_status("repairing_atx", "UIAutomator2 agent not responding, attempting repair...")
-                
-                # Try to repair ATX with retries
-                if instagram.device_manager._verify_and_repair_atx(max_retries=3):
-                    logger.info("ATX agent repaired successfully")
+            # Check ATX health via ConnectionService (non-blocking)
+            atx_result = self._connection.check_atx_health(repair=True, max_retries=3)
+            if not atx_result["atx_healthy"]:
+                error_detail = atx_result.get("error", "Unknown")
+                if atx_result.get("repaired"):
                     send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
                 else:
-                    logger.error(f"ATX agent repair failed: {error_detail}")
-                    send_error(
-                        f"UIAutomator2 agent is not responding and could not be repaired. Please try: 1) Unplug and replug the USB cable, 2) Restart the phone, 3) Restart the app. Error: {error_detail}",
-                        error_code="ATX_AGENT_FAILED"
-                    )
-                    return False
+                    logger.warning(f"ATX repair failed: {error_detail} - continuing anyway")
+                    send_log("warning", f"ATX repair failed ({error_detail}) but continuing - workflow may still work")
             
-            if not instagram.is_installed():
+            # Check Instagram is installed
+            if not self._app.is_installed():
                 send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
                 return False
             
-            if not instagram.launch():
+            # Launch Instagram
+            if not self._app.launch():
                 send_error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
                 return False
             
@@ -501,11 +299,10 @@ class DesktopBridge:
             
         except Exception as e:
             error_msg = str(e)
-            # Detect ATX-related errors
             if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
                 send_error(f"UIAutomator2 connection failed: {error_msg}", error_code="ATX_AGENT_FAILED")
             else:
-                send_error(f"Failed to launch Instagram: {error_msg}")
+                send_error(f"Failed to launch Instagram: {error_msg}", error_code="INSTAGRAM_LAUNCH_FAILED")
             logger.exception("Instagram launch failed")
             return False
     
@@ -753,9 +550,6 @@ class DesktopBridge:
             send_status("initializing", "Initializing automation...")
             self.automation = InstagramAutomation(self.device_manager)
             
-            # Initialize license limits
-            self.automation._initialize_license_limits(self.api_key)
-            
             # Apply config
             self.automation.config = workflow_config
             send_log("info", "Dynamic config applied")
@@ -778,7 +572,13 @@ class DesktopBridge:
             return True
                 
         except Exception as e:
-            send_error(f"Workflow error: {str(e)}")
+            error_msg = str(e)
+            if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
+                send_error(f"UIAutomator2 crashed during workflow: {error_msg}", error_code="ATX_AGENT_CRASHED")
+            elif "timeout" in error_msg.lower():
+                send_error(f"Workflow timed out: {error_msg}", error_code="WORKFLOW_TIMEOUT")
+            else:
+                send_error(f"Workflow error: {error_msg}", error_code="WORKFLOW_ERROR")
             logger.exception("Workflow error")
             return False
     

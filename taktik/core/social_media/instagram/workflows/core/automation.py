@@ -10,10 +10,7 @@ from pathlib import Path
 from loguru import logger
 
 from .....database import InstagramProfile, get_db_service
-from ...utils.filters import InstagramFilters, DefaultFilters
 from ..management.session import SessionManager
-from .....license import unified_license_manager
-
 from ...actions.core.base_action import BaseAction
 from ...actions.compatibility.modern_instagram_actions import ModernInstagramActions
 
@@ -21,8 +18,6 @@ from ...ui.selectors import POST_SELECTORS, POPUP_SELECTORS
 from ..management.config import WorkflowConfigBuilder
 from .workflow_runner import WorkflowRunner
 from ..helpers.workflow_helpers import WorkflowHelpers
-from ..helpers.license_helpers import LicenseHelpers
-from ..helpers.filtering_helpers import FilteringHelpers
 
 
 class InstagramAutomation:
@@ -67,11 +62,6 @@ class InstagramAutomation:
             'stories_liked': 0,
             'start_time': time.time()
         }
-        self.limits = self.config.get('limits', {})
-        if not self.limits:
-            self.limits = DefaultFilters.get_safe_filters()
-        self.filters = InstagramFilters(self.config.get('filters', {}))
-        
         self.min_sleep = self.config.get('min_sleep_between_actions', 1.0)
         self.max_sleep = self.config.get('max_sleep_between_actions', 4.0)
         
@@ -85,47 +75,25 @@ class InstagramAutomation:
         
         self.workflow_runner = WorkflowRunner(self)
         self.helpers = WorkflowHelpers(self)
-        self.license_helpers = LicenseHelpers(self)
-        self.filtering_helpers = FilteringHelpers(self)
         
         from ..helpers.ui_helpers import UIHelpers
         self.ui_helpers = UIHelpers(self)
         
         self.helpers.setup_signal_handlers()
         
-    def _get_license_key_from_config(self) -> str:
-        return self.license_helpers.get_license_key_from_config()
-
-    def _initialize_license_limits(self, api_key: str = None):
-        result = self.license_helpers.initialize_license_limits(api_key)
-        self.license_limits_enabled = self.license_helpers.license_limits_enabled
-        return result
-    
-    def _check_action_limits(self, action_type: str, account_username: str = None) -> bool:
-        return self.license_helpers.check_action_limits(action_type, account_username)
-    
-    def _record_action_performed(self, action_type: str, account_username: str = None):
-        return self.license_helpers.record_action_performed(action_type, account_username)
-    
     def load_config(self, config_path: str) -> bool:
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
             
             session_settings = self.config.get('session_settings', {})
-            session_settings = self.config.get('session_settings', {})
             duration_minutes = session_settings.get('session_duration_minutes', 'NOT_DEFINED')
-            print(f"[DEBUG Automation] Configuration loaded from {config_path}:")
-            print(f"[DEBUG Automation] - session_duration_minutes: {duration_minutes}")
-            print(f"[DEBUG Automation] - session_settings: {session_settings}")
+            self.logger.debug(f"Configuration loaded from {config_path}: duration={duration_minutes}min, settings={session_settings}")
             
             if hasattr(self, 'session_manager') and self.session_manager:
                 self.session_manager.update_config(self.config)
             else:
                 self.session_manager = SessionManager(self.config)
-            
-            if 'filters' in self.config:
-                self.filters = InstagramFilters(self.config['filters'])
             
             self.logger.info(f"Configuration loaded from {config_path}")
             return True
@@ -277,10 +245,7 @@ class InstagramAutomation:
         
         session_settings = self.config.get('session_settings', {})
         duration_minutes = session_settings.get('session_duration_minutes', 'NOT_DEFINED')
-        print(f"[DEBUG Automation] SessionManager config update:")
-        print(f"[DEBUG Automation] - config keys: {list(self.config.keys())}")
-        print(f"[DEBUG Automation] - session_duration_minutes: {duration_minutes}")
-        print(f"[DEBUG Automation] - session_settings: {session_settings}")
+        self.logger.debug(f"SessionManager config update: duration={duration_minutes}min, keys={list(self.config.keys())}")
 
     def _create_workflow_session(self, action_override: Dict[str, Any] = None) -> Optional[int]:
         return self.helpers.create_workflow_session(action_override)
@@ -361,42 +326,3 @@ class InstagramAutomation:
     def _setup_signal_handlers(self):
         self.helpers.setup_signal_handlers()
 
-    def handle_place_workflow(self, action: Dict[str, Any]) -> Dict[str, int]:
-        return self.workflow_runner._run_place_workflow_impl(action)
-
-    def _is_current_post_reel(self) -> bool:
-        return self.ui_helpers.is_current_post_reel()
-
-    def _has_likes_on_current_post(self) -> bool:
-        return self.ui_helpers.has_likes_on_current_post()
-
-    def _scroll_to_next_post(self) -> bool:
-        return self.ui_helpers.scroll_to_next_post()
-
-    def _open_likes_list(self) -> bool:
-        return self.ui_helpers.open_likes_list()
-
-    def _is_likes_popup_open(self) -> bool:
-        return self.ui_helpers.is_likes_popup_open()
-
-    def _interact_with_likers(self, max_interactions: int, like_percentage: float, 
-                            follow_percentage: float, filters: dict) -> int:
-        return self.ui_helpers.interact_with_likers(max_interactions, like_percentage, follow_percentage, filters)
-    
-    def _close_likes_popup(self) -> bool:
-        return self.ui_helpers.close_likes_popup()
-    
-    def _should_interact_with_user(self, username: str, filters: Dict[str, Any]) -> bool:
-        return self.filtering_helpers.should_interact_with_user(username, filters)
-    
-    def _like_current_post(self) -> bool:
-        return self.filtering_helpers.like_current_post()
-    
-    def _visit_profile_from_post(self, username: str) -> bool:
-        return self.filtering_helpers.visit_profile_from_post(username)
-    
-    def _follow_user(self, username: str) -> bool:
-        return self.filtering_helpers.follow_user(username)
-
-    def handle_post_url_workflow(self, action: Dict[str, Any]) -> Dict[str, Any]:
-        return self.workflow_runner._run_post_url_workflow(action)

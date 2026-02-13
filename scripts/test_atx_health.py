@@ -23,7 +23,7 @@ import time
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from taktik.core.social_media.instagram.actions.core.device import DeviceManager
 
 
 def get_device_id(args_device_id: str = None) -> str:

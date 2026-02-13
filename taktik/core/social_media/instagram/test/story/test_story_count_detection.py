@@ -11,7 +11,7 @@ from pathlib import Path
 
 from loguru import logger
 from taktik.core.device import DeviceManager
-from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
 
 
