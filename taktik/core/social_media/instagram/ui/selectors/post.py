@@ -307,7 +307,15 @@ class PostSelectors:
     ])
     
     comment_field_selector: str = '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
-    post_comment_button_selector: str = '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_icon"]'
+    post_comment_button_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_icon"]',
+        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',
+        '//*[@text="Post" and @clickable="true"]',
+        '//*[@text="Publier" and @clickable="true"]',
+        '//*[@text="Pubblicare" and @clickable="true"]',
+        '//*[contains(@content-desc, "Post") and @clickable="true"]',
+        '//*[contains(@content-desc, "Publier") and @clickable="true"]',
+    ])
     
     # === "Liked by" text selectors (for opening likers list from post view) ===
     liked_by_selectors: List[str] = field(default_factory=lambda: [
