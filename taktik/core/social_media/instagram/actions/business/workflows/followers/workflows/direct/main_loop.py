@@ -145,7 +145,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     if position_ok:
                         self.logger.debug(f"✅ Position OK: found @{last_visited_username} or @{next_expected_username} in visible list")
                     else:
-                        self.logger.warning(f"⚠️ Position lost: neither @{last_visited_username} nor @{next_expected_username} visible")
+                        self.logger.debug(f"⚠️ Position lost: neither @{last_visited_username} nor @{next_expected_username} visible")
                 
                 for idx, follower_data in enumerate(visible_followers):
                     username = follower_data['username']
@@ -228,7 +228,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         visible_usernames_after = [f['username'] for f in visible_after_back]
                         position_ok = tracker.check_position_after_back(username, visible_usernames_after)
                         if not position_ok:
-                            self.logger.warning(f"⚠️ Position lost after visiting @{username} - may cause loop")
+                            self.logger.debug(f"⚠️ Position lost after visiting @{username} - may cause loop")
                     
                     self.stats_manager.display_stats(current_profile=username)
                     
