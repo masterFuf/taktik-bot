@@ -11,7 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.prompt import Prompt, Confirm, IntPrompt
 from loguru import logger
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from taktik.core.social_media.instagram.actions.core.device import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
 from taktik.core.social_media.tiktok.core.manager import TikTokManager
 from taktik.core.database import configure_db_service
@@ -2490,7 +2490,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
 def dm_send(device_id, to, message):
     """📤 Envoyer un DM à un utilisateur."""
     from taktik.core.social_media.instagram.workflows.management import DMOutreachWorkflow, DMOutreachConfig
-    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.core.device import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
     import uiautomator2 as u2
@@ -2573,7 +2573,7 @@ def content():
 def post_single(device_id, image, caption, location, hashtags):
     """Poster une photo unique sur Instagram."""
     from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.core.device import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
     import uiautomator2 as u2
@@ -2649,7 +2649,7 @@ def post_single(device_id, image, caption, location, hashtags):
 def post_bulk(device_id, images, captions, delay):
     """Poster plusieurs photos successivement."""
     from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.core.device import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
     import uiautomator2 as u2
@@ -2723,7 +2723,7 @@ def post_bulk(device_id, images, captions, delay):
 def post_story(device_id, image):
     """Poster une story sur Instagram."""
     from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-    from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+    from taktik.core.social_media.instagram.actions.core.device import DeviceManager
     from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
     import uiautomator2 as u2

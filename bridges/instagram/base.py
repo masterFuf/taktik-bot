@@ -133,7 +133,7 @@ def _on_stats_update(stats_dict: dict):
 def setup_stats_callback():
     """Setup the stats callback on BaseStatsManager for IPC updates."""
     try:
-        from taktik.core.social_media.instagram.actions.core.base_stats import BaseStatsManager
+        from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
         # Store original __init__ to wrap it
         original_init = BaseStatsManager.__init__
 

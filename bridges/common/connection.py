@@ -55,7 +55,7 @@ class ConnectionService:
 
         logger.info(f"Connecting to device: {self.device_id}")
         try:
-            from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+            from taktik.core.social_media.instagram.actions.core.device import DeviceManager
 
             self._device_manager = DeviceManager(device_id=self.device_id)
 
