@@ -16,46 +16,42 @@ class NavigationMixin:
         self.logger.info(f"🔍 Navigating to followers of: {self.config.search_query}")
         
         try:
-            # Open search
-            if not self.navigation.open_search():
-                self.logger.error("Failed to open search")
+            # Search for the target user (with inbox recovery)
+            if not self._search_for_target():
                 return False
-            
-            self._human_delay()
-            
-            # Type search query
-            if not self.navigation.search_and_submit(self.config.search_query):
-                self.logger.error("Failed to submit search")
-                return False
-            
-            self._human_delay()
-            
-            # Check if we accidentally landed on Inbox page (notification clicked)
-            if self.detection.is_on_inbox_page():
-                self.logger.warning("⚠️ Accidentally on Inbox page, going back...")
-                self.click.escape_inbox_page()
-                time.sleep(1)
-                # Try search again
-                if not self.navigation.open_search():
-                    return False
-                self._human_delay()
-                if not self.navigation.search_and_submit(self.config.search_query):
-                    return False
-                self._human_delay()
             
             # Dismiss any notification banner that might interfere
             self.click.dismiss_notification_banner()
             
             # Click on Users tab
             if not self._click_users_tab():
-                self.logger.warning("Could not click Users tab, trying to find users anyway")
+                # Check if a notification banner sent us to inbox
+                if self._check_and_recover_from_inbox():
+                    # Retry from search
+                    if not self._search_for_target():
+                        return False
+                    self.click.dismiss_notification_banner()
+                    self._click_users_tab()  # best-effort retry
+                else:
+                    self.logger.warning("Could not click Users tab, trying to find users anyway")
             
             self._human_delay()
             
             # Click on first user result (the target user)
             if not self._click_first_user():
-                self.logger.error("Failed to click on target user")
-                return False
+                # Check if we ended up on inbox again
+                if self._check_and_recover_from_inbox():
+                    if not self._search_for_target():
+                        return False
+                    self.click.dismiss_notification_banner()
+                    self._click_users_tab()
+                    self._human_delay()
+                    if not self._click_first_user():
+                        self.logger.error("Failed to click on target user after inbox recovery")
+                        return False
+                else:
+                    self.logger.error("Failed to click on target user")
+                    return False
             
             self._human_delay()
             
@@ -72,6 +68,52 @@ class NavigationMixin:
         except Exception as e:
             self.logger.error(f"Error navigating to followers list: {e}")
             return False
+    
+    def _search_for_target(self) -> bool:
+        """Open search, type the target query, and submit. Handles inbox recovery."""
+        if not self.navigation.open_search():
+            self.logger.error("Failed to open search")
+            return False
+        
+        self._human_delay()
+        
+        if not self.navigation.search_and_submit(self.config.search_query):
+            self.logger.error("Failed to submit search")
+            return False
+        
+        self._human_delay()
+        
+        # Check if we accidentally landed on Inbox page (notification clicked)
+        if self.detection.is_on_inbox_page():
+            self.logger.warning("⚠️ Accidentally on Inbox page after search, going back...")
+            self.click.escape_inbox_page()
+            time.sleep(1)
+            if not self.navigation.open_search():
+                return False
+            self._human_delay()
+            if not self.navigation.search_and_submit(self.config.search_query):
+                return False
+            self._human_delay()
+        
+        return True
+    
+    def _check_and_recover_from_inbox(self) -> bool:
+        """Check if we're on the inbox page and recover if so.
+        
+        Returns:
+            True if we were on inbox and successfully recovered, False if not on inbox.
+        """
+        if not self.detection.is_on_inbox_page():
+            return False
+        
+        self.logger.warning("⚠️ Notification banner sent us to Inbox, recovering...")
+        self.click.escape_inbox_page()
+        time.sleep(1)
+        # Press back again in case we're in a conversation
+        if self.detection.is_on_inbox_page():
+            self.device.press("back")
+            time.sleep(1)
+        return True
     
     def _click_users_tab(self) -> bool:
         """Click on the Users tab in search results."""
