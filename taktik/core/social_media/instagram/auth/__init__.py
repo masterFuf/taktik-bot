@@ -1,17 +1,17 @@
 """
 Module d'authentification Instagram.
 
-Ce module gère toutes les opérations d'authentification :
-- Login classique (username/password)
-- 2FA (SMS, Authenticator)
-- Gestion des sessions
-- Détection et gestion des erreurs de connexion
+Sub-packages:
+- login/    — Processus de connexion (écran, credentials, résultat, popups)
+- session/  — Persistance des sessions (save/load/delete/cleanup)
 """
 
 from .login import InstagramLogin
-from .session_manager import SessionManager
+from .login.models import LoginResult
+from .session import SessionManager
 
 __all__ = [
     'InstagramLogin',
+    'LoginResult',
     'SessionManager'
 ]
