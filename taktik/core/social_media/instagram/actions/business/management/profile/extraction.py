@@ -3,7 +3,7 @@
 import time
 from typing import Dict, Any, List, Optional
 from loguru import logger
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
 
 
 class ProfileExtraction(BaseBusinessAction):

@@ -5,6 +5,7 @@ import random
 from typing import Dict, Any, List
 
 from ....common import DatabaseHelpers
+from .....core.ipc import IPCEmitter
 
 
 class FollowerLegacyWorkflowMixin:
@@ -97,159 +98,56 @@ class FollowerLegacyWorkflowMixin:
                         continue
                     
                     # Emit IPC event for frontend (WorkflowAnalyzer + SessionLivePanel)
-                    try:
-                        from bridges.instagram.desktop_bridge import send_instagram_profile_visit
-                        send_instagram_profile_visit(username)
-                    except ImportError:
-                        pass  # Bridge not available (CLI mode)
-                    except Exception:
-                        pass  # Ignore IPC errors
+                    IPCEmitter.emit_profile_visit(username)
                     
                     self._random_sleep()
                     
-                    # ✅ EXTRACTION UNIQUE DU PROFIL (évite les duplications)
-                    profile_data = None
-                    if hasattr(self, 'automation') and self.automation:
-                        try:
-                            profile_data = self.profile_business.get_complete_profile_info(username=username, navigate_if_needed=False)
-                            if not profile_data:
-                                self.logger.warning(f"Failed to get profile data for @{username}")
-                                stats['errors'] += 1
-                                self.stats_manager.increment('errors')
-                                continue
-                            
-                            if profile_data.get('is_private', False):
-                                self.logger.info(f"Private profile @{username} - skipped")
-                                stats['skipped'] += 1
-                                self.stats_manager.increment('private_profiles')
-                                self.stats_manager.increment('skipped')
-                                
-                                # Enregistrer le profil privé dans filtered_profile
-                                try:
-                                    session_id = self._get_session_id()
-                                    source_name = getattr(self.automation, 'target_username', 'unknown')
-                                    DatabaseHelpers.record_filtered_profile(
-                                        username=username,
-                                        reason='Private profile',
-                                        source_type='FOLLOWER',
-                                        source_name=source_name,
-                                        account_id=account_id,
-                                        session_id=session_id
-                                    )
-                                    self.logger.debug(f"Private profile @{username} recorded in API")
-                                except Exception as e:
-                                    self.logger.error(f"Error recording private profile @{username}: {e}")
-                                
-                                continue
-                                
-                        except Exception as e:
-                            self.logger.error(f"Error getting profile @{username}: {e}")
-                            stats['errors'] += 1
-                            self.stats_manager.increment('errors')
-                            continue
+                    # === UNIFIED PROFILE PROCESSING ===
+                    source_name = getattr(self.automation, 'target_username', 'unknown') if self.automation else 'unknown'
+                    result = self._process_profile_on_screen(
+                        username, config,
+                        source_type='FOLLOWER', source_name=source_name,
+                        account_id=account_id, session_id=self._get_session_id()
+                    )
+                    
+                    if result.was_error:
+                        stats['errors'] += 1
+                        self.stats_manager.increment('errors')
+                        continue
+                    
+                    if result.was_private:
+                        stats['skipped'] += 1
+                        self.stats_manager.increment('skipped')
+                        continue
+                    
+                    if result.was_filtered:
+                        stats['skipped'] += 1
+                        self.stats_manager.increment('skipped')
+                        continue
                     
                     try:
-                        # ✅ Passer profile_data pour éviter une 2ème extraction
-                        interaction_result = self._perform_profile_interactions(username, config, profile_data=profile_data)
-                        
-                        # Track if we actually interacted
-                        actually_interacted = False
-                        
-                        if interaction_result.get('liked'):
-                            stats['liked'] += 1
-                            actually_interacted = True
-                        if interaction_result.get('followed'):
-                            stats['followed'] += 1
-                            actually_interacted = True
-                        if interaction_result.get('story_viewed'):
-                            stats['stories_viewed'] += 1
-                            actually_interacted = True
-                        if interaction_result.get('commented'):
-                            if 'comments' not in stats:
-                                stats['comments'] = 0
-                            stats['comments'] += 1
-                            actually_interacted = True
-                        
-                        # Only count as interacted if we actually did something
-                        if actually_interacted:
+                        if result.actually_interacted:
+                            if result.likes > 0:
+                                stats['liked'] += 1
+                                self.stats_manager.increment('likes', result.likes)
+                            if result.follows > 0:
+                                stats['followed'] += 1
+                                self.stats_manager.increment('follows')
+                            if result.stories > 0:
+                                stats['stories_viewed'] += 1
+                                self.stats_manager.increment('stories_watched')
+                            if result.comments > 0:
+                                if 'comments' not in stats:
+                                    stats['comments'] = 0
+                                stats['comments'] += 1
+                                self.stats_manager.increment('comments')
+                            
                             stats['processed'] += 1
                             self.stats_manager.increment('profiles_interacted')
-                            # Enregistrer l'interaction pour le système de pauses
                             self.human.record_interaction()
                         else:
                             self.logger.debug(f"@{username} visited but no interaction (probability)")
                             stats['skipped'] += 1
-                        
-                        # Mark as processed in DB (to avoid revisiting)
-                        if account_id:
-                            try:
-                                visit_notes = "Profile interaction" if actually_interacted else "Visited but no interaction"
-                                DatabaseHelpers.mark_profile_as_processed(
-                                    username, visit_notes,
-                                    account_id=account_id,
-                                    session_id=self._get_session_id()
-                                )
-                            except Exception as e:
-                                self.logger.warning(f"Error marking @{username}: {e}")
-                        
-                        if interaction_result.get('filtered', False):
-                            self.stats_manager.increment('profiles_filtered')
-                            
-
-                            try:
-                                filter_reasons = interaction_result.get('filter_reasons', [])
-                                reasons_text = ', '.join(filter_reasons) if filter_reasons else 'filtered'
-                                
-                                account_id = self._get_account_id()
-                                session_id = self._get_session_id()
-                                source_name = getattr(self.automation, 'target_username', 'unknown')
-                                
-                                self.logger.debug(f"[FILTERED] Attempting to record @{username}: account_id={account_id}, session_id={session_id}, source={source_name}")
-                                
-                                if not account_id:
-                                    self.logger.warning(f"[FILTERED] Cannot record @{username} - account_id is None")
-                                else:
-                                    DatabaseHelpers.record_filtered_profile(
-                                        username=username,
-                                        reason=reasons_text,
-                                        source_type='FOLLOWER',
-                                        source_name=source_name,
-                                        account_id=account_id,
-                                        session_id=session_id
-                                    )
-                                    self.logger.info(f"Filtered profile @{username} recorded (reasons: {reasons_text})")
-                            except Exception as e:
-                                self.logger.error(f"Error recording filtered profile @{username}: {e}")
-                        else:
-                            if interaction_result.get('liked'):
-                                self.stats_manager.increment('likes', interaction_result.get('likes_count', 1))
-                                # Record LIKE in database
-                                likes_count = interaction_result.get('likes_count', 1)
-                                DatabaseHelpers.record_individual_actions(
-                                    username, 'LIKE', likes_count,
-                                    account_id=account_id, session_id=self._get_session_id()
-                                )
-                            if interaction_result.get('followed'):
-                                self.stats_manager.increment('follows')
-                                # Record FOLLOW in database
-                                DatabaseHelpers.record_individual_actions(
-                                    username, 'FOLLOW', 1,
-                                    account_id=account_id, session_id=self._get_session_id()
-                                )
-                            if interaction_result.get('story_viewed'):
-                                self.stats_manager.increment('stories_watched')
-                                # Record STORY_WATCH in database
-                                DatabaseHelpers.record_individual_actions(
-                                    username, 'STORY_WATCH', 1,
-                                    account_id=account_id, session_id=self._get_session_id()
-                                )
-                            if interaction_result.get('commented'):
-                                self.stats_manager.increment('comments')
-                                # Record COMMENT in database
-                                DatabaseHelpers.record_individual_actions(
-                                    username, 'COMMENT', 1,
-                                    account_id=account_id, session_id=self._get_session_id()
-                                )
                         
                     except Exception as e:
                         self.logger.error(f"Error interacting with @{username}: {e}")

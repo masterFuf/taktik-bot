@@ -11,13 +11,12 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
 
 from .mixins import (
     FollowerNavigationMixin,
     FollowerCheckpointsMixin,
     FollowerExtractionMixin,
-    FollowerInteractionsMixin,
 )
 from .workflows import (
     FollowerLegacyWorkflowMixin,
@@ -33,7 +32,6 @@ class FollowerBusiness(
     FollowerNavigationMixin,
     FollowerCheckpointsMixin,
     FollowerExtractionMixin,
-    FollowerInteractionsMixin,
     BaseBusinessAction
 ):
     """Business logic for Instagram follower interactions."""

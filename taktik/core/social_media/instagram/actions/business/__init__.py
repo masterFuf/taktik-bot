@@ -14,7 +14,7 @@ Tous les imports historiques restent compatibles.
 
 # Imports depuis les sous-packages
 from .workflows import PostUrlBusiness, HashtagBusiness, FollowerBusiness
-from .actions import LikeBusiness, StoryBusiness, InteractionBusiness
+from .actions import LikeBusiness, StoryBusiness
 from .management import ProfileBusiness, ContentBusiness, FilteringBusiness
 from .system import ConfigBusiness
 from .common import DatabaseHelpers
@@ -27,7 +27,6 @@ __all__ = [
     # Actions
     'LikeBusiness',
     'StoryBusiness',
-    'InteractionBusiness',
     # Management
     'ProfileBusiness',
     'ContentBusiness',

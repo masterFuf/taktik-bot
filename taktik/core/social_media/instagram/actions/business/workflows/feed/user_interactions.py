@@ -5,6 +5,7 @@ import random
 from typing import Dict, List, Any, Optional
 
 from ...common.database_helpers import DatabaseHelpers
+from ....core.ipc import IPCEmitter
 
 
 class FeedUserInteractionsMixin:
@@ -22,13 +23,22 @@ class FeedUserInteractionsMixin:
             
             time.sleep(2)
             
-            # Vérifier les filtres
-            if hasattr(self, 'filtering_business'):
-                filter_result = self.filtering_business.should_interact_with_profile(config.get('filter_criteria', {}))
-                if not filter_result.get('should_interact', True):
-                    self.logger.info(f"Profile @{username} filtered: {filter_result.get('reason', 'unknown')}")
-                    self._record_filtered_profile(username, filter_result.get('reason', 'filtered'), config.get('source', 'feed'))
-                    return None
+            # Extraire les infos du profil + appliquer les filtres
+            if hasattr(self, 'filtering_business') and hasattr(self, 'profile_business'):
+                profile_data = self.profile_business.get_complete_profile_info(
+                    username=username, navigate_if_needed=False
+                )
+                if profile_data:
+                    filter_criteria = config.get('filter_criteria', {})
+                    filter_result = self.filtering_business.apply_comprehensive_filter(
+                        profile_data, filter_criteria
+                    )
+                    if not filter_result.get('suitable', True):
+                        reasons = filter_result.get('reasons', ['filtered'])
+                        self.logger.info(f"Profile @{username} filtered: {', '.join(reasons)}")
+                        self._record_filtered_profile(username, ', '.join(reasons), config.get('source', 'feed'))
+                        self.nav_actions.navigate_to_home()
+                        return None
             
             result = {
                 'likes': 0,
@@ -79,24 +89,12 @@ class FeedUserInteractionsMixin:
         return likes
     
     def _follow_user(self, username: str) -> bool:
-        """Suivre un utilisateur."""
+        """Suivre un utilisateur (delegate to atomic follow with verification)."""
         try:
-            for selector in self.profile_selectors.follow_button:
-                if self._find_and_click(selector, timeout=2):
-                    self._human_like_delay('click')
-                    self._record_action(username, 'FOLLOW', 1)
-                    self.logger.info(f"✅ Followed @{username}")
-                    
-                    # Envoyer l'événement follow en temps réel au frontend
-                    try:
-                        from bridges.instagram.desktop_bridge import send_follow_event
-                        send_follow_event(username, success=True)
-                    except ImportError:
-                        pass  # Bridge not available (CLI mode)
-                    except Exception:
-                        pass  # Ignore IPC errors
-                    
-                    return True
+            if self.click_actions.follow_user(username):
+                self._record_action(username, 'FOLLOW', 1)
+                IPCEmitter.emit_follow(username, success=True)
+                return True
         except Exception as e:
             self.logger.debug(f"Error following user: {e}")
         return False

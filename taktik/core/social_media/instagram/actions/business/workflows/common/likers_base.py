@@ -12,7 +12,8 @@ import time
 from typing import Dict, Any, Optional, List, Set
 from loguru import logger
 
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
+from ....core.base_business.profile_processing import ProfileProcessingResult
 from ...common.database_helpers import DatabaseHelpers
 
 
@@ -114,85 +115,47 @@ class LikersWorkflowBase(BaseBusinessAction):
                     stats['errors'] += 1
                     continue
 
-                # Get profile info
-                profile_data = self.profile_business.get_complete_profile_info(
-                    username=username, navigate_if_needed=False
+                # === UNIFIED PROFILE PROCESSING ===
+                result = self._process_profile_on_screen(
+                    username, effective_config,
+                    source_type=source_type, source_name=source_name,
+                    account_id=account_id, session_id=session_id
                 )
 
-                if not profile_data:
-                    self.logger.warning(f"Could not get profile data for @{username}")
-                    if not self._ensure_on_likers_popup(force_back=True):
-                        self.logger.error("Could not recover to likers popup, stopping")
-                        break
+                if result.was_error:
                     stats['errors'] += 1
+                    if not self._ensure_on_likers_popup(force_back=True):
+                        self.logger.error("Could not recover to likers popup, stopping")
+                        break
                     continue
 
-                # Check private
-                if profile_data.get('is_private', False):
-                    self.logger.info(f"🔒 Private profile @{username} - skipped")
+                if result.was_private:
                     stats['skipped'] += 1
-                    self.stats_manager.increment('private_profiles')
-                    DatabaseHelpers.record_filtered_profile(
-                        username=username,
-                        reason='Private profile',
-                        source_type=source_type,
-                        source_name=source_name,
-                        account_id=account_id,
-                        session_id=session_id
-                    )
                     if not self._ensure_on_likers_popup(force_back=True):
                         self.logger.error("Could not recover to likers popup, stopping")
                         break
                     continue
 
-                # Apply filters
-                filter_criteria = effective_config.get('filter_criteria', {})
-                filter_result = self.filtering_business.apply_comprehensive_filter(
-                    profile_data, filter_criteria
-                )
-
-                if not filter_result.get('suitable', False):
-                    reasons = filter_result.get('reasons', [])
-                    self.logger.info(f"🚫 @{username} filtered: {', '.join(reasons)}")
+                if result.was_filtered:
                     stats['profiles_filtered'] += 1
-                    self.stats_manager.increment('profiles_filtered')
-                    DatabaseHelpers.record_filtered_profile(
-                        username=username,
-                        reason=', '.join(reasons),
-                        source_type=source_type,
-                        source_name=source_name,
-                        account_id=account_id,
-                        session_id=session_id
-                    )
                     if not self._ensure_on_likers_popup(force_back=True):
                         self.logger.error("Could not recover to likers popup, stopping")
                         break
                     continue
 
-                # === PERFORM INTERACTIONS ===
-                interaction_result = self._perform_likers_interactions(
-                    username, effective_config, profile_data=profile_data
-                )
-
-                if interaction_result and interaction_result.get('actually_interacted', False):
+                if result.actually_interacted:
                     stats['users_interacted'] += 1
-                    stats['likes_made'] += interaction_result.get('likes', 0)
-                    stats['follows_made'] += interaction_result.get('follows', 0)
-                    stats['comments_made'] += interaction_result.get('comments', 0)
-                    stats['stories_watched'] += interaction_result.get('stories', 0)
-                    stats['stories_liked'] += interaction_result.get('stories_liked', 0)
+                    stats['likes_made'] += result.likes
+                    stats['follows_made'] += result.follows
+                    stats['comments_made'] += result.comments
+                    stats['stories_watched'] += result.stories
+                    stats['stories_liked'] += result.stories_liked
 
-                    DatabaseHelpers.mark_profile_as_processed(
-                        username, source_name, account_id, session_id
-                    )
-
-                    self.logger.success(f"✅ Successful interaction with @{username}")
                     self._update_stats_from_interaction_result(
-                        username, interaction_result, account_id, session_id
+                        username, result.interaction_result, account_id, session_id
                     )
                     self.stats_manager.display_stats(current_profile=username)
                 else:
-                    self.logger.debug(f"@{username} visited but no interaction (probability)")
                     stats['skipped'] += 1
 
                 # Return to likers list

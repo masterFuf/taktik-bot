@@ -3,7 +3,7 @@
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
 
 
 class ContentExtraction(BaseBusinessAction):
@@ -91,59 +91,6 @@ class ContentExtraction(BaseBusinessAction):
         """Extract followers from a profile."""
         return self._extract_users_from_list(username, 'followers', max_followers, scroll_attempts)
     
-    def extract_following_from_profile(self, username: str, max_following: int = 100,
-                                     scroll_attempts: int = 10) -> List[str]:
-        """Extract following from a profile."""
-        return self._extract_users_from_list(username, 'following', max_following, scroll_attempts)
-    
-    def extract_likers_from_post(self, post_url: str, max_likers: int = 50) -> List[str]:
-        likers = []
-        
-        try:
-            from .navigation import navigate_to_post_via_url
-            if not navigate_to_post_via_url(self, post_url):
-                self.logger.error(f"Failed to navigate to post: {post_url}")
-                return likers
-            
-            if not self._find_and_click(self.post_selectors.likes_count_click_selectors, timeout=5):
-                self.logger.error("Failed to open likes list")
-                return likers
-            
-            self._human_like_delay('navigation')
-            
-            self.logger.info(f"Extracting likers from post (max: {max_likers})")
-            
-            extracted_count = 0
-            scroll_attempts = 0
-            max_scroll_attempts = 10
-            
-            while extracted_count < max_likers and scroll_attempts < max_scroll_attempts:
-                current_usernames = self.detection_actions.extract_usernames_from_follow_list()
-                
-                new_users_found = 0
-                for username_found in current_usernames:
-                    if username_found not in likers:
-                        likers.append(username_found)
-                        extracted_count += 1
-                        new_users_found += 1
-                        
-                        if extracted_count >= max_likers:
-                            break
-                
-                if new_users_found == 0:
-                    break
-                
-                if extracted_count < max_likers:
-                    self.scroll_actions.scroll_followers_list_down()
-                    self._human_like_delay('scroll')
-                    scroll_attempts += 1
-            
-            self.logger.info(f"Extraction completed: {len(likers)} likers extracted")
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting likers: {e}")
-        
-        return likers
     
     def extract_hashtag_posts(self, hashtag: str, max_posts: int = 20, 
                             post_type: str = "recent") -> List[Dict[str, Any]]:
@@ -228,37 +175,3 @@ class ContentExtraction(BaseBusinessAction):
             self.logger.debug(f"Error extracting post info: {e}")
             return None
     
-    def get_content_statistics(self, username: str) -> Dict[str, Any]:
-        stats = {
-            'username': username,
-            'total_posts': 0,
-            'total_followers': 0,
-            'total_following': 0,
-            'engagement_rate': 0.0,
-            'content_analysis': {}
-        }
-        
-        try:
-            # Navigation vers le profil
-            if not self.nav_actions.navigate_to_profile(username):
-                return stats
-            
-            stats['total_posts'] = self.detection_actions.get_posts_count() or 0
-            stats['total_followers'] = self.detection_actions.get_followers_count() or 0
-            stats['total_following'] = self.detection_actions.get_following_count() or 0
-            
-            if stats['total_followers'] > 0:
-                posts_ratio = stats['total_posts'] / stats['total_followers']
-                if posts_ratio > 0.01:
-                    stats['engagement_rate'] = min(posts_ratio * 100, 10.0)
-            
-            stats['content_analysis'] = {
-                'posts_per_follower_ratio': stats['total_posts'] / max(stats['total_followers'], 1),
-                'followers_following_ratio': stats['total_followers'] / max(stats['total_following'], 1),
-                'account_activity_level': 'high' if stats['total_posts'] > 100 else 'medium' if stats['total_posts'] > 20 else 'low'
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting content statistics: {e}")
-        
-        return stats

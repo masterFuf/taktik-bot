@@ -88,28 +88,6 @@ class HashtagPostDetectionMixin:
             self.logger.debug(f"Error checking elements: {e}")
             return False
     
-    def _is_on_hashtag_grid(self) -> bool:
-        """Vérifie si on est sur la grille de posts d'un hashtag."""
-        try:
-            # Vérifier si on voit des posts dans la grille
-            for selector in self.post_selectors.hashtag_post_selectors:
-                posts = self.device.xpath(selector).all()
-                if posts and len(posts) >= 3:  # Au moins 3 posts visibles = grille
-                    self.logger.debug(f"✅ Hashtag grid detected ({len(posts)} posts visible)")
-                    return True
-            
-            # Vérifier si on voit le header du hashtag (depuis selectors.py)
-            for selector in self._hashtag_sel.hashtag_header:
-                if self.device.xpath(selector).exists:
-                    self.logger.debug("✅ Hashtag page header detected")
-                    return True
-            
-            self.logger.debug("❌ Not on hashtag grid")
-            return False
-        except Exception as e:
-            self.logger.debug(f"Error checking hashtag grid: {e}")
-            return False
-    
     def _swipe_to_next_post(self):
         """Swipe vertical pour passer au post suivant."""
         try:

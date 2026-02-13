@@ -2,7 +2,8 @@
 
 from typing import Dict, Any, Optional
 
-from .....common import DatabaseHelpers
+from ......core.ipc import IPCEmitter
+from ......core.base_business.profile_processing import ProfileProcessingResult
 
 
 class DirectProfileProcessingMixin:
@@ -47,148 +48,69 @@ class DirectProfileProcessingMixin:
         # Profile successfully visited
         stats['visited'] += 1
         self.stats_manager.increment('profiles_visited')
-        
-        # Emit IPC event
-        try:
-            from bridges.instagram.desktop_bridge import send_instagram_profile_visit
-            send_instagram_profile_visit(username)
-        except (ImportError, Exception):
-            pass
-        
+        IPCEmitter.emit_profile_visit(username)
         tracker.log_profile_visit(username, idx, already_in_db=False)
         
-        # Extraire les infos du profil
-        try:
-            profile_data = self.profile_business.get_complete_profile_info(
-                username=username, 
-                navigate_if_needed=False
-            )
-            
-            if not profile_data:
-                self.logger.warning(f"Could not get profile data for @{username}")
-                if not self._ensure_on_followers_list(target_username, force_back=True):
-                    return None  # Critical
-                stats['errors'] += 1
-                return False
-            
-            # Vérifier si profil privé
-            if profile_data.get('is_private', False):
-                self.logger.info(f"🔒 Private profile @{username} - skipped")
-                stats['skipped'] += 1
-                self.stats_manager.increment('private_profiles')
-                tracker.log_profile_filtered(username, "Private profile", profile_data)
-                
-                if account_id:
-                    try:
-                        DatabaseHelpers.record_filtered_profile(
-                            username=username,
-                            reason='Private profile',
-                            source_type='FOLLOWER',
-                            source_name=target_username,
-                            account_id=account_id,
-                            session_id=self._get_session_id()
-                        )
-                    except Exception:
-                        pass
-                
-                if not self._ensure_on_followers_list(target_username, force_back=True):
-                    return None  # Critical
-                return False
-            
-            # Appliquer les filtres
-            filter_criteria = interaction_config.get('filter_criteria', {})
-            filter_result = self.filtering_business.apply_comprehensive_filter(
-                profile_data, filter_criteria
-            )
-            
-            if not filter_result.get('suitable', False):
-                reasons = filter_result.get('reasons', [])
-                self.logger.info(f"🚫 @{username} filtered: {', '.join(reasons)}")
-                stats['filtered'] += 1
-                self.stats_manager.increment('profiles_filtered')
-                tracker.log_profile_filtered(username, ', '.join(reasons), profile_data)
-                
-                if account_id:
-                    try:
-                        DatabaseHelpers.record_filtered_profile(
-                            username=username,
-                            reason=', '.join(reasons),
-                            source_type='FOLLOWER',
-                            source_name=target_username,
-                            account_id=account_id,
-                            session_id=self._get_session_id()
-                        )
-                    except Exception as e:
-                        self.logger.debug(f"Error recording filtered profile @{username}: {e}")
-                
-                if not self._ensure_on_followers_list(target_username, force_back=True):
-                    return None  # Critical
-                return False
-            
-            # === EFFECTUER LES INTERACTIONS ===
-            interaction_result = self._perform_profile_interactions(
-                username, 
-                interaction_config, 
-                profile_data=profile_data
-            )
-            
-            self.logger.debug(f"🔍 interaction_result for @{username}: {interaction_result}")
-            
-            actually_interacted = False
-            
-            if interaction_result.get('liked'):
-                likes_count = interaction_result.get('likes_count', 1)
-                stats['liked'] += likes_count
-                self.stats_manager.increment('likes', likes_count)
-                actually_interacted = True
-            if interaction_result.get('followed'):
+        # === UNIFIED PROFILE PROCESSING ===
+        session_id = self._get_session_id()
+        result = self._process_profile_on_screen(
+            username, interaction_config,
+            source_type='FOLLOWER', source_name=target_username,
+            account_id=account_id, session_id=session_id
+        )
+        
+        # --- Handle result with followers-specific extras ---
+        
+        if result.was_error:
+            stats['errors'] += 1
+            if not self._ensure_on_followers_list(target_username, force_back=True):
+                return None  # Critical
+            return False
+        
+        if result.was_private:
+            stats['skipped'] += 1
+            tracker.log_profile_filtered(username, "Private profile", result.profile_data)
+            if not self._ensure_on_followers_list(target_username, force_back=True):
+                return None  # Critical
+            return False
+        
+        if result.was_filtered:
+            stats['filtered'] += 1
+            tracker.log_profile_filtered(username, ', '.join(result.filter_reasons), result.profile_data)
+            if not self._ensure_on_followers_list(target_username, force_back=True):
+                return None  # Critical
+            return False
+        
+        # --- Interaction happened or skipped by probability ---
+        if result.actually_interacted:
+            if result.likes > 0:
+                stats['liked'] += result.likes
+                self.stats_manager.increment('likes', result.likes)
+            if result.follows > 0:
                 stats['followed'] += 1
                 self.stats_manager.increment('follows')
-                actually_interacted = True
-            if interaction_result.get('story_viewed'):
-                stats['stories_viewed'] += 1
+            if result.stories > 0:
+                stats['stories_viewed'] += result.stories
                 self.stats_manager.increment('stories_watched')
-                actually_interacted = True
-            if interaction_result.get('story_liked'):
-                stats['story_likes'] += 1
+            if result.stories_liked > 0:
+                stats['story_likes'] += result.stories_liked
                 self.stats_manager.increment('story_likes')
-                actually_interacted = True
-            if interaction_result.get('commented'):
-                actually_interacted = True
             
-            if actually_interacted:
-                stats['interacted'] += 1
-                stats['processed'] += 1
-                self.stats_manager.increment('profiles_interacted')
-                self.human.record_interaction()
-                tracker.log_profile_interacted(username, {
-                    'liked': interaction_result.get('liked', False),
-                    'followed': interaction_result.get('followed', False),
-                    'story_viewed': interaction_result.get('story_viewed', False),
-                    'commented': interaction_result.get('commented', False)
-                })
-            else:
-                self.logger.debug(f"@{username} visited but no interaction (probability)")
-                stats['skipped'] += 1
+            stats['interacted'] += 1
+            stats['processed'] += 1
+            self.stats_manager.increment('profiles_interacted')
+            self.human.record_interaction()
+            tracker.log_profile_interacted(username, {
+                'liked': result.likes > 0,
+                'followed': result.follows > 0,
+                'story_viewed': result.stories > 0,
+                'commented': result.comments > 0
+            })
             
-            # Marquer comme traité dans la DB
-            if account_id:
-                try:
-                    DatabaseHelpers.mark_profile_as_processed(
-                        username, 
-                        "Direct interaction from followers list" if actually_interacted else "Visited but no interaction",
-                        account_id=account_id,
-                        session_id=self._get_session_id()
-                    )
-                except Exception:
-                    pass
-            
-            if actually_interacted and self.session_manager:
+            if self.session_manager:
                 self.session_manager.record_profile_processed()
             
-            return actually_interacted
-        
-        except Exception as e:
-            self.logger.error(f"Error interacting with @{username}: {e}")
-            stats['errors'] += 1
+            return True
+        else:
+            stats['skipped'] += 1
             return False

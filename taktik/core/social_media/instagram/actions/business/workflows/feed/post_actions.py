@@ -55,56 +55,6 @@ class FeedPostActionsMixin:
             self.logger.debug(f"Error getting post author: {e}")
             return None
     
-    def _get_post_likers(self, max_likers: int = 5) -> List[str]:
-        """
-        Récupérer les likers du post actuel.
-        
-        Args:
-            max_likers: Nombre max de likers à récupérer
-            
-        Returns:
-            Liste de usernames
-        """
-        likers = []
-        
-        try:
-            # Cliquer sur le compteur de likes pour ouvrir la liste
-            clicked = False
-            for selector in self._feed_selectors['likes_count_button']:
-                if self._find_and_click(selector, timeout=2):
-                    clicked = True
-                    break
-            
-            if not clicked:
-                return likers
-            
-            time.sleep(1.5)
-            
-            # Vérifier si la popup des likers est ouverte
-            if not self._is_likers_popup_open():
-                return likers
-            
-            # Extraire les usernames
-            for selector in self.popup_selectors.username_in_popup_selectors:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    for element in elements.all()[:max_likers]:
-                        try:
-                            username = element.text
-                            if username and self._is_valid_username(username):
-                                likers.append(self._clean_username(username))
-                        except Exception:
-                            continue
-                    break
-            
-            # Fermer la popup
-            self._close_likers_popup()
-            
-        except Exception as e:
-            self.logger.debug(f"Error getting post likers: {e}")
-        
-        return likers
-    
     def _like_current_post(self) -> bool:
         """Liker le post actuellement visible dans le feed."""
         try:

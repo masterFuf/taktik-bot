@@ -10,7 +10,8 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
+from ....core.stats import create_workflow_stats
 from ...common.database_helpers import DatabaseHelpers
 from .extraction import NotificationExtractionMixin
 from .interactions import NotificationInteractionsMixin
@@ -49,20 +50,7 @@ class NotificationsBusiness(NotificationExtractionMixin, NotificationInteraction
         """
         effective_config = {**self.default_config, **(config or {})}
         
-        stats = {
-            'notifications_processed': 0,
-            'users_found': 0,
-            'users_interacted': 0,
-            'likes_made': 0,
-            'follows_made': 0,
-            'comments_made': 0,
-            'stories_watched': 0,
-            'stories_liked': 0,
-            'profiles_filtered': 0,
-            'skipped': 0,
-            'errors': 0,
-            'success': False
-        }
+        stats = create_workflow_stats('notifications')
         
         try:
             self.logger.info("🔔 Starting notifications workflow")

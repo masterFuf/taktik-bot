@@ -8,6 +8,7 @@ import time
 
 from ..common.likers_base import LikersWorkflowBase
 from ...common.database_helpers import DatabaseHelpers
+from ....core.stats import create_workflow_stats
 from taktik.core.database import get_db_service
 
 from .mixins.url_handling import PostUrlHandlingMixin
@@ -51,20 +52,7 @@ class PostUrlBusiness(
         self.current_max_interactions = max_interactions
         self.logger.info(f"Max interactions target: {max_interactions}")
         
-        stats = {
-            'post_url': post_url,
-            'users_found': 0,
-            'users_interacted': 0,
-            'likes_made': 0,
-            'follows_made': 0,
-            'comments_made': 0,
-            'stories_watched': 0,
-            'stories_liked': 0,
-            'profiles_filtered': 0,
-            'skipped': 0,
-            'errors': 0,
-            'success': False
-        }
+        stats = create_workflow_stats('post_url', source=post_url)
         
         try:
             self.logger.info(f"Starting Post URL workflow (direct navigation): {post_url}")

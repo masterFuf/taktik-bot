@@ -5,7 +5,7 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
 from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
 
 

@@ -8,6 +8,7 @@ from loguru import logger
 
 from ..common.likers_base import LikersWorkflowBase
 from ...common.database_helpers import DatabaseHelpers
+from ....core.stats import create_workflow_stats
 from taktik.core.database import get_db_service
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
@@ -35,22 +36,7 @@ class HashtagBusiness(
         self.logger.info(f"Hashtag config received: {config}")
         self.logger.info(f"Hashtag config effective: max_interactions={effective_config.get('max_interactions', 'N/A')}")
         
-        stats = {
-            'hashtag': hashtag,
-            'posts_analyzed': 0,
-            'posts_selected': 0,
-            'users_found': 0,
-            'users_interacted': 0,
-            'likes_made': 0,
-            'follows_made': 0,
-            'comments_made': 0,
-            'stories_watched': 0,
-            'stories_liked': 0,
-            'profiles_filtered': 0,
-            'skipped': 0,
-            'errors': 0,
-            'success': False
-        }
+        stats = create_workflow_stats('hashtag', source=hashtag)
         
         try:
             self.logger.info(f"Starting hashtag workflow: #{hashtag}")
@@ -236,91 +222,3 @@ class HashtagBusiness(
         
         return stats
     
-    def interact_with_hashtag(self, source: str = None, hashtag: str = None, 
-                            max_interactions: int = 30, action_config: Dict[str, Any] = None) -> Dict[str, Any]:
-        try:
-            if source:
-                hashtag_name, _ = self._parse_hashtag_source(source)
-            elif hashtag:
-                hashtag_name = hashtag
-            else:
-                raise ValueError("Either 'source' or 'hashtag' must be provided")
-            
-            if action_config:
-                post_criteria = action_config.get('post_criteria', {})
-                probabilities = action_config.get('probabilities', {})
-                filter_criteria = action_config.get('filter_criteria', {})
-                
-                config = {
-                    'max_interactions': action_config.get('max_interactions', 30),
-                    'max_likes_per_profile': action_config.get('max_likes_per_profile', 2),
-                    'min_likes': post_criteria.get('min_likes', 100),
-                    'max_likes': post_criteria.get('max_likes', 50000),
-                    'max_posts_to_analyze': 20,
-                    'like_percentage': probabilities.get('like_percentage', 80),
-                    'follow_percentage': probabilities.get('follow_percentage', 15),
-                    'comment_percentage': probabilities.get('comment_percentage', 5),
-                    'story_watch_percentage': probabilities.get('story_percentage', 20),
-                    'story_like_percentage': probabilities.get('story_like_percentage', 10),
-                    'filter_criteria': {
-                        'min_followers': filter_criteria.get('min_followers', 10),
-                        'max_followers': filter_criteria.get('max_followers', 50000),
-                        'min_posts': filter_criteria.get('min_posts', 3),
-                        'skip_private': filter_criteria.get('skip_private', True),
-                        'skip_business': filter_criteria.get('skip_business', False)
-                    },
-                    'like_settings': action_config.get('like_settings', {}),
-                    'follow_settings': action_config.get('follow_settings', {}),
-                    'story_settings': action_config.get('story_settings', {})
-                }
-            else:
-                config = {
-                    'max_interactions': max_interactions,
-                    'min_likes': 100,
-                    'max_likes': 50000,
-                    'max_posts_to_analyze': 20,
-                    'like_percentage': 80,
-                    'follow_percentage': 15,
-                    'comment_percentage': 5,
-                    'story_watch_percentage': 10,
-                    'max_likes_per_profile': 2,
-                    'filter_criteria': {
-                        'min_followers': 10,
-                        'max_followers': 50000,
-                        'min_posts': 3,
-                        'skip_private': True
-                    }
-                }
-            
-            result = self.interact_with_hashtag_likers(hashtag_name, config)
-            
-            return {
-                'users_found': result.get('users_found', 0),
-                'users_interacted': result.get('users_interacted', 0),
-                'profiles_filtered': result.get('profiles_filtered', 0),
-                'likes_made': result.get('likes_made', 0),
-                'follows_made': result.get('follows_made', 0),
-                'comments_made': result.get('comments_made', 0),
-                'stories_watched': result.get('stories_watched', 0),
-                'stories_liked': result.get('stories_liked', 0),
-                'errors': result.get('errors', 0)
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Hashtag workflow error: {e}")
-            return {
-                'users_found': 0,
-                'users_interacted': 0,
-                'profiles_filtered': 0,
-                'likes_made': 0,
-                'follows_made': 0,
-                'comments_made': 0,
-                'stories_watched': 0,
-                'errors': 1
-            }
-    
-    def _parse_hashtag_source(self, source: str) -> tuple:
-        if '-' in source:
-            parts = source.split('-', 1)
-            return parts[0], parts[1]
-        return source, 'recent-likers'

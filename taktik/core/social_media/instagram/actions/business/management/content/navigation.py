@@ -2,7 +2,7 @@
 
 import re
 from loguru import logger
-from .....utils.taktik_keyboard import run_adb_shell
+from .....utils.input.keyboard import run_adb_shell
 
 
 def navigate_to_post_via_url(business_action, post_url: str) -> bool:

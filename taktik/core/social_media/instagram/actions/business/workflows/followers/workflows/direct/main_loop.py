@@ -4,6 +4,7 @@ import time
 from typing import Dict, Any
 
 from .....common import DatabaseHelpers
+from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from ....common.followers_tracker import FollowersTracker
 from .navigation_helpers import DirectNavigationMixin
@@ -32,20 +33,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
         """
         config = config or {}
         
-        stats = {
-            'interacted': 0,      # Profiles with actual interaction (like/follow/story/comment)
-            'visited': 0,         # Total profiles visited (navigated to)
-            'liked': 0,
-            'followed': 0,
-            'stories_viewed': 0,
-            'story_likes': 0,     # Likes on stories
-            'errors': 0,
-            'skipped': 0,
-            'filtered': 0,        # Profiles filtered by criteria
-            'already_processed': 0,
-            # Keep 'processed' as alias for 'interacted' for backward compatibility
-            'processed': 0
-        }
+        stats = create_workflow_stats('followers_direct')
         
         interaction_config = {
             'like_probability': config.get('like_probability', 0.8),
@@ -304,7 +292,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         self._human_like_delay('scroll')
                         scroll_attempts += 1
             
-            # Finalization
+            # Finalization — sync aliased keys before return
+            sync_aliases(stats, 'followers_direct')
             tracker.log_session_end(stats)
             self.logger.info(f"✅ Direct interactions completed: {stats}")
             self.stats_manager.display_final_stats(workflow_name="FOLLOWERS_DIRECT")
@@ -319,4 +308,5 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             
         except Exception as e:
             self.logger.error(f"Error in direct followers workflow: {e}")
+            sync_aliases(stats, 'followers_direct')
             return stats

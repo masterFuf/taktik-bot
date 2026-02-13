@@ -26,34 +26,6 @@ class PostUrlHandlingMixin:
         self.logger.debug(f"Invalid URL: {url}")
         return False
     
-    def _extract_post_metadata_from_url(self, post_url: str) -> Optional[Dict[str, Any]]:
-        try:
-            self.logger.debug(f"Navigating to post: {post_url}")
-            
-            if not self.nav_actions.navigate_to_post_via_deep_link(post_url):
-                self.logger.error("Failed to navigate to post")
-                return None
-            
-            time.sleep(3)
-            
-            metadata = {
-                'author_username': self._extract_author_username(),
-                'likes_count': self.ui_extractors.extract_likes_count_from_ui(),
-                'comments_count': self.ui_extractors.extract_comments_count_from_ui(),
-                'is_reel': self._is_reel_post()
-            }
-            
-            if not metadata['author_username']:
-                self.logger.error("Failed to extract author username")
-                return None
-            
-            self.logger.info(f"Metadata extracted: @{metadata['author_username']}, {metadata['likes_count']} likes, {metadata['comments_count']} comments")
-            return metadata
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting metadata: {e}")
-            return None
-    
     def _extract_author_username(self) -> Optional[str]:
         try:
             # PRIORITY 1: Try extracting from Reel-specific content-desc (e.g., "Reel by username")

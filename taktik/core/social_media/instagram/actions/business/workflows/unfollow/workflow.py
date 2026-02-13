@@ -12,7 +12,7 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ....core.base_business_action import BaseBusinessAction
+from ....core.base_business import BaseBusinessAction
 from ...common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
 

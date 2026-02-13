@@ -21,7 +21,7 @@ class PostNavigationMixin:
             # This can happen after follow when suggestions popup was hidden by scrolling up
             if not posts:
                 self.logger.debug("No posts visible, scrolling down to reveal grid...")
-                from ....core.device_facade import Direction
+                from ....core.device.facade import Direction
                 self.device.swipe(Direction.UP, scale=0.3)  # UP = finger moves up = content goes DOWN
                 time.sleep(0.5)
                 posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
@@ -29,7 +29,7 @@ class PostNavigationMixin:
             if not posts:
                 # Try one more time with a bigger scroll
                 self.logger.debug("Still no posts, trying bigger scroll...")
-                from ....core.device_facade import Direction
+                from ....core.device.facade import Direction
                 self.device.swipe(Direction.UP, scale=0.5)
                 time.sleep(0.5)
                 posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()

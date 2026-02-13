@@ -135,7 +135,7 @@ def send_dm(device_manager, username: str, message: str, navigate_to_profile: bo
         messaging = MessagingBusiness(device_manager)
         
         if navigate_to_profile:
-            from ...atomic.navigation_actions import NavigationActions
+            from ...atomic.navigation import NavigationActions
             nav = NavigationActions(device_manager)
             if not nav.navigate_to_profile(username):
                 logger.warning(f"Could not navigate to @{username}")
