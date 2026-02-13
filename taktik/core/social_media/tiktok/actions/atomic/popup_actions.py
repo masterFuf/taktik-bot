@@ -97,20 +97,35 @@ class PopupActions(BaseAction):
         # Fallback to generic close
         return self.close_popup()
     
-    def dismiss_notification_banner(self) -> bool:
-        """Dismiss notification banner by pressing back or swiping it away.
+    def dismiss_notification_banner(self, force_swipe: bool = False) -> bool:
+        """Dismiss notification banner by swiping it away.
         
         This banner appears at top: "X sent you new messages" with Reply button.
         We need to dismiss it to avoid accidentally clicking on it.
+        
+        Args:
+            force_swipe: If True, swipe the top area even if banner is not detected
+                         (useful as a preventive measure before critical clicks).
         """
         self.logger.debug("🔔 Trying to dismiss notification banner")
         
-        # Check if banner exists
-        if self._element_exists(self.popup_selectors.notification_banner, timeout=0.5):
-            self.logger.warning("⚠️ Notification banner detected, dismissing...")
-            # Press back to dismiss the banner
-            self.device.press("back")
-            self._human_like_delay('click')
+        detected = self._element_exists(self.popup_selectors.notification_banner, timeout=0.5)
+        
+        if detected or force_swipe:
+            if detected:
+                self.logger.warning("⚠️ Notification banner detected, swiping away...")
+            else:
+                self.logger.debug("🔔 Preventive swipe on notification area")
+            
+            # Swipe the banner upward to dismiss it
+            try:
+                w, h = self.device.get_screen_size()
+                # Swipe from top area upward to dismiss the banner
+                self.device.swipe_coordinates(w // 2, int(h * 0.08), w // 2, 0, duration=0.15)
+                import time
+                time.sleep(0.5)
+            except Exception as e:
+                self.logger.debug(f"Swipe dismiss failed: {e}")
             return True
         
         return False
