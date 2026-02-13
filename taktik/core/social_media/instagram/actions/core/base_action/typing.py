@@ -78,13 +78,30 @@ class TypingMixin:
             self.logger.error(f"❌ Error activating Taktik Keyboard: {e}")
             return False
     
+    def _adb_input_text(self, text: str) -> bool:
+        """Last-resort fallback: type text via 'adb shell input text'.
+        
+        Only supports ASCII and replaces spaces with %s (ADB convention).
+        """
+        try:
+            device_serial = self._get_device_serial()
+            safe_text = text.replace(' ', '%s').replace("'", "\\'").replace('"', '\\"')
+            self._run_adb_shell(device_serial, f'input text "{safe_text}"')
+            self.logger.debug(f"⌨️ Typed via adb input text: '{text[:20]}...'")
+            return True
+        except Exception as e:
+            self.logger.error(f"❌ adb input text failed: {e}")
+            return False
+
     def _type_with_taktik_keyboard(self, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
         """
         Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
         This is more reliable than uiautomator2's send_keys for special characters.
         
-        IMPORTANT: This override adds send_keys fallback that SharedBaseAction lacks.
-        If Taktik Keyboard fails, falls back to device.send_keys() instead of returning False.
+        Fallback chain:
+        1. Taktik Keyboard broadcast (ADB_INPUT_B64)
+        2. adb shell input text (direct ADB, ASCII only)
+        3. uiautomator2 send_keys (last resort)
         
         Args:
             text: Text to type
@@ -104,7 +121,9 @@ class TypingMixin:
             if not self._is_taktik_keyboard_active():
                 self.logger.debug("Taktik Keyboard not active, activating...")
                 if not self._activate_taktik_keyboard():
-                    self.logger.warning("⚠️ Could not activate Taktik Keyboard, falling back to send_keys")
+                    self.logger.warning("⚠️ Could not activate Taktik Keyboard, trying adb input text")
+                    if self._adb_input_text(text):
+                        return True
                     self.device.send_keys(text)
                     return True
             
@@ -123,14 +142,17 @@ class TypingMixin:
                 return True
             else:
                 self.logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result}")
-                # Fallback to send_keys
+                # Fallback: adb input text, then send_keys
+                if self._adb_input_text(text):
+                    return True
                 self.device.send_keys(text)
                 return True
                 
         except Exception as e:
             self.logger.error(f"❌ Error using Taktik Keyboard: {e}")
-            # Fallback to send_keys
             try:
+                if self._adb_input_text(text):
+                    return True
                 self.device.send_keys(text)
                 return True
             except:

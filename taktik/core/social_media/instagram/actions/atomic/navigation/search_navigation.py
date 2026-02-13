@@ -95,8 +95,10 @@ class SearchNavigationMixin(BaseAction):
         # Wait for keyboard to appear and search field to be active
         time.sleep(0.5)
         
-        # Step 3: Type username with human-like delays
-        self._type_like_human(username, min_delay=0.05, max_delay=0.12)
+        # Step 3: Type username using Taktik Keyboard (reliable ADB broadcast)
+        if not self._type_with_taktik_keyboard(username):
+            self.logger.warning("Taktik Keyboard failed for username, falling back to send_keys")
+            self.device.send_keys(username)
         
         # Wait for search results to load
         self._human_like_delay('typing')
