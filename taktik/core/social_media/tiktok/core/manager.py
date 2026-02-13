@@ -67,11 +67,9 @@ class TikTokManager(SocialMediaBase):
             return False
 
     def login(self, username: str, password: str) -> bool:
-        # À implémenter: login automatisé via UI
         self.logger.info(f"Tentative de connexion pour {username}")
         return False
 
     def logout(self) -> bool:
-        # À implémenter: logout automatisé via UI
         self.logger.info("Déconnexion en cours...")
         return False
