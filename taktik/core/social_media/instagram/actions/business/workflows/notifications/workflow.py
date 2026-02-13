@@ -1,10 +1,8 @@
-"""Business logic for Instagram notifications interactions.
+"""Notifications workflow orchestration.
 
-Ce workflow permet d'interagir avec les utilisateurs depuis l'onglet Activité/Notifications.
-Utilisations typiques:
-- Interagir avec les personnes qui ont liké vos posts
-- Interagir avec les nouveaux followers
-- Interagir avec les personnes qui ont commenté
+Internal structure:
+- extraction.py    — Navigate to activity tab + extract users from notifications
+- interactions.py  — Interact with user from notifications + record to DB
 """
 
 import time
@@ -14,10 +12,11 @@ from loguru import logger
 
 from ....core.base_business_action import BaseBusinessAction
 from ...common.database_helpers import DatabaseHelpers
-from taktik.core.database import get_db_service
+from .extraction import NotificationExtractionMixin
+from .interactions import NotificationInteractionsMixin
 
 
-class NotificationsBusiness(BaseBusinessAction):
+class NotificationsBusiness(NotificationExtractionMixin, NotificationInteractionsMixin, BaseBusinessAction):
     """Business logic for interacting with users from notifications/activity tab."""
     
     def __init__(self, device, session_manager=None, automation=None):
@@ -143,210 +142,3 @@ class NotificationsBusiness(BaseBusinessAction):
             stats['errors'] += 1
         
         return stats
-    
-    def _navigate_to_activity_tab(self) -> bool:
-        """Naviguer vers l'onglet Activité/Notifications."""
-        try:
-            self.logger.debug("🔔 Navigating to activity tab")
-            
-            for selector in self._notification_selectors['activity_tab']:
-                if self._find_and_click(selector, timeout=3):
-                    self._human_like_delay('navigation')
-                    time.sleep(2)
-                    
-                    # Vérifier qu'on est bien sur l'onglet activité
-                    if self._is_on_activity_screen():
-                        self.logger.debug("✅ Successfully navigated to activity tab")
-                        return True
-            
-            # Fallback: utiliser les sélecteurs de navigation
-            if self._find_and_click(self.navigation_selectors.activity_tab, timeout=5):
-                self._human_like_delay('navigation')
-                time.sleep(2)
-                return self._is_on_activity_screen()
-            
-            self.logger.error("Cannot navigate to activity tab")
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error navigating to activity tab: {e}")
-            return False
-    
-    def _is_on_activity_screen(self) -> bool:
-        """Vérifier si on est sur l'écran d'activité."""
-        return self._is_element_present(self._notif_sel.activity_screen_indicators)
-    
-    def _extract_users_from_notifications(self, max_users: int = 50, 
-                                          notification_types: List[str] = None) -> List[str]:
-        """
-        Extraire les usernames depuis les notifications.
-        
-        Args:
-            max_users: Nombre max d'utilisateurs à extraire
-            notification_types: Types de notifications à traiter
-            
-        Returns:
-            Liste de usernames
-        """
-        users = []
-        seen_users = set()
-        scroll_attempts = 0
-        max_scroll_attempts = 10
-        
-        notification_types = notification_types or ['likes', 'follows', 'comments']
-        
-        self.logger.info(f"📋 Extracting users from notifications (types: {notification_types})")
-        
-        while len(users) < max_users and scroll_attempts < max_scroll_attempts:
-            # Extraire les notifications visibles
-            new_users = self._get_visible_notification_users(notification_types)
-            
-            for username in new_users:
-                if username not in seen_users and len(users) < max_users:
-                    seen_users.add(username)
-                    users.append(username)
-                    self.logger.debug(f"Found user: @{username}")
-            
-            if len(users) >= max_users:
-                break
-            
-            # Scroll pour voir plus de notifications
-            previous_count = len(users)
-            self.scroll_actions.scroll_down()
-            time.sleep(1.5)
-            scroll_attempts += 1
-            
-            # Si pas de nouveaux utilisateurs après scroll, on arrête
-            if len(users) == previous_count:
-                self.logger.debug("No new users found after scroll")
-                break
-        
-        self.logger.info(f"✅ Extracted {len(users)} users from notifications")
-        return users
-    
-    def _get_visible_notification_users(self, notification_types: List[str]) -> List[str]:
-        """Récupérer les usernames des notifications visibles."""
-        users = []
-        
-        try:
-            # Chercher les éléments de notification
-            for selector in self._notification_selectors['notification_item']:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    for element in elements.all():
-                        try:
-                            # Extraire le texte de la notification
-                            text = element.get_text() or ''
-                            content_desc = element.attrib.get('content-desc', '')
-                            
-                            full_text = f"{text} {content_desc}".lower()
-                            
-                            # Filtrer par type de notification
-                            should_process = False
-                            if 'likes' in notification_types and ('liked' in full_text or 'aimé' in full_text):
-                                should_process = True
-                            if 'follows' in notification_types and ('following' in full_text or 'abonné' in full_text or 'started' in full_text):
-                                should_process = True
-                            if 'comments' in notification_types and ('commented' in full_text or 'commenté' in full_text):
-                                should_process = True
-                            
-                            if should_process:
-                                # Extraire le username (généralement le premier mot ou avant "liked/commented")
-                                username = self._extract_username_from_notification_text(text or content_desc)
-                                if username and self._is_valid_username(username):
-                                    users.append(username)
-                        except Exception:
-                            continue
-                    break
-        except Exception as e:
-            self.logger.debug(f"Error extracting notification users: {e}")
-        
-        return users
-    
-    def _extract_username_from_notification_text(self, text: str) -> Optional[str]:
-        """Extraire le username depuis le texte d'une notification."""
-        if not text:
-            return None
-        
-        # Le username est généralement le premier mot (avant "liked", "commented", etc.)
-        words = text.split()
-        if words:
-            username = words[0].strip()
-            # Nettoyer le username
-            username = username.replace('@', '').replace(',', '').strip()
-            if self._is_valid_username(username):
-                return username
-        
-        return None
-    
-    def _interact_with_user(self, username: str, config: Dict[str, Any]) -> Optional[Dict[str, int]]:
-        """
-        Interagir avec un utilisateur depuis les notifications.
-        Navigation + filtering + delegated interactions via unified method.
-        """
-        try:
-            # Naviguer vers le profil
-            if not self.nav_actions.navigate_to_profile(username):
-                self.logger.warning(f"Cannot navigate to @{username}")
-                return None
-            
-            time.sleep(2)
-            
-            # Récupérer les infos profil
-            profile_data = self.profile_business.get_complete_profile_info(username, navigate_if_needed=False)
-            if not profile_data:
-                self.logger.warning(f"Cannot get profile info for @{username}")
-                self._navigate_to_activity_tab()
-                return None
-            
-            # Vérifier les filtres (uses same method as all other workflows)
-            if hasattr(self, 'filtering_business'):
-                filter_criteria = config.get('filter_criteria', {})
-                filter_result = self.filtering_business.apply_comprehensive_filter(
-                    profile_data, filter_criteria
-                )
-                if not filter_result.get('suitable', True):
-                    reasons = filter_result.get('reasons', ['filtered'])
-                    self.logger.info(f"Profile @{username} filtered: {', '.join(reasons)}")
-                    self._record_filtered_profile(username, ', '.join(reasons), config.get('source', 'notifications'))
-                    self._navigate_to_activity_tab()
-                    return None
-            
-            # === INTERACTIONS (delegated to unified method) ===
-            result = self._perform_interactions_on_profile(username, config, profile_data=profile_data)
-            
-            # Retourner à l'onglet activité pour continuer
-            self._navigate_to_activity_tab()
-            
-            # Return in expected format (without actually_interacted key)
-            if result.get('actually_interacted', False):
-                return {
-                    'likes': result.get('likes', 0),
-                    'follows': result.get('follows', 0),
-                    'comments': result.get('comments', 0),
-                    'stories': result.get('stories', 0),
-                    'stories_liked': result.get('stories_liked', 0)
-                }
-            
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"Error interacting with @{username}: {e}")
-            return None
-    
-    def _record_filtered_profile(self, username: str, reason: str, source: str):
-        """Enregistrer un profil filtré."""
-        try:
-            account_id = self._get_account_id()
-            session_id = self._get_session_id()
-            
-            DatabaseHelpers.record_filtered_profile(
-                username=username,
-                reason=reason,
-                source_type='NOTIFICATIONS',
-                source_name=source,
-                account_id=account_id,
-                session_id=session_id
-            )
-        except Exception as e:
-            self.logger.debug(f"Error recording filtered profile: {e}")
