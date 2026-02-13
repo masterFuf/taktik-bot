@@ -141,13 +141,10 @@ class DebugBridge:
         
         # Use appropriate detector based on app
         if 'musically' in package or 'tiktok' in package.lower():
-            # TikTok app
-            send_log("info", "Using TikTok problematic page detector")
-            from taktik.core.social_media.tiktok.ui.detectors.problematic_page import TikTokProblematicPageDetector
-            detector = TikTokProblematicPageDetector(device, debug_mode=True)
-            result_data = detector.detect_and_handle_problematic_pages()
-            detected = result_data.get('detected', False)
-            handled = result_data.get('closed', False)
+            # TikTok popup handling is done by popup_handler.py in workflows
+            send_log("info", "TikTok detected — popup handling is managed by workflow popup_handler")
+            detected = False
+            handled = False
         else:
             # Default to Instagram
             send_log("info", "Using Instagram problematic page detector")

@@ -48,7 +48,7 @@ class TabNavigationMixin(BaseAction):
         max_attempts = 3
         
         for attempt in range(max_attempts):
-            from ..detection_actions import DetectionActions
+            from ..detection import DetectionActions
             detection = DetectionActions(self.device)
             
             if detection.is_on_own_profile():

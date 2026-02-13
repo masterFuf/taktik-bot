@@ -112,7 +112,7 @@ class ProfileInteractionMixin(BaseAction):
                     return False
             
             # Vérifier qu'on est toujours sur un profil
-            from ..detection_actions import DetectionActions
+            from ..detection import DetectionActions
             detection = DetectionActions(self.device)
             
             if detection.is_on_profile_screen():

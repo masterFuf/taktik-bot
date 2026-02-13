@@ -225,7 +225,7 @@ class SearchNavigationMixin(BaseAction):
         
         self.logger.debug(f"✅ On profile screen, verifying username...")
         
-        from ..detection_actions import DetectionActions
+        from ..detection import DetectionActions
         detection = DetectionActions(self.device)
         current_username = detection.get_username_from_profile()
         
