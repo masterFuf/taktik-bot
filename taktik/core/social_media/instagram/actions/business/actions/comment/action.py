@@ -1,17 +1,20 @@
+"""Comment action — post comments on Instagram posts."""
+
 import time
 import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ...core.base_business_action import BaseBusinessAction
+from ....core.base_business_action import BaseBusinessAction
+from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
 
 
-class CommentBusiness(BaseBusinessAction):
+class CommentAction(BaseBusinessAction):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "comment")
         
-        from ....ui.selectors import POST_SELECTORS
+        from .....ui.selectors import POST_SELECTORS
         self.post_selectors = POST_SELECTORS
         
         self.default_config = {
@@ -20,44 +23,8 @@ class CommentBusiness(BaseBusinessAction):
             'min_comment_length': 3
         }
         
-        self.comment_templates = {
-            'generic': [
-                "Nice! 🔥",
-                "Love this! ❤️",
-                "Amazing! 😍",
-                "Great content! 👏",
-                "Awesome! ✨",
-                "Beautiful! 💫",
-                "Incredible! 🙌",
-                "Perfect! 💯",
-                "So cool! 😎",
-                "Fantastic! ⭐"
-            ],
-            'engagement': [
-                "This is great! 🔥",
-                "Love your content! ❤️",
-                "Keep it up! 💪",
-                "Amazing work! 👏",
-                "So inspiring! ✨",
-                "This is fire! 🔥",
-                "Absolutely love this! 😍",
-                "You're killing it! 💯",
-                "Can't get enough! 🙌",
-                "This made my day! ☀️"
-            ],
-            'short': [
-                "🔥",
-                "❤️",
-                "😍",
-                "👏",
-                "✨",
-                "💯",
-                "🙌",
-                "⭐",
-                "💪",
-                "👌"
-            ]
-        }
+        # Mutable copy so add_custom_template works at runtime
+        self.comment_templates = {k: list(v) for k, v in DEFAULT_TEMPLATES.items()}
     
     def comment_on_post(self, comment_text: str = None, template_category: str = 'generic',
                        custom_comments: List[str] = None, config: dict = None, username: str = None) -> dict:
@@ -76,10 +43,10 @@ class CommentBusiness(BaseBusinessAction):
                     comment_text = random.choice(custom_comments)
                     self.logger.debug(f"Using custom comment from user list")
                 else:
-                    comment_text = self._get_random_comment(template_category)
+                    comment_text = get_random_comment(self.comment_templates, template_category)
                     self.logger.debug(f"Using template comment from category: {template_category}")
             
-            if not self._validate_comment(comment_text, config):
+            if not validate_comment(comment_text, config, self.logger):
                 self.logger.warning(f"Invalid comment text: {comment_text}")
                 stats['errors'] += 1
                 return stats
@@ -207,24 +174,33 @@ class CommentBusiness(BaseBusinessAction):
             if drag_handle.exists:
                 bounds = drag_handle.info.get('bounds', {})
                 if bounds:
-                    # Get screen dimensions for adaptive end_y
-                    _, height = self.device.get_screen_size()
-                    center_x = (bounds.get('left', 540) + bounds.get('right', 540)) // 2
-                    start_y = bounds.get('top', 100)
-                    end_y = int(height * 0.78)  # ~78% of screen height
+                    screen_info = self.device.info
+                    screen_height = screen_info.get('displayHeight', 1920)
+                    screen_width = screen_info.get('displayWidth', 1080)
                     
-                    self.logger.debug(f"Swiping drag handle down: ({center_x}, {start_y}) → ({center_x}, {end_y})")
-                    self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.3)
+                    handle_y = (bounds.get('top', 100) + bounds.get('bottom', 100)) // 2
+                    center_x = (bounds.get('left', screen_width // 2) + bounds.get('right', screen_width // 2)) // 2
+                    
+                    # If handle is near status bar (< 5% of screen), use a safe start position
+                    if handle_y < int(screen_height * 0.05):
+                        handle_y = int(screen_height * 0.05)
+                        self.logger.debug(f"Handle too close to status bar, adjusting start_y to {handle_y}")
+                    
+                    end_y = int(screen_height * 0.95)
+                    
+                    self.logger.debug(f"Swiping drag handle down: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
+                    self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
                     time.sleep(0.5)
                     self.logger.debug("Comment popup closed with drag handle")
                     return True
             
-            if self.nav_actions.close_modal_or_popup():
-                self.logger.debug("Comment popup closed with close button")
-                return True
-            
-            self.logger.debug("Fallback: using device back key")
-            self.device.press("back")
+            # Fallback: swipe from center of screen like _close_popup_by_swipe_down
+            screen_info = self.device.info
+            center_x = screen_info.get('displayWidth', 1080) // 2
+            handle_y = int(screen_info.get('displayHeight', 1920) * 0.37)
+            end_y = int(screen_info.get('displayHeight', 1920) * 0.95)
+            self.logger.debug(f"Fallback swipe: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
+            self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
             time.sleep(0.5)
             return True
             
@@ -232,46 +208,16 @@ class CommentBusiness(BaseBusinessAction):
             self.logger.error(f"Error closing comment popup: {e}")
             return False
     
+    # ─── Backward-compatible template management methods ─────────────────
+    
     def _get_random_comment(self, category: str = 'generic') -> str:
-        if category not in self.comment_templates:
-            category = 'generic'
-        
-        templates = self.comment_templates[category]
-        return random.choice(templates)
+        return get_random_comment(self.comment_templates, category)
     
     def _validate_comment(self, comment_text: str, config: dict) -> bool:
-        if not comment_text or not isinstance(comment_text, str):
-            return False
-        
-        comment_text = comment_text.strip()
-        
-        if len(comment_text) < config['min_comment_length']:
-            self.logger.warning(f"Comment too short: {len(comment_text)} < {config['min_comment_length']}")
-            return False
-        
-        if len(comment_text) > config['max_comment_length']:
-            self.logger.warning(f"Comment too long: {len(comment_text)} > {config['max_comment_length']}")
-            return False
-        
-        return True
+        return validate_comment(comment_text, config, self.logger)
     
-    def get_comment_templates(self, category: str = None) -> List[str]:
-        if category and category in self.comment_templates:
-            return self.comment_templates[category].copy()
-        return self.comment_templates.copy()
+    def get_comment_templates(self, category: str = None) -> object:
+        return get_templates(self.comment_templates, category)
     
     def add_custom_template(self, comment: str, category: str = 'generic') -> bool:
-        try:
-            if category not in self.comment_templates:
-                self.comment_templates[category] = []
-            
-            if comment not in self.comment_templates[category]:
-                self.comment_templates[category].append(comment)
-                self.logger.debug(f"Custom template added to '{category}': {comment}")
-                return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error adding custom template: {e}")
-            return False
+        return add_custom_template(self.comment_templates, comment, category, self.logger)

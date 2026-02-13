@@ -504,6 +504,26 @@ class ProfileSelectors:
     follow_buttons: str = '//android.widget.Button[contains(@text, "Follow")]'
     suivre_buttons: str = '//android.widget.Button[contains(@text, "Suivre")]'
     
+    # === About this account (accessible via username click in action bar) ===
+    about_account_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar_username_container"]',
+    ])
+    
+    about_account_page_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar_title" and @text="About this account"]',
+        '//*[@resource-id="com.instagram.android:id/action_bar_title" and @text="À propos de ce compte"]',
+    ])
+    
+    about_account_date_joined_value: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Date joined")]/android.view.View[2]',
+        '//*[contains(@content-desc, "Date d\'inscription")]/android.view.View[2]',
+    ])
+    
+    about_account_based_in_value: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Account based in")]/android.view.View[2]',
+        '//*[contains(@content-desc, "Compte basé")]/android.view.View[2]',
+    ])
+    
     # === Sélecteurs avancés pour follow (éviter followers/following) ===
     advanced_follow_selectors: List[str] = field(default_factory=lambda: [
         # Bouton Follow principal dans le header du profil

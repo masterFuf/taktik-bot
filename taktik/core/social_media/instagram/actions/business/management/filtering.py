@@ -446,3 +446,179 @@ class FilteringBusiness(BaseBusinessAction):
         
         else:
             return base_criteria
+    
+    # ─── Methods absorbed from ProfileBusiness (pure logic, no device I/O) ────
+    
+    def is_profile_suitable_for_interaction(self, profile_info: Dict[str, Any], 
+                                          criteria: Dict[str, Any] = None) -> Dict[str, Any]:
+        if not criteria:
+            criteria = self._get_simple_default_criteria()
+        
+        result = {
+            'suitable': True,
+            'reasons': [],
+            'score': 100,
+            'category': 'suitable'
+        }
+        
+        if not profile_info:
+            result.update({'suitable': False, 'reasons': ['Profile info unavailable'], 'score': 0})
+            return result
+        
+        if profile_info.get('is_private', False):
+            if not criteria.get('allow_private', False):
+                result.update({
+                    'suitable': False,
+                    'reasons': ['Private account'],
+                    'category': 'private',
+                    'score': 0
+                })
+                return result
+        
+        # Vérifications des compteurs
+        followers = profile_info.get('followers_count', 0)
+        following = profile_info.get('following_count', 0)
+        posts = profile_info.get('posts_count', 0)
+        
+        # Nombre minimum de followers
+        min_followers = criteria.get('min_followers', 0)
+        if followers < min_followers:
+            result['suitable'] = False
+            result['reasons'].append(f'Too few followers ({followers} < {min_followers})')
+            result['score'] -= 30
+        
+        # Nombre maximum de followers
+        max_followers = criteria.get('max_followers', float('inf'))
+        if followers > max_followers:
+            result['suitable'] = False
+            result['reasons'].append(f'Too many followers ({followers} > {max_followers})')
+            result['score'] -= 20
+        
+        # Nombre minimum de posts
+        min_posts = criteria.get('min_posts', 3)
+        if posts < min_posts:
+            result['suitable'] = False
+            result['reasons'].append(f'Too few posts ({posts} < {min_posts})')
+            result['score'] -= 25
+        
+        # Ratio followers/following
+        max_following_ratio = criteria.get('max_following_ratio', 10.0)
+        if following > 0:
+            ratio = followers / following
+            if ratio > max_following_ratio:
+                result['reasons'].append(f'High follower ratio ({ratio:.1f})')
+                result['score'] -= 10
+        
+        # Comptes vérifiés
+        if profile_info.get('is_verified', False):
+            if not criteria.get('allow_verified', True):
+                result['suitable'] = False
+                result['reasons'].append('Verified account')
+                result['score'] -= 40
+        
+        # Comptes business
+        if profile_info.get('is_business', False):
+            if not criteria.get('allow_business', True):
+                result['reasons'].append('Business account')
+                result['score'] -= 15
+        
+        # DISABLED: Bot username detection - too many false positives
+        # username = profile_info.get('username', '')
+        # if self.utils.is_likely_bot_username(username):
+        #     result['suitable'] = False
+        #     result['reasons'].append('Likely bot username')
+        #     result['category'] = 'bot'
+        #     result['score'] -= 50
+        
+        # Déterminer la catégorie finale
+        if result['suitable']:
+            if result['score'] >= 90:
+                result['category'] = 'excellent'
+            elif result['score'] >= 70:
+                result['category'] = 'good'
+            else:
+                result['category'] = 'acceptable'
+        else:
+            if 'Private account' in result['reasons']:
+                result['category'] = 'private'
+            elif 'bot' in result['category']:
+                result['category'] = 'bot'
+            else:
+                result['category'] = 'filtered'
+        
+        return result
+    
+    def extract_profile_metrics(self, profile_info: Dict[str, Any]) -> Dict[str, Any]:
+        metrics = {}
+        
+        followers = profile_info.get('followers_count', 0)
+        following = profile_info.get('following_count', 0)
+        posts = profile_info.get('posts_count', 0)
+        
+        # Ratios de base
+        metrics['followers_following_ratio'] = followers / following if following > 0 else float('inf')
+        metrics['posts_followers_ratio'] = posts / followers if followers > 0 else 0
+        metrics['avg_followers_per_post'] = followers / posts if posts > 0 else 0
+        
+        # Score d'engagement estimé (basé sur les ratios)
+        engagement_score = 0
+        if followers > 0 and posts > 0:
+            # Plus de posts par rapport aux followers = plus actif
+            if metrics['posts_followers_ratio'] > 0.01:  # Plus de 1 post pour 100 followers
+                engagement_score += 30
+            
+            # Ratio followers/following équilibré
+            if 0.5 <= metrics['followers_following_ratio'] <= 5:
+                engagement_score += 40
+            
+            # Compte avec activité récente (basé sur la présence de stories)
+            if profile_info.get('visible_stories_count', 0) > 0:
+                engagement_score += 30
+        
+        metrics['estimated_engagement_score'] = min(engagement_score, 100)
+        
+        # Catégorie de compte
+        if followers < 100:
+            metrics['account_category'] = 'micro'
+        elif followers < 1000:
+            metrics['account_category'] = 'small'
+        elif followers < 10000:
+            metrics['account_category'] = 'medium'
+        elif followers < 100000:
+            metrics['account_category'] = 'large'
+        else:
+            metrics['account_category'] = 'mega'
+        
+        # Score de qualité global
+        quality_score = 50  # Base
+        
+        # Bonus pour profil complet
+        if profile_info.get('full_name'):
+            quality_score += 10
+        if profile_info.get('biography'):
+            quality_score += 15
+        if profile_info.get('is_verified'):
+            quality_score += 20
+        
+        # Malus pour signaux négatifs
+        if profile_info.get('is_private'):
+            quality_score -= 20
+        # DISABLED: Bot username detection - too many false positives
+        # if self.utils.is_likely_bot_username(profile_info.get('username', '')):
+        #     quality_score -= 40
+        
+        metrics['quality_score'] = max(0, min(100, quality_score))
+        
+        return metrics
+    
+    def _get_simple_default_criteria(self) -> Dict[str, Any]:
+        """Simple default criteria used by is_profile_suitable_for_interaction."""
+        return {
+            'min_followers': 10,
+            'max_followers': 50000,
+            'min_posts': 3,
+            'max_following_ratio': 10.0,
+            'allow_private': False,
+            'allow_verified': True,
+            'allow_business': True
+        }

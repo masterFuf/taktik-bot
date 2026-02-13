@@ -958,6 +958,8 @@ class ScrapingWorkflow:
                                 profile_data['business_category'] = enriched_data.get('business_category', '')
                                 profile_data['website'] = enriched_data.get('website', '')
                                 profile_data['linked_accounts'] = enriched_data.get('linked_accounts', [])
+                                profile_data['date_joined'] = enriched_data.get('date_joined', '')
+                                profile_data['account_based_in'] = enriched_data.get('account_based_in', '')
                                 
                                 self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
                             else:
@@ -1249,7 +1251,8 @@ class ScrapingWorkflow:
         is_enriched = self.config.get('enrich_profiles', False)
         if is_enriched:
             fieldnames = ['username', 'full_name', 'followers_count', 'following_count', 'posts_count', 
-                         'is_private', 'biography', 'source_type', 'source_name', 'scraped_at']
+                         'is_private', 'biography', 'date_joined', 'account_based_in',
+                         'source_type', 'source_name', 'scraped_at']
         else:
             fieldnames = ['username', 'source_type', 'source_name', 'scraped_at']
         

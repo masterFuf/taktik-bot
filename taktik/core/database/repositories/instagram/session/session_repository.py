@@ -4,7 +4,7 @@ Session Repository - Manages sessions and scraping_sessions tables
 
 import json
 from typing import Dict, List, Optional, Any
-from .base_repository import BaseRepository
+from ..._base.base_repository import BaseRepository
 
 
 class SessionRepository(BaseRepository):

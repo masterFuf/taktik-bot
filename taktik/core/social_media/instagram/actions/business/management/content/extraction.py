@@ -1,14 +1,12 @@
-"""Business logic for Instagram content management."""
+"""Content extraction from Instagram UI (users, likers, posts, stats)."""
 
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List
 from loguru import logger
-import re
 
-from ...core.base_business_action import BaseBusinessAction
-from ....utils.taktik_keyboard import run_adb_shell
+from ....core.base_business_action import BaseBusinessAction
 
 
-class ContentBusiness(BaseBusinessAction):
+class ContentExtraction(BaseBusinessAction):
     
     def __init__(self, device, session_manager=None):
         super().__init__(device, session_manager, automation=None, module_name="content")
@@ -102,7 +100,8 @@ class ContentBusiness(BaseBusinessAction):
         likers = []
         
         try:
-            if not self._navigate_to_post_via_url(post_url):
+            from .navigation import navigate_to_post_via_url
+            if not navigate_to_post_via_url(self, post_url):
                 self.logger.error(f"Failed to navigate to post: {post_url}")
                 return likers
             
@@ -151,7 +150,8 @@ class ContentBusiness(BaseBusinessAction):
         posts = []
         
         try:
-            if not self._navigate_to_hashtag(hashtag):
+            from .navigation import navigate_to_hashtag
+            if not navigate_to_hashtag(self, hashtag):
                 self.logger.error(f"Failed to navigate to #{hashtag}")
                 return posts
             
@@ -195,58 +195,6 @@ class ContentBusiness(BaseBusinessAction):
             self.logger.error(f"Error extracting hashtag: {e}")
         
         return posts
-    
-    def _navigate_to_post_via_url(self, post_url: str) -> bool:
-        try:
-            post_id_match = re.search(r'/p/([^/]+)/', post_url)
-            if not post_id_match:
-                return False
-            
-            post_id = post_id_match.group(1)
-            
-            # Use adbutils via run_adb_shell for compatibility with packaged builds
-            device_serial = self._get_device_serial()
-            deep_link_url = f'https://www.instagram.com/p/{post_id}/'
-            result = run_adb_shell(device_serial, f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" com.instagram.android')
-            
-            if result and 'Error' not in result:
-                self._human_like_delay('navigation')
-                return True
-            
-        except Exception as e:
-            self.logger.debug(f"Error navigating to post: {e}")
-        
-        return False
-    
-    def _navigate_to_hashtag(self, hashtag: str) -> bool:
-        try:
-            if not self.nav_actions.navigate_to_search():
-                return False
-            
-            search_term = f"#{hashtag}"
-            if not self._find_and_click(self.detection_selectors.hashtag_search_bar_selectors, timeout=5):
-                return False
-            
-            self._human_like_delay('click')
-            # Use Taktik Keyboard for reliable text input
-            if not self._type_with_taktik_keyboard(search_term):
-                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
-                self.device.send_keys(search_term)
-            self._human_like_delay('typing')
-            
-            hashtag_result_selectors = [
-                f'//*[contains(@text, "#{hashtag}")]',
-                '//*[contains(@resource-id, "hashtag")]'
-            ]
-            
-            if self._find_and_click(hashtag_result_selectors, timeout=5):
-                self._human_like_delay('navigation')
-                return True
-            
-        except Exception as e:
-            self.logger.debug(f"Error navigating to hashtag: {e}")
-        
-        return False
     
     def _extract_post_information(self) -> Optional[Dict[str, Any]]:
         try:

@@ -5,7 +5,7 @@ tiktok_interaction_history, tiktok_filtered_profiles, tiktok_daily_stats
 
 import json
 from typing import Dict, List, Optional, Any, Tuple
-from .base_repository import BaseRepository
+from .._base.base_repository import BaseRepository
 
 
 class TikTokRepository(BaseRepository):

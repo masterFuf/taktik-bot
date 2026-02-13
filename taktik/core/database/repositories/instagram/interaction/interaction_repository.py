@@ -3,7 +3,7 @@ Interaction Repository - Manages interaction_history and filtered_profiles table
 """
 
 from typing import Dict, List, Optional, Tuple, Any
-from .base_repository import BaseRepository
+from ..._base.base_repository import BaseRepository
 
 
 class InteractionRepository(BaseRepository):

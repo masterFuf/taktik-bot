@@ -12,6 +12,8 @@ import os
 from loguru import logger
 
 
+_initialized = False
+
 def setup_environment(log_level: str = "DEBUG"):
     """
     Initialize the bridge environment:
@@ -20,7 +22,12 @@ def setup_environment(log_level: str = "DEBUG"):
     3. Add the bot directory to sys.path so 'taktik' module is importable
 
     Call this once at the top of every bridge script.
+    Safe to call multiple times — only the first call takes effect.
     """
+    global _initialized
+    if _initialized:
+        return
+    _initialized = True
     _setup_utf8()
     _setup_loguru(log_level)
     _setup_python_path()

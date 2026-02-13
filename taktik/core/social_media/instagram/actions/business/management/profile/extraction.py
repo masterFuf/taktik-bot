@@ -1,13 +1,12 @@
-"""Business logic for Instagram profiles."""
+"""Profile data extraction from Instagram UI via ADB."""
 
 import time
 from typing import Dict, Any, List, Optional
 from loguru import logger
-from ...core.base_business_action import BaseBusinessAction
-from taktik.core.database import get_db_service
+from ....core.base_business_action import BaseBusinessAction
 
 
-class ProfileBusiness(BaseBusinessAction):
+class ProfileExtraction(BaseBusinessAction):
 
     
     def __init__(self, device, session_manager=None):
@@ -98,6 +97,12 @@ class ProfileBusiness(BaseBusinessAction):
                 profile_info['business_category'] = profile_text.get('business_category')
                 profile_info['website'] = profile_text.get('website')
                 profile_info['linked_accounts'] = profile_text.get('linked_accounts', [])
+                
+                # Get "About this account" info (date joined, account based in)
+                about_info = self.get_about_account_info()
+                if about_info:
+                    profile_info['date_joined'] = about_info.get('date_joined')
+                    profile_info['account_based_in'] = about_info.get('account_based_in')
             
             # Clean username if necessary
             if profile_info['username']:
@@ -123,7 +128,8 @@ class ProfileBusiness(BaseBusinessAction):
             self.logger.debug(f"  • Follow button state: {profile_info.get('follow_button_state', 'unknown')}")
             
             # Save profile to database with actual information
-            self._save_profile_to_database(profile_info)
+            from .persistence import save_profile_to_database
+            save_profile_to_database(profile_info, self.logger)
             
             return profile_info
             
@@ -131,213 +137,88 @@ class ProfileBusiness(BaseBusinessAction):
             self.logger.error(f"Profile extraction error: {e}")
             return None
     
-    def _save_profile_to_database(self, profile_info: Dict[str, Any]):
+    def get_about_account_info(self) -> Optional[Dict[str, Any]]:
+        """
+        Navigate to 'About this account' page and extract date_joined + account_based_in.
+        Must be called when already on a profile screen.
+        Returns to the profile screen after extraction.
+        """
+        from .....ui.selectors import PROFILE_SELECTORS, NAVIGATION_SELECTORS
+        
         try:
-            if not profile_info or not profile_info.get('username'):
-                return
+            # Click on username container in action bar to open "About this account"
+            clicked = False
+            for selector in PROFILE_SELECTORS.about_account_button:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    self._random_sleep(1.0, 1.5)
+                    clicked = True
+                    break
             
-            # Prepare data for API
-            profile_data = {
-                'username': profile_info['username'],
-                'full_name': profile_info.get('full_name', ''),
-                'biography': profile_info.get('biography', ''),
-                'followers_count': profile_info.get('followers_count', 0),
-                'following_count': profile_info.get('following_count', 0),
-                'posts_count': profile_info.get('posts_count', 0),
-                'is_private': profile_info.get('is_private', False),
-                'notes': ''  # Don't auto-populate notes
-            }
+            if not clicked:
+                self.logger.debug("About account button not found")
+                return None
             
-            # Use API to save/update profile
-            try:
-                db_service = get_db_service()
-                from taktik.core.database.models import InstagramProfile
-                profile = InstagramProfile(
-                    username=profile_data['username'],
-                    full_name=profile_data['full_name'],
-                    biography=profile_data['biography'],
-                    followers_count=profile_data['followers_count'],
-                    following_count=profile_data['following_count'],
-                    posts_count=profile_data['posts_count'],
-                    is_private=profile_data['is_private'],
-                    notes=profile_data['notes']
-                )
-                
-                success = db_service.save_profile(profile)
-                if success:
-                    self.logger.debug(f"Profile @{profile_info['username']} saved to DB with actual data")
-                    self.logger.debug(f"  DB: {profile_data['posts_count']} posts, "
-                                    f"{profile_data['followers_count']} followers, "
-                                    f"{profile_data['following_count']} following")
-                else:
-                    self.logger.warning(f"Failed to save profile @{profile_info['username']}")
-            except Exception as db_error:
-                self.logger.error(f"Database access error: {db_error}")
-                
+            # Verify we're on the "About this account" page
+            on_about_page = False
+            for selector in PROFILE_SELECTORS.about_account_page_indicators:
+                if self.device.xpath(selector).exists:
+                    on_about_page = True
+                    break
+            
+            if not on_about_page:
+                self.logger.debug("Not on 'About this account' page, going back")
+                self.device.press("back")
+                self._random_sleep(0.3, 0.5)
+                return None
+            
+            about_info = {}
+            
+            # Extract date joined
+            for selector in PROFILE_SELECTORS.about_account_date_joined_value:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    text = element.get_text()
+                    if text:
+                        about_info['date_joined'] = text.strip()
+                        break
+            
+            # Extract account based in
+            for selector in PROFILE_SELECTORS.about_account_based_in_value:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    text = element.get_text()
+                    if text:
+                        about_info['account_based_in'] = text.strip()
+                        break
+            
+            self.logger.debug(f"📋 About account: {about_info}")
+            
+            # Go back to profile using existing back button selectors
+            back_clicked = False
+            for selector in NAVIGATION_SELECTORS.back_buttons:
+                back_elem = self.device.xpath(selector)
+                if back_elem.exists:
+                    back_elem.click()
+                    self._random_sleep(0.5, 1.0)
+                    back_clicked = True
+                    break
+            
+            if not back_clicked:
+                self.device.press("back")
+                self._random_sleep(0.5, 1.0)
+            
+            return about_info if about_info else None
+            
         except Exception as e:
-            self.logger.error(f"Error saving profile: {e}")
-    
-    def is_profile_suitable_for_interaction(self, profile_info: Dict[str, Any], 
-                                          criteria: Dict[str, Any] = None) -> Dict[str, Any]:
-        if not criteria:
-            criteria = self._get_default_criteria()
-        
-        result = {
-            'suitable': True,
-            'reasons': [],
-            'score': 100,
-            'category': 'suitable'
-        }
-        
-        if not profile_info:
-            result.update({'suitable': False, 'reasons': ['Profile info unavailable'], 'score': 0})
-            return result
-        
-        if profile_info.get('is_private', False):
-            if not criteria.get('allow_private', False):
-                result.update({
-                    'suitable': False,
-                    'reasons': ['Private account'],
-                    'category': 'private',
-                    'score': 0
-                })
-                return result
-        
-        # Vérifications des compteurs
-        followers = profile_info.get('followers_count', 0)
-        following = profile_info.get('following_count', 0)
-        posts = profile_info.get('posts_count', 0)
-        
-        # Nombre minimum de followers
-        min_followers = criteria.get('min_followers', 0)
-        if followers < min_followers:
-            result['suitable'] = False
-            result['reasons'].append(f'Too few followers ({followers} < {min_followers})')
-            result['score'] -= 30
-        
-        # Nombre maximum de followers
-        max_followers = criteria.get('max_followers', float('inf'))
-        if followers > max_followers:
-            result['suitable'] = False
-            result['reasons'].append(f'Too many followers ({followers} > {max_followers})')
-            result['score'] -= 20
-        
-        # Nombre minimum de posts
-        min_posts = criteria.get('min_posts', 3)
-        if posts < min_posts:
-            result['suitable'] = False
-            result['reasons'].append(f'Too few posts ({posts} < {min_posts})')
-            result['score'] -= 25
-        
-        # Ratio followers/following
-        max_following_ratio = criteria.get('max_following_ratio', 10.0)
-        if following > 0:
-            ratio = followers / following
-            if ratio > max_following_ratio:
-                result['reasons'].append(f'High follower ratio ({ratio:.1f})')
-                result['score'] -= 10
-        
-        # Comptes vérifiés
-        if profile_info.get('is_verified', False):
-            if not criteria.get('allow_verified', True):
-                result['suitable'] = False
-                result['reasons'].append('Verified account')
-                result['score'] -= 40
-        
-        # Comptes business
-        if profile_info.get('is_business', False):
-            if not criteria.get('allow_business', True):
-                result['reasons'].append('Business account')
-                result['score'] -= 15
-        
-        # DISABLED: Bot username detection - too many false positives
-        # username = profile_info.get('username', '')
-        # if self.utils.is_likely_bot_username(username):
-        #     result['suitable'] = False
-        #     result['reasons'].append('Likely bot username')
-        #     result['category'] = 'bot'
-        #     result['score'] -= 50
-        
-        # Déterminer la catégorie finale
-        if result['suitable']:
-            if result['score'] >= 90:
-                result['category'] = 'excellent'
-            elif result['score'] >= 70:
-                result['category'] = 'good'
-            else:
-                result['category'] = 'acceptable'
-        else:
-            if 'Private account' in result['reasons']:
-                result['category'] = 'private'
-            elif 'bot' in result['category']:
-                result['category'] = 'bot'
-            else:
-                result['category'] = 'filtered'
-        
-        return result
-    
-    def extract_profile_metrics(self, profile_info: Dict[str, Any]) -> Dict[str, Any]:
-        metrics = {}
-        
-        followers = profile_info.get('followers_count', 0)
-        following = profile_info.get('following_count', 0)
-        posts = profile_info.get('posts_count', 0)
-        
-        # Ratios de base
-        metrics['followers_following_ratio'] = followers / following if following > 0 else float('inf')
-        metrics['posts_followers_ratio'] = posts / followers if followers > 0 else 0
-        metrics['avg_followers_per_post'] = followers / posts if posts > 0 else 0
-        
-        # Score d'engagement estimé (basé sur les ratios)
-        engagement_score = 0
-        if followers > 0 and posts > 0:
-            # Plus de posts par rapport aux followers = plus actif
-            if metrics['posts_followers_ratio'] > 0.01:  # Plus de 1 post pour 100 followers
-                engagement_score += 30
-            
-            # Ratio followers/following équilibré
-            if 0.5 <= metrics['followers_following_ratio'] <= 5:
-                engagement_score += 40
-            
-            # Compte avec activité récente (basé sur la présence de stories)
-            if profile_info.get('visible_stories_count', 0) > 0:
-                engagement_score += 30
-        
-        metrics['estimated_engagement_score'] = min(engagement_score, 100)
-        
-        # Catégorie de compte
-        if followers < 100:
-            metrics['account_category'] = 'micro'
-        elif followers < 1000:
-            metrics['account_category'] = 'small'
-        elif followers < 10000:
-            metrics['account_category'] = 'medium'
-        elif followers < 100000:
-            metrics['account_category'] = 'large'
-        else:
-            metrics['account_category'] = 'mega'
-        
-        # Score de qualité global
-        quality_score = 50  # Base
-        
-        # Bonus pour profil complet
-        if profile_info.get('full_name'):
-            quality_score += 10
-        if profile_info.get('biography'):
-            quality_score += 15
-        if profile_info.get('is_verified'):
-            quality_score += 20
-        
-        # Malus pour signaux négatifs
-        if profile_info.get('is_private'):
-            quality_score -= 20
-        # DISABLED: Bot username detection - too many false positives
-        # if self.utils.is_likely_bot_username(profile_info.get('username', '')):
-        #     quality_score -= 40
-        
-        metrics['quality_score'] = max(0, min(100, quality_score))
-        
-        return metrics
+            self.logger.debug(f"Error getting about account info: {e}")
+            try:
+                self.device.press("back")
+                self._random_sleep(0.3, 0.5)
+            except:
+                pass
+            return None
     
     def navigate_and_extract_profile(self, username: str, 
                                    max_retries: int = 3) -> Optional[Dict[str, Any]]:
@@ -399,22 +280,11 @@ class ProfileBusiness(BaseBusinessAction):
         self.logger.info(f"✅ Extraction terminée: {len(profiles)} profils extraits")
         return profiles
     
-    def _get_default_criteria(self) -> Dict[str, Any]:
-        return {
-            'min_followers': 10,
-            'max_followers': 50000,
-            'min_posts': 3,
-            'max_following_ratio': 10.0,
-            'allow_private': False,
-            'allow_verified': True,
-            'allow_business': True
-        }
-    
     def _get_followers_count_robust(self, swipe_up_if_needed: bool = False) -> int:
         self.logger.debug("Attempting to get followers count (robust method)...")
         
         try:
-            from ....ui.extractors import parse_number_from_text
+            from .....ui.extractors import parse_number_from_text
             
             # Méthode 1: Essayer avec l'ID de ressource spécifique
             element = self.device.find(resourceId=f"{self.device.app_id}:id/profile_header_familiar_followers_value")
@@ -470,7 +340,7 @@ class ProfileBusiness(BaseBusinessAction):
         self.logger.debug("Attempting to get following count (robust method)...")
         
         try:
-            from ....ui.extractors import parse_number_from_text
+            from .....ui.extractors import parse_number_from_text
             
             element = self.device.find(resourceId=f"{self.device.app_id}:id/profile_header_familiar_following_value")
             if element and hasattr(element, 'exists') and element.exists:
@@ -509,7 +379,7 @@ class ProfileBusiness(BaseBusinessAction):
         self.logger.debug("Attempting to get posts count (robust method)...")
         
         try:
-            from ....ui.extractors import parse_number_from_text
+            from .....ui.extractors import parse_number_from_text
             
             element = self.device.find(resourceId=f"{self.device.app_id}:id/profile_header_familiar_post_count_value")
             if element and hasattr(element, 'exists') and element.exists:
@@ -555,7 +425,7 @@ class ProfileBusiness(BaseBusinessAction):
     
     def _get_count_from_element_robust(self, element_type: str, resource_id: str = None, text: str = None, description: str = None) -> Optional[int]:
         try:
-            from ....ui.extractors import parse_number_from_text
+            from .....ui.extractors import parse_number_from_text
             
             if element_type == 'id' and resource_id:
                 element = self.device.xpath(f'//*[@resource-id="{self.device.app_id}:id/{resource_id}"]')

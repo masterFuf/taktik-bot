@@ -3,7 +3,7 @@ Account Repository - Manages instagram_accounts table
 """
 
 from typing import Dict, List, Optional, Tuple, Any
-from .base_repository import BaseRepository
+from ..._base.base_repository import BaseRepository
 
 
 class AccountRepository(BaseRepository):

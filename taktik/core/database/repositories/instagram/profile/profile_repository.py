@@ -3,7 +3,7 @@ Profile Repository - Manages instagram_profiles table
 """
 
 from typing import Dict, List, Optional, Tuple, Any
-from .base_repository import BaseRepository
+from ..._base.base_repository import BaseRepository
 
 
 class ProfileRepository(BaseRepository):

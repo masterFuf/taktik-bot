@@ -4,7 +4,7 @@ Discovery Repository - Manages discovery_campaigns, scraped_profiles, discovery_
 
 import json
 from typing import Dict, List, Optional, Any, Tuple
-from .base_repository import BaseRepository
+from ..._base.base_repository import BaseRepository
 
 
 class DiscoveryRepository(BaseRepository):
