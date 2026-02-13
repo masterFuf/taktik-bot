@@ -5,7 +5,6 @@ and unfollows users one by one with human-like delays.
 """
 
 from typing import Optional, Callable, Dict, Any
-from dataclasses import dataclass, field
 from loguru import logger
 import time
 import random
@@ -13,31 +12,8 @@ import random
 from ....atomic.navigation_actions import NavigationActions
 from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
-
-
-@dataclass
-class UnfollowConfig:
-    """Configuration for the Unfollow workflow."""
-    max_unfollows: int = 20
-    include_friends: bool = False
-    min_delay: float = 1.0
-    max_delay: float = 3.0
-    max_scroll_attempts: int = 10
-
-
-@dataclass
-class UnfollowStats:
-    """Stats for the Unfollow workflow."""
-    unfollowed: int = 0
-    skipped_friends: int = 0
-    errors: int = 0
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "unfollowed": self.unfollowed,
-            "skipped_friends": self.skipped_friends,
-            "errors": self.errors,
-        }
+from ....ui.selectors import FOLLOWERS_SELECTORS
+from .models import UnfollowConfig, UnfollowStats
 
 
 class UnfollowWorkflow:
@@ -53,6 +29,7 @@ class UnfollowWorkflow:
         self._nav = NavigationActions(device)
         self._scroll = ScrollActions(device)
         self._base = BaseAction(device)
+        self._selectors = FOLLOWERS_SELECTORS
 
         # Callbacks (set by bridge)
         self._on_unfollow: Optional[Callable] = None
@@ -88,12 +65,7 @@ class UnfollowWorkflow:
 
         # 2. Open Following list
         logger.info("📋 Opening following list...")
-        following_selectors = [
-            '//*[contains(@content-desc, "Following")]',
-            '//*[contains(@text, "Following")]',
-            '//android.widget.TextView[contains(@text, "Following")]',
-        ]
-        if not self._base._find_and_click(following_selectors, timeout=5):
+        if not self._base._find_and_click(self._selectors.following_list_opener, timeout=5):
             raise RuntimeError("Failed to open following list")
         time.sleep(2)
 
@@ -102,7 +74,7 @@ class UnfollowWorkflow:
 
         while self.stats.unfollowed < self.config.max_unfollows and not self.stopped:
             buttons = self.device.xpath(
-                '//*[@text="Following" or @text="Friends"][@clickable="true"]'
+                self._selectors.following_or_friends_button[0]
             ).all()
 
             if not buttons:
@@ -138,11 +110,7 @@ class UnfollowWorkflow:
                     time.sleep(1)
 
                     # Handle confirmation dialog
-                    confirm_selectors = [
-                        '//*[@text="Unfollow"][@clickable="true"]',
-                        '//*[contains(@text, "Unfollow")][@clickable="true"]',
-                    ]
-                    self._base._find_and_click(confirm_selectors, timeout=2, human_delay=False)
+                    self._base._find_and_click(self._selectors.unfollow_confirm_button, timeout=2, human_delay=False)
 
                     self.stats.unfollowed += 1
                     unfollowed_this_round += 1
@@ -182,7 +150,7 @@ class UnfollowWorkflow:
             if not btn_bounds:
                 return None
             username_elems = self.device.xpath(
-                '//*[@resource-id="com.zhiliaoapp.musically:id/ygv"]'
+                self._selectors.follower_username[0]
             ).all()
             for ue in username_elems:
                 ue_bounds = ue.bounds

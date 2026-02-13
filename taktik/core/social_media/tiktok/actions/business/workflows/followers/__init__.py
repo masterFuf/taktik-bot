@@ -1,5 +1,6 @@
 """TikTok Followers workflow."""
 
-from .workflow import FollowersWorkflow, FollowersConfig, FollowersStats
+from .workflow import FollowersWorkflow
+from .models import FollowersConfig, FollowersStats
 
 __all__ = ['FollowersWorkflow', 'FollowersConfig', 'FollowersStats']

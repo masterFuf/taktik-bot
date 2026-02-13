@@ -11,6 +11,7 @@ Subclasses add their own callbacks, config, stats dataclass, and run().
 """
 
 import time
+import random
 from typing import Optional, Callable, Dict, Any
 from loguru import logger
 
@@ -42,6 +43,10 @@ class BaseTikTokWorkflow:
         self._running = False
         self._paused = False
 
+        # Pause management (shared by all workflows that need it)
+        self._actions_since_pause = 0
+        self._on_pause_callback: Optional[Callable] = None
+
         # Stats callback
         self._on_stats_callback: Optional[Callable] = None
 
@@ -60,6 +65,33 @@ class BaseTikTokWorkflow:
                 self._on_stats_callback(self.stats.to_dict())
             except Exception as e:
                 self.logger.warning(f"Error sending stats: {e}")
+
+    def set_on_pause_callback(self, callback: Callable[[int], None]):
+        """Set callback called when workflow takes a pause."""
+        self._on_pause_callback = callback
+
+    def _check_pause_needed(self):
+        """Check if a pause is needed and execute it.
+
+        Requires ``self.config`` to expose:
+            pause_after_actions, pause_duration_min, pause_duration_max
+        """
+        if self._actions_since_pause >= self.config.pause_after_actions:
+            pause_duration = random.uniform(
+                self.config.pause_duration_min,
+                self.config.pause_duration_max,
+            )
+            pause_seconds = int(pause_duration)
+            self.logger.info(f"\u23f8\ufe0f Taking a break for {pause_seconds}s")
+
+            if self._on_pause_callback:
+                try:
+                    self._on_pause_callback(pause_seconds)
+                except Exception as e:
+                    self.logger.warning(f"Error sending pause callback: {e}")
+
+            time.sleep(pause_duration)
+            self._actions_since_pause = 0
 
     # ------------------------------------------------------------------
     # Lifecycle

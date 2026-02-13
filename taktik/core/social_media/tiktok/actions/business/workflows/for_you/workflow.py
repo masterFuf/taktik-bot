@@ -10,57 +10,19 @@ Ce workflow permet d'automatiser les interactions sur le feed For You:
 - Extraire les informations des vidéos
 """
 
-from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
 import time
 import random
 
-from .._internal import BaseVideoWorkflow, VideoWorkflowStats
-
-
-@dataclass
-class ForYouConfig:
-    """Configuration pour le workflow For You."""
-    
-    # Nombre de vidéos à traiter
-    max_videos: int = 50
-    
-    # Temps de visionnage (secondes)
-    min_watch_time: float = 2.0
-    max_watch_time: float = 8.0
-    
-    # Probabilités d'action (0.0 à 1.0)
-    like_probability: float = 0.3
-    follow_probability: float = 0.1
-    favorite_probability: float = 0.05
-    
-    # Filtres
-    min_likes: Optional[int] = None  # Minimum de likes pour interagir
-    max_likes: Optional[int] = None  # Maximum de likes pour interagir
-    required_hashtags: List[str] = field(default_factory=list)  # Hashtags requis
-    excluded_hashtags: List[str] = field(default_factory=list)  # Hashtags exclus
-    
-    # Limites de session
-    max_likes_per_session: int = 50
-    max_follows_per_session: int = 20
-    
-    # Pauses
-    pause_after_actions: int = 10  # Pause après N actions
-    pause_duration_min: float = 30.0
-    pause_duration_max: float = 60.0
-    
-    # Comportement
-    skip_already_liked: bool = True
-    skip_already_followed: bool = True
-    skip_ads: bool = True  # Skip les publicités automatiquement
-    follow_back_suggestions: bool = False  # Si True, follow back les suggestions. Si False, click "Not interested"
+from .._internal import BaseVideoWorkflow, VideoWorkflowStats, FeedInterruptionsMixin
+from .models import ForYouConfig
 
 
 # Backward-compat alias
 ForYouStats = VideoWorkflowStats
 
 
-class ForYouWorkflow(BaseVideoWorkflow):
+class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
     """Workflow d'automatisation du feed For You TikTok.
     
     Ce workflow permet de:
@@ -97,10 +59,8 @@ class ForYouWorkflow(BaseVideoWorkflow):
         self.stats = VideoWorkflowStats()
         
         try:
-            # Force restart TikTok to ensure clean state
-            self._restart_tiktok()
-            
             # Navigate to For You feed
+            # Note: TikTok restart is handled by the bridge's tiktok_startup()
             if not self._ensure_on_for_you():
                 self.logger.error("❌ Failed to navigate to For You feed")
                 return self.stats
@@ -178,47 +138,6 @@ class ForYouWorkflow(BaseVideoWorkflow):
             self._running = False
         
         return self.stats
-    
-    def _restart_tiktok(self):
-        """Force restart TikTok to ensure clean state.
-        
-        This is called at the beginning of each workflow to ensure
-        TikTok starts from a known state (For You feed).
-        """
-        self.logger.info("🔄 Restarting TikTok for clean state...")
-        
-        # Force stop and restart TikTok using ADB directly
-        try:
-            # Get the underlying device to access serial
-            underlying_device = self.device._device if hasattr(self.device, '_device') else self.device
-            device_serial = getattr(underlying_device, 'serial', None)
-            
-            if device_serial:
-                import subprocess
-                
-                # Force stop TikTok
-                self.logger.info("🛑 Force stopping TikTok...")
-                stop_cmd = f'adb -s {device_serial} shell am force-stop com.zhiliaoapp.musically'
-                subprocess.run(stop_cmd, shell=True, capture_output=True, timeout=10)
-                self.logger.info("✅ TikTok stopped")
-                
-                # Wait a bit for clean shutdown
-                time.sleep(1.5)
-                
-                # Relaunch TikTok
-                self.logger.info("🚀 Relaunching TikTok...")
-                launch_cmd = f'adb -s {device_serial} shell am start -n com.zhiliaoapp.musically/com.ss.android.ugc.aweme.splash.SplashActivity'
-                subprocess.run(launch_cmd, shell=True, capture_output=True, timeout=10)
-                self.logger.info("✅ TikTok relaunched")
-                
-                # Wait for app to fully load
-                time.sleep(4)
-            else:
-                self.logger.warning("⚠️ Could not get device serial, skipping restart")
-                
-        except Exception as e:
-            self.logger.error(f"❌ Error restarting TikTok: {e}")
-            # Try to continue anyway
     
     def _ensure_on_for_you(self) -> bool:
         """Ensure we're on the For You feed."""
@@ -328,85 +247,7 @@ class ForYouWorkflow(BaseVideoWorkflow):
         
         return False
     
-    def _is_ad_video(self) -> bool:
-        """Check if current video is an advertisement."""
-        return self.detection.is_ad_video()
-    
-    def _handle_suggestion_page(self) -> bool:
-        """Check for and handle suggestion page (Follow back / Not interested).
-        
-        Returns:
-            True if a suggestion page was handled, False otherwise.
-        """
-        if self.detection.has_suggestion_page():
-            self.logger.info("💡 Suggestion page detected")
-            
-            handled = False
-            
-            if self.config.follow_back_suggestions:
-                self.logger.info("👤 Following back suggested user")
-                if self.click.click_follow_back():
-                    self.stats.suggestions_handled += 1
-                    self.stats.users_followed += 1
-                    self._send_stats_update()
-                    time.sleep(1)
-                    handled = True
-            else:
-                self.logger.info("❌ Clicking 'Not interested'")
-                if self.click.click_not_interested():
-                    self.stats.suggestions_handled += 1
-                    self._send_stats_update()
-                    time.sleep(1)
-                    handled = True
-            
-            # Fallback: try to close via X button
-            if not handled:
-                if self.click.close_suggestion_page():
-                    self.stats.suggestions_handled += 1
-                    self._send_stats_update()
-                    time.sleep(0.5)
-                    handled = True
-            
-            # Ultimate fallback: swipe up to skip (as indicated by "Swipe up to skip" text)
-            if not handled:
-                self.logger.info("⬆️ Swiping up to skip suggestion page")
-                self.scroll.scroll_to_next_video()
-                self.stats.suggestions_handled += 1
-                self._send_stats_update()
-                time.sleep(1)
-                return True
-            
-            # After handling, also swipe up to ensure we move to next video
-            # The suggestion page sometimes stays even after clicking buttons
-            if handled:
-                time.sleep(0.5)
-                # Check if still on suggestion page
-                if self.detection.has_suggestion_page():
-                    self.logger.info("⬆️ Still on suggestion page, swiping up")
-                    self.scroll.scroll_to_next_video()
-                    time.sleep(1)
-            
-            return True
-        
-        return False
-    
-    def _handle_comments_section(self) -> bool:
-        """Check for and close comments section if accidentally opened.
-        
-        This can happen when scrolling and accidentally clicking on the comment input area.
-        
-        Returns:
-            True if comments section was detected and closed, False otherwise.
-        """
-        if self.detection.has_comments_section_open():
-            self.logger.info("💬 Comments section detected, closing...")
-            
-            if self.click.close_comments_section():
-                self.logger.info("✅ Comments section closed")
-                time.sleep(0.5)
-                return True
-            else:
-                self.logger.warning("⚠️ Failed to close comments section")
-        
-        return False
+    # _handle_suggestion_page and _handle_comments_section are provided
+    # by FeedInterruptionsMixin. The mixin reads self.config.follow_back_suggestions
+    # automatically (defaults to False if the attribute is absent).
     

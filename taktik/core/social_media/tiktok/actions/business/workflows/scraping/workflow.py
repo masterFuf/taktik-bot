@@ -5,26 +5,16 @@ The bridge wires up callbacks for progress/status/DB persistence.
 """
 
 from typing import Optional, Dict, Any, List, Callable, Set
-from dataclasses import dataclass, field
 from loguru import logger
 import time
 
 from ....atomic.navigation_actions import NavigationActions
+from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
-from ....core.utils import parse_count as _parse_count
-
-
-@dataclass
-class ScrapingConfig:
-    """Configuration for the TikTok scraping workflow."""
-    scrape_type: str = 'target'           # 'target' or 'hashtag'
-    target_usernames: List[str] = field(default_factory=list)
-    target_scrape_type: str = 'followers'  # 'followers' or 'following'
-    hashtag: str = ''
-    max_profiles: int = 500
-    max_videos: int = 50
-    enrich_profiles: bool = True
-    max_profiles_to_enrich: int = 50
+from ....core.utils import extract_resource_id as _extract_rid
+from ....ui.selectors import FOLLOWERS_SELECTORS, PROFILE_SELECTORS, VIDEO_SELECTORS
+from .models import ScrapingConfig, ScrapingStats, empty_profile
+from .._internal.profile_extractor import extract_profile_from_screen
 
 
 class ScrapingWorkflow:
@@ -35,9 +25,12 @@ class ScrapingWorkflow:
         self.navigation = navigation
         self.config = config
         self.stopped = False
-        self.profiles_scraped = 0
+        self.stats = ScrapingStats()
 
         self._base = BaseAction(device)
+        self._scroll = ScrollActions(device)
+        self._followers_sel = FOLLOWERS_SELECTORS
+        self._video_sel = VIDEO_SELECTORS
 
         # Callbacks (set by bridge)
         self._on_status: Optional[Callable] = None
@@ -136,8 +129,6 @@ class ScrapingWorkflow:
                 return profiles
             time.sleep(2)
 
-            from ....ui.selectors import PROFILE_SELECTORS
-
             if scrape_type == 'followers':
                 self._emit_status("opening", "Opening followers list")
                 if not self._base._find_and_click(PROFILE_SELECTORS.followers_count, timeout=5):
@@ -158,12 +149,14 @@ class ScrapingWorkflow:
             while len(profiles) < max_profiles and scroll_attempts < max_scroll_attempts and not self.stopped:
                 raw_device = self.device._device if hasattr(self.device, '_device') else self.device
 
-                username_elements = raw_device(resourceId="com.zhiliaoapp.musically:id/ygv")
+                username_rid = _extract_rid(self._followers_sel.follower_username)
+                display_rid = _extract_rid(self._followers_sel.follower_display_name)
+                username_elements = raw_device(resourceId=username_rid)
                 if not username_elements.exists:
-                    username_elements = raw_device(resourceId="com.zhiliaoapp.musically:id/yhq")
+                    username_elements = raw_device(resourceId=display_rid)
 
                 found_new = False
-                display_name_elements = raw_device(resourceId="com.zhiliaoapp.musically:id/yhq")
+                display_name_elements = raw_device(resourceId=display_rid)
 
                 for i in range(username_elements.count):
                     if self.stopped:
@@ -184,25 +177,13 @@ class ScrapingWorkflow:
                                     except Exception:
                                         pass
 
-                                profile = {
-                                    'username': username,
-                                    'display_name': display_name,
-                                    'followers_count': 0,
-                                    'following_count': 0,
-                                    'likes_count': 0,
-                                    'posts_count': 0,
-                                    'bio': '',
-                                    'website': '',
-                                    'is_private': False,
-                                    'is_verified': False,
-                                    'is_enriched': False,
-                                }
+                                profile = empty_profile(username, display_name)
 
                                 if self.config.enrich_profiles and len(profiles) < self.config.max_profiles_to_enrich:
                                     self._enrich_in_place(profile, elem, raw_device, username)
 
                                 profiles.append(profile)
-                                self.profiles_scraped += 1
+                                self.stats.profiles_scraped += 1
                                 self._emit_progress(len(profiles), max_profiles, username)
                                 self._emit_profile(profile)
                                 self._emit_save_profile(profile)
@@ -225,7 +206,7 @@ class ScrapingWorkflow:
                     scroll_attempts = 0
 
                 try:
-                    raw_device.swipe(360, 1200, 360, 400, duration=0.4)
+                    self._scroll.scroll_search_results(direction='down')
                     time.sleep(1.5)
                 except Exception as e:
                     logger.warning(f"Scroll error: {e}")
@@ -264,9 +245,17 @@ class ScrapingWorkflow:
             while len(profiles) < max_profiles and videos_processed < max_videos and not self.stopped:
                 raw_device = self.device._device if hasattr(self.device, '_device') else self.device
 
-                author_elem = raw_device(resourceId="com.zhiliaoapp.musically:id/title")
-                if not author_elem.exists:
-                    author_elem = raw_device(resourceId="com.zhiliaoapp.musically:id/ej6")
+                # Try each author selector
+                author_elem = None
+                for sel in self._video_sel.author_username:
+                    rid = _extract_rid([sel])
+                    if rid:
+                        candidate = raw_device(resourceId=rid)
+                        if candidate.exists:
+                            author_elem = candidate
+                            break
+                if author_elem is None:
+                    author_elem = raw_device(resourceId=_extract_rid(self._video_sel.author_username))
 
                 if author_elem.exists:
                     try:
@@ -275,19 +264,9 @@ class ScrapingWorkflow:
                             username = username_text.replace('@', '').strip()
                             if username and username not in scraped_usernames:
                                 scraped_usernames.add(username)
-                                profile = {
-                                    'username': username,
-                                    'display_name': '',
-                                    'followers_count': 0,
-                                    'following_count': 0,
-                                    'likes_count': 0,
-                                    'posts_count': 0,
-                                    'bio': '',
-                                    'is_private': False,
-                                    'is_verified': False,
-                                }
+                                profile = empty_profile(username)
                                 profiles.append(profile)
-                                self.profiles_scraped += 1
+                                self.stats.profiles_scraped += 1
                                 self._emit_progress(len(profiles), max_profiles, username)
                                 self._emit_profile(profile)
                                 self._emit_save_profile(profile)
@@ -300,7 +279,7 @@ class ScrapingWorkflow:
                     break
 
                 try:
-                    raw_device.swipe(540, 1500, 540, 500, duration=0.2)
+                    self._scroll.scroll_to_next_video()
                     time.sleep(1.5)
                 except Exception as e:
                     logger.warning(f"Swipe error: {e}")
@@ -322,9 +301,10 @@ class ScrapingWorkflow:
             elem.click()
             time.sleep(3.5)
 
-            enriched = self._extract_profile_data(raw_device, username)
+            enriched = extract_profile_from_screen(raw_device, username)
             if enriched:
                 profile.update(enriched)
+                self.stats.profiles_enriched += 1
                 logger.info(
                     f"Enriched @{username}: {enriched.get('followers_count', 0)} followers, "
                     f"bio: {enriched.get('bio', '')[:50]}..."
@@ -339,64 +319,3 @@ class ScrapingWorkflow:
                 time.sleep(1)
             except Exception:
                 pass
-
-    def _extract_profile_data(self, raw_device, username: str) -> Optional[Dict[str, Any]]:
-        """Extract detailed profile data from the current profile screen."""
-        try:
-            data: Dict[str, Any] = {
-                'username': username,
-                'display_name': '',
-                'followers_count': 0,
-                'following_count': 0,
-                'likes_count': 0,
-                'posts_count': 0,
-                'bio': '',
-                'website': '',
-                'is_private': False,
-                'is_verified': False,
-                'is_enriched': True,
-            }
-
-            username_elem = raw_device(resourceId="com.zhiliaoapp.musically:id/qh5")
-            if username_elem.exists:
-                data['username'] = username_elem.get_text().replace('@', '').strip()
-
-            stat_counts = raw_device(resourceId="com.zhiliaoapp.musically:id/qfw")
-            stat_labels = raw_device(resourceId="com.zhiliaoapp.musically:id/qfv")
-            if stat_counts.exists and stat_labels.exists:
-                for i in range(min(stat_counts.count, stat_labels.count)):
-                    try:
-                        count_text = stat_counts[i].get_text() or '0'
-                        label_text = stat_labels[i].get_text() or ''
-                        count = _parse_count(count_text)
-                        if 'Following' in label_text:
-                            data['following_count'] = count
-                        elif 'Followers' in label_text:
-                            data['followers_count'] = count
-                        elif 'Likes' in label_text:
-                            data['likes_count'] = count
-                    except Exception as e:
-                        logger.warning(f"Error parsing stat: {e}")
-
-            bio_buttons = raw_device(className="android.widget.Button", clickable=True)
-            for i in range(bio_buttons.count):
-                try:
-                    text = bio_buttons[i].get_text() or ''
-                    if '\n' in text or len(text) > 50:
-                        data['bio'] = text
-                        break
-                except Exception:
-                    pass
-
-            link_elems = raw_device(textContains="http")
-            if link_elems.exists:
-                try:
-                    data['website'] = link_elems[0].get_text()
-                except Exception:
-                    pass
-
-            return data
-
-        except Exception as e:
-            logger.warning(f"Error extracting profile @{username}: {e}")
-            return None

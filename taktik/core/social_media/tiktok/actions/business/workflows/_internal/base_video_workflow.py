@@ -10,50 +10,13 @@ Subclasses only need to implement:
 """
 
 from typing import Optional, Dict, Any, Callable
-from dataclasses import dataclass, field
 from loguru import logger
 import time
 import random
 
 from ....core.utils import parse_count
 from .base_workflow import BaseTikTokWorkflow
-
-
-# ---------------------------------------------------------------------------
-# Shared Stats dataclass
-# ---------------------------------------------------------------------------
-
-@dataclass
-class VideoWorkflowStats:
-    """Statistics shared by all video-based workflows (ForYou, Search, …)."""
-
-    videos_watched: int = 0
-    videos_liked: int = 0
-    users_followed: int = 0
-    videos_favorited: int = 0
-    videos_skipped: int = 0
-    ads_skipped: int = 0
-    popups_closed: int = 0
-    suggestions_handled: int = 0
-    errors: int = 0
-
-    start_time: float = field(default_factory=time.time)
-
-    def to_dict(self) -> Dict[str, Any]:
-        elapsed = time.time() - self.start_time
-        return {
-            'videos_watched': self.videos_watched,
-            'videos_liked': self.videos_liked,
-            'users_followed': self.users_followed,
-            'videos_favorited': self.videos_favorited,
-            'videos_skipped': self.videos_skipped,
-            'ads_skipped': self.ads_skipped,
-            'popups_closed': self.popups_closed,
-            'suggestions_handled': self.suggestions_handled,
-            'errors': self.errors,
-            'elapsed_seconds': elapsed,
-            'elapsed_formatted': f"{int(elapsed // 60)}m {int(elapsed % 60)}s",
-        }
+from .models import VideoWorkflowStats
 
 
 # ---------------------------------------------------------------------------
@@ -86,10 +49,6 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
         self._on_video_callback: Optional[Callable] = None
         self._on_like_callback: Optional[Callable] = None
         self._on_follow_callback: Optional[Callable] = None
-        self._on_pause_callback: Optional[Callable] = None
-
-        # Video-specific state
-        self._actions_since_pause = 0
 
         # Stuck-video tracking
         self._last_video_signature: Optional[str] = None
@@ -110,10 +69,6 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
     def set_on_follow_callback(self, callback: Callable[[Dict[str, Any]], None]):
         """Set callback called when a user is followed."""
         self._on_follow_callback = callback
-
-    def set_on_pause_callback(self, callback: Callable[[int], None]):
-        """Set callback called when workflow takes a pause."""
-        self._on_pause_callback = callback
 
     # ------------------------------------------------------------------
     # Video actions
@@ -206,25 +161,6 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
             self.logger.info("📊 Max follows per session reached")
             return True
         return False
-
-    def _check_pause_needed(self):
-        """Check if a pause is needed and execute it."""
-        if self._actions_since_pause >= self.config.pause_after_actions:
-            pause_duration = random.uniform(
-                self.config.pause_duration_min,
-                self.config.pause_duration_max,
-            )
-            pause_seconds = int(pause_duration)
-            self.logger.info(f"⏸️ Taking a break for {pause_seconds}s")
-
-            if self._on_pause_callback:
-                try:
-                    self._on_pause_callback(pause_seconds)
-                except Exception as e:
-                    self.logger.warning(f"Error sending pause callback: {e}")
-
-            time.sleep(pause_duration)
-            self._actions_since_pause = 0
 
     def _handle_popups(self):
         """Override to also track popup stats."""
