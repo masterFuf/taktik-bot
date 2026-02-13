@@ -9,7 +9,7 @@ Used by both ScrapingWorkflow (enrichment) and ProfileDataMixin (followers).
 from typing import Dict, Any, Optional
 
 from ....core.utils import parse_count, extract_resource_id
-from ....ui.selectors import PROFILE_SELECTORS
+from .....ui.selectors import PROFILE_SELECTORS
 
 
 def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict[str, Any]]:

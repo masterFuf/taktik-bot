@@ -9,7 +9,7 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ...core.utils import parse_count
-from ...ui.selectors import PROFILE_SELECTORS, NAVIGATION_SELECTORS
+from ....ui.selectors import PROFILE_SELECTORS, NAVIGATION_SELECTORS
 
 
 @dataclass

@@ -12,7 +12,7 @@ import random
 from ....atomic.navigation_actions import NavigationActions
 from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
-from ....ui.selectors import FOLLOWERS_SELECTORS
+from .....ui.selectors import FOLLOWERS_SELECTORS
 from .models import UnfollowConfig, UnfollowStats
 
 

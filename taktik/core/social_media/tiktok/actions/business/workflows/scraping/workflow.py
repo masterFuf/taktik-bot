@@ -12,7 +12,7 @@ from ....atomic.navigation_actions import NavigationActions
 from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
 from ....core.utils import extract_resource_id as _extract_rid
-from ....ui.selectors import FOLLOWERS_SELECTORS, PROFILE_SELECTORS, VIDEO_SELECTORS
+from .....ui.selectors import FOLLOWERS_SELECTORS, PROFILE_SELECTORS, VIDEO_SELECTORS
 from .models import ScrapingConfig, ScrapingStats, empty_profile
 from .._internal.profile_extractor import extract_profile_from_screen
 
