@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ..core.base_stats import BaseStatsManager
+from ..core.stats import BaseStatsManager
 
 from ..business.management.profile import ProfileBusiness
 from ..business.management.content import ContentBusiness

@@ -27,7 +27,7 @@ sys.path.insert(0, str(root_dir))
 load_dotenv()
 
 # Imports relatifs basés sur la structure du projet
-from taktik.core.social_media.instagram.actions.core.device_manager import DeviceManager
+from taktik.core.social_media.instagram.actions.core.device import DeviceManager
 from taktik.core.social_media.instagram.actions.profile.profile_manager import ProfileManager
 from taktik.core.social_media.instagram.actions.navigation.navigation_manager import NavigationManager
 from taktik.core.social_media.instagram.workflows.management.session import SessionManager

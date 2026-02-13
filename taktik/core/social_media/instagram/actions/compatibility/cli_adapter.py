@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from loguru import logger
 
 from .modern_instagram_actions import ModernInstagramActions
-from ..core.device_facade import DeviceFacade
+from ..core.device.facade import DeviceFacade
 
 
 class InstagramCLIAdapter:
