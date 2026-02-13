@@ -46,10 +46,6 @@ class PopupDetector(BaseAction):
         """Check if the 'Link email' popup is visible."""
         return self._element_exists(self.popup_selectors.link_email_popup, timeout=1)
 
-    def has_notification_banner(self) -> bool:
-        """Check if a notification banner is visible (e.g., 'X sent you new messages')."""
-        return self._element_exists(self.popup_selectors.notification_banner, timeout=1)
-
     def has_suggestion_page(self) -> bool:
         """Check if on a suggestion page (Follow back / Not interested).
         

@@ -181,20 +181,6 @@ class PopupActions(BaseAction):
         
         return False
     
-    def handle_suggestion_page(self, follow_back: bool = False) -> bool:
-        """Handle suggestion page based on preference.
-        
-        Args:
-            follow_back: If True, click 'Follow back'. If False, click 'Not interested'.
-            
-        Returns:
-            True if handled successfully, False otherwise.
-        """
-        if follow_back:
-            return self.click_follow_back()
-        else:
-            return self.click_not_interested()
-    
     # === Comments Section Actions ===
     
     def close_comments_section(self) -> bool:
@@ -237,48 +223,20 @@ class PopupActions(BaseAction):
         
         try:
             # Check for permission dialogs and DENY them (FR + EN)
-            deny_button_selectors = [
-                '//*[@resource-id="com.android.packageinstaller:id/permission_deny_button"]',
-                '//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]',
-                '//*[@resource-id="com.google.android.permissioncontroller:id/permission_deny_button"]',
-                '//*[@text="REFUSER"][@clickable="true"]',
-                '//*[@text="Refuser"][@clickable="true"]',
-                '//*[@text="Ne pas autoriser"][@clickable="true"]',
-                '//*[@text="Non"][@clickable="true"]',
-                '//*[@text="DENY"][@clickable="true"]',
-                '//*[@text="Deny"][@clickable="true"]',
-                '//*[@text="Don\'t allow"][@clickable="true"]',
-                '//*[@text="DON\'T ALLOW"][@clickable="true"]',
-                '//*[@text="No"][@clickable="true"]',
-                '//*[@text="NO"][@clickable="true"]',
-            ]
-            
-            if self._find_and_click(deny_button_selectors, timeout=0.5):
+            if self._find_and_click(self.popup_selectors.system_deny_button, timeout=0.5):
                 self.logger.warning("⚠️ Permission popup detected, denied automatically")
                 self._human_like_delay('click')
                 return True
             
             # Check for input method selection popup (package: android)
-            input_method_selectors = [
-                '//*[@resource-id="android:id/alertTitle"][contains(@text, "saisie")]',
-                '//*[@resource-id="android:id/alertTitle"][contains(@text, "input")]',
-                '//*[@resource-id="android:id/alertTitle"][contains(@text, "keyboard")]',
-                '//*[@resource-id="android:id/alertTitle"][contains(@text, "Keyboard")]',
-                '//*[@resource-id="android:id/select_dialog_listview"]',
-            ]
-            
-            if self._element_exists(input_method_selectors, timeout=0.5):
+            if self._element_exists(self.popup_selectors.system_input_method_popup, timeout=0.5):
                 self.logger.warning("⚠️ System input method popup detected, pressing back")
                 self.device.press("back")
                 self._human_like_delay('click')
                 return True
             
             # Check for generic Android system dialogs
-            system_dialog_selectors = [
-                '//*[@package="android"][@resource-id="android:id/parentPanel"]',
-            ]
-            
-            if self._element_exists(system_dialog_selectors, timeout=0.5):
+            if self._element_exists(self.popup_selectors.system_dialog, timeout=0.5):
                 self.logger.warning("⚠️ System dialog detected, pressing back")
                 self.device.press("back")
                 self._human_like_delay('click')

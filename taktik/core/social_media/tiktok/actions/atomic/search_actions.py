@@ -46,18 +46,6 @@ class SearchActions(BaseAction):
                 self.logger.success("✅ Search page opened via search_icon")
                 return True
             
-            # Fallback: try generic content-desc selectors
-            fallback_selectors = [
-                '//*[@content-desc="Search"]',
-                '//android.widget.ImageView[@content-desc="Search"]',
-                '//*[contains(@content-desc, "Search")][@clickable="true"]',
-                '//*[contains(@content-desc, "Rechercher")]',
-            ]
-            if self._find_and_click(fallback_selectors, timeout=3):
-                self._human_like_delay('navigation')
-                self.logger.success("✅ Search page opened via fallback")
-                return True
-            
             self.logger.warning("❌ Search button not found")
             return False
             
@@ -232,8 +220,7 @@ class SearchActions(BaseAction):
             first_result_selectors = [
                 f'//android.widget.TextView[@text="@{username}"]',
                 f'//android.widget.TextView[contains(@text, "{username}")]',
-                '(//androidx.recyclerview.widget.RecyclerView//android.view.ViewGroup)[1]'
-            ]
+            ] + self.search_selectors.first_search_result
             
             if self._find_and_click(first_result_selectors, timeout=5):
                 self._human_like_delay('navigation')
@@ -245,62 +232,4 @@ class SearchActions(BaseAction):
             
         except Exception as e:
             self.logger.error(f"Error navigating to @{username}: {e}")
-            return False
-
-    def search_hashtag(self, hashtag: str) -> bool:
-        """Search for a hashtag."""
-        self.logger.info(f"🔍 Searching for #{hashtag}")
-        
-        try:
-            # Remove # if present
-            hashtag = hashtag.lstrip('#')
-            
-            # First go to home, then click search
-            if self._find_and_click(self.navigation_selectors.home_tab, timeout=5):
-                self._human_like_delay('navigation')
-            
-            # Click search button in header
-            if not self._find_and_click(self.navigation_selectors.search_button, timeout=5):
-                self.logger.warning("Search button not found")
-                return False
-            
-            self._human_like_delay('click')
-            
-            # Click search bar
-            if not self._find_and_click(self.search_selectors.search_bar, timeout=5):
-                self.logger.warning("Search bar not found")
-                return False
-            
-            self._human_like_delay('click')
-            
-            # Input hashtag
-            search_query = f"#{hashtag}"
-            if not self._input_text(self.search_selectors.search_bar, search_query, clear_first=True):
-                self.logger.warning("Failed to input hashtag")
-                return False
-            
-            self._human_like_delay('typing')
-            
-            # Click on Hashtags tab
-            if self._element_exists(self.search_selectors.hashtags_tab, timeout=3):
-                self._find_and_click(self.search_selectors.hashtags_tab, timeout=3)
-                self._human_like_delay('click')
-            
-            # Click on first hashtag result
-            first_hashtag_selectors = [
-                f'//android.widget.TextView[@text="#{hashtag}"]',
-                f'//android.widget.TextView[contains(@text, "#{hashtag}")]',
-                '(//androidx.recyclerview.widget.RecyclerView//android.view.ViewGroup)[1]'
-            ]
-            
-            if self._find_and_click(first_hashtag_selectors, timeout=5):
-                self._human_like_delay('navigation')
-                self.logger.success(f"✅ Navigated to #{hashtag}")
-                return True
-            
-            self.logger.warning(f"❌ Failed to find #{hashtag} in search results")
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error searching for #{hashtag}: {e}")
             return False

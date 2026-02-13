@@ -1,10 +1,7 @@
-from typing import Any, Dict, Optional, List, Union, Tuple
-from enum import Enum
 import time
-import re
 from loguru import logger
 
-from taktik.core.shared.device.facade import BaseDeviceFacade, Direction
+from taktik.core.shared.device.facade import BaseDeviceFacade
 
 
 class DeviceFacade(BaseDeviceFacade):
