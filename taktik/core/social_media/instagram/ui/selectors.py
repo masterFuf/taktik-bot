@@ -850,6 +850,32 @@ class PostSelectors:
     comment_field_selector: str = '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
     post_comment_button_selector: str = '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_icon"]'
     
+    # === "Liked by" text selectors (for opening likers list from post view) ===
+    liked_by_selectors: List[str] = field(default_factory=lambda: [
+        '//*[starts-with(@text, "Liked by")]',
+        '//*[starts-with(@text, "Aimé par")]',
+        '//*[starts-with(@text, "liked by")]',
+    ])
+    
+    # === Comments list & username extraction ===
+    comments_list_resource_id: str = 'com.instagram.android:id/sticky_header_list'
+    
+    comment_username_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/sticky_header_list"]//android.view.ViewGroup[@text]/android.widget.Button[@text]',
+        '//*[@resource-id="com.instagram.android:id/sticky_header_list"]//android.widget.Button[@text]',
+        '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment_container"]//android.widget.Button',
+    ])
+    
+    comments_view_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/sticky_header_list"]',
+        '//*[contains(@text, "Comments")]',
+        '//*[contains(@content-desc, "Add a comment")]',
+    ])
+    
+    comment_sort_button: str = '//*[@content-desc="For you"]'
+    
+    expand_replies_selector: str = '//*[contains(@content-desc, "View") and contains(@content-desc, "more repl")]'
+    
     # === Autres éléments posts ===
     video_player_selectors: List[str] = field(default_factory=lambda: [
         '//android.widget.VideoView',
@@ -969,6 +995,7 @@ class DirectMessageSelectors:
     thread_container: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
     
     # Éléments d'une conversation
+    thread_username_resource_id: str = 'com.instagram.android:id/row_inbox_username'
     thread_username: str = '//*[@resource-id="com.instagram.android:id/row_inbox_username"]'
     thread_digest: str = '//*[@resource-id="com.instagram.android:id/row_inbox_digest"]'
     thread_timestamp: str = '//*[@resource-id="com.instagram.android:id/row_inbox_timestamp"]'
@@ -1010,6 +1037,9 @@ class DirectMessageSelectors:
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
     
+    # === Navigation dans une conversation ===
+    conversation_back_button_resource_id: str = 'com.instagram.android:id/header_left_button'
+    
     # === Dans une conversation ===
     message_input: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_thread_composer_edittext"]',
@@ -1029,6 +1059,7 @@ class DirectMessageSelectors:
     # Liste des messages dans une conversation
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
+    message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
     
     # === Notes (Stories circulaires en haut des DM) ===
     notes_recycler: str = '//*[@resource-id="com.instagram.android:id/cf_hub_recycler_view"]'
@@ -1909,6 +1940,12 @@ class UnfollowSelectors:
         '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]',
         '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]'
     ])
+    
+    # === Bouton Following dans la liste following (pour simple unfollow) ===
+    following_list_button_resource_id: str = 'com.instagram.android:id/follow_list_row_large_follow_button'
+    following_list_username_resource_id: str = 'com.instagram.android:id/follow_list_username'
+    following_tab_title_resource_id: str = 'com.instagram.android:id/title'
+    unfollow_confirm_resource_id: str = 'com.instagram.android:id/primary_button'
     
     # === Confirmation d'unfollow dans la popup ===
     unfollow_confirm: List[str] = field(default_factory=lambda: [

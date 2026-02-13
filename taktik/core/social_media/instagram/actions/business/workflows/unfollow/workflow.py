@@ -16,6 +16,7 @@ from ....core.base_business_action import BaseBusinessAction
 from ...common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
 
+from .....ui.selectors import UNFOLLOW_SELECTORS
 from .mixins.decision import UnfollowDecisionMixin
 from .mixins.actions import UnfollowActionsMixin
 
@@ -200,18 +201,14 @@ class UnfollowBusiness(
             d = self.device.device
             
             # Vérifier qu'on est sur la liste following (onglet "following" sélectionné)
-            following_tab = d(resourceId="com.instagram.android:id/title", textContains="following")
+            following_tab = d(resourceId=UNFOLLOW_SELECTORS.following_tab_title_resource_id, textContains="following")
             if not following_tab.exists:
                 # Essayer de trouver n'importe quel onglet "following"
                 following_tab = d(textContains="following")
             
             # Sélecteurs pour le bouton "Following" dans la liste
-            following_button_selectors = [
-                'com.instagram.android:id/follow_list_row_large_follow_button',  # resource-id
-            ]
-            
-            # Sélecteur pour la modal de confirmation (compte privé)
-            unfollow_confirm_selector = 'com.instagram.android:id/primary_button'
+            following_button_resource_id = UNFOLLOW_SELECTORS.following_list_button_resource_id
+            unfollow_confirm_resource_id = UNFOLLOW_SELECTORS.unfollow_confirm_resource_id
             
             unfollows_done = 0
             max_scrolls = 50
@@ -221,7 +218,7 @@ class UnfollowBusiness(
             while unfollows_done < max_unfollows and scroll_count < max_scrolls:
                 # Chercher tous les boutons "Following" visibles
                 following_buttons = d(
-                    resourceId="com.instagram.android:id/follow_list_row_large_follow_button",
+                    resourceId=following_button_resource_id,
                     text="Following"
                 )
                 
@@ -248,7 +245,7 @@ class UnfollowBusiness(
                     button_info = following_buttons[0].info
                     button_bounds = button_info.get('bounds', {})
                     # Chercher le username proche de ce bouton
-                    usernames_on_screen = d(resourceId="com.instagram.android:id/follow_list_username")
+                    usernames_on_screen = d(resourceId=UNFOLLOW_SELECTORS.following_list_username_resource_id)
                     if usernames_on_screen.exists:
                         for i in range(usernames_on_screen.count):
                             try:
@@ -270,7 +267,7 @@ class UnfollowBusiness(
                     time.sleep(1)
                     
                     # Vérifier si une modal de confirmation apparaît (compte privé)
-                    confirm_button = d(resourceId=unfollow_confirm_selector, text="Unfollow")
+                    confirm_button = d(resourceId=unfollow_confirm_resource_id, text="Unfollow")
                     if confirm_button.exists(timeout=2):
                         self.logger.debug("Modal detected, clicking 'Unfollow' to confirm")
                         confirm_button.click()

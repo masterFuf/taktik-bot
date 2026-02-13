@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ....core.base_action import BaseAction
-from .....ui.selectors import PROFILE_SELECTORS, BUTTON_SELECTORS, NAVIGATION_SELECTORS
+from .....ui.selectors import PROFILE_SELECTORS, BUTTON_SELECTORS, NAVIGATION_SELECTORS, DM_SELECTORS
 
 
 class MessagingBusiness(BaseAction):
@@ -64,14 +64,7 @@ class MessagingBusiness(BaseAction):
     
     def _click_message_button(self) -> bool:
         """Click the Message button on a profile."""
-        message_selectors = [
-            '//android.widget.Button[@content-desc="Message"]',
-            '//android.widget.Button[contains(@content-desc, "Message")]',
-            '//android.widget.TextView[@text="Message"]',
-            '//android.widget.Button[@text="Message"]',
-            '//*[contains(@content-desc, "Envoyer un message")]',
-            '//*[@text="Envoyer un message"]',
-        ]
+        message_selectors = PROFILE_SELECTORS.message_button
         
         for selector in message_selectors:
             try:
@@ -87,12 +80,7 @@ class MessagingBusiness(BaseAction):
     
     def _type_message(self, message: str) -> bool:
         """Type a message in the DM input field."""
-        input_selectors = [
-            '//android.widget.EditText[@text="Message..."]',
-            '//android.widget.EditText[contains(@text, "Message")]',
-            '//android.widget.EditText[@resource-id="com.instagram.android:id/row_thread_composer_edittext"]',
-            '//android.widget.EditText',
-        ]
+        input_selectors = DM_SELECTORS.message_input
         
         for selector in input_selectors:
             try:
@@ -111,13 +99,7 @@ class MessagingBusiness(BaseAction):
     
     def _click_send_button(self) -> bool:
         """Click the Send button to send the DM."""
-        send_selectors = [
-            '//android.widget.ImageView[@content-desc="Send"]',
-            '//android.widget.Button[@content-desc="Send"]',
-            '//*[contains(@content-desc, "Send")]',
-            '//*[contains(@content-desc, "Envoyer")]',
-            '//android.widget.ImageView[@resource-id="com.instagram.android:id/row_thread_composer_button_send"]',
-        ]
+        send_selectors = DM_SELECTORS.send_button
         
         for selector in send_selectors:
             try:
