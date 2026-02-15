@@ -103,6 +103,23 @@ def send_like_event(username: str, likes_count: int = 1, profile_data: dict = No
     """Send like event to desktop app for real-time activity and WorkflowAnalyzer."""
     _ipc.like_event(username, likes_count, profile_data)
 
+def send_profile_captured(username: str, profile_data: dict = None, profile_pic_base64: str = None):
+    """Send captured profile data (with optional base64 image) to desktop app."""
+    data = {"username": username}
+    if profile_data:
+        data.update({
+            "full_name": profile_data.get("full_name"),
+            "follower_count": profile_data.get("followers_count", 0),
+            "following_count": profile_data.get("following_count", 0),
+            "media_count": profile_data.get("posts_count", 0),
+            "is_private": profile_data.get("is_private", False),
+            "is_verified": profile_data.get("is_verified", False),
+            "biography": profile_data.get("biography"),
+        })
+    if profile_pic_base64:
+        data["profile_pic_url"] = profile_pic_base64
+    _ipc.send("profile_captured", **data)
+
 def send_post_skipped(author: str, reason: str = "already_processed", hashtag: str = None):
     """Send post skipped event to desktop app for real-time activity."""
     _ipc.send("post_skipped", author=author, reason=reason, hashtag=hashtag)

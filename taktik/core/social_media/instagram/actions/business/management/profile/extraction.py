@@ -127,9 +127,28 @@ class ProfileExtraction(BaseBusinessAction):
                             f"Visible stories: {profile_info.get('visible_stories_count', 0)}")
             self.logger.debug(f"  • Follow button state: {profile_info.get('follow_button_state', 'unknown')}")
             
+            # Extract profile image (screenshot + crop → base64)
+            profile_pic_base64 = self.detection_actions.extract_profile_image()
+            if profile_pic_base64:
+                profile_info['profile_pic_base64'] = profile_pic_base64
+            
             # Save profile to database with actual information
             from .persistence import save_profile_to_database
             save_profile_to_database(profile_info, self.logger)
+            
+            # Emit profile_captured IPC event for live display in Electron
+            try:
+                from ....core.ipc.emitter import IPCEmitter
+                # Don't include base64 in profile_data (it's sent separately)
+                ipc_profile_data = {k: v for k, v in profile_info.items() if k != 'profile_pic_base64'}
+                IPCEmitter.emit_profile_captured(
+                    username=profile_info['username'],
+                    profile_data=ipc_profile_data,
+                    profile_pic_base64=profile_pic_base64
+                )
+                self.logger.debug(f"📤 profile_captured IPC sent for @{profile_info['username']} (pic={'yes' if profile_pic_base64 else 'no'})")
+            except Exception as e:
+                self.logger.warning(f"IPC profile_captured error: {e}")
             
             return profile_info
             

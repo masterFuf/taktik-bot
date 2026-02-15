@@ -163,6 +163,14 @@ class BaseDeviceFacade:
             self.logger.error(f"Error taking screenshot: {e}")
             return False
     
+    def screenshot_pil(self):
+        """Take a screenshot and return it as a PIL Image (in-memory, no file I/O)."""
+        try:
+            return self._device.screenshot()
+        except Exception as e:
+            self.logger.error(f"Error taking PIL screenshot: {e}")
+            return None
+    
     # =========================================================================
     # XPath & Element Finding
     # =========================================================================

@@ -105,6 +105,14 @@ class ProfileSelectors:
         '//*[contains(@resource-id, "full_name")]'
     ])
     
+    # === Profile picture (for screenshot + crop extraction) ===
+    profile_picture_imageview: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_profile_header_imageview"]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_avatar"]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_avatar_image"]',
+        '//*[@resource-id="com.instagram.android:id/profile_pic"]',
+    ])
+    
     # === Enrichment selectors (XML-based profile extraction) ===
     enrichment_username_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/action_bar_title"]',

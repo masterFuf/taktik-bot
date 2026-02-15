@@ -27,6 +27,7 @@ from bridges.instagram.base import (
     send_error, send_log,
     send_unfollow_event, send_follow_event, send_like_event,
     send_post_skipped, send_current_post,
+    send_profile_captured,
     setup_stats_callback,
 )
 

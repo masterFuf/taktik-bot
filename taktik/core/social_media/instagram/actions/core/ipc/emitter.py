@@ -80,6 +80,18 @@ class IPCEmitter:
             log.debug(f"IPC profile visit error: {e}")
 
     @staticmethod
+    def emit_profile_captured(username: str, profile_data: Optional[Dict[str, Any]] = None, profile_pic_base64: Optional[str] = None) -> None:
+        """Emit a profile_captured event with optional base64 profile image."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, 'send_profile_captured'):
+                bridge.send_profile_captured(username, profile_data=profile_data, profile_pic_base64=profile_pic_base64)
+        except Exception as e:
+            log.debug(f"IPC profile_captured event error: {e}")
+
+    @staticmethod
     def emit_action(action_type: str, username: str, data: Optional[Dict[str, Any]] = None) -> None:
         """Emit a generic action event to the frontend."""
         bridge = _get_bridge()

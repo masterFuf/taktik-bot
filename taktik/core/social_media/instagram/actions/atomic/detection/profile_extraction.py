@@ -304,6 +304,79 @@ class ProfileExtractionMixin(BaseAction):
             self.logger.error(f"Error in enriched profile extraction: {e}")
             return results
 
+    def extract_profile_image(self, xml_content: Optional[str] = None) -> Optional[str]:
+        """
+        Extract profile picture via screenshot + crop.
+        Uses XML dump to find the avatar ImageView bounds, then crops from a screenshot.
+        
+        Args:
+            xml_content: Pre-fetched XML dump (optional, will fetch if None)
+        
+        Returns:
+            Base64 data URL string (data:image/jpeg;base64,...) or None if failed
+        """
+        import base64
+        import io
+        from lxml import etree
+        
+        try:
+            if not xml_content:
+                xml_content = self.device.get_xml_dump()
+            if not xml_content:
+                return None
+            
+            tree = etree.fromstring(xml_content.encode('utf-8'))
+            
+            # Find profile picture ImageView bounds
+            bounds = None
+            for selector in PROFILE_SELECTORS.profile_picture_imageview:
+                try:
+                    elements = tree.xpath(selector)
+                    if elements:
+                        bounds_str = elements[0].get('bounds', '')
+                        if bounds_str:
+                            parts = bounds_str.replace('][', ',').replace('[', '').replace(']', '').split(',')
+                            if len(parts) == 4:
+                                bounds = {
+                                    'left': int(parts[0]),
+                                    'top': int(parts[1]),
+                                    'right': int(parts[2]),
+                                    'bottom': int(parts[3])
+                                }
+                                break
+                except Exception:
+                    continue
+            
+            if not bounds:
+                self.logger.debug("Profile picture ImageView not found in XML")
+                return None
+            
+            # Take screenshot and crop
+            screenshot = self.device.screenshot_pil()
+            if screenshot is None:
+                return None
+            
+            padding = 2
+            crop_box = (
+                max(0, bounds['left'] - padding),
+                max(0, bounds['top'] - padding),
+                min(screenshot.size[0], bounds['right'] + padding),
+                min(screenshot.size[1], bounds['bottom'] + padding)
+            )
+            cropped = screenshot.crop(crop_box)
+            
+            # Convert to JPEG base64
+            buffer = io.BytesIO()
+            cropped.convert('RGB').save(buffer, format='JPEG', quality=85)
+            b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+            self.logger.debug(f"📸 Profile image extracted ({cropped.size[0]}x{cropped.size[1]}, {len(b64) // 1024}KB)")
+            return f"data:image/jpeg;base64,{b64}"
+            
+        except Exception as e:
+            self.logger.debug(f"Failed to extract profile image: {e}")
+            return None
+
     def click_bio_more_button(self) -> bool:
         """
         Click on the 'more' button in bio to expand truncated biography.
