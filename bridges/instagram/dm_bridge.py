@@ -675,25 +675,63 @@ def cmd_read(device_id: str, limit: int):
     }))
 
 
+def _ensure_dm_inbox(bridge: DMBridge) -> bool:
+    """
+    Ensure Instagram is open and we're in the DM inbox.
+    Handles the case where the user left Instagram or navigated away.
+    Returns True if we're in the inbox, False if navigation failed.
+    """
+    # Check if we're already in the DM inbox
+    inbox = bridge.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+    if inbox.exists(timeout=2):
+        logger.info("Already in DM inbox")
+        bridge._ensure_primary_tab()
+        return True
+    
+    # Check if Instagram is open at all (look for any Instagram UI element)
+    ig_elements = [
+        bridge.device(resourceId="com.instagram.android:id/action_bar_container"),
+        bridge.device(resourceId="com.instagram.android:id/tab_bar"),
+        bridge.device(resourceId="com.instagram.android:id/bottom_navigation"),
+    ]
+    ig_is_open = any(e.exists(timeout=1) for e in ig_elements)
+    
+    if ig_is_open:
+        # Instagram is open but not in DM inbox — navigate there
+        logger.info("Instagram is open but not in DM inbox, navigating...")
+        if bridge.navigate_to_dm_inbox():
+            time.sleep(2)
+            bridge._ensure_primary_tab()
+            bridge._scroll_to_top_of_inbox()
+            return True
+    
+    # Instagram is not open or navigation failed — restart and navigate
+    logger.info("Instagram not in DM inbox, restarting app...")
+    bridge.restart_instagram()
+    time.sleep(3)
+    
+    if not bridge.navigate_to_dm_inbox():
+        logger.error("Failed to navigate to DM inbox after restart")
+        return False
+    
+    time.sleep(2)
+    bridge._ensure_primary_tab()
+    bridge._scroll_to_top_of_inbox()
+    return True
+
+
 def cmd_send(device_id: str, username: str, message: str):
-    """Send a DM message."""
+    """Send a DM message. Ensures Instagram is open and we're in DM inbox before sending."""
     bridge = DMBridge(device_id)
     
     if not bridge.connect():
         print(json.dumps({"success": False, "error": "Failed to connect to device"}))
         sys.exit(1)
     
-    # Check if we're already in the inbox (likely after reading DMs)
-    inbox = bridge.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
-    if not inbox.exists(timeout=2):
-        # Not in inbox, navigate there
-        if not bridge.navigate_to_dm_inbox():
-            print(json.dumps({"success": False, "error": "Cannot navigate to DM inbox"}))
-            sys.exit(1)
-        time.sleep(2)
-        # Si on vient de naviguer, on doit s'assurer d'être sur Primary et en haut
-        bridge._ensure_primary_tab()
-        bridge._scroll_to_top_of_inbox()
+    # Ensure Instagram is open and we're in the DM inbox
+    if not _ensure_dm_inbox(bridge):
+        print(json.dumps({"success": False, "error": "Cannot navigate to DM inbox"}))
+        sys.exit(1)
     
     # D'abord essayer de trouver l'utilisateur à l'écran actuel (sans scroller)
     if bridge.open_conversation(username):
