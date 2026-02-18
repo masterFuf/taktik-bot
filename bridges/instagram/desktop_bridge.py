@@ -320,10 +320,15 @@ class DesktopBridge:
             return {
                 "type": "unfollow",
                 "max_unfollows": unfollow_cfg.get('maxUnfollows', max_profiles),
+                "unfollow_mode": unfollow_cfg.get('unfollowMode', 'non-followers'),
                 "min_delay": 2,
                 "max_delay": 5,
                 "skip_verified": unfollow_cfg.get('skipVerified', True),
-                "skip_business": unfollow_cfg.get('skipBusiness', False)
+                "skip_business": unfollow_cfg.get('skipBusiness', False),
+                "min_days_since_follow": unfollow_cfg.get('minDaysSinceFollow', 3),
+                "bot_follows_only": unfollow_cfg.get('botFollowsOnly', False),
+                "whitelist": unfollow_cfg.get('whitelist', []),
+                "blacklist": unfollow_cfg.get('blacklist', []),
             }
         
         # Configuration spécifique pour le workflow FEED

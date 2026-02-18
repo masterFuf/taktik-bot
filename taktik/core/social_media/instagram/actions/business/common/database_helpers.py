@@ -284,6 +284,104 @@ class DatabaseHelpers:
             log.error(f"❌ Error recording hashtag post: {e}")
             return False
     
+    # ============================================
+    # UNFOLLOW DECISION HELPERS
+    # ============================================
+    
+    @staticmethod
+    def has_bot_follow_record(username: str, account_id: int) -> bool:
+        """
+        Check if this username was originally followed by the bot.
+        Queries interaction_history for a FOLLOW action by this account targeting this username.
+        
+        Args:
+            username: Target username to check
+            account_id: The bot account ID
+            
+        Returns:
+            True if a FOLLOW record exists for this user by this account
+        """
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+            
+            # Look up the profile_id for this username
+            cursor = conn.execute(
+                "SELECT profile_id FROM instagram_profiles WHERE username = ? COLLATE NOCASE",
+                (username,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return False
+            
+            profile_id = row['profile_id'] if isinstance(row, dict) else row[0]
+            
+            # Check if a FOLLOW interaction exists
+            cursor = conn.execute(
+                """SELECT 1 FROM interaction_history 
+                   WHERE account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
+                   LIMIT 1""",
+                (account_id, profile_id)
+            )
+            return cursor.fetchone() is not None
+            
+        except Exception as e:
+            log.debug(f"Error checking bot follow record for @{username}: {e}")
+            return False
+    
+    @staticmethod
+    def get_days_since_follow(username: str, account_id: int) -> Optional[int]:
+        """
+        Get the number of days since the bot followed this username.
+        
+        Args:
+            username: Target username
+            account_id: The bot account ID
+            
+        Returns:
+            Number of days since follow, or None if no record found
+        """
+        try:
+            from datetime import datetime
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+            
+            # Look up the profile_id
+            cursor = conn.execute(
+                "SELECT profile_id FROM instagram_profiles WHERE username = ? COLLATE NOCASE",
+                (username,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            
+            profile_id = row['profile_id'] if isinstance(row, dict) else row[0]
+            
+            # Get the most recent FOLLOW interaction time
+            cursor = conn.execute(
+                """SELECT interaction_time FROM interaction_history 
+                   WHERE account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
+                   ORDER BY interaction_time DESC LIMIT 1""",
+                (account_id, profile_id)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            
+            follow_time_str = row['interaction_time'] if isinstance(row, dict) else row[0]
+            if not follow_time_str:
+                return None
+            
+            follow_time = datetime.fromisoformat(follow_time_str)
+            delta = datetime.now() - follow_time
+            return delta.days
+            
+        except Exception as e:
+            log.debug(f"Error getting days since follow for @{username}: {e}")
+            return None
+    
     @staticmethod
     def generate_caption_hash(caption: str) -> str:
         """

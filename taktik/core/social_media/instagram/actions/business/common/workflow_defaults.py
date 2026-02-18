@@ -101,8 +101,12 @@ NOTIFICATIONS_DEFAULTS: Dict[str, Any] = {
 UNFOLLOW_DEFAULTS: Dict[str, Any] = {
     'max_unfollows': 20,
     'unfollow_delay_range': (30, 60),
-    'unfollow_non_followers': True,
+    'unfollow_mode': 'non-followers',  # 'non-followers' | 'mutual' | 'oldest' | 'all'
+    'unfollow_non_followers': True,  # Legacy compat — prefer unfollow_mode
     'min_days_since_follow': 3,
     'skip_verified': True,
     'skip_business': False,
+    'bot_follows_only': False,
+    'whitelist': [],
+    'blacklist': [],
 }

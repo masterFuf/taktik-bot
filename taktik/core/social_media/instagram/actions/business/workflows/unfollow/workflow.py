@@ -66,18 +66,23 @@ class UnfollowBusiness(
         stats = {
             'accounts_checked': 0,
             'unfollows_made': 0,
+            'skipped_whitelisted': 0,
+            'skipped_blacklisted_forced': 0,
+            'skipped_not_bot_follow': 0,
             'skipped_verified': 0,
             'skipped_business': 0,
             'skipped_recent': 0,
             'skipped_followers': 0,
+            'skipped_not_mutual': 0,
             'errors': 0,
             'success': False
         }
         
         try:
+            unfollow_mode = effective_config.get('unfollow_mode', 'non-followers')
             self.logger.info("🔄 Starting unfollow workflow")
-            self.logger.info(f"Max unfollows: {effective_config['max_unfollows']}")
-            self.logger.info(f"Unfollow non-followers only: {effective_config['unfollow_non_followers']}")
+            self.logger.info(f"Mode: {unfollow_mode} | Max: {effective_config['max_unfollows']} | Cooldown: {effective_config.get('min_days_since_follow', 0)}d | Bot-only: {effective_config.get('bot_follows_only', False)}")
+            self.logger.info(f"Whitelist: {len(effective_config.get('whitelist', []))} | Blacklist: {len(effective_config.get('blacklist', []))}")
             
             # Naviguer vers son propre profil
             if not self.nav_actions.navigate_to_profile_tab():
@@ -133,12 +138,18 @@ class UnfollowBusiness(
                 
                 if not should_unfollow:
                     self.logger.debug(f"Skipping @{username}: {reason}")
-                    if 'verified' in reason:
+                    if 'whitelisted' in reason:
+                        stats['skipped_whitelisted'] += 1
+                    elif 'not_followed_by_bot' in reason:
+                        stats['skipped_not_bot_follow'] += 1
+                    elif 'verified' in reason:
                         stats['skipped_verified'] += 1
                     elif 'business' in reason:
                         stats['skipped_business'] += 1
                     elif 'recent' in reason:
                         stats['skipped_recent'] += 1
+                    elif 'not_mutual' in reason:
+                        stats['skipped_not_mutual'] += 1
                     elif 'follower' in reason:
                         stats['skipped_followers'] += 1
                     continue
