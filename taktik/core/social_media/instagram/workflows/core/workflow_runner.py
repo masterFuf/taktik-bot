@@ -480,7 +480,7 @@ class WorkflowRunner:
         self.logger.info("📊 Step 1/3: Syncing following list...")
         print(json.dumps({"type": "sync_step", "step": "following", "status": "started"}), flush=True)
         
-        sync_stats = unfollow_business.sync_following_list()
+        sync_stats = unfollow_business.sync_following_list({'mode': mode})
         self.logger.info(
             f"📊 Following sync: {sync_stats['new_count']} new, "
             f"{sync_stats['updated_count']} updated, "

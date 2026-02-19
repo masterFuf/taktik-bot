@@ -40,6 +40,7 @@ class SyncFollowingMixin:
             Dict avec new_count, total_count, stopped_early
         """
         config = config or {}
+        mode = config.get('mode', 'fast')
         stats = {
             'new_count': 0,
             'updated_count': 0,
@@ -90,9 +91,9 @@ class SyncFollowingMixin:
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
 
-                    # Si on rencontre un username déjà connu → on a rattrapé l'historique
+                    # Si on rencontre un username déjà connu
                     if username in known_usernames:
-                        # Emit IPC even for the known username that triggers stop
+                        # Toujours émettre l'IPC pour le log d'activité
                         try:
                             print(json.dumps({
                                 "type": "sync_user_discovered",
@@ -103,13 +104,19 @@ class SyncFollowingMixin:
                             }), flush=True)
                         except Exception:
                             pass
-                        self.logger.info(
-                            f"⏹ Found known username @{username} — stopping sync "
-                            f"({stats['new_count']} new accounts added)"
-                        )
-                        stop_signal = True
-                        stats['stopped_early'] = True
-                        break
+                        # En mode fast : on s'arrête dès qu'on retrouve un connu (sync incrémentale)
+                        # En mode enrichi : on continue pour tout parcourir
+                        if mode != 'enriched':
+                            self.logger.info(
+                                f"⏹ Found known username @{username} — stopping sync "
+                                f"({stats['new_count']} new accounts added)"
+                            )
+                            stop_signal = True
+                            stats['stopped_early'] = True
+                            break
+                        else:
+                            self.logger.debug(f"Known @{username} — continuing (enriched mode)")
+                            continue
 
                     # Nouveau following → upsert en BDD
                     is_bot_follow = DatabaseHelpers.has_bot_follow_record(username, account_id)

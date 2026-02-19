@@ -78,7 +78,7 @@ class SyncFollowersMixin:
             # For enriched mode, create a ProfileExtraction instance
             profile_extractor = None
             if mode == 'enriched':
-                from ...management.profile.extraction import ProfileExtraction
+                from ....management.profile.extraction import ProfileExtraction
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
             seen_on_screen: Set[str] = set()
@@ -125,7 +125,7 @@ class SyncFollowersMixin:
                     except Exception:
                         pass
 
-                    # Queue for enrichment if in enriched mode
+                    # Queue for enrichment if in enriched mode (tous les comptes, même connus)
                     if mode == 'enriched':
                         enriched_queue.append(username)
 
@@ -142,8 +142,11 @@ class SyncFollowersMixin:
 
                 if not new_found:
                     no_new_count += 1
-                    if no_new_count >= 3:
-                        self.logger.info("No new followers after 3 consecutive scrolls — end of list")
+                    # En mode enrichi : on parcourt toute la liste (pas de tri possible sur followers)
+                    # On s'arrête seulement quand il n'y a vraiment plus rien de nouveau à l'écran
+                    max_no_new = 3 if mode != 'enriched' else 5
+                    if no_new_count >= max_no_new:
+                        self.logger.info(f"No new followers after {max_no_new} consecutive scrolls — end of list")
                         break
                 else:
                     no_new_count = 0
