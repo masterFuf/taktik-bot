@@ -313,6 +313,20 @@ class DesktopBridge:
                               story_percentage: int, story_like_percentage: int) -> dict:
         """Build action configuration based on action type."""
         
+        # Configuration spécifique pour le workflow SYNC_FOLLOWING
+        if action_type == 'sync_following':
+            return {
+                "type": "sync_following",
+            }
+        
+        # Configuration spécifique pour le workflow SYNC_FOLLOWERS_FOLLOWING
+        if action_type == 'sync_followers_following':
+            sync_cfg = self.config.get('sync', {})
+            return {
+                "type": "sync_followers_following",
+                "mode": sync_cfg.get('mode', 'fast'),
+            }
+        
         # Configuration spécifique pour le workflow UNFOLLOW
         if action_type == 'unfollow':
             # Utiliser les paramètres spécifiques unfollow s'ils existent
@@ -454,6 +468,14 @@ class DesktopBridge:
             interaction_type = 'unfollow'
             action_type = 'unfollow'
             session_workflow_type = 'unfollow'
+        elif self.workflow_type == 'sync_following':
+            interaction_type = 'sync_following'
+            action_type = 'sync_following'
+            session_workflow_type = 'sync_following'
+        elif self.workflow_type == 'sync_followers_following':
+            interaction_type = 'sync_followers_following'
+            action_type = 'sync_followers_following'
+            session_workflow_type = 'sync_following'
         elif self.workflow_type == 'feed':
             interaction_type = 'feed'
             action_type = 'feed'
