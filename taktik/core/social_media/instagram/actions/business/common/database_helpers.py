@@ -397,5 +397,210 @@ class DatabaseHelpers:
         # Hash MD5 tronqué à 16 chars
         return hashlib.md5(normalized.encode('utf-8')).hexdigest()[:16]
 
+    # ============================================
+    # FOLLOWING SYNC HELPERS
+    # ============================================
+
+    @staticmethod
+    def sync_following_upsert(
+        username: str,
+        display_name: str,
+        account_id: int,
+        followed_by_bot: bool = False,
+        source: str = 'sync',
+    ) -> str:
+        """
+        Insert or update a following entry in following_sync.
+
+        Returns:
+            'new' if inserted, 'updated' if already existed
+        """
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+
+            cursor = conn.execute(
+                "SELECT id FROM following_sync WHERE account_id = ? AND username = ? COLLATE NOCASE",
+                (account_id, username)
+            )
+            existing = cursor.fetchone()
+
+            if existing:
+                conn.execute(
+                    """UPDATE following_sync
+                       SET display_name = ?, last_seen_at = datetime('now'),
+                           followed_by_bot = ?, source = ?
+                       WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+                    (display_name, int(followed_by_bot), source, account_id, username)
+                )
+                conn.commit()
+                return 'updated'
+            else:
+                conn.execute(
+                    """INSERT INTO following_sync
+                       (account_id, username, display_name, followed_by_bot, source)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (account_id, username, display_name, int(followed_by_bot), source)
+                )
+                conn.commit()
+                return 'new'
+
+        except Exception as e:
+            log.debug(f"Error in sync_following_upsert for @{username}: {e}")
+            return 'error'
+
+    @staticmethod
+    def get_following_sync_usernames(account_id: int) -> set:
+        """
+        Get the set of all known following usernames for an account.
+
+        Returns:
+            Set of lowercase usernames
+        """
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+
+            cursor = conn.execute(
+                "SELECT username FROM following_sync WHERE account_id = ? AND unfollowed_at IS NULL",
+                (account_id,)
+            )
+            return {row[0].lower() for row in cursor.fetchall()}
+
+        except Exception as e:
+            log.debug(f"Error in get_following_sync_usernames: {e}")
+            return set()
+
+    @staticmethod
+    def mark_not_follower_back(username: str, account_id: int) -> None:
+        """Mark a following as NOT following back (is_follower_back = 0)."""
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+            conn.execute(
+                """UPDATE following_sync SET is_follower_back = 0, last_seen_at = datetime('now')
+                   WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+                (account_id, username)
+            )
+            conn.commit()
+        except Exception as e:
+            log.debug(f"Error in mark_not_follower_back for @{username}: {e}")
+
+    @staticmethod
+    def mark_follower_back(username: str, account_id: int) -> None:
+        """Mark a following as following back (is_follower_back = 1)."""
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+            conn.execute(
+                """UPDATE following_sync SET is_follower_back = 1, last_seen_at = datetime('now')
+                   WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+                (account_id, username)
+            )
+            conn.commit()
+        except Exception as e:
+            log.debug(f"Error in mark_follower_back for @{username}: {e}")
+
+    @staticmethod
+    def mark_unfollowed(username: str, account_id: int) -> None:
+        """Mark a following as unfollowed (sets unfollowed_at timestamp)."""
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+            conn.execute(
+                """UPDATE following_sync SET unfollowed_at = datetime('now')
+                   WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+                (account_id, username)
+            )
+            conn.commit()
+        except Exception as e:
+            log.debug(f"Error in mark_unfollowed for @{username}: {e}")
+
+
+    # ============================================
+    # FOLLOWERS SYNC HELPERS
+    # ============================================
+
+    @staticmethod
+    def sync_follower_upsert(
+        username: str,
+        account_id: int,
+        display_name: str = '',
+        is_following_back: bool = None,
+        source: str = 'sync',
+    ) -> str:
+        """
+        Insert or update a follower entry in followers_sync.
+
+        Returns:
+            'new' if inserted, 'updated' if already existed
+        """
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+
+            cursor = conn.execute(
+                "SELECT id FROM followers_sync WHERE account_id = ? AND username = ? COLLATE NOCASE",
+                (account_id, username)
+            )
+            existing = cursor.fetchone()
+
+            following_back_val = None if is_following_back is None else int(is_following_back)
+
+            if existing:
+                conn.execute(
+                    """UPDATE followers_sync
+                       SET display_name = COALESCE(NULLIF(?, ''), display_name),
+                           last_seen_at = datetime('now'),
+                           is_following_back = COALESCE(?, is_following_back),
+                           source = ?
+                       WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+                    (display_name, following_back_val, source, account_id, username)
+                )
+                conn.commit()
+                return 'updated'
+            else:
+                conn.execute(
+                    """INSERT INTO followers_sync
+                       (account_id, username, display_name, is_following_back, source)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (account_id, username, display_name, following_back_val, source)
+                )
+                conn.commit()
+                return 'new'
+
+        except Exception as e:
+            log.debug(f"Error in sync_follower_upsert for @{username}: {e}")
+            return 'error'
+
+    @staticmethod
+    def get_followers_sync_usernames(account_id: int) -> set:
+        """
+        Get the set of all known follower usernames for an account.
+
+        Returns:
+            Set of lowercase usernames
+        """
+        try:
+            from taktik.core.database.local.service import get_local_database
+            local_db = get_local_database()
+            conn = local_db._get_connection()
+
+            cursor = conn.execute(
+                "SELECT username FROM followers_sync WHERE account_id = ?",
+                (account_id,)
+            )
+            return {row[0].lower() for row in cursor.fetchall()}
+
+        except Exception as e:
+            log.debug(f"Error in get_followers_sync_usernames: {e}")
+            return set()
+
 
 __all__ = ['DatabaseHelpers']
