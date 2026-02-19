@@ -476,8 +476,10 @@ class WorkflowRunner:
         mode = action.get('mode', 'fast')
         unfollow_business = self._get_unfollow_business()
         
-        # Step 1: Sync following list (incremental)
-        self.logger.info("📊 Step 1/3: Syncing following list...")
+        import time
+        
+        # Step 1/2: Sync following list
+        self.logger.info("📊 Step 1/2: Syncing following list...")
         print(json.dumps({"type": "sync_step", "step": "following", "status": "started"}), flush=True)
         
         sync_stats = unfollow_business.sync_following_list({'mode': mode})
@@ -492,32 +494,14 @@ class WorkflowRunner:
             "updated_count": sync_stats['updated_count'],
         }), flush=True)
         
-        # Step 2: Scrape non-followers category (mutual detection)
-        self.logger.info("📊 Step 2/3: Detecting non-followers...")
-        print(json.dumps({"type": "sync_step", "step": "non_followers", "status": "started"}), flush=True)
+        # Navigate back to profile before followers sync
+        self.logger.debug("Navigating back to profile before followers sync")
+        unfollow_business.device.device.press('back')
+        time.sleep(1.5)
         
-        nf_stats = unfollow_business.scrape_non_followers_category()
-        self.logger.info(
-            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
-            f"{nf_stats['mutuals_count']} mutuals"
-        )
-        print(json.dumps({
-            "type": "sync_step", "step": "non_followers", "status": "completed",
-            "non_followers_count": nf_stats['non_followers_count'],
-            "mutuals_count": nf_stats['mutuals_count'],
-        }), flush=True)
-        
-        # Step 3: Sync followers list (full scroll)
-        self.logger.info("📊 Step 3/3: Syncing followers list...")
+        # Step 2/2: Sync followers list (full scroll)
+        self.logger.info("📊 Step 2/2: Syncing followers list...")
         print(json.dumps({"type": "sync_step", "step": "followers", "status": "started"}), flush=True)
-        
-        # Navigate back to profile first (we may be in the non-followers view)
-        self.logger.debug("Pressing back to return to profile before followers sync")
-        unfollow_business.device.device.press('back')
-        import time
-        time.sleep(1)
-        unfollow_business.device.device.press('back')
-        time.sleep(1)
         
         followers_stats = unfollow_business.sync_followers_list({'mode': mode})
         self.logger.info(
@@ -544,8 +528,8 @@ class WorkflowRunner:
                 "updated_count": followers_stats['updated_count'],
                 "total_seen": followers_stats['total_seen'],
             },
-            "non_followers_count": nf_stats['non_followers_count'],
-            "mutuals_count": nf_stats['mutuals_count'],
+            "non_followers_count": 0,
+            "mutuals_count": 0,
             "success": sync_stats['success'] and followers_stats['success'],
         }
         print(json.dumps(sync_complete_msg), flush=True)

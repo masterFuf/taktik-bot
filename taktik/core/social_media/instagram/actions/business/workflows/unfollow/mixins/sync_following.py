@@ -12,6 +12,7 @@ This avoids:
 
 import json
 import time
+import random
 from typing import Dict, Any, List, Optional, Set
 
 from ....common.database_helpers import DatabaseHelpers
@@ -77,36 +78,66 @@ class SyncFollowingMixin:
             known_usernames = DatabaseHelpers.get_following_sync_usernames(account_id)
             self.logger.info(f"📋 {len(known_usernames)} known followings in DB")
 
+            # For enriched mode, create a ProfileExtraction instance
+            profile_extractor = None
+            if mode == 'enriched':
+                from ....management.profile.extraction import ProfileExtraction
+                profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
+
+            d = self.device.device
+            username_resource_id = 'com.instagram.android:id/follow_list_username'
+
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
             max_scrolls = 60  # Sécurité anti-boucle infinie
             stop_signal = False
 
             while scroll_attempts < max_scrolls and not stop_signal:
-                visible = self._get_visible_following_usernames_with_display()
+                # Récupérer les éléments visibles avec leurs références UI
+                username_elements = d(resourceId=username_resource_id)
+                if not username_elements.exists:
+                    break
 
-                for username, display_name in visible:
+                new_found = False
+                count = username_elements.count
+                for i in range(count):
+                    try:
+                        el = username_elements[i]
+                        username = (el.get_text() or '').strip().lstrip('@')
+                        if not username or not self._is_valid_username(username):
+                            continue
+                    except Exception:
+                        continue
+
                     if username in seen_on_screen:
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
+                    new_found = True
+
+                    # Récupérer le display_name (subtitle)
+                    display_name = ''
+                    try:
+                        subtitle_els = d(resourceId='com.instagram.android:id/follow_list_subtitle')
+                        if subtitle_els.exists and i < subtitle_els.count:
+                            display_name = subtitle_els[i].get_text() or ''
+                    except Exception:
+                        pass
 
                     # Si on rencontre un username déjà connu
                     if username in known_usernames:
-                        # Toujours émettre l'IPC pour le log d'activité
-                        try:
-                            print(json.dumps({
-                                "type": "sync_user_discovered",
-                                "list_type": "following",
-                                "username": username,
-                                "display_name": display_name,
-                                "is_new": False,
-                            }), flush=True)
-                        except Exception:
-                            pass
-                        # En mode fast : on s'arrête dès qu'on retrouve un connu (sync incrémentale)
-                        # En mode enrichi : on continue pour tout parcourir
+                        # En mode fast : on s'arrête dès qu'on retrouve un connu
                         if mode != 'enriched':
+                            try:
+                                print(json.dumps({
+                                    "type": "sync_user_discovered",
+                                    "list_type": "following",
+                                    "username": username,
+                                    "display_name": display_name,
+                                    "is_new": False,
+                                }), flush=True)
+                            except Exception:
+                                pass
                             self.logger.info(
                                 f"⏹ Found known username @{username} — stopping sync "
                                 f"({stats['new_count']} new accounts added)"
@@ -114,11 +145,9 @@ class SyncFollowingMixin:
                             stop_signal = True
                             stats['stopped_early'] = True
                             break
-                        else:
-                            self.logger.debug(f"Known @{username} — continuing (enriched mode)")
-                            continue
+                        self.logger.debug(f"Known @{username} — processing anyway (enriched mode)")
 
-                    # Nouveau following → upsert en BDD
+                    # Following → upsert en BDD
                     is_bot_follow = DatabaseHelpers.has_bot_follow_record(username, account_id)
                     result = DatabaseHelpers.sync_following_upsert(
                         username=username,
@@ -132,7 +161,7 @@ class SyncFollowingMixin:
                     else:
                         stats['updated_count'] += 1
 
-                    # Emit per-username IPC for real-time activity
+                    # Emit per-username IPC
                     try:
                         print(json.dumps({
                             "type": "sync_user_discovered",
@@ -144,19 +173,85 @@ class SyncFollowingMixin:
                     except Exception:
                         pass
 
+                    # ── Enrichissement inline (comme likers_scraping) ──
+                    if mode == 'enriched' and profile_extractor:
+                        try:
+                            self.logger.debug(f"🔍 Enriching @{username}...")
+                            el.click()
+                            time.sleep(random.uniform(1.5, 2.5))
+
+                            info = profile_extractor.get_complete_profile_info(
+                                username=username,
+                                navigate_if_needed=False,
+                                enrich=True,
+                            )
+
+                            if info:
+                                self.logger.debug(
+                                    f"✅ Enriched @{username}: "
+                                    f"{info.get('followers_count', '?')} followers"
+                                )
+                                try:
+                                    print(json.dumps({
+                                        "type": "sync_user_enriched",
+                                        "list_type": "following",
+                                        "username": username,
+                                        "followers_count": info.get('followers_count', 0),
+                                        "following_count": info.get('following_count', 0),
+                                        "posts_count": info.get('posts_count', 0),
+                                        "is_private": info.get('is_private', False),
+                                    }), flush=True)
+                                except Exception:
+                                    pass
+
+                            # Retour à la liste
+                            d.press('back')
+                            time.sleep(random.uniform(1.0, 1.5))
+
+                            # Après back, les éléments UI sont invalidés → re-lire
+                            break
+
+                        except Exception as e:
+                            self.logger.debug(f"Error enriching @{username}: {e}")
+                            try:
+                                d.press('back')
+                                time.sleep(1)
+                            except Exception:
+                                pass
+                            break  # Re-lire les éléments UI
+                        # Ne pas continuer la boucle for après enrichissement
+                        continue
+
                 if stop_signal:
                     break
 
-                # Scroll pour voir plus
-                prev_count = len(seen_on_screen)
-                self._scroll_following_list()
-                time.sleep(1.5)
-                scroll_attempts += 1
-
-                # Si plus rien de nouveau après scroll → fin de liste
-                if len(seen_on_screen) == prev_count:
+                if not new_found:
                     self.logger.info("No new accounts after scroll — end of following list")
                     break
+
+                # Scroll seulement si pas en mode enrichi (en enrichi on re-scanne d'abord)
+                if mode != 'enriched':
+                    self._scroll_following_list()
+                    time.sleep(1.5)
+                    scroll_attempts += 1
+                else:
+                    # En mode enrichi, on a break après chaque profil enrichi
+                    # Vérifier s'il reste des éléments non vus sur l'écran actuel
+                    remaining = d(resourceId=username_resource_id)
+                    has_unseen = False
+                    if remaining.exists:
+                        for j in range(remaining.count):
+                            try:
+                                u = (remaining[j].get_text() or '').strip().lstrip('@')
+                                if u and u not in seen_on_screen:
+                                    has_unseen = True
+                                    break
+                            except Exception:
+                                continue
+                    if not has_unseen:
+                        self._scroll_following_list()
+                        time.sleep(1.5)
+                        scroll_attempts += 1
 
             stats['success'] = True
             self.logger.info(

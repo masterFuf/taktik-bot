@@ -13,6 +13,7 @@ This complements SyncFollowingMixin which handles the following list.
 
 import json
 import time
+import random
 from typing import Dict, Any, List, Set
 
 from ....common.database_helpers import DatabaseHelpers
@@ -69,7 +70,22 @@ class SyncFollowersMixin:
             if not self.nav_actions.open_followers_list():
                 self.logger.error("sync_followers_list: failed to open followers list")
                 return stats
-            time.sleep(2)
+            time.sleep(3)
+
+            # Attendre que les éléments de la liste soient réellement chargés
+            d = self.device.device
+            username_resource_id = 'com.instagram.android:id/follow_list_username'
+            wait_attempts = 0
+            while wait_attempts < 10:
+                if d(resourceId=username_resource_id).exists:
+                    self.logger.debug("✅ Followers list elements loaded")
+                    break
+                self.logger.debug(f"⏳ Waiting for followers list to load... ({wait_attempts + 1}/10)")
+                time.sleep(1)
+                wait_attempts += 1
+            else:
+                self.logger.error("sync_followers_list: followers list elements never appeared")
+                return stats
 
             # Get known following usernames for mutual detection
             known_followings = DatabaseHelpers.get_following_sync_usernames(account_id)
@@ -81,21 +97,45 @@ class SyncFollowersMixin:
                 from ....management.profile.extraction import ProfileExtraction
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
+            d = self.device.device
+            username_resource_id = 'com.instagram.android:id/follow_list_username'
+            subtitle_resource_id = 'com.instagram.android:id/follow_list_subtitle'
+
             seen_on_screen: Set[str] = set()
-            enriched_queue: list = []  # usernames to enrich after each scroll batch
             scroll_attempts = 0
-            no_new_count = 0  # consecutive scrolls with no new usernames
+            no_new_count = 0
 
             while scroll_attempts < max_scrolls:
-                visible = self._get_visible_follower_usernames_with_display()
+                username_elements = d(resourceId=username_resource_id)
+                if not username_elements.exists:
+                    self.logger.debug("No username elements found on screen")
+                    break
 
                 new_found = False
-                for username, display_name in visible:
+                count = username_elements.count
+                for i in range(count):
+                    try:
+                        el = username_elements[i]
+                        username = (el.get_text() or '').strip().lstrip('@')
+                        if not username or not self._is_valid_username(username):
+                            continue
+                    except Exception:
+                        continue
+
                     if username in seen_on_screen:
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
                     new_found = True
+
+                    # Récupérer le display_name
+                    display_name = ''
+                    try:
+                        subtitle_els = d(resourceId=subtitle_resource_id)
+                        if subtitle_els.exists and i < subtitle_els.count:
+                            display_name = subtitle_els[i].get_text() or ''
+                    except Exception:
+                        pass
 
                     # Determine if we follow this person back
                     is_following_back = username.lower() in known_followings
@@ -113,7 +153,7 @@ class SyncFollowersMixin:
                     elif result == 'updated':
                         stats['updated_count'] += 1
 
-                    # Emit per-username IPC for real-time activity
+                    # Emit per-username IPC
                     try:
                         print(json.dumps({
                             "type": "sync_user_discovered",
@@ -125,25 +165,60 @@ class SyncFollowersMixin:
                     except Exception:
                         pass
 
-                    # Queue for enrichment if in enriched mode (tous les comptes, même connus)
-                    if mode == 'enriched':
-                        enriched_queue.append(username)
+                    # ── Enrichissement inline (comme likers_scraping) ──
+                    if mode == 'enriched' and profile_extractor:
+                        try:
+                            self.logger.debug(f"🔍 Enriching @{username}...")
+                            el.click()
+                            time.sleep(random.uniform(1.5, 2.5))
 
-                # Emit progress IPC every scroll
+                            info = profile_extractor.get_complete_profile_info(
+                                username=username,
+                                navigate_if_needed=False,
+                                enrich=True,
+                            )
+
+                            if info:
+                                self.logger.debug(
+                                    f"✅ Enriched @{username}: "
+                                    f"{info.get('followers_count', '?')} followers"
+                                )
+                                try:
+                                    print(json.dumps({
+                                        "type": "sync_user_enriched",
+                                        "list_type": "followers",
+                                        "username": username,
+                                        "followers_count": info.get('followers_count', 0),
+                                        "following_count": info.get('following_count', 0),
+                                        "posts_count": info.get('posts_count', 0),
+                                        "is_private": info.get('is_private', False),
+                                    }), flush=True)
+                                except Exception:
+                                    pass
+
+                            # Retour à la liste
+                            d.press('back')
+                            time.sleep(random.uniform(1.0, 1.5))
+
+                            # Après back, les éléments UI sont invalidés → re-lire
+                            break
+
+                        except Exception as e:
+                            self.logger.debug(f"Error enriching @{username}: {e}")
+                            try:
+                                d.press('back')
+                                time.sleep(1)
+                            except Exception:
+                                pass
+                            break  # Re-lire les éléments UI
+                        continue
+
+                # Emit progress IPC
                 if stats['total_seen'] > 0 and stats['total_seen'] % 10 == 0:
                     self._emit_sync_progress('followers', stats)
 
-                # ── Enriched mode: visit queued profiles ──
-                if mode == 'enriched' and enriched_queue and profile_extractor:
-                    self._enrich_followers_batch(
-                        enriched_queue, profile_extractor, stats
-                    )
-                    enriched_queue.clear()
-
                 if not new_found:
                     no_new_count += 1
-                    # En mode enrichi : on parcourt toute la liste (pas de tri possible sur followers)
-                    # On s'arrête seulement quand il n'y a vraiment plus rien de nouveau à l'écran
                     max_no_new = 3 if mode != 'enriched' else 5
                     if no_new_count >= max_no_new:
                         self.logger.info(f"No new followers after {max_no_new} consecutive scrolls — end of list")
@@ -151,10 +226,27 @@ class SyncFollowersMixin:
                 else:
                     no_new_count = 0
 
-                # Scroll
-                self._scroll_followers_list()
-                time.sleep(1.2)
-                scroll_attempts += 1
+                # Scroll seulement si pas en mode enrichi ou plus rien de non-vu
+                if mode != 'enriched':
+                    self._scroll_followers_list()
+                    time.sleep(1.2)
+                    scroll_attempts += 1
+                else:
+                    remaining = d(resourceId=username_resource_id)
+                    has_unseen = False
+                    if remaining.exists:
+                        for j in range(remaining.count):
+                            try:
+                                u = (remaining[j].get_text() or '').strip().lstrip('@')
+                                if u and u not in seen_on_screen:
+                                    has_unseen = True
+                                    break
+                            except Exception:
+                                continue
+                    if not has_unseen:
+                        self._scroll_followers_list()
+                        time.sleep(1.2)
+                        scroll_attempts += 1
 
             stats['success'] = True
             self.logger.info(
