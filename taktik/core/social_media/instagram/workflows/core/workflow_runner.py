@@ -43,6 +43,15 @@ class WorkflowRunner:
             elif action_type == 'unfollow':
                 return self._run_unfollow_workflow(action)
             
+            elif action_type == 'sync_following':
+                return self._run_sync_following_workflow(action)
+            
+            elif action_type == 'sync_followers_following':
+                return self._run_sync_followers_following_workflow(action)
+            
+            elif action_type == 'scrape_non_followers':
+                return self._run_scrape_non_followers_workflow(action)
+            
             elif action_type == 'feed':
                 return self._run_feed_workflow(action)
                 
@@ -302,9 +311,30 @@ class WorkflowRunner:
     def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the unfollow workflow.
         
-        Utilise la méthode SIMPLE: clic direct sur les boutons "Following" dans la liste,
-        sans visiter chaque profil individuellement.
+        Orchestrates: sync_following → scrape_non_followers → unfollow.
+        Each sub-step is independent and reusable.
         """
+        import time
+        
+        unfollow_business = self._get_unfollow_business()
+        
+        # Pré-étape 1: Sync following list (incrémental)
+        self.logger.info("📊 Pre-step: syncing following list...")
+        sync_stats = unfollow_business.sync_following_list()
+        self.logger.info(
+            f"📊 Following sync: {sync_stats['new_count']} new, "
+            f"{sync_stats['updated_count']} updated"
+        )
+        
+        # Pré-étape 2: Scrape non-followers (autonome — détecte l'état de navigation)
+        self.logger.info("📊 Pre-step: scraping non-followers...")
+        nf_stats = unfollow_business.scrape_non_followers_category()
+        self.logger.info(
+            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+            f"{nf_stats['mutuals_count']} mutuals"
+        )
+        
+        # Étape principale: Unfollow
         config = {
             'max_unfollows': action.get('max_unfollows', 50),
             'unfollow_delay_range': (
@@ -315,28 +345,15 @@ class WorkflowRunner:
             'skip_business': action.get('skip_business', False)
         }
         
-        from taktik.core.social_media.instagram.actions.business.workflows.unfollow import UnfollowBusiness
-        
-        # Créer l'instance
-        if hasattr(self.automation, 'unfollow_business'):
-            unfollow_business = self.automation.unfollow_business
-        else:
-            unfollow_business = UnfollowBusiness(
-                self.automation.device,
-                self.automation.session_manager,
-                self.automation
-            )
-        
-        # 1. Naviguer vers notre propre profil
+        # Naviguer vers notre propre profil
         self.logger.info("📱 Navigating to own profile...")
         if not unfollow_business.nav_actions.navigate_to_profile_tab():
             self.logger.error("Failed to navigate to own profile")
             return False
         
-        import time
         time.sleep(2)
         
-        # 2. Cliquer sur "following" pour ouvrir la liste
+        # Ouvrir la liste following
         self.logger.info("📋 Opening following list...")
         if not unfollow_business.nav_actions.open_following_list():
             self.logger.error("Failed to open following list")
@@ -344,7 +361,7 @@ class WorkflowRunner:
         
         time.sleep(2)
         
-        # 3. Lancer le workflow simple (clic direct sur boutons)
+        # Lancer le workflow simple (clic direct sur boutons)
         result = unfollow_business.run_simple_unfollow_from_list(config)
         
         # Mettre à jour les stats
@@ -392,3 +409,174 @@ class WorkflowRunner:
         self.automation.stats['interactions'] += result.get('users_interacted', 0)
         
         return result.get('success', False)
+    
+    def _get_unfollow_business(self):
+        """Get or create UnfollowBusiness instance."""
+        from taktik.core.social_media.instagram.actions.business.workflows.unfollow import UnfollowBusiness
+        
+        if hasattr(self.automation, 'unfollow_business'):
+            return self.automation.unfollow_business
+        return UnfollowBusiness(
+            self.automation.device,
+            self.automation.session_manager,
+            self.automation
+        )
+    
+    def _run_sync_following_workflow(self, action: Dict[str, Any]) -> bool:
+        """Run the sync_following workflow — incremental following list sync + non-follower detection.
+        
+        Standalone: syncs following list then scrapes non-followers, emits IPC and finalizes.
+        """
+        import json
+        
+        unfollow_business = self._get_unfollow_business()
+        
+        # Sync following list (incremental, sorted by latest)
+        sync_stats = unfollow_business.sync_following_list()
+        self.logger.info(
+            f"📊 Following sync: {sync_stats['new_count']} new, "
+            f"{sync_stats['updated_count']} updated, "
+            f"stopped_early={sync_stats['stopped_early']}"
+        )
+        
+        # Scrape non-followers category (autonome — détecte l'état de navigation)
+        nf_stats = unfollow_business.scrape_non_followers_category()
+        self.logger.info(
+            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+            f"{nf_stats['mutuals_count']} mutuals"
+        )
+        
+        # Emit sync_complete IPC message to frontend
+        sync_complete_msg = {
+            "type": "sync_complete",
+            "new_count": sync_stats['new_count'],
+            "updated_count": sync_stats['updated_count'],
+            "non_followers_count": nf_stats['non_followers_count'],
+            "mutuals_count": nf_stats['mutuals_count'],
+            "success": sync_stats['success'] and nf_stats['success'],
+        }
+        print(json.dumps(sync_complete_msg), flush=True)
+        
+        # Finalize session immediately (sync is a one-shot workflow)
+        self.automation.session_finalized = True
+        
+        return sync_stats['success']
+    
+    def _run_sync_followers_following_workflow(self, action: Dict[str, Any]) -> bool:
+        """Run full followers + following sync workflow.
+        
+        Steps:
+        1. Sync following list (incremental, sorted by latest)
+        2. Scrape non-followers category (for mutual detection on following side)
+        3. Sync followers list (full scroll)
+        4. Emit sync_complete IPC message
+        """
+        import json
+        
+        mode = action.get('mode', 'fast')
+        unfollow_business = self._get_unfollow_business()
+        
+        # Step 1: Sync following list (incremental)
+        self.logger.info("📊 Step 1/3: Syncing following list...")
+        print(json.dumps({"type": "sync_step", "step": "following", "status": "started"}), flush=True)
+        
+        sync_stats = unfollow_business.sync_following_list()
+        self.logger.info(
+            f"📊 Following sync: {sync_stats['new_count']} new, "
+            f"{sync_stats['updated_count']} updated, "
+            f"stopped_early={sync_stats['stopped_early']}"
+        )
+        print(json.dumps({
+            "type": "sync_step", "step": "following", "status": "completed",
+            "new_count": sync_stats['new_count'],
+            "updated_count": sync_stats['updated_count'],
+        }), flush=True)
+        
+        # Step 2: Scrape non-followers category (mutual detection)
+        self.logger.info("📊 Step 2/3: Detecting non-followers...")
+        print(json.dumps({"type": "sync_step", "step": "non_followers", "status": "started"}), flush=True)
+        
+        nf_stats = unfollow_business.scrape_non_followers_category()
+        self.logger.info(
+            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+            f"{nf_stats['mutuals_count']} mutuals"
+        )
+        print(json.dumps({
+            "type": "sync_step", "step": "non_followers", "status": "completed",
+            "non_followers_count": nf_stats['non_followers_count'],
+            "mutuals_count": nf_stats['mutuals_count'],
+        }), flush=True)
+        
+        # Step 3: Sync followers list (full scroll)
+        self.logger.info("📊 Step 3/3: Syncing followers list...")
+        print(json.dumps({"type": "sync_step", "step": "followers", "status": "started"}), flush=True)
+        
+        # Navigate back to profile first (we may be in the non-followers view)
+        self.logger.debug("Pressing back to return to profile before followers sync")
+        unfollow_business.device.device.press('back')
+        import time
+        time.sleep(1)
+        unfollow_business.device.device.press('back')
+        time.sleep(1)
+        
+        followers_stats = unfollow_business.sync_followers_list({'mode': mode})
+        self.logger.info(
+            f"📊 Followers sync: {followers_stats['new_count']} new, "
+            f"{followers_stats['updated_count']} updated, "
+            f"{followers_stats['total_seen']} seen"
+        )
+        print(json.dumps({
+            "type": "sync_step", "step": "followers", "status": "completed",
+            "new_count": followers_stats['new_count'],
+            "updated_count": followers_stats['updated_count'],
+            "total_seen": followers_stats['total_seen'],
+        }), flush=True)
+        
+        # Emit final sync_complete IPC message
+        sync_complete_msg = {
+            "type": "sync_complete",
+            "following": {
+                "new_count": sync_stats['new_count'],
+                "updated_count": sync_stats['updated_count'],
+            },
+            "followers": {
+                "new_count": followers_stats['new_count'],
+                "updated_count": followers_stats['updated_count'],
+                "total_seen": followers_stats['total_seen'],
+            },
+            "non_followers_count": nf_stats['non_followers_count'],
+            "mutuals_count": nf_stats['mutuals_count'],
+            "success": sync_stats['success'] and followers_stats['success'],
+        }
+        print(json.dumps(sync_complete_msg), flush=True)
+        
+        # Finalize session immediately (sync is a one-shot workflow)
+        self.automation.session_finalized = True
+        
+        return sync_stats['success'] and followers_stats['success']
+    
+    def _run_scrape_non_followers_workflow(self, action: Dict[str, Any]) -> bool:
+        """Run scrape_non_followers as a standalone workflow step.
+        
+        Autonome: navigue depuis n'importe quel état (vue unifiée ou profil).
+        """
+        import json
+        
+        unfollow_business = self._get_unfollow_business()
+        
+        nf_stats = unfollow_business.scrape_non_followers_category()
+        self.logger.info(
+            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+            f"{nf_stats['mutuals_count']} mutuals"
+        )
+        
+        # Emit IPC
+        msg = {
+            "type": "scrape_non_followers_complete",
+            "non_followers_count": nf_stats['non_followers_count'],
+            "mutuals_count": nf_stats['mutuals_count'],
+            "success": nf_stats['success'],
+        }
+        print(json.dumps(msg), flush=True)
+        
+        return nf_stats['success']
