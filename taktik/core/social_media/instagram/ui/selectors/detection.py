@@ -61,7 +61,6 @@ class DetectionSelectors:
         '//*[contains(@content-desc, "Comment")]',  # Works for both! Fast detection
         
         # PRIORITY 2: Reel-specific selectors (if generic fails)
-        '//*[@resource-id="com.instagram.android:id/clips_single_media_component"]',
         '//*[@resource-id="com.instagram.android:id/like_button"]',  # Reel like button
         
         # PRIORITY 3: Regular post selectors (fallback for posts only)
@@ -69,15 +68,13 @@ class DetectionSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_share"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]'
+        # clips_single_media_component supprimé 2026-03-07 (0/30 sur v417)
     ])
     
     reel_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reel de")]',
         '//*[contains(@content-desc, "Reel by")]',
-        '//*[@resource-id="com.instagram.android:id/clips_single_media_component"]',
-        '//*[@resource-id="com.instagram.android:id/clips_viewer_video_layout"]',
-        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
-        '//*[@resource-id="com.instagram.android:id/clips_video_player"]'
+        # clips_* resource-ids supprimés 2026-03-07 (0/30 trouvés sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     
     # === Détection de contenu ===
@@ -132,19 +129,11 @@ class DetectionSelectors:
         # === MÉTHODE 1: Attribut selected (le plus fiable, indépendant de la langue) ===
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
         
-        # === MÉTHODE 2: Français (FR) ===
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "déjà")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Ne plus aimer")]',
-        '//*[contains(@content-desc, "J\'aime déjà")]',
+        # === MÉTHODE 2: Fallback content-desc multi-langue ===
+        '//*[contains(@content-desc, "Unlike")]',
         '//*[contains(@content-desc, "Ne plus aimer")]',
         
-        # === MÉTHODE 3: Anglais (EN) ===
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Unlike")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and contains(@content-desc, "Liked")]',
-        '//*[contains(@content-desc, "Unlike")]',
-        
-        # === MÉTHODE 4: Fallback générique (anciennes versions) ===
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"][@selected="true"]'
+        # Variants supprimés 2026-03-07 (redondants, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     
     # === Navigation - Search bars ===
@@ -195,12 +184,7 @@ class DetectionSelectors:
     followers_list_indicators: List[str] = field(default_factory=lambda: [
         # PRIORITÉ 1: Tab layout avec onglets - N'EXISTE QUE sur la liste des followers
         '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
-        # PRIORITÉ 2: View pager de la liste - N'EXISTE QUE sur la liste des followers
-        '//*[@resource-id="com.instagram.android:id/unified_follow_list_view_pager"]',
-        # PRIORITÉ 3: Onglet "mutual" - N'EXISTE QUE sur la liste des followers
-        '//android.widget.Button[contains(@text, "mutual")]',
-        # PRIORITÉ 4: Onglet avec nombre + "followers" (ex: "52.5K followers")
-        '//android.widget.Button[contains(@text, "followers")]',
+        # Supprimés 2026-03-07: view_pager (0/15), mutual (0/15), followers (0/12) — voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md
     ])
     
     follow_list_username_selectors: List[str] = field(default_factory=lambda: [
@@ -295,29 +279,21 @@ class DetectionSelectors:
     ])
     
     # === Load more / End of list ===
+    # Consolidé 2026-03-07: 12 → 5 sélecteurs (//* couvre tous les types d'éléments)
     load_more_selectors: List[str] = field(default_factory=lambda: [
-        "//android.widget.TextView[contains(@text, 'Voir plus')]",
-        "//android.widget.Button[contains(@text, 'Voir plus')]",
-        "//*[contains(@content-desc, 'Voir plus')]",
-        "//android.widget.TextView[contains(@text, 'voir plus')]",
-        "//android.widget.TextView[contains(@text, 'See more')]",
-        "//android.widget.Button[contains(@text, 'See more')]",
-        "//*[contains(@content-desc, 'See more')]",
-        "//android.widget.TextView[contains(@text, 'see more')]",
-        '//*[@text="Load more" or @text="Show more" or @text="See more"]',
-        '//*[contains(@text, "Load") and contains(@text, "more")]',
+        '//*[contains(@text, "Voir plus") or contains(@text, "voir plus")]',
+        '//*[contains(@text, "See more") or contains(@text, "see more")]',
+        '//*[contains(@content-desc, "Voir plus") or contains(@content-desc, "See more")]',
+        '//*[contains(@text, "Load more") or contains(@text, "Show more")]',
         '//*[@content-desc="Load more" or @content-desc="Show more"]',
-        '//android.widget.Button[contains(@text, "more")]'
     ])
     
+    # Consolidé 2026-03-07: 7 → 4 sélecteurs
     end_of_list_indicators: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/see_all_button"]',  # Bouton "See all suggestions" = fin de liste followers
-        '//*[@text="See all suggestions"]',
-        '//*[contains(@text, "See all suggestions")]',
-        '//*[@text="You\'re all caught up" or @text="No more suggestions"]',
-        '//*[contains(@text, "caught up") or contains(@text, "End of list")]',
-        '//*[contains(@text, "No more") or contains(@text, "That\'s all")]',
-        '//*[contains(@text, "Aucun autre") or contains(@text, "Fin de")]'
+        '//*[@resource-id="com.instagram.android:id/see_all_button"]',
+        '//*[contains(@text, "See all suggestions") or contains(@text, "Voir toutes les suggestions")]',
+        '//*[contains(@text, "caught up") or contains(@text, "No more suggestions") or contains(@text, "End of list")]',
+        '//*[contains(@text, "No more") or contains(@text, "That\'s all") or contains(@text, "Aucun autre")]',
     ])
     
     # === Hashtag & Grid Navigation ===

@@ -92,11 +92,8 @@ class PostSelectors:
     
     reel_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reel de")]',
-        '//*[@resource-id="com.instagram.android:id/clips_single_media_component"]',
-        '//*[@resource-id="com.instagram.android:id/clips_viewer_video_layout"]',
-        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
         '//*[contains(@content-desc, "Reel by")]',
-        '//*[@resource-id="com.instagram.android:id/clips_video_player"]'
+        # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     
     # === Sélecteurs automation.py ===
@@ -233,8 +230,7 @@ class PostSelectors:
     reel_indicators_like_business: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reel")]',
         '//*[contains(@content-desc, "reel")]',
-        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
-        '//*[@resource-id="com.instagram.android:id/video_container"]'
+        # clips_video_container & video_container supprimés 2026-03-07 (0/30 sur v417)
     ])
     
     like_count_button_selector: str = '//android.widget.Button[@text and string-length(@text) > 0]'

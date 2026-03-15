@@ -33,9 +33,7 @@ class FeedSelectors:
     # === Indicateurs de Reel dans le feed ===
     reel_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reel")]',
-        '//*[@resource-id="com.instagram.android:id/clips_video_container"]',
-        '//*[@resource-id="com.instagram.android:id/clips_viewer_view_pager"]',
-        '//*[@resource-id="com.instagram.android:id/clips_audio_attribution_button"]'
+        # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     
     # === Compteur de likes dans le feed ===
