@@ -81,8 +81,8 @@ class HashtagBusiness(
                     # On est déjà sur un post (après swipe), extraire ses métadonnées
                     self.logger.debug("📜 Already on a post after swipe, extracting metadata...")
                     is_reel = self._is_reel_post()
-                    likes_count = self.ui_extractors.extract_likes_count_from_ui()
-                    comments_count = self.ui_extractors.extract_comments_count_from_ui()
+                    likes_count = self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel)
+                    comments_count = self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel)
                     valid_post = {
                         'likes_count': likes_count,
                         'comments_count': comments_count,

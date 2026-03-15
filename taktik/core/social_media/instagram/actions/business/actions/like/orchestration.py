@@ -182,9 +182,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 time.sleep(0.3)
                 
                 try:
-                    current_likes = self._extract_likes_count_from_ui()
-                    current_comments = self._extract_comments_count_from_ui()
                     is_reel = self._is_current_post_reel()
+                    current_likes = self._extract_likes_count_from_ui(is_reel=is_reel)
+                    current_comments = self._extract_comments_count_from_ui(is_reel=is_reel)
                     
                     post_signature = f"{current_likes}_{current_comments}_{is_reel}"
                     
@@ -341,13 +341,13 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             self.logger.debug(f"Error checking if liked: {e}")
             return False
     
-    def _extract_likes_count_from_ui(self) -> int:
+    def _extract_likes_count_from_ui(self, is_reel: bool = None) -> int:
         """Delegate to ui_extractors for likes extraction."""
-        return self.ui_extractors.extract_likes_count_from_ui()
+        return self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel)
     
-    def _extract_comments_count_from_ui(self) -> int:
+    def _extract_comments_count_from_ui(self, is_reel: bool = None) -> int:
         """Delegate to ui_extractors for comments extraction."""
-        return self.ui_extractors.extract_comments_count_from_ui()
+        return self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel)
     
     def _is_current_post_reel(self) -> bool:
         """Delegate to detection_actions for reel detection."""

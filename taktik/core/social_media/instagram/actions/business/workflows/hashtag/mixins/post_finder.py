@@ -178,10 +178,11 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
     
     def _extract_post_metadata(self) -> Optional[Dict[str, Any]]:
         try:
+            is_reel = self._is_reel_post()
             metadata = {
-                'likes_count': self.ui_extractors.extract_likes_count_from_ui(),
-                'comments_count': self.ui_extractors.extract_comments_count_from_ui(),
-                'is_reel': self._is_reel_post()
+                'likes_count': self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
+                'comments_count': self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel),
+                'is_reel': is_reel
             }
             
             return metadata

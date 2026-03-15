@@ -125,10 +125,21 @@ class CommentAction(BaseBusinessAction):
     
     def _type_comment(self, comment_text: str) -> bool:
         try:
+            # Try primary selector first
             comment_field = self.device.xpath(self.post_selectors.comment_field_selector)
-            
+
+            # Fallback: iterate TEXT_INPUT_SELECTORS.comment_field_selectors
             if not comment_field.exists:
-                self.logger.error("Comment field not found")
+                self.logger.debug("Primary comment field selector missed, trying fallbacks...")
+                from .....ui.selectors import TEXT_INPUT_SELECTORS
+                for fallback in TEXT_INPUT_SELECTORS.comment_field_selectors:
+                    comment_field = self.device.xpath(fallback)
+                    if comment_field.exists:
+                        self.logger.debug(f"Comment field found with fallback: {fallback}")
+                        break
+
+            if not comment_field.exists:
+                self.logger.error("Comment field not found (all selectors failed)")
                 return False
             
             comment_field.click()
@@ -188,20 +199,37 @@ class CommentAction(BaseBusinessAction):
                     handle_y = (bounds.get('top', 100) + bounds.get('bottom', 100)) // 2
                     center_x = (bounds.get('left', screen_width // 2) + bounds.get('right', screen_width // 2)) // 2
                     
-                    # If handle is near status bar (< 5% of screen), use a safe start position
-                    if handle_y < int(screen_height * 0.05):
-                        handle_y = int(screen_height * 0.05)
-                        self.logger.debug(f"Handle too close to status bar, adjusting start_y to {handle_y}")
+                    # If handle is near status bar (< 10% of screen), the bottom sheet
+                    # is fully expanded and swipe-down won't work — go straight to back press
+                    if handle_y < int(screen_height * 0.10):
+                        self.logger.debug(f"Bottom sheet fully expanded (handle_y={handle_y}), using press('back')")
+                        self.device.press("back")
+                        time.sleep(0.8)
+                        # Verify closure
+                        if not self._is_comments_view_open():
+                            self.logger.debug("Comment popup closed with back press (full-screen)")
+                            return True
+                        # Second back attempt
+                        self.logger.debug("Comments still open after first back, retrying...")
+                        self.device.press("back")
+                        time.sleep(0.8)
+                        return True
                     
                     end_y = int(screen_height * 0.95)
                     
                     self.logger.debug(f"Swiping drag handle down: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
                     self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
                     time.sleep(0.5)
-                    self.logger.debug("Comment popup closed with drag handle")
-                    return True
+                    
+                    # Verify the swipe actually closed it
+                    if not self._is_comments_view_open():
+                        self.logger.debug("Comment popup closed with drag handle swipe")
+                        return True
+                    
+                    # Swipe failed — fall through to back press
+                    self.logger.debug("Swipe did not close comment popup, falling back to press('back')")
             
-            # Fallback: swipe from center of screen like _close_popup_by_swipe_down
+            # Fallback 1: swipe from center of screen
             screen_info = self.device.info
             center_x = screen_info.get('displayWidth', 1080) // 2
             handle_y = int(screen_info.get('displayHeight', 1920) * 0.37)
@@ -209,10 +237,27 @@ class CommentAction(BaseBusinessAction):
             self.logger.debug(f"Fallback swipe: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
             self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
             time.sleep(0.5)
+            
+            # Verify
+            if not self._is_comments_view_open():
+                self.logger.debug("Comment popup closed with fallback swipe")
+                return True
+            
+            # Fallback 2: press back (most reliable for full-screen bottom sheets)
+            self.logger.debug("All swipes failed, using press('back') as final fallback")
+            self.device.press("back")
+            time.sleep(0.8)
+            self.logger.debug("Comment popup closed with back press")
             return True
             
         except Exception as e:
             self.logger.error(f"Error closing comment popup: {e}")
+            # Last resort: try back press even on error
+            try:
+                self.device.press("back")
+                time.sleep(0.5)
+            except Exception:
+                pass
             return False
     
     # ─── Backward-compatible template management methods ─────────────────
