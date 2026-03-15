@@ -18,6 +18,7 @@ Usage:
 """
 
 import time
+import subprocess
 from typing import Optional
 from loguru import logger
 
@@ -46,18 +47,25 @@ class AppService:
     Requires a ConnectionService that is already connected.
     """
 
-    def __init__(self, connection, platform: str = "instagram"):
+    def __init__(self, connection, platform: str = "instagram", package_override: Optional[str] = None):
         """
         Args:
             connection: A connected ConnectionService instance.
             platform: "instagram" or "tiktok".
+            package_override: If set, use this package name instead of the
+                              default (for cloned apps like NomixCloner).
         """
         if platform not in APPS:
             raise ValueError(f"Unknown platform '{platform}'. Must be one of: {list(APPS.keys())}")
 
         self._conn = connection
         self._platform = platform
-        self._config = APPS[platform]
+        # Copy config so we don't mutate the shared APPS dict
+        self._config = dict(APPS[platform])
+
+        if package_override and package_override != self._config["package"]:
+            logger.info(f"[AppService] Using clone package: {package_override}")
+            self._config["package"] = package_override
 
     # ------------------------------------------------------------------
     # Public API
@@ -135,3 +143,27 @@ class AppService:
         except Exception as e:
             logger.warning(f"Could not check if {self._platform} is running: {e}")
             return False
+
+    def get_installed_version(self) -> Optional[str]:
+        """
+        Detect the installed app version via ADB.
+
+        Returns the versionName string (e.g. "417.0.0.54.77") or None on failure.
+        """
+        try:
+            result = subprocess.run(
+                ["adb", "-s", self._conn.device_id,
+                 "shell", "dumpsys", "package", self.package],
+                capture_output=True, text=True, timeout=10,
+            )
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("versionName="):
+                    version = line.split("=", 1)[1].strip()
+                    logger.info(f"[AppService] {self._platform} installed version: {version}")
+                    return version
+            logger.warning(f"[AppService] versionName not found in dumpsys output for {self.package}")
+            return None
+        except Exception as e:
+            logger.warning(f"[AppService] Failed to detect app version: {e}")
+            return None
