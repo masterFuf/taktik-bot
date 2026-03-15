@@ -313,6 +313,20 @@ class DesktopBridge:
                               story_percentage: int, story_like_percentage: int) -> dict:
         """Build action configuration based on action type."""
         
+        # Configuration spécifique pour le workflow SYNC_FOLLOWING
+        if action_type == 'sync_following':
+            return {
+                "type": "sync_following",
+            }
+        
+        # Configuration spécifique pour le workflow SYNC_FOLLOWERS_FOLLOWING
+        if action_type == 'sync_followers_following':
+            sync_cfg = self.config.get('sync', {})
+            return {
+                "type": "sync_followers_following",
+                "mode": sync_cfg.get('mode', 'fast'),
+            }
+        
         # Configuration spécifique pour le workflow UNFOLLOW
         if action_type == 'unfollow':
             # Utiliser les paramètres spécifiques unfollow s'ils existent
@@ -320,10 +334,15 @@ class DesktopBridge:
             return {
                 "type": "unfollow",
                 "max_unfollows": unfollow_cfg.get('maxUnfollows', max_profiles),
+                "unfollow_mode": unfollow_cfg.get('unfollowMode', 'non-followers'),
                 "min_delay": 2,
                 "max_delay": 5,
                 "skip_verified": unfollow_cfg.get('skipVerified', True),
-                "skip_business": unfollow_cfg.get('skipBusiness', False)
+                "skip_business": unfollow_cfg.get('skipBusiness', False),
+                "min_days_since_follow": unfollow_cfg.get('minDaysSinceFollow', 3),
+                "bot_follows_only": unfollow_cfg.get('botFollowsOnly', False),
+                "whitelist": unfollow_cfg.get('whitelist', []),
+                "blacklist": unfollow_cfg.get('blacklist', []),
             }
         
         # Configuration spécifique pour le workflow FEED
@@ -449,6 +468,14 @@ class DesktopBridge:
             interaction_type = 'unfollow'
             action_type = 'unfollow'
             session_workflow_type = 'unfollow'
+        elif self.workflow_type == 'sync_following':
+            interaction_type = 'sync_following'
+            action_type = 'sync_following'
+            session_workflow_type = 'sync_following'
+        elif self.workflow_type == 'sync_followers_following':
+            interaction_type = 'sync_followers_following'
+            action_type = 'sync_followers_following'
+            session_workflow_type = 'sync_following'
         elif self.workflow_type == 'feed':
             interaction_type = 'feed'
             action_type = 'feed'

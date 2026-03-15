@@ -19,9 +19,13 @@ from taktik.core.database import get_db_service
 from .....ui.selectors import UNFOLLOW_SELECTORS
 from .mixins.decision import UnfollowDecisionMixin
 from .mixins.actions import UnfollowActionsMixin
+from .mixins.sync_following import SyncFollowingMixin
+from .mixins.sync_followers import SyncFollowersMixin
 
 
 class UnfollowBusiness(
+    SyncFollowersMixin,
+    SyncFollowingMixin,
     UnfollowDecisionMixin,
     UnfollowActionsMixin,
     BaseBusinessAction
@@ -66,19 +70,40 @@ class UnfollowBusiness(
         stats = {
             'accounts_checked': 0,
             'unfollows_made': 0,
+            'skipped_whitelisted': 0,
+            'skipped_blacklisted_forced': 0,
+            'skipped_not_bot_follow': 0,
             'skipped_verified': 0,
             'skipped_business': 0,
             'skipped_recent': 0,
             'skipped_followers': 0,
+            'skipped_not_mutual': 0,
             'errors': 0,
             'success': False
         }
         
         try:
+            unfollow_mode = effective_config.get('unfollow_mode', 'non-followers')
             self.logger.info("🔄 Starting unfollow workflow")
-            self.logger.info(f"Max unfollows: {effective_config['max_unfollows']}")
-            self.logger.info(f"Unfollow non-followers only: {effective_config['unfollow_non_followers']}")
+            self.logger.info(f"Mode: {unfollow_mode} | Max: {effective_config['max_unfollows']} | Cooldown: {effective_config.get('min_days_since_follow', 0)}d | Bot-only: {effective_config.get('bot_follows_only', False)}")
+            self.logger.info(f"Whitelist: {len(effective_config.get('whitelist', []))} | Blacklist: {len(effective_config.get('blacklist', []))}")
             
+            # ── Sync incrémentale de la liste following ──
+            sync_stats = self.sync_following_list(effective_config)
+            self.logger.info(
+                f"📊 Sync: {sync_stats['new_count']} new, "
+                f"{sync_stats['updated_count']} updated, "
+                f"stopped_early={sync_stats['stopped_early']}"
+            )
+
+            # ── Sync des non-followers via catégorie native ──
+            if unfollow_mode in ('non-followers', 'mutual'):
+                nf_stats = self.scrape_non_followers_category(effective_config)
+                self.logger.info(
+                    f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+                    f"{nf_stats['mutuals_count']} mutuals"
+                )
+
             # Naviguer vers son propre profil
             if not self.nav_actions.navigate_to_profile_tab():
                 self.logger.error("Failed to navigate to own profile")
@@ -133,12 +158,18 @@ class UnfollowBusiness(
                 
                 if not should_unfollow:
                     self.logger.debug(f"Skipping @{username}: {reason}")
-                    if 'verified' in reason:
+                    if 'whitelisted' in reason:
+                        stats['skipped_whitelisted'] += 1
+                    elif 'not_followed_by_bot' in reason:
+                        stats['skipped_not_bot_follow'] += 1
+                    elif 'verified' in reason:
                         stats['skipped_verified'] += 1
                     elif 'business' in reason:
                         stats['skipped_business'] += 1
                     elif 'recent' in reason:
                         stats['skipped_recent'] += 1
+                    elif 'not_mutual' in reason:
+                        stats['skipped_not_mutual'] += 1
                     elif 'follower' in reason:
                         stats['skipped_followers'] += 1
                     continue
@@ -151,6 +182,14 @@ class UnfollowBusiness(
                     
                     # Enregistrer l'action
                     self._record_action(username, 'UNFOLLOW', 1)
+
+                    # Marquer comme unfollowed dans following_sync
+                    try:
+                        account_id = self._get_account_id()
+                        if account_id:
+                            DatabaseHelpers.mark_unfollowed(username, account_id)
+                    except Exception:
+                        pass
                     
                     # Délai entre unfollows
                     delay = random.randint(*effective_config['unfollow_delay_range'])
