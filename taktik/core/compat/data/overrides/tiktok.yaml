@@ -1,0 +1,24 @@
+# TikTok Selector Overrides — Version-specific diffs
+#
+# This file contains ONLY selectors that DIFFER from the current Python
+# dataclass selectors in taktik/core/social_media/tiktok/ui/selectors/.
+#
+# The Python selectors are the source of truth for the current target version.
+# When a new TikTok version changes a selector, add an entry here.
+#
+# Format:
+#   versions:
+#     "<version_string>":
+#       "<domain>.<action>":
+#         - "//*[@resource-id='new_id']"
+#         - "//fallback/xpath"
+
+meta:
+  app: tiktok
+  package: com.zhiliaoapp.musically
+  baseline_version: "43.1.4"
+  last_updated: "2026-03-05"
+
+versions: {}
+  # Add version-specific overrides here as new app versions are discovered.
+  # Only include selectors that CHANGED — unchanged selectors inherit from Python.

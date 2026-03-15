@@ -1,0 +1,130 @@
+# Instagram Selector Overrides — Version-specific diffs
+#
+# This file contains ONLY selectors that DIFFER from the current Python
+# dataclass selectors in taktik/core/social_media/instagram/ui/selectors/.
+#
+# The Python selectors are the source of truth for the baseline version (v410).
+# When a new Instagram version changes a selector, add an entry here.
+#
+# Format:
+#   versions:
+#     "<version_string>":
+#       "<domain>.<field_name>":
+#         - "//*[@resource-id='new_id']"
+#         - "//fallback/xpath"
+#
+# For fields that are plain str (not List[str]) in the dataclass,
+# only the FIRST xpath in the list is used.
+#
+# The patch system applies all versions <= detected version, sorted ascending,
+# so newer versions can override older ones (last-write-wins).
+
+meta:
+  app: instagram
+  package: com.instagram.android
+  baseline_version: "410.0.0.53.71"
+  last_updated: "2026-03-07"
+
+versions:
+  # ─── Instagram v417.x ───────────────────────────────────────────────
+  # Based on compat-report v417.0.0.54.77 (2026-03-06)
+  # Score: 27.3% — 18/66 found, 48 never found
+  #
+  # RULE: Only override fields where the PRIMARY selector is broken or
+  #       where reordering priorities significantly improves hit rate.
+  #       Do NOT override lists where at least one entry already works.
+  "417.0.0.0":
+
+    # ── Comment field (str) ───────────────────────────────────────────
+    # v417 changed: resource-id → layout_comment_thread_edittext_multiline
+    #               hint → "Join the conversation…"
+    #               class → AutoCompleteTextView (not EditText)
+    post.comment_field_selector:
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
+      - '//*[contains(@resource-id, "comment_thread_edittext")]'
+      - '//*[contains(@hint, "Join the conversation")]'
+      - '//*[contains(@hint, "Rejoindre la conversation")]'
+      - '//*[contains(@hint, "Add a comment")]'
+      - '//*[contains(@hint, "Ajouter un commentaire")]'
+
+    # text_input.comment_field_selectors: List[str] fallback list
+    text_input.comment_field_selectors:
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
+      - '//*[contains(@resource-id, "comment_thread_edittext")]'
+      - '//*[contains(@hint, "Join the conversation")]'
+      - '//*[contains(@hint, "Rejoindre la conversation")]'
+      - '//*[contains(@hint, "Add a comment")]'
+      - '//*[contains(@hint, "Ajouter un commentaire")]'
+      - '//*[contains(@resource-id, "comment_edittext")]'
+
+    # feed.comment_input: List[str]
+    feed.comment_input:
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
+      - '//*[contains(@resource-id, "comment_thread_edittext")]'
+      - '//*[contains(@text, "Join the conversation")]'
+      - '//*[contains(@text, "Add a comment")]'
+      - '//*[contains(@text, "Ajouter un commentaire")]'
+      - '//android.widget.AutoCompleteTextView[contains(@resource-id, "comment")]'
+      - '//android.widget.EditText[contains(@resource-id, "comment")]'
+
+    # ── Comments view indicators (for _is_comments_view_open detection) ──
+    # v417: new edittext resource-id + new hint "Join the conversation"
+    popup.comments_view_indicators:
+      - '//*[@text="Comments"]'
+      - '//*[@text="Commentaires"]'
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
+      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
+      - '//*[contains(@hint, "Join the conversation")]'
+      - '//*[contains(@hint, "Rejoindre la conversation")]'
+      - '//*[contains(@text, "What do you think")]'
+      - '//*[contains(@text, "Add a comment")]'
+      - '//*[contains(@text, "Ajouter un commentaire")]'
+      - '//*[contains(@hint, "Add a comment")]'
+      - '//*[contains(@hint, "What do you think")]'
+      - '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment"]'
+
+    # ── Reel counters (str) — 0/51 each ──────────────────────────────
+    # like_count and comment_count resource-ids no longer present in v417.
+    # Reel like count: the button-based selectors in post.like_count_selectors
+    # still work (row_feed_view_group_buttons//Button found 76/76), but the
+    # standalone reel counter str selectors are broken.
+    detection.reel_like_count_selector:
+      - '//*[@resource-id="com.instagram.android:id/like_count"]'
+      - '//*[contains(@content-desc, "like") and contains(@content-desc, "number")]'
+      - '(//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]//android.widget.Button[@text])[1]'
+
+    detection.reel_comment_count_selector:
+      - '//*[@resource-id="com.instagram.android:id/comment_count"]'
+      - '//*[contains(@content-desc, "comment") and contains(@content-desc, "number")]'
+
+    # ── Reel indicators — clips_* removed from baseline 2026-03-07 ──
+    # "Reel by" found 21/51, clips_* all 0/30 → removed from baseline.
+    # Override just ensures priority order (Reel by first for EN).
+    post.reel_indicators:
+      - '//*[contains(@content-desc, "Reel by")]'
+      - '//*[contains(@content-desc, "Reel de")]'
+
+    detection.reel_indicators:
+      - '//*[contains(@content-desc, "Reel by")]'
+      - '//*[contains(@content-desc, "Reel de")]'
+
+    # ── Followers list — view_pager/mutual/followers removed from baseline 2026-03-07 ──
+    # tab_layout 15/30 (only working indicator). Others all 0 found.
+    detection.followers_list_indicators:
+      - '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]'
+
+    followers_list.list_indicators:
+      - '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]'
+
+    # ── Profile username — action_bar_large_title 0/2, action_bar_title 2/2 ──
+    # Reorder so working selector is first.
+    profile.username:
+      - '//*[@resource-id="com.instagram.android:id/action_bar_title"]'
+      - '//*[contains(@resource-id, "action_bar_title")]'
+      - '//*[@resource-id="com.instagram.android:id/action_bar_large_title_auto_size"]'
+      - '//*[contains(@resource-id, "action_bar_large_title_auto_size")]'
+      - '//*[contains(@resource-id, "row_profile_header_username")]'
+      - '//android.widget.TextView[contains(@text, "@")]'
