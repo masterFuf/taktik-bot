@@ -8,9 +8,18 @@ class TextInputSelectors:
     # === Comment field ===
     comment_field_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
+        '//*[@resource-id="com.instagram.android:id/comment_box_text"]',
+        '//*[@resource-id="com.instagram.android:id/inline_compose_box"]',
+        '//*[contains(@resource-id, "comment_box")]',
         '//*[contains(@hint, "Ajouter un commentaire")]',
         '//*[contains(@hint, "Add a comment")]',
-        '//*[contains(@resource-id, "comment_edittext")]'
+        '//*[contains(@hint, "Aggiungi un commento")]',
+        '//*[contains(@hint, "Añade un comentario")]',
+        '//*[contains(@resource-id, "comment_edittext")]',
+        '//android.widget.EditText[contains(@resource-id, "comment")]',
+        '//android.widget.EditText[@focused="true"]',
+        '//android.widget.EditText[@clickable="true"]',
+        '//android.widget.EditText',
     ])
     
     # === Caption field ===

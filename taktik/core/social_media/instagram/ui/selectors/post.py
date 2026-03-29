@@ -303,6 +303,19 @@ class PostSelectors:
     ])
     
     comment_field_selector: str = '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
+    comment_field_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
+        '//*[@resource-id="com.instagram.android:id/comment_box_text"]',
+        '//*[@resource-id="com.instagram.android:id/inline_compose_box"]',
+        '//*[contains(@resource-id, "comment_box")]',
+        '//*[contains(@hint, "Add a comment")]',
+        '//*[contains(@hint, "Ajouter un commentaire")]',
+        '//*[contains(@resource-id, "comment_edittext")]',
+        '//android.widget.EditText[contains(@resource-id, "comment")]',
+        '//android.widget.EditText[@focused="true"]',
+        '//android.widget.EditText[@clickable="true"]',
+        '//android.widget.EditText',
+    ])
     post_comment_button_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_icon"]',
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',

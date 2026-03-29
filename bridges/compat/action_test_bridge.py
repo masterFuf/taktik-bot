@@ -273,8 +273,10 @@ def comment_open_and_type(a, p):
     if not a.click.click_comment_button():
         logger.error("Could not open comment box")
         return False
-    time.sleep(0.8)
-    a.comment._type_comment(text)
+    time.sleep(1.5)
+    if not a.comment._type_comment(text):
+        logger.error("Could not type comment (field not found)")
+        return False
     logger.info(f"Typed comment: '{text}'")
     return True
 

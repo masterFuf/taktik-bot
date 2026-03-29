@@ -125,20 +125,29 @@ class CommentAction(BaseBusinessAction):
     
     def _type_comment(self, comment_text: str) -> bool:
         try:
-            # Try primary selector first
-            comment_field = self.device.xpath(self.post_selectors.comment_field_selector)
+            comment_field = None
+            found = False
 
-            # Fallback: iterate TEXT_INPUT_SELECTORS.comment_field_selectors
-            if not comment_field.exists:
-                self.logger.debug("Primary comment field selector missed, trying fallbacks...")
-                from .....ui.selectors import TEXT_INPUT_SELECTORS
-                for fallback in TEXT_INPUT_SELECTORS.comment_field_selectors:
-                    comment_field = self.device.xpath(fallback)
-                    if comment_field.exists:
-                        self.logger.debug(f"Comment field found with fallback: {fallback}")
-                        break
+            # Iterate all known comment field selectors, with up to 3 attempts to handle slow popup rendering
+            all_selectors = getattr(self.post_selectors, 'comment_field_selectors', [self.post_selectors.comment_field_selector])
+            for attempt in range(3):
+                for selector in all_selectors:
+                    try:
+                        field_candidate = self.device.xpath(selector)
+                        if field_candidate.exists:
+                            comment_field = field_candidate
+                            found = True
+                            self.logger.debug(f"Comment field found with selector: {selector} (attempt {attempt + 1})")
+                            break
+                    except Exception:
+                        continue
+                if found:
+                    break
+                if attempt < 2:
+                    self.logger.debug(f"Comment field not found yet, waiting 1s (attempt {attempt + 1}/3)...")
+                    time.sleep(1.0)
 
-            if not comment_field.exists:
+            if not found or comment_field is None:
                 self.logger.error("Comment field not found (all selectors failed)")
                 return False
             
