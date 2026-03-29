@@ -6,6 +6,7 @@ from lxml import etree
 from loguru import logger
 
 from taktik.core.shared.device.facade import BaseDeviceFacade, Direction
+from taktik.core.clone import get_active_package
 
 
 class DeviceFacade(BaseDeviceFacade):
@@ -16,7 +17,9 @@ class DeviceFacade(BaseDeviceFacade):
     click() by xpath, batch_xpath_check with lxml.
     """
     
-    app_id = 'com.instagram.android'
+    @property
+    def app_id(self):
+        return get_active_package()
     _facade_name = 'InstagramDeviceFacade'
     
     def __init__(self, device):

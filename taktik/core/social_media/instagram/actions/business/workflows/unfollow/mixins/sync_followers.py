@@ -17,6 +17,7 @@ import random
 from typing import Dict, Any, List, Set
 
 from ....common.database_helpers import DatabaseHelpers
+from taktik.core.clone import get_active_package
 
 
 class SyncFollowersMixin:
@@ -74,7 +75,7 @@ class SyncFollowersMixin:
 
             # Attendre que les éléments de la liste soient réellement chargés
             d = self.device.device
-            username_resource_id = 'com.instagram.android:id/follow_list_username'
+            username_resource_id = f'{get_active_package()}:id/follow_list_username'
             wait_attempts = 0
             while wait_attempts < 10:
                 if d(resourceId=username_resource_id).exists:
@@ -98,8 +99,8 @@ class SyncFollowersMixin:
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
             d = self.device.device
-            username_resource_id = 'com.instagram.android:id/follow_list_username'
-            subtitle_resource_id = 'com.instagram.android:id/follow_list_subtitle'
+            username_resource_id = f'{get_active_package()}:id/follow_list_username'
+            subtitle_resource_id = f'{get_active_package()}:id/follow_list_subtitle'
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
@@ -271,8 +272,8 @@ class SyncFollowersMixin:
         results = []
         try:
             d = self.device.device
-            username_resource_id = 'com.instagram.android:id/follow_list_username'
-            subtitle_resource_id = 'com.instagram.android:id/follow_list_subtitle'
+            username_resource_id = f'{get_active_package()}:id/follow_list_username'
+            subtitle_resource_id = f'{get_active_package()}:id/follow_list_subtitle'
 
             username_elements = d(resourceId=username_resource_id)
             subtitle_elements = d(resourceId=subtitle_resource_id)
@@ -332,7 +333,7 @@ class SyncFollowersMixin:
         import random
 
         d = self.device.device
-        username_resource_id = 'com.instagram.android:id/follow_list_username'
+        username_resource_id = f'{get_active_package()}:id/follow_list_username'
 
         for username in usernames:
             try:

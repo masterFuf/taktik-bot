@@ -1,0 +1,14 @@
+{
+  "app": "instagram",
+  "version": "417.0.0.54.77",
+  "normalized_version": "417.0.0.0",
+  "status": "pass",
+  "workflows": {
+    "target_followers": {
+      "status": "pass",
+      "date": "2026-03-07",
+      "score": 42
+    }
+  },
+  "last_updated": "2026-03-07T19:10:18.209Z"
+}

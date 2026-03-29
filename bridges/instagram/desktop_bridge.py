@@ -583,6 +583,9 @@ class DesktopBridge:
             self.automation.config = workflow_config
             # Propagate clone package name so helpers can use it
             self.automation.package_name = self.package_name or "com.instagram.android"
+            # Also set the global registry so deep-link navigation etc. can resolve it
+            from taktik.core.clone import set_active_package
+            set_active_package(self.automation.package_name)
             send_log("info", "Dynamic config applied")
             
             # Detect installed app version and apply selector overrides

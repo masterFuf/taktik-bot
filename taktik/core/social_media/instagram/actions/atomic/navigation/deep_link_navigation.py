@@ -7,6 +7,7 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ....ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
+from taktik.core.clone import get_active_package
 
 
 class DeepLinkNavigationMixin(BaseAction):
@@ -27,7 +28,8 @@ class DeepLinkNavigationMixin(BaseAction):
                     from adbutils import adb
                     device = adb.device(serial=device_serial)
                     # Execute am start command via adbutils shell
-                    result = device.shell(f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" com.instagram.android')
+                    pkg = get_active_package()
+                    result = device.shell(f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" {pkg}')
                     self.logger.debug(f"Deep link result: {result}")
                     
                     if 'Error' not in str(result) and 'Exception' not in str(result):
@@ -40,11 +42,12 @@ class DeepLinkNavigationMixin(BaseAction):
                         self.logger.debug(f"Deep link failed: {result}")
                 except ImportError:
                     # Fallback to subprocess if adbutils not available
+                    pkg = get_active_package()
                     cmd = [
                         'adb', '-s', device_serial, 'shell', 'am', 'start',
                         '-W', '-a', 'android.intent.action.VIEW',
                         '-d', deep_link_url,
-                        'com.instagram.android'
+                        pkg
                     ]
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
                     if result.returncode == 0:
@@ -97,7 +100,8 @@ class DeepLinkNavigationMixin(BaseAction):
             try:
                 from adbutils import adb
                 device = adb.device(serial=device_serial)
-                result = device.shell(f'am start -W -a android.intent.action.VIEW -d "{clean_url}" com.instagram.android')
+                pkg = get_active_package()
+                result = device.shell(f'am start -W -a android.intent.action.VIEW -d "{clean_url}" {pkg}')
                 self.logger.debug(f"Deep link result: {result}")
                 
                 if 'Error' in str(result) or 'Exception' in str(result):
@@ -106,7 +110,8 @@ class DeepLinkNavigationMixin(BaseAction):
             except ImportError:
                 # Fallback to subprocess if adbutils not available
                 import subprocess
-                adb_command = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "{clean_url}" com.instagram.android'
+                pkg = get_active_package()
+                adb_command = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "{clean_url}" {pkg}'
                 sub_result = subprocess.run(adb_command, shell=True, capture_output=True, text=True, timeout=10)
                 if sub_result.returncode != 0:
                     self.logger.error(f"❌ ADB error opening post: {sub_result.stderr}")

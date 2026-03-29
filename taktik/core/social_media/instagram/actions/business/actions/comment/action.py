@@ -184,75 +184,129 @@ class CommentAction(BaseBusinessAction):
             return False
     
     def _close_comment_popup(self) -> bool:
+        """Close the comments bottom sheet using multiple strategies.
+
+        Root cause (confirmed from UI dump): after posting a comment the
+        edittext field stays focused=true. The Taktik IME occupies a separate
+        window below the sheet. In this state KEYCODE_BACK is consumed by the
+        focused field — it only removes focus / hides the keyboard, not the sheet.
+
+        Strategy order:
+        1. Click the sheet title 'Comments' to remove focus from the edittext
+           (defocus → IME hides → back now targets the sheet)
+        2. press('back') up to 3x with per-attempt verification
+        3. Swipe drag handle down (only when sheet is NOT full-screen)
+        4. Swipe from screen centre (generic last resort)
+        5. Click nav-bar Back button of the IME window (last resort)
+        """
         try:
             self.logger.debug("Closing comment popup...")
-            
-            drag_handle = self.device.xpath(self.popup_selectors.comment_popup_drag_handle)
-            
-            if drag_handle.exists:
-                bounds = drag_handle.info.get('bounds', {})
-                if bounds:
-                    screen_info = self.device.info
-                    screen_height = screen_info.get('displayHeight', 1920)
-                    screen_width = screen_info.get('displayWidth', 1080)
-                    
-                    handle_y = (bounds.get('top', 100) + bounds.get('bottom', 100)) // 2
-                    center_x = (bounds.get('left', screen_width // 2) + bounds.get('right', screen_width // 2)) // 2
-                    
-                    # If handle is near status bar (< 10% of screen), the bottom sheet
-                    # is fully expanded and swipe-down won't work — go straight to back press
-                    if handle_y < int(screen_height * 0.10):
-                        self.logger.debug(f"Bottom sheet fully expanded (handle_y={handle_y}), using press('back')")
-                        self.device.press("back")
-                        time.sleep(0.8)
-                        # Verify closure
-                        if not self._is_comments_view_open():
-                            self.logger.debug("Comment popup closed with back press (full-screen)")
-                            return True
-                        # Second back attempt
-                        self.logger.debug("Comments still open after first back, retrying...")
-                        self.device.press("back")
-                        time.sleep(0.8)
-                        return True
-                    
-                    end_y = int(screen_height * 0.95)
-                    
-                    self.logger.debug(f"Swiping drag handle down: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
-                    self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
-                    time.sleep(0.5)
-                    
-                    # Verify the swipe actually closed it
-                    if not self._is_comments_view_open():
-                        self.logger.debug("Comment popup closed with drag handle swipe")
-                        return True
-                    
-                    # Swipe failed — fall through to back press
-                    self.logger.debug("Swipe did not close comment popup, falling back to press('back')")
-            
-            # Fallback 1: swipe from center of screen
+
             screen_info = self.device.info
-            center_x = screen_info.get('displayWidth', 1080) // 2
-            handle_y = int(screen_info.get('displayHeight', 1920) * 0.37)
-            end_y = int(screen_info.get('displayHeight', 1920) * 0.95)
-            self.logger.debug(f"Fallback swipe: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
-            self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
-            time.sleep(0.5)
-            
-            # Verify
+            screen_height = screen_info.get('displayHeight', 1920)
+            screen_width = screen_info.get('displayWidth', 1080)
+
+            # ── Strategy 1: defocus the comment edittext ──────────────────────
+            # Click the "Comments" title or the drag handle frame to remove focus
+            # from the edittext so that subsequent KEYCODE_BACK targets the sheet.
+            try:
+                title = self.device.xpath(
+                    '//*[@resource-id="com.instagram.android:id/title_text_view"]'
+                    '[@text="Comments" or @text="Commentaires"]'
+                )
+                if title.exists:
+                    title.click()
+                    self.logger.debug("Clicked Comments title to defocus edittext")
+                    time.sleep(0.5)
+                    if not self._is_comments_view_open():
+                        self.logger.debug("✅ Comment popup closed by title click")
+                        return True
+                else:
+                    # Fallback defocus: click drag handle frame area (safe tap zone)
+                    drag_frame = self.device.xpath(
+                        '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_frame"]'
+                    )
+                    if drag_frame.exists:
+                        drag_frame.click()
+                        self.logger.debug("Clicked drag handle frame to defocus edittext")
+                        time.sleep(0.5)
+            except Exception as e:
+                self.logger.debug(f"Defocus strategy failed (non-fatal): {e}")
+
+            # ── Strategy 2: press('back') up to 3x with verification ─────────
+            # After defocus the IME should be hidden and back targets the sheet.
+            for attempt in range(3):
+                self.logger.debug(f"press('back') attempt {attempt + 1}/3")
+                self.device.press("back")
+                time.sleep(0.9)
+                if not self._is_comments_view_open():
+                    self.logger.debug(f"✅ Comment popup closed after {attempt + 1} back press(es)")
+                    return True
+
+            # ── Strategy 3: swipe drag handle down (partial sheet only) ──────
+            handle_is_fullscreen = False
+            try:
+                drag_handle = self.device.xpath(self.popup_selectors.comment_popup_drag_handle)
+                if drag_handle.exists:
+                    bounds = drag_handle.info.get('bounds', {})
+                    if bounds:
+                        handle_y = (bounds.get('top', 0) + bounds.get('bottom', 0)) // 2
+                        center_x = (bounds.get('left', screen_width // 2) + bounds.get('right', screen_width // 2)) // 2
+                        if handle_y < int(screen_height * 0.10):
+                            handle_is_fullscreen = True
+                            self.logger.debug(f"Sheet fully expanded (handle_y={handle_y}) — skipping swipe")
+                        else:
+                            end_y = int(screen_height * 0.95)
+                            self.logger.debug(f"Swiping drag handle: ({center_x},{handle_y}) → ({center_x},{end_y})")
+                            self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
+                            time.sleep(0.7)
+                            if not self._is_comments_view_open():
+                                self.logger.debug("✅ Comment popup closed via drag handle swipe")
+                                return True
+                            self.logger.debug("Drag handle swipe did not close popup")
+            except Exception as e:
+                self.logger.debug(f"Drag handle strategy failed (non-fatal): {e}")
+
+            # ── Strategy 4: swipe from screen centre ─────────────────────────
+            # Works whether the sheet is partial OR full-screen:
+            # swiping from the middle of the modal content area downward
+            # dismisses the bottom sheet without risking the notification panel.
+            center_x = screen_width // 2
+            start_y = int(screen_height * 0.40)
+            end_y = int(screen_height * 0.92)
+            self.logger.debug(f"Centre swipe: ({center_x},{start_y}) → ({center_x},{end_y})")
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.4)
+            time.sleep(0.7)
             if not self._is_comments_view_open():
-                self.logger.debug("Comment popup closed with fallback swipe")
+                self.logger.debug("✅ Comment popup closed via centre swipe")
                 return True
-            
-            # Fallback 2: press back (most reliable for full-screen bottom sheets)
-            self.logger.debug("All swipes failed, using press('back') as final fallback")
-            self.device.press("back")
-            time.sleep(0.8)
-            self.logger.debug("Comment popup closed with back press")
+
+            # ── Strategy 5: click IME nav-bar Back button ─────────────────────
+            # The Taktik IME exposes android:id/input_method_nav_back which is
+            # clickable — tapping it sends a back event through the IME layer.
+            try:
+                ime_back = self.device.xpath('//*[@resource-id="android:id/input_method_nav_back"]')
+                if ime_back.exists:
+                    ime_back.click()
+                    self.logger.debug("Clicked IME nav back button")
+                    time.sleep(0.7)
+                    if not self._is_comments_view_open():
+                        self.logger.debug("✅ Comment popup closed via IME back button")
+                        return True
+                    # One more back press after IME dismissed
+                    self.device.press("back")
+                    time.sleep(0.8)
+                    if not self._is_comments_view_open():
+                        self.logger.debug("✅ Comment popup closed after IME back + back press")
+                        return True
+            except Exception as e:
+                self.logger.debug(f"IME back button strategy failed (non-fatal): {e}")
+
+            self.logger.warning("⚠️ All strategies exhausted — could not confirm comment popup closed")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error closing comment popup: {e}")
-            # Last resort: try back press even on error
             try:
                 self.device.press("back")
                 time.sleep(0.5)
