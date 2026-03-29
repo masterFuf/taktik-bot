@@ -3,6 +3,7 @@
 import re
 from loguru import logger
 from .....utils.input.keyboard import run_adb_shell
+from taktik.core.clone import get_active_package
 
 
 def navigate_to_post_via_url(business_action, post_url: str) -> bool:
@@ -22,7 +23,8 @@ def navigate_to_post_via_url(business_action, post_url: str) -> bool:
         # Use adbutils via run_adb_shell for compatibility with packaged builds
         device_serial = business_action._get_device_serial()
         deep_link_url = f'https://www.instagram.com/p/{post_id}/'
-        result = run_adb_shell(device_serial, f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" com.instagram.android')
+        pkg = get_active_package()
+        result = run_adb_shell(device_serial, f'am start -W -a android.intent.action.VIEW -d "{deep_link_url}" {pkg}')
         
         if result and 'Error' not in result:
             business_action._human_like_delay('navigation')

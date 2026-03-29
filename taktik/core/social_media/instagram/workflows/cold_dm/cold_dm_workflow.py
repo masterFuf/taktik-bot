@@ -117,7 +117,8 @@ class ColdDMWorkflow:
         """Navigate to Instagram DM screen."""
         try:
             # Open Instagram app
-            self.device.app_start("com.instagram.android")
+            pkg = getattr(self, 'package_name', 'com.instagram.android')
+            self.device.app_start(pkg)
             time.sleep(2)
             
             # Navigate to DM via deep link

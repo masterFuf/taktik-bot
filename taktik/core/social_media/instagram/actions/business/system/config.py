@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ...core.base_action import BaseAction
+from taktik.core.clone import get_active_package
 
 
 class ConfigBusiness(BaseAction):
@@ -36,7 +37,7 @@ class ConfigBusiness(BaseAction):
                 'retry_attempts': 3
             },
             'instagram': {
-                'app_package': 'com.instagram.android',
+                'app_package': get_active_package(),
                 'deep_link_base': 'https://www.instagram.com',
                 'default_delays': {
                     'navigation': (1, 3),

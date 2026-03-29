@@ -17,6 +17,7 @@ from typing import Dict, Any, List, Optional, Set
 
 from ....common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
+from taktik.core.clone import get_active_package
 
 
 class SyncFollowingMixin:
@@ -85,7 +86,7 @@ class SyncFollowingMixin:
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
             d = self.device.device
-            username_resource_id = 'com.instagram.android:id/follow_list_username'
+            username_resource_id = f'{get_active_package()}:id/follow_list_username'
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
@@ -118,7 +119,7 @@ class SyncFollowingMixin:
                     # Récupérer le display_name (subtitle)
                     display_name = ''
                     try:
-                        subtitle_els = d(resourceId='com.instagram.android:id/follow_list_subtitle')
+                        subtitle_els = d(resourceId=f'{get_active_package()}:id/follow_list_subtitle')
                         if subtitle_els.exists and i < subtitle_els.count:
                             display_name = subtitle_els[i].get_text() or ''
                     except Exception:
@@ -301,13 +302,13 @@ class SyncFollowingMixin:
 
             # Détecter si on est déjà dans la vue unifiée (après sync_following_list)
             d = self.device.device
-            unified_layout = d.xpath('//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]')
+            unified_layout = d.xpath(f'//*[@resource-id="{get_active_package()}:id/unified_follow_list_tab_layout"]')
 
             if unified_layout.exists:
                 # Vue unifiée ouverte — cliquer sur le tab "Followers"
                 self.logger.debug("Already in unified follow list view, switching to Followers tab")
                 followers_tab = d.xpath(
-                    '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]'
+                    f'//*[@resource-id="{get_active_package()}:id/unified_follow_list_tab_layout"]'
                     '//*[contains(@text, "Followers")]'
                 )
                 if followers_tab.exists:
@@ -339,7 +340,7 @@ class SyncFollowingMixin:
             follow_back_visible = False
             for wait in range(5):
                 time.sleep(1)
-                if d(resourceId='com.instagram.android:id/follow_list_row_large_follow_button', text='Follow back').exists:
+                if d(resourceId=f'{get_active_package()}:id/follow_list_row_large_follow_button', text='Follow back').exists:
                     follow_back_visible = True
                     self.logger.debug(f"Non-followers view loaded after {wait + 1}s")
                     break
@@ -421,8 +422,8 @@ class SyncFollowingMixin:
         results = []
         try:
             d = self.device.device
-            username_resource_id = 'com.instagram.android:id/follow_list_username'
-            subtitle_resource_id = 'com.instagram.android:id/follow_list_subtitle'
+            username_resource_id = f'{get_active_package()}:id/follow_list_username'
+            subtitle_resource_id = f'{get_active_package()}:id/follow_list_subtitle'
 
             username_elements = d(resourceId=username_resource_id)
             subtitle_elements = d(resourceId=subtitle_resource_id)
@@ -460,16 +461,17 @@ class SyncFollowingMixin:
 
         D'après le dump XML, c'est un bouton avec:
         - content-desc="People you don't follow back"
-        - resource-id="com.instagram.android:id/container"
+        - resource-id="{pkg}:id/container"
         """
         try:
             d = self.device.device
+            pkg = get_active_package()
             xpaths = [
                 '//*[contains(@content-desc, "don\'t follow back")]',
                 '//*[contains(@content-desc, "People you don")]',
-                '//*[@resource-id="com.instagram.android:id/container"][contains(@content-desc, "follow")]',
-                '//*[@resource-id="com.instagram.android:id/title"][contains(@text, "don\'t follow back")]',
-                '//*[@resource-id="com.instagram.android:id/title"][contains(@text, "follow back")]',
+                f'//*[@resource-id="{pkg}:id/container"][contains(@content-desc, "follow")]',
+                f'//*[@resource-id="{pkg}:id/title"][contains(@text, "don\'t follow back")]',
+                f'//*[@resource-id="{pkg}:id/title"][contains(@text, "follow back")]',
             ]
             for i, xpath in enumerate(xpaths):
                 el = d.xpath(xpath)
@@ -532,11 +534,11 @@ class SyncFollowingMixin:
         results = []
         try:
             d = self.device.device
-            username_resource_id = 'com.instagram.android:id/follow_list_username'
+            username_resource_id = f'{get_active_package()}:id/follow_list_username'
 
             # Vérifier qu'on est dans la bonne vue (bouton "Follow back" présent)
             follow_back_btn = d(
-                resourceId='com.instagram.android:id/follow_list_row_large_follow_button',
+                resourceId=f'{get_active_package()}:id/follow_list_row_large_follow_button',
                 text='Follow back'
             )
             if not follow_back_btn.exists:

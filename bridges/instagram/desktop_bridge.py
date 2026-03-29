@@ -190,6 +190,7 @@ class DesktopBridge:
         self.comments_config = config.get('comments', {})
         self.unfollow_config = config.get('unfollow', {})  # Unfollow specific settings
         self.language = config.get('language', 'en')
+        self.package_name = config.get('packageName')  # Clone package (e.g. com.instagram.android.c1)
         self.running = True
         # Shared services
         self._connection = ConnectionService(self.device_id) if self.device_id else None
@@ -256,7 +257,7 @@ class DesktopBridge:
             
             # Backward-compatible alias
             self.device_manager = self._connection.device_manager
-            self._app = AppService(self._connection, platform="instagram")
+            self._app = AppService(self._connection, platform="instagram", package_override=self.package_name)
             
             send_status("connected", f"Connected to {self.device_id}")
             return True
@@ -580,7 +581,43 @@ class DesktopBridge:
             
             # Apply config
             self.automation.config = workflow_config
+            # Propagate clone package name so helpers can use it
+            self.automation.package_name = self.package_name or "com.instagram.android"
+            # Also set the global registry so deep-link navigation etc. can resolve it
+            from taktik.core.clone import set_active_package
+            set_active_package(self.automation.package_name)
             send_log("info", "Dynamic config applied")
+            
+            # Detect installed app version and apply selector overrides
+            try:
+                detected_version = self._app.get_installed_version() if self._app else None
+                if detected_version:
+                    from taktik.core.compat.setup import apply_version_overrides
+                    patched = apply_version_overrides("instagram", detected_version)
+                    if patched > 0:
+                        send_log("info", f"Applied {patched} selector override(s) for Instagram v{detected_version}")
+                    else:
+                        send_log("info", f"Instagram v{detected_version}: no selector overrides needed")
+            except Exception as e:
+                send_log("warning", f"Version override failed (non-fatal): {e}")
+
+            # Patch selectors for clone package (must run AFTER version overrides)
+            if self.package_name:
+                try:
+                    from taktik.core.clone import patch_selectors_for_package
+                    patched_clone = patch_selectors_for_package("instagram", self.package_name)
+                    if patched_clone > 0:
+                        send_log("info", f"Patched {patched_clone} selector(s) for clone: {self.package_name}")
+                except Exception as e:
+                    send_log("warning", f"Clone selector patching failed (non-fatal): {e}")
+
+            # Detect app language and optimize selectors
+            try:
+                from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+                detected_lang = detect_and_optimize(self.automation.device)
+                send_log("info", f"App language detected: {detected_lang.upper()}")
+            except Exception as e:
+                send_log("warning", f"Language detection failed (non-fatal): {e}")
             
             # Run the workflow
             send_status("running", "Running workflow...")

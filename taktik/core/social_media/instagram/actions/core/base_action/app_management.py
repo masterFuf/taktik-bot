@@ -1,5 +1,7 @@
 """Instagram app management — open, check running, debug screen."""
 
+from taktik.core.clone import get_active_package
+
 
 class AppManagementMixin:
     """Mixin: gestion app Instagram (open, is_open, debug screen)."""
@@ -7,13 +9,13 @@ class AppManagementMixin:
     def _is_instagram_open(self) -> bool:
         try:
             current_app = self.device.app_current()
-            return current_app.get('package') == 'com.instagram.android'
+            return current_app.get('package') == get_active_package()
         except Exception:
             return False
     
     def _open_instagram(self) -> bool:
         try:
-            self.device.app_start('com.instagram.android')
+            self.device.app_start(get_active_package())
             self._human_like_delay('navigation')
             return self._is_instagram_open()
         except Exception as e:

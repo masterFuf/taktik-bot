@@ -72,10 +72,11 @@ class PostUrlBusiness(
             time.sleep(2)
             
             # Extraire les métadonnées du post
+            is_reel = self._is_reel_post()
             post_metadata = {
                 'author_username': self._extract_author_username(),
-                'likes_count': self.ui_extractors.extract_likes_count_from_ui(),
-                'is_reel': self._is_reel_post()
+                'likes_count': self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
+                'is_reel': is_reel
             }
             
             if not post_metadata.get('author_username'):

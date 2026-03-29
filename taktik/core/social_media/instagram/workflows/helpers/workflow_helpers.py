@@ -54,8 +54,9 @@ class WorkflowHelpers:
         self.logger.info("🎯 Session ended cleanly")
     
     def _close_instagram(self):
-        self.logger.info("📱 Closing Instagram...")
-        if self.automation.device_manager.stop_app("com.instagram.android"):
+        pkg = getattr(self.automation, 'package_name', 'com.instagram.android')
+        self.logger.info(f"📱 Closing Instagram ({pkg})...")
+        if self.automation.device_manager.stop_app(pkg):
             self.logger.info("✅ Instagram closed successfully")
         else:
             self.logger.warning("⚠️ Failed to close Instagram")
@@ -107,8 +108,9 @@ class WorkflowHelpers:
         # Always restart Instagram to ensure clean state
         # This is necessary because if Instagram is on a random page (like a profile),
         # the workflow cannot navigate properly to start
-        self.logger.info("🔄 Restarting Instagram to ensure clean initial state...")
-        if self.automation.device_manager.launch_app("com.instagram.android", stop_first=True):
+        pkg = getattr(self.automation, 'package_name', 'com.instagram.android')
+        self.logger.info(f"🔄 Restarting Instagram ({pkg}) to ensure clean initial state...")
+        if self.automation.device_manager.launch_app(pkg, stop_first=True):
             self.logger.info("✅ Instagram restarted successfully")
             
             # Wait for app to fully load (5-10s)

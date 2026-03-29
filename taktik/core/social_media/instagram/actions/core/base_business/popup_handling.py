@@ -56,13 +56,29 @@ class PopupHandlingMixin:
                     handle_y = (bounds.get('top', 710) + bounds.get('bottom', 710)) // 2
                     center_x = (bounds.get('left', 492) + bounds.get('right', 588)) // 2
                     
+                    screen_height = self.device.info.get('displayHeight', 1920)
+                    
+                    # If handle is near top of screen (< 10%), bottom sheet is fully
+                    # expanded — swipe won't work, use back press directly
+                    if handle_y < int(screen_height * 0.10):
+                        self.logger.debug(f"📍 Bottom sheet fully expanded (handle_y={handle_y}), using press('back')")
+                        self.device.press("back")
+                        time.sleep(0.8)
+                        return True
+                    
                     self.logger.debug(f"📍 Handle detected at Y={handle_y}, X={center_x}")
                     
-                    screen_height = self.device.info.get('displayHeight', 1920)
                     end_y = int(screen_height * 0.95)
                     
                     self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, duration=0.3)
                     self.logger.debug(f"✅ Swipe to close: ({center_x}, {handle_y}) → ({center_x}, {end_y})")
+                    time.sleep(0.5)
+                    
+                    # Verify — if popup is still open, fallback to back press
+                    if self._is_likers_popup_open() or self._is_comments_view_open():
+                        self.logger.debug("⚠️ Swipe did not close popup, falling back to press('back')")
+                        self.device.press("back")
+                        time.sleep(0.8)
                     return True
             
             screen_info = self.device.info
@@ -70,9 +86,21 @@ class PopupHandlingMixin:
             handle_y = int(screen_info.get('displayHeight', 1920) * 0.37)
             end_y = int(screen_info.get('displayHeight', 1920) * 0.95)
             self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, duration=0.3)
+            time.sleep(0.5)
+            
+            # Verify fallback swipe
+            if self._is_likers_popup_open() or self._is_comments_view_open():
+                self.logger.debug("⚠️ Fallback swipe did not close popup, using press('back')")
+                self.device.press("back")
+                time.sleep(0.8)
             return True
         except Exception as e:
             self.logger.debug(f"❌ Error closing popup: {e}")
+            try:
+                self.device.press("back")
+                time.sleep(0.5)
+            except Exception:
+                pass
             return False
 
     def _handle_follow_suggestions_popup(self):

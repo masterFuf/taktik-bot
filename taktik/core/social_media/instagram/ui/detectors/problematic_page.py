@@ -246,57 +246,79 @@ class ProblematicPageDetector:
                     self.device.click(screen_width // 2, screen_height // 4)
                     
                 elif method == 'swipe_down':
-                    # Swipe vers le bas sur le trait gris pour fermer la popup
+                    # Swipe vers le bas pour fermer la popup
+                    # Tente d'abord de trouver le drag handle pour un swipe précis
                     info = self.device.info
-                    screen_width = info['displayWidth']
-                    screen_height = info['displayHeight']
-                    
-                    # Chercher le trait gris (handle) de la popup
-                    # Il est généralement au centre horizontal, vers le haut de la popup
-                    start_x = screen_width // 2
-                    start_y = int(screen_height * 0.65)  # Position approximative du trait
-                    end_x = screen_width // 2
-                    end_y = int(screen_height * 0.95)  # Vers le bas de l'écran
-                    
-                    logger.info(f"Swipe du trait gris: ({start_x}, {start_y}) → ({end_x}, {end_y})")
-                    self.device.swipe(start_x, start_y, end_x, end_y, duration=0.3)
+                    screen_width = info.get('displayWidth', 1080)
+                    screen_height = info.get('displayHeight', 1920)
+
+                    handle_swiped = False
+                    for sel in [{'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'}]:
+                        try:
+                            el = self.device(**sel)
+                            if el.exists():
+                                b = el.info.get('bounds', {})
+                                if b:
+                                    hx = (b['left'] + b['right']) // 2
+                                    hy = (b['top'] + b['bottom']) // 2
+                                    # Only swipe if handle is NOT in top 10% (would open notifications)
+                                    if hy >= int(screen_height * 0.10):
+                                        end_y = int(screen_height * 0.95)
+                                        logger.info(f"swipe_down handle found: ({hx},{hy}) → ({hx},{end_y})")
+                                        self.device.swipe_coordinates(hx, hy, hx, end_y, 0.3)
+                                        handle_swiped = True
+                                    else:
+                                        logger.info(f"Handle in top 10% (y={hy}), using press back instead")
+                                        self.device.press('back')
+                                        handle_swiped = True
+                                    break
+                        except Exception:
+                            pass
+
+                    if not handle_swiped:
+                        # Fallback: swipe from screen center-ish (safe zone, never from top)
+                        start_x = screen_width // 2
+                        start_y = int(screen_height * 0.50)
+                        end_y = int(screen_height * 0.92)
+                        logger.info(f"swipe_down fallback: ({start_x},{start_y}) → ({start_x},{end_y})")
+                        self.device.swipe_coordinates(start_x, start_y, start_x, end_y, 0.3)
                 
                 elif method == 'swipe_down_handle':
                     # Méthode spécifique pour le trait gris (handle) - cibler l'élément directement
                     handle_found = False
+                    screen_info = self.device.info
+                    screen_height = screen_info.get('displayHeight', 1920)
+                    screen_width = screen_info.get('displayWidth', 1080)
+
                     for selector in PROBLEMATIC_PAGE_SELECTORS.drag_handle_selectors:
-                        element = self.device(**selector)
-                        if element.exists():
-                            # Récupérer les coordonnées du handle
-                            info = element.info
-                            bounds = info.get('bounds', {})
-                            if bounds:
-                                # Centre du handle
-                                handle_x = (bounds['left'] + bounds['right']) // 2
-                                handle_y = (bounds['top'] + bounds['bottom']) // 2
-                                
-                                # Swipe vers le bas de l'écran
-                                screen_height = self.device.info['displayHeight']
-                                end_y = int(screen_height * 0.95)
-                                
-                                logger.info(f"Swipe handle trouvé: ({handle_x}, {handle_y}) → ({handle_x}, {end_y})")
-                                self.device.swipe(handle_x, handle_y, handle_x, end_y, duration=0.3)
-                                handle_found = True
-                                break
-                    
+                        try:
+                            element = self.device(**selector)
+                            if element.exists():
+                                bounds = element.info.get('bounds', {})
+                                if bounds:
+                                    handle_x = (bounds['left'] + bounds['right']) // 2
+                                    handle_y = (bounds['top'] + bounds['bottom']) // 2
+                                    end_y = int(screen_height * 0.95)
+
+                                    if handle_y < int(screen_height * 0.10):
+                                        # Handle fully expanded — swipe would open notifications, use back
+                                        logger.info(f"Handle in top 10% (y={handle_y}), pressing back")
+                                        self.device.press('back')
+                                    else:
+                                        logger.info(f"Swipe handle: ({handle_x},{handle_y}) → ({handle_x},{end_y})")
+                                        self.device.swipe_coordinates(handle_x, handle_y, handle_x, end_y, 0.3)
+                                    handle_found = True
+                                    break
+                        except Exception:
+                            pass
+
                     if not handle_found:
-                        # Fallback: utiliser des coordonnées approximatives
-                        logger.warning("Handle non trouvé, utilisation de coordonnées approximatives")
-                        info = self.device.info
-                        screen_width = info['displayWidth']
-                        screen_height = info['displayHeight']
-                        
+                        logger.warning("Handle non trouvé, utilisation de coordonnées sûres (50% → 92%)")
                         handle_x = screen_width // 2
-                        handle_y = int(screen_height * 0.55)  # Position approximative
-                        end_y = int(screen_height * 0.95)
-                        
-                        logger.info(f"Swipe handle approximatif: ({handle_x}, {handle_y}) → ({handle_x}, {end_y})")
-                        self.device.swipe(handle_x, handle_y, handle_x, end_y, duration=0.3)
+                        handle_y = int(screen_height * 0.50)
+                        end_y = int(screen_height * 0.92)
+                        logger.info(f"Swipe handle approximatif: ({handle_x},{handle_y}) → ({handle_x},{end_y})")
+                        self.device.swipe_coordinates(handle_x, handle_y, handle_x, end_y, 0.3)
                 
                 elif method == 'terminate_button':
                     if not self._click_button_from_selectors(

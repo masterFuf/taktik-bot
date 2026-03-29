@@ -104,24 +104,25 @@ class InstagramUIExtractors:
         except ValueError:
             return False
     
-    def extract_likes_count_from_ui(self) -> int:
+    def extract_likes_count_from_ui(self, is_reel: bool = None) -> int:
         try:
-            # Try Reel like count selector first
-            try:
-                element = self.device.xpath(self.detection_selectors.reel_like_count_selector)
-                if element.exists:
-                    content_desc = element.info.get('contentDescription', '')
-                    if content_desc:
-                        # Parse "Like number is16. View likes" or "Like number is16"
-                        like_match = re.search(r'Like number is\s*(\d+(?:[,.]?\d+)?(?:\s?[KkMmBb])?)', content_desc, re.IGNORECASE)
-                        if like_match:
-                            likes_text = like_match.group(1)
-                            likes_count = self.parse_instagram_number(likes_text)
-                            if likes_count >= 0:
-                                log.debug(f"✅ Likes extracted from Reel format: {likes_count}")
-                                return likes_count
-            except Exception as e:
-                log.debug(f"Reel like selector not found or error: {e}")
+            # Try Reel like count selector first (skip if caller confirmed not a reel)
+            if is_reel is not False:
+                try:
+                    element = self.device.xpath(self.detection_selectors.reel_like_count_selector)
+                    if element.exists:
+                        content_desc = element.info.get('contentDescription', '')
+                        if content_desc:
+                            # Parse "Like number is16. View likes" or "Like number is16"
+                            like_match = re.search(r'Like number is\s*(\d+(?:[,.]?\d+)?(?:\s?[KkMmBb])?)', content_desc, re.IGNORECASE)
+                            if like_match:
+                                likes_text = like_match.group(1)
+                                likes_count = self.parse_instagram_number(likes_text)
+                                if likes_count >= 0:
+                                    log.debug(f"✅ Likes extracted from Reel format: {likes_count}")
+                                    return likes_count
+                except Exception as e:
+                    log.debug(f"Reel like selector not found or error: {e}")
             
             all_photo_elements = self.device.xpath(self.post_selectors.photo_imageview_selector).all()
             
@@ -190,23 +191,24 @@ class InstagramUIExtractors:
             log.error(f"Error extracting likes: {e}")
             return 0
     
-    def extract_comments_count_from_ui(self) -> int:
+    def extract_comments_count_from_ui(self, is_reel: bool = None) -> int:
         try:
-            # Try Reel comment count selector first
-            try:
-                element = self.device.xpath(self.detection_selectors.reel_comment_count_selector)
-                if element.exists:
-                    content_desc = element.info.get('contentDescription', '')
-                    if content_desc:
-                        comment_match = re.search(r'Comment number is\s*(\d+(?:[,.]?\d+)?(?:\s?[KkMmBb])?)', content_desc, re.IGNORECASE)
-                        if comment_match:
-                            comments_text = comment_match.group(1)
-                            comments_count = self.parse_instagram_number(comments_text)
-                            if comments_count >= 0:
-                                log.debug(f"✅ Comments extracted from Reel format: {comments_count}")
-                                return comments_count
-            except Exception as e:
-                log.debug(f"Reel comment selector not found or error: {e}")
+            # Try Reel comment count selector first (skip if caller confirmed not a reel)
+            if is_reel is not False:
+                try:
+                    element = self.device.xpath(self.detection_selectors.reel_comment_count_selector)
+                    if element.exists:
+                        content_desc = element.info.get('contentDescription', '')
+                        if content_desc:
+                            comment_match = re.search(r'Comment number is\s*(\d+(?:[,.]?\d+)?(?:\s?[KkMmBb])?)', content_desc, re.IGNORECASE)
+                            if comment_match:
+                                comments_text = comment_match.group(1)
+                                comments_count = self.parse_instagram_number(comments_text)
+                                if comments_count >= 0:
+                                    log.debug(f"✅ Comments extracted from Reel format: {comments_count}")
+                                    return comments_count
+                except Exception as e:
+                    log.debug(f"Reel comment selector not found or error: {e}")
             
             all_photo_elements = self.device.xpath(self.post_selectors.photo_imageview_selector).all()
             

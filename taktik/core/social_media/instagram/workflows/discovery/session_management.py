@@ -28,11 +28,12 @@ class DiscoverySessionMixin:
         
         try:
             device_serial = self.device_id
+            pkg = getattr(self, 'package_name', 'com.instagram.android')
             
             if device_serial:
                 # Force stop Instagram
                 self.logger.info("🛑 Force stopping Instagram...")
-                stop_cmd = f'adb -s {device_serial} shell am force-stop com.instagram.android'
+                stop_cmd = f'adb -s {device_serial} shell am force-stop {pkg}'
                 subprocess.run(stop_cmd, shell=True, capture_output=True, timeout=10)
                 self.logger.info("✅ Instagram stopped")
                 
@@ -42,7 +43,7 @@ class DiscoverySessionMixin:
                 # Relaunch Instagram using deep link to home feed (same approach as navigate_to_profile)
                 # Using -W flag to wait for app to fully load, and VIEW intent to properly open Instagram
                 self.logger.info("🚀 Relaunching Instagram...")
-                launch_cmd = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "https://www.instagram.com/" com.instagram.android'
+                launch_cmd = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "https://www.instagram.com/" {pkg}'
                 result = subprocess.run(launch_cmd, shell=True, capture_output=True, text=True, timeout=15)
                 self.logger.info(f"✅ Instagram relaunched: {result.stdout.strip() if result.stdout else 'OK'}")
                 
