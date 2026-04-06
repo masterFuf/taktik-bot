@@ -198,6 +198,20 @@ class DesktopBridge:
         self.device_manager = None  # backward-compatible alias
         self.automation = None
         
+        # AI mode configuration
+        self.ai_config = config.get('ai', {})
+        self.ai_enabled = self.ai_config.get('enabled', False)
+        self.ai_service = None
+        if self.ai_enabled:
+            api_key = self.ai_config.get('openrouterApiKey', '')
+            if api_key and len(api_key) > 5:
+                from bridges.common.ai_service import AIService
+                self.ai_service = AIService(api_key=api_key, ipc=_ipc)
+                send_log("info", "🤖 AI mode enabled — Smart Comments / Profile Analysis / Post Analysis")
+            else:
+                send_log("warning", "AI mode requested but no OpenRouter API key provided")
+                self.ai_enabled = False
+        
         # Media capture service
         self.media_capture_enabled = config.get('mediaCaptureEnabled', False)
         self.media_capture_service = None
@@ -309,9 +323,9 @@ class DesktopBridge:
             return False
     
     def _build_action_config(self, action_type: str, interaction_type: str, primary_target: str,
-                              target_list: list, max_profiles: int, max_likes_per_profile: int,
-                              like_percentage: int, follow_percentage: int, comment_percentage: int,
-                              story_percentage: int, story_like_percentage: int) -> dict:
+                              target_list: list, max_profiles: int, min_likes_per_profile: int,
+                              max_likes_per_profile: int, like_percentage: int, follow_percentage: int,
+                              comment_percentage: int, story_percentage: int, story_like_percentage: int) -> dict:
         """Build action configuration based on action type."""
         
         # Configuration spécifique pour le workflow SYNC_FOLLOWING
@@ -381,6 +395,7 @@ class DesktopBridge:
             "interaction_type": interaction_type,
             "max_interactions": max_profiles,
             "like_posts": True,
+            "min_likes_per_profile": min_likes_per_profile,
             "max_likes_per_profile": max_likes_per_profile,
             "probabilities": {
                 "like_percentage": like_percentage,
@@ -428,6 +443,7 @@ class DesktopBridge:
     def build_workflow_config(self) -> dict:
         """Build the workflow configuration matching CLI format."""
         max_profiles = self.limits.get('maxProfiles', 20)
+        min_likes_per_profile = self.limits.get('minLikesPerProfile', 1)
         max_likes_per_profile = self.limits.get('maxLikesPerProfile', 2)
         like_percentage = self.probabilities.get('like', 80)
         follow_percentage = self.probabilities.get('follow', 20)
@@ -505,7 +521,7 @@ class DesktopBridge:
                 "workflow_type": session_workflow_type,  # Must match SessionManager check for skip limits
                 "total_profiles_limit": max_profiles,
                 "total_follows_limit": math.ceil(max_profiles * (follow_percentage / 100)) if follow_percentage > 0 else 0,
-                "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,
+                "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,  # use max as upper bound
                 "session_duration_minutes": session_duration,
                 "delay_between_actions": {
                     "min": min_delay,
@@ -522,6 +538,7 @@ class DesktopBridge:
                     primary_target=primary_target,
                     target_list=target_list,
                     max_profiles=max_profiles,
+                    min_likes_per_profile=min_likes_per_profile,
                     max_likes_per_profile=max_likes_per_profile,
                     like_percentage=like_percentage,
                     follow_percentage=follow_percentage,
@@ -572,7 +589,13 @@ class DesktopBridge:
                     "durationMinutes": self.session_config.get('durationMinutes', 60),
                     "minDelay": self.session_config.get('minDelay', 5),
                     "maxDelay": self.session_config.get('maxDelay', 15)
-                }
+                },
+                **({"ai": {
+                    "enabled": True,
+                    "smartComments": self.ai_config.get('smartComments', False),
+                    "profileAnalysis": self.ai_config.get('profileAnalysis', False),
+                    "postAnalysis": self.ai_config.get('postAnalysis', False),
+                }} if self.ai_enabled else {})
             })
             
             # Create automation instance (matching CLI usage)
@@ -619,6 +642,10 @@ class DesktopBridge:
             except Exception as e:
                 send_log("warning", f"Language detection failed (non-fatal): {e}")
             
+            # ── AI hooks (monkey-patch interaction engine if AI mode is ON) ──
+            if self.ai_enabled and self.ai_service:
+                self._install_ai_hooks()
+            
             # Run the workflow
             send_status("running", "Running workflow...")
             self.automation.run_workflow()
@@ -647,6 +674,244 @@ class DesktopBridge:
             logger.exception("Workflow error")
             return False
     
+    def _crop_screenshot_to_post(self, img, device):
+        """
+        Crop a full-screen screenshot to the currently visible post area.
+
+        Strategy:
+        1. Find the post header (username row) as crop_top boundary
+        2. Find the like/comment button row as crop_bottom boundary
+        3. Falls back to full image if neither found
+
+        This ensures the vision AI only sees the target post, not adjacent posts.
+        """
+        try:
+            width, height = img.size
+
+            crop_top = None
+            crop_bottom = None
+
+            # ── Top boundary: post header row (profile name/avatar) ──────────
+            header_selectors = [
+                '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]',
+                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
+                '//*[@resource-id="com.instagram.android:id/clips_author_info"]',
+            ]
+            for sel in header_selectors:
+                try:
+                    el = device.xpath(sel)
+                    if el.exists:
+                        b = el.info.get('bounds', {})
+                        if b and b.get('top', 0) >= 0:
+                            crop_top = max(0, b.get('top', 0) - 8)
+                            break
+                except Exception:
+                    continue
+
+            # ── Bottom boundary: like/comment buttons row ─────────────────────
+            buttons_selectors = [
+                '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]',
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
+                '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
+            ]
+            for sel in buttons_selectors:
+                try:
+                    el = device.xpath(sel)
+                    if el.exists:
+                        b = el.info.get('bounds', {})
+                        if b and b.get('bottom', 0) > 0:
+                            crop_bottom = min(height, b.get('bottom', height) + int(height * 0.03))
+                            break
+                except Exception:
+                    continue
+
+            # ── Apply crop if we have at least one boundary ───────────────────
+            if crop_top is not None and crop_bottom is not None:
+                if crop_bottom > crop_top + 50:
+                    return img.crop((0, crop_top, width, crop_bottom))
+            elif crop_bottom is not None:
+                # Only bottom known — estimate top from button position
+                crop_top = max(0, crop_bottom - int(height * 0.70))
+                return img.crop((0, crop_top, width, crop_bottom))
+
+        except Exception:
+            pass
+        return img
+
+    def _install_ai_hooks(self):
+        """
+        Monkey-patch the workflow's interaction engine to inject AI capabilities:
+        1. Smart Comments — replace random/custom comments with AI-generated ones
+        2. Profile Analysis — classify each visited profile via vision AI
+        3. Post Analysis — analyze post content before commenting
+        """
+        import tempfile
+        import os
+
+        ai = self.ai_service
+        ai_cfg = self.ai_config
+        device = self.device_manager.device if self.device_manager else None
+        bridge = self
+
+        if not device:
+            send_log("warning", "AI hooks: no device available, skipping")
+            return
+
+        # ── 1. Smart Comments hook ─────────────────────────────────────────
+        if ai_cfg.get('smartComments', False):
+            try:
+                from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+                _original_comment_on_post = CommentAction.comment_on_post
+
+                def _ai_comment_on_post(self_comment, comment_text=None, template_category='generic',
+                                        custom_comments=None, config=None, username=None):
+                    """AI-enhanced comment_on_post: generate smart comment if no text provided."""
+                    if comment_text:
+                        # Explicit text provided — use as-is
+                        return _original_comment_on_post(
+                            self_comment, comment_text=comment_text,
+                            template_category=template_category,
+                            custom_comments=custom_comments, config=config, username=username
+                        )
+
+                    # Take screenshot of current post for context (cropped to post area only)
+                    try:
+                        tmp_dir = os.path.join(tempfile.gettempdir(), 'taktik_ai')
+                        os.makedirs(tmp_dir, exist_ok=True)
+                        screenshot_path = os.path.join(tmp_dir, f'post_{username or "unknown"}.png')
+                        img = device.screenshot()  # PIL Image
+                        img = bridge._crop_screenshot_to_post(img, device)
+                        img.save(screenshot_path, format='PNG')
+
+                        # Post analysis REQUIRED for smart comments — without it the text model
+                        # has no visual context and will refuse/generate useless responses
+                        post_desc = ""
+                        if ai_cfg.get('postAnalysis', False):
+                            analysis = ai.analyze_post(screenshot_path, username=username)
+                            if analysis.get('success'):
+                                post_desc = analysis['description']
+                            else:
+                                send_log("warning", f"Post analysis failed for @{username}: {analysis.get('error')}")
+
+                        # No description available — cancel comment entirely
+                        # (user chose AI comments, no custom fallback expected)
+                        if not post_desc:
+                            send_log("info", f"No post description for @{username}, skipping comment (AI mode)")
+                            return False
+
+                        lang = bridge.language if bridge.language != 'en' else 'auto'
+                        result = ai.generate_smart_comment(
+                            post_description=post_desc,
+                            username=username or 'unknown',
+                            niche='general',
+                            language=lang,
+                        )
+                        if result.get('success') and result.get('comment'):
+                            ai_comment = result['comment']
+                            # Reject model refusals / error messages — they're too long and useless
+                            refusal_signals = [
+                                "i can't", "i cannot", "i'm unable", "i am unable",
+                                "without seeing", "without the image", "without viewing",
+                                "no image", "can't see", "cannot see", "don't have access",
+                                "do not have access", "provide an image", "share the image",
+                                "specific post", "specific content",
+                            ]
+                            ai_comment_lower = ai_comment.lower()
+                            is_refusal = len(ai_comment) > 120 or any(sig in ai_comment_lower for sig in refusal_signals)
+                            if is_refusal:
+                                send_log("warning", f"AI comment refused/unusable for @{username} (model couldn't see post), skipping comment")
+                                return False
+                            send_log("info", f"🤖 AI comment for @{username}: \"{ai_comment}\"")
+                            return _original_comment_on_post(
+                                self_comment, comment_text=ai_comment,
+                                template_category=template_category,
+                                custom_comments=None, config=config, username=username
+                            )
+                        else:
+                            send_log("warning", f"AI comment generation failed, falling back to default")
+                    except Exception as e:
+                        send_log("warning", f"AI comment hook error: {e}")
+
+                    # Fallback to original behavior
+                    return _original_comment_on_post(
+                        self_comment, comment_text=comment_text,
+                        template_category=template_category,
+                        custom_comments=custom_comments, config=config, username=username
+                    )
+
+                CommentAction.comment_on_post = _ai_comment_on_post
+                send_log("info", "✅ AI Smart Comments hook installed")
+            except Exception as e:
+                send_log("warning", f"Failed to install Smart Comments hook: {e}")
+
+        # ── 2. Profile Analysis hook ───────────────────────────────────────
+        if ai_cfg.get('profileAnalysis', False):
+            try:
+                from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import InteractionEngineMixin
+                _original_perform = InteractionEngineMixin._perform_interactions_on_profile
+
+                def _ai_perform_interactions(self_engine, username, config, profile_data=None):
+                    """AI-enhanced: classify profile before interacting."""
+                    try:
+                        tmp_dir = os.path.join(tempfile.gettempdir(), 'taktik_ai')
+                        os.makedirs(tmp_dir, exist_ok=True)
+                        screenshot_path = os.path.join(tmp_dir, f'profile_{username}.png')
+                        img = device.screenshot()  # PIL Image
+                        img.save(screenshot_path, format='PNG')
+
+                        account_username = None
+                        if bridge.automation:
+                            account_username = bridge.automation.active_username
+
+                        classification = ai.classify_profile(
+                            username=username,
+                            screenshot_path=screenshot_path,
+                            account_username=account_username,
+                        )
+                        if classification.get('success') and classification.get('classification'):
+                            c = classification['classification']
+                            send_log("info", f"🧠 @{username}: [{c.get('niche_category', '?')}] {c.get('niche', '?')} — Score: {c.get('score', 0)}/100")
+                    except Exception as e:
+                        send_log("warning", f"AI profile analysis error for @{username}: {e}")
+
+                    # Always proceed with original interaction logic
+                    return _original_perform(self_engine, username, config, profile_data)
+
+                InteractionEngineMixin._perform_interactions_on_profile = _ai_perform_interactions
+                send_log("info", "✅ AI Profile Analysis hook installed")
+            except Exception as e:
+                send_log("warning", f"Failed to install Profile Analysis hook: {e}")
+
+        # ── 3. Post Analysis hook (standalone, if no smart comments) ───────
+        # Post analysis is already integrated into the smart comment hook above.
+        # If smart comments are OFF but post analysis is ON, we install a separate
+        # hook on the like orchestration to analyze posts before liking.
+        if ai_cfg.get('postAnalysis', False) and not ai_cfg.get('smartComments', False):
+            try:
+                from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
+                _original_like_current = LikeOrchestration.like_current_post
+
+                def _ai_like_current_post(self_like):
+                    """AI-enhanced: analyze post before liking."""
+                    try:
+                        tmp_dir = os.path.join(tempfile.gettempdir(), 'taktik_ai')
+                        os.makedirs(tmp_dir, exist_ok=True)
+                        screenshot_path = os.path.join(tmp_dir, f'post_like_{id(self_like)}.png')
+                        img = device.screenshot()  # PIL Image
+                        img = bridge._crop_screenshot_to_post(img, device)
+                        img.save(screenshot_path, format='PNG')
+                        ai.analyze_post(screenshot_path)
+                    except Exception as e:
+                        send_log("warning", f"AI post analysis before like error: {e}")
+                    return _original_like_current(self_like)
+
+                LikeOrchestration.like_current_post = _ai_like_current_post
+                send_log("info", "✅ AI Post Analysis hook installed")
+            except Exception as e:
+                send_log("warning", f"Failed to install Post Analysis hook: {e}")
+
+        send_log("info", f"🤖 AI hooks installed: smartComments={ai_cfg.get('smartComments')}, profileAnalysis={ai_cfg.get('profileAnalysis')}, postAnalysis={ai_cfg.get('postAnalysis')}")
+
     def start_media_capture(self) -> bool:
         """Start the media capture service for intercepting Instagram images."""
         if not self.media_capture_enabled:

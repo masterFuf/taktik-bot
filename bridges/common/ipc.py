@@ -222,3 +222,66 @@ class IPC:
     def dm_sent(self, conversation: str, success: bool, error: str = None) -> None:
         """Send DM sent result."""
         self.send("dm_sent", conversation=conversation, success=success, error=error)
+
+    # ------------------------------------------------------------------
+    # AI event helpers (consumed by AgentPanel via useAgentEvents)
+    # ------------------------------------------------------------------
+
+    def ai_profile_analyzing(self, username: str, prompt: str = None, model: str = None,
+                              image_url: str = None) -> None:
+        """Signal that AI profile classification has started."""
+        data = dict(username=username, target_username=username,
+                    prompt=prompt, model=model, workflow_type="automation")
+        if image_url:
+            data["image"] = image_url
+        self.send("ai_profile_start", **data)
+
+    def ai_profile_analyzed(self, username: str, result: str, duration_ms: int = 0,
+                            model: str = None, provider: str = None, cost_usd: float = None,
+                            event_id: str = None) -> None:
+        """Signal that AI profile classification is done."""
+        data = dict(username=username, target_username=username, result=result,
+                    duration_ms=duration_ms, model=model, provider=provider,
+                    workflow_type="automation")
+        if event_id:
+            data["event_id"] = event_id
+        if cost_usd is not None:
+            data["cost_usd"] = cost_usd
+        self.send("ai_profile_done", **data)
+
+    def ai_screenshot_analyzing(self, username: str = None, prompt: str = None, model: str = None,
+                                  image_url: str = None) -> None:
+        """Signal that AI screenshot/post analysis has started."""
+        data = dict(target_username=username, prompt=prompt, model=model, workflow_type="automation")
+        if image_url:
+            data["image"] = image_url
+        self.send("ai_screenshot_start", **data)
+
+    def ai_screenshot_analyzed(self, result: str, username: str = None, duration_ms: int = 0,
+                               model: str = None, provider: str = None, cost_usd: float = None) -> None:
+        """Signal that AI screenshot/post analysis is done."""
+        data = dict(target_username=username, result=result,
+                    duration_ms=duration_ms, model=model, provider=provider,
+                    workflow_type="automation")
+        if cost_usd is not None:
+            data["cost_usd"] = cost_usd
+        self.send("ai_screenshot_done", **data)
+
+    def ai_comment_generating(self, username: str, prompt: str = None, model: str = None) -> None:
+        """Signal that AI smart comment generation has started."""
+        self.send("ai_comment_start", target_username=username,
+                  prompt=prompt, model=model, workflow_type="automation")
+
+    def ai_comment_ready(self, username: str, comment: str, duration_ms: int = 0,
+                         model: str = None, provider: str = None, cost_usd: float = None) -> None:
+        """Signal that AI smart comment is ready."""
+        data = dict(target_username=username, comment=comment, result=comment,
+                    duration_ms=duration_ms, model=model, provider=provider,
+                    workflow_type="automation")
+        if cost_usd is not None:
+            data["cost_usd"] = cost_usd
+        self.send("ai_comment_done", **data)
+
+    def ai_error(self, error: str, username: str = None) -> None:
+        """Signal an AI processing error."""
+        self.send("ai_error", error=error, target_username=username, workflow_type="automation")
