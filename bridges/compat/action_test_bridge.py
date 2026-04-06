@@ -20,6 +20,49 @@ import time
 import traceback
 from loguru import logger
 
+
+# =============================================================================
+# Selector tracing
+# =============================================================================
+
+class SelectorTracer:
+    """Records every XPath selector check performed during an action."""
+
+    def __init__(self):
+        self.traces: list[dict] = []
+
+    def record(self, xpath_str: str, found: bool) -> None:
+        self.traces.append({"xpath": xpath_str, "found": found})
+        icon = "✓" if found else "✗"
+        short = xpath_str if len(xpath_str) <= 80 else "…" + xpath_str[-77:]
+        _log("debug", f"[selector] {icon} {short}")
+
+
+class _TracedSelector:
+    """Wraps a uiautomator2 XPathSelector and records .exists checks."""
+
+    __slots__ = ('_o', '_xpath', '_tracer')
+
+    def __init__(self, original, xpath_str: str, tracer: SelectorTracer):
+        object.__setattr__(self, '_o', original)
+        object.__setattr__(self, '_xpath', xpath_str)
+        object.__setattr__(self, '_tracer', tracer)
+
+    @property
+    def exists(self) -> bool:
+        o = object.__getattribute__(self, '_o')
+        t = object.__getattribute__(self, '_tracer')
+        x = object.__getattribute__(self, '_xpath')
+        result = o.exists
+        t.record(x, result)
+        return result
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, '_o'), name)
+
+    def __bool__(self):
+        return bool(object.__getattribute__(self, '_o'))
+
 # Force UTF-8 on Windows to avoid UnicodeEncodeError with emojis
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -60,7 +103,7 @@ def _action(action_id: str):
 
 @_action("popups.is_comment_open")
 def check_comment_popup(a, p):
-    result = a.comment._is_comments_view_open()
+    result = a.popup._is_comments_view_open()
     logger.info(f"Comment popup open: {result}")
     return result
 
@@ -70,22 +113,22 @@ def close_comment_popup(a, p):
 
 @_action("popups.is_likers_open")
 def check_likers_popup(a, p):
-    result = a.click._is_likers_popup_open()
+    result = a.popup._is_likers_popup_open()
     logger.info(f"Likers popup open: {result}")
     return result
 
 @_action("popups.close_likers")
 def close_likers_popup(a, p):
-    a.click._close_likers_popup()
-    return not a.click._is_likers_popup_open()
+    a.popup._close_likers_popup()
+    return not a.popup._is_likers_popup_open()
 
 @_action("popups.close_by_swipe")
 def close_popup_swipe(a, p):
-    return a.click._close_popup_by_swipe_down()
+    return a.popup._close_popup_by_swipe_down()
 
 @_action("popups.close_follow_suggestions")
 def close_follow_suggestions(a, p):
-    a.click._handle_follow_suggestions_popup()
+    a.popup._handle_follow_suggestions_popup()
     return True
 
 @_action("popups.press_back")
@@ -382,16 +425,18 @@ def _build_action_bundle(device_facade):
     from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
     from taktik.core.social_media.instagram.actions.atomic.text import TextActions
     from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+    from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
     logger.info("Building action bundle...")
     bundle = ActionBundle()
-    bundle.device   = device_facade
-    bundle.nav      = NavigationActions(device_facade)
+    bundle.device    = device_facade
+    bundle.nav       = NavigationActions(device_facade)
     bundle.detection = DetectionActions(device_facade)
-    bundle.click    = ClickActions(device_facade)
-    bundle.scroll   = ScrollActions(device_facade)
-    bundle.kb       = TextActions(device_facade)
-    bundle.comment  = CommentAction(device_facade)
+    bundle.click     = ClickActions(device_facade)
+    bundle.scroll    = ScrollActions(device_facade)
+    bundle.kb        = TextActions(device_facade)
+    bundle.comment   = CommentAction(device_facade)
+    bundle.popup     = BaseBusinessAction(device_facade)
     logger.info("Action bundle ready")
     return bundle
 
@@ -455,18 +500,38 @@ def main():
         _emit({"type": "result", "success": False, "message": f"Action init failed: {e}\n{traceback.format_exc()}"})
         sys.exit(1)
 
+    # Install selector tracer — monkey-patch the underlying u2 device.xpath
+    tracer = SelectorTracer()
+    _original_xpath = device_facade._device.xpath
+
+    def _traced_xpath(expr, *args, **kwargs):
+        return _TracedSelector(_original_xpath(expr, *args, **kwargs), expr, tracer)
+
+    device_facade._device.xpath = _traced_xpath
+
     # Execute the action
     try:
         fn = ACTION_REGISTRY[action_id]
         result = fn(bundle, params)
         success = bool(result)
         msg = f"Action '{action_id}' {'succeeded' if success else 'failed'}"
-        logger.info(f"{'✅' if success else '❌'} {msg}")
-        _emit({"type": "result", "success": success, "message": msg})
+        matched = sum(1 for t in tracer.traces if t["found"])
+        logger.info(f"{'✅' if success else '❌'} {msg} — selectors: {matched}/{len(tracer.traces)} matched")
+        _emit({
+            "type": "result",
+            "success": success,
+            "message": msg,
+            "selector_traces": tracer.traces,
+        })
     except Exception as e:
         tb = traceback.format_exc()
         logger.error(f"Action '{action_id}' raised exception: {e}\n{tb}")
-        _emit({"type": "result", "success": False, "message": f"Exception: {e}"})
+        _emit({
+            "type": "result",
+            "success": False,
+            "message": f"Exception: {e}",
+            "selector_traces": tracer.traces,
+        })
         sys.exit(1)
 
 
