@@ -62,6 +62,15 @@ class InteractionEngineMixin:
                     result['comments'] = likes_result.get('posts_commented', 0)
                     if result['likes'] > 0 or result['comments'] > 0:
                         result['actually_interacted'] = True
+
+                    # Skip profile if we couldn't reach the minimum likes threshold
+                    min_likes = config.get('min_likes_per_profile', 1)
+                    if should_like and result['likes'] < min_likes:
+                        self.logger.info(
+                            f"⏭️ @{username} skipped: only {result['likes']}/{min_likes} min likes possible (not enough posts)"
+                        )
+                        return {'likes': 0, 'follows': 0, 'comments': 0,
+                                'stories': 0, 'stories_liked': 0, 'actually_interacted': False}
                     
                     # IPC event for likes (so frontend WorkflowAnalyzer can track)
                     if result['likes'] > 0:

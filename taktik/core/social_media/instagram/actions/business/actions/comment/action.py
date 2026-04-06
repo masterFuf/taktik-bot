@@ -58,7 +58,7 @@ class CommentAction(BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
-            time.sleep(random.uniform(1, 2))
+            time.sleep(random.uniform(2, 4))
             
             if not self._type_comment(comment_text):
                 self.logger.error("Failed to type comment")
