@@ -35,6 +35,13 @@ class ProblematicPageDetector:
         # Utiliser les patterns centralisés depuis selectors.py
         self.detection_patterns = PROBLEMATIC_PAGE_SELECTORS.detection_patterns
     
+    def _swipe(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.3):
+        """Swipe compatible with both DeviceFacade and raw u2 Device."""
+        if hasattr(self.device, 'swipe_coordinates'):
+            self.device.swipe_coordinates(x1, y1, x2, y2, duration)
+        else:
+            self.device.swipe(x1, y1, x2, y2, duration=duration)
+    
     def _get_ui_content(self, context: str = "detection") -> Optional[str]:
         """Get UI content based on debug mode."""
         if self.debug_mode:
@@ -253,7 +260,7 @@ class ProblematicPageDetector:
                     screen_height = info.get('displayHeight', 1920)
 
                     handle_swiped = False
-                    for sel in [{'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'}]:
+                    for sel in [{'resourceIdMatches': '.*bottom_sheet_drag_handle_prism'}]:
                         try:
                             el = self.device(**sel)
                             if el.exists():
@@ -265,7 +272,7 @@ class ProblematicPageDetector:
                                     if hy >= int(screen_height * 0.10):
                                         end_y = int(screen_height * 0.95)
                                         logger.info(f"swipe_down handle found: ({hx},{hy}) → ({hx},{end_y})")
-                                        self.device.swipe_coordinates(hx, hy, hx, end_y, 0.3)
+                                        self._swipe(hx, hy, hx, end_y, 0.3)
                                         handle_swiped = True
                                     else:
                                         logger.info(f"Handle in top 10% (y={hy}), using press back instead")
@@ -281,7 +288,7 @@ class ProblematicPageDetector:
                         start_y = int(screen_height * 0.50)
                         end_y = int(screen_height * 0.92)
                         logger.info(f"swipe_down fallback: ({start_x},{start_y}) → ({start_x},{end_y})")
-                        self.device.swipe_coordinates(start_x, start_y, start_x, end_y, 0.3)
+                        self._swipe(start_x, start_y, start_x, end_y, 0.3)
                 
                 elif method == 'swipe_down_handle':
                     # Méthode spécifique pour le trait gris (handle) - cibler l'élément directement
@@ -306,7 +313,7 @@ class ProblematicPageDetector:
                                         self.device.press('back')
                                     else:
                                         logger.info(f"Swipe handle: ({handle_x},{handle_y}) → ({handle_x},{end_y})")
-                                        self.device.swipe_coordinates(handle_x, handle_y, handle_x, end_y, 0.3)
+                                        self._swipe(handle_x, handle_y, handle_x, end_y, 0.3)
                                     handle_found = True
                                     break
                         except Exception:
@@ -318,7 +325,7 @@ class ProblematicPageDetector:
                         handle_y = int(screen_height * 0.50)
                         end_y = int(screen_height * 0.92)
                         logger.info(f"Swipe handle approximatif: ({handle_x},{handle_y}) → ({handle_x},{end_y})")
-                        self.device.swipe_coordinates(handle_x, handle_y, handle_x, end_y, 0.3)
+                        self._swipe(handle_x, handle_y, handle_x, end_y, 0.3)
                 
                 elif method == 'terminate_button':
                     if not self._click_button_from_selectors(
@@ -348,6 +355,13 @@ class ProblematicPageDetector:
                         {'text': 'Allow'},
                     ]
                     if not self._click_button_from_selectors(allow_selectors, "Allow permission"):
+                        continue
+                
+                elif method == 'ad_consent_flow':
+                    # Meta Ad Consent popup: 2-page flow
+                    # Page 1: Select "Use free of charge with ads" → Click "Continue"
+                    # Page 2: Click "Agree"
+                    if not self._handle_ad_consent_flow():
                         continue
                 
                 # Attendre moins longtemps pour accélérer le processus
@@ -390,6 +404,83 @@ class ProblematicPageDetector:
             logger.error(f"Erreur lors de la vérification de fermeture: {e}")
             return False
     
+    def _handle_ad_consent_flow(self) -> bool:
+        """Handle the Meta ad consent 2-page flow.
+        
+        Page 1: Select "Use free of charge with ads" -> Click "Continue"
+        Page 2: Click "Agree"
+        
+        Returns True if the flow was completed successfully.
+        """
+        try:
+            # Page 1: Click "Use free of charge with ads" radio option
+            free_option_selectors = POPUP_SELECTORS.ad_consent_free_option
+            for sel in free_option_selectors:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    logger.info("✅ Selected 'Use free of charge with ads'")
+                    time.sleep(1)
+                    break
+            
+            # Page 1: Click "Continue"
+            continue_selectors = POPUP_SELECTORS.ad_consent_continue_button
+            clicked_continue = False
+            for sel in continue_selectors:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    logger.info("✅ Clicked Continue on ad consent page 1")
+                    clicked_continue = True
+                    time.sleep(2)
+                    break
+            
+            if not clicked_continue:
+                logger.warning("⚠️ Could not find Continue button on ad consent page 1")
+                return False
+            
+            # Page 2: Click "Agree"
+            agree_selectors = POPUP_SELECTORS.ad_consent_agree_button
+            for sel in agree_selectors:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    logger.info("✅ Ad consent popup dismissed (clicked Agree)")
+                    time.sleep(1.5)
+                    return True
+            
+            # Page 2 may not have appeared yet, wait a bit more
+            time.sleep(1)
+            for sel in agree_selectors:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    logger.info("✅ Ad consent popup dismissed (clicked Agree, retry)")
+                    time.sleep(1.5)
+                    break
+            
+            # Page 3: "You can manage your ad experience" → Click OK
+            time.sleep(1)
+            page3_selectors = POPUP_SELECTORS.ad_consent_page3_indicators
+            for sel in page3_selectors:
+                if self.device.xpath(sel).exists:
+                    logger.info("🪟 Meta ad consent page 3 (ad experience) detected")
+                    ok_selectors = POPUP_SELECTORS.ad_consent_ok_button
+                    for ok_sel in ok_selectors:
+                        el = self.device.xpath(ok_sel)
+                        if el.exists:
+                            el.click()
+                            logger.info("✅ Ad experience page dismissed (clicked OK)")
+                            time.sleep(1.5)
+                            return True
+                    break
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error in ad consent flow: {e}")
+            return False
+
     def monitor_and_handle_continuously(self, check_interval: int = 5) -> None:
         """
         Surveille en continu les pages problématiques et les ferme automatiquement.

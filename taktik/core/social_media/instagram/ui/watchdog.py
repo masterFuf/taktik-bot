@@ -35,7 +35,7 @@ _OVERLAY_SIGNATURES = [
         "name": "comments_popup",
         "label": "Comments popup",
         "indicators": [
-            'resource-id="com.instagram.android:id/sticky_header_list"',
+            'id/sticky_header_list"',
             'text="Comments"',
             'content-desc="Add a comment"',
         ],
@@ -46,8 +46,8 @@ _OVERLAY_SIGNATURES = [
         "name": "follow_options_bottom_sheet",
         "label": "Follow options bottom sheet",
         "indicators": [
-            'resource-id="com.instagram.android:id/bottom_sheet_container"',
-            'resource-id="com.instagram.android:id/background_dimmer"',
+            'id/bottom_sheet_container"',
+            'id/background_dimmer"',
         ],
         "min_matches": 2,
         "recovery": ["back", "tap_outside"],
@@ -56,7 +56,7 @@ _OVERLAY_SIGNATURES = [
         "name": "share_bottom_sheet",
         "label": "Share bottom sheet",
         "indicators": [
-            'resource-id="com.instagram.android:id/bottom_sheet_container"',
+            'id/bottom_sheet_container"',
             'text="Share"',
         ],
         "min_matches": 2,
@@ -98,7 +98,7 @@ _OVERLAY_SIGNATURES = [
         "name": "generic_bottom_sheet",
         "label": "Bottom sheet overlay",
         "indicators": [
-            'resource-id="com.instagram.android:id/bottom_sheet_container"',
+            'id/bottom_sheet_container"',
         ],
         "min_matches": 1,
         "recovery": ["back", "swipe_down"],

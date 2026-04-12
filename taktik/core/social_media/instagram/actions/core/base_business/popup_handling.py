@@ -128,3 +128,109 @@ class PopupHandlingMixin:
                 
         except Exception as e:
             self.logger.debug(f"Error handling suggestions popup: {e}")
+
+    def _is_ad_consent_popup_open(self) -> bool:
+        """Check if the Meta ad consent popup (page 1 or 2) is visible."""
+        try:
+            for indicator in self.popup_selectors.ad_consent_page1_indicators:
+                if self._is_element_present([indicator]):
+                    return True
+            for indicator in self.popup_selectors.ad_consent_page2_indicators:
+                if self._is_element_present([indicator]):
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _handle_ad_consent_popup(self) -> bool:
+        """Handle the Meta ad consent popup (2-page flow).
+        
+        Page 1: Select "Use free of charge with ads" → Click "Continue"
+        Page 2: Click "Agree"
+        
+        Returns True if the popup was detected and handled.
+        """
+        try:
+            # --- Page 1 detection ---
+            page1_detected = False
+            for indicator in self.popup_selectors.ad_consent_page1_indicators:
+                if self._is_element_present([indicator]):
+                    page1_detected = True
+                    break
+            
+            if page1_detected:
+                self.logger.info("🪟 Meta ad consent popup detected (page 1)")
+                
+                # Click "Use free of charge with ads" radio option
+                if self._find_and_click(self.popup_selectors.ad_consent_free_option, timeout=3):
+                    self.logger.debug("✅ Selected 'Use free of charge with ads'")
+                    time.sleep(1)
+                else:
+                    self.logger.warning("⚠️ Could not find free option, trying Continue directly")
+                
+                # Click "Continue"
+                if self._find_and_click(self.popup_selectors.ad_consent_continue_button, timeout=5):
+                    self.logger.debug("✅ Clicked Continue")
+                    time.sleep(2)
+                else:
+                    self.logger.warning("⚠️ Could not click Continue on ad consent page 1")
+                    return False
+            
+            # --- Page 2 detection ---
+            page2_detected = False
+            for indicator in self.popup_selectors.ad_consent_page2_indicators:
+                if self._is_element_present([indicator]):
+                    page2_detected = True
+                    break
+            
+            # Also check if we just navigated from page 1
+            if not page2_detected and page1_detected:
+                # Wait a bit and re-check after clicking Continue
+                time.sleep(1)
+                for indicator in self.popup_selectors.ad_consent_page2_indicators:
+                    if self._is_element_present([indicator]):
+                        page2_detected = True
+                        break
+            
+            if page2_detected:
+                self.logger.info("🪟 Meta ad consent popup detected (page 2)")
+                
+                # Click "Agree"
+                if self._find_and_click(self.popup_selectors.ad_consent_agree_button, timeout=5):
+                    self.logger.info("✅ Ad consent popup dismissed (clicked Agree)")
+                    time.sleep(1.5)
+                    return True
+                else:
+                    self.logger.warning("⚠️ Could not click Agree on ad consent page 2")
+                    return False
+            
+            if page1_detected:
+                # Page 1 was handled but page 2 didn't appear
+                return True
+            
+            # --- Page 3: "You can manage your ad experience" → Click OK ---
+            page3_detected = False
+            for indicator in self.popup_selectors.ad_consent_page3_indicators:
+                if self._is_element_present([indicator]):
+                    page3_detected = True
+                    break
+            
+            if not page3_detected and (page1_detected or page2_detected):
+                time.sleep(1)
+                for indicator in self.popup_selectors.ad_consent_page3_indicators:
+                    if self._is_element_present([indicator]):
+                        page3_detected = True
+                        break
+            
+            if page3_detected:
+                self.logger.info("🪟 Meta ad consent popup detected (page 3 — ad experience)")
+                if self._find_and_click(self.popup_selectors.ad_consent_ok_button, timeout=5):
+                    self.logger.info("✅ Ad experience page dismissed (clicked OK)")
+                    time.sleep(1.5)
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"❌ Error handling ad consent popup: {e}")
+            return False

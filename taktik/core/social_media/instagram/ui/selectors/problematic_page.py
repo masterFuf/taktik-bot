@@ -62,7 +62,7 @@ class ProblematicPageSelectors:
             'close_methods': ['terminate_button', 'back_button', 'tap_outside']
         },
         'message_contacts_page': {
-            'indicators': ['Write a message...', 'Écrivez un message…', 'Send separately', 'Envoyer', 'Search', 'Rechercher', 
+            'indicators': ['Write a message...', 'Écrivez un message…', 'Send separately', 'Envoyer',
                           'Discussion non sélectionnée', 'New group', 'Nouveau groupe', 
                           'direct_private_share_container_view', 'direct_share_sheet_grid_view_pog'],
             'close_methods': ['swipe_down_handle', 'tap_outside', 'back_button']
@@ -110,6 +110,24 @@ class ProblematicPageSelectors:
                           'Autoriser', 'AUTORISER', 'Allow', 'ALLOW', 'accéder aux photos',
                           'access to photos', 'contenus multimédias', 'media files'],
             'close_methods': ['allow_permission_button', 'back_button']
+        },
+        'meta_ad_consent': {
+            'indicators': ['free of charge with ads', 'gratuitement avec des publicités',
+                          'Want to subscribe', 'Vous souhaitez vous abonner',
+                          'Subscribe to use without ads', 'without ads'],
+            'close_methods': ['ad_consent_flow']
+        },
+        'meta_ad_experience': {
+            'indicators': ['manage your ad experience', 'gérer votre expérience publicitaire',
+                          'Personalized ads', 'Publicités personnalisées',
+                          'Less-personalized ads', 'Continue with personalized ads'],
+            'close_methods': ['ok_button', 'back_button']
+        },
+        'instagram_map_popup': {
+            'indicators': ['Introducing the Instagram map', 'Présentation de la carte Instagram',
+                          'Explore the map', 'Explorer la carte',
+                          'not sharing your location', 'ne partagez pas votre position'],
+            'close_methods': ['not_now_button', 'back_button']
         }
     })
 

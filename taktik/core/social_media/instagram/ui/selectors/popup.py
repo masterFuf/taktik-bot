@@ -141,5 +141,63 @@ class PopupSelectors:
         '//*[contains(@text, "Confirmer")]',
         '//*[contains(@text, "Confirm")]'
     ])
+    
+    # === Meta Ad Consent popup (2-page flow) ===
+    # Page 1: "Want to subscribe or continue using our products free of charge with ads?"
+    ad_consent_page1_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "free of charge with ads")]',
+        '//*[contains(@text, "gratuitement avec des publicités")]',
+        '//*[contains(@text, "Want to subscribe")]',
+        '//*[contains(@text, "Vous souhaitez vous abonner")]',
+        '//*[contains(@text, "Subscribe to use without ads")]',
+        '//*[contains(@text, "without ads")]',
+    ])
+    
+    # Radio button "Use free of charge with ads" (ViewGroup, no text/resource-id)
+    ad_consent_free_option: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Use free of charge with ads")]',
+        '//*[contains(@text, "Utiliser gratuitement avec des publicités")]',
+        '//*[contains(@content-desc, "Use free of charge with ads")]',
+        '//*[contains(@content-desc, "Utiliser gratuitement avec des publicités")]',
+    ])
+    
+    # "Continue" button on page 1
+    ad_consent_continue_button: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="Continue"]',
+        '//*[@content-desc="Continuer"]',
+        '//*[@text="Continue"]',
+        '//*[@text="Continuer"]',
+    ])
+    
+    # Page 2: "To use our products free of charge with ads, agree to Meta processing your data..."
+    ad_consent_page2_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "agree to Meta processing")]',
+        '//*[contains(@text, "acceptez que Meta traite")]',
+        '//*[contains(@text, "How we process your data for ads")]',
+        '//*[contains(@text, "Comment nous traitons vos données")]',
+    ])
+    
+    # "Agree" button on page 2
+    ad_consent_agree_button: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="Agree"]',
+        '//*[@content-desc="Accepter"]',
+        '//*[@text="Agree"]',
+        '//*[@text="Accepter"]',
+    ])
+    
+    # Page 3: "You can manage your ad experience" — just click OK
+    ad_consent_page3_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "manage your ad experience")]',
+        '//*[contains(@text, "gérer votre expérience publicitaire")]',
+        '//*[contains(@text, "Personalized ads")]',
+        '//*[contains(@text, "Publicités personnalisées")]',
+        '//*[contains(@text, "Less-personalized ads")]',
+    ])
+    
+    ad_consent_ok_button: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="OK"]',
+        '//*[@text="OK"]',
+        '//*[@text="Ok"]',
+    ])
 
 POPUP_SELECTORS = PopupSelectors()
