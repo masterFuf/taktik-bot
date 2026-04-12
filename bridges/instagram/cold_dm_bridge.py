@@ -2,6 +2,7 @@
 """
 Cold DM Bridge - Interface between Electron and Cold DM Workflow
 Sends DMs to a list of recipients (cold outreach)
+Supports AI-generated personalized messages via OpenRouter.
 """
 
 import sys
@@ -9,6 +10,8 @@ import json
 import time
 import random
 import os
+import urllib.request
+import urllib.error
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
@@ -35,6 +38,8 @@ def record_sent_dm(account_id: int, recipient_username: str, message: str, succe
 class ColdDMWorkflow(InstagramBridgeBase):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
     
+    OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+    
     def __init__(self, device_id: str):
         super().__init__(device_id)
         self._keyboard = KeyboardService(device_id)
@@ -43,6 +48,56 @@ class ColdDMWorkflow(InstagramBridgeBase):
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
+    
+    def generate_ai_message(self, username: str, ai_prompt: str, openrouter_api_key: str) -> str:
+        """Generate a personalized DM message for a user via OpenRouter."""
+        try:
+            system_prompt = """Tu es un expert en cold outreach Instagram. Tu génères des messages directs personnalisés, naturels et engageants.
+
+Règles:
+- Message court (1-3 phrases max)
+- Ton amical et professionnel
+- Pas de spam, pas de messages génériques
+- Adapte le message au contexte donné
+- Ne mentionne jamais que tu es une IA
+- Réponds UNIQUEMENT avec le texte du message, rien d'autre"""
+
+            user_prompt = f"""Génère un message de prospection Instagram pour @{username}.
+
+Instructions spécifiques:
+{ai_prompt}
+
+Le message doit être unique et personnalisé. Réponds uniquement avec le texte du message."""
+
+            headers = {
+                "Authorization": f"Bearer {openrouter_api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://taktik-bot.com",
+                "X-Title": "TAKTIK Bot",
+            }
+            body = json.dumps({
+                "model": "anthropic/claude-3.5-haiku",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": 0.8,
+                "max_tokens": 200,
+            }).encode("utf-8")
+
+            req = urllib.request.Request(self.OPENROUTER_API_URL, data=body, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                choice = data.get("choices", [{}])[0]
+                message = choice.get("message", {}).get("content", "").strip()
+                # Remove surrounding quotes if present
+                if message.startswith('"') and message.endswith('"'):
+                    message = message[1:-1]
+                logger.info(f"AI generated message for @{username}: {message[:50]}...")
+                return message
+        except Exception as e:
+            logger.error(f"AI message generation failed for @{username}: {e}")
+            return ""
     
     def navigate_to_search(self) -> bool:
         """Navigate to the search/explore tab."""
@@ -311,12 +366,13 @@ class ColdDMWorkflow(InstagramBridgeBase):
         
         return False
     
-    def run(self, recipients: list, messages: list, delay_min: int = 30, delay_max: int = 60, max_dms: int = 50, account_id: int = 1, session_id: str = None) -> dict:
+    def run(self, recipients: list, messages: list, delay_min: int = 30, delay_max: int = 60, max_dms: int = 50, account_id: int = 1, session_id: str = None, ai_prompt: str = '', openrouter_api_key: str = '') -> dict:
         """Run the cold DM workflow."""
-        logger.info(f"Starting Cold DM workflow: {len(recipients)} recipients, {len(messages)} messages")
+        use_ai = bool(ai_prompt and openrouter_api_key)
+        logger.info(f"Starting Cold DM workflow: {len(recipients)} recipients, {len(messages)} messages, AI mode: {use_ai}")
         
-        if not messages:
-            return {'success': False, 'error': 'No messages provided'}
+        if not messages and not use_ai:
+            return {'success': False, 'error': 'No messages provided and AI mode not configured'}
         
         if not recipients:
             return {'success': False, 'error': 'No recipients provided'}
@@ -388,8 +444,16 @@ class ColdDMWorkflow(InstagramBridgeBase):
                     self.go_home()  # Reset to home
                     continue
                 
-                # Pick a random message
-                message = random.choice(messages)
+                # Pick a message (AI-generated or random from list)
+                if use_ai:
+                    message = self.generate_ai_message(recipient, ai_prompt, openrouter_api_key)
+                    if not message:
+                        logger.warning(f"AI generation failed for @{recipient}, skipping")
+                        self.dms_failed += 1
+                        self.go_home()
+                        continue
+                else:
+                    message = random.choice(messages)
                 
                 # Send message
                 send_result = self.send_message(message)
@@ -464,11 +528,17 @@ def main():
         max_dms = config.get('maxDmsPerSession', 50)
         account_id = config.get('accountId', 1)  # Default to account 1
         session_id = config.get('sessionId', device_id)  # Use device_id as session identifier
+        ai_prompt = config.get('aiPrompt', '')
+        openrouter_api_key = config.get('openrouterApiKey', '')
         
-        logger.info(f"Cold DM config: {len(recipients)} recipients, {len(messages)} messages")
+        message_mode = config.get('messageMode', 'manual')
+        if message_mode == 'ai' and not openrouter_api_key:
+            logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
+        
+        logger.info(f"Cold DM config: {len(recipients)} recipients, {len(messages)} messages, mode: {message_mode}")
         
         # Run workflow with duplicate checking
-        result = workflow.run(recipients, messages, delay_min, delay_max, max_dms, account_id, session_id)
+        result = workflow.run(recipients, messages, delay_min, delay_max, max_dms, account_id, session_id, ai_prompt, openrouter_api_key)
         
         # Output result as JSON for Electron to parse
         print(json.dumps({

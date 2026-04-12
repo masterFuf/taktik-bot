@@ -238,7 +238,8 @@ class IPC:
 
     def ai_profile_analyzed(self, username: str, result: str, duration_ms: int = 0,
                             model: str = None, provider: str = None, cost_usd: float = None,
-                            event_id: str = None) -> None:
+                            event_id: str = None, classification: dict = None,
+                            screenshot: str = None) -> None:
         """Signal that AI profile classification is done."""
         data = dict(username=username, target_username=username, result=result,
                     duration_ms=duration_ms, model=model, provider=provider,
@@ -247,6 +248,10 @@ class IPC:
             data["event_id"] = event_id
         if cost_usd is not None:
             data["cost_usd"] = cost_usd
+        if classification is not None:
+            data["classification"] = classification
+        if screenshot is not None:
+            data["screenshot"] = screenshot
         self.send("ai_profile_done", **data)
 
     def ai_screenshot_analyzing(self, username: str = None, prompt: str = None, model: str = None,
@@ -258,13 +263,16 @@ class IPC:
         self.send("ai_screenshot_start", **data)
 
     def ai_screenshot_analyzed(self, result: str, username: str = None, duration_ms: int = 0,
-                               model: str = None, provider: str = None, cost_usd: float = None) -> None:
+                               model: str = None, provider: str = None, cost_usd: float = None,
+                               screenshot: str = None) -> None:
         """Signal that AI screenshot/post analysis is done."""
         data = dict(target_username=username, result=result,
                     duration_ms=duration_ms, model=model, provider=provider,
                     workflow_type="automation")
         if cost_usd is not None:
             data["cost_usd"] = cost_usd
+        if screenshot is not None:
+            data["screenshot"] = screenshot
         self.send("ai_screenshot_done", **data)
 
     def ai_comment_generating(self, username: str, prompt: str = None, model: str = None) -> None:

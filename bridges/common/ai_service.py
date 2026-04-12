@@ -237,10 +237,13 @@ Respond ONLY with valid JSON in this exact format:
             result_text += f" · {summary}"
 
         if self.ipc:
+            screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=800)
             self.ipc.ai_profile_analyzed(
                 username=username, result=result_text, duration_ms=duration_ms,
                 model=result.get("model"), provider="openrouter",
                 cost_usd=result.get("cost_usd"),
+                classification=classification,
+                screenshot=screenshot_b64,
             )
 
         return {
@@ -284,10 +287,12 @@ No markdown formatting."""
         description = result["text"]
 
         if self.ipc:
+            screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=600)
             self.ipc.ai_screenshot_analyzed(
                 result=description[:200], username=username, duration_ms=duration_ms,
                 model=result.get("model"), provider="openrouter",
                 cost_usd=result.get("cost_usd"),
+                screenshot=screenshot_b64,
             )
 
         return {

@@ -10,8 +10,8 @@ class DMAutoReplyConfig:
     """Configuration pour le workflow de réponse automatique."""
     
     # === API Configuration ===
-    fal_api_key: str = ""
-    llm_model: str = "meta-llama/llama-3.2-3b-instruct"  # Modèle par défaut sur fal.ai
+    openrouter_api_key: str = ""
+    llm_model: str = "anthropic/claude-3.5-haiku"  # Modèle par défaut sur OpenRouter
     
     # === Persona & Contexte ===
     persona_name: str = ""

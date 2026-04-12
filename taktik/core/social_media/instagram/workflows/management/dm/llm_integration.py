@@ -1,12 +1,16 @@
 """LLM integration: context building, API calls, response cleaning, message filtering."""
 
-import httpx
+import json
+import urllib.request
+import urllib.error
 from typing import Optional
 from .auto_reply_models import DMAutoReplyConfig
 
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
 
 class DMLLMIntegrationMixin:
-    """Mixin: LLM context building, fal.ai API call, response cleaning, message filtering."""
+    """Mixin: LLM context building, OpenRouter API call, response cleaning, message filtering."""
 
     def _message_matches_filters(self, message: str, config: DMAutoReplyConfig) -> bool:
         """Vérifier si le message passe les filtres."""
@@ -58,7 +62,7 @@ class DMLLMIntegrationMixin:
         config: DMAutoReplyConfig
     ) -> Optional[str]:
         """
-        Générer une réponse via fal.ai LLM.
+        Générer une réponse via OpenRouter LLM.
         
         Args:
             message: Message reçu
@@ -71,44 +75,46 @@ class DMLLMIntegrationMixin:
         try:
             self.logger.debug(f"Generating reply with LLM for: {message[:50]}...")
             
-            # Construire le prompt
-            full_prompt = f"""{config.system_prompt}
-
-{context}
-
-User message: {message}
-
-Your reply (keep it natural and concise):"""
+            # Construire les messages pour l'API OpenRouter
+            messages = [
+                {"role": "system", "content": config.system_prompt},
+                {"role": "user", "content": f"{context}\n\nUser message: {message}\n\nYour reply (keep it natural and concise):"}
+            ]
             
-            # Appel à fal.ai
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    "https://fal.run/fal-ai/lora",
-                    headers={
-                        "Authorization": f"Key {config.fal_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model_name": config.llm_model,
-                        "prompt": full_prompt,
-                        "max_tokens": 150,
-                        "temperature": 0.7
-                    }
-                )
+            headers = {
+                "Authorization": f"Bearer {config.openrouter_api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://taktik-bot.com",
+                "X-Title": "TAKTIK Bot",
+            }
+            body = json.dumps({
+                "model": config.llm_model,
+                "messages": messages,
+                "max_tokens": 150,
+                "temperature": 0.7,
+            }).encode("utf-8")
+            
+            req = urllib.request.Request(OPENROUTER_API_URL, data=body, headers=headers, method="POST")
+            
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                choice = data.get("choices", [{}])[0]
+                reply = choice.get("message", {}).get("content", "").strip()
                 
-                if response.status_code == 200:
-                    result = response.json()
-                    reply = result.get("output", "").strip()
+                # Nettoyer la réponse
+                reply = self._clean_llm_response(reply)
+                
+                self.logger.debug(f"LLM generated: {reply[:50]}...")
+                return reply
                     
-                    # Nettoyer la réponse
-                    reply = self._clean_llm_response(reply)
-                    
-                    self.logger.debug(f"LLM generated: {reply[:50]}...")
-                    return reply
-                else:
-                    self.logger.error(f"fal.ai API error: {response.status_code} - {response.text}")
-                    return None
-                    
+        except urllib.error.HTTPError as e:
+            error_body = ""
+            try:
+                error_body = e.read().decode("utf-8")
+            except Exception:
+                pass
+            self.logger.error(f"OpenRouter API error: {e.code} - {error_body[:300]}")
+            return None
         except Exception as e:
             self.logger.error(f"Error calling LLM: {e}")
             return None

@@ -35,10 +35,8 @@ class DMAutoReplyWorkflow(
     """
     Workflow pour répondre automatiquement aux DM via LLM.
     
-    Utilise fal.ai pour générer des réponses contextuelles et naturelles.
+    Utilise OpenRouter pour générer des réponses contextuelles et naturelles.
     """
-    
-    FAL_API_URL = "https://fal.run/fal-ai/lora"  # URL de base fal.ai
     
     def __init__(self, device_manager, nav_actions, detection_actions):
         """
@@ -89,9 +87,9 @@ class DMAutoReplyWorkflow(
         """
         self.logger.info("🤖 Starting DM Auto Reply workflow")
         
-        if not config.fal_api_key:
-            self.logger.error("fal.ai API key is required")
-            return self._get_final_results("fal.ai API key is required")
+        if not config.openrouter_api_key:
+            self.logger.error("OpenRouter API key is required")
+            return self._get_final_results("OpenRouter API key is required")
         
         self.is_running = True
         self.session_start = datetime.now()
