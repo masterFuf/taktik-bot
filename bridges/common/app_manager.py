@@ -66,6 +66,11 @@ class AppService:
         if package_override and package_override != self._config["package"]:
             logger.info(f"[AppService] Using clone package: {package_override}")
             self._config["package"] = package_override
+            # Taktik-cloner packages (com.taktik.ig*, com.taktik.tk*) don't share
+            # the same internal activity class, so skip explicit activity launch.
+            # NomixCloner preserves the original activity class, so it's fine.
+            if package_override.startswith("com.taktik."):
+                self._config["activity"] = None
 
     # ------------------------------------------------------------------
     # Public API
