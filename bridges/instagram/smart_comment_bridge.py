@@ -1576,11 +1576,13 @@ class SmartCommentBridge(InstagramBridgeBase):
         logger.info(f"Navigating to post via URL: {post_url}")
         try:
             # Use am start to open the URL in Instagram
+            from taktik.core.clone import get_active_package
+            pkg = get_active_package()
             result = subprocess.run(
                 ['adb', '-s', self.device_id, 'shell',
                  'am', 'start', '-a', 'android.intent.action.VIEW',
                  '-d', post_url,
-                 '-p', 'com.instagram.android'],
+                 '-p', pkg],
                 capture_output=True, text=True, timeout=10, encoding='utf-8', errors='replace'
             )
             logger.debug(f"am start result: {result.stdout.strip()}")

@@ -38,6 +38,13 @@ def main():
     
     logger.info(f"🎵 TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
     
+    # Network reset (get new IP before session)
+    network_reset = config.get('networkReset', {})
+    if network_reset.get('enabled', False):
+        from bridges.common.network import perform_network_reset
+        from bridges.tiktok.base import _ipc
+        perform_network_reset(device_id, method=network_reset.get('method', 'data'), ipc=_ipc)
+    
     try:
         if workflow_type == 'for_you':
             from bridges.tiktok.for_you_bridge import run_for_you_workflow

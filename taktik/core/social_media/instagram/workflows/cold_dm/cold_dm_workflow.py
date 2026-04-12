@@ -118,12 +118,15 @@ class ColdDMWorkflow:
         try:
             # Open Instagram app
             pkg = getattr(self, 'package_name', 'com.instagram.android')
-            self.device.app_start(pkg)
+            if pkg.startswith('com.taktik.'):
+                self.device.shell(['am', 'start', '-n',
+                                   f'{pkg}/com.instagram.mainactivity.LauncherActivity'])
+            else:
+                self.device.app_start(pkg)
             time.sleep(2)
             
-            # Navigate to DM via deep link
-            dm_intent = "android.intent.action.VIEW -d instagram://direct-inbox"
-            self.device.shell(f"am start -a {dm_intent}")
+            # Navigate to DM via deep link (specify package so clone opens, not original)
+            self.device.shell(f'am start -a android.intent.action.VIEW -d "instagram://direct-inbox" {pkg}')
             time.sleep(2)
             
             return True

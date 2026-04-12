@@ -43,12 +43,22 @@ class DiscoverySessionMixin:
                 # Relaunch Instagram using deep link to home feed (same approach as navigate_to_profile)
                 # Using -W flag to wait for app to fully load, and VIEW intent to properly open Instagram
                 self.logger.info("🚀 Relaunching Instagram...")
-                launch_cmd = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "https://www.instagram.com/" {pkg}'
+                
+                # Taktik-cloner packages don't register instagram.com URL intent filters,
+                # so use monkey (launcher intent) instead of deep link for those.
+                if pkg.startswith("com.taktik."):
+                    launch_cmd = f'adb -s {device_serial} shell am start -n {pkg}/com.instagram.mainactivity.LauncherActivity'
+                else:
+                    launch_cmd = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "https://www.instagram.com/" {pkg}'
                 result = subprocess.run(launch_cmd, shell=True, capture_output=True, text=True, timeout=15)
                 self.logger.info(f"✅ Instagram relaunched: {result.stdout.strip() if result.stdout else 'OK'}")
                 
                 # Small additional wait for UI to stabilize
                 time.sleep(2)
+                
+                # Handle Meta ad consent popup if it appears
+                self._handle_ad_consent_after_restart()
+                
                 console.print("[green]✅ Instagram restarted[/green]")
             else:
                 self.logger.warning("⚠️ Could not get device serial, skipping restart")
@@ -56,6 +66,70 @@ class DiscoverySessionMixin:
         except Exception as e:
             self.logger.error(f"❌ Error restarting Instagram: {e}")
             # Try to continue anyway
+
+    def _handle_ad_consent_after_restart(self):
+        """Handle Meta ad consent popup that may appear after launching Instagram.
+        
+        Page 1: Select "Use free of charge with ads" → Click "Continue"
+        Page 2: Click "Agree"
+        """
+        try:
+            from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS
+            
+            # Page 1: check for ad consent
+            page1_detected = False
+            for sel in POPUP_SELECTORS.ad_consent_page1_indicators:
+                if self.device.xpath(sel).exists:
+                    page1_detected = True
+                    break
+            
+            if not page1_detected:
+                return
+            
+            self.logger.info("🪟 Meta ad consent popup detected after restart (page 1)")
+            
+            # Click "Use free of charge with ads"
+            for sel in POPUP_SELECTORS.ad_consent_free_option:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    self.logger.debug("✅ Selected 'Use free of charge with ads'")
+                    time.sleep(1)
+                    break
+            
+            # Click "Continue"
+            for sel in POPUP_SELECTORS.ad_consent_continue_button:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    self.logger.debug("✅ Clicked Continue")
+                    time.sleep(2)
+                    break
+            
+            # Page 2: Click "Agree"
+            for sel in POPUP_SELECTORS.ad_consent_agree_button:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    self.logger.info("✅ Ad consent popup dismissed (clicked Agree)")
+                    time.sleep(1.5)
+                    break
+            
+            # Page 3: "You can manage your ad experience" → Click OK
+            for sel in POPUP_SELECTORS.ad_consent_page3_indicators:
+                if self.device.xpath(sel).exists:
+                    self.logger.info("🪟 Meta ad consent popup (page 3 — ad experience)")
+                    for ok_sel in POPUP_SELECTORS.ad_consent_ok_button:
+                        el = self.device.xpath(ok_sel)
+                        if el.exists:
+                            el.click()
+                            self.logger.info("✅ Ad experience page dismissed (clicked OK)")
+                            time.sleep(1.5)
+                            break
+                    break
+                    
+        except Exception as e:
+            self.logger.warning(f"Error handling ad consent popup: {e}")
 
     def _should_continue(self) -> bool:
         """Check if we should continue based on time limit."""

@@ -104,6 +104,24 @@ class WorkflowHelpers:
         
         self.logger.info(stats_output)
     
+    def _handle_post_restart_popups(self):
+        """Detect and dismiss popups that may appear after app restart (ad consent, etc.)."""
+        try:
+            from ...ui.detectors.problematic_page import ProblematicPageDetector
+            detector = ProblematicPageDetector(self.automation.actions.device, debug_mode=False)
+            result = detector.detect_and_handle_problematic_pages()
+            if result.get('detected'):
+                self.logger.info(f"📋 Post-restart popup detected: {result.get('page_type', 'unknown')}, closed={result.get('closed')}")
+                if result.get('closed'):
+                    time.sleep(2)
+                    # Check again in case there's a multi-page flow
+                    result2 = detector.detect_and_handle_problematic_pages()
+                    if result2.get('detected') and result2.get('closed'):
+                        self.logger.info(f"📋 Follow-up popup handled: {result2.get('page_type', 'unknown')}")
+                        time.sleep(2)
+        except Exception as e:
+            self.logger.warning(f"Post-restart popup check failed: {e}")
+
     def initialize_session(self) -> Optional[int]:
         # Always restart Instagram to ensure clean state
         # This is necessary because if Instagram is on a random page (like a profile),
@@ -117,6 +135,9 @@ class WorkflowHelpers:
             wait_time = random.randint(5, 10)
             self.logger.info(f"⏳ Waiting {wait_time}s for Instagram to fully load...")
             time.sleep(wait_time)
+            
+            # Handle any popups that appeared after restart (ad consent, etc.)
+            self._handle_post_restart_popups()
         else:
             self.logger.warning("⚠️ Failed to restart Instagram, continuing with current state")
         

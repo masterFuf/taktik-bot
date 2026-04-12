@@ -220,7 +220,7 @@ class CommentAction(BaseBusinessAction):
             # from the edittext so that subsequent KEYCODE_BACK targets the sheet.
             try:
                 title = self.device.xpath(
-                    '//*[@resource-id="com.instagram.android:id/title_text_view"]'
+                    '//*[contains(@resource-id, "title_text_view")]'
                     '[@text="Comments" or @text="Commentaires"]'
                 )
                 if title.exists:
@@ -233,7 +233,7 @@ class CommentAction(BaseBusinessAction):
                 else:
                     # Fallback defocus: click drag handle frame area (safe tap zone)
                     drag_frame = self.device.xpath(
-                        '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_frame"]'
+                        '//*[contains(@resource-id, "bottom_sheet_drag_handle_frame")]'
                     )
                     if drag_frame.exists:
                         drag_frame.click()

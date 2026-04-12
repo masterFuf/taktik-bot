@@ -15,7 +15,12 @@ class AppManagementMixin:
     
     def _open_instagram(self) -> bool:
         try:
-            self.device.app_start(get_active_package())
+            pkg = get_active_package()
+            if pkg.startswith('com.taktik.'):
+                self.device.shell(['am', 'start', '-n',
+                                   f'{pkg}/com.instagram.mainactivity.LauncherActivity'])
+            else:
+                self.device.app_start(pkg)
             self._human_like_delay('navigation')
             return self._is_instagram_open()
         except Exception as e:

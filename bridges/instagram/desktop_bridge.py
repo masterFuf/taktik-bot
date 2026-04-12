@@ -202,6 +202,11 @@ class DesktopBridge:
         self.ai_config = config.get('ai', {})
         self.ai_enabled = self.ai_config.get('enabled', False)
         self.ai_service = None
+        
+        # Network reset configuration
+        self.network_reset_config = config.get('networkReset', {})
+        self.network_reset_enabled = self.network_reset_config.get('enabled', False)
+        self.network_reset_method = self.network_reset_config.get('method', 'data')  # 'data' or 'airplane'
         if self.ai_enabled:
             api_key = self.ai_config.get('openrouterApiKey', '')
             if api_key and len(api_key) > 5:
@@ -693,9 +698,9 @@ class DesktopBridge:
 
             # ── Top boundary: post header row (profile name/avatar) ──────────
             header_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]',
-                '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
-                '//*[@resource-id="com.instagram.android:id/clips_author_info"]',
+                '//*[contains(@resource-id, "row_feed_profile_header")]',
+                '//*[contains(@resource-id, "row_feed_photo_profile_name")]',
+                '//*[contains(@resource-id, "clips_author_info")]',
             ]
             for sel in header_selectors:
                 try:
@@ -710,9 +715,9 @@ class DesktopBridge:
 
             # ── Bottom boundary: like/comment buttons row ─────────────────────
             buttons_selectors = [
-                '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]',
-                '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
-                '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
+                '//*[contains(@resource-id, "row_feed_view_group_buttons")]',
+                '//*[contains(@resource-id, "row_feed_button_like")]',
+                '//*[contains(@resource-id, "row_feed_button_comment")]',
             ]
             for sel in buttons_selectors:
                 try:
@@ -1009,6 +1014,11 @@ class DesktopBridge:
         # Connect to device
         if not self.connect_device():
             return 3
+        
+        # Network reset (get new IP before session)
+        if self.network_reset_enabled:
+            from bridges.common.network import perform_network_reset
+            perform_network_reset(self.device_id, method=self.network_reset_method, ipc=_ipc)
         
         # Start media capture (non-blocking if fails)
         self.start_media_capture()
