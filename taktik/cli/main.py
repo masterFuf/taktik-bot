@@ -938,10 +938,10 @@ def generate_dm_auto_reply_workflow():
     console.print("[dim]Automatically reply to incoming DMs using AI[/dim]\n")
     
     console.print("[yellow]🔑 API Configuration[/yellow]")
-    fal_api_key = Prompt.ask("[cyan]Fal.ai API Key[/cyan]", default="")
+    openrouter_api_key = Prompt.ask("[cyan]OpenRouter API Key[/cyan]", default="")
     
-    if not fal_api_key:
-        console.print("[yellow]⚠️ No API key provided. You can set it later via environment variable FAL_KEY[/yellow]")
+    if not openrouter_api_key:
+        console.print("[yellow]⚠️ No API key provided. You can set it later via environment variable OPENROUTER_API_KEY[/yellow]")
     
     console.print("\n[yellow]👤 Persona Configuration[/yellow]")
     persona_name = Prompt.ask("[cyan]Your name/brand name[/cyan]", default="")
@@ -963,7 +963,7 @@ def generate_dm_auto_reply_workflow():
     session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
     
     config = {
-        "fal_api_key": fal_api_key,
+        "openrouter_api_key": openrouter_api_key,
         "persona_name": persona_name,
         "persona_description": persona_description,
         "business_context": business_context,
@@ -982,7 +982,7 @@ def generate_dm_auto_reply_workflow():
     table.add_column("Parameter", style="cyan")
     table.add_column("Value", style="yellow")
     
-    table.add_row("API Key", "Configured" if fal_api_key else "Not set")
+    table.add_row("API Key", "Configured" if openrouter_api_key else "Not set")
     table.add_row("Persona", persona_name or "Not set")
     table.add_row("Check interval", f"{check_interval_min}-{check_interval_max}s")
     table.add_row("Reply delay", f"{reply_delay_min}-{reply_delay_max}s")
@@ -1373,7 +1373,7 @@ def cli(ctx, lang=None):
                         
                         # Convert dict config to DMAutoReplyConfig
                         dm_config = DMAutoReplyConfig(
-                            fal_api_key=auto_reply_config.get('fal_api_key', ''),
+                            openrouter_api_key=auto_reply_config.get('openrouter_api_key', ''),
                             persona_name=auto_reply_config.get('persona_name', ''),
                             persona_description=auto_reply_config.get('persona_description', ''),
                             business_context=auto_reply_config.get('business_context', ''),

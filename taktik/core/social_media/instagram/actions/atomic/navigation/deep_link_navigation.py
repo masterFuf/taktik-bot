@@ -87,6 +87,11 @@ class DeepLinkNavigationMixin(BaseAction):
             
             self.logger.info(f"🔗 Navigating to post via deep link: {post_url}")
             
+            # Warn if using a clone — deep links may not resolve properly
+            pkg = get_active_package()
+            if pkg != "com.instagram.android":
+                self.logger.warning(f"⚠️ Deep link to post with clone ({pkg}) — may not work reliably")
+            
             # Clean URL: remove tracking params (?utm_source=...&igsh=...)
             # The & character causes shell splitting on the device
             parsed = urlparse(post_url)

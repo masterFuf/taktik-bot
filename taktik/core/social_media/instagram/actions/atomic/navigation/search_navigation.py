@@ -7,6 +7,7 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ....ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
+from taktik.core.clone import get_active_package
 
 
 class SearchNavigationMixin(BaseAction):
@@ -28,9 +29,15 @@ class SearchNavigationMixin(BaseAction):
         self.logger.info(f"🎯 Navigating to profile @{username}")
         
         # Determine navigation method
-        if force_search:
+        active_pkg = get_active_package()
+        is_clone = active_pkg != "com.instagram.android"
+        
+        if force_search or is_clone:
             use_deep_link = False
-            self.logger.debug("Forced to use search navigation")
+            if is_clone:
+                self.logger.debug(f"Clone detected ({active_pkg}), forcing search navigation (deep links unsupported)")
+            else:
+                self.logger.debug("Forced to use search navigation")
         else:
             use_deep_link = random.randint(1, 100) <= deep_link_usage_percentage
         
@@ -47,7 +54,7 @@ class SearchNavigationMixin(BaseAction):
             return True
         
         # Fallback: try the other method
-        if not use_deep_link and not force_search:
+        if not use_deep_link and not force_search and not is_clone:
             self.logger.debug("Fallback attempt with deep link")
             success = self._navigate_via_deep_link(username)
             if success:
@@ -110,14 +117,14 @@ class SearchNavigationMixin(BaseAction):
         _container_id = NAVIGATION_SELECTORS.search_result_container_resource_id
         _username_id = NAVIGATION_SELECTORS.search_result_username_resource_id
         search_result_selectors = [
-            # BEST: Click on the user container that contains the exact username
-            f'//*[@resource-id="{_container_id}"][.//*[@resource-id="{_username_id}" and @text="{username}"]]',
+            # BEST: Click on the user container that contains the exact username (contains() handles any package prefix)
+            f'//*[contains(@resource-id, "{_container_id}")][.//*[contains(@resource-id, "{_username_id}") and @text="{username}"]]',
             # Alternative: Container with any descendant matching the username
-            f'//*[@resource-id="{_container_id}"][.//*[@text="{username}"]]',
+            f'//*[contains(@resource-id, "{_container_id}")][.//*[@text="{username}"]]',
             # Fallback: Click directly on the username TextView
-            f'//android.widget.TextView[@resource-id="{_username_id}" and @text="{username}"]',
-            # Last resort: Any clickable element with the username
-            f'//*[@clickable="true"][.//*[@text="{username}"]]'
+            f'//android.widget.TextView[contains(@resource-id, "{_username_id}") and @text="{username}"]',
+            # Last resort: Any clickable element with the username (avoid avatar buttons)
+            f'//*[@clickable="true"][.//*[contains(@resource-id, "{_username_id}") and @text="{username}"]]'
         ]
         
         # Wait for results to appear
@@ -126,6 +133,7 @@ class SearchNavigationMixin(BaseAction):
             if self._find_and_click(search_result_selectors, timeout=3):
                 self.logger.debug(f"✅ Clicked on search result for @{username}")
                 self._human_like_delay('navigation')
+                time.sleep(2.0)  # Extra wait for profile screen to fully load
                 return self._verify_profile_navigation(username)
             else:
                 self.logger.warning(f"Found but could not click on @{username}")
@@ -204,21 +212,25 @@ class SearchNavigationMixin(BaseAction):
     def _verify_profile_navigation(self, expected_username: str) -> bool:
         # NOTE: _check_and_close_problematic_pages() removed here - already called by navigate_to_profile()
         
-        # === FAST PATH: try the top username selectors directly ===
+        # === FAST PATH: try the top username selectors directly (up to 3 attempts) ===
         # If one exists, we're on a profile screen AND we have the username (2-3 calls max instead of 18)
         _fast_selectors = PROFILE_SELECTORS.username[:3]
-        for selector in _fast_selectors:
-            try:
-                el = self.device.xpath(selector)
-                if el.exists:
-                    current_username = (el.get_text() or '').strip().replace('@', '')
-                    if current_username:
-                        expected_clean = self._clean_username(expected_username)
-                        current_clean = self._clean_username(current_username)
-                        self.logger.debug(f"✅ On profile screen, username: '{current_clean}' vs '{expected_clean}'")
-                        return current_clean == expected_clean
-            except Exception:
-                continue
+        for _attempt in range(3):
+            for selector in _fast_selectors:
+                try:
+                    el = self.device.xpath(selector)
+                    if el.exists:
+                        current_username = (el.get_text() or '').strip().replace('@', '')
+                        if current_username:
+                            expected_clean = self._clean_username(expected_username)
+                            current_clean = self._clean_username(current_username)
+                            self.logger.debug(f"✅ On profile screen, username: '{current_clean}' vs '{expected_clean}'")
+                            return current_clean == expected_clean
+                except Exception:
+                    continue
+            if _attempt < 2:
+                self.logger.debug(f"Profile not yet loaded (attempt {_attempt + 1}/3), waiting...")
+                time.sleep(1.5)
         
         # === FALLBACK: full check (slower but covers edge cases) ===
         if not self._is_profile_screen():

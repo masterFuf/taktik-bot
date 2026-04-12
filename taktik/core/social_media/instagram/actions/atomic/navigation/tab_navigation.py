@@ -55,6 +55,17 @@ class TabNavigationMixin(BaseAction):
                 self.logger.debug("✅ Already on own profile")
                 return True
             
+            # If on someone else's profile, press back to pop navigation stack
+            # (Instagram restores nav state after restart, clicking profile_tab
+            # when already on the profile tab doesn't navigate back)
+            if detection.is_on_profile_screen():
+                self.logger.debug(f"📱 On another user's profile, pressing back (attempt {attempt + 1})")
+                self._press_back(1)
+                self._human_like_delay('navigation')
+                if detection.is_on_own_profile():
+                    self.logger.debug(f"✅ Back to own profile via back button (attempt {attempt + 1})")
+                    return True
+            
             if self._find_and_click(self.selectors.profile_tab, timeout=15):
                 self._human_like_delay('navigation')
                 
@@ -67,6 +78,20 @@ class TabNavigationMixin(BaseAction):
                 self.logger.debug(f"❌ Cannot click on profile tab (attempt {attempt + 1})")
         
         self.logger.error("❌ Failed to navigate to own profile after 3 attempts")
+        # Debug: dump UI hierarchy to understand what's on screen
+        try:
+            xml = self.device.dump_hierarchy()
+            if xml:
+                # Extract text/content-desc attributes for a readable snapshot
+                import re
+                texts = re.findall(r'text="([^"]+)"', xml)
+                descs = re.findall(r'content-desc="([^"]+)"', xml)
+                visible_texts = [t for t in texts if t.strip()][:20]
+                visible_descs = [d for d in descs if d.strip()][:10]
+                self.logger.warning(f"UI texts on screen: {visible_texts}")
+                self.logger.warning(f"UI content-descs: {visible_descs}")
+        except Exception as e:
+            self.logger.debug(f"UI dump failed: {e}")
         return False
 
     # === Screen detection helpers ===

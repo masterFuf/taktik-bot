@@ -235,16 +235,48 @@ class DeviceManager:
             logger.error(f"ADB fallback check failed for {package_name}: {e}")
             return False
     
+    def _resolve_launcher_activity(self, package_name: str) -> Optional[str]:
+        """Resolve the launcher activity for a package via ADB."""
+        try:
+            result = subprocess.run(
+                ["adb", "-s", self.device_id, "shell",
+                 "cmd", "package", "resolve-activity", "--brief",
+                 "-c", "android.intent.category.LAUNCHER", package_name],
+                capture_output=True, text=True, timeout=5,
+            )
+            for line in result.stdout.strip().splitlines():
+                line = line.strip()
+                if "/" in line and not line.startswith("priority"):
+                    # e.g. "com.taktik.ig1/.activity.MainTabActivity"
+                    logger.debug(f"Resolved launcher activity: {line}")
+                    return line
+        except Exception as e:
+            logger.warning(f"Failed to resolve launcher activity for {package_name}: {e}")
+        return None
+
     def launch_app(self, package_name: str, activity: Optional[str] = None, stop_first: bool = False) -> bool:
         if not self.device:
             if not self.connect():
                 return False
                 
         try:
+            if stop_first:
+                self.device.app_stop(package_name)
+
             if activity:
-                self.device.app_start(package_name, activity, stop=stop_first)
+                self.device.app_start(package_name, activity)
+            elif package_name.startswith("com.taktik."):
+                # Taktik clones crash with uiautomator2's monkey-based app_start().
+                # Resolve the launcher activity and use am start directly.
+                component = self._resolve_launcher_activity(package_name)
+                if component:
+                    self.device.shell(['am', 'start', '-n', component])
+                else:
+                    # Fallback: use the known Instagram launcher activity
+                    self.device.shell(['am', 'start', '-n',
+                                       f'{package_name}/com.instagram.mainactivity.LauncherActivity'])
             else:
-                self.device.app_start(package_name, stop=stop_first)
+                self.device.app_start(package_name)
             
             logger.info(f"Application {package_name} launched successfully")
             return True
