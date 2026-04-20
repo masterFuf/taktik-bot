@@ -1,6 +1,4 @@
 <div align="center">
-  <img src="logo/logo.png" alt="TAKTIK - Plateforme d'Automatisation Instagram & TikTok" width="500"/>
-  
   <h1>Plateforme d'Automatisation Instagram & TikTok</h1>
   
   <p><strong>Automatisation Instagram & TikTok via de vrais appareils Android. Likes, follows, DMs, scraping, ciblage hashtag & localisation. Construit avec Python, uiautomator2 & ADB.</strong></p>
