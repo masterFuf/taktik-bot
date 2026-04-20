@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
   <img src="logo/logo.png" alt="TAKTIK - Plateforme d'Automatisation Instagram & TikTok" width="500"/>
   
   <h1>Plateforme d'Automatisation Instagram & TikTok</h1>
@@ -13,209 +13,207 @@
   
   <br/>
   
-  <a href="https://taktik-bot.com/">ðŸŒ Site Web</a> â€¢
-  <a href="https://taktik-bot.com/fr/docs">ðŸ“š Documentation</a> â€¢
-  <a href="https://www.youtube.com/@taktik-bot">ðŸŽ¥ YouTube</a> â€¢
-  <a href="https://discord.com/invite/6tTBRTMhBj">ðŸ’¬ Discord</a> â€¢
-  <a href="./README.md">ðŸ‡¬ðŸ‡§ English</a>
+  <a href="https://taktik-bot.com/">🌐 Site Web</a> •
+  <a href="https://taktik-bot.com/fr/docs">📚 Documentation</a> •
+  <a href="https://www.youtube.com/@taktik-bot">🎥 YouTube</a> •
+  <a href="https://discord.com/invite/6tTBRTMhBj">💬 Discord</a> •
+  <a href="./README.md">🇬🇧 English</a>
 </div>
 
 ---
 
 <div align="center">
-
+  
   [![Démo TAKTIK](https://img.youtube.com/vi/mFh0iv3Hzck/maxresdefault.jpg)](https://www.youtube.com/watch?v=mFh0iv3Hzck)
-
-  <br/>
 
   **🎁 Essai Gratuit de 14 Jours — Toutes les Fonctionnalités Incluses**
 
   <a href="https://taktik-bot.com/fr/auth/signin">✨ **Commencer l'Essai Gratuit** →</a>
-
+  
   <br/><br/>
-
+  
 </div>
 
 ---
 
-## ðŸŽ¯ Qu'est-ce que TAKTIK ?
+## 🎯 Qu'est-ce que TAKTIK ?
 
-**TAKTIK** est une plateforme complÃ¨te d'**automatisation des rÃ©seaux sociaux** pour Instagram et TikTok. Elle combine un puissant moteur d'automatisation Python avec une application Desktop premium offrant des outils IA, des analytics en temps rÃ©el et une interface intuitive.
+**TAKTIK** est une plateforme complète d'**automatisation des réseaux sociaux** pour Instagram et TikTok. Elle combine un puissant moteur d'automatisation Python avec une application Desktop premium offrant des outils IA, des analytics en temps réel et une interface intuitive.
 
-> ðŸ **CÅ“ur Open Source** â€” Le moteur d'automatisation Python est open source sous GPLv3
+> 🐍 **Cœur Open Source** — Le moteur d'automatisation Python est open source sous GPLv3
 >
-> ðŸ–¥ï¸ **Application Desktop Premium** â€” Application complÃ¨te avec interface graphique, outils IA et gestion multi-comptes
+> 🖥️ **Application Desktop Premium** — Application complète avec interface graphique, outils IA et gestion multi-comptes
 >
-> ðŸ¤– **PropulsÃ© par l'IA** â€” GÃ©nÃ©rez du contenu, des lÃ©gendes, des rÃ©ponses DM et plus encore
+> 🤖 **Propulsé par l'IA** — Générez du contenu, des légendes, des réponses DM et plus encore
 
 ### Parfait pour :
-- **CrÃ©ateurs de Contenu** â€” Automatisez l'engagement et dÃ©veloppez votre audience organiquement
-- **Social Media Managers** â€” GÃ©rez plusieurs comptes efficacement depuis un seul tableau de bord
-- **Agences** â€” Passez Ã  l'Ã©chelle avec jusqu'Ã  50 appareils et des workflows avancÃ©s
-- **Petites Entreprises** â€” Construisez votre prÃ©sence de marque sans travail manuel
-- **Marketeurs** â€” Ciblez des audiences spÃ©cifiques avec du scraping prÃ©cis et de l'outreach
+- **Créateurs de Contenu** — Automatisez l'engagement et développez votre audience organiquement
+- **Social Media Managers** — Gérez plusieurs comptes efficacement depuis un seul tableau de bord
+- **Agences** — Passez à l'échelle avec jusqu'à 50 appareils et des workflows avancés
+- **Petites Entreprises** — Construisez votre présence de marque sans travail manuel
+- **Marketeurs** — Ciblez des audiences spécifiques avec du scraping précis et de l'outreach
 
 ---
 
-## âœ¨ AperÃ§u des FonctionnalitÃ©s
+## ✨ Aperçu des Fonctionnalités
 
-### ðŸ“¸ Instagram
+### 📸 Instagram
 
 #### Publication de Contenu
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ“· **Posts & Carrousels** | Publiez des images simples ou des carrousels multi-images (mode manuel ou IA) |
-| ðŸŽ¬ **Reels** | Uploadez et publiez des Reels (mode manuel ou IA) |
-| ðŸ“– **Stories** | Publiez des Stories sur votre compte (mode manuel ou IA) |
-| ðŸŽ¨ **GÃ©nÃ©ration d'Images IA** | CrÃ©ez des images avec l'IA : text-to-image ou image-to-image (via fal.ai) |
-| âœï¸ **LÃ©gendes & Hashtags IA** | GÃ©nÃ©rez automatiquement des descriptions et hashtags pertinents pour votre contenu |
+| 📷 **Posts & Carrousels** | Publiez des images simples ou des carrousels multi-images (mode manuel ou IA) |
+| 🎬 **Reels** | Uploadez et publiez des Reels (mode manuel ou IA) |
+| 📖 **Stories** | Publiez des Stories sur votre compte (mode manuel ou IA) |
+| 🎨 **Génération d'Images IA** | Créez des images avec l'IA : text-to-image ou image-to-image (via fal.ai) |
+| ✍️ **Légendes & Hashtags IA** | Générez automatiquement des descriptions et hashtags pertinents pour votre contenu |
 
 #### Messages Directs
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ“© **RÃ©ponses DM** | Lisez et rÃ©pondez aux DM entrants (mode manuel ou IA) |
-| â„ï¸ **Cold DM / Prospection** | Envoyez des messages de prospection aux utilisateurs ciblÃ©s (mode manuel ou IA) |
+| 📩 **Réponses DM** | Lisez et répondez aux DM entrants (mode manuel ou IA) |
+| ❄️ **Cold DM / Prospection** | Envoyez des messages de prospection aux utilisateurs ciblés (mode manuel ou IA) |
 
 #### Workflows d'Automatisation
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸŽ¯ **Ciblage Followers/Following** | Interagissez avec les abonnÃ©s ou abonnements de comptes spÃ©cifiques |
-| #ï¸âƒ£ **Workflow Hashtag** | Engagez avec les posts de hashtags ciblÃ©s |
-| ðŸ”— **Workflow Post URL** | Interagissez avec les utilisateurs qui ont likÃ© un post spÃ©cifique |
-| ðŸ  **Workflow Feed** | Interagissez avec les posts de votre fil d'actualitÃ© |
-| ðŸ‘¥ **Workflow Unfollow** | Workflow de maintenance avec paramÃ¨tres personnalisables |
+| 🎯 **Ciblage Followers/Following** | Interagissez avec les abonnés ou abonnements de comptes spécifiques |
+| #️⃣ **Workflow Hashtag** | Engagez avec les posts de hashtags ciblés |
+| 🔗 **Workflow Post URL** | Interagissez avec les utilisateurs qui ont liké un post spécifique |
+| 🏠 **Workflow Feed** | Interagissez avec les posts de votre fil d'actualité |
+| 👥 **Workflow Unfollow** | Workflow de maintenance avec paramètres personnalisables |
 
 #### Workflows de Scraping
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ‘¥ **Scraping Cible** | Scrapez les followers ou following de n'importe quel compte |
-| #ï¸âƒ£ **Scraping Hashtag** | Extrayez les utilisateurs des posts d'un hashtag |
-| ðŸ”— **Scraping Post URL** | Scrapez les likers de posts spÃ©cifiques |
-| ðŸ“ **Export** | Export en CSV ou XLSX (app Desktop) |
+| 👥 **Scraping Cible** | Scrapez les followers ou following de n'importe quel compte |
+| #️⃣ **Scraping Hashtag** | Extrayez les utilisateurs des posts d'un hashtag |
+| 🔗 **Scraping Post URL** | Scrapez les likers de posts spécifiques |
+| 📁 **Export** | Export en CSV ou XLSX (app Desktop) |
 
 #### Discovery & Qualification (App Desktop)
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ” **Workflow Discovery** | Mixez plusieurs sources de scraping pour trouver des profils pertinents dans votre niche |
-| ðŸ§  **Qualification IA** | Notez et qualifiez les profils dÃ©couverts avec l'IA pour identifier les meilleurs prospects |
-| ðŸ”Ž **Recherche de Cibles** | Recherchez tous les profils dÃ©couverts avec des filtres (username, bio, nombre d'abonnÃ©s, etc.) |
+| 🔍 **Workflow Discovery** | Mixez plusieurs sources de scraping pour trouver des profils pertinents dans votre niche |
+| 🧠 **Qualification IA** | Notez et qualifiez les profils découverts avec l'IA pour identifier les meilleurs prospects |
+| 🔎 **Recherche de Cibles** | Recherchez tous les profils découverts avec des filtres (username, bio, nombre d'abonnés, etc.) |
 
 ---
 
-### ðŸŽµ TikTok (BÃªta)
+### 🎵 TikTok (Bêta)
 
 #### Publication de Contenu
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ“· **Posts** | Publiez des posts sur TikTok |
+| 📷 **Posts** | Publiez des posts sur TikTok |
 
 #### Workflows d'Automatisation
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ“± **Workflow For You** | Interagissez avec les vidÃ©os de la page Pour Toi |
-| ðŸŽ¯ **Ciblage Followers** | Interagissez avec les abonnÃ©s de comptes spÃ©cifiques |
-| #ï¸âƒ£ **Workflow Hashtag** | Engagez avec le contenu de hashtags ciblÃ©s |
-| ðŸ‘¥ **Workflow Unfollow** | Workflow de maintenance pour se dÃ©sabonner |
+| 📱 **Workflow For You** | Interagissez avec les vidéos de la page Pour Toi |
+| 🎯 **Ciblage Followers** | Interagissez avec les abonnés de comptes spécifiques |
+| #️⃣ **Workflow Hashtag** | Engagez avec le contenu de hashtags ciblés |
+| 👥 **Workflow Unfollow** | Workflow de maintenance pour se désabonner |
 
 #### Messages Directs
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ“© **RÃ©ponses DM** | Lisez et rÃ©pondez aux DM (mode manuel ou IA) |
-| â„ï¸ **Cold DM / Prospection** | Envoyez des messages de prospection (mode manuel ou IA) |
+| 📩 **Réponses DM** | Lisez et répondez aux DM (mode manuel ou IA) |
+| ❄️ **Cold DM / Prospection** | Envoyez des messages de prospection (mode manuel ou IA) |
 
 #### Workflows de Scraping
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ‘¥ **Scraping Cible** | Scrapez les followers de comptes cibles |
-| #ï¸âƒ£ **Scraping Hashtag** | Extrayez les utilisateurs du contenu d'un hashtag |
-| ðŸ“ **Export** | Export en CSV ou XLSX avec historique de scraping (app Desktop) |
+| 👥 **Scraping Cible** | Scrapez les followers de comptes cibles |
+| #️⃣ **Scraping Hashtag** | Extrayez les utilisateurs du contenu d'un hashtag |
+| 📁 **Export** | Export en CSV ou XLSX avec historique de scraping (app Desktop) |
 
-> âš ï¸ Les fonctionnalitÃ©s TikTok sont actuellement en **bÃªta** et en dÃ©veloppement actif.
+> ⚠️ Les fonctionnalités TikTok sont actuellement en **bêta** et en développement actif.
 
 ---
 
-### ðŸ–¥ï¸ FonctionnalitÃ©s Exclusives App Desktop
+### 🖥️ Fonctionnalités Exclusives App Desktop
 
-| FonctionnalitÃ© | Description |
+| Fonctionnalité | Description |
 |----------------|-------------|
-| ðŸ“± **Mirroring d'Ã‰cran** | Affichage en temps rÃ©el de l'appareil dans l'app |
-| ðŸ—“ï¸ **Scheduler** | CrÃ©ez des patterns d'automatisation liÃ©s aux appareils avec un constructeur visuel |
-| ðŸŽ›ï¸ **Centre de ContrÃ´le Scheduler** | GÃ©rez tous les schedulers actifs depuis un seul endroit |
-| ðŸ¤– **GÃ©nÃ©ration IA de Schedulers** | GÃ©nÃ©rez des configurations de scheduler Ã  partir de prompts en langage naturel |
-| ðŸ“Š **Tableau de Bord Analytics** | Stats d'interactions dÃ©taillÃ©es par jour/semaine/mois/annÃ©e pour Instagram & TikTok |
-| ðŸ“ˆ **Analytics des Sessions** | Consultez l'historique des sessions avec le nombre d'interactions et les dÃ©tails |
-| ðŸ“œ **Historique de Scraping** | AccÃ©dez Ã  toutes les sessions de scraping avec export CSV/XLSX |
-| ðŸ” **Discovery & Qualification IA** | Trouvez et notez des leads avec l'analyse IA |
-| ðŸ”Ž **Recherche de Cibles** | Interrogez les profils dÃ©couverts avec des filtres avancÃ©s |
-| ðŸŒ **Multi-langue** | Interface disponible en 10+ langues |
+| 📱 **Mirroring d'Écran** | Affichage en temps réel de l'appareil dans l'app |
+| 🗓️ **Scheduler** | Créez des patterns d'automatisation liés aux appareils avec un constructeur visuel |
+| 🎛️ **Centre de Contrôle Scheduler** | Gérez tous les schedulers actifs depuis un seul endroit |
+| 🤖 **Génération IA de Schedulers** | Générez des configurations de scheduler à partir de prompts en langage naturel |
+| 📊 **Tableau de Bord Analytics** | Stats d'interactions détaillées par jour/semaine/mois/année pour Instagram & TikTok |
+| 📈 **Analytics des Sessions** | Consultez l'historique des sessions avec le nombre d'interactions et les détails |
+| 📜 **Historique de Scraping** | Accédez à toutes les sessions de scraping avec export CSV/XLSX |
+| 🔍 **Discovery & Qualification IA** | Trouvez et notez des leads avec l'analyse IA |
+| 🔎 **Recherche de Cibles** | Interrogez les profils découverts avec des filtres avancés |
+| 🌍 **Multi-langue** | Interface disponible en 10+ langues |
 
 ---
 
-## ðŸš€ DÃ©marrage Rapide
+## 🚀 Démarrage Rapide
 
-### Option 1 : Application Desktop (RecommandÃ©)
+### Option 1 : Application Desktop (Recommandé)
 
-La faÃ§on la plus simple d'utiliser TAKTIK est via l'application Desktop :
+La façon la plus simple d'utiliser TAKTIK est via l'application Desktop :
 
 1. **Inscrivez-vous** sur [taktik-bot.com](https://taktik-bot.com/fr/auth/signin)
-2. **TÃ©lÃ©chargez** l'application Desktop pour Windows
-3. **Connectez** votre appareil Android ou Ã©mulateur via ADB
-4. **Commencez Ã  automatiser** avec l'interface visuelle
+2. **Téléchargez** l'application Desktop pour Windows
+3. **Connectez** votre appareil Android ou émulateur via ADB
+4. **Commencez à automatiser** avec l'interface visuelle
 
-### Option 2 : CLI Python (AvancÃ©)
+### Option 2 : CLI Python (Avancé)
 
-Pour les dÃ©veloppeurs qui prÃ©fÃ¨rent la ligne de commande :
+Pour les développeurs qui préfèrent la ligne de commande :
 
 ```bash
-# Cloner le dÃ©pÃ´t
+# Cloner le dépôt
 git clone https://github.com/masterFuf/taktik-bot.git
 cd taktik-bot
 
-# Installer les dÃ©pendances
+# Installer les dépendances
 pip install -r requirements.txt
 
 # Lancer TAKTIK Bot
 python -m taktik
 ```
 
-> âš ï¸ La CLI est principalement maintenue pour l'intÃ©gration avec l'application Desktop. Certaines fonctionnalitÃ©s peuvent nÃ©cessiter des mises Ã  jour pour une utilisation standalone.
+> ⚠️ La CLI est principalement maintenue pour l'intégration avec l'application Desktop. Certaines fonctionnalités peuvent nécessiter des mises à jour pour une utilisation standalone.
 
-### PrÃ©requis
+### Prérequis
 
-- Appareil ou Ã©mulateur **Android 10+**
-- **ADB** (Android Debug Bridge) installÃ©
-- Application **Instagram/TikTok** installÃ©e sur l'appareil (voir versions recommandÃ©es ci-dessous)
+- Appareil ou émulateur **Android 10+**
+- **ADB** (Android Debug Bridge) installé
+- Application **Instagram/TikTok** installée sur l'appareil (voir versions recommandées ci-dessous)
 - **Python 3.10+** (pour l'utilisation CLI)
 
-### âš ï¸ Versions d'Applications RecommandÃ©es
+### ⚠️ Versions d'Applications Recommandées
 
-Pour une compatibilitÃ© et un fonctionnement optimaux, utilisez ces versions spÃ©cifiques :
+Pour une compatibilité et un fonctionnement optimaux, utilisez ces versions spécifiques :
 
-| Application | Version RecommandÃ©e | Langue |
+| Application | Version Recommandée | Langue |
 |-------------|---------------------|--------|
 | **Instagram** | `410.0.0.53.71` | Anglais (requis) |
 | **TikTok** | `43.1.4` | Anglais (requis) |
 
-> ðŸ’¡ **Important :** Instagram et TikTok doivent Ãªtre configurÃ©s en **anglais** pour que toutes les fonctionnalitÃ©s fonctionnent correctement. Ces versions ont Ã©tÃ© entiÃ¨rement testÃ©es et vÃ©rifiÃ©es.
+> 💡 **Important :** Instagram et TikTok doivent être configurés en **anglais** pour que toutes les fonctionnalités fonctionnent correctement. Ces versions ont été entièrement testées et vérifiées.
 
 ### Appareils Compatibles
 
-TAKTIK fonctionne avec n'importe quel appareil ou Ã©mulateur Android sous Android 10 ou supÃ©rieur :
+TAKTIK fonctionne avec n'importe quel appareil ou émulateur Android sous Android 10 ou supérieur :
 
-- âœ… **Vrais appareils Android** (recommandÃ© pour les meilleurs rÃ©sultats)
-- âœ… **LDPlayer**
-- âœ… **BlueStacks**
-- âœ… **NoxPlayer**
-- âœ… **MEmu**
-- âœ… Tout autre Ã©mulateur Android
+- ✅ **Vrais appareils Android** (recommandé pour les meilleurs résultats)
+- ✅ **LDPlayer**
+- ✅ **BlueStacks**
+- ✅ **NoxPlayer**
+- ✅ **MEmu**
+- ✅ Tout autre émulateur Android
 
-> ðŸ’¡ **Astuce :** Les vrais appareils offrent le comportement le plus authentique et le risque de dÃ©tection le plus faible.
+> 💡 **Astuce :** Les vrais appareils offrent le comportement le plus authentique et le risque de détection le plus faible.
 
 ---
 
-## ðŸ’° Tarifs
+## 💰 Tarifs
 
-TAKTIK utilise un modÃ¨le de tarification simple et flexible avec des **tarifs dÃ©gressifs** â€” plus vous ajoutez d'appareils, moins vous payez par appareil :
+TAKTIK utilise un modèle de tarification simple et flexible avec des **tarifs dégressifs** — plus vous ajoutez d'appareils, moins vous payez par appareil :
 
 | Appareils | Prix/mois | Par appareil |
 |-----------|-----------|--------------|
@@ -228,9 +226,9 @@ TAKTIK utilise un modÃ¨le de tarification simple et flexible avec des **tarifs
 | 50+ | [Contactez-nous](https://taktik-bot.com/fr/contact) | Sur mesure |
 
 <details>
-<summary><strong>ðŸ“Š DÃ©tail des tarifs dÃ©gressifs</strong></summary>
+<summary><strong>📊 Détail des tarifs dégressifs</strong></summary>
 
-| Tranche | CoÃ»t additionnel par appareil |
+| Tranche | Coût additionnel par appareil |
 |---------|-------------------------------|
 | 1 appareil (base) | $29 |
 | 2-10 appareils | +$10/appareil |
@@ -242,72 +240,72 @@ TAKTIK utilise un modÃ¨le de tarification simple et flexible avec des **tarifs
 </details>
 
 **Tous les plans incluent :**
-- âœ… Toutes les fonctionnalitÃ©s d'automatisation Instagram & TikTok
-- âœ… Outils IA (gÃ©nÃ©ration d'images, lÃ©gendes, rÃ©ponses DM)
-- âœ… Tableau de bord analytics & historique des sessions
-- âœ… Scheduler avec gÃ©nÃ©ration IA
-- âœ… Gestion multi-comptes
-- âœ… Support communautÃ© Discord
-- âœ… **Essai gratuit de 14 jours**
+- ✅ Toutes les fonctionnalités d'automatisation Instagram & TikTok
+- ✅ Outils IA (génération d'images, légendes, réponses DM)
+- ✅ Tableau de bord analytics & historique des sessions
+- ✅ Scheduler avec génération IA
+- ✅ Gestion multi-comptes
+- ✅ Support communauté Discord
+- ✅ **Essai gratuit de 14 jours**
 
-> ðŸ’¡ Utilisez le [simulateur de prix](https://taktik-bot.com/fr/nos-prix) sur notre site pour voir les tarifs exacts selon vos besoins.
-
----
-
-## ðŸ“š Documentation
-
-Documentation complÃ¨te disponible sur **[taktik-bot.com/fr/documentation](https://taktik-bot.com/fr/documentation)**
-
-- ðŸ“– Guide de DÃ©marrage
-- âš™ï¸ Options de Configuration
-- ðŸ”§ Configuration des Workflows
-- ðŸŽ¯ StratÃ©gies de Ciblage
-- ðŸ› DÃ©pannage
+> 💡 Utilisez le [simulateur de prix](https://taktik-bot.com/fr/nos-prix) sur notre site pour voir les tarifs exacts selon vos besoins.
 
 ---
 
-## ðŸ¤ CommunautÃ© & Support
+## 📚 Documentation
 
-Rejoignez notre communautÃ© active pour de l'aide, des conseils et des demandes de fonctionnalitÃ©s :
+Documentation complète disponible sur **[taktik-bot.com/fr/documentation](https://taktik-bot.com/fr/documentation)**
 
-- ðŸ’¬ **[Serveur Discord](https://discord.com/invite/6tTBRTMhBj)** â€” Obtenez de l'aide et partagez des conseils
-- ðŸ› **[GitHub Issues](https://github.com/masterFuf/taktik-bot/issues)** â€” Signalez des bugs ou demandez des fonctionnalitÃ©s
-- ðŸ“§ **[Formulaire de Contact](https://taktik-bot.com/fr/contact)** â€” Demandes commerciales
-
----
-
-## ðŸ”‘ Mots-clÃ©s
-
-`bot instagram` `automatisation instagram` `bot tiktok` `automatisation tiktok` `automatisation rÃ©seaux sociaux` `croissance instagram` `scraper instagram` `bot dm instagram` `cold dm` `marketing instagram` `gÃ©nÃ©ration contenu ia` `social media manager` `followers instagram` `bot engagement` `bot instagram python` `bot open source`
+- 📖 Guide de Démarrage
+- ⚙️ Options de Configuration
+- 🔧 Configuration des Workflows
+- 🎯 Stratégies de Ciblage
+- 🐛 Dépannage
 
 ---
 
-## ðŸ“„ Licence
+## 🤝 Communauté & Support
 
-Ce projet est sous licence **GNU General Public License v3.0** â€” Voir [LICENSE](LICENSE) pour les dÃ©tails.
+Rejoignez notre communauté active pour de l'aide, des conseils et des demandes de fonctionnalités :
+
+- 💬 **[Serveur Discord](https://discord.com/invite/6tTBRTMhBj)** — Obtenez de l'aide et partagez des conseils
+- 🐛 **[GitHub Issues](https://github.com/masterFuf/taktik-bot/issues)** — Signalez des bugs ou demandez des fonctionnalités
+- 📧 **[Formulaire de Contact](https://taktik-bot.com/fr/contact)** — Demandes commerciales
+
+---
+
+## 🔑 Mots-clés
+
+`bot instagram` `automatisation instagram` `bot tiktok` `automatisation tiktok` `automatisation réseaux sociaux` `croissance instagram` `scraper instagram` `bot dm instagram` `cold dm` `marketing instagram` `génération contenu ia` `social media manager` `followers instagram` `bot engagement` `bot instagram python` `bot open source`
+
+---
+
+## 📄 Licence
+
+Ce projet est sous licence **GNU General Public License v3.0** — Voir [LICENSE](LICENSE) pour les détails.
 
 Le moteur d'automatisation Python est open source. L'application Desktop est un produit commercial avec essai gratuit.
 
 ---
 
-## âš ï¸ Avertissement
+## ⚠️ Avertissement
 
-**Ã€ des fins Ã©ducatives et de recherche uniquement.**
+**À des fins éducatives et de recherche uniquement.**
 
-Ce logiciel est fourni tel quel. Les utilisateurs doivent se conformer aux Conditions d'Utilisation d'Instagram et de TikTok. Les dÃ©veloppeurs ne sont pas responsables des restrictions de compte ou des bannissements. Utilisez de maniÃ¨re responsable et Ã  vos propres risques.
+Ce logiciel est fourni tel quel. Les utilisateurs doivent se conformer aux Conditions d'Utilisation d'Instagram et de TikTok. Les développeurs ne sont pas responsables des restrictions de compte ou des bannissements. Utilisez de manière responsable et à vos propres risques.
 
 ---
 
 <div align="center">
   
-  **â­ Mettez une Ã©toile Ã  ce repo pour soutenir le projet ! â­**
+  **⭐ Mettez une étoile à ce repo pour soutenir le projet ! ⭐**
   
   <br/>
   
-  Fait avec â¤ï¸ par <a href="https://github.com/masterFuf">masterFuf</a>
+  Fait avec ❤️ par <a href="https://github.com/masterFuf">masterFuf</a>
   
   <br/>
   
-  <a href="https://taktik-bot.com">ðŸŒ taktik-bot.com</a> â€¢ <a href="https://discord.com/invite/6tTBRTMhBj">ðŸ’¬ Discord</a>
+  <a href="https://taktik-bot.com">🌐 taktik-bot.com</a> • <a href="https://discord.com/invite/6tTBRTMhBj">💬 Discord</a>
   
 </div>
