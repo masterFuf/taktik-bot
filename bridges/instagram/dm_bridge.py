@@ -30,8 +30,8 @@ from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
 class DMBridge(InstagramBridgeBase):
     """Bridge for DM operations between TAKTIK Desktop and Instagram."""
     
-    def __init__(self, device_id: str):
-        super().__init__(device_id)
+    def __init__(self, device_id: str, package_name: str = None):
+        super().__init__(device_id, package_name=package_name)
         self._keyboard = KeyboardService(device_id)
     
     def navigate_to_dm_inbox(self) -> bool:
@@ -650,9 +650,9 @@ class DMBridge(InstagramBridgeBase):
         return messages
 
 
-def cmd_read(device_id: str, limit: int):
+def cmd_read(device_id: str, limit: int, package_name: str = None):
     """Read DM conversations."""
-    bridge = DMBridge(device_id)
+    bridge = DMBridge(device_id, package_name=package_name)
     
     if not bridge.connect():
         print(json.dumps({"success": False, "error": "Failed to connect to device"}))
@@ -720,9 +720,9 @@ def _ensure_dm_inbox(bridge: DMBridge) -> bool:
     return True
 
 
-def cmd_send(device_id: str, username: str, message: str):
+def cmd_send(device_id: str, username: str, message: str, package_name: str = None):
     """Send a DM message. Ensures Instagram is open and we're in DM inbox before sending."""
-    bridge = DMBridge(device_id)
+    bridge = DMBridge(device_id, package_name=package_name)
     
     if not bridge.connect():
         print(json.dumps({"success": False, "error": "Failed to connect to device"}))
@@ -777,35 +777,44 @@ def cmd_send(device_id: str, username: str, message: str):
 
 
 def main():
-    if len(sys.argv) < 2:
+    # Extract optional --package <pkg> from args
+    args = sys.argv[1:]
+    package_name = None
+    if '--package' in args:
+        idx = args.index('--package')
+        if idx + 1 < len(args):
+            package_name = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+
+    if not args:
         print(json.dumps({
             "success": False, 
-            "error": "Usage: dm_bridge.py <command> [args]\n  read <device_id> <limit>\n  send <device_id> <username> <message>"
+            "error": "Usage: dm_bridge.py <command> [args] [--package <pkg>]\n  read <device_id> <limit>\n  send <device_id> <username> <message>"
         }))
         sys.exit(1)
     
-    command = sys.argv[1]
+    command = args[0]
     
     try:
         # Support both old format (device_id, limit) and new format (read, device_id, limit)
         if command == "read":
-            if len(sys.argv) < 4:
+            if len(args) < 3:
                 print(json.dumps({"success": False, "error": "Usage: dm_bridge.py read <device_id> <limit>"}))
                 sys.exit(1)
-            cmd_read(sys.argv[2], int(sys.argv[3]))
+            cmd_read(args[1], int(args[2]), package_name=package_name)
         
         elif command == "send":
-            if len(sys.argv) < 5:
+            if len(args) < 4:
                 print(json.dumps({"success": False, "error": "Usage: dm_bridge.py send <device_id> <username> <message>"}))
                 sys.exit(1)
-            cmd_send(sys.argv[2], sys.argv[3], sys.argv[4])
+            cmd_send(args[1], args[2], args[3], package_name=package_name)
         
-        elif command not in ["read", "send"] and len(sys.argv) >= 2:
+        elif command not in ["read", "send"] and len(args) >= 1:
             # Legacy format: dm_bridge.py <device_id> <limit>
             # Assume first arg is device_id if it's not a command
             try:
-                limit = int(sys.argv[2]) if len(sys.argv) > 2 else 10
-                cmd_read(command, limit)  # command is actually device_id
+                limit = int(args[1]) if len(args) > 1 else 10
+                cmd_read(command, limit, package_name=package_name)  # command is actually device_id
             except ValueError:
                 print(json.dumps({"success": False, "error": f"Unknown command: {command}"}))
                 sys.exit(1)

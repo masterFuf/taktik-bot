@@ -180,6 +180,38 @@ def signal_handler(signum, frame):
     _sig_mod._handle_signal(signum, frame)
 
 
+# ── Clone-aware device proxy ─────────────────────────────────────────
+
+class _CloneAwareDeviceProxy:
+    """Transparent proxy around a uiautomator2 device that rewrites
+    ``resourceId`` keyword arguments on-the-fly so that bridges written
+    for ``com.instagram.android`` work unmodified on clone packages
+    (e.g. ``com.taktik.ig1``).
+
+    All attribute access and method calls are forwarded to the real device.
+    Only ``__call__`` (selector creation) intercepts ``resourceId`` to patch
+    the package prefix.
+    """
+
+    __slots__ = ("_device", "_official", "_clone")
+
+    def __init__(self, device, clone_package: str):
+        object.__setattr__(self, "_device", device)
+        object.__setattr__(self, "_official", "com.instagram.android")
+        object.__setattr__(self, "_clone", clone_package)
+
+    # Forward attribute access (press, swipe, xpath, screenshot, …)
+    def __getattr__(self, name):
+        return getattr(self._device, name)
+
+    # Intercept selector creation: device(resourceId="com.instagram.android:id/…")
+    def __call__(self, *args, **kwargs):
+        rid = kwargs.get("resourceId")
+        if rid and self._official in rid:
+            kwargs["resourceId"] = rid.replace(self._official, self._clone)
+        return self._device(*args, **kwargs)
+
+
 # ── Base class for Instagram bridges ─────────────────────────────────
 
 class InstagramBridgeBase:
@@ -198,9 +230,10 @@ class InstagramBridgeBase:
                 # add your own init here
     """
 
-    def __init__(self, device_id: str):
+    def __init__(self, device_id: str, package_name: str = None):
         from bridges.common.connection import ConnectionService
         self.device_id = device_id
+        self.package_name = package_name  # e.g. "com.taktik.ig1"
         # Shared services
         self._connection = ConnectionService(device_id)
         self._app = None  # initialized after connect
@@ -218,8 +251,27 @@ class InstagramBridgeBase:
         self.device_manager = self._connection.device_manager
         self.device = self._connection.device
         self.screen_width, self.screen_height = self._connection.screen_size
-        self._app = AppService(self._connection, platform="instagram")
+        self._app = AppService(self._connection, platform="instagram",
+                               package_override=self.package_name)
+        # Register clone package globally and wrap device proxy
+        if self.package_name and self.package_name != "com.instagram.android":
+            from taktik.core.clone import set_active_package
+            set_active_package(self.package_name)
+            self.device = _CloneAwareDeviceProxy(self._connection.device, self.package_name)
         return True
+
+    def rid(self, resource_id: str) -> str:
+        """Resolve a resource-id for the active package.
+        
+        Replaces 'com.instagram.android' with the active clone package
+        when running on a cloned app (e.g. com.taktik.ig1).
+        
+        Usage:
+            self.device(resourceId=self.rid("com.instagram.android:id/search_tab"))
+        """
+        if self.package_name and self.package_name != "com.instagram.android":
+            return resource_id.replace("com.instagram.android", self.package_name)
+        return resource_id
 
     def restart_instagram(self):
         """Restart Instagram for clean state via AppService."""

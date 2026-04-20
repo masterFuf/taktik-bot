@@ -40,8 +40,8 @@ class ColdDMWorkflow(InstagramBridgeBase):
     
     OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
     
-    def __init__(self, device_id: str):
-        super().__init__(device_id)
+    def __init__(self, device_id: str, package_name: str = None):
+        super().__init__(device_id, package_name=package_name)
         self._keyboard = KeyboardService(device_id)
         # Stats
         self.dms_sent = 0
@@ -510,10 +510,11 @@ def main():
             config = json.load(f)
         
         device_id = config['deviceId']
-        logger.info(f"Starting Cold DM workflow for device: {device_id}")
+        package_name = config.get('packageName')  # Clone package (e.g. com.taktik.ig1)
+        logger.info(f"Starting Cold DM workflow for device: {device_id}" + (f" (package: {package_name})" if package_name else ""))
         
         # Initialize workflow
-        workflow = ColdDMWorkflow(device_id)
+        workflow = ColdDMWorkflow(device_id, package_name=package_name)
         
         if not workflow.connect():
             logger.error(f"Failed to connect to device {device_id}")

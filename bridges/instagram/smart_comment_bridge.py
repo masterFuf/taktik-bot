@@ -103,8 +103,8 @@ class PostContext:
 class SmartCommentBridge(InstagramBridgeBase):
     """Bridge for AI-powered comment reply marketing."""
 
-    def __init__(self, device_id: str, config: Dict[str, Any]):
-        super().__init__(device_id)
+    def __init__(self, device_id: str, config: Dict[str, Any], package_name: str = None):
+        super().__init__(device_id, package_name=package_name)
         self.config = config
         self._keyboard = KeyboardService(device_id)
 
@@ -1867,7 +1867,8 @@ def main():
 
     mode = config.get('mode', 'scrape')
 
-    bridge = SmartCommentBridge(device_id, config)
+    package_name = config.get('packageName')  # Clone package (e.g. com.taktik.ig1)
+    bridge = SmartCommentBridge(device_id, config, package_name=package_name)
 
     if not bridge.connect():
         print(json.dumps({"success": False, "error": "Failed to connect to device"}))
