@@ -23,21 +23,17 @@
 ---
 
 <div align="center">
-  
-  ### ðŸš€ **TAKTIK Desktop â€” Lancement Officiel le 1er FÃ©vrier 2026**
-  
-  <img src="https://taktik-bot.com/app-preview.png" alt="Application TAKTIK Desktop" width="800"/>
-  
+
+  [![Démo TAKTIK](https://img.youtube.com/vi/mFh0iv3Hzck/maxresdefault.jpg)](https://www.youtube.com/watch?v=mFh0iv3Hzck)
+
+  <br/>
+
+  **🎁 Essai Gratuit de 14 Jours — Toutes les Fonctionnalités Incluses**
+
+  <a href="https://taktik-bot.com/fr/auth/signin">✨ **Commencer l'Essai Gratuit** →</a>
+
   <br/><br/>
-  
-  **ðŸŽ Essai Gratuit de 14 Jours â€” Toutes les FonctionnalitÃ©s Incluses**
-  
-  DÃ©couvrez toute la puissance de TAKTIK : automatisation Instagram & TikTok, gÃ©nÃ©ration de contenu IA et analytics avancÃ©s.
-  
-  <a href="https://taktik-bot.com/fr/auth/signin">âœ¨ **Commencer l'Essai Gratuit** â†’</a>
-  
-  <br/><br/>
-  
+
 </div>
 
 ---
