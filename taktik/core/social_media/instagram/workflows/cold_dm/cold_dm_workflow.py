@@ -117,7 +117,10 @@ class ColdDMWorkflow:
         """Navigate to Instagram DM screen."""
         try:
             # Open Instagram app
-            pkg = getattr(self, 'package_name', 'com.instagram.android')
+            pkg = getattr(self, 'package_name', None)
+            if not pkg:
+                from taktik.core.clone import get_active_package
+                pkg = get_active_package()
             if pkg.startswith('com.taktik.'):
                 self.device.shell(['am', 'start', '-n',
                                    f'{pkg}/com.instagram.mainactivity.LauncherActivity'])

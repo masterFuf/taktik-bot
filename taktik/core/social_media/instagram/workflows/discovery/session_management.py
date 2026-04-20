@@ -28,7 +28,10 @@ class DiscoverySessionMixin:
         
         try:
             device_serial = self.device_id
-            pkg = getattr(self, 'package_name', 'com.instagram.android')
+            pkg = getattr(self, 'package_name', None)
+            if not pkg:
+                from taktik.core.clone import get_active_package
+                pkg = get_active_package()
             
             if device_serial:
                 # Force stop Instagram

@@ -53,8 +53,16 @@ class WorkflowHelpers:
         
         self.logger.info("🎯 Session ended cleanly")
     
+    def _get_package(self) -> str:
+        """Resolve active Instagram package (clone-aware)."""
+        pkg = getattr(self.automation, 'package_name', None)
+        if not pkg:
+            from taktik.core.clone import get_active_package
+            pkg = get_active_package()
+        return pkg
+
     def _close_instagram(self):
-        pkg = getattr(self.automation, 'package_name', 'com.instagram.android')
+        pkg = self._get_package()
         self.logger.info(f"📱 Closing Instagram ({pkg})...")
         if self.automation.device_manager.stop_app(pkg):
             self.logger.info("✅ Instagram closed successfully")
@@ -126,7 +134,7 @@ class WorkflowHelpers:
         # Always restart Instagram to ensure clean state
         # This is necessary because if Instagram is on a random page (like a profile),
         # the workflow cannot navigate properly to start
-        pkg = getattr(self.automation, 'package_name', 'com.instagram.android')
+        pkg = self._get_package()
         self.logger.info(f"🔄 Restarting Instagram ({pkg}) to ensure clean initial state...")
         if self.automation.device_manager.launch_app(pkg, stop_first=True):
             self.logger.info("✅ Instagram restarted successfully")
