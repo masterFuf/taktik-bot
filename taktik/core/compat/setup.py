@@ -43,6 +43,9 @@ from ..social_media.instagram.ui.selectors import (
 # TikTok selector singletons
 from ..social_media.tiktok.ui.selectors import (
     AUTH_SELECTORS as TT_AUTH,
+    SIGNUP_SELECTORS as TT_SIGNUP,
+    LOGOUT_SELECTORS as TT_LOGOUT,
+    COUNTRY_PICKER_SELECTORS as TT_COUNTRY_PICKER,
     NAVIGATION_SELECTORS as TT_NAVIGATION,
     PROFILE_SELECTORS as TT_PROFILE,
     VIDEO_SELECTORS as TT_VIDEO,
@@ -84,6 +87,9 @@ INSTAGRAM_SELECTOR_DOMAINS = {
 
 TIKTOK_SELECTOR_DOMAINS = {
     "auth": TT_AUTH,
+    "signup": TT_SIGNUP,
+    "logout": TT_LOGOUT,
+    "country_picker": TT_COUNTRY_PICKER,
     "navigation": TT_NAVIGATION,
     "profile": TT_PROFILE,
     "video": TT_VIDEO,

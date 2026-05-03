@@ -37,6 +37,23 @@ APPS = {
         "launch_wait": 4,
         "stop_wait": 1.5,
     },
+    "threads": {
+        "package": "com.instagram.barcelona",
+        "activity": "com.instagram.barcelona.mainactivity.BarcelonaMainActivity",
+        "launch_wait": 4,
+        "stop_wait": 1,
+    },
+}
+
+
+# Alternative package names for the same platform
+# (same app shipped under different package IDs in different regions)
+PLATFORM_ALTERNATIVES = {
+    "tiktok": [
+        "com.zhiliaoapp.musically",   # TikTok musical.ly (default)
+        "com.ss.android.ugc.trill",   # TikTok global
+        "com.ss.android.ugc.aweme",   # TikTok (China / Douyin)
+    ],
 }
 
 
@@ -71,6 +88,26 @@ class AppService:
             # NomixCloner preserves the original activity class, so it's fine.
             if package_override.startswith("com.taktik."):
                 self._config["activity"] = None
+        elif not package_override and platform in PLATFORM_ALTERNATIVES:
+            # Auto-detect: if the default package is not installed, try alternatives
+            # (e.g. com.ss.android.ugc.trill when com.zhiliaoapp.musically is absent)
+            dm = connection.device_manager
+            if dm is not None:
+                alternatives = PLATFORM_ALTERNATIVES[platform]
+                for alt_pkg in alternatives:
+                    if dm.is_app_installed(alt_pkg):
+                        if alt_pkg != self._config["package"]:
+                            logger.info(
+                                f"[AppService] Default package '{self._config['package']}' "
+                                f"not installed — using '{alt_pkg}' for {platform}"
+                            )
+                            self._config["package"] = alt_pkg
+                        break
+                else:
+                    logger.warning(
+                        f"[AppService] No known {platform} package found on device. "
+                        f"Tried: {alternatives}"
+                    )
 
     # ------------------------------------------------------------------
     # Public API

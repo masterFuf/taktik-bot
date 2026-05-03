@@ -46,24 +46,29 @@ class TextInputMixin(BaseAction):
                 time.sleep(delay)
     
     def clear_text_field(self) -> bool:
+        self.logger.debug("🗑️ Clearing text field")
+        
+        # Primary: select-all + delete (works on autofill-committed fields)
         try:
-            self.logger.debug("🗑️ Clearing text field")
-            
+            self.device.press("ctrl+a")
+            time.sleep(0.15)
+            self.device.press("delete")
+            time.sleep(0.1)
+            # Second pass to catch any residual chars
+            self.device.press("ctrl+a")
+            time.sleep(0.1)
+            self.device.press("delete")
+            return True
+        except Exception as e:
+            self.logger.debug(f"ctrl+a/delete failed: {e}")
+        
+        # Fallback: uiautomator2 clear
+        try:
             self.device.send_keys("", clear=True)
             return True
-            
-        except Exception as e:
-            self.logger.debug(f"Méthode 1 échouée: {e}")
-            
-            try:
-                self.device.press("ctrl+a")
-                time.sleep(0.1)
-                self.device.press("del")
-                return True
-                
-            except Exception as e2:
-                self.logger.error(f"Cannot clear field: {e2}")
-                return False
+        except Exception as e2:
+            self.logger.error(f"Cannot clear field: {e2}")
+            return False
 
     def _type_in_field(self, text: str, field_selectors: list, field_name: str, emoji: str = "📝") -> bool:
         """
