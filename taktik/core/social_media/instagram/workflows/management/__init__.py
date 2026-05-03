@@ -3,6 +3,7 @@
 from .session import SessionManager
 from .config import WorkflowConfigBuilder, ActionProbabilities, FilterCriteria
 from .login import LoginWorkflow
+from .logout import LogoutWorkflow
 from .dm import DMOutreachWorkflow, DMOutreachConfig, DMOutreachResult
 from .dm import DMAutoReplyWorkflow, DMAutoReplyConfig, AutoReplyResult
 
@@ -12,6 +13,7 @@ __all__ = [
     'ActionProbabilities', 
     'FilterCriteria', 
     'LoginWorkflow',
+    'LogoutWorkflow',
     # DM Workflows
     'DMOutreachWorkflow',
     'DMOutreachConfig',

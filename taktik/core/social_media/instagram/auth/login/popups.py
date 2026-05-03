@@ -6,6 +6,50 @@ import time
 class LoginPopupsMixin:
     """Mixin: gestion des popups post-login (save info, notifs, contacts, localisation)."""
 
+    def _dismiss_google_autofill_popup(self) -> bool:
+        """
+        Détecte et rejette le popup Google Password Manager / Autofill
+        qui peut apparaître au lancement d'Instagram.
+
+        Returns:
+            True si le popup a été détecté et rejeté, False sinon.
+        """
+        if self._element_exists(self.auth_selectors.google_autofill_popup_indicators):
+            self.logger.info("🔑 Google Password Manager popup detected — dismissing...")
+            dismissed = self._click_first_match(
+                self.auth_selectors.google_autofill_dismiss_button,
+                "No thanks (GPM)"
+            )
+            if dismissed:
+                self.logger.info("✅ Google autofill popup dismissed")
+                time.sleep(1.5)
+            else:
+                self.logger.warning("⚠️ Could not dismiss Google autofill popup")
+            return dismissed
+        return False
+
+    def _dismiss_google_save_password_popup(self) -> bool:
+        """
+        Détecte et rejette le popup Android 'Enregistrer mot de passe dans Google ?'
+        qui apparaît après une connexion réussie.
+
+        Returns:
+            True si détecté et rejeté, False sinon.
+        """
+        if self._element_exists(self.auth_selectors.google_save_password_indicators):
+            self.logger.info("🔑 Google Save Password popup detected — dismissing...")
+            dismissed = self._click_first_match(
+                self.auth_selectors.google_save_password_no_button,
+                "PAS MAINTENANT (Google save password)"
+            )
+            if dismissed:
+                self.logger.info("✅ Google save password popup dismissed")
+                time.sleep(1.0)
+            else:
+                self.logger.warning("⚠️ Could not dismiss Google save password popup")
+            return dismissed
+        return False
+
     def _handle_post_login_popups(self, save_login_info: bool = False) -> None:
         """
         Gère les popups qui apparaissent après une connexion réussie.
@@ -14,14 +58,35 @@ class LoginPopupsMixin:
             save_login_info: Si True, clique sur "Save", sinon sur "Not now"
         """
         self.logger.info("🪟 Handling post-login popups...")
-        
-        # Popup "Save Your Login Info"
+
+        # Google Password Manager / Autofill dialog (suggestions de remplissage)
+        self._dismiss_google_autofill_popup()
+
+        # Google Save Password dialog : "Enregistrer mot de passe dans Google ?"
+        self._dismiss_google_save_password_popup()
+
+        # Popup Instagram "Save Your Login Info?"
         if self._element_exists(self.auth_selectors.save_login_info_popup):
-            self.logger.info("Found 'Save Login Info' popup")
+            self.logger.info(f"💾 'Save Your Login Info?' popup detected — save_login_info={save_login_info}")
             if save_login_info:
-                self._click_first_match(self.auth_selectors.save_button_selectors, "Save")
+                clicked = self._click_first_match(self.auth_selectors.save_button_selectors, "Save")
+                if clicked:
+                    self.logger.info("✅ Clicked 'Save' — Instagram will remember login info")
+                else:
+                    self.logger.warning("⚠️ Could not click 'Save' button")
             else:
-                self._click_first_match(self.popup_selectors.not_now_selectors, "Not now")
+                # Bouton "Not now" — content-desc direct (plus fiable que resource-id)
+                not_now_selectors = [
+                    '//android.widget.Button[@content-desc="Not now"]',
+                    '//android.widget.Button[@content-desc="Pas maintenant"]',
+                    '//android.widget.Button[.//android.view.View[@content-desc="Not now"]]',
+                    '//android.widget.Button[.//android.view.View[@content-desc="Pas maintenant"]]',
+                ]
+                clicked = self._click_first_match(not_now_selectors, "Not now")
+                if clicked:
+                    self.logger.info("✅ Clicked 'Not now' — Instagram won't save login info")
+                else:
+                    self.logger.warning("⚠️ Could not click 'Not now' button")
             time.sleep(1)
         
         # Popup "Turn on Notifications"
