@@ -80,8 +80,9 @@ class SignupSelectors:
     signup_popup_indicator: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/title" and contains(@text, "Inscription")]',
         '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/title" and contains(@text, "Sign up")]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/title" and contains(@text, "TikTok")]',
-        # Compose-based UI: title has no resource-id — match by text alone
+        # NOTE: removed the generic contains(@text, "TikTok") selector — too broad,
+        # it matched the birthday screen title on some Samsung devices.
+        # Compose-based UI: title has no resource-id — match by full precise text
         '//android.widget.TextView[contains(@text, "Sign up for TikTok")]',
         '//android.widget.TextView[contains(@text, "Inscription") and contains(@text, "TikTok")]',
         # "Use phone or email" button is unique to this popup (not on birthday gate)
