@@ -48,16 +48,17 @@ _EXIST_TIMEOUT = 0.4
 
 # ── Birthday picker constants ───────────────────────────────────────────────
 
-# Max rows (items) to scroll per single swipe gesture
-# Capped at 3 because the picker is only 200px tall — 3 rows * 66px = 198px which
-# exactly fills the widget. The swipe is further clamped to [top+8, bot-8].
+# Max rows (items) to scroll per single swipe gesture when far from target.
+# Clamped by max_dist (~184px for a 200px picker) — no real benefit beyond 3.
 _PICKER_ROWS_PER_SWIPE = 3
 # Max swipe attempts per picker field before giving up
 _PICKER_MAX_ATTEMPTS = 60
-# Swipe gesture duration (seconds) — slow enough to avoid inertia overshoot
-_PICKER_SWIPE_DURATION = 0.5
-# Settling pause after each swipe before re-reading the value (seconds)
-_PICKER_SETTLE = 0.5
+# Swipe gesture duration (seconds).
+# 0.12s was too short → Android registers it as a fling and the picker jumps
+# unpredictably.  0.22s is fast & human-like while staying below inertia threshold.
+_PICKER_SWIPE_DURATION = 0.22
+# Settling pause after the final (1-row) swipe before re-reading the value
+_PICKER_SETTLE = 0.30
 
 # Month-name → month-number (French + English, abbreviated + full)
 _MONTH_NAMES: dict = {
@@ -125,7 +126,13 @@ class TikTokSignupWorkflow:
         _ipc.status("running", f"Starting registration ({method})...")
 
         birthday_done = False
+        birthday_transition_retries = 0
+        _MAX_BIRTHDAY_TRANSITION = 5   # up to ~15 s for Samsung to leave the birthday screen
+        _BIRTHDAY_TRANSITION_WAIT = 3.0
         email_submitted = False
+        email_transition_retries = 0
+        _MAX_EMAIL_TRANSITION = 5      # up to ~15 s for Samsung to leave the email screen
+        _EMAIL_TRANSITION_WAIT = 3.0
         unknown_retries = 0
         _MAX_UNKNOWN_RETRIES = 4   # wait up to ~12 s on loading/unknown screens
         _UNKNOWN_WAIT = 3.0        # seconds to wait between unknown retries
@@ -158,9 +165,15 @@ class TikTokSignupWorkflow:
                 # ── BIRTHDAY_SIGNUP ──────────────────────────────────────
                 elif screen == "birthday_signup":
                     if birthday_done:
-                        # Birthday appeared a second time — unexpected loop
-                        return self._error("birthday_loop",
-                                           "Birthday screen reappeared after already being filled")
+                        # Birthday screen still visible after "Continuer" was clicked —
+                        # Samsung transitions can be slow; wait and retry.
+                        birthday_transition_retries += 1
+                        if birthday_transition_retries >= _MAX_BIRTHDAY_TRANSITION:
+                            return self._error("birthday_loop",
+                                               f"Birthday screen still visible after {birthday_transition_retries} retries")
+                        _ipc.log("info", f"⏳ Waiting for transition after birthday ({birthday_transition_retries}/{_MAX_BIRTHDAY_TRANSITION})...")
+                        time.sleep(_BIRTHDAY_TRANSITION_WAIT)
+                        continue
                     _ipc.log("info", "🎂 Filling date of birth...")
                     result = self._fill_birthday(birth_day, birth_month, birth_year)
                     if not result["success"]:
@@ -171,9 +184,15 @@ class TikTokSignupWorkflow:
                 # ── PHONE_EMAIL ──────────────────────────────────────────
                 elif screen == "phone_email":
                     if email_submitted:
-                        # phone/email screen reappeared — unexpected
-                        return self._error("phone_email_loop",
-                                           "Phone/email screen reappeared after submission")
+                        # Email screen still visible after "Continuer" was clicked —
+                        # Samsung transitions can be slow; wait and retry.
+                        email_transition_retries += 1
+                        if email_transition_retries >= _MAX_EMAIL_TRANSITION:
+                            return self._error("phone_email_loop",
+                                               f"Phone/email screen still visible after {email_transition_retries} retries")
+                        _ipc.log("info", f"⏳ Waiting for transition after email submission ({email_transition_retries}/{_MAX_EMAIL_TRANSITION})...")
+                        time.sleep(_EMAIL_TRANSITION_WAIT)
+                        continue
                     _ipc.log("info", f"✏️  Filling {method} registration details...")
                     result = self._handle_phone_email(method, email, phone, phone_country)
                     if not result["success"]:
@@ -256,11 +275,13 @@ class TikTokSignupWorkflow:
         Typical cost: ~0.5s per detection regardless of outcome.
 
         Priority order ensures unambiguous detection:
-          1. SIGNUP_POPUP  – "Inscription à TikTok" modal (most specific)
-          2. BIRTHDAY_GATE – birthday + "Inscription" link (id=mfb)
-          3. PHONE_EMAIL   – phone/email input field
-          4. BIRTHDAY_SIGNUP – birthday title without mfb link
-          5. OTP_ENTRY     – OTP verification code input screen
+          1. BIRTHDAY_GATE  – birthday + "Inscription" link (id=mfb)  ← most specific
+          2. BIRTHDAY_SIGNUP – birthday pickers, no mfb link
+             (checked BEFORE signup_popup to prevent generic title selectors
+              from falsely matching the birthday screen)
+          3. SIGNUP_POPUP  – "Inscription à TikTok" modal
+          4. OTP_ENTRY     – OTP verification code input screen
+          5. PHONE_EMAIL   – phone/email input field
 
         XPath translation:
           uiautomator2's dump_hierarchy returns XML where every element has
@@ -299,26 +320,32 @@ class TikTokSignupWorkflow:
                     continue
             return False
 
-        if matches(SIGNUP_SELECTORS.signup_popup_indicator):
-            return "signup_popup"
+        # Birthday gate first: has unique "mfb" button — unambiguous, fastest to discard
         if matches(SIGNUP_SELECTORS.birthday_gate_inscription_link):
             return "birthday_gate"
+        # Birthday signup BEFORE signup_popup: the SeekBar pickers / birthday text
+        # are specific; checking here prevents generic signup_popup selectors
+        # (e.g. title text) from falsely matching the birthday screen.
+        if matches(SIGNUP_SELECTORS.birthday_screen_indicator):
+            return "birthday_signup"
+        if matches(SIGNUP_SELECTORS.signup_popup_indicator):
+            return "signup_popup"
         # OTP must be checked BEFORE phone_email: the OTP screen has 6 EditText
         # boxes (digit inputs) which would otherwise match email_input/phone_input.
         if matches(SIGNUP_SELECTORS.otp_screen_indicator):
             return "otp_entry"
         if matches(SIGNUP_SELECTORS.phone_input) or matches(SIGNUP_SELECTORS.email_input):
             return "phone_email"
-        if matches(SIGNUP_SELECTORS.birthday_screen_indicator):
-            return "birthday_signup"
         return "unknown"
 
     def _detect_screen_slow(self) -> str:
         """Fallback to per-xpath polling (used only if dump_hierarchy fails)."""
-        if self._element_exists(SIGNUP_SELECTORS.signup_popup_indicator):
-            return "signup_popup"
         if self._element_exists(SIGNUP_SELECTORS.birthday_gate_inscription_link):
             return "birthday_gate"
+        if self._element_exists(SIGNUP_SELECTORS.birthday_screen_indicator):
+            return "birthday_signup"
+        if self._element_exists(SIGNUP_SELECTORS.signup_popup_indicator):
+            return "signup_popup"
         # OTP must be checked BEFORE phone_email — the OTP screen has 6 EditText
         # digit boxes which would otherwise match the phone_input/email_input selectors.
         if self._element_exists(SIGNUP_SELECTORS.otp_screen_indicator):
@@ -326,8 +353,6 @@ class TikTokSignupWorkflow:
         if (self._element_exists(SIGNUP_SELECTORS.phone_input) or
                 self._element_exists(SIGNUP_SELECTORS.email_input)):
             return "phone_email"
-        if self._element_exists(SIGNUP_SELECTORS.birthday_screen_indicator):
-            return "birthday_signup"
         return "unknown"
 
     # ── Step helpers ────────────────────────────────────────────────────
@@ -507,9 +532,9 @@ class TikTokSignupWorkflow:
             # Adaptive settle: fast when far from target, careful when close
             # to stop before overshooting the last row.
             if abs_delta > 5:
-                time.sleep(0.15)   # far away — keep moving fast
+                time.sleep(0.08)   # far away — keep moving fast
             elif abs_delta > 1:
-                time.sleep(0.30)   # getting close — slow down a bit
+                time.sleep(0.20)   # getting close — slow down a bit
             else:
                 time.sleep(_PICKER_SETTLE)  # last row — wait for full settle
 
