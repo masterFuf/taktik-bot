@@ -161,7 +161,10 @@ class GmailWorkflow:
                         hierarchy = self.device.dump_hierarchy()
                         if email.lower() in hierarchy.lower():
                             _ipc.log("info", f"✅ Gmail account already in switcher: {email}")
-                            self._click_selector(GMAIL_SWITCHER_SELECTORS.close, timeout=0.8)
+                            closed = self._click_selector(GMAIL_SWITCHER_SELECTORS.close, timeout=0.8)
+                            if not closed:
+                                self.device.press("back")
+                            time.sleep(0.5)
                             return {"success": True, "message": "Account already present", "error_type": None}
                     except Exception:
                         pass
@@ -330,10 +333,31 @@ class GmailWorkflow:
                 return result
 
             # Poll the inbox
+            # Strategy (fast -> slow):
+            #   1. Read code directly from inbox list-view content-desc - no search needed.
+            #      On Samsung Gmail the email snippet is in content-desc of each
+            #      conversation row, e.g.: "Non lue TikTok, 890830 est ton code TikTok..."
+            #   2. Fall back to full search + open email if not found in list.
             search_query = self._build_search_query(sender_filter, subject_filter)
             deadline = time.time() + timeout
 
             while time.time() < deadline:
+                # Fast path: read OTP from current inbox dump
+                try:
+                    inbox_xml = self.device.dump_hierarchy()
+                    code = self._read_otp_from_inbox_dump(inbox_xml, sender_filter)
+                    if code:
+                        _ipc.log("info", f"✅ Verification code found in inbox: {code}")
+                        return {
+                            "success": True,
+                            "code": code,
+                            "message": f"Code found: {code}",
+                            "error_type": None,
+                        }
+                except Exception:
+                    pass
+
+                # Slow path: search + open email
                 code = self._search_and_extract_code(search_query)
                 if code:
                     _ipc.log("info", f"✅ Verification code found: {code}")
@@ -358,6 +382,81 @@ class GmailWorkflow:
             self.logger.exception("💥 Gmail get_latest_verification_code failed")
             _ipc.log("error", f"❌ Gmail OTP error: {exc}")
             return {"success": False, "code": None, "message": str(exc), "error_type": "exception"}
+
+    def scan_accounts(self) -> dict:
+        """
+        Scan Gmail and return all Google accounts currently configured in the app.
+
+        Algorithm:
+          1. Open Gmail → read the active account email from the inbox header.
+          2. Open the account switcher → read all listed accounts (name + email).
+          3. Close the switcher.
+          4. Return {"success": True, "accounts": [{name, email, is_active}], "message": "N account(s) found"}.
+
+        The active account is shown in the switcher greeting but NOT in the
+        og_secondary_account_information RecyclerView — it is inserted manually
+        using the email from step 1 and the greeting display name.
+        """
+        self.logger.info("🔍 Scanning Gmail accounts…")
+        _ipc.status("running", "Opening Gmail…")
+
+        try:
+            # ── Open Gmail ──────────────────────────────────────────────────
+            _ipc.log("info", "📱 Opening Gmail…")
+            self.device.app_start(_GMAIL_PACKAGE)
+
+            # Wait for Gmail inbox — slow devices can take 15–30 s to load.
+            # Poll _detect_add_account_screen() instead of a fixed sleep.
+            _ipc.log("info", "⏳ Waiting for Gmail to load…")
+            deadline = time.time() + 30
+            while time.time() < deadline:
+                screen = self._detect_add_account_screen()
+                if screen in ("inbox", "switcher"):
+                    _ipc.log("info", "✅ Gmail ready")
+                    break
+                time.sleep(1.5)
+            else:
+                _ipc.log("warning", "⚠️ Gmail inbox not ready after 30 s — attempting scan anyway")
+
+            # ── Read active account email from inbox ────────────────────────
+            _ipc.log("info", "🔎 Reading active account…")
+            active_email = self._get_active_account_from_dump()
+            _ipc.log("info", f"📧 Active account: {active_email or 'unknown'}")
+
+            # ── Open account switcher ───────────────────────────────────────
+            _ipc.log("info", "👆 Opening account switcher…")
+            if not self._open_account_switcher():
+                accounts = []
+                if active_email:
+                    accounts.append({"name": None, "email": active_email, "is_active": True})
+                _ipc.log("warning", "⚠️ Switcher could not be opened — returning active account only")
+                return {
+                    "success": True,
+                    "accounts": accounts,
+                    "message": "Switcher could not be opened, only active account retrieved",
+                }
+
+            time.sleep(0.6)
+
+            # ── Parse all accounts from switcher ────────────────────────────
+            _ipc.log("info", "📋 Parsing account list…")
+            accounts = self._extract_accounts_from_switcher(active_email)
+
+            # ── Close switcher ──────────────────────────────────────────────
+            self._dismiss_switcher()
+
+            _ipc.log("info", f"✅ Found {len(accounts)} Gmail account(s)")
+            _ipc.status("success", f"{len(accounts)} account(s) found")
+            return {
+                "success": True,
+                "accounts": accounts,
+                "message": f"{len(accounts)} account(s) found",
+            }
+
+        except Exception as exc:
+            self.logger.exception("💥 Gmail scan_accounts failed")
+            _ipc.log("error", f"❌ Gmail scan error: {exc}")
+            return {"success": False, "accounts": [], "message": str(exc), "error_type": "exception"}
 
     # ──────────────────────────────────────────────────────────────────
     # Screen detection
@@ -445,7 +544,9 @@ class GmailWorkflow:
 
         # 6. Account switcher overlay
         if ("og_bento_account_menu_title_text" in h or
-                "og_bento_selected_account_greeting_message" in h):
+                "og_bento_selected_account_greeting_message" in h or
+                "og_dialog_fragment_account_menu" in h or
+                "og_popover" in h):
             return "switcher"
 
         # 7. Gmail inbox or any Gmail foreground screen
@@ -493,8 +594,7 @@ class GmailWorkflow:
             hierarchy = self.device.dump_hierarchy()
             found = email.lower() in hierarchy.lower()
             # Close the switcher
-            self._click_selector(GMAIL_SWITCHER_SELECTORS.close)
-            time.sleep(0.5)
+            self._dismiss_switcher()
             return found
         except Exception:
             return False
@@ -534,16 +634,85 @@ class GmailWorkflow:
 
         return False
 
+    def _dismiss_switcher(self) -> None:
+        """
+        Dismiss the Gmail account switcher overlay.
+
+        Strategy (most reliable → least reliable):
+          1. Tap below the popup (outside its bounds) — the og_dialog /
+             og_popover variant has no close button but dismisses on outside tap.
+             Observed on SM-J600FN: popup bottom = y≈1024, screen height=1416,
+             so tapping at y≈1200 (well below popup, well above nav bar) works.
+          2. Click the visible close / back button if one is accessible.
+          3. Press BACK as last resort.
+
+        After dismissal wait 0.6 s for the animation to finish.
+        """
+        try:
+            info = self.device.info
+            width  = int(info.get("displayWidth",  656))
+            height = int(info.get("displayHeight", 1416))
+        except Exception:
+            width, height = 656, 1416
+
+        # Try to read the popup bottom boundary from the hierarchy
+        popup_bottom = None
+        try:
+            h = self.device.dump_hierarchy()
+            import re as _re
+            # og_popover bounds e.g. "[32,182][656,1024]"
+            m = _re.search(r'og_popover[^>]*bounds="\[[\d,]+\]\[(\d+),(\d+)\]"', h)
+            if not m:
+                m = _re.search(r'og_dialog_fragment_account_menu[^>]*bounds="\[[\d,]+\]\[(\d+),(\d+)\]"', h)
+            if m:
+                popup_bottom = int(m.group(2))
+        except Exception:
+            pass
+
+        if popup_bottom is not None:
+            # Tap 20% of the remaining screen height below the popup
+            tap_y = popup_bottom + int((height - popup_bottom) * 0.4)
+            tap_x = width // 2
+            self.logger.debug(f"Dismissing switcher: tap outside popup at ({tap_x}, {tap_y}) "
+                              f"[popup_bottom={popup_bottom}, screen_height={height}]")
+            try:
+                self.device.click(tap_x, tap_y)
+                time.sleep(0.6)
+                if not self._is_switcher_open():
+                    return
+            except Exception:
+                pass
+
+        # Fallback 2: close button
+        if self._click_selector(GMAIL_SWITCHER_SELECTORS.close, timeout=1.0):
+            time.sleep(0.6)
+            if not self._is_switcher_open():
+                return
+
+        # Fallback 3: BACK key
+        self.device.press("back")
+        time.sleep(0.6)
+
     def _is_switcher_open(self) -> bool:
-        """Fast check for the Gmail account switcher overlay."""
+        """Fast check for the Gmail account switcher overlay (bento or GMS picker)."""
         try:
             h = self.device.dump_hierarchy()
         except Exception:
             return False
         hl = h.lower()
         return (
+            # Gmail bento panel (com.google.android.gm)
             "og_bento_account_menu_title_text" in h
             or "og_bento_selected_account_greeting_message" in h
+            # og_dialog variant (com.google.android.gm — newer Gmail builds)
+            or "com.google.android.gm:id/og_dialog_view" in h
+            or "com.google.android.gm:id/account_management" in h
+            or "com.google.android.gm:id/og_dialog_fragment_account_menu" in h
+            or "com.google.android.gm:id/og_popover" in h
+            # GMS account picker (com.google.android.gms)
+            or "com.google.android.gms:id/selected_account_container" in h
+            or "com.google.android.gms:id/account_picker_container" in h
+            # Text-based fallbacks (both panels)
             or "ajouter un autre compte" in hl
             or "add another account" in hl
             or "changer de compte" in hl
@@ -587,9 +756,17 @@ class GmailWorkflow:
         # In that case just close the overlay and return.
         if email.lower() in hierarchy.lower():
             # Check secondary rows first (non-active accounts)
-            rows = self.device.xpath(
-                '//*[@resource-id="com.google.android.gm:id/og_secondary_account_information"]'
-            ).all()
+            # Variant 1: bento panel uses og_secondary_account_information
+            # Variant 2: og_dialog uses account_name (observed 2026-05-04)
+            rows = []
+            for row_xpath in (
+                '//*[@resource-id="com.google.android.gm:id/og_secondary_account_information"]',
+                '//*[@resource-id="com.google.android.gm:id/account_name"]',
+            ):
+                found = self.device.xpath(row_xpath).all()
+                if found:
+                    rows = found
+                    break
             for row in rows:
                 row_text = (row.info.get("text") or "").lower()
                 if email.lower() in row_text:
@@ -601,12 +778,13 @@ class GmailWorkflow:
             # Email is in the dump but not in secondary rows — it must be the
             # currently-active account shown in the header.  Just close.
             _ipc.log("info", f"\u2705 Target account is already active in switcher: {email}")
-            self._click_selector(GMAIL_SWITCHER_SELECTORS.close, timeout=2.0)
-            time.sleep(0.5)
+            self._dismiss_switcher()
+            time.sleep(1.0)  # wait for popup to fully dismiss before inbox dump
             return {"success": True, "message": "Correct account active", "error_type": None}
 
         # Account not found in switcher at all
-        self._click_selector(GMAIL_SWITCHER_SELECTORS.close, timeout=2.0)
+        self._dismiss_switcher()
+        time.sleep(0.5)
         return self._error("account_not_in_switcher",
                            f"Account {email} not found in Gmail switcher. "
                            "Call ensure_account_added() first.")
@@ -622,17 +800,283 @@ class GmailWorkflow:
         """
         try:
             h = self.device.dump_hierarchy()
-            idx = h.find("selected_account_disc_gmail")
+            # Check both known marker variants:
+            #   selected_account_disc_gmail  — standard Gmail bento panel
+            #   identity_disc_menu_item      — Samsung/og_dialog Gmail variant
+            for marker in ("selected_account_disc_gmail", "identity_disc_menu_item"):
+                idx = h.find(marker)
+                if idx == -1:
+                    continue
+                node_str = h[idx: idx + 400]
+                m = re.search(r'content-desc="([^"]+)"', node_str)
+                if m:
+                    email_match = re.search(r'[\w.+\-]+@[\w.+\-]+\.\w+', m.group(1))
+                    if email_match:
+                        return email_match.group(0).lower()
+        except Exception:
+            pass
+        return None
+
+    def _extract_accounts_from_switcher(self, active_email: Optional[str]) -> list:
+        """
+        Parse the currently open account switcher hierarchy and return a list
+        of all configured Gmail accounts.
+
+        Tries three known-variant parsers in order, then falls back to a
+        universal regex scan of the whole hierarchy dump.  The fallback ensures
+        compatibility with future or manufacturer-specific Gmail UIs that don't
+        match any of the known resource-ID patterns.
+
+        Known variants:
+          1. Gmail bento panel   — og_bento_* / og_primary/secondary_account_information
+          2. og_dialog variant   — og_dialog_view / account_management RecyclerView
+          3. GMS account picker  — com.google.android.gms:id/selected_account_*
+          4. Regex fallback      — emails extracted from text= / content-desc= attributes
+        """
+        accounts: list = []
+        active_email_norm = (active_email or "").lower()
+
+        try:
+            h = self.device.dump_hierarchy()
+        except Exception as exc:
+            self.logger.debug(f"Could not dump hierarchy: {exc}")
+            return accounts
+
+        is_bento     = "og_bento_selected_account_greeting_message" in h or "og_primary_account_information" in h
+        is_og_dialog = not is_bento and (
+            "com.google.android.gm:id/og_dialog_view" in h
+            or "com.google.android.gm:id/account_management" in h
+        )
+        is_gms       = "com.google.android.gms:id/selected_account_container" in h
+
+        if is_bento:
+            # ── Gmail bento: other accounts via og_primary/secondary rows ──
+            try:
+                email_nodes = self.device.xpath(
+                    '//*[@resource-id="com.google.android.gm:id/og_secondary_account_information"]'
+                ).all()
+                name_nodes = self.device.xpath(
+                    '//*[@resource-id="com.google.android.gm:id/og_primary_account_information"]'
+                ).all()
+                for i, email_node in enumerate(email_nodes):
+                    email_text = (email_node.info.get("text") or "").strip()
+                    name_text = (name_nodes[i].info.get("text") or "").strip() if i < len(name_nodes) else None
+                    if email_text:
+                        accounts.append({
+                            "name": name_text or None,
+                            "email": email_text,
+                            "is_active": email_text.lower() == active_email_norm,
+                        })
+            except Exception as exc:
+                self.logger.debug(f"Could not parse Gmail bento account rows: {exc}")
+
+            # Active account (greeting header) not in the secondary rows
+            if active_email_norm and not any(
+                a["email"].lower() == active_email_norm for a in accounts
+            ):
+                active_name = self._get_active_account_name_from_switcher_bento(h)
+                accounts.insert(0, {
+                    "name": active_name,
+                    "email": active_email,
+                    "is_active": True,
+                })
+            else:
+                for a in accounts:
+                    if a["email"].lower() == active_email_norm:
+                        a["is_active"] = True
+
+        elif is_gms:
+            # ── GMS account picker: parse from hierarchy string directly ──
+            name_m  = re.search(r'selected_account_name[^/]*text="([^"]+)"', h)
+            email_m = re.search(r'selected_account_email[^/]*text="([^"]+)"', h)
+            if email_m:
+                sel_email = email_m.group(1).strip()
+                sel_name  = name_m.group(1).strip() if name_m else None
+                if sel_email:
+                    accounts.append({
+                        "name": sel_name or None,
+                        "email": sel_email,
+                        "is_active": True,
+                    })
+                    if not active_email_norm:
+                        active_email_norm = sel_email.lower()
+
+            # Additional accounts (extra rows) — look for gms account_email/name IDs
+            try:
+                extra_email_nodes = self.device.xpath(
+                    '//*[@resource-id="com.google.android.gms:id/account_email"]'
+                ).all()
+                extra_name_nodes = self.device.xpath(
+                    '//*[@resource-id="com.google.android.gms:id/account_name"]'
+                ).all()
+                for i, en in enumerate(extra_email_nodes):
+                    et = (en.info.get("text") or "").strip()
+                    nt = (extra_name_nodes[i].info.get("text") or "").strip() if i < len(extra_name_nodes) else None
+                    if et and et.lower() != active_email_norm:
+                        accounts.append({"name": nt or None, "email": et, "is_active": False})
+            except Exception as exc:
+                self.logger.debug(f"Could not read GMS extra account rows: {exc}")
+
+        elif is_og_dialog:
+            # ── og_dialog variant: account_display_name nodes in hierarchy ──
+            # Structure: selected_account_view (active) + account_management
+            # RecyclerView (others). All use account_display_name for the email.
+            # The active account's display_name is the FIRST match in the dump.
+            try:
+                email_matches = re.findall(
+                    r'account_display_name[^/]*?text="([^"]+)"', h
+                )
+                for i, email_text in enumerate(email_matches):
+                    email_text = email_text.strip()
+                    if not email_text:
+                        continue
+                    is_active = (
+                        email_text.lower() == active_email_norm
+                        if active_email_norm
+                        else i == 0
+                    )
+                    accounts.append({
+                        "name": None,
+                        "email": email_text,
+                        "is_active": is_active,
+                    })
+            except Exception as exc:
+                self.logger.debug(f"Could not parse og_dialog account rows: {exc}")
+
+        # ── Universal regex fallback ──────────────────────────────────────────
+        # If no specific parser matched or all parsers returned empty, extract
+        # emails directly from the hierarchy dump.  Works on any Gmail UI variant
+        # as long as accounts are visible as text= or content-desc= attributes.
+        if not accounts:
+            self.logger.debug(
+                f"Specific Gmail switcher parser returned 0 accounts "
+                f"(bento={is_bento}, og_dialog={is_og_dialog}, gms={is_gms}) "
+                f"— using regex fallback"
+            )
+            accounts = self._extract_emails_from_hierarchy(h, active_email_norm, active_email)
+
+        return accounts
+
+    def _extract_emails_from_hierarchy(
+        self,
+        h: str,
+        active_email_norm: str,
+        active_email: Optional[str],
+    ) -> list:
+        """
+        Universal fallback: scan the full hierarchy dump for email addresses.
+
+        Extracts from:
+          - content-desc= attributes (contains "Connecté en tant que X" / "Use X" / etc.)
+          - text= attributes (account_display_name, plain email rows)
+
+        Determines the active account via:
+          1. active_email_norm if provided
+          2. Content-desc patterns like "connecté en tant que" / "connected as"
+          3. First email found (last resort)
+        """
+        EMAIL_RE = re.compile(r'[\w.+\-]+@[\w.\-]+\.[a-z]{2,}', re.IGNORECASE)
+        seen: dict = {}  # lower_email -> entry dict  (preserves insertion order)
+
+        # ── Pass 1: content-desc attributes (reliable for active/inactive) ──
+        for m in re.finditer(r'content-desc="([^"]*)"', h):
+            desc = m.group(1)
+            desc_l = desc.lower()
+            for email in EMAIL_RE.findall(desc):
+                key = email.lower()
+                if key in seen:
+                    continue
+                # Heuristic: "connecté en tant que" / "connected as" → active
+                is_active = (
+                    key == active_email_norm
+                    if active_email_norm
+                    else (
+                        "connecté en tant que" in desc_l
+                        or "connected as" in desc_l
+                        or "signed in as" in desc_l
+                        or "ouvrir le menu des comptes" in desc_l
+                        or "open account menu" in desc_l
+                    )
+                )
+                seen[key] = {"name": None, "email": email, "is_active": is_active}
+
+        # ── Pass 2: text= attributes (account rows, display name fields) ──
+        for m in re.finditer(r'\btext="([^"]*@[^"]*)"', h):
+            val = m.group(1).strip()
+            for email in EMAIL_RE.findall(val):
+                key = email.lower()
+                if key in seen:
+                    continue
+                seen[key] = {
+                    "name": None,
+                    "email": email,
+                    "is_active": key == active_email_norm if active_email_norm else False,
+                }
+
+        # ── Ensure active_email appears even if it wasn't in the dump ──
+        if active_email and active_email_norm not in seen:
+            seen[active_email_norm] = {"name": None, "email": active_email, "is_active": True}
+            # Move it to the front
+            seen = {active_email_norm: seen[active_email_norm], **seen}
+
+        accounts = list(seen.values())
+
+        # ── Last resort: if nothing is marked active, mark the first entry ──
+        if accounts and not any(a["is_active"] for a in accounts):
+            accounts[0]["is_active"] = True
+
+        return accounts
+
+    def _get_active_account_name_from_switcher(self) -> Optional[str]:
+        """
+        Extract the display name of the active account from whatever switcher
+        is currently open.
+
+        Tries:
+          1. Gmail bento greeting (og_bento_selected_account_greeting_message)
+          2. GMS picker selected_account_name
+        """
+        try:
+            h = self.device.dump_hierarchy()
+        except Exception:
+            return None
+        name = self._get_active_account_name_from_switcher_bento(h)
+        if name:
+            return name
+        # GMS picker fallback
+        try:
+            m = re.search(
+                r'selected_account_name[^>]*text="([^"]+)"', h
+            )
+            if m:
+                return m.group(1).strip() or None
+        except Exception:
+            pass
+        return None
+
+    def _get_active_account_name_from_switcher_bento(self, h: str) -> Optional[str]:
+        """
+        Extract the display name from the Gmail bento greeting element.
+
+        The greeting element (og_bento_selected_account_greeting_message) contains:
+          - FR: "Bonjour <name> !"
+          - EN: "Hi, <name>!"
+        Returns the extracted name, or None if it cannot be determined.
+        """
+        try:
+            idx = h.find("og_bento_selected_account_greeting_message")
             if idx == -1:
                 return None
-            # content-desc is within the next ~400 chars
-            node_str = h[idx: idx + 400]
-            m = re.search(r'content-desc="([^"]+)"', node_str)
+            snippet = h[idx: idx + 200]
+            m = re.search(r'text="([^"]+)"', snippet)
             if m:
-                desc = m.group(1)
-                email_match = re.search(r'[\w.+\-]+@[\w.+\-]+\.\w+', desc)
-                if email_match:
-                    return email_match.group(0).lower()
+                greeting = m.group(1)
+                for prefix in ("Bonjour ", "Hi, "):
+                    if greeting.startswith(prefix):
+                        name = greeting[len(prefix):].rstrip(" !").strip()
+                        if name:
+                            return name
+                return greeting.strip()
         except Exception:
             pass
         return None
@@ -732,29 +1176,59 @@ class GmailWorkflow:
         """
         Extract a 6-digit code from a UI hierarchy XML string.
 
-        Searches all `text` attribute values for:
-          - A standalone 6-digit sequence
-          - Common patterns: "code : 123456", "code is 123456"
+        Searches all `text` AND `content-desc` attribute values.
+        On Samsung Gmail, email snippets are in content-desc, not text.
         Returns the first match, or None.
         """
-        # Priority 1: explicit patterns
         patterns = [
             r'\b(\d{6})\b',
             r'code\s*[:\-–]\s*(\d{6})',
             r'code\s+is\s+(\d{6})',
             r'code\s+est\s*[:\-–]?\s*(\d{6})',
         ]
-        # Extract all text= attribute values then search
-        texts = re.findall(r'text="([^"]+)"', hierarchy_xml)
-        for text in texts:
+        # Search both text= and content-desc= attribute values
+        values = re.findall(r'(?:text|content-desc)="([^"]+)"', hierarchy_xml)
+        for value in values:
             for pattern in patterns:
-                match = re.search(pattern, text, re.IGNORECASE)
+                match = re.search(pattern, value, re.IGNORECASE)
                 if match:
                     return match.group(1)
         # Fallback: scan entire XML for any standalone 6-digit sequence
         match = re.search(r'\b(\d{6})\b', hierarchy_xml)
         if match:
             return match.group(1)
+        return None
+
+    def _read_otp_from_inbox_dump(
+        self,
+        hierarchy_xml: str,
+        sender_filter: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Extract a 6-digit OTP from the Gmail inbox list-view dump WITHOUT
+        opening the email.
+
+        On Samsung Gmail each conversation row exposes its full subject + preview
+        in content-desc, e.g.:
+          "Non lue TikTok, 890830 est ton code TikTok, Verifie..."
+
+        If sender_filter is given (e.g. "TikTok"), only rows whose
+        content-desc contains that string (case-insensitive) are examined.
+        """
+        patterns = [
+            r'\b(\d{6})\b',
+            r'code\s*[:\-–]\s*(\d{6})',
+            r'code\s+is\s+(\d{6})',
+            r'code\s+est\s*[:\-–]?\s*(\d{6})',
+        ]
+        descs = re.findall(r'content-desc="([^"]+)"', hierarchy_xml)
+        for desc in descs:
+            if sender_filter and sender_filter.lower() not in desc.lower():
+                continue
+            for pattern in patterns:
+                m = re.search(pattern, desc, re.IGNORECASE)
+                if m:
+                    return m.group(1)
         return None
 
     # ──────────────────────────────────────────────────────────────────

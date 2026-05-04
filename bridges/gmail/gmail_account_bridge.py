@@ -3,9 +3,10 @@
 Account Bridge — Gmail Login / Logout / Read OTP
 
 Handles:
-  - workflowType: "login"     → ensure_account_added (add a Google account to Gmail)
-  - workflowType: "logout"    → remove a Google account from Gmail
-  - workflowType: "read_otp"  → read latest verification code from a given inbox
+  - workflowType: "login"        → ensure_account_added (add a Google account to Gmail)
+  - workflowType: "logout"       → remove a Google account from Gmail
+  - workflowType: "read_otp"     → read latest verification code from a given inbox
+  - workflowType: "scan_accounts" → list all Gmail accounts configured on the device
 
 Config JSON fields:
   For login (add account):
@@ -60,7 +61,7 @@ class GmailAccountBridge:
     def __init__(self, config: dict):
         self.config = config
         self.device_id = config.get('deviceId')
-        self.workflow_type = config.get('workflowType')  # "login" | "logout" | "read_otp"
+        self.workflow_type = config.get('workflowType')  # "login" | "logout" | "read_otp" | "scan_accounts"
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
@@ -79,7 +80,7 @@ class GmailAccountBridge:
             send_error("Device ID is required")
             return 1
         if not self.workflow_type:
-            send_error("workflowType is required ('login', 'logout', or 'read_otp')")
+            send_error("workflowType is required ('login', 'logout', 'read_otp', or 'scan_accounts')")
             return 1
 
         # Setup DB
@@ -109,6 +110,8 @@ class GmailAccountBridge:
             return self._run_logout(device)
         elif self.workflow_type == "read_otp":
             return self._run_read_otp(device)
+        elif self.workflow_type == "scan_accounts":
+            return self._run_scan_accounts(device)
         else:
             send_error(f"Unknown workflowType: {self.workflow_type}")
             return 1
@@ -232,6 +235,39 @@ class GmailAccountBridge:
         except Exception as e:
             import traceback
             send_error(f"Gmail OTP error: {e}")
+            send_log("error", traceback.format_exc())
+            return 1
+
+    # ------------------------------------------------------------------
+    # Scan accounts
+    # ------------------------------------------------------------------
+
+    def _run_scan_accounts(self, device) -> int:
+        send_status("running", "Scanning Gmail accounts…")
+        send_log("info", "🔍 Gmail scan_accounts workflow")
+
+        try:
+            from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
+            workflow = GmailWorkflow(device, self.device_id)
+            result = workflow.scan_accounts()
+            outcome = "success" if result.get('success') else "error"
+            send_status(outcome, result.get('message', ''))
+            # Persist each discovered account to the local DB
+            if result.get('success'):
+                for acc in result.get('accounts', []):
+                    email = acc.get('email') or ''
+                    if email:
+                        self._persist_account(email)
+            send_message("account_result",
+                         success=result.get('success', False),
+                         workflow="scan_accounts",
+                         accounts=result.get('accounts', []),
+                         message=result.get('message', ''),
+                         error_type=result.get('error_type'))
+            return 0 if result.get('success') else 1
+        except Exception as e:
+            import traceback
+            send_error(f"Gmail scan_accounts error: {e}")
             send_log("error", traceback.format_exc())
             return 1
 
