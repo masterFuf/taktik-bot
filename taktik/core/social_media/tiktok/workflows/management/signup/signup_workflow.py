@@ -99,6 +99,8 @@ class TikTokSignupWorkflow:
         birth_month: int = 6,
         birth_day: int = 15,
         gmail_password: Optional[str] = None,
+        tiktok_password: Optional[str] = None,
+        nickname: Optional[str] = None,
     ) -> dict:
         """
         Execute the TikTok signup workflow using screen-detection.
@@ -118,6 +120,12 @@ class TikTokSignupWorkflow:
             gmail_password: Gmail password for OTP retrieval via Gmail app.
                             Required when method="email" and the email is a Gmail
                             address. If omitted the OTP step will need manual input.
+            tiktok_password: Password for the new TikTok account.
+                            Must be 8–20 chars with ≥1 letter, ≥1 digit, ≥1 special
+                            char from #?!@.  If None, a random valid password is
+                            generated automatically.
+            nickname:       TikTok username (surnom) for the new account.
+                            If None the nickname screen is skipped ("Ignorer").
 
         Returns:
             dict: {success, step, message, error_type}
@@ -133,6 +141,9 @@ class TikTokSignupWorkflow:
         email_transition_retries = 0
         _MAX_EMAIL_TRANSITION = 5      # up to ~15 s for Samsung to leave the email screen
         _EMAIL_TRANSITION_WAIT = 3.0
+        otp_done = False
+        password_done = False
+        nickname_done = False
         unknown_retries = 0
         _MAX_UNKNOWN_RETRIES = 4   # wait up to ~12 s on loading/unknown screens
         _UNKNOWN_WAIT = 3.0        # seconds to wait between unknown retries
@@ -202,14 +213,49 @@ class TikTokSignupWorkflow:
 
                 # ── OTP (verification code entry) ────────────────────────
                 elif screen == "otp_entry":
-                    _ipc.log("info", "🔑 OTP screen detected — retrieving verification code...")
+                    if otp_done:
+                        # OTP screen still visible after code entry — wait for transition
+                        unknown_retries += 1
+                        if unknown_retries >= _MAX_UNKNOWN_RETRIES:
+                            return self._error("otp_loop", "OTP screen still visible after code entry")
+                        time.sleep(_UNKNOWN_WAIT)
+                        continue
+                    _ipc.log("info", "\U0001f511 OTP screen detected \u2014 retrieving verification code...")
                     result = self._handle_otp(method, email, gmail_password)
                     if not result["success"]:
                         return result
+                    otp_done = True
+                    unknown_retries = 0
+                    time.sleep(_ITER_PAUSE)
+
+                # ── PASSWORD ───────────────────────────────────
+                elif screen == "password_entry":
+                    _ipc.log("info", "\U0001f510 Password screen detected — setting password...")
+                    result = self._handle_password(tiktok_password)
+                    if not result["success"]:
+                        return result
+                    password_done = True
+                    unknown_retries = 0
+                    time.sleep(_ITER_PAUSE)
+
+                # ── NICKNAME ──────────────────────────────────
+                elif screen == "nickname_entry":
+                    _ipc.log("info", "\U0001f4db Nickname screen detected — setting username...")
+                    result = self._handle_nickname(nickname)
+                    if not result["success"]:
+                        return result
+                    nickname_done = True
+                    unknown_retries = 0
                     time.sleep(_ITER_PAUSE)
 
                 # ── UNKNOWN ──────────────────────────────────────────────
                 else:
+                    # If nickname step is done, unknown = TikTok home → success
+                    if nickname_done:
+                        _ipc.log("info", "\u2705 Registration complete!")
+                        return {"success": True, "step": "complete",
+                                "message": "TikTok registration complete",
+                                "error_type": None}
                     unknown_retries += 1
                     if unknown_retries >= _MAX_UNKNOWN_RETRIES:
                         # Dump the hierarchy once for debugging before giving up
@@ -334,6 +380,10 @@ class TikTokSignupWorkflow:
         # boxes (digit inputs) which would otherwise match email_input/phone_input.
         if matches(SIGNUP_SELECTORS.otp_screen_indicator):
             return "otp_entry"
+        if matches(SIGNUP_SELECTORS.password_entry_indicator):
+            return "password_entry"
+        if matches(SIGNUP_SELECTORS.nickname_entry_indicator):
+            return "nickname_entry"
         if matches(SIGNUP_SELECTORS.phone_input) or matches(SIGNUP_SELECTORS.email_input):
             return "phone_email"
         return "unknown"
@@ -350,6 +400,10 @@ class TikTokSignupWorkflow:
         # digit boxes which would otherwise match the phone_input/email_input selectors.
         if self._element_exists(SIGNUP_SELECTORS.otp_screen_indicator):
             return "otp_entry"
+        if self._element_exists(SIGNUP_SELECTORS.password_entry_indicator):
+            return "password_entry"
+        if self._element_exists(SIGNUP_SELECTORS.nickname_entry_indicator):
+            return "nickname_entry"
         if (self._element_exists(SIGNUP_SELECTORS.phone_input) or
                 self._element_exists(SIGNUP_SELECTORS.email_input)):
             return "phone_email"
@@ -689,6 +743,75 @@ class TikTokSignupWorkflow:
         self._click_selector(SIGNUP_SELECTORS.otp_continue_button, timeout=3.0)
 
         _ipc.log("info", "✅ OTP entered")
+        return {"success": True}
+
+    def _handle_password(self, tiktok_password: Optional[str]) -> dict:
+        """
+        Fill in the TikTok password creation screen and click Continuer.
+
+        TikTok rules: 8–20 chars, ≥1 letter, ≥1 digit, ≥1 special char (#?!@).
+        If tiktok_password is None a valid password is generated automatically.
+        """
+        import random
+        import string as _string
+
+        if not tiktok_password:
+            # Generate a valid password: letter + digit + special + 5 random alphanums
+            base = (
+                random.choice(_string.ascii_letters)
+                + random.choice(_string.digits)
+                + random.choice("#?!@")
+                + "".join(random.choices(_string.ascii_letters + _string.digits, k=5))
+            )
+            tiktok_password = "".join(random.sample(base, len(base)))
+            _ipc.log("info", f"🔐 Generated password for new account")
+
+        pwd_el = self._find_element(SIGNUP_SELECTORS.password_input, timeout=5.0)
+        if not pwd_el:
+            return self._error("password_input_not_found",
+                               "Password input field not found")
+
+        pwd_el.click()
+        time.sleep(0.3)
+        self.device.send_keys(tiktok_password, clear=True)
+        time.sleep(0.5)
+
+        if not self._click_selector(SIGNUP_SELECTORS.password_continue_button, timeout=5.0):
+            return self._error("password_continue_not_found",
+                               "Could not click Continue on password screen")
+
+        _ipc.log("info", "✅ Password set")
+        return {"success": True}
+
+    def _handle_nickname(self, nickname: Optional[str]) -> dict:
+        """
+        Handle the TikTok nickname (username) screen.
+
+        If nickname is None → click Ignorer (Skip).
+        Otherwise type the nickname and click Continuer.
+        """
+        if not nickname:
+            if not self._click_selector(SIGNUP_SELECTORS.nickname_skip_button, timeout=5.0):
+                # Skip button not found — try Continue anyway (default username assigned)
+                self._click_selector(SIGNUP_SELECTORS.nickname_continue_button, timeout=3.0)
+            _ipc.log("info", "⏩ Nickname skipped")
+            return {"success": True}
+
+        nick_el = self._find_element(SIGNUP_SELECTORS.nickname_input, timeout=5.0)
+        if not nick_el:
+            return self._error("nickname_input_not_found",
+                               "Nickname input field not found")
+
+        nick_el.click()
+        time.sleep(0.3)
+        self.device.send_keys(nickname, clear=True)
+        time.sleep(0.5)
+
+        if not self._click_selector(SIGNUP_SELECTORS.nickname_continue_button, timeout=5.0):
+            return self._error("nickname_continue_not_found",
+                               "Could not click Continue on nickname screen")
+
+        _ipc.log("info", f"✅ Nickname set: {nickname}")
         return {"success": True}
 
     def _get_tiktok_package(self) -> str:

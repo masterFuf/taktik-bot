@@ -330,6 +330,80 @@ class SignupSelectors:
         '//android.widget.Button[contains(@resource-id, "ezo")]',
     ])
 
+    # ── Écran création du mot de passe ─────────────────────────────────────
+    # Dump observé : ui_dump_20260504_021827.xml
+    # Titre   : id=e_c  text="Créer un mot de passe" / "Create a password"
+    # Input   : EditText hint="Saisis le mot de passe" / "Enter password"
+    # Toggle  : ImageView desc="Afficher le mot de passe" / "Show password"
+    # Requis  : id=d6h ImageView desc="Exigences de mot de passe non remplies"
+    # Skip    : Button text="Ignorer" / "Skip"
+    # Valider : id=emm Button text="Continuer" / "Continue"
+    #
+    # Règles TikTok : 8–20 chars, ≥1 lettre, ≥1 chiffre, ≥1 spécial (#?!@)
+
+    password_entry_indicator: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "mot de passe")]',
+        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "password")]',
+        '//android.widget.TextView[contains(@text, "Créer un mot de passe")]',
+        '//android.widget.TextView[contains(@text, "Create a password")]',
+        # Requirement indicator is unique to this screen
+        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/d6h"]',
+    ])
+
+    password_input: List[str] = field(default_factory=lambda: [
+        '//android.widget.EditText[@hint="Saisis le mot de passe"]',
+        '//android.widget.EditText[@hint="Enter password"]',
+        '//android.widget.EditText[contains(@hint, "mot de passe")]',
+        '//android.widget.EditText[contains(@hint, "password")]',
+    ])
+
+    password_continue_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/emm"]',
+        '//android.widget.Button[@text="Continuer"]',
+        '//android.widget.Button[@text="Continue"]',
+    ])
+
+    password_skip_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Ignorer"]',
+        '//android.widget.Button[@text="Skip"]',
+    ])
+
+    # ── Écran création du surnom (username) ────────────────────────────────
+    # Dump observé : ui_dump_20260504_021944.xml
+    # Titre   : id=e_c  text="Créer un surnom" / "Create a username"
+    # Sous-t. : id=e8k  (description optionnelle, modifiable plus tard)
+    # Input   : EditText hint="Ajoute ton surnom" / "Add your username"
+    # Compteur: id=fuh  text="0/30"
+    # Skip    : Button text="Ignorer" / "Skip"
+    # Valider : id=emm Button text="Continuer" / "Continue"
+
+    nickname_entry_indicator: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "surnom")]',
+        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "username")]',
+        '//android.widget.TextView[contains(@text, "Créer un surnom")]',
+        '//android.widget.TextView[contains(@text, "Create a username")]',
+        # Counter "0/30" is unique to this screen
+        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/fuh"]',
+    ])
+
+    nickname_input: List[str] = field(default_factory=lambda: [
+        '//android.widget.EditText[@hint="Ajoute ton surnom"]',
+        '//android.widget.EditText[@hint="Add your username"]',
+        '//android.widget.EditText[contains(@hint, "surnom")]',
+        '//android.widget.EditText[contains(@hint, "username")]',
+    ])
+
+    nickname_continue_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/emm"]',
+        '//android.widget.Button[@text="Continuer"]',
+        '//android.widget.Button[@text="Continue"]',
+    ])
+
+    nickname_skip_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Ignorer"]',
+        '//android.widget.Button[@text="Skip"]',
+    ])
+
 
 SIGNUP_SELECTORS = SignupSelectors()
 
