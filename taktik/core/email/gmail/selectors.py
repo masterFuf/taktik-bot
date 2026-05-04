@@ -59,6 +59,10 @@ class _GmailAccountSwitcherSelectors:
         '//*[@resource-id="com.google.android.gm:id/og_secondary_account_information"]',
     ])
 
+    account_row_name: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.google.android.gm:id/og_primary_account_information"]',
+    ])
+
     # Bouton "Ajouter un autre compte"
     add_account: List[str] = field(default_factory=lambda: [
         '//*[@clickable="true"]'
@@ -74,8 +78,16 @@ class _GmailAccountSwitcherSelectors:
     ])
 
     # Bouton Fermer (×) de l'overlay
+    # Gmail bento panel: og_bento_toolbar_close_button
+    # og_dialog variant: og_header_close_button
+    # og_popover / og_dialog_fragment_account_menu: no visible close button —
+    #   use press("back") as fallback in the workflow code
+    # GMS account picker: close_button
     close: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/og_bento_toolbar_close_button"]',
+        '//*[@resource-id="com.google.android.gm:id/og_header_close_button"]',
+        '//*[@resource-id="com.google.android.gm:id/og_close_button"]',
+        '//*[@resource-id="com.google.android.gms:id/close_button"]',
     ])
 
 
