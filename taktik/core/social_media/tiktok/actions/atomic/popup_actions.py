@@ -10,7 +10,7 @@ Basé sur les UI dumps réels de TikTok.
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import POPUP_SELECTORS
+from ...ui.selectors import POPUP_SELECTORS, NAVIGATION_SELECTORS
 
 
 class PopupActions(BaseAction):
@@ -20,6 +20,7 @@ class PopupActions(BaseAction):
         super().__init__(device)
         self.logger = logger.bind(module="tiktok-popup-atomic")
         self.popup_selectors = POPUP_SELECTORS
+        self.navigation_selectors = NAVIGATION_SELECTORS
     
     # === Generic Popup Actions ===
     
@@ -131,13 +132,20 @@ class PopupActions(BaseAction):
         return False
     
     def escape_inbox_page(self) -> bool:
-        """Escape from Inbox page back to previous screen.
-        
-        This is called when we accidentally navigated to Inbox.
+        """Escape from Inbox page back to the For You feed.
+
+        Clicking the Home tab is more reliable than pressing back, especially
+        on new accounts (Samsung) where TikTok keeps redirecting to Inbox.
+        Falls back to the back button if the Home tab selector is not found.
         """
         self.logger.warning("⚠️ On Inbox page, escaping...")
-        
-        # Press back to go back to previous screen
+
+        # Prefer explicit navigation to Home tab — more reliable than back press
+        if self._find_and_click(self.navigation_selectors.home_tab, timeout=2.0):
+            self._human_like_delay('navigation')
+            return True
+
+        # Fallback: back button
         self.device.press("back")
         self._human_like_delay('navigation')
         return True
