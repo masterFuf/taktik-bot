@@ -67,7 +67,7 @@ class PopupHandler:
                     continue
             return False
 
-        from ....ui.selectors import (
+        from .....ui.selectors import (
             POPUP_SELECTORS,
             INBOX_SELECTORS,
             NAVIGATION_SELECTORS,
