@@ -404,6 +404,24 @@ class SignupSelectors:
         '//android.widget.Button[@text="Skip"]',
     ])
 
+    # ── Popup GDPR / politique de données ──────────────────────────────────
+    # Dump observé : ui_dump_20260504_022753.xml
+    # Titre   : id=w4m  text="Remote-access "transfers of EEA User Data to China"…"
+    # Corps   : id=e_h  (texte explicatif, scrollable)
+    # Bouton  : Button  text="Got it"  (pas de resource-id)
+    #
+    # Cette popup peut apparaître à n'importe quel moment du flow d'inscription,
+    # directement superposée à l'écran en cours (home, profil, etc.).
+
+    gdpr_popup_indicator: List[str] = field(default_factory=lambda: [
+        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/w4m"]',
+        '//android.widget.Button[@text="Got it"]',
+    ])
+
+    gdpr_got_it_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Got it"]',
+    ])
+
 
 SIGNUP_SELECTORS = SignupSelectors()
 

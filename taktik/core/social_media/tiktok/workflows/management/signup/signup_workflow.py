@@ -157,8 +157,22 @@ class TikTokSignupWorkflow:
                 if screen != "unknown":
                     unknown_retries = 0
 
+                # ── GDPR POPUP ───────────────────────────────────────────
+                if screen == "gdpr_popup":
+                    _ipc.log("info", "📋 GDPR popup detected — dismissing...")
+                    if not self._click_selector(SIGNUP_SELECTORS.gdpr_got_it_button, timeout=5.0):
+                        return self._error("gdpr_got_it_not_found",
+                                           "Could not click 'Got it' on GDPR popup")
+                    time.sleep(_ITER_PAUSE)
+                    # If signup steps are all done, the popup was the last obstacle
+                    if nickname_done:
+                        _ipc.log("info", "✅ Registration complete!")
+                        return {"success": True, "step": "complete",
+                                "message": "TikTok registration complete",
+                                "error_type": None}
+
                 # ── BIRTHDAY_GATE ────────────────────────────────────────
-                if screen == "birthday_gate":
+                elif screen == "birthday_gate":
                     # Click the "Inscription" link at the bottom of the screen
                     if not self._click_selector(SIGNUP_SELECTORS.birthday_gate_inscription_link, timeout=4.0):
                         return self._error("birthday_gate_inscription_not_found",
@@ -366,6 +380,9 @@ class TikTokSignupWorkflow:
                     continue
             return False
 
+        # GDPR popup: can appear at any time as an overlay — check it first
+        if matches(SIGNUP_SELECTORS.gdpr_popup_indicator):
+            return "gdpr_popup"
         # Birthday gate first: has unique "mfb" button — unambiguous, fastest to discard
         if matches(SIGNUP_SELECTORS.birthday_gate_inscription_link):
             return "birthday_gate"
@@ -390,6 +407,9 @@ class TikTokSignupWorkflow:
 
     def _detect_screen_slow(self) -> str:
         """Fallback to per-xpath polling (used only if dump_hierarchy fails)."""
+        # GDPR popup: can appear at any time as an overlay — check it first
+        if self._element_exists(SIGNUP_SELECTORS.gdpr_popup_indicator):
+            return "gdpr_popup"
         if self._element_exists(SIGNUP_SELECTORS.birthday_gate_inscription_link):
             return "birthday_gate"
         if self._element_exists(SIGNUP_SELECTORS.birthday_screen_indicator):
