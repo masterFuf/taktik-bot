@@ -160,7 +160,6 @@ class VideoSelectors:
     # === Détection de publicité (Ad) ===
     ad_label: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/ru3"][@text="Ad"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ru3"]',
         '//android.widget.TextView[@text="Ad"]',
         '//android.widget.TextView[@text="Sponsorisé"]',
         '//android.widget.TextView[@text="Publicité"]',
