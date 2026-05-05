@@ -30,7 +30,8 @@ class InboxSelectors:
     
     inbox_title: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/title"][@text="Inbox"]',
-        '//*[@text="Inbox"]',
+        '//*[@resource-id="com.ss.android.ugc.trill:id/title"][@text="Inbox"]',
+        # NOTE: do NOT use '//*[@text="Inbox"]' — it matches the nav tab label on all pages
     ])
     
     activity_status: List[str] = field(default_factory=lambda: [

@@ -48,10 +48,12 @@ class ProfileSelectors:
     # === Informations profil ===
     display_name: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/qf8"]',
+        '//*[@resource-id="com.ss.android.ugc.trill:id/qf8"]',
     ])
     
     username: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]',
+        '//*[@resource-id="com.ss.android.ugc.trill:id/qh5"]',
     ])
     
     edit_profile_button: List[str] = field(default_factory=lambda: [
@@ -63,10 +65,12 @@ class ProfileSelectors:
     # === Compteurs (utilise qfw pour les valeurs, qfv pour les labels) ===
     stat_value: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/qfw"]',
+        '//*[@resource-id="com.ss.android.ugc.trill:id/qfw"]',
     ])
     
     stat_label: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"]',
+        '//*[@resource-id="com.ss.android.ugc.trill:id/qfv"]',
     ])
     
     following_count: List[str] = field(default_factory=lambda: [

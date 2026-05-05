@@ -76,10 +76,16 @@ class TikTokManager(SocialMediaBase):
 
     def stop(self) -> bool:
         self.logger.info("Arret de TikTok...")
+        # Use cached package to avoid 3 ADB round-trips on every stop/restart
+        pkg = self._detected_package or self._resolve_package()
+        if pkg:
+            self.device_manager.stop_app(pkg)
+            return True
+        # Fallback: stop all known packages (first run before _resolve_package was called)
         stopped = False
-        for pkg in TIKTOK_PACKAGES:
-            if self.device_manager.is_app_installed(pkg):
-                self.device_manager.stop_app(pkg)
+        for p in TIKTOK_PACKAGES:
+            if self.device_manager.is_app_installed(p):
+                self.device_manager.stop_app(p)
                 stopped = True
         return stopped
 
