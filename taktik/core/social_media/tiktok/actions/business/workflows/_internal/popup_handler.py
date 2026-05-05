@@ -92,6 +92,8 @@ class PopupHandler:
             found.add('collections')
         if hit(POPUP_SELECTORS.close_button) or hit(POPUP_SELECTORS.dismiss_button):
             found.add('generic_popup')
+        if hit(POPUP_SELECTORS.video_options_sheet):
+            found.add('video_options_sheet')
         return found
 
     # ------------------------------------------------------------------
@@ -163,6 +165,14 @@ class PopupHandler:
                 time.sleep(0.5)
                 return True
 
+        # Video options bottom sheet (longpress menu: Download, Not interested, Report...)
+        # Close via back button — tapping outside would interact with the video
+        if 'video_options_sheet' in detected:
+            self.detection.device.press('back')
+            self.logger.info("✅ Video options bottom sheet dismissed (back button)")
+            time.sleep(0.5)
+            return True
+
         # Generic popup (close / dismiss button)
         if 'generic_popup' in detected:
             self.logger.info("🚨 Popup detected, attempting to close")
@@ -219,6 +229,15 @@ class PopupHandler:
                 self.logger.info("✅ Collections popup closed")
                 time.sleep(0.5)
                 return True
+
+        # Video options bottom sheet (longpress menu)
+        if self.detection._element_exists(
+            ['//*[@content-desc="Bottom sheet"]'], timeout=1
+        ):
+            self.detection.device.press('back')
+            self.logger.info("✅ Video options bottom sheet dismissed (back button)")
+            time.sleep(0.5)
+            return True
 
         # Generic popup
         if self.detection.has_popup():

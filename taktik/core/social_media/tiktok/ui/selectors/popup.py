@@ -199,5 +199,15 @@ class PopupSelectors:
         '//*[@package="android"][@resource-id="android:id/parentPanel"]',
     ])
 
+    # === Video options bottom sheet (longpress menu: Download, Report, Speed...) ===
+    # resource-id f0u / content-desc="Bottom sheet"
+    # Appears when the user long-presses a video or accidentally triggers the share sheet.
+    # Must be closed via back button (tapping outside closes it but also interacts with video).
+    video_options_sheet: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.ss.android.ugc.trill:id/f0u"][@content-desc="Bottom sheet"]',
+        '//*[@resource-id="com.zhiliaoapp.musically:id/f0u"][@content-desc="Bottom sheet"]',
+        '//*[@content-desc="Bottom sheet"]',
+    ])
+
 
 POPUP_SELECTORS = PopupSelectors()
