@@ -1034,8 +1034,13 @@ class DesktopBridge:
                 self.stop_media_capture()
                 return 5
         finally:
-            # Always stop media capture
+            # Always stop media capture and close Instagram app
             self.stop_media_capture()
+            if self._app:
+                try:
+                    self._app.stop()
+                except Exception:
+                    pass
         
         send_status("finished", "Session completed")
         return 0

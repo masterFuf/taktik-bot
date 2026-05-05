@@ -35,8 +35,8 @@ def run_search_workflow(config: Dict[str, Any]):
             SearchWorkflow, SearchConfig
         )
         
-        # Common startup: connect, restart, navigate home (no profile fetch needed)
-        manager, _bot_username = tiktok_startup(device_id, fetch_profile=False)
+        # Common startup: connect, restart, navigate home, fetch profile
+        manager, _bot_username = tiktok_startup(device_id, fetch_profile=True)
         
         # Create workflow config from frontend config
         workflow_config = SearchConfig(

@@ -43,6 +43,18 @@ APPS = {
         "launch_wait": 4,
         "stop_wait": 1,
     },
+    "gmail": {
+        "package": "com.google.android.gm",
+        "activity": "com.google.android.gm.ui.MailActivityGmail",
+        "launch_wait": 3,
+        "stop_wait": 1,
+    },
+    "youtube": {
+        "package": "com.google.android.youtube",
+        "activity": "com.google.android.youtube.app.honeycomb.Shell$HomeActivity",
+        "launch_wait": 4,
+        "stop_wait": 1,
+    },
 }
 
 
@@ -55,6 +67,54 @@ PLATFORM_ALTERNATIVES = {
         "com.ss.android.ugc.aweme",   # TikTok (China / Douyin)
     ],
 }
+
+
+def force_stop_app(device_id: str, platform: str) -> bool:
+    """
+    Force-stop a platform app on the given device using ADB.
+
+    Does NOT require an active uiautomator2 connection — safe to call
+    at any point (e.g. inside a finally block after the workflow ends).
+
+    For TikTok, tries all known package alternatives if the default fails.
+
+    Args:
+        device_id: ADB device serial.
+        platform: Platform key ("instagram", "tiktok", "threads", "gmail", "youtube").
+
+    Returns:
+        True if at least one force-stop command succeeded, False otherwise.
+    """
+    config = APPS.get(platform)
+    if not config:
+        logger.warning(f"[AppService] Unknown platform '{platform}' for force-stop")
+        return False
+
+    packages_to_try = [config["package"]]
+    if platform in PLATFORM_ALTERNATIVES:
+        # Include all known alternatives so we hit the right package regardless
+        # of which variant is installed on this device.
+        for alt in PLATFORM_ALTERNATIVES[platform]:
+            if alt not in packages_to_try:
+                packages_to_try.append(alt)
+
+    success = False
+    for pkg in packages_to_try:
+        try:
+            result = subprocess.run(
+                ["adb", "-s", device_id, "shell", "am", "force-stop", pkg],
+                capture_output=True, timeout=5,
+            )
+            if result.returncode == 0:
+                logger.info(f"[AppService] Closed {platform} ({pkg}) on {device_id}")
+                success = True
+                break
+        except Exception as e:
+            logger.warning(f"[AppService] Could not force-stop {platform} ({pkg}): {e}")
+
+    if not success:
+        logger.warning(f"[AppService] force_stop_app failed for {platform} on {device_id}")
+    return success
 
 
 class AppService:

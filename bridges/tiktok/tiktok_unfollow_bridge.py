@@ -44,7 +44,7 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         )
         
         # Common startup: connect, restart, navigate home
-        manager, _ = tiktok_startup(device_id, fetch_profile=False)
+        manager, _ = tiktok_startup(device_id, fetch_profile=True)
         
         # Create workflow config
         wf_config = UnfollowConfig(

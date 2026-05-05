@@ -104,17 +104,21 @@ class GmailAccountBridge:
             return 1
 
         # Dispatch
-        if self.workflow_type == "login":
-            return self._run_login(device)
-        elif self.workflow_type == "logout":
-            return self._run_logout(device)
-        elif self.workflow_type == "read_otp":
-            return self._run_read_otp(device)
-        elif self.workflow_type == "scan_accounts":
-            return self._run_scan_accounts(device)
-        else:
-            send_error(f"Unknown workflowType: {self.workflow_type}")
-            return 1
+        try:
+            if self.workflow_type == "login":
+                return self._run_login(device)
+            elif self.workflow_type == "logout":
+                return self._run_logout(device)
+            elif self.workflow_type == "read_otp":
+                return self._run_read_otp(device)
+            elif self.workflow_type == "scan_accounts":
+                return self._run_scan_accounts(device)
+            else:
+                send_error(f"Unknown workflowType: {self.workflow_type}")
+                return 1
+        finally:
+            from bridges.common.app_manager import force_stop_app
+            force_stop_app(self.device_id, "gmail")
 
     # ------------------------------------------------------------------
     # Login (add account)

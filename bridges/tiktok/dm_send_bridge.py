@@ -35,7 +35,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
         )
         
         # Common startup: connect, restart, navigate home (no profile fetch)
-        manager, _ = tiktok_startup(device_id, fetch_profile=False)
+        manager, _ = tiktok_startup(device_id, fetch_profile=True)
         
         # Create workflow
         workflow_config = DMConfig(
