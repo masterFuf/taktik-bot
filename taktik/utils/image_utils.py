@@ -4,12 +4,12 @@ import requests
 from pathlib import Path
 from typing import Optional, Tuple
 from loguru import logger
-from PIL import Image
 import io
 
 
 def compress_image(image_path: str, max_size_kb: int = 50, quality: int = 85) -> Optional[str]:
     try:
+        from PIL import Image
         image_path = Path(image_path)
         if not image_path.exists():
             logger.error(f"Image non trouvée: {image_path}")
