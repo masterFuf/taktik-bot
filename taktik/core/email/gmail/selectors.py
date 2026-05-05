@@ -287,6 +287,35 @@ class _GmailInboxSelectors:
     ])
 
 
+@dataclass
+class _GoogleRecaptchaSelectors:
+    """
+    Google reCAPTCHA v2 'I am not a robot' challenge.
+
+    Appears inside the GMS WebView on the 'Verify that it's you' screen.
+    Heading: 'Verify that it's you'
+    Sub-heading: 'Confirm that you're not a robot'
+    Checkbox: resource-id='recaptcha-anchor', text "I'm not a robot"
+
+    Source: UI dump 2026-05-04 on Nokia device (720×1520).
+    Checkbox bounds: [67,682][121,738] → center ≈ (94, 710)
+    Ratios: x ≈ 0.130, y ≈ 0.467
+    """
+
+    # The reCAPTCHA "I'm not a robot" checkbox (inside WebView, resource-id accessible)
+    checkbox: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="recaptcha-anchor"]',
+        '//*[@text="I\'m not a robot"][@clickable="true"]',
+        '//*[@text="Je ne suis pas un robot"][@clickable="true"]',
+    ])
+
+    # "Next" button after the checkbox is ticked (same as signin Next)
+    next_button: List[str] = field(default_factory=lambda: [
+        '//*[@package="com.google.android.gms"][@text="Next"]',
+        '//*[@package="com.google.android.gms"][@text="Suivant"]',
+    ])
+
+
 # ── Singleton instances (importable) ────────────────────────────────────────
 
 GMAIL_SWITCHER_SELECTORS     = _GmailAccountSwitcherSelectors()
@@ -295,3 +324,4 @@ GOOGLE_SIGNIN_SELECTORS      = _GoogleSigninSelectors()
 GOOGLE_VERIFY_SELECTORS      = _GoogleVerifyIdentitySelectors()
 GOOGLE_RECOVERY_SELECTORS    = _GoogleRecoveryOptionsSelectors()
 GMAIL_INBOX_SELECTORS        = _GmailInboxSelectors()
+GOOGLE_RECAPTCHA_SELECTORS   = _GoogleRecaptchaSelectors()

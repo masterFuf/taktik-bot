@@ -46,6 +46,7 @@ from taktik.core.email.gmail.selectors import (
     GOOGLE_VERIFY_SELECTORS,
     GOOGLE_RECOVERY_SELECTORS,
     GMAIL_INBOX_SELECTORS,
+    GOOGLE_RECAPTCHA_SELECTORS,
 )
 
 _ipc = IPC()
@@ -112,24 +113,24 @@ class GmailWorkflow:
         try:
             # ── Open Gmail app ──────────────────────────────────────────
             _ipc.log("info", "📱 Opening Gmail…")
-            # Dismiss any lingering GMS overlay from a previous run.
-            # When GMS (Google sign-in WebView) is in the foreground and we call
-            # app_start(Gmail), Gmail's task comes to front but GMS's activity is
-            # still on top of it.  app_wait(front=True) then blocks for up to 30 s
-            # because Gmail never becomes the front package.  Pressing BACK first
-            # dismisses the GMS activity and returns to Gmail.
+            # Force-restart Gmail to always start from a clean state.
+            # This is important when another app (TikTok, etc.) is running in
+            # the foreground — app_start() without stop=True would merely bring
+            # the existing Gmail task to front, potentially in a mid-flow state.
+            # Using stop=True performs a force-stop before the launch so Gmail
+            # always starts fresh at the inbox/splash screen.
+            #
+            # Also dismiss any lingering GMS sign-in overlay: it sits on Gmail's
+            # task stack and would prevent Gmail from becoming the front package.
             try:
                 pre_h = self.device.dump_hierarchy()
                 if "com.google.android.gms" in pre_h:
                     self.logger.debug("Dismissing lingering GMS overlay before starting Gmail")
                     self.device.press("back")
-                    time.sleep(1.5)
+                    time.sleep(1.0)
             except Exception:
                 pass
-            self.device.app_start(_GMAIL_PACKAGE)
-            # Use a simple fixed sleep instead of app_wait(front=True, timeout=30).
-            # app_wait blocks the full timeout when GMS is foregrounded on Gmail's
-            # task stack (which is common after a partial previous run).
+            self.device.app_start(_GMAIL_PACKAGE, stop=True)
             time.sleep(2.5)
 
             # ── State machine: drive through add-account flow ───────────
@@ -194,27 +195,51 @@ class GmailWorkflow:
                     _ipc.log("info", f"⌨️  Entering email: {email}")
                     self._webview_tap_input()
                     time.sleep(0.5)
-                    self.device.send_keys(email)
+                    # clear=True erases any leftover content before typing
+                    self.device.send_keys(email, clear=True)
                     time.sleep(0.5)
                     # Click "Suivant"
                     if not self._click_selector(GOOGLE_SIGNIN_SELECTORS.next_button, timeout=6.0):
                         return self._error("signin_next_not_found",
                                            "Could not click Suivant after email entry")
                     _ipc.log("info", "✅ Email submitted")
-                    time.sleep(_NAV_PAUSE)
+                    # Wait for the email page to transition away before next iteration.
+                    # Without this, the 1-second pause is often too short and the loop
+                    # re-detects google_signin while the page is still animating.
+                    _deadline_nav = time.time() + 5.0
+                    while time.time() < _deadline_nav:
+                        try:
+                            if 'resource-id="identifierId"' not in self.device.dump_hierarchy():
+                                break
+                        except Exception:
+                            break
+                        time.sleep(0.5)
+                    time.sleep(0.5)
 
                 elif screen == "google_password":
                     # Enter password in WebView (same Y ratio — password field is at same position)
                     _ipc.log("info", "🔒 Entering password…")
                     self._webview_tap_input()
                     time.sleep(0.5)
-                    self.device.send_keys(password)
+                    # clear=True erases any leftover content before typing
+                    self.device.send_keys(password, clear=True)
                     time.sleep(0.5)
                     if not self._click_selector(GOOGLE_SIGNIN_SELECTORS.password_next_button, timeout=6.0):
                         return self._error("password_next_not_found",
                                            "Could not click Suivant after password entry")
                     _ipc.log("info", "✅ Password submitted")
-                    time.sleep(_NAV_PAUSE * 2)  # Google auth can take a moment
+                    # Wait for the password page to transition away before next iteration.
+                    _deadline_nav = time.time() + 6.0
+                    while time.time() < _deadline_nav:
+                        try:
+                            _h_nav = self.device.dump_hierarchy()
+                            if ('resource-id="Passwd"' not in _h_nav
+                                    and 'resource-id="password"' not in _h_nav):
+                                break
+                        except Exception:
+                            break
+                        time.sleep(0.5)
+                    time.sleep(0.5)
 
                 elif screen == "google_terms":
                     # Accept ToS
@@ -287,6 +312,57 @@ class GmailWorkflow:
                     # Gmail shows the inbox for the newly added account
                     _ipc.log("info", f"✅ Gmail account added: {email}")
                     return {"success": True, "message": f"Account {email} added", "error_type": None}
+
+                elif screen == "google_recaptcha":
+                    # Google "Verify that it's you" — reCAPTCHA "I'm not a robot" checkbox.
+                    # IMPORTANT: el.click() (accessibility API) does NOT generate a real
+                    # MotionEvent — reCAPTCHA's JavaScript never sees it.
+                    # We must use device.click(x, y) which injects a real touch event.
+                    # Parse the checkbox bounds from the live hierarchy for accuracy.
+                    _ipc.log("info", "🤖 reCAPTCHA detected — tapping 'I\'m not a robot'…")
+                    import re as _re
+                    try:
+                        info = self.device.info
+                        w_px = int(info.get("displayWidth", 720))
+                        h_px = int(info.get("displayHeight", 1520))
+                    except Exception:
+                        w_px, h_px = 720, 1520
+                    try:
+                        _dump = self.device.dump_hierarchy()
+                        _m = _re.search(
+                            r'resource-id="recaptcha-anchor"[^/]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
+                            _dump, _re.DOTALL
+                        )
+                        if _m:
+                            _cx = (int(_m.group(1)) + int(_m.group(3))) // 2
+                            _cy = (int(_m.group(2)) + int(_m.group(4))) // 2
+                        else:
+                            # Calibrated fallback: Nokia 720×1520
+                            # recaptcha-anchor bounds [67,682][121,738] → center (94,710)
+                            _cx = int(w_px * 0.130)
+                            _cy = int(h_px * 0.467)
+                    except Exception:
+                        _cx = int(w_px * 0.130)
+                        _cy = int(h_px * 0.467)
+                    self.logger.debug(f"reCAPTCHA tap at ({_cx}, {_cy})")
+                    self.device.click(_cx, _cy)
+                    time.sleep(3.5)  # reCAPTCHA needs time to process the touch
+                    # Check whether it resolved or an image challenge appeared
+                    post_screen = self._detect_add_account_screen()
+                    if post_screen == "google_recaptcha":
+                        # Still stuck — image challenge or detection failed; cannot automate
+                        return self._error(
+                            "recaptcha_challenge",
+                            "Google reCAPTCHA image challenge requires manual intervention on the device"
+                        )
+                    _ipc.log("info", "✅ reCAPTCHA passed")
+                    # post_screen is the next real state; the loop will handle it
+
+                elif screen == "google_loading":
+                    # Google "Checking info…" spinner — GMS loaded but WebView not ready yet.
+                    # Simply wait for the next iteration to detect the real state.
+                    _ipc.log("info", "⏳ Google is checking info, waiting…")
+                    time.sleep(1.5)
 
                 else:
                     # UNKNOWN — wait and retry
@@ -516,6 +592,18 @@ class GmailWorkflow:
             # 5. OTP code entry screen (input field for the received code)
             if 'resource-id="verificationCode"' in h or 'resource-id="totpPin"' in h:
                 return "google_verify_otp"
+            # reCAPTCHA — MUST be checked BEFORE identifierId/Passwd/Next checks.
+            # The reCAPTCHA page has a "Next" button in the footer (outside WebView)
+            # but no identifierId/Passwd fields, so it would otherwise be misidentified
+            # as google_signin by the generic Suivant/Next fallback below.
+            if ('resource-id="recaptcha-anchor"' in h
+                    or "confirm that you're not a robot" in hl
+                    or "confirmer que vous n\u2019\u00eates pas un robot" in hl
+                    or "i'm not a robot" in hl
+                    or "je ne suis pas un robot" in hl
+                    or "please verify that you are not a robot" in hl
+                    or "v\u00e9rifiez que vous n\u2019\u00eates pas un robot" in hl):
+                return "google_recaptcha"
             # Direct IDs from the 2026-05-02 dump. These are more reliable
             # than localized text and avoid confusing the Google sign-in page
             # with Gmail provider setup.
@@ -532,11 +620,22 @@ class GmailWorkflow:
                 # Only sign-in if not on the Gmail setup screen
                 if "configurez votre adresse" not in hl and "set up email" not in hl:
                     return "google_signin"
-            # GMS is present but its WebView hasn't finished loading yet —
-            # do NOT fall through to Gmail checks (that would wrongly return
-            # "inbox" because com.google.android.gm is still in the dump as
-            # a background package).  Wait another iteration instead.
-            return "unknown"
+            # reCAPTCHA: "Verify that it's you" / "I'm not a robot" checkbox
+            # Also covers the error state "Please verify that you are not a robot".
+            # NOTE: this block is now a fallback only — the primary detection was
+            # moved BEFORE identifierId/Passwd checks above to avoid the reCAPTCHA
+            # page being misidentified as google_signin via the Next/Suivant fallback.
+            if ('resource-id="recaptcha-anchor"' in h
+                    or "confirm that you're not a robot" in hl
+                    or "confirmer que vous n\u2019\u00eates pas un robot" in hl
+                    or "i'm not a robot" in hl
+                    or "je ne suis pas un robot" in hl
+                    or "please verify that you are not a robot" in hl
+                    or "v\u00e9rifiez que vous n\u2019\u00eates pas un robot" in hl):
+                return "google_recaptcha"
+            # GMS is present but its WebView/content hasn't finished loading yet
+            # (e.g. "Checking info…" spinner). Do NOT fall through to Gmail checks.
+            return "google_loading"
 
         # 5. Gmail provider setup ("Configurez votre adresse e-mail")
         if "configurez votre adresse e-mail" in hl or "set up email" in hl:
