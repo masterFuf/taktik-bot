@@ -217,6 +217,8 @@ class TikTokAccountBridge:
         phone = self.config.get('phone', '')
         phone_country = self.config.get('phoneCountry', '') or None
         gmail_password = self.config.get('gmailPassword', '') or None
+        tiktok_password = self.config.get('tiktokPassword') or self.config.get('tiktok_password') or None
+        nickname = self.config.get('nickname') or None
 
         send_status("running", f"Starting register ({method})...")
         send_log("info", f"📝 Register workflow — method={method}")
@@ -230,6 +232,8 @@ class TikTokAccountBridge:
                 phone=phone or None,
                 phone_country=phone_country,
                 gmail_password=gmail_password,
+                tiktok_password=tiktok_password,
+                nickname=nickname,
             )
             outcome = "success" if result['success'] else "error"
             send_status(outcome, result.get('message', ''))
