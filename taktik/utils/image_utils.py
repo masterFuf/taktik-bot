@@ -1,4 +1,4 @@
-import os
+﻿import os
 import base64
 import requests
 from pathlib import Path
@@ -100,7 +100,7 @@ def upload_profile_image(image_path: str, username: str, api_base_url: str, api_
                     os.remove(compressed_path)
                     os.remove(image_path)  # Supprimer l'original aussi
                     logger.debug("Fichiers temporaires nettoyés")
-                except:
+                except Exception:
                     pass
                 
                 return image_url
@@ -130,7 +130,7 @@ def process_profile_image(local_image_path: str, username: str,
         if compressed_path:
             try:
                 os.remove(local_image_path)
-            except:
+            except Exception:
                 pass
             return compressed_path
         

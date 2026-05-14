@@ -1,4 +1,4 @@
-"""Like orchestration — like_profile_posts, sequential scroll, like_current_post."""
+﻿"""Like orchestration — like_profile_posts, sequential scroll, like_current_post."""
 
 import time
 import random
@@ -309,7 +309,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             stats['errors'] += 1
             try:
                 self._return_to_profile_from_post()
-            except:
+            except Exception:
                 pass
             return stats
 

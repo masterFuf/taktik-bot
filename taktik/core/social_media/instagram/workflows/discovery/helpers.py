@@ -1,4 +1,4 @@
-"""Post navigation helpers, enrichment, saving, and summary for the Discovery workflow."""
+﻿"""Post navigation helpers, enrichment, saving, and summary for the Discovery workflow."""
 
 import re
 import json
@@ -81,7 +81,7 @@ class DiscoveryHelpersMixin:
                 posts[index].click()
                 time.sleep(3)
                 return self._is_on_post_view()
-        except:
+        except Exception:
             pass
         return False
 
@@ -120,7 +120,7 @@ class DiscoveryHelpersMixin:
                             likes = count
                         elif 'Comment' in prev_desc and comments == 0:
                             comments = count
-        except:
+        except Exception:
             pass
         
         return PostData(

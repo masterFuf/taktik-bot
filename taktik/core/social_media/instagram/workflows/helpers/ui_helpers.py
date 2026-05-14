@@ -1,4 +1,4 @@
-import time
+﻿import time
 import random
 from typing import Optional
 from loguru import logger
@@ -39,7 +39,7 @@ class UIHelpers:
                 element = self.device.xpath(selector)
                 if element.exists:
                     return element
-            except:
+            except Exception:
                 continue
         return None
     

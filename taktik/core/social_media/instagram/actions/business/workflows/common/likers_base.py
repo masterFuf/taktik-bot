@@ -1,4 +1,4 @@
-"""Shared base class for workflows that interact with likers from a popup list.
+﻿"""Shared base class for workflows that interact with likers from a popup list.
 
 Used by HashtagBusiness and PostUrlBusiness — both follow the same pattern:
 1. Open a likers popup (from a post)
@@ -259,7 +259,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                         if not self._is_comments_view_open():
                             self.logger.debug("✅ Comments view closed")
                             return True
-                except:
+                except Exception:
                     continue
 
             self.device.press('back')

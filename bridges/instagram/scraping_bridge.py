@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Scraping Bridge for TAKTIK Desktop
 Connects the Electron app to the Python scraping workflow
@@ -123,7 +123,7 @@ def main():
     finally:
         try:
             connection.disconnect()
-        except:
+        except Exception:
             pass
 
 if __name__ == '__main__':

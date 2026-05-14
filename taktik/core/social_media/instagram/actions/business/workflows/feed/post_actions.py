@@ -1,4 +1,4 @@
-"""Feed post actions: like, comment, detect, scroll, extract metadata."""
+﻿"""Feed post actions: like, comment, detect, scroll, extract metadata."""
 
 import time
 import random
@@ -180,7 +180,7 @@ class FeedPostActionsMixin:
             self.logger.debug(f"Error commenting post: {e}")
             try:
                 self.device.press('back')
-            except:
+            except Exception:
                 pass
             return False
     

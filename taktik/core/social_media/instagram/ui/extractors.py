@@ -1,4 +1,4 @@
-import re
+﻿import re
 import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
@@ -286,7 +286,7 @@ class InstagramUIExtractors:
                         try:
                             element_info = element.info
                             content_desc = element_info.get('contentDescription', '')
-                        except:
+                        except Exception:
                             pass
                         
                         logger_to_use.debug(f"Checking element - text: '{text}', content-desc: '{content_desc}' (clickable: {element.attrib.get('clickable', 'unknown')})")

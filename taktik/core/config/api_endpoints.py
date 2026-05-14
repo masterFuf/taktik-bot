@@ -1,4 +1,4 @@
-import os
+﻿import os
 import base64
 import hashlib
 import hmac
@@ -24,7 +24,7 @@ class APIEndpointManager:
                 return None
                 
             return decoded
-        except:
+        except Exception:
             return None
     
     def _generate_checksum(self, url: str, salt: str) -> str:
@@ -69,7 +69,7 @@ class APIEndpointManager:
                 with open(config_path, 'r') as f:
                     config = json.load(f)
                     return config.get('api_url')
-        except:
+        except Exception:
             pass
         return None
     
@@ -78,7 +78,7 @@ class APIEndpointManager:
             import requests
             response = requests.get(f"{url}/health", timeout=3)
             return response.status_code == 200
-        except:
+        except Exception:
             return False
     
     def save_api_url(self, api_url: str) -> bool:

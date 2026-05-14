@@ -1,4 +1,4 @@
-"""List scraping, hashtag scraping, and post URL scraping for the Scraping workflow."""
+﻿"""List scraping, hashtag scraping, and post URL scraping for the Scraping workflow."""
 
 import time
 from datetime import datetime
@@ -158,7 +158,7 @@ class ScrapingListMixin:
                             try:
                                 self.device.press("back")
                                 time.sleep(0.5)
-                            except:
+                            except Exception:
                                 pass
                     
                     scraped.append(profile_data)

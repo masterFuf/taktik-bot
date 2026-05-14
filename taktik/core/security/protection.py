@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import base64
 import time
 import random
@@ -40,7 +40,7 @@ class SecurityManager:
             step2 = ''.join(chr(ord(c) ^ ord(self._k2[i % len(self._k2)])) 
                            for i, c in enumerate(step1))
             return step2
-        except:
+        except Exception:
             return "invalid_function"
     
     def _execute_protected_call(self, func_name: str, *args, **kwargs) -> Any:

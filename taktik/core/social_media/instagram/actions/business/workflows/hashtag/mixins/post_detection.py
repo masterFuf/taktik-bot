@@ -1,4 +1,4 @@
-"""Post type detection, reel handling, grid detection for hashtag workflow."""
+﻿"""Post type detection, reel handling, grid detection for hashtag workflow."""
 
 import time
 from typing import Dict, Any, Optional
@@ -79,7 +79,7 @@ class HashtagPostDetectionMixin:
                 try:
                     if self.device.xpath(selector).exists:
                         return True
-                except:
+                except Exception:
                     continue
             
             return False

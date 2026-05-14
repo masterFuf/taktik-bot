@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import click
 import logging
@@ -2057,7 +2057,7 @@ def dm_inbox(device_id, limit, unread_only):
                         username_elem = thread.child(resourceId="com.instagram.android:id/row_inbox_username")
                         if username_elem.exists:
                             username = username_elem.get_text() or username
-                    except:
+                    except Exception:
                         pass
                     
                     # Éviter les doublons
@@ -2070,7 +2070,7 @@ def dm_inbox(device_id, limit, unread_only):
                         digest_elem = thread.child(resourceId="com.instagram.android:id/row_inbox_digest")
                         if digest_elem.exists:
                             preview = digest_elem.get_text() or preview
-                    except:
+                    except Exception:
                         pass
                     
                     # Essayer d'extraire le timestamp
@@ -2078,7 +2078,7 @@ def dm_inbox(device_id, limit, unread_only):
                         time_elem = thread.child(resourceId="com.instagram.android:id/row_inbox_timestamp")
                         if time_elem.exists:
                             timestamp = time_elem.get_text() or timestamp
-                    except:
+                    except Exception:
                         pass
                     
                     # Filtrer si unread-only
@@ -2254,7 +2254,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                                         bounds.get('bottom', 0) <= thread_bounds.get('bottom', 0)):
                                         username = elem.get_text() or username
                                         break
-                    except:
+                    except Exception:
                         pass
                     
                     # Éviter les doublons
@@ -2296,7 +2296,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                                 if not composer.exists:
                                     can_reply = False
                                     console.print(f"[yellow]      ⚠️ Impossible d'écrire dans ce groupe[/yellow]")
-                        except:
+                        except Exception:
                             pass
                     
                     # Récupérer les DERNIERS messages de l'expéditeur (en bas de l'écran)
@@ -2326,7 +2326,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                                 'is_sent': not is_received,
                                 'top': msg_top
                             })
-                        except:
+                        except Exception:
                             continue
                     
                     # 2. Reels/médias partagés
@@ -2350,7 +2350,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                                         t_bounds.get('bottom', 0) <= reel_bounds.get('bottom', 0)):
                                         reel_author = t.get_text() or ""
                                         break
-                                except:
+                                except Exception:
                                     continue
                             
                             all_items.append({
@@ -2359,7 +2359,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                                 'is_sent': not is_received,
                                 'top': reel_top
                             })
-                        except:
+                        except Exception:
                             continue
                     
                     # Trier par position Y (du haut vers le bas = ordre chronologique)

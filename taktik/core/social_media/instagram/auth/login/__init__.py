@@ -1,4 +1,4 @@
-"""
+﻿"""
 Login process facade — composes all login mixins.
 
 Sub-modules:
@@ -67,7 +67,7 @@ class InstagramLogin(
                 element = self.device.xpath(selector)
                 if element.exists:
                     return element
-            except:
+            except Exception:
                 continue
         return None
     
@@ -256,7 +256,7 @@ class InstagramLogin(
                 'brand': info.get('brand', 'unknown'),
                 'android_version': info.get('version', 'unknown')
             }
-        except:
+        except Exception:
             return {
                 'device_id': self.device_id,
                 'model': 'unknown',

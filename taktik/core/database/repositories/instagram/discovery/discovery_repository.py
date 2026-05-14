@@ -1,4 +1,4 @@
-"""
+﻿"""
 Discovery Repository - Manages discovery_campaigns, scraped_profiles, discovery_progress tables
 """
 
@@ -125,7 +125,7 @@ class DiscoveryRepository(BaseRepository):
                     (scraping_id, profile_id)
                 )
                 linked += 1
-            except:
+            except Exception:
                 pass
         
         return linked

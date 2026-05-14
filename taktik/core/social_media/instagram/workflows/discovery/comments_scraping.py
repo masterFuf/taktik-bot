@@ -1,4 +1,4 @@
-"""Comments scraping for the Discovery workflow."""
+﻿"""Comments scraping for the Discovery workflow."""
 
 import re
 import time
@@ -95,7 +95,7 @@ class DiscoveryCommentsScrapingMixin:
                                         x1 = int(bounds_match.group(1))
                                         # If x1 > 80, it's likely a reply (indented comment)
                                         is_reply = x1 > 80
-                        except:
+                        except Exception:
                             pass
                         
                         seen_usernames.add(username)
@@ -190,7 +190,7 @@ class DiscoveryCommentsScrapingMixin:
                                 try:
                                     self.device.press("back")
                                     time.sleep(0.5)
-                                except:
+                                except Exception:
                                     pass
                         
                         self.scraped_profiles.append(profile)
@@ -199,7 +199,7 @@ class DiscoveryCommentsScrapingMixin:
                         
                         if progress.comments_scraped >= max_count:
                             break
-                    except:
+                    except Exception:
                         continue
                 if progress.comments_scraped >= max_count:
                     break
@@ -240,7 +240,7 @@ class DiscoveryCommentsScrapingMixin:
                         if self._is_comments_view_open():
                             self.logger.debug(f"Comments opened via {selector}")
                             return True
-                except:
+                except Exception:
                     continue
             
             self.logger.warning("Could not open comments")
@@ -275,7 +275,7 @@ class DiscoveryCommentsScrapingMixin:
                     time.sleep(1)
                 else:
                     self.device.press("back")
-        except:
+        except Exception:
             pass
 
     def _expand_all_replies(self):
@@ -287,7 +287,7 @@ class DiscoveryCommentsScrapingMixin:
                     try:
                         btn.click()
                         time.sleep(0.3)
-                    except:
+                    except Exception:
                         pass
-        except:
+        except Exception:
             pass

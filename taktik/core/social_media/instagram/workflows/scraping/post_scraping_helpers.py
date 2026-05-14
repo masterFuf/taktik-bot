@@ -1,4 +1,4 @@
-"""Post-level scraping helpers: open posts, detect reels, extract likers/commenters."""
+﻿"""Post-level scraping helpers: open posts, detect reels, extract likers/commenters."""
 
 import time
 from datetime import datetime
@@ -219,7 +219,7 @@ class ScrapingPostHelpersMixin:
                                 
                                 if len(scraped) >= max_count:
                                     break
-                        except:
+                        except Exception:
                             continue
                     if len(scraped) >= max_count:
                         break

@@ -1,4 +1,4 @@
-"""Business logic for Instagram unfollow workflow.
+﻿"""Business logic for Instagram unfollow workflow.
 
 Ce workflow permet de unfollow des comptes de manière automatisée.
 Utilisations typiques:
@@ -294,9 +294,9 @@ class UnfollowBusiness(
                                 if abs(u_bounds.get('top', 0) - button_bounds.get('top', 0)) < 50:
                                     username = u_elem.get_text() or "unknown"
                                     break
-                            except:
+                            except Exception:
                                 pass
-                except:
+                except Exception:
                     pass
                 
                 # Essayer de cliquer sur le bouton
@@ -324,7 +324,7 @@ class UnfollowBusiness(
                         from desktop_bridge import send_unfollow_event, send_stats
                         send_unfollow_event(username, success=True)
                         send_stats(unfollows=unfollows_done)
-                    except:
+                    except Exception:
                         pass  # Ignorer toutes les erreurs d'envoi
                     
                     # Petit délai entre les unfollows (plus court car on ne visite pas les profils)

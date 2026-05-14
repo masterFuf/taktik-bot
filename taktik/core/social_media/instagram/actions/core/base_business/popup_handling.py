@@ -1,4 +1,4 @@
-"""Popup handling — likers popup, comments view, close popup, follow suggestions."""
+﻿"""Popup handling — likers popup, comments view, close popup, follow suggestions."""
 
 import time
 
@@ -43,7 +43,7 @@ class PopupHandlingMixin:
                 self._close_popup_by_swipe_down()
                 time.sleep(1.2)
             self._human_like_delay('popup_close')
-        except:
+        except Exception:
             pass
     
     def _close_popup_by_swipe_down(self) -> bool:

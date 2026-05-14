@@ -1,4 +1,4 @@
-"""Profile data extraction from Instagram UI via ADB."""
+﻿"""Profile data extraction from Instagram UI via ADB."""
 
 import time
 from typing import Dict, Any, List, Optional
@@ -235,7 +235,7 @@ class ProfileExtraction(BaseBusinessAction):
             try:
                 self.device.press("back")
                 self._random_sleep(0.3, 0.5)
-            except:
+            except Exception:
                 pass
             return None
     
