@@ -87,6 +87,13 @@ class ScrapingWorkflow(
         self.start_time = datetime.now()
         scraping_type = self.config.get('type', 'target')
         
+        # Log AI niche if configured
+        ai_mode = self.config.get('ai_mode', False)
+        ai_niche = self.config.get('ai_niche', '')
+        if ai_mode:
+            niche_label = f" [niche={ai_niche}]" if ai_niche else " [prompt personnalisé]"
+            console.print(f"\n[bold violet]🤖 AI Mode actif{niche_label}[/bold violet]")
+        
         console.print(f"\n[bold blue]🔍 Starting {scraping_type.upper()} scraping...[/bold blue]\n")
         
         # Create scraping session in database

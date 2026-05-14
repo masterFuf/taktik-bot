@@ -12,13 +12,8 @@ Flow observé sur dumps :
   6. Écran d'édition → saisir title / description
   7. Tap "Next" → tap "Upload video" / "Upload Short"
 
-Sélecteurs établis à partir des UI dumps réels (Nokia 4.2, Android 11, YouTube app) :
-  - Create button : content-desc="Create" dans pivot_bar
-  - Permission : com.android.permissioncontroller:id/permission_allow_foreground_only_button
-  - "Add from gallery" : text="Add from gallery"
-  - Gallery first item : premier ImageView clickable dans la vue galerie
-  - Title/caption input : premier EditText available sur l'écran d'édition
-  - Upload/Post button : text="Upload video" | "Upload Short" | "Post" | "UPLOAD"
+Tous les sélecteurs XPath sont centralisés dans :
+    taktik.core.social_media.youtube.ui.selectors.upload  (UPLOAD_SELECTORS)
 """
 
 from __future__ import annotations
@@ -35,6 +30,7 @@ from taktik.core.shared.input.taktik_keyboard import (
     type_with_taktik_keyboard,
     clear_text_with_taktik_keyboard,
 )
+from taktik.core.social_media.youtube.ui.selectors import UPLOAD_SELECTORS, YOUTUBE_PACKAGE
 
 try:
     from bridges.common.ipc import IPC as _IPC
@@ -44,8 +40,6 @@ except Exception:
         def log(self, level, msg): logger.info(msg)
         def status(self, s, m=""): logger.info(f"[{s}] {m}")
     _ipc = _FallbackIPC()
-
-_YOUTUBE_PKG = "com.google.android.youtube"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -100,217 +94,8 @@ def _wait_for_any(device, selectors: list[str], timeout: float = 10.0, label: st
     return None
 
 
-# ---------------------------------------------------------------------------
-# Selectors (from real UI dumps)
-# ---------------------------------------------------------------------------
-
-# Bottom nav "Create" button
-_CREATE_BTN = [
-    '//*[@content-desc="Create"]',
-    '//*[contains(@content-desc, "Créer")]',
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/pivot_bar"]//android.widget.Button',
-]
-
-# Upload mode selector (tabs: Video / Short / Live / Post)
-_TAB_SHORT = [
-    '//android.widget.TextView[@text="Short"]',
-    '//android.widget.Button[@text="Short"]',
-    '//*[contains(@content-desc, "Short")]',
-]
-_TAB_VIDEO = [
-    '//android.widget.TextView[@text="Video"]',
-    '//android.widget.Button[@text="Video"]',
-    '//android.widget.TextView[@text="Vidéo"]',
-    '//android.widget.Button[@text="Vidéo"]',
-    '//*[contains(@content-desc, "Video")]',
-    '//*[contains(@content-desc, "Vidéo")]',
-]
-
-# "Add from gallery" button on the upload screen
-# Nokia / older UI : text "Add from gallery"
-# Samsung / newer UI (Shorts camera view) : resource-id reel_camera_gallery_button_delegate
-#                                            content-desc "Import video from photo library"
-#                                            label text "Add"
-_ADD_FROM_GALLERY = [
-    # Shorts camera view — resource-id (device-agnostic, most reliable)
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/reel_camera_gallery_button_delegate"]',
-    # content-desc (EN)
-    '//*[@content-desc="Import video from photo library"]',
-    '//*[@content-desc="Import video from gallery"]',
-    # content-desc (FR) — variants seen on A80Pro and other devices
-    '//*[@content-desc="Importer une vidéo de la galerie"]',
-    '//*[@content-desc="Importer une vidéo depuis la photothèque"]',
-    '//*[@content-desc="Importer une vidéo"]',
-    # Classic upload screen text (older YouTube, Nokia-style)
-    '//android.widget.Button[contains(@text, "Add from gallery")]',
-    '//*[contains(@text, "Add from gallery")]',
-    '//*[contains(@text, "Ajouter depuis la galerie")]',
-    '//*[contains(@text, "Ajouter depuis")]',
-    '//*[contains(@text, "Gallery")]',
-    '//*[contains(@text, "Galerie")]',
-]
-
-# Gallery — first video item (most recent = just pushed)
-_GALLERY_FIRST = [
-    # Samsung/YouTube internal gallery — clickable FrameLayout wrappers (no resource-id)
-    '(//android.widget.GridView//android.widget.FrameLayout[@clickable="true"])[1]',
-    '(//android.widget.RecyclerView//android.widget.FrameLayout[@clickable="true"])[1]',
-    # Fallback: ImageView inside GridView (uiautomator2 taps parent's bounds)
-    '(//android.widget.GridView//android.widget.ImageView)[1]',
-    '(//android.widget.RecyclerView//android.widget.ImageView)[1]',
-    # System photo picker (Android 13+)
-    '(//android.widget.GridView//android.view.View[@clickable="true"])[1]',
-    '(//android.widget.RecyclerView//android.view.View[@clickable="true"])[1]',
-]
-
-# "Next" / "OK" / "Continue" after gallery selection, trimming screen, editor screen, etc.
-# Ordered by specificity (resource-id first, then content-desc, then text).
-_NEXT_BTN = [
-    # Samsung YouTube — gallery multi-select Next button
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/multi_select_next_button"]',
-    # Shorts camera view with loaded video — checkmark "Go to editor" (bottom right)
-    # Appears after: gallery selection → trim OK → back on camera view
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/shorts_camera_next_button_delegate"]',
-    # Shorts trim screen "OK" button (confirms trim selection)
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/shorts_trim_finish_trim_button"]',
-    # Shorts editor screen bottom-right "Next" / "Suivant" button
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/shorts_post_bottom_button"]',
-    # Trimming screen generic "creation next" (older YouTube versions)
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/creation_next_button"]',
-    # Other next/continue resource-ids
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/next_button"]',
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/action_next"]',
-    # content-desc variants (EN + FR)
-    '//*[@content-desc="Go to editor"]',
-    '//*[@content-desc="Accéder à l\'éditeur"]',
-    '//*[@content-desc="Add segment to project"]',
-    '//*[@content-desc="Ajouter le segment au projet"]',
-    # text variants (EN)
-    '//android.widget.Button[@text="OK"]',
-    '//android.widget.Button[@text="Done"]',
-    '//android.widget.Button[@text="Next"]',
-    '//android.widget.Button[contains(@text, "Next")]',
-    '//android.widget.Button[contains(@text, "Continue")]',
-    '//android.widget.TextView[@text="Next"]',
-    # text variants (FR)
-    '//android.widget.Button[@text="Suivant"]',
-    '//android.widget.Button[contains(@text, "Suivant")]',
-    '//android.widget.Button[contains(@text, "Continuer")]',
-]
-
-# Title / caption input on the caption screen (Shorts: caption hint; Videos: title hint)
-_TITLE_INPUT = [
-    # EN hints
-    '//android.widget.EditText[contains(@hint, "Add a title")]',
-    '//android.widget.EditText[contains(@hint, "Add a caption")]',
-    '//android.widget.EditText[contains(@hint, "Title")]',
-    '//android.widget.EditText[contains(@hint, "Caption")]',
-    '//android.widget.EditText[contains(@hint, "Add a description")]',
-    '//android.widget.EditText[contains(@hint, "description")]',
-    # FR hints — A80Pro confirmed: "Donnez un titre à votre Short"
-    '//android.widget.EditText[contains(@hint, "Donnez un titre")]',
-    '//android.widget.EditText[contains(@hint, "Ajouter un titre")]',
-    '//android.widget.EditText[contains(@hint, "Ajouter une légende")]',
-    '//android.widget.EditText[contains(@hint, "Titre")]',
-    '//android.widget.EditText[contains(@hint, "Légende")]',
-    '//android.widget.EditText[contains(@hint, "Ajouter une description")]',
-    # Last resort: first tappable EditText on the screen
-    '(//android.widget.EditText[@clickable="true"])[1]',
-]
-
-# Final upload / post button (EN + FR)
-_UPLOAD_BTN = [
-    # resource-id (most reliable) — confirmed on A80Pro French YouTube Shorts
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/upload_bottom_button"]',
-    # EN text variants
-    '//android.widget.Button[@text="Upload video"]',
-    '//android.widget.Button[@text="Upload Short"]',
-    '//android.widget.Button[@text="Upload"]',
-    '//android.widget.Button[contains(@text, "Upload")]',
-    '//android.widget.Button[contains(@text, "UPLOAD")]',
-    '//android.widget.Button[@text="Post"]',
-    # FR text variants — "Mettre en ligne le Short" confirmed on A80Pro
-    '//android.widget.Button[@text="Mettre en ligne la vidéo"]',
-    '//android.widget.Button[@text="Mettre en ligne le Short"]',
-    '//android.widget.Button[contains(@text, "Mettre en ligne")]',
-    '//android.widget.Button[@text="Publier"]',
-    '//android.widget.Button[contains(@text, "Publier")]',
-]
-
-# Upload confirmation (post-upload snackbar/message) — EN + FR
-_UPLOAD_DONE = [
-    # resource-id (confirmed A80Pro FR): "Importée sur votre chaîne"
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/message"]',
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/action"]',  # "Voir la vidéo" link
-    # FR text
-    '//*[contains(@text, "Importée sur votre chaîne")]',
-    '//*[contains(@text, "Importée")]',
-    '//*[contains(@text, "Voir la vidéo")]',
-    '//*[contains(@text, "Votre vidéo sera en ligne")]',
-    # EN text
-    '//*[contains(@text, "Your video will be live")]',
-    '//*[contains(@text, "Your Short will be live")]',
-    '//*[contains(@text, "Processing")]',
-    '//*[contains(@text, "Uploading")]',
-    '//*[contains(@text, "Uploaded")]',
-    '//*[contains(@text, "published")]',
-    '//*[contains(@text, "publié")]',
-]
-
-# Visibility options on the "Définir la visibilité" sub-screen.
-# YouTube standard order: Public (1st), Non-listé/Unlisted (2nd), Privé/Private (3rd).
-# The rows have no accessible text — we use ordered XPath within the scroll container.
-_VISIBILITY_ROW = {
-    "public":   "(//android.widget.ScrollView//android.view.ViewGroup[@clickable=\"true\"])[2]",
-    "unlisted": "(//android.widget.ScrollView//android.view.ViewGroup[@clickable=\"true\"])[3]",
-    "private":  "(//android.widget.ScrollView//android.view.ViewGroup[@clickable=\"true\"])[4]",
-}
-
-# Row on the details screen that opens the visibility sub-screen.
-# Use single-slash `/` (direct children of RecyclerView > outer ViewGroup) to avoid
-# counting the nested clickable ViewGroups inside the title row.
-_DETAIL_ROW_DESCRIPTION = [
-    # Text-based: find the clickable row that contains "Description" text
-    '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Description") or contains(@text, "description") or contains(@text, "Décrip")]]',
-    # Outer direct clickable children of RecyclerView (row-level, not inner sub-elements)
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[1]',
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[1]',
-]
-_DETAIL_ROW_VISIBILITY = [
-    # Text-based: most reliable — the row shows the current visibility value
-    '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Visibilit") or contains(@text, "Visibility")]]',
-    '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Priv") and not(contains(@text, "Description"))]]',
-    '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Non list") or contains(@text, "Unlisted")]]',
-    '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Publique") or contains(@text, "Public")]]',
-    # Content-desc (some YouTube versions)
-    '//*[contains(@content-desc, "visibilit")]',
-    '//*[contains(@content-desc, "Visibility")]',
-    # Outer direct clickable rows of RecyclerView (no inner-child nesting)
-    # Based on dump: description=[1], visibility=[2] at this level
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[2]',
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[3]',
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[4]',
-    # Nested (higher indices to skip title-row inner sub-elements at [1][2])
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[4]',
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[5]',
-    '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[6]',
-]
-# Indicator that we've landed on the visibility sub-screen
-_VISIBILITY_SCREEN_INDICATOR = [
-    '//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"]',
-    f'//*[@resource-id="{_YOUTUBE_PKG}:id/accessibility_layer_container"]',
-]
-# Audience/kids sub-screen detector — if present we opened the WRONG row
-_AUDIENCE_SCREEN_INDICATOR = [
-    '//*[@content-desc="En savoir plus"]',
-    '//*[contains(@content-desc, "savoir plus")]',
-    '//*[contains(@content-desc, "Learn more")]',
-    '//*[contains(@content-desc, "learn more")]',
-]
-# Description sub-screen EditText (full-screen, no hint, becomes focused)
-_DESCRIPTION_EDITTEXT = [
-    '//android.widget.EditText[@clickable="true"]',
-]
+# Alias court pour lisibilité dans le workflow
+_S = UPLOAD_SELECTORS
 
 
 # ---------------------------------------------------------------------------
@@ -368,43 +153,40 @@ class YouTubeUploadWorkflow:
             _status("running", "Opening YouTube…")
             # Force-stop first so we always start from a clean state
             # (handles cases where a previous run crashed mid-flow)
-            d.shell(f"am force-stop {_YOUTUBE_PKG}")
+            d.shell(f"am force-stop {YOUTUBE_PACKAGE}")
             time.sleep(0.8)
             # Use monkey to launch — am start with hardcoded activity path fails silently
-            d.shell(f"monkey -p {_YOUTUBE_PKG} -c android.intent.category.LAUNCHER 1")
+            d.shell(f"monkey -p {YOUTUBE_PACKAGE} -c android.intent.category.LAUNCHER 1")
             # Wait up to 6 s for YouTube to appear in the foreground
             deadline = time.time() + 6
             launched = False
             while time.time() < deadline:
                 fg = d.shell("dumpsys window | grep mCurrentFocus").output or ""
-                if _YOUTUBE_PKG in fg:
+                if YOUTUBE_PACKAGE in fg:
                     launched = True
                     break
                 time.sleep(0.5)
             if not launched:
                 # Fallback: am start intent
-                d.shell(f"am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n {_YOUTUBE_PKG}/.app.honeycomb.Shell$HomeActivity")
+                d.shell(f"am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n {YOUTUBE_PACKAGE}/.app.honeycomb.Shell$HomeActivity")
                 time.sleep(3)
             else:
                 time.sleep(1.5)
 
             # Make sure we're on home (not a watch page)
-            _try_tap(d, ['//*[@content-desc="Home"]', '//*[@content-desc="Accueil"]'], timeout=2, label="nav-home")
+            _try_tap(d, _S.home_tab, timeout=2, label="nav-home")
             time.sleep(1)
 
             # ── Dismiss notification permission popup if present ──────────────
             # 1) System permission dialog (com.android.permissioncontroller)
             # 2) In-app YouTube dialog ("Activer les notifications" / "Enable notifications")
-            _yt_notif_cancel = [
-                f'//*[@resource-id="{_YOUTUBE_PKG}:id/custom_confirm_dialog_cancel_button"]',
-            ]
-            if self._perms.deny_if_present(wait=3.0) or _try_tap(d, _yt_notif_cancel, timeout=2, label="notif-cancel"):
+            if self._perms.deny_if_present(wait=3.0) or _try_tap(d, _S.notification_cancel, timeout=2, label="notif-cancel"):
                 _log("info", "🔕 Dismissed notification permission popup")
                 time.sleep(0.8)
 
             # ── Step 3: tap Create "+" ───────────────────────────────────────
             _status("running", "Tapping Create button…")
-            if not _try_tap(d, _CREATE_BTN, timeout=5, label="create-btn"):
+            if not _try_tap(d, _S.create_button, timeout=5, label="create-btn"):
                 return {"success": False, "message": "Could not find Create (+) button"}
             time.sleep(1.5)
 
@@ -419,14 +201,28 @@ class YouTubeUploadWorkflow:
             # ── Step 5: select tab (Short / Video) ──────────────────────────
             _status("running", f"Selecting upload type: {upload_type}…")
             if upload_type == "short":
-                _try_tap(d, _TAB_SHORT, timeout=3, label="tab-short")
+                _try_tap(d, _S.tab_short, timeout=3, label="tab-short")
             else:
-                _try_tap(d, _TAB_VIDEO, timeout=3, label="tab-video")
-            time.sleep(0.8)
+                _try_tap(d, _S.tab_video, timeout=3, label="tab-video")
+            time.sleep(1.5)  # wait for Shorts camera / upload screen transition
+
+            # Grant camera/storage permission dialog that YouTube may show
+            # specifically after the Short tab opens the camera view.
+            n = self._perms.grant(rounds=3, per_round_wait=4)
+            if n:
+                _log("info", f"✅ Granted {n} permission dialog(s) after tab selection")
+                time.sleep(0.8)
 
             # ── Step 6: tap "Add from gallery" ──────────────────────────────
             _status("running", "Opening gallery…")
-            if not _try_tap(d, _ADD_FROM_GALLERY, timeout=6, label="add-from-gallery"):
+            if not _try_tap(d, _S.add_from_gallery, timeout=8, label="add-from-gallery"):
+                # Dump the current UI hierarchy for debugging
+                try:
+                    xml = d.dump_hierarchy()
+                    # Log first 3000 chars so we can identify the missing selector
+                    _log("debug", f"[ui-dump] {xml[:3000]}")
+                except Exception as dump_err:
+                    _log("debug", f"[ui-dump] failed: {dump_err}")
                 return {"success": False, "message": "Could not find 'Add from gallery' button"}
             time.sleep(2)
 
@@ -439,7 +235,7 @@ class YouTubeUploadWorkflow:
 
             # ── Step 8: select first item in gallery ─────────────────────────
             _status("running", "Selecting video from gallery…")
-            if not _try_tap(d, _GALLERY_FIRST, timeout=8, label="gallery-first"):
+            if not _try_tap(d, _S.gallery_first_item, timeout=8, label="gallery-first"):
                 return {"success": False, "message": "Could not select first item in gallery"}
             time.sleep(2)
 
@@ -450,17 +246,17 @@ class YouTubeUploadWorkflow:
             # Up to 6 rounds to cover all intermediate screens.
             _status("running", "Navigating to edit screen…")
             for i in range(6):
-                if _wait_for_any(d, _TITLE_INPUT, timeout=3, label=f"title-input-check-{i+1}"):
+                if _wait_for_any(d, _S.title_input, timeout=3, label=f"title-input-check-{i+1}"):
                     break  # Already on caption/title screen
                 _log("debug", f"📍 Step 9 round {i+1}/6 — tapping next")
-                _try_tap(d, _NEXT_BTN, timeout=4, label=f"next-btn-{i+1}")
+                _try_tap(d, _S.next_button, timeout=4, label=f"next-btn-{i+1}")
                 time.sleep(2.5)  # transitions can be slow
 
             # ── Step 10: enter title ──────────────────────────────────────────
             if title:
                 _status("running", "Entering title…")
                 _log("info", f"✏️  Title: {title[:60]}")
-                found_title_sel = _wait_for_any(d, _TITLE_INPUT, timeout=5, label="title-input-tap")
+                found_title_sel = _wait_for_any(d, _S.title_input, timeout=5, label="title-input-tap")
                 if found_title_sel:
                     # Click the field FIRST so Android opens the keyboard and establishes
                     # the IME input connection. type_with_taktik_keyboard() activates
@@ -488,12 +284,12 @@ class YouTubeUploadWorkflow:
             if description:
                 _log("info", f"✏️  Description: {description[:80]}")
                 _status("running", "Entering description…")
-                if _try_tap(d, _DETAIL_ROW_DESCRIPTION, timeout=3, label="desc-row"):
+                if _try_tap(d, _S.detail_row_description, timeout=3, label="desc-row"):
                     time.sleep(1)  # wait for sub-screen animation
-                    if _wait_for_any(d, _DESCRIPTION_EDITTEXT, timeout=4, label="desc-edittext"):
+                    if _wait_for_any(d, _S.description_edittext, timeout=4, label="desc-edittext"):
                         # Click field first, then type — same pattern as Instagram
                         try:
-                            d.xpath(_DESCRIPTION_EDITTEXT[0]).click()
+                            d.xpath(_S.description_edittext[0]).click()
                             time.sleep(1.0)  # wait for keyboard open + input connection
                         except Exception as e:
                             _log("warning", f"⚠️  Description click failed: {e}")
@@ -525,7 +321,7 @@ class YouTubeUploadWorkflow:
             _log("info", f"🔒 Setting visibility: {vis}")
             _status("running", f"Setting visibility to {vis}…")
             vis_set = False
-            for vis_candidate in _DETAIL_ROW_VISIBILITY:
+            for vis_candidate in _S.detail_row_visibility:
                 try:
                     if not d.xpath(vis_candidate).exists:
                         continue
@@ -539,7 +335,7 @@ class YouTubeUploadWorkflow:
                 time.sleep(1)  # wait for sub-screen animation
                 # Detect if we accidentally opened the audience/kids screen
                 on_wrong_screen = any(
-                    d.xpath(s).exists for s in _AUDIENCE_SCREEN_INDICATOR
+                    d.xpath(s).exists for s in _S.audience_screen_indicator
                 )
                 if on_wrong_screen:
                     _log("warning", "⚠️  Opened audience/kids screen (wrong row) — pressing back, trying next")
@@ -547,8 +343,8 @@ class YouTubeUploadWorkflow:
                     time.sleep(1.5)  # wait for RecyclerView to re-render
                     continue
                 # Check we're on the correct visibility sub-screen
-                if _wait_for_any(d, _VISIBILITY_SCREEN_INDICATOR, timeout=4, label="visibility-screen"):
-                    vis_sel = _VISIBILITY_ROW.get(vis)
+                if _wait_for_any(d, _S.visibility_screen_indicator, timeout=4, label="visibility-screen"):
+                    vis_sel = _S.visibility_row.get(vis)
                     if vis_sel and _try_tap(d, [vis_sel], timeout=4, label=f"visibility-{vis}"):
                         _log("info", f"✅ Visibility set to {vis}")
                         vis_set = True
@@ -578,12 +374,12 @@ class YouTubeUploadWorkflow:
             # ── Step 12: tap Upload / Post ────────────────────────────────────
             _status("running", "Uploading…")
             _log("info", "🚀 Tapping Upload / Post button")
-            if not _try_tap(d, _UPLOAD_BTN, timeout=8, label="upload-btn"):
+            if not _try_tap(d, _S.upload_button, timeout=8, label="upload-btn"):
                 return {"success": False, "message": "Could not find Upload/Post button"}
 
             # ── Step 13: wait for confirmation ───────────────────────────────
             _status("running", "Waiting for upload confirmation…")
-            done_sel = _wait_for_any(d, _UPLOAD_DONE, timeout=60, label="upload-confirmation")
+            done_sel = _wait_for_any(d, _S.upload_done, timeout=60, label="upload-confirmation")
 
             if done_sel:
                 _log("info", "✅ Upload confirmed by YouTube")
