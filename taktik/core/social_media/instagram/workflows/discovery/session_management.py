@@ -36,8 +36,10 @@ class DiscoverySessionMixin:
             if device_serial:
                 # Force stop Instagram
                 self.logger.info("🛑 Force stopping Instagram...")
-                stop_cmd = f'adb -s {device_serial} shell am force-stop {pkg}'
-                subprocess.run(stop_cmd, shell=True, capture_output=True, timeout=10)
+                subprocess.run(
+                    ['adb', '-s', device_serial, 'shell', 'am', 'force-stop', pkg],
+                    capture_output=True, timeout=10
+                )
                 self.logger.info("✅ Instagram stopped")
                 
                 # Wait a bit for clean shutdown
@@ -50,10 +52,13 @@ class DiscoverySessionMixin:
                 # Taktik-cloner packages don't register instagram.com URL intent filters,
                 # so use monkey (launcher intent) instead of deep link for those.
                 if pkg.startswith("com.taktik."):
-                    launch_cmd = f'adb -s {device_serial} shell am start -n {pkg}/com.instagram.mainactivity.LauncherActivity'
+                    launch_cmd = ['adb', '-s', device_serial, 'shell', 'am', 'start',
+                                  '-n', f'{pkg}/com.instagram.mainactivity.LauncherActivity']
                 else:
-                    launch_cmd = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "https://www.instagram.com/" {pkg}'
-                result = subprocess.run(launch_cmd, shell=True, capture_output=True, text=True, timeout=15)
+                    launch_cmd = ['adb', '-s', device_serial, 'shell', 'am', 'start',
+                                  '-W', '-a', 'android.intent.action.VIEW',
+                                  '-d', 'https://www.instagram.com/', pkg]
+                result = subprocess.run(launch_cmd, capture_output=True, text=True, timeout=15)
                 self.logger.info(f"✅ Instagram relaunched: {result.stdout.strip() if result.stdout else 'OK'}")
                 
                 # Small additional wait for UI to stabilize

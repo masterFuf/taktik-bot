@@ -116,8 +116,9 @@ class DeepLinkNavigationMixin(BaseAction):
                 # Fallback to subprocess if adbutils not available
                 import subprocess
                 pkg = get_active_package()
-                adb_command = f'adb -s {device_serial} shell am start -W -a android.intent.action.VIEW -d "{clean_url}" {pkg}'
-                sub_result = subprocess.run(adb_command, shell=True, capture_output=True, text=True, timeout=10)
+                adb_command = ['adb', '-s', device_serial, 'shell', 'am', 'start',
+                               '-W', '-a', 'android.intent.action.VIEW', '-d', clean_url, pkg]
+                sub_result = subprocess.run(adb_command, capture_output=True, text=True, timeout=10)
                 if sub_result.returncode != 0:
                     self.logger.error(f"❌ ADB error opening post: {sub_result.stderr}")
                     return False
