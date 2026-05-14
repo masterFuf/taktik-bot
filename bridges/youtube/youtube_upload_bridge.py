@@ -42,6 +42,7 @@ class YouTubeUploadBridge:
         self.title = config.get("title", "")
         self.description = config.get("description", "")
         self.upload_type = config.get("uploadType", "short").lower()  # "short" | "video"
+        self.visibility = config.get("visibility", "public").lower()  # "public" | "unlisted" | "private"
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
@@ -92,6 +93,7 @@ class YouTubeUploadBridge:
                 title=self.title,
                 description=self.description,
                 upload_type=self.upload_type,
+                visibility=self.visibility,
             )
 
             success = result.get("success", False)

@@ -44,9 +44,11 @@ def send_stats(videos_watched: int = 0, videos_liked: int = 0, users_followed: i
     )
 
 def send_video_info(author: str, description: str = None, like_count: str = None,
-                    is_liked: bool = False, is_followed: bool = False, is_ad: bool = False):
+                    is_liked: bool = False, is_followed: bool = False, is_ad: bool = False,
+                    hashtags: list = None, sound: str = None, author_pic: str = None):
     """Send current video info to desktop app."""
-    _ipc.video_info(author, description, like_count, is_liked, is_followed, is_ad)
+    _ipc.video_info(author, description, like_count, is_liked, is_followed, is_ad,
+                    hashtags=hashtags, sound=sound, author_pic=author_pic)
 
 def send_action(action: str, target: str = ""):
     """Send action event to desktop app."""
@@ -185,14 +187,37 @@ def setup_video_workflow_callbacks(workflow):
     (For You, Search, etc.). Avoids duplicating the same 5 callbacks
     in every bridge.
     """
+    # Track authors whose profile pic was already sent (per workflow run)
+    _sent_pics: set = set()
+
     def on_video(video_info):
+        author = video_info.get('author', 'unknown')
+
+        # Capture profile pic once per unique author
+        author_pic = None
+        if author and author not in _sent_pics:
+            try:
+                # Access the detector through the workflow if available
+                detector = getattr(workflow, 'detection', None)
+                if detector is None:
+                    detector = getattr(workflow, 'detector', None)
+                if detector and hasattr(detector, 'get_author_profile_pic'):
+                    author_pic = detector.get_author_profile_pic()
+                    if author_pic:
+                        _sent_pics.add(author)
+            except Exception as e:
+                logger.debug(f"Could not capture profile pic for @{author}: {e}")
+
         send_video_info(
-            author=video_info.get('author', 'unknown'),
+            author=author,
             description=video_info.get('description'),
             like_count=video_info.get('like_count'),
             is_liked=video_info.get('is_liked', False),
             is_followed=video_info.get('is_followed', False),
-            is_ad=video_info.get('is_ad', False)
+            is_ad=video_info.get('is_ad', False),
+            hashtags=video_info.get('hashtags') or [],
+            sound=video_info.get('sound'),
+            author_pic=author_pic,
         )
 
     def on_like(video_info):

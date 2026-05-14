@@ -184,16 +184,25 @@ class IPC:
         })
 
     def video_info(self, author: str, description: str = None, like_count: str = None,
-                   is_liked: bool = False, is_followed: bool = False, is_ad: bool = False) -> None:
+                   is_liked: bool = False, is_followed: bool = False, is_ad: bool = False,
+                   hashtags: list = None, sound: str = None,
+                   author_pic: str = None) -> None:
         """Send current TikTok video info."""
-        self.send("video_info", video={
+        video: dict = {
             "author": author,
             "description": description,
             "like_count": like_count,
             "is_liked": is_liked,
             "is_followed": is_followed,
             "is_ad": is_ad,
-        })
+        }
+        if hashtags:
+            video["hashtags"] = hashtags
+        if sound:
+            video["sound"] = sound
+        if author_pic:
+            video["author_pic"] = author_pic
+        self.send("video_info", video=video)
 
     def action(self, action: str, target: str = "") -> None:
         """Send action event (platform-agnostic)."""
