@@ -35,6 +35,12 @@ POLL_INTERVAL = 0.5
 # Probability (0-100) of stopping on any given post
 POST_STOP_RATE = 80
 
+# After this many consecutive AI-analyzed SKIPs, switch to hashtag exploration
+CONSECUTIVE_SKIP_THRESHOLD = 7
+
+# Number of hashtag posts to analyze per burst before returning to feed
+HASHTAG_POSTS_PER_BURST = 5
+
 # Delays between actions (seconds)
 DELAY_AFTER_LIKE = (1.5, 3.5)
 DELAY_AFTER_COMMENT = (3.0, 6.0)
@@ -78,6 +84,11 @@ class TaktikAgentWorkflow:
         self._bot_username: Optional[str] = None
         self._persona_block: str = ""
         self._ai: Optional[Any] = None  # AgentAI instance, set after AI service init
+
+        # Strategy switching
+        self._consecutive_skips: int = 0      # consecutive AI-analyzed SKIPs in feed
+        self._hashtag_pool: list = []          # AI-generated hashtag pool for exploration
+        self._hashtag_index: int = 0           # round-robin pointer into the pool
 
     # ------------------------------------------------------------------
     # Public entrypoint
@@ -189,6 +200,8 @@ class TaktikAgentWorkflow:
             ai_service = AIService(api_key=api_key, ipc=self.ipc)
             self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc)
             logger.info("[TaktikAgent] AI engine initialized")
+            # Generate hashtag pool now that AI is ready
+            self._generate_hashtag_pool()
             return True
         except Exception as exc:
             logger.error(f"[TaktikAgent] _initialize_ai error: {exc}")
@@ -287,22 +300,29 @@ class TaktikAgentWorkflow:
 
             # Execute action
             if action == "skip":
-                pass  # just scroll past
+                self._consecutive_skips += 1
+                # Too many consecutive skips → switch to hashtag exploration
+                if self._consecutive_skips >= CONSECUTIVE_SKIP_THRESHOLD and self._hashtag_pool:
+                    self._run_hashtag_burst(session_deadline)
+                    self._consecutive_skips = 0
 
             elif action in ("like", "like_comment", "like_save"):
                 if self.stats["likes"] < self.quotas["max_likes"]:
                     if feed._like_current_post():
                         self.stats["likes"] += 1
+                        self._consecutive_skips = 0
                         time.sleep(random.uniform(*DELAY_AFTER_LIKE))
 
                     if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                         comment_text = decision.get("comment", "")
                         if comment_text:
                             self._post_comment(feed, comment_text, author)
+                            self._consecutive_skips = 0
 
             # Profile visit
             if decision.get("visit_profile") and author != "unknown":
                 if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
+                    self._consecutive_skips = 0
                     self._handle_profile_visit(author)
 
             # Scroll to next post
@@ -310,6 +330,158 @@ class TaktikAgentWorkflow:
             time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
 
         logger.info(f"[TaktikAgent] Feed loop ended. Stats: {self.stats}")
+
+    # ------------------------------------------------------------------
+    # Strategy switching — hashtag exploration
+    # ------------------------------------------------------------------
+
+    def _generate_hashtag_pool(self):
+        """Use AI (cheap text model) to generate relevant hashtags from the persona."""
+        import re
+        import json
+
+        # Extract key persona lines for context
+        context_lines = []
+        for line in self._persona_block.splitlines():
+            if any(k in line for k in ("Niche", "Services", "Target", "Objective")):
+                context_lines.append(line.strip())
+        context = " | ".join(context_lines)[:600]
+
+        system = (
+            "You are an Instagram hashtag expert. "
+            "Return ONLY a valid JSON array of strings (no # symbol, lowercase, no spaces). "
+            "No explanation, just the array."
+        )
+        user = (
+            "Generate 10 Instagram hashtags to find potential clients/collaborators for this account.\n"
+            f"Context: {context}\n\n"
+            'Return format: ["hashtag1", "hashtag2", ...]'
+        )
+
+        try:
+            result = self._ai.ai_service.text_completion(system, user, temperature=0.7, max_tokens=200)
+            if result.get("success"):
+                content = result.get("content", "")
+                match = re.search(r'\[.*?\]', content, re.DOTALL)
+                if match:
+                    tags = json.loads(match.group())
+                    tags = [re.sub(r'[^a-zA-Z0-9_]', '', t) for t in tags if isinstance(t, str)]
+                    tags = [t for t in tags if t]
+                    if tags:
+                        self._hashtag_pool = tags
+                        logger.info(f"[TaktikAgent] Hashtag pool: {tags}")
+                        return
+        except Exception as exc:
+            logger.warning(f"[TaktikAgent] Could not generate hashtag pool: {exc}")
+
+        # Fallback: generic social media / growth hashtags
+        self._hashtag_pool = [
+            "socialmediamarketing", "instagrammarketing", "growthhacking",
+            "digitalmarketing", "contentmarketing", "socialmediamanager",
+            "marketingdigital", "communitymanager", "marketingstrategy",
+            "instagramgrowth",
+        ]
+        logger.info(f"[TaktikAgent] Using fallback hashtag pool: {self._hashtag_pool}")
+
+    def _run_hashtag_burst(self, session_deadline: float):
+        """Browse a hashtag feed for HASHTAG_POSTS_PER_BURST posts when the home feed yields too many skips."""
+        hashtag = self._hashtag_pool[self._hashtag_index % len(self._hashtag_pool)]
+        self._hashtag_index += 1
+
+        logger.info(
+            f"[TaktikAgent] 🏷️ Strategy switch → #{hashtag} "
+            f"(after {self._consecutive_skips} consecutive skips)"
+        )
+        if self.ipc:
+            self.ipc.strategy_switch(from_strategy="feed", to_strategy="hashtag", hashtag=hashtag)
+
+        try:
+            from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+            from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
+            from taktik.core.social_media.instagram.workflows.common.post_navigation import open_first_post_of_profile
+            from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS
+
+            nav = NavigationActions(self.device_manager)
+            feed = FeedBusiness(self.device_manager)
+
+            if not nav.navigate_to_hashtag(hashtag):
+                logger.warning(f"[TaktikAgent] Could not navigate to #{hashtag}")
+                return
+
+            time.sleep(1.5)
+
+            # Prefer "Recent" tab for fresh discovery
+            for sel in DETECTION_SELECTORS.recent_tab_selectors:
+                if self.device.xpath(sel).exists:
+                    self.device.xpath(sel).click()
+                    time.sleep(1.0)
+                    break
+
+            # Open first post from the grid
+            if not open_first_post_of_profile(self.device, logger):
+                logger.warning(f"[TaktikAgent] Could not open first post in #{hashtag}")
+                return
+
+            time.sleep(1.0)
+
+            for i in range(HASHTAG_POSTS_PER_BURST):
+                if self._should_stop(session_deadline):
+                    break
+
+                self.stats["posts_seen"] += 1
+                self.stats["posts_stopped"] += 1
+
+                author = feed._get_current_post_author() or "unknown"
+                logger.debug(
+                    f"[TaktikAgent] #{hashtag} post {i + 1}/{HASHTAG_POSTS_PER_BURST} by @{author}"
+                )
+
+                screenshot_path = self._take_screenshot(f"hashtag_{hashtag}_{i}")
+                if not screenshot_path:
+                    feed._scroll_to_next_post()
+                    time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
+                    continue
+
+                decision = self._ai.decide_feed_action(
+                    screenshot_path=screenshot_path,
+                    persona_block=self._persona_block,
+                    author_username=author,
+                )
+                self.stats["session_cost_usd"] += decision.get("cost_usd", 0.0)
+
+                action = decision.get("action", "skip")
+                logger.info(
+                    f"[TaktikAgent] #{hashtag} @{author} → {action.upper()} | {decision.get('reason', '')}"
+                )
+
+                if action in ("like", "like_comment", "like_save"):
+                    if self.stats["likes"] < self.quotas["max_likes"]:
+                        if feed._like_current_post():
+                            self.stats["likes"] += 1
+                            time.sleep(random.uniform(*DELAY_AFTER_LIKE))
+
+                        if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
+                            comment_text = decision.get("comment", "")
+                            if comment_text:
+                                self._post_comment(feed, comment_text, author)
+
+                if decision.get("visit_profile") and author != "unknown":
+                    if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
+                        self._handle_profile_visit(author)
+                        # _handle_profile_visit navigates back to feed — exit burst
+                        return
+
+                feed._scroll_to_next_post()
+                time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
+
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _run_hashtag_burst({hashtag}) error: {exc}")
+        finally:
+            logger.info(f"[TaktikAgent] Returning to home feed after #{hashtag} burst")
+            self._navigate_to_feed()
+            time.sleep(1.5)
+            if self.ipc:
+                self.ipc.strategy_switch(from_strategy="hashtag", to_strategy="feed", hashtag=hashtag)
 
     # ------------------------------------------------------------------
     # Profile visit
