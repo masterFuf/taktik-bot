@@ -195,7 +195,7 @@ class FeedPostActionsMixin:
             end_y = int(screen_height * 0.2)
             center_x = screen_width // 2
             
-            self.device.swipe(center_x, start_y, center_x, end_y, duration=0.3)
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.3)
             
         except Exception as e:
             self.logger.debug(f"Error scrolling to next post: {e}")
