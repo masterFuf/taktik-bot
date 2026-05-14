@@ -1,0 +1,462 @@
+"""Taktik Agent — autonomous social media workflow (Instagram-first).
+
+Platform-agnostic orchestration layer: inject the right `device_manager`
+and the appropriate platform actions, and it works on Instagram, TikTok, etc.
+
+Current implementation: Instagram feed browsing.
+  1. Visits own profile → loads account context (niche, persona) from SQLite
+  2. Navigates to the home feed
+  3. Scrolls through posts, stopping on ~40% of them
+  4. For each stopped post: takes a screenshot → AI decides (like / skip / comment / save)
+  5. If AI says visit_profile: navigate to author → screenshot → AI decides (follow / skip)
+  6. Respects configurable daily quotas; stops when any quota is reached
+  7. Emits IPC events throughout for the Taktik Agent panel
+"""
+
+import os
+import time
+import random
+import tempfile
+from typing import Dict, Any, Optional
+from loguru import logger
+
+from taktik.core.database import get_db_service
+from taktik.core.ai.comment_ai import UserProfile
+from taktik.core.agent.agent_ai import AgentAI
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# How often the agent checks for stop signal (seconds)
+POLL_INTERVAL = 0.5
+
+# Probability (0-100) of stopping on any given post
+POST_STOP_RATE = 80
+
+# Delays between actions (seconds)
+DELAY_AFTER_LIKE = (1.5, 3.5)
+DELAY_AFTER_COMMENT = (3.0, 6.0)
+DELAY_AFTER_FOLLOW = (2.0, 4.0)
+DELAY_SCROLL_TO_NEXT = (1.0, 2.5)
+DELAY_AFTER_PROFILE_VISIT = (3.0, 6.0)
+
+
+class TaktikAgentWorkflow:
+    """Autonomous Instagram agent that behaves like a human user."""
+
+    def __init__(self, device_manager, config: Dict[str, Any], ipc=None):
+        self.device_manager = device_manager
+        self.device = device_manager.device if hasattr(device_manager, 'device') else device_manager
+        self.config = config
+        self.ipc = ipc
+
+        # Session stats
+        self.stats = {
+            "likes": 0,
+            "comments": 0,
+            "follows": 0,
+            "profile_visits": 0,
+            "posts_seen": 0,
+            "posts_stopped": 0,
+            "session_cost_usd": 0.0,
+        }
+
+        # Quotas (overridable from config)
+        self.quotas = {
+            "max_likes": config.get("max_likes", 80),
+            "max_comments": config.get("max_comments", 15),
+            "max_follows": config.get("max_follows", 20),
+            "max_profile_visits": config.get("max_profile_visits", 40),
+            "max_posts_seen": config.get("max_posts_seen", 150),
+            "session_duration_min": config.get("session_duration_min", 25),
+        }
+
+        self._stop_requested = False
+        self._session_start = None
+        self._bot_username: Optional[str] = None
+        self._persona_block: str = ""
+        self._ai: Optional[Any] = None  # AgentAI instance, set after AI service init
+
+    # ------------------------------------------------------------------
+    # Public entrypoint
+    # ------------------------------------------------------------------
+
+    def run(self) -> Dict[str, Any]:
+        """Run the Taktik Agent session. Returns final stats."""
+        self._session_start = time.time()
+
+        try:
+            # Step 1: Identify the bot account and load persona
+            if not self._initialize_persona():
+                return self._fail("Could not identify bot account")
+
+            # Step 2: Initialize AI decision engine
+            if not self._initialize_ai():
+                return self._fail("Could not initialize AI service — check API key")
+
+            # Step 3: Navigate to home feed
+            self._send_status("navigating", "Navigating to home feed…")
+            if not self._navigate_to_feed():
+                return self._fail("Could not navigate to home feed")
+
+            time.sleep(2)
+
+            # Step 4: Main browsing loop
+            self._send_status("running", "Taktik Agent is active")
+            self._run_feed_loop()
+
+            # Finalize
+            self._send_status("completed", "Session completed", stats=self.stats)
+            return {"success": True, "stats": self.stats}
+
+        except Exception as exc:
+            logger.exception(f"[TaktikAgent] Unexpected error: {exc}")
+            self._send_status("error", str(exc))
+            return {"success": False, "error": str(exc), "stats": self.stats}
+
+    def stop(self):
+        """Request graceful stop."""
+        self._stop_requested = True
+
+    # ------------------------------------------------------------------
+    # Initialization helpers
+    # ------------------------------------------------------------------
+
+    def _initialize_persona(self) -> bool:
+        """Visit own profile, detect username, load account context from DB."""
+        logger.info("[TaktikAgent] Visiting own profile to detect account…")
+
+        try:
+            from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+            profile_biz = ProfileBusiness(self.device_manager)
+
+            # Navigate to own profile tab
+            from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+            tab_nav = NavigationActions(self.device_manager)
+            tab_nav.navigate_to_profile_tab()
+            time.sleep(1.5)
+
+            # Extract profile info
+            profile_info = profile_biz.get_complete_profile_info(navigate_if_needed=False)
+            if not profile_info or not profile_info.get("username"):
+                logger.error("[TaktikAgent] Could not extract own profile username")
+                return False
+
+            self._bot_username = profile_info["username"]
+            logger.info(f"[TaktikAgent] Bot account: @{self._bot_username}")
+
+            # Load account profile data from SQLite
+            db = get_db_service()
+            account_data = db.get_account_by_username(self._bot_username)
+
+            # Build UserProfile (persona)
+            user_profile = UserProfile(
+                username=self._bot_username,
+                bio=profile_info.get("biography", "") or "",
+                niche=_get(account_data, "niche", ""),
+                objective=_get(account_data, "objective", ""),
+                services=_get(account_data, "product_service", ""),
+                target_audience=_get(account_data, "target_audience", ""),
+                personality=_get(account_data, "tone_personality", ""),
+                custom_context=_get(account_data, "custom_context", ""),
+            )
+            self._persona_block = user_profile.to_prompt_block()
+            logger.info(f"[TaktikAgent] Persona loaded:\n{self._persona_block}")
+
+            self._send_status(
+                "account_detected",
+                f"Account @{self._bot_username} detected",
+                stats={"username": self._bot_username, "niche": _get(account_data, "niche", "")},
+            )
+            return True
+
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _initialize_persona error: {exc}")
+            return False
+
+    def _initialize_ai(self) -> bool:
+        """Set up the AI service and AgentAI decision engine."""
+        api_key = self.config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
+        if not api_key:
+            logger.error("[TaktikAgent] No OpenRouter API key configured")
+            return False
+
+        try:
+            from bridges.common.ai_service import AIService
+
+            ai_service = AIService(api_key=api_key, ipc=self.ipc)
+            self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc)
+            logger.info("[TaktikAgent] AI engine initialized")
+            return True
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _initialize_ai error: {exc}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Navigation helpers
+    # ------------------------------------------------------------------
+
+    def _navigate_to_feed(self) -> bool:
+        """Navigate to the home feed tab."""
+        try:
+            from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+            tab_nav = NavigationActions(self.device_manager)
+            return tab_nav.navigate_to_home()
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _navigate_to_feed error: {exc}")
+            return False
+
+    def _navigate_to_profile(self, username: str) -> bool:
+        """Navigate to a user profile via deep link or search."""
+        try:
+            from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+            nav = NavigationActions(self.device_manager)
+            return nav.navigate_to_profile(username)
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _navigate_to_profile({username}) error: {exc}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Main feed loop
+    # ------------------------------------------------------------------
+
+    def _run_feed_loop(self):
+        """Browse the feed, stopping on posts and making AI decisions."""
+        from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
+
+        feed = FeedBusiness(self.device_manager)
+        session_deadline = self._session_start + self.quotas["session_duration_min"] * 60
+
+        logger.info(
+            f"[TaktikAgent] Starting feed loop "
+            f"(max_likes={self.quotas['max_likes']}, "
+            f"max_follows={self.quotas['max_follows']}, "
+            f"duration={self.quotas['session_duration_min']}min)"
+        )
+
+        while not self._should_stop(session_deadline):
+            self.stats["posts_seen"] += 1
+
+            # Randomly decide whether to stop and analyse this post (~40%)
+            if random.randint(1, 100) > POST_STOP_RATE:
+                feed._scroll_to_next_post()
+                time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
+                continue
+
+            self.stats["posts_stopped"] += 1
+
+            # Skip ads
+            if feed._is_sponsored_post():
+                logger.debug("[TaktikAgent] Skipping sponsored post")
+                feed._scroll_to_next_post()
+                time.sleep(random.uniform(0.8, 1.5))
+                continue
+
+            # Skip reels if configured (default: True)
+            if self.config.get("skip_reels", True) and feed._is_reel_post():
+                logger.debug("[TaktikAgent] Skipping reel")
+                feed._scroll_to_next_post()
+                time.sleep(random.uniform(0.8, 1.5))
+                continue
+
+            # Get post author
+            author = feed._get_current_post_author() or "unknown"
+            logger.debug(f"[TaktikAgent] Post #{self.stats['posts_stopped']} by @{author} — taking screenshot")
+
+            # Take a screenshot of the current post
+            screenshot_path = self._take_screenshot(f"feed_{self.stats['posts_stopped']}")
+            if not screenshot_path:
+                feed._scroll_to_next_post()
+                continue
+
+            # AI decision
+            decision = self._ai.decide_feed_action(
+                screenshot_path=screenshot_path,
+                persona_block=self._persona_block,
+                author_username=author,
+            )
+            self.stats["session_cost_usd"] += decision.get("cost_usd", 0.0)
+
+            action = decision.get("action", "skip")
+            logger.info(
+                f"[TaktikAgent] @{author} → {action.upper()} "
+                f"(visit_profile={decision.get('visit_profile')}) | {decision.get('reason', '')}"
+            )
+
+            # Execute action
+            if action == "skip":
+                pass  # just scroll past
+
+            elif action in ("like", "like_comment", "like_save"):
+                if self.stats["likes"] < self.quotas["max_likes"]:
+                    if feed._like_current_post():
+                        self.stats["likes"] += 1
+                        time.sleep(random.uniform(*DELAY_AFTER_LIKE))
+
+                    if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
+                        comment_text = decision.get("comment", "")
+                        if comment_text:
+                            self._post_comment(feed, comment_text, author)
+
+            # Profile visit
+            if decision.get("visit_profile") and author != "unknown":
+                if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
+                    self._handle_profile_visit(author)
+
+            # Scroll to next post
+            feed._scroll_to_next_post()
+            time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
+
+        logger.info(f"[TaktikAgent] Feed loop ended. Stats: {self.stats}")
+
+    # ------------------------------------------------------------------
+    # Profile visit
+    # ------------------------------------------------------------------
+
+    def _handle_profile_visit(self, username: str):
+        """Navigate to a profile, take a screenshot, and let AI decide whether to follow."""
+        logger.info(f"[TaktikAgent] Visiting profile @{username}")
+
+        if not self._navigate_to_profile(username):
+            logger.warning(f"[TaktikAgent] Could not navigate to @{username}")
+            return
+
+        self.stats["profile_visits"] += 1
+        time.sleep(1.5)
+
+        screenshot_path = self._take_screenshot(f"profile_{username}")
+        if not screenshot_path:
+            self._navigate_to_feed()
+            return
+
+        decision = self._ai.decide_profile_follow(
+            screenshot_path=screenshot_path,
+            persona_block=self._persona_block,
+            profile_username=username,
+        )
+        self.stats["session_cost_usd"] += decision.get("cost_usd", 0.0)
+
+        logger.info(
+            f"[TaktikAgent] @{username} → {'FOLLOW' if decision['follow'] else 'SKIP'} "
+            f"(extra_likes={decision['extra_likes']}) | {decision.get('reason', '')}"
+        )
+
+        if decision["follow"] and self.stats["follows"] < self.quotas["max_follows"]:
+            self._do_follow(username)
+            time.sleep(random.uniform(*DELAY_AFTER_FOLLOW))
+
+        # Extra likes on the profile
+        extra = min(decision.get("extra_likes", 0), 2)
+        if extra > 0 and self.stats["likes"] < self.quotas["max_likes"]:
+            self._like_profile_posts(username, extra)
+
+        time.sleep(random.uniform(*DELAY_AFTER_PROFILE_VISIT))
+
+        # Return to feed
+        self._navigate_to_feed()
+        time.sleep(1.5)
+
+    # ------------------------------------------------------------------
+    # Low-level actions
+    # ------------------------------------------------------------------
+
+    def _do_follow(self, username: str):
+        """Follow the currently visible profile."""
+        try:
+            from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import ProfileInteractionActions
+            profile_interaction = ProfileInteractionActions(self.device_manager)
+            success = profile_interaction.follow_user(username)
+            if success:
+                self.stats["follows"] += 1
+                logger.info(f"[TaktikAgent] ✅ Followed @{username}")
+                if self.ipc:
+                    self.ipc.send("follow", username=username, success=True)
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _do_follow({username}) error: {exc}")
+
+    def _like_profile_posts(self, username: str, count: int):
+        """Like up to `count` posts on the currently visible profile grid."""
+        try:
+            from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeBusiness
+            like_biz = LikeBusiness(self.device_manager)
+            liked = 0
+            for _ in range(count):
+                if liked >= count or self.stats["likes"] >= self.quotas["max_likes"]:
+                    break
+                if like_biz.like_next_profile_post():
+                    self.stats["likes"] += 1
+                    liked += 1
+                    time.sleep(random.uniform(1.5, 3.0))
+        except Exception as exc:
+            logger.debug(f"[TaktikAgent] _like_profile_posts({username}, {count}) error: {exc}")
+
+    def _post_comment(self, feed, comment_text: str, author: str):
+        """Type and post a comment on the current feed post."""
+        try:
+            if feed._comment_current_post({"custom_comments": [comment_text]}):
+                self.stats["comments"] += 1
+                logger.info(f"[TaktikAgent] 💬 Commented on @{author}'s post")
+                time.sleep(random.uniform(*DELAY_AFTER_COMMENT))
+                if self.ipc:
+                    self.ipc.send("comment", username=author, comment=comment_text, success=True)
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _post_comment error: {exc}")
+
+    def _take_screenshot(self, label: str) -> Optional[str]:
+        """Take a device screenshot and save to a temp file. Returns path or None."""
+        try:
+            tmp = tempfile.NamedTemporaryFile(
+                suffix=".png", prefix=f"taktik_agent_{label}_", delete=False
+            )
+            tmp.close()
+            self.device.screenshot(tmp.name)
+            return tmp.name
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] screenshot({label}) error: {exc}")
+            return None
+
+    # ------------------------------------------------------------------
+    # Quota / stop helpers
+    # ------------------------------------------------------------------
+
+    def _should_stop(self, deadline: float) -> bool:
+        if self._stop_requested:
+            logger.info("[TaktikAgent] Stop requested by user")
+            return True
+        if time.time() > deadline:
+            logger.info("[TaktikAgent] Session duration limit reached")
+            return True
+        if self.stats["posts_seen"] >= self.quotas["max_posts_seen"]:
+            logger.info("[TaktikAgent] Max posts seen reached")
+            return True
+        if (self.stats["likes"] >= self.quotas["max_likes"] and
+                self.stats["follows"] >= self.quotas["max_follows"] and
+                self.stats["comments"] >= self.quotas["max_comments"]):
+            logger.info("[TaktikAgent] All quotas reached")
+            return True
+        return False
+
+    # ------------------------------------------------------------------
+    # IPC helpers
+    # ------------------------------------------------------------------
+
+    def _send_status(self, status: str, message: str = "", stats: dict = None):
+        if self.ipc:
+            self.ipc.agent_status(status=status, message=message, stats=stats or self.stats)
+
+    def _fail(self, error: str) -> Dict[str, Any]:
+        self._send_status("error", error)
+        return {"success": False, "error": error, "stats": self.stats}
+
+
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
+
+def _get(d: Optional[Dict], key: str, default: Any = None) -> Any:
+    """Safe dict getter that handles None dict."""
+    if d is None:
+        return default
+    return d.get(key) or default
