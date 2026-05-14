@@ -24,6 +24,11 @@ from typing import Optional
 
 from loguru import logger
 
+# Splash activity used by all TikTok package variants.
+# Using this with app_start() makes the launch non-blocking (am start -n pkg/activity)
+# and is the same mechanism used by TikTokManager.restart() in the automation workflows.
+_TIKTOK_SPLASH_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
+
 from taktik.core.shared.device.media_store import (
     push_media,
     trigger_media_scan,
@@ -44,20 +49,26 @@ except Exception:
 # ---------------------------------------------------------------------------
 
 # Bouton "Create" (bottom nav)
-# Trouvé dans le dump : android.widget.Button id=com.zhiliaoapp.musically:id/nc_ content-desc='Create'
+# NOTE: TikTok exists under two package names:
+#   com.zhiliaoapp.musically  (Global / Play Store)
+#   com.ss.android.ugc.trill  (EEA / alternative stores)
+# Resource-ids use the package prefix, so we use contains() to match both.
 _CREATE_BTN = [
-    '//*[@resource-id="com.zhiliaoapp.musically:id/nc_"]',
-    '//*[@content-desc="Create"]',
-    '//*[contains(@content-desc, "Créer")]',
-    '//*[contains(@content-desc, "Create")]',
-    '//*[@resource-id="com.zhiliaoapp.musically:id/mkn"]',
+    '//*[contains(@resource-id, ":id/nc_")]',
+    '//*[contains(@resource-id, ":id/mkn")]',
+    # content-desc selectors — restrict to Button to avoid matching system nav bar
+    '//android.widget.Button[@content-desc="Create"]',
+    '//android.widget.Button[contains(@content-desc, "Créer")]',
+    '//android.widget.Button[contains(@content-desc, "Create")]',
+    # FrameLayout/ImageView variants (older TikTok versions)
+    '//android.widget.FrameLayout[@content-desc="Create"]',
+    '//android.widget.ImageView[@content-desc="Create"]',
 ]
 
 # Bouton "Upload/Gallery" dans le panneau de création (vue caméra)
-# Trouvé : com.zhiliaoapp.musically:id/cl2 (FrameLayout clickable, bas-droit du panneau)
-# La galerie thumbnail RecyclerView (t9w) est aussi une option
+# NOTE: same dual-package issue — use contains() for resource-ids
 _UPLOAD_BTN = [
-    '//*[@resource-id="com.zhiliaoapp.musically:id/cl2"]',
+    '//*[contains(@resource-id, ":id/cl2")]',
     '//*[@content-desc="Upload"]',
     '//*[contains(@content-desc, "Upload")]',
     '//*[@text="Upload"]',
@@ -85,9 +96,9 @@ _PERMISSION_ALLOW_BTN = [
 #   Bounds premier item : [4,231][239,469] sur écran 720×1430
 # Note: nm8 n'est pas marqué clickable=true mais uiautomator2 peut le tapper
 _GALLERY_FIRST_ITEM = [
-    '(//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/nm8"])[1]',
-    '(//android.widget.GridView[@resource-id="com.zhiliaoapp.musically:id/ir_"]//android.widget.ImageView)[1]',
-    '//*[@resource-id="com.zhiliaoapp.musically:id/ir_"]//*[@class="android.widget.ImageView"][1]',
+    '(//android.widget.ImageView[contains(@resource-id, ":id/nm8")])[1]',
+    '(//android.widget.GridView[contains(@resource-id, ":id/ir_")]//android.widget.ImageView)[1]',
+    '//*[contains(@resource-id, ":id/ir_")]//*[@class="android.widget.ImageView"][1]',
 ]
 
 # Bouton "Next" / "Suivant" (plusieurs écrans)
@@ -95,14 +106,14 @@ _GALLERY_FIRST_ITEM = [
 #   rid=ooo  text='Next'  → écran trim/preview après sélection galerie (DUMP2)
 #   rid=w51  text='Next'  → barre bas de la galerie (mode multi-sélect, ck=false avant sélection)
 _NEXT_BTN = [
-    '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/ooo"]',
-    '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/w51"]',
+    '//android.widget.Button[contains(@resource-id, ":id/ooo")]',
+    '//android.widget.Button[contains(@resource-id, ":id/w51")]',
+    '//android.widget.Button[contains(@resource-id, ":id/next_btn")]',
     '//android.widget.Button[@text="Next"]',
     '//android.widget.Button[contains(@text, "Next")]',
     '//android.widget.Button[contains(@text, "Suivant")]',
     '//android.widget.TextView[contains(@text, "Next")]',
     '//android.widget.TextView[contains(@text, "Suivant")]',
-    '//*[@resource-id="com.zhiliaoapp.musically:id/next_btn"]',
 ]
 
 # Zone de description / caption
@@ -124,7 +135,7 @@ _POST_BTN = [
     '//android.widget.Button[contains(@text, "Publier")]',
     '//android.widget.TextView[contains(@text, "Post")]',
     '//android.widget.TextView[contains(@text, "Publier")]',
-    '//*[@resource-id="com.zhiliaoapp.musically:id/post_btn"]',
+    '//*[contains(@resource-id, ":id/post_btn")]',
 ]
 
 # Indicateur que le post a bien été publié
@@ -200,23 +211,31 @@ class TikTokUploadWorkflow:
         # Wait for MediaStore to index (videos take longer due to metadata extraction)
         time.sleep(scan_wait_for(local_path))
 
-        # 4. Force-stop TikTok so it rebuilds its gallery cache on fresh start
-        # (if TikTok is already running, its gallery cache is stale and won't show the new file)
+        # 4-5. Force-stop TikTok and relaunch — same pattern as automation workflows.
+        # TikTokManager.restart() calls device.app_start(pkg, SplashActivity, stop=True),
+        # which translates to `am start -S -n pkg/SplashActivity` (fast, non-blocking).
+        # We replicate that here so publish and automation share the same boot path.
         tiktok_pkg = package_name or self._get_tiktok_package()
-        _ipc.log("info", "🔄 Force-stopping TikTok to ensure fresh gallery cache...")
-        self._adb_force_stop(tiktok_pkg)
-        time.sleep(1.0)
-
-        # 5. Open TikTok
-        _ipc.log("info", "📱 Opening TikTok...")
-        self.device.app_start(tiktok_pkg)
-        time.sleep(3.0)  # Wait longer for TikTok to fully load + rebuild its gallery cache
+        _ipc.log("info", "🔄 Restarting TikTok (force stop + fresh launch)...")
+        _ipc.status("navigating", "Restarting TikTok...")
+        try:
+            self.device.app_start(tiktok_pkg, _TIKTOK_SPLASH_ACTIVITY, stop=True)
+        except Exception as e:
+            logger.debug(f"[launch] app_start failed ({e}), falling back to ADB monkey")
+            self._adb_force_stop(tiktok_pkg)
+            time.sleep(0.5)
+            self._adb_launch_app(tiktok_pkg)
+        # Wait for TikTok to fully load — 4s matches the automation bridge delay.
+        # For very slow devices, also poll for the Create button before proceeding.
+        time.sleep(4)
+        self._wait_for_tiktok_home(timeout=30.0)
+        _ipc.status("navigating", "TikTok ready")
 
         # 6. Appuyer sur le bouton Create
         _ipc.status("navigating", "Tapping Create button...")
         if not self._tap_create_button():
             return self._error("create_btn_not_found", "Create button not found")
-        time.sleep(1.5)
+        time.sleep(1.0)
 
         # 7. Taper le bouton Upload/Gallery dans le panneau de création caméra
         _ipc.status("navigating", "Tapping Upload/Gallery button...")
@@ -274,6 +293,31 @@ class TikTokUploadWorkflow:
     # ADB helpers
     # ------------------------------------------------------------------
 
+    def _adb_launch_app(self, package_name: str) -> None:
+        """Launch an app via ADB in a fire-and-forget manner (non-blocking).
+
+        Unlike uiautomator2's app_start(), this returns immediately without
+        waiting for the activity to be ready. Polling is done separately.
+        """
+        try:
+            subprocess.run(
+                ['adb', '-s', self.device_id, 'shell', 'monkey',
+                 '-p', package_name, '-c', 'android.intent.category.LAUNCHER', '1'],
+                capture_output=True, text=True, timeout=5
+            )
+        except Exception:
+            # monkey timed-out or failed — try am start as fallback
+            try:
+                subprocess.run(
+                    ['adb', '-s', self.device_id, 'shell', 'am', 'start',
+                     '-a', 'android.intent.action.MAIN',
+                     '-c', 'android.intent.category.LAUNCHER',
+                     '-p', package_name],
+                    capture_output=True, text=True, timeout=5
+                )
+            except Exception as e:
+                logger.debug(f'[launch] non-fatal launch error: {e}')
+
     def _adb_force_stop(self, package_name: str) -> None:
         """Force-stop an app package (non-fatal on error)."""
         try:
@@ -288,13 +332,58 @@ class TikTokUploadWorkflow:
     # Navigation helpers
     # ------------------------------------------------------------------
 
+    def _wait_for_tiktok_home(self, timeout: float = 60.0) -> bool:
+        """
+        Poll until TikTok's home screen is ready (Create button or Home tab visible).
+
+        This replaces a fixed time.sleep() after app_start so that:
+        - Fast devices are not penalised (returns as soon as the button appears)
+        - Slow/cold-start devices (e.g. 32-bit ARM) are given enough time
+
+        Strategy: try each indicator selector for 2s, rotate through them,
+        total cap = timeout.  Reports progress every 10s.
+        """
+        _HOME_INDICATORS = [
+            # TikTok-specific resource-ids (both package variants)
+            '//*[contains(@resource-id, ":id/nc_")]',
+            '//*[contains(@resource-id, ":id/mkn")]',
+            # Restrict content-desc to Button/FrameLayout/ImageView so we never
+            # match the Android system nav bar Home button (which is ImageView
+            # under com.android.systemui with desc "Home" / "Accueil")
+            '//android.widget.Button[@content-desc="Create"]',
+            '//android.widget.Button[contains(@content-desc, "Créer")]',
+            '//android.widget.Button[contains(@content-desc, "Create")]',
+            '//android.widget.FrameLayout[@content-desc="Create"]',
+        ]
+        start = time.time()
+        last_log = start
+        while True:
+            elapsed = time.time() - start
+            if elapsed >= timeout:
+                _ipc.log("warning", f"⚠️  TikTok home not detected after {timeout:.0f}s, proceeding anyway")
+                return False
+            for xp in _HOME_INDICATORS:
+                try:
+                    if self.device.xpath(xp).wait(timeout=2.0):
+                        _ipc.log("info", f"✅ TikTok home ready in {elapsed + (time.time() - start - elapsed):.1f}s")
+                        return True
+                except Exception:
+                    pass
+                if time.time() - start >= timeout:
+                    break
+            # Progress log every 10s so the UI doesn't look frozen
+            now = time.time()
+            if now - last_log >= 10.0:
+                _ipc.log("info", f"⏳ Waiting for TikTok home... ({int(now - start)}s)")
+                last_log = now
+
     def _tap_create_button(self) -> bool:
         """Tap the Create button in the bottom navigation bar.
         
         In TikTok 44.9+: resource-id=nc_, content-desc='Create'
         Located at 40% from left in the bottom nav bar.
         """
-        if self._tap(_CREATE_BTN, timeout=5.0):
+        if self._tap(_CREATE_BTN, timeout=3.0):
             return True
         # Fallback: tap bottom nav at 40% width (Create is 3rd/5 items = 40% = center of 3rd slot)
         try:
@@ -428,26 +517,100 @@ class TikTokUploadWorkflow:
             return False
 
     def _fill_caption(self, text: str):
-        """Find the caption/description field and type the text."""
+        """Find the caption/description field and type the text.
+
+        TikTok shows an autocomplete suggestion dropdown after each typed hashtag.
+        If the dropdown is left open, the Post button stays hidden behind it.
+        Strategy:
+          1. Focus the EditText
+          2. Type the non-hashtag caption (one send_keys call)
+          3. For each hashtag: type it, wait for suggestion, tap first suggestion
+             (or fall back to adding a space to close the dropdown)
+          4. Tap the video preview area to unfocus and dismiss the keyboard
+        """
+        # Split into caption part and hashtag parts
+        words = text.split()
+        caption_words = [w for w in words if not w.startswith('#')]
+        hashtag_words  = [w for w in words if w.startswith('#')]
+
+        caption_part = " ".join(caption_words)
+
+        # ── Focus the EditText ───────────────────────────────────────────────
         el = self._find_element(_CAPTION_INPUT, timeout=5.0)
-        if el:
-            try:
+        try:
+            if el:
                 el.click()
+            else:
+                info = self.device.info
+                w = info.get("displayWidth", 576)
+                h = info.get("displayHeight", 1280)
+                self.device.click(w // 2, int(h * 0.30))
+            time.sleep(0.5)
+        except Exception as e:
+            _ipc.log("warning", f"[caption] focus failed: {e}")
+
+        # ── Type caption text (no hashtags) ──────────────────────────────────
+        try:
+            if caption_part:
+                self.device.send_keys(caption_part, clear=True)
                 time.sleep(0.3)
-                self.device.send_keys(text, clear=True)
-                return
-            except Exception:
-                pass
-        # Fallback: try clicking the visible text area by position
+        except Exception as e:
+            _ipc.log("warning", f"[caption] typing failed: {e}")
+
+        # ── Type each hashtag and confirm suggestion ─────────────────────────
+        for tag in hashtag_words:
+            try:
+                # Add a newline separator before first hashtag, space between subsequent ones
+                separator = "\n" if not caption_part and tag == hashtag_words[0] else " "
+                self.device.send_keys(separator + tag)
+                time.sleep(1.2)  # wait for TikTok autocomplete dropdown to appear
+
+                # Try to tap the first suggestion item
+                if not self._confirm_hashtag_suggestion():
+                    # Fallback: type a space — closes the dropdown in most TikTok versions
+                    _ipc.log("debug", f"[hashtag] no suggestion found for {tag!r}, using space fallback")
+                    self.device.send_keys(" ")
+                    time.sleep(0.3)
+            except Exception as e:
+                _ipc.log("warning", f"[hashtag] failed to type {tag!r}: {e}")
+
+        # ── Dismiss keyboard by tapping the video preview (top-right area) ───
+        # This ensures the Post button is visible and the keyboard/autocomplete is gone
         try:
             info = self.device.info
             w = info.get("displayWidth", 576)
             h = info.get("displayHeight", 1280)
-            self.device.click(w // 2, int(h * 0.35))
-            time.sleep(0.3)
-            self.device.send_keys(text, clear=True)
+            # Video preview thumbnail is at ~75% width, ~25% height on post screen
+            self.device.click(int(w * 0.75), int(h * 0.22))
+            time.sleep(0.6)
         except Exception as e:
-            logger.warning(f"fill_caption fallback failed: {e}")
+            _ipc.log("debug", f"[caption] preview tap to dismiss keyboard failed: {e}")
+
+    def _confirm_hashtag_suggestion(self) -> bool:
+        """Tap the first item in TikTok's hashtag autocomplete suggestion list.
+
+        After typing a `#word`, TikTok shows a suggestion dropdown above the keyboard.
+        Without tapping a suggestion the dropdown stays open and blocks the Post button.
+
+        Returns True if a suggestion was tapped, False if none was found.
+        """
+        _SUGGESTION_SELECTORS = [
+            # Clickable row in suggestion RecyclerView containing a # TextView
+            '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
+            '(//android.widget.LinearLayout[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
+            # Direct clickable TextView (some TikTok versions)
+            '(//android.widget.TextView[@clickable="true"][starts-with(@text,"#")])[1]',
+            # First item in any RecyclerView appearing above keyboard
+            '(//androidx.recyclerview.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[1]',
+            '(//androidx.recyclerview.widget.RecyclerView/android.widget.LinearLayout[@clickable="true"])[1]',
+            # musically package variant
+            '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
+        ]
+        tapped = self._tap(_SUGGESTION_SELECTORS, timeout=2.0)
+        if tapped:
+            _ipc.log("debug", "[hashtag] suggestion tapped ✅")
+            time.sleep(0.3)
+        return tapped
 
     # ------------------------------------------------------------------
     # uiautomator2 helpers
