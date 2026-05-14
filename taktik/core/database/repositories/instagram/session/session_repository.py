@@ -32,7 +32,7 @@ class SessionRepository(BaseRepository):
                     session_name[:100],
                     target_type,
                     target[:50],
-                    json.dumps(config_used) if config_used else None
+                    json.dumps(self._redact_sensitive(config_used)) if config_used else None
                 )
             )
             return cursor.lastrowid
@@ -146,7 +146,7 @@ class SessionRepository(BaseRepository):
                     max_profiles,
                     1 if export_csv else 0,
                     1 if save_to_db else 0,
-                    json.dumps(config_used) if config_used else None,
+                    json.dumps(self._redact_sensitive(config_used)) if config_used else None,
                     discovery_campaign_id,
                     platform
                 )

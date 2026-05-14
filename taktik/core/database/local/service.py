@@ -1,4 +1,4 @@
-"""
+﻿"""
 TAKTIK Local SQLite Database Service
 Replaces API calls with local database operations for privacy
 Uses Repository Pattern for clean data access
@@ -7,6 +7,7 @@ Uses Repository Pattern for clean data access
 import sqlite3
 import os
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple
 from pathlib import Path
@@ -21,6 +22,28 @@ from ..repositories import (
     DiscoveryRepository,
     TikTokRepository
 )
+from ..repositories._base.base_repository import BaseRepository
+
+# Convenience alias for redacting sensitive keys before DB storage
+_redact_sensitive = BaseRepository._redact_sensitive
+
+
+# ---------------------------------------------------------------------------
+# Security helper — validate SQL identifiers used in dynamic queries
+# ---------------------------------------------------------------------------
+_IDENTIFIER_RE = re.compile(r'^[a-z][a-z0-9_]*$')
+
+
+def _validate_sql_identifier(name: str) -> str:
+    """Assert that *name* is a safe SQL identifier (lowercase letters, digits, underscores).
+
+    Returns the name unchanged if valid, raises ``ValueError`` otherwise.
+    This prevents SQL injection when column/table names must be interpolated
+    (SQLite does not support parameterised identifiers).
+    """
+    if not _IDENTIFIER_RE.match(name):
+        raise ValueError(f"Unsafe SQL identifier rejected: {name!r}")
+    return name
 
 
 class LocalDatabaseService:
@@ -726,10 +749,11 @@ class LocalDatabaseService:
             ("date_joined", "TEXT"),
         ]:
             try:
-                cursor.execute(f"SELECT {col_name} FROM instagram_profiles LIMIT 1")
+                _col = _validate_sql_identifier(col_name)
+                cursor.execute(f"SELECT {_col} FROM instagram_profiles LIMIT 1")
             except sqlite3.OperationalError:
                 logger.info(f"Migration: Adding {col_name} to instagram_profiles")
-                cursor.execute(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} {col_def}")
+                cursor.execute(f"ALTER TABLE instagram_profiles ADD COLUMN {_col} {col_def}")
         
         # Migration: Add discovery_campaign_id to scraping_sessions
         try:
@@ -754,10 +778,11 @@ class LocalDatabaseService:
             ("scored_at", "TEXT"),
         ]:
             try:
-                cursor.execute(f"SELECT {col_name} FROM scraped_profiles LIMIT 1")
+                _col = _validate_sql_identifier(col_name)
+                cursor.execute(f"SELECT {_col} FROM scraped_profiles LIMIT 1")
             except sqlite3.OperationalError:
                 logger.info(f"Migration: Adding {col_name} to scraped_profiles")
-                cursor.execute(f"ALTER TABLE scraped_profiles ADD COLUMN {col_name} {col_def}")
+                cursor.execute(f"ALTER TABLE scraped_profiles ADD COLUMN {_col} {col_def}")
         
         # Create indexes for AI qualification
         try:
@@ -1345,7 +1370,7 @@ class LocalDatabaseService:
                 max_profiles,
                 1 if export_csv else 0,
                 1 if save_to_db else 0,
-                json.dumps(config) if config else None
+                json.dumps(_redact_sensitive(config)) if config else None
             ))
             conn.commit()
             
@@ -1634,7 +1659,7 @@ class LocalDatabaseService:
             profile_id = None
             try:
                 profile_id, _ = self.get_or_create_profile({'username': username})
-            except:
+            except Exception:
                 pass
             
             cursor.execute("""
@@ -1982,7 +2007,7 @@ class LocalDatabaseService:
                 session_name[:100],
                 workflow_type,
                 target[:50] if target else None,
-                json.dumps(config_used) if config_used else None
+                json.dumps(_redact_sensitive(config_used)) if config_used else None
             ))
             conn.commit()
             

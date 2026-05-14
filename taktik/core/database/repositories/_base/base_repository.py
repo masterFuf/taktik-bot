@@ -71,3 +71,33 @@ class BaseRepository(ABC):
     def rows_to_dicts(self, rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:
         """Convert a list of sqlite3.Row to a list of dictionaries"""
         return [dict(row) for row in rows]
+
+    # ----------------------------------------------------------------
+    # Security helpers
+    # ----------------------------------------------------------------
+
+    # Keys that must never be stored in plaintext in the database
+    _SENSITIVE_KEYS = frozenset({
+        'openrouterApiKey', 'openrouter_api_key', 'apiKey', 'api_key',
+        'password', 'token', 'secret', 'accessToken', 'access_token',
+        'refreshToken', 'refresh_token', 'privateKey', 'private_key',
+    })
+
+    @classmethod
+    def _redact_sensitive(cls, config: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Return a copy of *config* with all sensitive keys replaced by '***REDACTED***'.
+
+        Call this before serialising a config dict to JSON for DB storage so that
+        API keys and passwords are never persisted in plaintext.
+        """
+        if not config:
+            return config
+        redacted = {}
+        for k, v in config.items():
+            if k in cls._SENSITIVE_KEYS:
+                redacted[k] = '***REDACTED***'
+            elif isinstance(v, dict):
+                redacted[k] = cls._redact_sensitive(v)
+            else:
+                redacted[k] = v
+        return redacted
