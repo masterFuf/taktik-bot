@@ -107,9 +107,19 @@ class ProfileActions(BaseAction):
         # The stats are in a row with value above label
         try:
             # Get all stat values (they share the same resource-id)
-            stat_values = self.device.xpath(PROFILE_SELECTORS.stat_value[0]).all()
-            stat_labels = self.device.xpath(PROFILE_SELECTORS.stat_label[0]).all()
-            
+            # Try each selector until we find results (handles musically vs trill package)
+            stat_values = []
+            for sel in PROFILE_SELECTORS.stat_value:
+                stat_values = self.device.xpath(sel).all()
+                if stat_values:
+                    break
+
+            stat_labels = []
+            for sel in PROFILE_SELECTORS.stat_label:
+                stat_labels = self.device.xpath(sel).all()
+                if stat_labels:
+                    break
+
             logger.debug(f"Found {len(stat_values)} stat values and {len(stat_labels)} stat labels")
             
             for i, label_elem in enumerate(stat_labels):

@@ -352,7 +352,11 @@ class FollowersWorkflow(
         
         try:
             # Find all Follow/Friends/Following buttons in the followers list
-            buttons = self.device.xpath(self.followers_selectors.follower_any_button[0]).all()
+            buttons = []
+            for sel in self.followers_selectors.follower_any_button:
+                buttons = self.device.xpath(sel).all()
+                if buttons:
+                    break
             
             self.logger.debug(f"Found {len(buttons)} follow buttons")
             
@@ -369,7 +373,11 @@ class FollowersWorkflow(
                     btn_bottom = bounds.get('bottom', 0)
                     
                     # Find username TextViews and match by vertical position
-                    username_elements = self.device.xpath(self.followers_selectors.follower_username[0]).all()
+                    username_elements = []
+                    for sel in self.followers_selectors.follower_username:
+                        username_elements = self.device.xpath(sel).all()
+                        if username_elements:
+                            break
                     for elem in username_elements:
                         elem_bounds = elem.info.get('bounds', {})
                         elem_top = elem_bounds.get('top', 0)

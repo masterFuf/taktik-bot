@@ -68,7 +68,7 @@ class PageDetectionMixin:
         try:
             from .....ui.selectors import PROFILE_SELECTORS
             # First, make sure we're NOT on a profile page
-            if self.device.xpath(PROFILE_SELECTORS.username[0]).exists:
+            if any(self.device.xpath(sel).exists for sel in PROFILE_SELECTORS.username):
                 return False
             
             # Check for followers list specific elements
@@ -78,7 +78,7 @@ class PageDetectionMixin:
                     return True
             
             # Also check for Follow buttons with the followers-list resource-id
-            if self.device.xpath(self.followers_selectors.follower_any_button[0]).exists:
+            if any(self.device.xpath(sel).exists for sel in self.followers_selectors.follower_any_button):
                 return True
             
             return False

@@ -73,9 +73,11 @@ class UnfollowWorkflow:
         scroll_attempts = 0
 
         while self.stats.unfollowed < self.config.max_unfollows and not self.stopped:
-            buttons = self.device.xpath(
-                self._selectors.following_or_friends_button[0]
-            ).all()
+            buttons = []
+            for sel in self._selectors.following_or_friends_button:
+                buttons = self.device.xpath(sel).all()
+                if buttons:
+                    break
 
             if not buttons:
                 scroll_attempts += 1
@@ -149,9 +151,11 @@ class UnfollowWorkflow:
             btn_bounds = button_elem.bounds
             if not btn_bounds:
                 return None
-            username_elems = self.device.xpath(
-                self._selectors.follower_username[0]
-            ).all()
+            username_elems = []
+            for sel in self._selectors.follower_username:
+                username_elems = self.device.xpath(sel).all()
+                if username_elems:
+                    break
             for ue in username_elems:
                 ue_bounds = ue.bounds
                 if ue_bounds and abs(ue_bounds[1] - btn_bounds[1]) < 50:
