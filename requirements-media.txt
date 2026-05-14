@@ -1,0 +1,13 @@
+# Optional media-capture dependencies
+# Install only when you need to intercept and save Instagram/TikTok images via mitmproxy.
+#
+# Usage:
+#   pip install -r requirements-media.txt
+#
+# WARNING: These tools have a large footprint (~200 MB) and a broad attack surface.
+# frida-tools injects native code into Android processes.
+# mitmproxy acts as a TLS-terminating HTTP proxy.
+# Only install if you know what you are doing and on devices you own or control.
+
+mitmproxy>=10.0.0
+frida-tools>=12.0.0
