@@ -339,6 +339,30 @@ class IPC:
             data["cost_usd"] = cost_usd
         self.send("ai_comment_done", **data)
 
+    def agent_decision(self, action: str, author: str = None, reason: str = None,
+                       visit_profile: bool = False, comment: str = None,
+                       screenshot: str = None, cost_usd: float = None,
+                       model: str = None) -> None:
+        """Signal a Taktik Agent feed decision (like/skip/comment/follow)."""
+        data = dict(action=action, target_username=author, reason=reason,
+                    visit_profile=visit_profile, workflow_type="taktik_agent")
+        if comment:
+            data["comment"] = comment
+        if screenshot:
+            data["screenshot"] = screenshot
+        if cost_usd is not None:
+            data["cost_usd"] = cost_usd
+        if model:
+            data["model"] = model
+        self.send("agent_decision", **data)
+
+    def agent_status(self, status: str, message: str = "", stats: dict = None) -> None:
+        """Send Taktik Agent session status update."""
+        data = dict(status=status, message=message, workflow_type="taktik_agent")
+        if stats:
+            data["stats"] = stats
+        self.send("agent_status", **data)
+
     def ai_error(self, error: str, username: str = None) -> None:
         """Signal an AI processing error."""
         self.send("ai_error", error=error, target_username=username, workflow_type="automation")
