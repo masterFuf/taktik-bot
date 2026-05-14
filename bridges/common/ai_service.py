@@ -153,9 +153,121 @@ class AIService:
         ]
         return self._call_openrouter(self.vision_model, messages, temperature, max_tokens)
 
+    def _extract_partial_classification(self, text: str) -> Optional[Dict[str, Any]]:
+        """Fallback parser: extract key fields from a truncated/malformed JSON string."""
+        import re
+        result: Dict[str, Any] = {}
+
+        for field in ("niche_category", "niche", "summary", "language", "content_type"):
+            m = re.search(rf'"{field}"\s*:\s*"([^"]*)', text)
+            if m:
+                result[field] = m.group(1)
+
+        # tags array (may also be truncated)
+        m = re.search(r'"tags"\s*:\s*\[([^\]]*)', text)
+        if m:
+            raw_tags = m.group(1)
+            result["tags"] = [t.strip().strip('"') for t in raw_tags.split(",") if t.strip().strip('"')]
+
+        return result if result.get("niche_category") else None
+
     # ------------------------------------------------------------------
     # High-level AI operations
     # ------------------------------------------------------------------
+
+    # Ordered list of supported niche categories (must match niche-categories.ts)
+    NICHE_CATEGORIES = [
+        "lifestyle", "travel", "fitness_sport", "food_cooking", "fashion_beauty",
+        "tech_gaming", "business_entrepreneurship", "music_entertainment", "art_creativity",
+        "education_personal_dev", "health_wellness", "parenting_family", "pets_animals",
+        "humor_memes", "sports", "other",
+    ]
+
+    def classify_profile_niche(self, username: str, screenshot_path: str) -> Dict[str, Any]:
+        """
+        Classify an Instagram profile from a screenshot into a niche (scraping mode).
+        No relevance score — focus is on niche classification + profile summary.
+        Emits IPC events for the AgentPanel.
+        """
+        t0 = time.time()
+
+        if self.ipc:
+            screenshot_thumb = self._image_to_thumbnail_url(screenshot_path)
+            self.ipc.ai_profile_analyzing(
+                username,
+                prompt=f"Classifying @{username}",
+                model=self.vision_model,
+                image_url=screenshot_thumb,
+            )
+
+        niche_list = ", ".join(self.NICHE_CATEGORIES)
+        system_prompt = (
+            "You are an Instagram profile classifier.\n"
+            "Analyze this profile screenshot and identify the account's niche.\n"
+            f"Choose niche_category from exactly one of: {niche_list}\n"
+            "Respond ONLY with valid JSON — no extra text:\n"
+            '{"niche_category": "travel", "niche": "Travel & Adventure", '
+            '"summary": "One sentence describing the account.", '
+            '"language": "en", "content_type": "creator", "tags": ["tag1", "tag2"]}'
+        )
+        user_prompt = f"Classify this Instagram profile: @{username}"
+
+        result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
+                                        temperature=0.2, max_tokens=600)
+        duration_ms = int((time.time() - t0) * 1000)
+
+        if not result["success"]:
+            if self.ipc:
+                self.ipc.ai_error(result.get("error", "Classification failed"), username)
+            return result
+
+        try:
+            text = result["text"]
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+            classification = json.loads(text)
+        except (json.JSONDecodeError, IndexError) as e:
+            # Fallback: extract key fields via regex when JSON is truncated mid-string
+            classification = self._extract_partial_classification(result["text"])
+            if classification:
+                logger.warning(f"[AIService] classify_profile_niche used partial extraction after: {e}")
+            else:
+                logger.warning(f"[AIService] classify_profile_niche parse error: {e}")
+                if self.ipc:
+                    self.ipc.ai_error(f"JSON parse error: {e}", username)
+                return {"success": False, "error": f"JSON parse error: {e}", "raw": result["text"]}
+
+        niche = classification.get("niche", "?")
+        niche_cat = classification.get("niche_category", "other")
+        summary = classification.get("summary", "")
+        result_text = f"[{niche_cat}] {niche}"
+        if summary:
+            result_text += f" · {summary}"
+
+        if self.ipc:
+            screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=800)
+            self.ipc.ai_profile_analyzed(
+                username=username,
+                result=result_text,
+                duration_ms=duration_ms,
+                model=result.get("model"),
+                provider="openrouter",
+                cost_usd=result.get("cost_usd"),
+                classification=classification,
+                screenshot=screenshot_b64,
+            )
+
+        return {
+            "success": True,
+            "classification": classification,
+            "model": result.get("model"),
+            "provider": "openrouter",
+            "cost_usd": result.get("cost_usd"),
+            "duration_ms": duration_ms,
+        }
 
     def classify_profile(self, username: str, screenshot_path: str,
                          account_username: str = None) -> Dict[str, Any]:
