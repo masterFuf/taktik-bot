@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""
+Taktik Agent Bridge for TAKTIK Desktop.
+
+Entry point launched by the Electron app for the autonomous Taktik Agent session.
+Reads a JSON config from sys.argv[1], connects to the Android device, and runs
+the TaktikAgentWorkflow which behaves like a human browsing Instagram.
+
+Config keys:
+  deviceId            (str, required)
+  packageName         (str, optional)  — clone package e.g. "com.taktik.ig1"
+  openrouter_api_key  (str, required)  — API key for AI vision calls
+  session_duration_min (int)           — default 25
+  max_likes           (int)            — default 80
+  max_comments        (int)            — default 15
+  max_follows         (int)            — default 20
+  max_profile_visits  (int)            — default 40
+  skip_reels          (bool)           — default true
+"""
+
+import sys
+import json
+import os
+
+# Bootstrap: UTF-8 + loguru + sys.path
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if bot_dir not in sys.path:
+    sys.path.insert(0, bot_dir)
+from bridges.common.bootstrap import setup_environment
+setup_environment()
+
+from bridges.common.signal_handler import setup_signal_handlers
+from taktik.core.database import configure_db_service
+from loguru import logger
+
+from bridges.instagram.base import InstagramBridgeBase, _ipc
+
+# Graceful shutdown on SIGINT / SIGTERM
+setup_signal_handlers()
+
+
+class TaktikAgentBridge(InstagramBridgeBase):
+    """Bridge that launches the autonomous TaktikAgentWorkflow."""
+
+    def __init__(self, device_id: str, config: dict, package_name: str = None):
+        super().__init__(device_id, package_name=package_name)
+        self.config = config
+
+    def run(self):
+        # Launch Instagram before starting the workflow
+        _ipc.status("launching", "Launching Instagram…")
+        if not self._app.launch():
+            _ipc.error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
+            return {"success": False, "error": "Failed to launch Instagram"}
+        _ipc.status("instagram_ready", "Instagram launched successfully")
+
+        from taktik.core.agent.taktik_agent_workflow import TaktikAgentWorkflow
+        workflow = TaktikAgentWorkflow(
+            device_manager=self.device_manager,
+            config=self.config,
+            ipc=_ipc,
+        )
+        # Expose workflow to signal handler so Ctrl+C triggers graceful stop
+        from bridges.common import signal_handler as _sig
+        _sig.update_workflow(workflow)
+
+        result = workflow.run()
+        logger.info(f"[TaktikAgentBridge] Session finished: {result}")
+        return result
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(json.dumps({"success": False, "error": "No config file provided"}), flush=True)
+        sys.exit(1)
+
+    config_path = sys.argv[1]
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+    except Exception as exc:
+        print(json.dumps({"success": False, "error": f"Failed to load config: {exc}"}), flush=True)
+        sys.exit(1)
+
+    device_id = config.get("deviceId")
+    if not device_id:
+        print(json.dumps({"success": False, "error": "No deviceId in config"}), flush=True)
+        sys.exit(1)
+
+    # Configure local SQLite database service
+    try:
+        configure_db_service()
+        logger.info("[TaktikAgentBridge] Database service configured")
+    except Exception as exc:
+        logger.warning(f"[TaktikAgentBridge] Could not configure DB service: {exc}")
+
+    # Connect to device
+    bridge = TaktikAgentBridge(
+        device_id=device_id,
+        config=config,
+        package_name=config.get("packageName"),
+    )
+
+    if not bridge.connect():
+        print(json.dumps({"success": False, "error": "Failed to connect to device"}), flush=True)
+        sys.exit(1)
+
+    result = bridge.run()
+    if not result.get("success"):
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
