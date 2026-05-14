@@ -10,9 +10,9 @@ class PopupSelectors:
     
     # === Boutons de fermeture ===
     close_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/dga"][@content-desc="Close"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/jyh"][@content-desc="Close"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/fac"]',
+        '//*[contains(@resource-id, ":id/dga")][@content-desc="Close"]',
+        '//*[contains(@resource-id, ":id/jyh")][@content-desc="Close"]',
+        '//*[contains(@resource-id, ":id/fac")]',
         '//android.widget.ImageView[@content-desc="Close"]',
         '//android.widget.ImageButton[@content-desc="Close"]',
         '//android.widget.ImageButton[@content-desc="Fermer"]',
@@ -21,19 +21,19 @@ class PopupSelectors:
     
     # === Popup "Follow your friends" ===
     follow_friends_popup: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/w4h"]',
+        '//*[contains(@resource-id, ":id/w4h")]',
         '//*[contains(@text, "Follow your friends")]',
         '//*[contains(@text, "Suivez vos amis")]',
     ])
     
     follow_friends_close: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/dga"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/dga"]',
+        '//android.widget.ImageView[contains(@resource-id, ":id/dga")]',
+        '//*[contains(@resource-id, ":id/dga")]',
         '//android.widget.ImageView[@content-desc="Close"][@clickable="true"]',
     ])
     
     dismiss_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ny9"]',
+        '//*[contains(@resource-id, ":id/ny9")]',
         '//android.widget.Button[@content-desc="Dismiss"]',
         '//android.widget.Button[@text="Not now"]',
         '//android.widget.Button[contains(@text, "Not now")]',
@@ -43,18 +43,17 @@ class PopupSelectors:
     
     # === Popup "Create shared collections" ===
     collections_popup: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/jzb"]',
+        '//*[contains(@resource-id, ":id/jzb")]',
         '//*[contains(@text, "Create shared collections")]',
         '//*[contains(@text, "collections with a friend")]',
     ])
     
     collections_not_now: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ny9"][@text="Not now"]',
-        '//android.widget.Button[@text="Not now"]',
+        '//*[contains(@resource-id, ":id/ny9")][@text="Not now"]',
     ])
     
     collections_close: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/jyh"][@content-desc="Close"]',
+        '//*[contains(@resource-id, ":id/jyh")][@content-desc="Close"]',
     ])
     
     # === Popups spécifiques ===
@@ -72,12 +71,12 @@ class PopupSelectors:
     
     # === Bannières promotionnelles (comme "Hatch a Streak Pet") ===
     promo_banner: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/faf"]',
+        '//*[contains(@resource-id, ":id/faf")]',
     ])
     
     promo_close_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/fad"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/fac"][@content-desc="Close"]',
+        '//*[contains(@resource-id, ":id/fad")]',
+        '//*[contains(@resource-id, ":id/fac")][@content-desc="Close"]',
     ])
     
     # === Notification banner (messages from users) ===
@@ -91,8 +90,8 @@ class PopupSelectors:
     
     # === Inbox page detection ===
     inbox_page_indicator: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/title"][@text="Inbox"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/jld"]',
+        '//*[contains(@resource-id, ":id/title")][@text="Inbox"]',
+        '//*[contains(@resource-id, ":id/jld")]',
         '//*[@text="New followers"]',
         '//*[@text="Activity"]',
         '//*[@text="System notifications"]',
@@ -100,7 +99,7 @@ class PopupSelectors:
     
     # === Link email popup ===
     link_email_popup: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"][@text="Link email"]',
+        '//*[contains(@resource-id, ":id/w4m")][@text="Link email"]',
         '//*[@text="Link email"]',
         '//*[contains(@text, "linking your Android email")]',
     ])
@@ -112,62 +111,61 @@ class PopupSelectors:
     ])
     
     invite_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/fab"]',
+        '//*[contains(@resource-id, ":id/fab")]',
         '//android.widget.Button[@text="Invite"]',
     ])
     
     # === Suggestion Page (Follow back / Not interested) ===
     suggestion_page_indicator: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/y_k"][@text="Swipe up to skip"]',
+        '//*[contains(@resource-id, ":id/y_k")][@text="Swipe up to skip"]',
         '//*[@text="Swipe up to skip"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjl"]',
+        '//*[contains(@resource-id, ":id/bjl")]',
     ])
     
     suggestion_not_interested: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjl"][@text="Not interested"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjl"]',
+        '//*[contains(@resource-id, ":id/bjl")][@text="Not interested"]',
         '//android.widget.Button[@text="Not interested"]',
     ])
     
     suggestion_follow_back: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjk"][@text="Follow back"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjk"][@text="Follow"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjk"]',
+        '//*[contains(@resource-id, ":id/bjk")][@text="Follow back"]',
+        '//*[contains(@resource-id, ":id/bjk")][@text="Follow"]',
+        '//*[contains(@resource-id, ":id/bjk")]',
         '//android.widget.Button[@text="Follow back"]',
         '//android.widget.Button[@text="Follow"]',
     ])
     
     suggestion_close: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjr"][@content-desc="Close"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/bjr"]',
+        '//*[contains(@resource-id, ":id/bjr")][@content-desc="Close"]',
+        '//*[contains(@resource-id, ":id/bjr")]',
     ])
     
     # === Comments Section (opened accidentally during scroll) ===
     comments_section_indicator: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qx0"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qx_"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qx1"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/jt3"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ja2"][@content-desc="Open stickers, gifs and emojis"]',
+        '//*[contains(@resource-id, ":id/qx0")]',
+        '//*[contains(@resource-id, ":id/qx_")]',
+        '//*[contains(@resource-id, ":id/qx1")]',
+        '//*[contains(@resource-id, ":id/jt3")]',
+        '//*[contains(@resource-id, ":id/ja2")][@content-desc="Open stickers, gifs and emojis"]',
         '//android.widget.EditText[@focused="true"][contains(@hint, "Message")]',
     ])
     
     comments_close_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/dqh"][@content-desc="Close"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/dqh"]',
+        '//*[contains(@resource-id, ":id/dqh")][@content-desc="Close"]',
+        '//*[contains(@resource-id, ":id/dqh")]',
         '//android.widget.ImageView[@content-desc="Close"]',
     ])
     
     # Comment input area on video
     comment_input_area: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xi_"][@text="Comment..."]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/dzd"]',
+        '//*[contains(@resource-id, ":id/xi_")][@text="Comment..."]',
+        '//*[contains(@resource-id, ":id/dzd")]',
     ])
     
     # Keyboard/EditText detection
     keyboard_indicator: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[@focused="true"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/jt3"]//android.widget.EditText',
+        '//*[contains(@resource-id, ":id/jt3")]//android.widget.EditText',
     ])
     
     # === Android System Popups ===
@@ -204,8 +202,7 @@ class PopupSelectors:
     # Appears when the user long-presses a video or accidentally triggers the share sheet.
     # Must be closed via back button (tapping outside closes it but also interacts with video).
     video_options_sheet: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.ss.android.ugc.trill:id/f0u"][@content-desc="Bottom sheet"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/f0u"][@content-desc="Bottom sheet"]',
+        '//*[contains(@resource-id, ":id/f0u")][@content-desc="Bottom sheet"]',
         '//*[@content-desc="Bottom sheet"]',
     ])
 

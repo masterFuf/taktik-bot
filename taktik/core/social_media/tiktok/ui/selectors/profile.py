@@ -21,7 +21,7 @@ class ProfileSelectors:
     
     # === Header profil ===
     profile_photo: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/b5s"]',
+        '//*[contains(@resource-id, ":id/b5s")]',
         '//android.widget.Button[@content-desc="Profile photo"]',
         '//*[contains(@content-desc, "Photo de profil")]',
     ])
@@ -32,12 +32,12 @@ class ProfileSelectors:
     ])
     
     profile_views_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/h9p"]',
+        '//*[contains(@resource-id, ":id/h9p")]',
         '//android.widget.Button[@content-desc="Profile views"]',
     ])
     
     profile_views_count: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xvy"]',
+        '//*[contains(@resource-id, ":id/xvy")]',
     ])
     
     profile_menu_button: List[str] = field(default_factory=lambda: [
@@ -47,13 +47,11 @@ class ProfileSelectors:
     
     # === Informations profil ===
     display_name: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qf8"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/qf8"]',
+        '//*[contains(@resource-id, ":id/qf8")]',
     ])
     
     username: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/qh5"]',
+        '//*[contains(@resource-id, ":id/qh5")]',
     ])
     
     edit_profile_button: List[str] = field(default_factory=lambda: [
@@ -64,27 +62,25 @@ class ProfileSelectors:
     
     # === Compteurs (utilise qfw pour les valeurs, qfv pour les labels) ===
     stat_value: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfw"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/qfw"]',
+        '//*[contains(@resource-id, ":id/qfw")]',
     ])
     
     stat_label: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/qfv"]',
+        '//*[contains(@resource-id, ":id/qfv")]',
     ])
     
     following_count: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Following"]/..//*[@resource-id="com.zhiliaoapp.musically:id/qfw"]',
+        '//*[contains(@resource-id, ":id/qfv")][@text="Following"]/..//*[contains(@resource-id, ":id/qfw")]',
         '//android.widget.TextView[@text="Following"]/preceding-sibling::android.widget.TextView',
     ])
     
     followers_count: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Followers"]/..//*[@resource-id="com.zhiliaoapp.musically:id/qfw"]',
+        '//*[contains(@resource-id, ":id/qfv")][@text="Followers"]/..//*[contains(@resource-id, ":id/qfw")]',
         '//android.widget.TextView[@text="Followers"]/preceding-sibling::android.widget.TextView',
     ])
     
     likes_count: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Likes"]/..//*[@resource-id="com.zhiliaoapp.musically:id/qfw"]',
+        '//*[contains(@resource-id, ":id/qfv")][@text="Likes"]/..//*[contains(@resource-id, ":id/qfw")]',
         '//android.widget.TextView[@text="Likes"]/preceding-sibling::android.widget.TextView',
     ])
     
@@ -95,7 +91,7 @@ class ProfileSelectors:
     ])
     
     tiktok_studio_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/a_l"]',
+        '//*[contains(@resource-id, ":id/a_l")]',
         '//*[@text="TikTok Studio"]',
     ])
     
@@ -123,20 +119,20 @@ class ProfileSelectors:
     
     # === Grille de vidéos ===
     video_grid: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/gxd"]',
+        '//*[contains(@resource-id, ":id/gxd")]',
         '//android.widget.GridView',
     ])
     
     video_item: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/e52"]',
+        '//*[contains(@resource-id, ":id/e52")]',
     ])
     
     video_cover: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/cover"]',
+        '//*[contains(@resource-id, ":id/cover")]',
     ])
     
     video_view_count: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xxy"]',
+        '//*[contains(@resource-id, ":id/xxy")]',
     ])
     
     # === Boutons d'action profil (sur profil d'un autre utilisateur) ===
@@ -155,22 +151,22 @@ class ProfileSelectors:
     message_button: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Message"]',
         '//android.widget.Button[@text="Message"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/eme"][@text="Message"]',
+        '//*[contains(@resource-id, ":id/eme")][@text="Message"]',
         '//android.widget.TextView[@text="Message"]',
     ])
     
     # === Page detection: profile page ===
     profile_page_indicator: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Followers"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Following"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/gxd"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"][@text="No videos yet"]',
+        '//*[contains(@resource-id, ":id/qh5")]',
+        '//*[contains(@resource-id, ":id/qfv")][@text="Followers"]',
+        '//*[contains(@resource-id, ":id/qfv")][@text="Following"]',
+        '//*[contains(@resource-id, ":id/gxd")]',
+        '//*[contains(@resource-id, ":id/w4m")][@text="No videos yet"]',
     ])
     
     # Bio text (resource-id: qfx)
     bio_text: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qfx"]',
+        '//*[contains(@resource-id, ":id/qfx")]',
     ])
     
     # Verified badge
@@ -185,7 +181,7 @@ class ProfileSelectors:
     
     # === Story page detection ===
     story_timestamp: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xyx"]',
+        '//*[contains(@resource-id, ":id/xyx")]',
     ])
     
     story_close_button: List[str] = field(default_factory=lambda: [
@@ -193,35 +189,31 @@ class ProfileSelectors:
     ])
     
     story_follow_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdo"]',
+        '//*[contains(@resource-id, ":id/rdo")]',
     ])
     
     story_message_input: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qwz"][@text="Message..."]',
+        '//*[contains(@resource-id, ":id/qwz")][@text="Message..."]',
     ])
     
     story_page_indicator: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xyx"]',
-        '//*[@content-desc="Close"][@clickable="true"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdo"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qwz"][@text="Message..."]',
     ])
     
     # Story username (clickable, leads to profile)
     story_username: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/title"][@clickable="true"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/s28"]//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/title"]',
+        '//*[contains(@resource-id, ":id/title")][@clickable="true"]',
+        '//*[contains(@resource-id, ":id/s28")]//android.widget.Button[contains(@resource-id, ":id/title")]',
     ])
     
     # === Privacy blocked conversation indicators ===
     unable_to_send_message: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/w4m"][@text="Unable to send message"]',
+        '//*[contains(@resource-id, ":id/w4m")][@text="Unable to send message"]',
         '//*[@text="Unable to send message"]',
         '//*[contains(@text, "Unable to send")]',
     ])
     
     privacy_blocked_message: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/uq5"]',
+        '//*[contains(@resource-id, ":id/uq5")]',
         '//*[contains(@text, "privacy settings")]',
         '//*[contains(@text, "Cannot send message")]',
     ])

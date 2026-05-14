@@ -20,34 +20,29 @@ class NavigationSelectors:
     
     # === Bottom Navigation Bar (resource-ids réels) ===
     bottom_nav_container: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mky"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mky"]',
+        '//*[contains(@resource-id, ":id/mky")]',
     ])
     
     home_tab: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mkq"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mkq"]',
+        '//*[contains(@resource-id, ":id/mkq")]',
         '//android.widget.FrameLayout[@content-desc="Home"]',
         '//android.widget.FrameLayout[contains(@content-desc, "Accueil")]',
     ])
     
     friends_tab: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mkp"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mkp"]',
+        '//*[contains(@resource-id, ":id/mkp")]',
         '//android.widget.FrameLayout[@content-desc="Friends"]',
         '//android.widget.FrameLayout[contains(@content-desc, "Amis")]',
     ])
     
     create_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mkn"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mkn"]',
+        '//*[contains(@resource-id, ":id/mkn")]',
         '//android.widget.Button[@content-desc="Create"]',
         '//android.widget.Button[contains(@content-desc, "Créer")]',
     ])
     
     inbox_tab: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mkr"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mkr"]',
+        '//*[contains(@resource-id, ":id/mkr")]',
         '//android.widget.FrameLayout[@content-desc="Inbox"]',
         '//android.widget.FrameLayout[contains(@content-desc, "Boîte de réception")]',
         '//*[@content-desc="Inbox"]',
@@ -56,8 +51,7 @@ class NavigationSelectors:
     ])
     
     profile_tab: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mks"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mks"]',
+        '//*[contains(@resource-id, ":id/mks")]',
         '//android.widget.FrameLayout[@content-desc="Profile"]',
         '//android.widget.FrameLayout[contains(@content-desc, "Profil")]',
     ])
@@ -95,10 +89,8 @@ class NavigationSelectors:
     # === Search button (header on For You page) ===
     # Resource-id: irz (from ui_dump_20260111_121059.xml)
     search_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/irz"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/irz"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/irz"][@content-desc="Search"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/irz"][@content-desc="Search"]',
+        '//*[contains(@resource-id, ":id/irz")]',
+        '//*[contains(@resource-id, ":id/irz")][@content-desc="Search"]',
         '//android.widget.ImageView[@content-desc="Search"]',
         '//*[@content-desc="Search"][@clickable="true"]',
         '//*[contains(@content-desc, "Rechercher")][@clickable="true"]',
@@ -106,14 +98,12 @@ class NavigationSelectors:
     
     # === Tab selected states (for page detection) ===
     home_tab_selected: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mkq"][@selected="true"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mkq"][@selected="true"]',
+        '//*[contains(@resource-id, ":id/mkq")][@selected="true"]',
         '//android.widget.FrameLayout[@content-desc="Home"][@selected="true"]',
     ])
     
     inbox_tab_selected: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/mkr"][@selected="true"]',
-        '//*[@resource-id="com.ss.android.ugc.trill:id/mkr"][@selected="true"]',
+        '//*[contains(@resource-id, ":id/mkr")][@selected="true"]',
         '//android.widget.FrameLayout[@content-desc="Inbox"][@selected="true"]',
     ])
     

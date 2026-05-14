@@ -31,47 +31,48 @@ class SearchSelectors:
     
     # === Search input field ===
     search_input: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/giv"]',
-        '//android.widget.EditText[@resource-id="com.zhiliaoapp.musically:id/giv"]',
+        '//*[contains(@resource-id, ":id/giv")]',
+        '//android.widget.EditText[contains(@resource-id, ":id/giv")]',
         '//android.widget.EditText[contains(@hint, "Search")]',
+        '//android.widget.EditText[contains(@hint, "Rechercher")]',
         '//android.widget.EditText[contains(@content-desc, "Search")]',
     ])
     
     # === Search submit button ===
     search_submit_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/y61"][@text="Search"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/y61"]',
+        '//*[contains(@resource-id, ":id/y61")][@text="Search"]',
+        '//*[contains(@resource-id, ":id/y61")]',
         '//android.widget.Button[@text="Search"]',
         '//android.widget.Button[@text="Rechercher"]',
     ])
     
     # === Back button in search page ===
     search_back_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/b9c"]',
-        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/b9c"]',
+        '//*[contains(@resource-id, ":id/b9c")]',
+        '//android.widget.ImageView[contains(@resource-id, ":id/b9c")]',
     ])
     
     # === Clear search field button ===
     clear_search_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/c87"]',
+        '//*[contains(@resource-id, ":id/c87")]',
         '//android.widget.ImageView[@content-desc="Clear search field"]',
     ])
     
     # === More button (3 dots) ===
     more_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/spd"]',
+        '//*[contains(@resource-id, ":id/spd")]',
         '//android.widget.ImageView[@content-desc="More"]',
     ])
     
     # Legacy selectors for compatibility
     search_bar: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/giv"]',
+        '//*[contains(@resource-id, ":id/giv")]',
         '//android.widget.EditText[contains(@content-desc, "Search")]',
         '//android.widget.EditText[contains(@content-desc, "Rechercher")]',
     ])
     
     search_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/y61"]',
+        '//*[contains(@resource-id, ":id/y61")]',
         '//android.widget.Button[contains(@content-desc, "Search")]',
         '//android.widget.Button[contains(@content-desc, "Rechercher")]',
     ])
@@ -118,49 +119,49 @@ class SearchSelectors:
     # === Search results ===
     # User result item container
     user_result_container: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/sh2"]',
-        '//android.widget.RelativeLayout[@resource-id="com.zhiliaoapp.musically:id/sh2"]',
+        '//*[contains(@resource-id, ":id/sh2")]',
+        '//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]',
     ])
     
     # Username in search results
     user_result_username: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ye2"]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/ye2"]',
+        '//*[contains(@resource-id, ":id/ye2")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/ye2")]',
     ])
     
     # User bio in search results
     user_result_bio: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/x8i"]',
+        '//*[contains(@resource-id, ":id/x8i")]',
     ])
     
     # User followers count in search results
     user_result_followers: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xf0"]',
+        '//*[contains(@resource-id, ":id/xf0")]',
     ])
     
     # Follow button in search results
     user_result_follow_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdh"][@text="Follow"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdh"]',
+        '//*[contains(@resource-id, ":id/rdh")][@text="Follow"]',
+        '//*[contains(@resource-id, ":id/rdh")]',
         '//android.widget.Button[@text="Follow"]',
         '//android.widget.Button[@text="Following"]',
     ])
     
     # Video thumbnail in search results
     video_thumbnail: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/cover"]',
-        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/cover"]',
+        '//*[contains(@resource-id, ":id/cover")]',
+        '//android.widget.ImageView[contains(@resource-id, ":id/cover")]',
     ])
     
     # Video container in search results (clickable)
     video_result_container: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/sq1"]',
-        '//android.widget.FrameLayout[@resource-id="com.zhiliaoapp.musically:id/sq1"]',
+        '//*[contains(@resource-id, ":id/sq1")]',
+        '//android.widget.FrameLayout[contains(@resource-id, ":id/sq1")]',
     ])
     
     # View all button
     view_all_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/sm6"][@text="View all"]',
+        '//*[contains(@resource-id, ":id/sm6")][@text="View all"]',
         '//android.widget.TextView[@text="View all"]',
     ])
     

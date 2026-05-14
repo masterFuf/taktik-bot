@@ -51,7 +51,6 @@ class VideoSelectors:
     # Selecteur like pour extraire le count depuis content-desc
     like_button_for_count: List[str] = field(default_factory=lambda: [
         *_rid_with("f57", '[contains(@content-desc, "Like video")]'),
-        '//*[contains(@content-desc, "Like video")]',
     ])
 
     like_count: List[str] = field(default_factory=lambda: [

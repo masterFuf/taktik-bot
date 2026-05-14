@@ -67,7 +67,7 @@ class SignupSelectors:
     # Bouton "Tu n'as pas de compte ? Inscription" (bas de page)
     # resource-id: com.zhiliaoapp.musically:id/mwu
     signup_link: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/mwu"]',
+        '//android.widget.Button[contains(@resource-id, ":id/mwu")]',
         '//android.widget.Button[contains(@text, "Inscription")]',
         '//android.widget.Button[contains(@text, "Sign up")]',
     ])
@@ -78,8 +78,8 @@ class SignupSelectors:
     # "Sign up for TikTok" (EN). Apparaît juste après la birthday gate.
     # resource-id: com.zhiliaoapp.musically:id/title
     signup_popup_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/title" and contains(@text, "Inscription")]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/title" and contains(@text, "Sign up")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/title") and contains(@text, "Inscription")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/title") and contains(@text, "Sign up")]',
         # NOTE: removed the generic contains(@text, "TikTok") selector — too broad,
         # it matched the birthday screen title on some Samsung devices.
         # Compose-based UI: title has no resource-id — match by full precise text
@@ -98,7 +98,7 @@ class SignupSelectors:
     # birthday gate de la birthday screen dans le flow d'inscription.
     # resource-id: com.zhiliaoapp.musically:id/mfb
     birthday_gate_inscription_link: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/mfb"]',
+        '//android.widget.Button[contains(@resource-id, ":id/mfb")]',
         '//android.widget.Button[contains(@text, "fonctionnalités") and contains(@text, "Inscription")]',
         '//android.widget.Button[contains(@text, "More fun") and contains(@text, "Sign up")]',
         # Generic fallbacks — safe because signup_popup_indicator (whose title
@@ -117,8 +117,8 @@ class SignupSelectors:
     # resource-id musically: com.zhiliaoapp.musically:id/aby
     # resource-id trill:     com.ss.android.ugc.trill:id/aac  (patché → id/aac)
     birthday_screen_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/aby"]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/aac"]',
+        '//android.widget.TextView[contains(@resource-id, ":id/aby")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/aac")]',
         '//android.widget.TextView[contains(@text, "date de naissance")]',
         '//android.widget.TextView[contains(@text, "date of birth")]',
         '//android.widget.TextView[contains(@text, "birthday")]',
@@ -135,8 +135,8 @@ class SignupSelectors:
     # resource-id trill:     com.ss.android.ugc.trill:id/jsh  (patché → id/jsh)
     # Valeurs possibles : "10 juin 2025" / "10 June 2025" / placeholder hint
     birthday_input: List[str] = field(default_factory=lambda: [
-        '//android.widget.EditText[@resource-id="com.zhiliaoapp.musically:id/kcl"]',
-        '//android.widget.EditText[@resource-id="com.zhiliaoapp.musically:id/jsh"]',
+        '//android.widget.EditText[contains(@resource-id, ":id/kcl")]',
+        '//android.widget.EditText[contains(@resource-id, ":id/jsh")]',
         '//android.widget.EditText[contains(@hint, "naissance")]',
         '//android.widget.EditText[@hint="Birthday"]',
         '//android.widget.EditText[@hint="Date of birth"]',
@@ -147,8 +147,8 @@ class SignupSelectors:
     # resource-id musically: com.zhiliaoapp.musically:id/f53  content-desc: "Sélecteur du jour"
     # resource-id trill:     com.ss.android.ugc.trill:id/erv  (patché → id/erv)
     birthday_day_picker: List[str] = field(default_factory=lambda: [
-        '//android.widget.SeekBar[@resource-id="com.zhiliaoapp.musically:id/f53"]',
-        '//android.widget.SeekBar[@resource-id="com.zhiliaoapp.musically:id/erv"]',
+        '//android.widget.SeekBar[contains(@resource-id, ":id/f53")]',
+        '//android.widget.SeekBar[contains(@resource-id, ":id/erv")]',
         '//android.widget.SeekBar[@content-desc="Day picker"]',
         '//android.widget.SeekBar[@content-desc="Sélecteur du jour"]',
         '(//android.widget.SeekBar[@scrollable="true"])[1]',
@@ -158,8 +158,8 @@ class SignupSelectors:
     # resource-id musically: com.zhiliaoapp.musically:id/o18  content-desc: "Sélecteur du mois"
     # resource-id trill:     com.ss.android.ugc.trill:id/n7o  (patché → id/n7o)
     birthday_month_picker: List[str] = field(default_factory=lambda: [
-        '//android.widget.SeekBar[@resource-id="com.zhiliaoapp.musically:id/o18"]',
-        '//android.widget.SeekBar[@resource-id="com.zhiliaoapp.musically:id/n7o"]',
+        '//android.widget.SeekBar[contains(@resource-id, ":id/o18")]',
+        '//android.widget.SeekBar[contains(@resource-id, ":id/n7o")]',
         '//android.widget.SeekBar[@content-desc="Month picker"]',
         '//android.widget.SeekBar[@content-desc="Sélecteur du mois"]',
         '(//android.widget.SeekBar[@scrollable="true"])[2]',
@@ -168,7 +168,7 @@ class SignupSelectors:
     # SeekBar – année
     # resource-id: com.zhiliaoapp.musically:id/year_picker  content-desc: "Sélecteur de l'année"
     birthday_year_picker: List[str] = field(default_factory=lambda: [
-        '//android.widget.SeekBar[@resource-id="com.zhiliaoapp.musically:id/year_picker"]',
+        '//android.widget.SeekBar[contains(@resource-id, ":id/year_picker")]',
         '//android.widget.SeekBar[@content-desc="Year picker"]',
         '//android.widget.SeekBar[@content-desc="Sélecteur de l\'année"]',
         '(//android.widget.SeekBar[@scrollable="true"])[3]',
@@ -178,8 +178,8 @@ class SignupSelectors:
     # resource-id musically: com.zhiliaoapp.musically:id/ac8
     # resource-id trill:     com.ss.android.ugc.trill:id/aal  (patché → id/aal)
     birthday_continue_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/ac8"]',
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/aal"]',
+        '//android.widget.Button[contains(@resource-id, ":id/ac8")]',
+        '//android.widget.Button[contains(@resource-id, ":id/aal")]',
         '//android.widget.Button[@text="Continuer"]',
         '//android.widget.Button[@text="Continue"]',
     ])
@@ -190,8 +190,8 @@ class SignupSelectors:
     # Sur la popup signup : id=e52, content-desc="Utiliser un numéro de téléphone ou une adresse e-mail"
     # resource-id: com.zhiliaoapp.musically:id/e52
     use_phone_or_email_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/e52" and contains(@content-desc, "téléphone")]',
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/e52" and contains(@content-desc, "phone")]',
+        '//android.widget.Button[contains(@resource-id, ":id/e52") and contains(@content-desc, "téléphone")]',
+        '//android.widget.Button[contains(@resource-id, ":id/e52") and contains(@content-desc, "phone")]',
         '//*[@content-desc="Use phone or email"]',
         '//*[@content-desc="Utiliser un numéro de téléphone ou une adresse e-mail"]',
         '//*[contains(@content-desc, "numéro de téléphone") and contains(@content-desc, "e-mail")]',
@@ -208,7 +208,7 @@ class SignupSelectors:
     # Indicateur de l'écran inscription (titre)
     # resource-id: com.zhiliaoapp.musically:id/ohi  text="Inscription"
     register_screen_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/ohi"]',
+        '//android.widget.TextView[contains(@resource-id, ":id/ohi")]',
         '//android.widget.TextView[@content-desc="Inscription"]',
         '//android.widget.TextView[@content-desc="Sign up"]',
         '//android.widget.TextView[@text="Inscription"]',
@@ -233,8 +233,8 @@ class SignupSelectors:
     # Sélecteur du code pays (bouton "US +1" dans l'onglet Téléphone)
     # resource-id: com.zhiliaoapp.musically:id/ps9  (LinearLayout cliquable)
     country_code_selector: List[str] = field(default_factory=lambda: [
-        '//android.widget.LinearLayout[@resource-id="com.zhiliaoapp.musically:id/ps9" and @clickable="true"]',
-        '//*[.//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/eqh"]]',
+        '//android.widget.LinearLayout[contains(@resource-id, ":id/ps9") and @clickable="true"]',
+        '//*[.//android.widget.TextView[contains(@resource-id, ":id/eqh")]]',
     ])
 
     # Champ numéro de téléphone (hint="Numéro de téléphone", pas de resource-id)
@@ -256,7 +256,7 @@ class SignupSelectors:
     # Bouton "Continuer" sur l'écran téléphone/email
     # resource-id: com.zhiliaoapp.musically:id/ezo  (commun aux deux onglets)
     continue_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/ezo"]',
+        '//android.widget.Button[contains(@resource-id, ":id/ezo")]',
         '//android.widget.Button[@text="Continuer"]',
         '//android.widget.Button[@text="Continue"]',
     ])
@@ -264,13 +264,13 @@ class SignupSelectors:
     # Case à cocher "Enregistre tes informations de connexion" (onglet Téléphone)
     # resource-id: com.zhiliaoapp.musically:id/oyk
     save_login_checkbox: List[str] = field(default_factory=lambda: [
-        '//android.widget.CheckBox[@resource-id="com.zhiliaoapp.musically:id/oyk"]',
+        '//android.widget.CheckBox[contains(@resource-id, ":id/oyk")]',
     ])
 
     # Case à cocher marketing (onglet E-mail)
     # resource-id: com.zhiliaoapp.musically:id/gk8
     marketing_checkbox: List[str] = field(default_factory=lambda: [
-        '//android.widget.CheckBox[@resource-id="com.zhiliaoapp.musically:id/gk8"]',
+        '//android.widget.CheckBox[contains(@resource-id, ":id/gk8")]',
     ])
 
     # ── Bouton retour (partagé entre les écrans d'inscription) ─────────────
@@ -342,12 +342,12 @@ class SignupSelectors:
     # Règles TikTok : 8–20 chars, ≥1 lettre, ≥1 chiffre, ≥1 spécial (#?!@)
 
     password_entry_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "mot de passe")]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "password")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/e_c") and contains(@text, "mot de passe")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/e_c") and contains(@text, "password")]',
         '//android.widget.TextView[contains(@text, "Créer un mot de passe")]',
         '//android.widget.TextView[contains(@text, "Create a password")]',
         # Requirement indicator is unique to this screen
-        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/d6h"]',
+        '//android.widget.ImageView[contains(@resource-id, ":id/d6h")]',
     ])
 
     password_input: List[str] = field(default_factory=lambda: [
@@ -358,7 +358,7 @@ class SignupSelectors:
     ])
 
     password_continue_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/emm"]',
+        '//android.widget.Button[contains(@resource-id, ":id/emm")]',
         '//android.widget.Button[@text="Continuer"]',
         '//android.widget.Button[@text="Continue"]',
     ])
@@ -378,12 +378,12 @@ class SignupSelectors:
     # Valider : id=emm Button text="Continuer" / "Continue"
 
     nickname_entry_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "surnom")]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/e_c" and contains(@text, "username")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/e_c") and contains(@text, "surnom")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/e_c") and contains(@text, "username")]',
         '//android.widget.TextView[contains(@text, "Créer un surnom")]',
         '//android.widget.TextView[contains(@text, "Create a username")]',
         # Counter "0/30" is unique to this screen
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/fuh"]',
+        '//android.widget.TextView[contains(@resource-id, ":id/fuh")]',
     ])
 
     nickname_input: List[str] = field(default_factory=lambda: [
@@ -394,7 +394,7 @@ class SignupSelectors:
     ])
 
     nickname_continue_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/emm"]',
+        '//android.widget.Button[contains(@resource-id, ":id/emm")]',
         '//android.widget.Button[@text="Continuer"]',
         '//android.widget.Button[@text="Continue"]',
     ])
@@ -414,12 +414,11 @@ class SignupSelectors:
     # directement superposée à l'écran en cours (home, profil, etc.).
 
     gdpr_popup_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/w4m"]',
+        '//android.widget.TextView[contains(@resource-id, ":id/w4m")]',
         '//android.widget.Button[@text="Got it"]',
     ])
 
     gdpr_got_it_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Got it"]',
     ])
 
 
@@ -451,21 +450,21 @@ class CountryPickerSelectors:
     # Indicateur de l'écran
     # resource-id: com.zhiliaoapp.musically:id/title  text="Select country/region"
     screen_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/title" and @text="Select country/region"]',
+        '//android.widget.TextView[contains(@resource-id, ":id/title") and @text="Select country/region"]',
         '//android.widget.TextView[@text="Select country/region"]',
     ])
 
     # Bouton fermer (croix en haut à gauche)
     # resource-id: com.zhiliaoapp.musically:id/be6  content-desc="Close"
     close_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/be6" and @content-desc="Close"]',
+        '//android.widget.ImageView[contains(@resource-id, ":id/be6") and @content-desc="Close"]',
         '//*[@content-desc="Close"]',
     ])
 
     # Champ de recherche des pays
     # resource-id: com.zhiliaoapp.musically:id/tlr  hint="Search countries and regions"
     search_input: List[str] = field(default_factory=lambda: [
-        '//android.widget.EditText[@resource-id="com.zhiliaoapp.musically:id/tlr"]',
+        '//android.widget.EditText[contains(@resource-id, ":id/tlr")]',
         '//android.widget.EditText[@hint="Search countries and regions"]',
         '//android.widget.EditText[contains(@hint, "countries")]',
     ])
@@ -473,8 +472,8 @@ class CountryPickerSelectors:
     # Premier élément de la liste des pays (après filtrage par recherche)
     # resource-id: com.zhiliaoapp.musically:id/eqo  (LinearLayout cliquable)
     first_country_item: List[str] = field(default_factory=lambda: [
-        '(//android.widget.LinearLayout[@resource-id="com.zhiliaoapp.musically:id/eqo"])[1]',
-        '(//android.widget.LinearLayout[.//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/z83"]])[1]',
+        '(//android.widget.LinearLayout[contains(@resource-id, ":id/eqo")])[1]',
+        '(//android.widget.LinearLayout[.//android.widget.TextView[contains(@resource-id, ":id/z83")]])[1]',
     ])
 
 
@@ -507,8 +506,8 @@ class LogoutSelectors:
     # Onglet "Profile" dans la barre de navigation du bas
     # resource-id: com.zhiliaoapp.musically:id/nce  content-desc="Profile"
     profile_tab: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/nce"]',
-        '//*[@content-desc="Profile"][@resource-id="com.zhiliaoapp.musically:id/nce"]',
+        '//*[contains(@resource-id, ":id/nce")]',
+        '//*[@content-desc="Profile"][contains(@resource-id, ":id/nce")]',
         '//*[@content-desc="Profile" and @clickable="true"]',
     ])
 
@@ -525,7 +524,7 @@ class LogoutSelectors:
     # Élément "Settings and privacy" dans le menu burger
     # resource-id: com.zhiliaoapp.musically:id/d_w  content-desc="Settings and privacy"
     settings_and_privacy: List[str] = field(default_factory=lambda: [
-        '//android.widget.FrameLayout[@resource-id="com.zhiliaoapp.musically:id/d_w" and @content-desc="Settings and privacy"]',
+        '//android.widget.FrameLayout[contains(@resource-id, ":id/d_w") and @content-desc="Settings and privacy"]',
         '//*[@content-desc="Settings and privacy"]',
         '//*[@text="Settings and privacy"]',
     ])
@@ -536,7 +535,6 @@ class LogoutSelectors:
     # Pas de resource-id — repéré par text + content-desc
     settings_screen_indicator: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Settings and privacy" and @text="Settings and privacy"]',
-        '//*[@text="Settings and privacy"]',
     ])
 
     # Bouton "Log out" dans la page Settings (section "Login", tout en bas)
@@ -552,7 +550,7 @@ class LogoutSelectors:
     # Indicateur de la bottom sheet "Are you sure you want to log out?"
     # resource-id: com.zhiliaoapp.musically:id/fdg  content-desc="Bottom sheet"
     logout_confirm_sheet: List[str] = field(default_factory=lambda: [
-        '//android.widget.FrameLayout[@resource-id="com.zhiliaoapp.musically:id/fdg"]',
+        '//android.widget.FrameLayout[contains(@resource-id, ":id/fdg")]',
         '//*[@content-desc="Bottom sheet"]',
     ])
 
@@ -560,7 +558,7 @@ class LogoutSelectors:
     # Dans la popup : content-desc="Log out" (différent de la page settings qui n'a que @text)
     logout_confirm_button: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Log out"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/wk" and @text="Log out"]',
+        '//*[contains(@resource-id, ":id/wk") and @text="Log out"]',
     ])
 
     # Bouton "Cancel" dans la popup
