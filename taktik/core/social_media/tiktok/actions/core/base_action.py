@@ -96,6 +96,35 @@ class BaseAction(SharedBaseAction):
         
         return None
     
+    def _get_element_content_desc(self, selectors: Union[List[str], str], timeout: float = 3.0) -> Optional[str]:
+        """Get content-desc attribute from element (with polling timeout).
+        
+        Used for TikTok Trill variant where counts/usernames are in content-desc
+        rather than text nodes (e.g. 'Like video. 2 likes', 'username profile').
+        """
+        if isinstance(selectors, str):
+            selectors = [selectors]
+
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            for selector in selectors:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        info = element.get()
+                        if info is not None:
+                            desc = info.attrib.get('content-desc', '')
+                            if desc:
+                                return desc.strip()
+                except Exception as e:
+                    self.logger.debug(f"Error getting content-desc from {selector[:50]}: {e}")
+                    continue
+
+            time.sleep(0.3)
+
+        return None
+
     def _input_text(self, selectors: Union[List[str], str], text: str, 
                    timeout: float = 5.0, clear_first: bool = True) -> bool:
         """Input text into element using Taktik Keyboard."""

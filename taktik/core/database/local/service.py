@@ -658,7 +658,22 @@ class LocalDatabaseService:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_account ON tiktok_filtered_profiles(account_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_username ON tiktok_filtered_profiles(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_daily_stats_account_date ON tiktok_daily_stats(account_id, date)")
-        
+
+        # ============================================
+        # GMAIL ACCOUNTS (admin tool — OTP retrieval)
+        # ============================================
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS gmail_accounts (
+                account_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                device_id TEXT,
+                last_used_at TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_accounts_email ON gmail_accounts(email)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_accounts_device ON gmail_accounts(device_id)")
+
         conn.commit()
     
     def _run_migrations(self) -> None:

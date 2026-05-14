@@ -184,16 +184,25 @@ class IPC:
         })
 
     def video_info(self, author: str, description: str = None, like_count: str = None,
-                   is_liked: bool = False, is_followed: bool = False, is_ad: bool = False) -> None:
+                   is_liked: bool = False, is_followed: bool = False, is_ad: bool = False,
+                   hashtags: list = None, sound: str = None,
+                   author_pic: str = None) -> None:
         """Send current TikTok video info."""
-        self.send("video_info", video={
+        video: dict = {
             "author": author,
             "description": description,
             "like_count": like_count,
             "is_liked": is_liked,
             "is_followed": is_followed,
             "is_ad": is_ad,
-        })
+        }
+        if hashtags:
+            video["hashtags"] = hashtags
+        if sound:
+            video["sound"] = sound
+        if author_pic:
+            video["author_pic"] = author_pic
+        self.send("video_info", video=video)
 
     def action(self, action: str, target: str = "") -> None:
         """Send action event (platform-agnostic)."""
@@ -202,6 +211,46 @@ class IPC:
     def pause(self, duration: int) -> None:
         """Send pause event."""
         self.send("pause", duration=duration)
+
+    # ------------------------------------------------------------------
+    # Threads-specific helpers
+    # ------------------------------------------------------------------
+
+    def threads_stats(
+        self,
+        profiles_visited: int = 0,
+        profiles_interacted: int = 0,
+        profiles_filtered: int = 0,
+        private_profiles: int = 0,
+        likes: int = 0,
+        follows: int = 0,
+        reposts: int = 0,
+        replies: int = 0,
+        errors: int = 0,
+    ) -> None:
+        """Send comprehensive Threads stats update."""
+        self.send("threads_stats", stats={
+            "profiles_visited": profiles_visited,
+            "profiles_interacted": profiles_interacted,
+            "profiles_filtered": profiles_filtered,
+            "private_profiles": private_profiles,
+            "likes": likes,
+            "follows": follows,
+            "reposts": reposts,
+            "replies": replies,
+            "errors": errors,
+        })
+
+    def threads_action(self, action: str, username: str, details: dict = None) -> None:
+        """Send Threads action event (like, follow, repost, etc.)."""
+        data = {"action": action, "username": username}
+        if details:
+            data["details"] = details
+        self.send("threads_action", **data)
+
+    def threads_profile_visit(self, username: str, followers: int = None, is_private: bool = False) -> None:
+        """Send Threads profile visit event."""
+        self.send("threads_profile_visit", username=username, followers=followers, is_private=is_private)
 
     # ------------------------------------------------------------------
     # DM-specific helpers

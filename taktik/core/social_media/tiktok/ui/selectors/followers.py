@@ -33,29 +33,29 @@ class FollowersSelectors:
     
     # === User item in search results (clickable to go to profile) ===
     user_search_item: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[@resource-id="com.zhiliaoapp.musically:id/sh2"]]',
-        '//android.widget.Button[@clickable="true"][.//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/ye2"]]',
-        '//android.widget.Button[@clickable="true"][.//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/rdh"]]',
+        '//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]]',
+        '//android.widget.Button[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/ye2")]]',
+        '//android.widget.Button[@clickable="true"][.//android.widget.Button[contains(@resource-id, ":id/rdh")]]',
     ])
     
     # First user in search results (Users tab)
     first_user_result: List[str] = field(default_factory=lambda: [
-        '(//androidx.recyclerview.widget.RecyclerView[@resource-id="com.zhiliaoapp.musically:id/lnp"]//android.widget.Button[@clickable="true"])[1]',
-        '(//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[@resource-id="com.zhiliaoapp.musically:id/sh2"]])[1]',
-        '(//android.widget.Button[@clickable="true"][.//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/ye2"]])[1]',
-        '(//android.widget.RelativeLayout[@resource-id="com.zhiliaoapp.musically:id/sh2"][@clickable="true"])[1]',
+        '(//androidx.recyclerview.widget.RecyclerView[contains(@resource-id, ":id/lnp")]//android.widget.Button[@clickable="true"])[1]',
+        '(//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]])[1]',
+        '(//android.widget.Button[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/ye2")]])[1]',
+        '(//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")][@clickable="true"])[1]',
     ])
     
     # === Profile page elements ===
     profile_username: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/qh5"]',
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/qh5"]',
+        '//*[contains(@resource-id, ":id/qh5")]',
+        '//android.widget.Button[contains(@resource-id, ":id/qh5")]',
     ])
     
     # Followers counter (clickable to open followers list)
     followers_counter: List[str] = field(default_factory=lambda: [
         '//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[@text="Followers"]]',
-        '//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/qfv"][@text="Followers"]]',
+        '//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/qfv")][@text="Followers"]]',
         '//*[.//android.widget.TextView[@text="Followers"]][@clickable="true"]',
     ])
     
@@ -67,8 +67,8 @@ class FollowersSelectors:
     
     # Follow button on profile
     profile_follow_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/eme"][@text="Follow"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/eme"][@text="Follow"]',
+        '//android.widget.TextView[contains(@resource-id, ":id/eme")][@text="Follow"]',
+        '//*[contains(@resource-id, ":id/eme")][@text="Follow"]',
     ])
     
     # === Followers list page ===
@@ -83,73 +83,73 @@ class FollowersSelectors:
     
     # RecyclerView containing followers list
     followers_list: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/s6p"]',
-        '//androidx.recyclerview.widget.RecyclerView[@resource-id="com.zhiliaoapp.musically:id/s6p"]',
+        '//*[contains(@resource-id, ":id/s6p")]',
+        '//androidx.recyclerview.widget.RecyclerView[contains(@resource-id, ":id/s6p")]',
     ])
     
     # Individual follower item (clickable row)
     follower_item: List[str] = field(default_factory=lambda: [
-        '//android.widget.LinearLayout[@clickable="true"][.//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/rdh"]]',
+        '//android.widget.LinearLayout[@clickable="true"][.//android.widget.Button[contains(@resource-id, ":id/rdh")]]',
     ])
     
     # Display name in followers list
     follower_display_name: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/yhq"]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/yhq"]',
+        '//*[contains(@resource-id, ":id/yhq")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/yhq")]',
     ])
     
     # Username in followers list
     follower_username: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ygv"]',
-        '//android.widget.TextView[@resource-id="com.zhiliaoapp.musically:id/ygv"]',
+        '//*[contains(@resource-id, ":id/ygv")]',
+        '//android.widget.TextView[contains(@resource-id, ":id/ygv")]',
     ])
     
     # Follow button in followers list
     follower_follow_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdh"][@text="Follow"]',
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/rdh"][@text="Follow"]',
+        '//*[contains(@resource-id, ":id/rdh")][@text="Follow"]',
+        '//android.widget.Button[contains(@resource-id, ":id/rdh")][@text="Follow"]',
     ])
     
     # Already following button
     follower_following_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdh"][@text="Following"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdh"][@text="Friends"]',
+        '//*[contains(@resource-id, ":id/rdh")][@text="Following"]',
+        '//*[contains(@resource-id, ":id/rdh")][@text="Friends"]',
     ])
     
     # Any follow button (Follow, Following, or Friends)
     follower_any_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/rdh"]',
-        '//android.widget.Button[@resource-id="com.zhiliaoapp.musically:id/rdh"]',
+        '//*[contains(@resource-id, ":id/rdh")]',
+        '//android.widget.Button[contains(@resource-id, ":id/rdh")]',
     ])
     
     # Private account notice
     private_notice: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/ikr"]',
+        '//*[contains(@resource-id, ":id/ikr")]',
         '//android.widget.TextView[contains(@text, "can see all followers")]',
     ])
     
     # === Profile page - Video grid ===
     profile_grid: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/gxd"]',
-        '//android.widget.GridView[@resource-id="com.zhiliaoapp.musically:id/gxd"]',
+        '//*[contains(@resource-id, ":id/gxd")]',
+        '//android.widget.GridView[contains(@resource-id, ":id/gxd")]',
     ])
     
     profile_post_item: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/e52"][@clickable="true"]',
-        '//android.widget.FrameLayout[@resource-id="com.zhiliaoapp.musically:id/e52"][@clickable="true"]',
+        '//*[contains(@resource-id, ":id/e52")][@clickable="true"]',
+        '//android.widget.FrameLayout[contains(@resource-id, ":id/e52")][@clickable="true"]',
     ])
     
     first_post: List[str] = field(default_factory=lambda: [
-        '(//*[@resource-id="com.zhiliaoapp.musically:id/e52"][@clickable="true"])[1]',
-        '(//android.widget.FrameLayout[@resource-id="com.zhiliaoapp.musically:id/e52"])[1]',
+        '(//*[contains(@resource-id, ":id/e52")][@clickable="true"])[1]',
+        '(//android.widget.FrameLayout[contains(@resource-id, ":id/e52")])[1]',
     ])
     
     post_cover: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/cover"]',
+        '//*[contains(@resource-id, ":id/cover")]',
     ])
     
     post_view_count: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/xxy"]',
+        '//*[contains(@resource-id, ":id/xxy")]',
     ])
     
     profile_videos_tab: List[str] = field(default_factory=lambda: [
@@ -164,9 +164,9 @@ class FollowersSelectors:
     
     # === Back button (in-app) ===
     back_button: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.zhiliaoapp.musically:id/b9b"]',
-        '//android.widget.ImageView[@resource-id="com.zhiliaoapp.musically:id/b9b"]',
-        '//*[@resource-id="com.zhiliaoapp.musically:id/b9c"]',
+        '//*[contains(@resource-id, ":id/b9b")]',
+        '//*[contains(@resource-id, ":id/b9c")]',
+        '//android.widget.ImageView[contains(@resource-id, ":id/b9b")]',
     ])
     
     # === Followers list page detection ===

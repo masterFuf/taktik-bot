@@ -242,140 +242,176 @@ class ScrapingListMixin:
         return scraped
 
     def _scrape_hashtag(self) -> Dict[str, Any]:
-        """Scrape profiles from hashtag posts."""
-        hashtag = self.config.get('hashtag', '')
+        """Scrape profiles from one or more hashtags."""
+        # Support both hashtags list (new) and single hashtag (backward compat)
+        hashtags = self.config.get('hashtags', [])
+        if not hashtags:
+            single = self.config.get('hashtag', '')
+            if single:
+                hashtags = [single]
+        if not hashtags:
+            return {"success": False, "error": "No hashtag provided"}
+
         scrape_type = self.config.get('scrape_type', 'authors')
         max_profiles = self.config.get('max_profiles', 200)
         max_posts = self.config.get('max_posts', 50)
-        
-        console.print(f"\n[cyan]📍 Navigating to #{hashtag}...[/cyan]")
-        
-        # Navigate to hashtag
-        if not self.nav_actions.navigate_to_hashtag(hashtag):
-            self.logger.error(f"Failed to navigate to #{hashtag}")
-            return {"success": False, "error": f"Failed to navigate to #{hashtag}"}
-        
-        time.sleep(2)
-        
+
         total_scraped = 0
-        posts_checked = 0
-        
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console
-        ) as progress:
-            task = progress.add_task(f"[cyan]Scraping #{hashtag}...", total=max_profiles)
-            
-            while total_scraped < max_profiles and posts_checked < max_posts and self._should_continue():
-                # Click on a post
-                if not self._click_next_post():
-                    self.logger.info("No more posts to check")
-                    break
-                
-                posts_checked += 1
-                time.sleep(1.5)
-                
-                if scrape_type == 'authors':
-                    # Get post author
-                    author = self._get_post_author()
-                    if author and author not in [p['username'] for p in self.scraped_profiles]:
-                        profile_data = {
-                            'username': author,
-                            'source_type': 'HASHTAG_AUTHOR',
-                            'source_name': hashtag,
-                            'scraped_at': datetime.now().isoformat()
-                        }
-                        self.scraped_profiles.append(profile_data)
-                        self._save_profile_immediately(profile_data)
-                        total_scraped += 1
-                        progress.update(task, advance=1)
-                else:
-                    # Scrape likers
-                    if self._open_likers_list():
-                        time.sleep(1)
-                        enrich_profiles = self.config.get('enrich_profiles', False)
-                        likers = self._scrape_list(
-                            max_count=min(20, max_profiles - total_scraped),
-                            source_type='HASHTAG_LIKER',
-                            source_name=hashtag,
-                            enrich_on_the_fly=enrich_profiles
-                        )
-                        total_scraped += len(likers)
-                        progress.update(task, advance=len(likers))
-                        self.device.press("back")
-                        time.sleep(0.5)
-                
-                # Go back to hashtag grid
-                self.device.press("back")
-                time.sleep(1)
-        
+        posts_checked_total = 0
+
+        for hashtag in hashtags:
+            if not self._should_continue():
+                break
+            if total_scraped >= max_profiles:
+                break
+
+            console.print(f"\n[cyan]📍 Navigating to #{hashtag}...[/cyan]")
+
+            # Navigate to hashtag
+            if not self.nav_actions.navigate_to_hashtag(hashtag):
+                self.logger.error(f"Failed to navigate to #{hashtag}")
+                continue
+
+            time.sleep(2)
+
+            posts_checked = 0
+            remaining = max_profiles - total_scraped
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console
+            ) as progress:
+                task = progress.add_task(f"[cyan]Scraping #{hashtag}...", total=remaining)
+
+                while total_scraped < max_profiles and posts_checked < max_posts and self._should_continue():
+                    # Click on a post
+                    if not self._click_next_post():
+                        self.logger.info("No more posts to check")
+                        break
+
+                    posts_checked += 1
+                    time.sleep(1.5)
+
+                    if scrape_type == 'authors':
+                        # Get post author
+                        author = self._get_post_author()
+                        if author and author not in [p['username'] for p in self.scraped_profiles]:
+                            profile_data = {
+                                'username': author,
+                                'source_type': 'HASHTAG_AUTHOR',
+                                'source_name': hashtag,
+                                'scraped_at': datetime.now().isoformat()
+                            }
+                            self.scraped_profiles.append(profile_data)
+                            self._save_profile_immediately(profile_data)
+                            total_scraped += 1
+                            progress.update(task, advance=1)
+                    else:
+                        # Scrape likers
+                        if self._open_likers_list():
+                            time.sleep(1)
+                            enrich_profiles = self.config.get('enrich_profiles', False)
+                            likers = self._scrape_list(
+                                max_count=min(20, max_profiles - total_scraped),
+                                source_type='HASHTAG_LIKER',
+                                source_name=hashtag,
+                                enrich_on_the_fly=enrich_profiles
+                            )
+                            total_scraped += len(likers)
+                            progress.update(task, advance=len(likers))
+                            self.device.press("back")
+                            time.sleep(0.5)
+
+                    # Go back to hashtag grid
+                    self.device.press("back")
+                    time.sleep(1)
+
+            posts_checked_total += posts_checked
+
         return {
             "success": True,
             "total_scraped": total_scraped,
-            "posts_checked": posts_checked
+            "posts_checked": posts_checked_total
         }
 
     def _scrape_post_url(self) -> Dict[str, Any]:
-        """Scrape likers from a specific post URL."""
-        post_url = self.config.get('post_url', '')
+        """Scrape likers from one or more post URLs."""
+        # Support both post_urls list (new) and single post_url (backward compat)
+        post_urls = self.config.get('post_urls', [])
+        if not post_urls:
+            single = self.config.get('post_url', '')
+            if single:
+                post_urls = [single]
+        if not post_urls:
+            return {"success": False, "error": "No post URL provided"}
+
         max_profiles = self.config.get('max_profiles', 200)
-        post_id = self.config.get('post_id', 'unknown')
-        
-        console.print(f"\n[cyan]📍 Navigating to post...[/cyan]")
-        
-        # Navigate to post via deep link
-        if not self.nav_actions.navigate_to_post_url(post_url):
-            self.logger.error(f"Failed to navigate to post: {post_url}")
-            return {"success": False, "error": "Failed to navigate to post"}
-        
-        time.sleep(2)
-        
-        # Extract post metadata (likes count)
-        console.print(f"[dim]📊 Getting post info...[/dim]")
-        likes_count = self.ui_extractors.extract_likes_count_from_ui()
-        
-        if likes_count:
-            console.print(f"[green]✅ Post has {likes_count:,} likes[/green]")
-            # Adjust max if needed
-            if likes_count < max_profiles:
-                console.print(f"[dim]   Adjusting target: {likes_count:,} (instead of {max_profiles:,})[/dim]")
-                max_profiles = likes_count
-        else:
-            self.logger.warning("Could not extract likes count, proceeding anyway")
-        
-        # Detect if it's a Reel or regular post
-        is_reel = self._is_reel_post()
-        
-        if is_reel:
-            console.print("[cyan]📍 Reel detected - opening likers list...[/cyan]")
-            likers = self._extract_likers_from_reel(max_profiles)
-        else:
-            console.print("[cyan]📍 Regular post - opening likers list...[/cyan]")
-            likers = self._extract_likers_from_regular_post(max_profiles)
-        
-        if not likers:
-            self.logger.error("Failed to extract likers")
-            return {"success": False, "error": "Failed to extract likers"}
-        
-        # Convert to our profile format and add to scraped_profiles
-        console.print(f"[cyan]📍 Processing {len(likers)} likers...[/cyan]")
-        
-        for username in likers[:max_profiles]:
-            profile_data = {
-                'username': username,
-                'source_type': 'POST_LIKER',
-                'source_name': post_id,
-                'scraped_at': datetime.now().isoformat()
-            }
-            self.scraped_profiles.append(profile_data)
-            self._save_profile_immediately(profile_data)
-        
+        total_scraped = 0
+
+        for post_url in post_urls:
+            if not self._should_continue():
+                break
+            if total_scraped >= max_profiles:
+                break
+
+            # Extract post ID from URL
+            import re
+            match = re.search(r'/p/([^/]+)/', post_url)
+            post_id = match.group(1) if match else 'unknown'
+
+            console.print(f"\n[cyan]📍 Navigating to post...[/cyan]")
+
+            # Navigate to post via deep link
+            if not self.nav_actions.navigate_to_post_url(post_url):
+                self.logger.error(f"Failed to navigate to post: {post_url}")
+                continue
+
+            time.sleep(2)
+
+            # Extract post metadata (likes count)
+            console.print(f"[dim]📊 Getting post info...[/dim]")
+            likes_count = self.ui_extractors.extract_likes_count_from_ui()
+
+            remaining = max_profiles - total_scraped
+            target_count = remaining
+            if likes_count:
+                console.print(f"[green]✅ Post has {likes_count:,} likes[/green]")
+                if likes_count < remaining:
+                    console.print(f"[dim]   Adjusting target: {likes_count:,} (instead of {remaining:,})[/dim]")
+                    target_count = likes_count
+
+            # Detect if it's a Reel or regular post
+            is_reel = self._is_reel_post()
+
+            if is_reel:
+                console.print("[cyan]📍 Reel detected - opening likers list...[/cyan]")
+                likers = self._extract_likers_from_reel(target_count)
+            else:
+                console.print("[cyan]📍 Regular post - opening likers list...[/cyan]")
+                likers = self._extract_likers_from_regular_post(target_count)
+
+            if not likers:
+                self.logger.error("Failed to extract likers")
+                continue
+
+            console.print(f"[cyan]📍 Processing {len(likers)} likers...[/cyan]")
+            for username in likers[:target_count]:
+                profile_data = {
+                    'username': username,
+                    'source_type': 'POST_LIKER',
+                    'source_name': post_id,
+                    'scraped_at': datetime.now().isoformat()
+                }
+                self.scraped_profiles.append(profile_data)
+                self._save_profile_immediately(profile_data)
+                total_scraped += 1
+
         return {
             "success": True,
-            "total_scraped": len(self.scraped_profiles)
+            "total_scraped": total_scraped
         }
 
     def _open_likers_list(self) -> bool:

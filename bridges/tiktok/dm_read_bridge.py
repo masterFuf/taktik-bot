@@ -29,7 +29,7 @@ def run_dm_read_workflow(config: Dict[str, Any]):
         )
         
         # Common startup: connect, restart, navigate home (no profile fetch)
-        manager, _ = tiktok_startup(device_id, fetch_profile=False)
+        manager, _ = tiktok_startup(device_id, fetch_profile=True)
         
         # Create workflow config from frontend config
         workflow_config = DMConfig(

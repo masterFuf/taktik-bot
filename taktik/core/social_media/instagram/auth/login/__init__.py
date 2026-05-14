@@ -117,6 +117,9 @@ class InstagramLogin(
         """
         self.logger.info(f"🔐 Starting login process for {username}")
         
+        # Étape 0: Rejeter le popup Google Password Manager s'il est présent
+        self._dismiss_google_autofill_popup()
+        
         # Étape 1: Vérifier si une session existe
         if use_saved_session:
             session = self.session_manager.load_session(username, self.device_id)
@@ -127,41 +130,76 @@ class InstagramLogin(
         
         # Étape 2: Vérifier qu'on est sur l'écran de login (avec sélection intelligente de profil)
         is_on_login = self._is_on_login_screen(target_username=username)
-        
-        # Si False est retourné, cela peut signifier que le profil a été trouvé et cliqué
-        if is_on_login is False:
-            time.sleep(2)
-            for success_selector in self.auth_selectors.login_success_indicators:
-                try:
-                    if self.device.xpath(success_selector).exists:
-                        self.logger.success("✅ Already logged in via saved profile!")
-                        
-                        self._handle_post_login_popups(save_login_info=save_login_info_instagram)
-                        
-                        if save_session:
-                            self.session_manager.save_session(
-                                username=username,
-                                device_id=self.device_id,
-                                session_data={
-                                    'username': username,
-                                    'login_method': 'saved_profile',
-                                    'device_info': self._get_device_info()
-                                }
-                            )
-                        
-                        return LoginResult(
-                            success=True,
-                            message="Logged in via saved profile"
-                        )
-                except:
-                    continue
-            
-            self.logger.error("❌ Not on login screen")
+
+        # None = écran non reconnu (ni login, ni sélection de profil) → on abandonne la tentative
+        if is_on_login is None:
+            self.logger.warning("⚠️ Screen not recognized after launch — aborting attempt")
             return LoginResult(
                 success=False,
-                message="Not on login screen",
+                message="Screen not recognized after Instagram launch",
                 error_type="wrong_screen"
             )
+
+        # Si False est retourné : le profil sauvegardé a été trouvé et cliqué —
+        # on attend que le home feed apparaisse (avec gestion des popups intermédiaires).
+        if is_on_login is False:
+            self.logger.info("⏳ Profile tile clicked — waiting for home screen...")
+            logged_in_via_profile = False
+
+            for attempt in range(6):          # jusqu'à ~12 secondes
+                time.sleep(2)
+
+                # Vérifier si le home screen est visible
+                for success_selector in self.auth_selectors.login_success_indicators:
+                    try:
+                        if self.device.xpath(success_selector).exists:
+                            logged_in_via_profile = True
+                            break
+                    except Exception:
+                        continue
+
+                if logged_in_via_profile:
+                    break
+
+                # Popup intermédiaire possible — on tente de les fermer
+                self.logger.debug(f"🔄 Attempt {attempt + 1}/6 — checking for blocking popups...")
+                self._dismiss_google_autofill_popup()
+                self._handle_post_login_popups(save_login_info=save_login_info_instagram)
+
+            if logged_in_via_profile:
+                self.logger.success("✅ Already logged in via saved profile!")
+
+                self._handle_post_login_popups(save_login_info=save_login_info_instagram)
+
+                if save_session:
+                    self.session_manager.save_session(
+                        username=username,
+                        device_id=self.device_id,
+                        session_data={
+                            'username': username,
+                            'login_method': 'saved_profile',
+                            'device_info': self._get_device_info()
+                        }
+                    )
+
+                return LoginResult(
+                    success=True,
+                    message="Logged in via saved profile"
+                )
+
+            # Vérifier si on s'est retrouvé sur un écran de saisie de mot de passe
+            # (cas rare : Instagram demande confirmation du mot de passe après click profil)
+            if self._element_exists(self.auth_selectors.password_only_screen_indicators):
+                self.logger.info("🔐 Password confirmation required after profile click — filling password...")
+                # Continuer avec la saisie des identifiants (étape 3+)
+                is_on_login = True
+            else:
+                self.logger.error("❌ Home screen not detected after profile click")
+                return LoginResult(
+                    success=False,
+                    message="Login via saved profile failed: home screen not found",
+                    error_type="wrong_screen"
+                )
         
         # Étape 3: Remplir les champs
         if not self._fill_credentials(username, password):

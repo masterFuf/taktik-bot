@@ -67,7 +67,11 @@ class ProfileDataMixin:
             }
             
             # Count visible videos in profile grid (followers-specific)
-            posts = self.device.xpath(self.followers_selectors.profile_post_item[0]).all()
+            posts = []
+            for sel in self.followers_selectors.profile_post_item:
+                posts = self.device.xpath(sel).all()
+                if posts:
+                    break
             if posts:
                 profile_data['videos_count'] = len(posts)
             

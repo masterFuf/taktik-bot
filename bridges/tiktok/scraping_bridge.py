@@ -103,7 +103,7 @@ def run_scraping_workflow(config: Dict[str, Any]) -> bool:
 
     try:
         # Common startup: connect, restart, navigate home
-        manager, _ = tiktok_startup(device_id, fetch_profile=False)
+        manager, _ = tiktok_startup(device_id, fetch_profile=True)
         device = manager.device_manager.device
         navigation = NavigationActions(device)
 

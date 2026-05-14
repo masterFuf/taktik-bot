@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ....utils.input.keyboard import type_with_taktik_keyboard
+from taktik.core.shared.device.media_store import push_media, trigger_media_scan, scan_wait_for
 
 
 class ContentUIHelpersMixin:
@@ -71,29 +72,29 @@ class ContentUIHelpersMixin:
             return False
 
     def _push_image_to_device(self, local_path: str) -> Optional[str]:
-        """Pousser une image sur le device Android."""
+        """Push an image/video to the device using the shared media_store service.
+
+        Uses Android-version-aware MediaStore indexing (broadcast on SDK<29,
+        content insert with integer timestamps on SDK>=29) so the file appears
+        at the top of the gallery picker.
+        """
         try:
+            device_id = getattr(self.device_manager, 'device_id', None)
+            if not device_id:
+                self.logger.error("No device_id available — cannot push image")
+                return None
+
             self.logger.debug(f"Pushing image to device: {local_path}")
-            
-            filename = Path(local_path).name
-            self.device.shell("mkdir -p /sdcard/DCIM/Camera")
-            time.sleep(0.5)
-            
-            device_path = f"/sdcard/DCIM/Camera/{filename}"
-            self.device.push(local_path, device_path)
-            time.sleep(1)
-            
-            self.logger.debug("Refreshing MediaStore to detect new image...")
-            try:
-                self.device.shell(f"am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file://{device_path}")
-                time.sleep(1)
-                self.logger.debug("✅ MediaStore refreshed successfully")
-            except Exception as e:
-                self.logger.warning(f"Could not refresh MediaStore: {e}")
-            
-            self.logger.debug(f"✅ Image pushed to: {device_path}")
-            return device_path
-            
+            remote_path = push_media(device_id, local_path)
+            if not remote_path:
+                self.logger.error("push_media failed")
+                return None
+
+            trigger_media_scan(device_id, remote_path, local_path)
+            time.sleep(scan_wait_for(local_path))
+            self.logger.debug(f"✅ Image pushed to: {remote_path}")
+            return remote_path
+
         except Exception as e:
             self.logger.error(f"Error pushing image: {e}")
             return None

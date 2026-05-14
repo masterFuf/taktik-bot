@@ -88,7 +88,11 @@ class VideoInteractionMixin:
             Number of posts visible in the grid (max 9 without scrolling).
         """
         try:
-            posts = self.device.xpath(self.followers_selectors.profile_post_item[0]).all()
+            posts = []
+            for sel in self.followers_selectors.profile_post_item:
+                posts = self.device.xpath(sel).all()
+                if posts:
+                    break
             count = len(posts)
             self.logger.debug(f"📊 Found {count} visible posts on profile")
             return count
@@ -99,7 +103,11 @@ class VideoInteractionMixin:
     def _click_profile_post(self, index: int = 0) -> bool:
         """Click on a post in the profile grid."""
         try:
-            posts = self.device.xpath(self.followers_selectors.profile_post_item[0]).all()
+            posts = []
+            for sel in self.followers_selectors.profile_post_item:
+                posts = self.device.xpath(sel).all()
+                if posts:
+                    break
             
             if index < len(posts):
                 posts[index].click()

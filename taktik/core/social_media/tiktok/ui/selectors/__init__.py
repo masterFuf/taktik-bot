@@ -6,7 +6,13 @@ pour que les imports existants continuent de fonctionner:
     from ...ui.selectors import NAVIGATION_SELECTORS, VIDEO_SELECTORS
 """
 
-from .auth import AuthSelectors, AUTH_SELECTORS, TIKTOK_PACKAGE
+from .auth import (
+    AuthSelectors, AUTH_SELECTORS,
+    SignupSelectors, SIGNUP_SELECTORS,
+    LogoutSelectors, LOGOUT_SELECTORS,
+    CountryPickerSelectors, COUNTRY_PICKER_SELECTORS,
+    TIKTOK_PACKAGE,
+)
 from .navigation import NavigationSelectors, NAVIGATION_SELECTORS
 from .profile import ProfileSelectors, PROFILE_SELECTORS
 from .video import VideoSelectors, VIDEO_SELECTORS
@@ -22,6 +28,9 @@ from .followers import FollowersSelectors, FOLLOWERS_SELECTORS
 __all__ = [
     'TIKTOK_PACKAGE',
     'AuthSelectors',
+    'SignupSelectors',
+    'LogoutSelectors',
+    'CountryPickerSelectors',
     'NavigationSelectors',
     'ProfileSelectors',
     'VideoSelectors',
@@ -34,6 +43,9 @@ __all__ = [
     'DetectionSelectors',
     'FollowersSelectors',
     'AUTH_SELECTORS',
+    'SIGNUP_SELECTORS',
+    'LOGOUT_SELECTORS',
+    'COUNTRY_PICKER_SELECTORS',
     'NAVIGATION_SELECTORS',
     'PROFILE_SELECTORS',
     'VIDEO_SELECTORS',

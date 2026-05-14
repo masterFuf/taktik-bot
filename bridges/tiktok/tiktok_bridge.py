@@ -92,6 +92,9 @@ def main():
         send_error(f"Workflow error: {e}")
         logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
         sys.exit(1)
+    finally:
+        from bridges.common.app_manager import force_stop_app
+        force_stop_app(device_id, "tiktok")
 
 
 if __name__ == "__main__":
