@@ -1,4 +1,4 @@
-"""Shared device — facade (UI wrapper), manager (ADB connection/ATX), media_store (gallery push/scan)."""
+"""Shared device — facade (UI wrapper), manager (ADB connection/ATX), media_store (gallery push/scan), permissions (Android dialog handler)."""
 
 from .facade import BaseDeviceFacade, Direction
 from .manager import DeviceManager
@@ -10,6 +10,14 @@ from .media_store import (
     trigger_media_scan,
     scan_wait_for,
     push_and_scan,
+)
+from .permissions import (
+    PermissionHandler,
+    grant_permissions,
+    deny_permissions,
+    ALLOW_SELECTORS,
+    DENY_SELECTORS,
+    DIALOG_INDICATORS,
 )
 
 __all__ = [
@@ -23,4 +31,11 @@ __all__ = [
     'trigger_media_scan',
     'scan_wait_for',
     'push_and_scan',
+    # permissions
+    'PermissionHandler',
+    'grant_permissions',
+    'deny_permissions',
+    'ALLOW_SELECTORS',
+    'DENY_SELECTORS',
+    'DIALOG_INDICATORS',
 ]
