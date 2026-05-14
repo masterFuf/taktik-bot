@@ -91,6 +91,17 @@ def main():
                 else:
                     scraping_config['post_id'] = 'unknown'
         
+        # AI Mode config
+        ai_config = config.get('ai', {})
+        if ai_config and ai_config.get('enabled'):
+            scraping_config['ai_mode'] = True
+            scraping_config['ai_profile_analysis'] = ai_config.get('profileAnalysis', True)
+            scraping_config['ai_niche'] = ai_config.get('niche', '')
+            scraping_config['ai_qualification_prompt'] = ai_config.get('qualificationPrompt', '')
+            scraping_config['openrouter_api_key'] = ai_config.get('openrouterApiKey', '')
+        else:
+            scraping_config['ai_mode'] = False
+
         # Run scraping workflow
         logger.info(f"Starting scraping workflow: {scraping_config['type']}")
         if scraping_config.get('enrich_profiles', False):
