@@ -76,7 +76,25 @@ class ScrapingWorkflow(
         self.scraping_session_id: Optional[int] = None
         self.csv_export_path: Optional[str] = None
         self._save_immediately = config.get('save_to_db', True)  # Save profiles as we scrape them
-        
+
+        # AI qualification service (initialized if ai_mode is enabled and key is present)
+        self._ipc = None
+        self._ai_service = None
+        if config.get('ai_mode') and config.get('openrouter_api_key'):
+            try:
+                from bridges.common.ipc import IPC
+                from bridges.common.ai_service import AIService
+                self._ipc = IPC()
+                self._ai_service = AIService(
+                    api_key=config['openrouter_api_key'],
+                    ipc=self._ipc,
+                )
+                logger.info("🤖 AI qualification service initialized (OpenRouter)")
+            except Exception as e:
+                logger.warning(f"AI service initialization failed: {e}")
+        elif config.get('ai_mode') and not config.get('openrouter_api_key'):
+            logger.warning("⚠️ AI Mode enabled but openrouter_api_key is missing or empty — AI classification disabled. Configure your OpenRouter key in Settings → AI.")
+
     def run(self) -> Dict[str, Any]:
         """
         Execute the scraping workflow based on configuration.
@@ -245,6 +263,9 @@ class ScrapingWorkflow(
             
             # Scrape the list with the adjusted max
             enrich_profiles = self.config.get('enrich_profiles', False)
+            # AI qualification requires enrichment to get full bio/category data
+            if self.config.get('ai_mode') and self._ai_service:
+                enrich_profiles = True
             profiles_from_target = self._scrape_list(
                 max_count=actual_max,
                 source_type=scrape_type.upper(),

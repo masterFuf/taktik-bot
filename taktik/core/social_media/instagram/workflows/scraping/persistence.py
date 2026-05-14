@@ -54,10 +54,14 @@ class ScrapingPersistenceMixin:
         console.print(f"\n[green]📁 Exported {len(self.scraped_profiles)} profiles to:[/green]")
         console.print(f"   [cyan]{filepath}[/cyan]")
 
-    def _save_profile_immediately(self, profile: Dict[str, Any]) -> bool:
-        """Save a single profile to database immediately as it's scraped."""
+    def _save_profile_immediately(self, profile: Dict[str, Any]) -> Optional[int]:
+        """Save a single profile to database immediately as it's scraped.
+        
+        Returns:
+            profile_id if saved successfully, None otherwise.
+        """
         if not self._save_immediately:
-            return False
+            return None
             
         try:
             local_db = get_local_database()
@@ -71,23 +75,43 @@ class ScrapingPersistenceMixin:
                 'is_private': profile.get('is_private', False),
                 'biography': profile.get('biography', ''),
                 'full_name': profile.get('full_name', ''),
+                'account_based_in': profile.get('account_based_in'),
+                'date_joined': profile.get('date_joined'),
                 'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
             }
             
             result = local_db.save_profile(profile_data)
             
+            profile_id = result.get('profile_id') if result else None
+
             # Link profile to scraping session in junction table
-            if self.scraping_session_id and result and result.get('profile_id'):
-                local_db.link_profile_to_session(self.scraping_session_id, result['profile_id'])
+            if self.scraping_session_id and profile_id:
+                local_db.link_profile_to_session(self.scraping_session_id, profile_id)
             
             # Update session count in database
             if self.scraping_session_id:
                 local_db.update_scraping_session_count(self.scraping_session_id, len(self.scraped_profiles))
             
-            return True
+            return profile_id
         except Exception as e:
             self.logger.debug(f"Error saving @{profile.get('username', 'unknown')} immediately: {e}")
-            return False
+            return None
+
+    def _update_scraped_profile_ai(self, profile_id: int, ai_score: int, ai_qualified: bool, ai_analysis: str = '') -> None:
+        """Update AI qualification result for a scraped profile in the junction table."""
+        if not self.scraping_session_id or not profile_id:
+            return
+        try:
+            local_db = get_local_database()
+            local_db.update_scraped_profile_ai(
+                scraping_id=self.scraping_session_id,
+                profile_id=profile_id,
+                ai_score=ai_score,
+                ai_qualified=ai_qualified,
+                ai_analysis=ai_analysis,
+            )
+        except Exception as e:
+            self.logger.debug(f"Error updating AI score for profile_id={profile_id}: {e}")
 
     def _save_to_database(self):
         """Save scraped profiles to local database (final save, handles any missed profiles)."""
@@ -112,6 +136,8 @@ class ScrapingPersistenceMixin:
                         'is_private': profile.get('is_private', False),
                         'biography': profile.get('biography', ''),
                         'full_name': profile.get('full_name', ''),
+                        'account_based_in': profile.get('account_based_in'),
+                        'date_joined': profile.get('date_joined'),
                         'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
                     }
                     

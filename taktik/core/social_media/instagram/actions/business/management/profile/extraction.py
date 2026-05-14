@@ -46,7 +46,7 @@ class ProfileExtraction(BaseBusinessAction):
                 # If bio is truncated, click "more" to expand and re-extract
                 if profile_text.get('bio_truncated'):
                     if self.detection_actions.click_bio_more_button():
-                        self._random_sleep(0.3, 0.5)
+                        self._random_sleep(0.8, 1.2)
                         # Re-extract with full bio
                         new_profile_text = self.detection_actions.get_enriched_profile_data()
                         

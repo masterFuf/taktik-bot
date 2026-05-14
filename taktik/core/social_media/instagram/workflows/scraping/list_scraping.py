@@ -135,7 +135,19 @@ class ScrapingListMixin:
                                 self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
                             else:
                                 self.logger.warning(f"Could not get profile info for @{username}")
-                            
+
+                            # Capture screenshot for AI vision analysis (while still on profile page)
+                            if getattr(self, '_ai_service', None):
+                                try:
+                                    import tempfile as _tempfile, os as _os2
+                                    _tmp_dir = _os2.path.join(_tempfile.gettempdir(), 'taktik_ai')
+                                    _os2.makedirs(_tmp_dir, exist_ok=True)
+                                    _screenshot_path = _os2.path.join(_tmp_dir, f'profile_{username}.png')
+                                    self.device.screenshot().save(_screenshot_path, format='PNG')
+                                    profile_data['_screenshot_path'] = _screenshot_path
+                                except Exception as _e:
+                                    self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
+
                             # Go back to the list
                             self.device.press("back")
                             time.sleep(1)
@@ -151,7 +163,12 @@ class ScrapingListMixin:
                     
                     scraped.append(profile_data)
                     self.scraped_profiles.append(profile_data)
-                    self._save_profile_immediately(profile_data)
+                    profile_id = self._save_profile_immediately(profile_data)
+
+                    # AI qualification (if enabled and profile was enriched with bio data)
+                    if enrich_on_the_fly and profile_id and getattr(self, '_ai_service', None):
+                        self._qualify_profile_ai(profile_data, profile_id)
+
                     new_count += 1
                     
                     # Update progress with current count
@@ -240,6 +257,119 @@ class ScrapingListMixin:
             self.logger.info(f"📊 Scraped {len(scraped)}/{total_available} ({len(scraped)*100//total_available}%) - some may be hidden/private")
         
         return scraped
+
+    def _qualify_profile_ai(self, profile: dict, profile_id: int) -> None:
+        """Classify profile using AI (vision model if screenshot available, text-based otherwise)."""
+        import time as _time, json as _json, os as _os
+
+        username = profile.get('username', '')
+        screenshot_path = profile.get('_screenshot_path')
+
+        # ── Vision-based classification (screenshot captured on profile page) ──────
+        if screenshot_path and _os.path.exists(screenshot_path):
+            result = {'success': False}
+            try:
+                result = self._ai_service.classify_profile_niche(
+                    username=username,
+                    screenshot_path=screenshot_path,
+                )
+            except Exception as e:
+                self.logger.warning(f"Vision classification failed for @{username}: {e}")
+                if self._ipc:
+                    self._ipc.ai_error(str(e), username)
+            finally:
+                try:
+                    _os.remove(screenshot_path)
+                except Exception:
+                    pass
+
+            if result.get('success'):
+                c = result.get('classification', {})
+                niche = c.get('niche', '')
+                niche_category = c.get('niche_category', 'other')
+                summary = c.get('summary', '')
+                analysis = f"[{niche_category}] {niche}" + (f" · {summary}" if summary else "")
+                self.logger.info(f"🤖 @{username}: {analysis}")
+                # No score in scraping mode — store niche classification in ai_analysis
+                self._update_scraped_profile_ai(profile_id, None, True, analysis)
+            return
+
+        # ── Text-based fallback (no screenshot available) ────────────────────────
+        qualification_prompt = self.config.get('ai_qualification_prompt', '')
+        if not qualification_prompt:
+            return
+
+        if self._ipc:
+            self._ipc.ai_profile_analyzing(
+                username,
+                prompt=f"Qualifying @{username} for niche",
+                model=getattr(self._ai_service, 'text_model', 'anthropic/claude-3.5-haiku'),
+            )
+
+        system_prompt = (
+            "You are an Instagram profile qualification assistant.\n"
+            "Score this profile from 0 to 10 based on how well it matches the criteria.\n"
+            'Reply ONLY with valid JSON: {"score": 7, "qualified": true, "reason": "brief reason"}\n'
+            "A profile is qualified if score >= 6."
+        )
+        user_prompt = (
+            f"Qualification criteria:\n{qualification_prompt}\n\n"
+            f"Profile:\n"
+            f"- Username: @{username}\n"
+            f"- Full name: {profile.get('full_name', '')}\n"
+            f"- Bio: {profile.get('biography', 'N/A')}\n"
+            f"- Category: {profile.get('business_category', 'N/A')}\n"
+            f"- Followers: {profile.get('followers_count', 0)}\n"
+            f"- Following: {profile.get('following_count', 0)}\n"
+            f"- Posts: {profile.get('posts_count', 0)}\n"
+            f"- Business account: {profile.get('is_business', False)}\n"
+            f"- Verified: {profile.get('is_verified', False)}\n"
+            f"- Account based in: {profile.get('account_based_in', 'N/A')}"
+        )
+
+        t0 = _time.time()
+        result = self._ai_service.text_completion(system_prompt, user_prompt, temperature=0.2, max_tokens=150)
+        duration_ms = int((_time.time() - t0) * 1000)
+
+        if not result.get('success'):
+            if self._ipc:
+                self._ipc.ai_error(result.get('error', 'Qualification failed'), username)
+            return
+
+        try:
+            text = result['text'].strip()
+            if '```' in text:
+                text = text.split('```')[1]
+                if text.startswith('json'):
+                    text = text[4:]
+            data = _json.loads(text.strip())
+        except Exception as e:
+            self.logger.warning(f"AI qualification JSON parse error for @{username}: {e}")
+            if self._ipc:
+                self._ipc.ai_error(f"Parse error: {e}", username)
+            return
+
+        score = int(data.get('score', 0))
+        qualified = bool(data.get('qualified', score >= 6))
+        reason = data.get('reason', '')
+
+        result_text = f"Score {score}/10 — {'✅ Qualified' if qualified else '❌ Not qualified'}"
+        if reason:
+            result_text += f" · {reason}"
+
+        if self._ipc:
+            self._ipc.ai_profile_analyzed(
+                username=username,
+                result=result_text,
+                duration_ms=duration_ms,
+                model=result.get('model'),
+                provider='openrouter',
+                cost_usd=result.get('cost_usd'),
+                classification={'score': score, 'qualified': qualified, 'reason': reason},
+            )
+
+        self.logger.info(f"🤖 AI @{username}: {result_text}")
+        self._update_scraped_profile_ai(profile_id, score, qualified, reason)
 
     def _scrape_hashtag(self) -> Dict[str, Any]:
         """Scrape profiles from one or more hashtags."""

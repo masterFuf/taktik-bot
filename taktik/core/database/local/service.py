@@ -722,6 +722,8 @@ class LocalDatabaseService:
             ("business_category", "TEXT"),
             ("website", "TEXT"),
             ("linked_accounts", "TEXT"),
+            ("account_based_in", "TEXT"),
+            ("date_joined", "TEXT"),
         ]:
             try:
                 cursor.execute(f"SELECT {col_name} FROM instagram_profiles LIMIT 1")
@@ -1460,7 +1462,25 @@ class LocalDatabaseService:
         except Exception as e:
             logger.debug(f"Error linking profile {profile_id} to session {scraping_id}: {e}")
             return False
-    
+
+    def update_scraped_profile_ai(self, scraping_id: int, profile_id: int,
+                                   ai_score: int, ai_qualified: bool,
+                                   ai_analysis: str = '') -> bool:
+        """Update AI qualification columns in the scraped_profiles junction table."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE scraped_profiles
+                SET ai_score = ?, ai_qualified = ?, ai_analysis = ?
+                WHERE scraping_id = ? AND profile_id = ?
+            """, (ai_score, 1 if ai_qualified else 0, ai_analysis, scraping_id, profile_id))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.debug(f"Error updating AI score for profile {profile_id} / session {scraping_id}: {e}")
+            return False
+
     def cleanup_orphan_sessions(self) -> int:
         """Mark any IN_PROGRESS sessions as INTERRUPTED (app crashed/closed unexpectedly)."""
         try:

@@ -379,53 +379,62 @@ class ProfileExtractionMixin(BaseAction):
 
     def click_bio_more_button(self) -> bool:
         """
-        Click on the 'more' button in bio to expand truncated biography.
-        
-        The bio TextView contains both @username links and "more" text.
-        Clicking in the center might trigger a @username link instead of "more".
-        We need to click on the RIGHT side of the TextView where "more" is located.
-        
+        Click on '… more' in bio to expand truncated biography.
+
+        Instagram renders the full bio + '… more' in a single non-clickable
+        TextView.  The '… more' is ALWAYS on the last line, so we:
+          1. Read the element text to count the actual number of lines.
+          2. Derive the line height dynamically: height / num_lines.
+          3. Click the center of the last line (Y) at the left quarter (X),
+             where '… more' starts regardless of screen resolution or bio length.
+
         Returns:
             True if button was found and clicked, False otherwise
         """
         try:
-            # Look for text containing "more" in the bio area
             more_selectors = PROFILE_SELECTORS.enrichment_bio_more_selectors
-            
+
             for selector in more_selectors:
                 element = self.device.xpath(selector)
-                if element.exists:
-                    # Get element bounds to click on the RIGHT side where "more" is
-                    try:
-                        info = element.info
-                        bounds = info.get('bounds', {})
-                        if bounds:
-                            # Click on the right side of the element (where "more" text is)
-                            # Use 90% of the width to avoid edge issues
-                            right = bounds.get('right', 0)
-                            left = bounds.get('left', 0)
-                            top = bounds.get('top', 0)
-                            bottom = bounds.get('bottom', 0)
-                            
-                            # Calculate click position: far right side, vertically centered
-                            click_x = left + int((right - left) * 0.92)  # 92% from left = near right edge
-                            click_y = (top + bottom) // 2  # Vertically centered
-                            
-                            self.logger.debug(f"Clicking 'more' at right side: ({click_x}, {click_y}) - bounds: [{left},{top}][{right},{bottom}]")
-                            self.device.click(click_x, click_y)
-                            self._human_like_delay('click')
-                            self.logger.debug("Clicked 'more' button to expand bio (right-side click)")
-                            return True
-                    except Exception as e:
-                        self.logger.debug(f"Could not get bounds for right-side click: {e}, falling back to center click")
-                    
-                    # Fallback: center click (may trigger @username links)
+                if not element.exists:
+                    continue
+
+                info = element.info
+                bounds = info.get('bounds', {})
+                text = info.get('text', '')
+
+                if not bounds:
+                    # No bounds info — fall back to element center click
                     element.click()
-                    self.logger.debug("Clicked 'more' button to expand bio (center click fallback)")
+                    self.logger.debug("Clicked 'more' (no bounds, center fallback)")
                     return True
-            
+
+                left   = bounds.get('left', 0)
+                right  = bounds.get('right', 0)
+                top    = bounds.get('top', 0)
+                bottom = bounds.get('bottom', 0)
+
+                # Count lines from actual text (strip to ignore leading/trailing \n)
+                num_lines = max(len(text.strip().split('\n')), 1)
+                height = bottom - top
+                line_height = height / num_lines
+
+                # '… more' is the last line → click its vertical center
+                click_y = int(bottom - line_height / 2)
+                # '… more' starts near the left edge of the last line
+                click_x = left + int((right - left) * 0.25)
+
+                self.logger.debug(
+                    f"Clicking '… more': ({click_x}, {click_y}), "
+                    f"bounds=[{left},{top}][{right},{bottom}], "
+                    f"lines={num_lines}, line_height={line_height:.0f}px"
+                )
+                self.device.click_coordinates(click_x, click_y)
+                self._human_like_delay('click')
+                return True
+
             return False
-            
+
         except Exception as e:
             self.logger.error(f"Error clicking bio more button: {e}")
             return False

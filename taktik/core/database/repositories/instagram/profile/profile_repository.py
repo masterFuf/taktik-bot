@@ -30,8 +30,8 @@ class ProfileRepository(BaseRepository):
             """INSERT INTO instagram_profiles (
                 username, full_name, biography, followers_count, following_count,
                 posts_count, is_private, is_verified, is_business, business_category,
-                website, profile_pic_path, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                website, profile_pic_path, notes, account_based_in, date_joined
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 username,
                 kwargs.get('full_name', ''),
@@ -45,7 +45,9 @@ class ProfileRepository(BaseRepository):
                 kwargs.get('business_category'),
                 kwargs.get('website'),
                 kwargs.get('profile_pic_path'),
-                kwargs.get('notes')
+                kwargs.get('notes'),
+                kwargs.get('account_based_in'),
+                kwargs.get('date_joined')
             )
         )
         
@@ -65,7 +67,9 @@ class ProfileRepository(BaseRepository):
             'business_category': 'business_category',
             'website': 'website',
             'profile_pic_path': 'profile_pic_path',
-            'notes': 'notes'
+            'notes': 'notes',
+            'account_based_in': 'account_based_in',
+            'date_joined': 'date_joined',
         }
         
         for key, column in field_mapping.items():
