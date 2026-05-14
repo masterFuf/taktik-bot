@@ -395,7 +395,7 @@ class DatabaseHelpers:
         # Normaliser: lowercase, strip, premiers 100 chars
         normalized = caption.lower().strip()[:100]
         # Hash MD5 tronqué à 16 chars
-        return hashlib.md5(normalized.encode('utf-8')).hexdigest()[:16]
+        return hashlib.sha256(normalized.encode('utf-8')).hexdigest()[:16]
 
     # ============================================
     # FOLLOWING SYNC HELPERS

@@ -88,7 +88,7 @@ class InstagramCDNCapture:
     
     def _hash_url(self, url: str) -> str:
         """Create a short hash for deduplication."""
-        return hashlib.md5(url.encode()).hexdigest()[:12]
+        return hashlib.sha256(url.encode()).hexdigest()[:12]
     
     def response(self, flow: http.HTTPFlow):
         """Process HTTP responses."""

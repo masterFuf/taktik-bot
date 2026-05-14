@@ -109,7 +109,7 @@ class SentDMService:
                 )
             """)
 
-            message_hash = hashlib.md5(message.encode()).hexdigest() if message else None
+            message_hash = hashlib.sha256(message.encode()).hexdigest() if message else None
 
             cursor.execute("""
                 INSERT OR REPLACE INTO sent_dms (account_id, recipient_username, message_hash, success, error_message, session_id, platform)
