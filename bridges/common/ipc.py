@@ -363,6 +363,13 @@ class IPC:
             data["stats"] = stats
         self.send("agent_status", **data)
 
+    def strategy_switch(self, from_strategy: str, to_strategy: str, hashtag: str = None) -> None:
+        """Signal that the agent is switching engagement strategy (feed ↔ hashtag)."""
+        data = dict(from_strategy=from_strategy, to_strategy=to_strategy, workflow_type="taktik_agent")
+        if hashtag:
+            data["hashtag"] = hashtag
+        self.send("strategy_switch", **data)
+
     def ai_error(self, error: str, username: str = None) -> None:
         """Signal an AI processing error."""
         self.send("ai_error", error=error, target_username=username, workflow_type="automation")
