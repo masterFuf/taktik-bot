@@ -4,7 +4,7 @@
 **Auditeur :** Cascade (IA)  
 **Version analysée :** 1.1.6  
 **Périmètre :** Projet Python `taktik-desktop/bot` (~770 fichiers Python, ~120k lignes)  
-**Dernière mise à jour :** 14 mai 2026 — Sprint 1 appliqué ✅
+**Dernière mise à jour :** 15 mai 2026 — Sprint 3 appliqué ✅ (Sprint 1, 2, 3 complétés)
 
 ---
 
@@ -21,6 +21,32 @@
 | 6 | `mitm_addon.py`, `database.py`, `database_helpers.py` | ✅ `hashlib.md5` → `hashlib.sha256` (3 occurrences) |
 | 7 | `requirements.txt` → `requirements-media.txt` | ✅ `mitmproxy` et `frida-tools` déplacés en dépendances optionnelles |
 | 8 | `test_close_comment_popup.py` | ✅ Déplacé de la racine vers `experiments/` |
+
+---
+
+## ✅ SPRINT 2 — CORRECTIONS APPLIQUÉES (14 mai 2026)
+
+| # | Fichier(s) | Correction |
+|---|---|---|
+| 1 | `taktik/core/database/local/schema.py` *(nouveau)* | ✅ Tous les DDL `CREATE TABLE IF NOT EXISTS` extraits de `service.py` |
+| 2 | `taktik/core/database/local/migrations.py` *(nouveau)* | ✅ Toutes les migrations `ALTER TABLE` extraites + `_validate_sql_identifier()` |
+| 3 | `pytest.ini`, `tests/unit/conftest.py`, `tests/unit/__init__.py` | ✅ Infrastructure de test mise en place |
+| 4 | `tests/unit/test_db_service.py`, `test_db_tiktok.py` | ✅ 60 tests unitaires sur la DB, tous passants en ~3s |
+| 5 | `requirements.lock` | ✅ Lock file généré via `pip-compile --strip-extras` (152 dépendances épinglées) |
+
+---
+
+## ✅ SPRINT 3 — CORRECTIONS APPLIQUÉES (15 mai 2026)
+
+| # | Fichier(s) | Correction |
+|---|---|---|
+| 1 | `taktik/cli/context.py` *(nouveau)* | ✅ État partagé des traductions (`get_translations` / `update_language_state`) sans imports circulaires |
+| 2 | `taktik/cli/prompts/instagram.py` *(nouveau, 443 lignes)* | ✅ Workflows interaction Instagram extraits de `main.py` |
+| 3 | `taktik/cli/prompts/scraping.py` *(nouveau, 260 lignes)* | ✅ Workflows scraping extraits de `main.py` |
+| 4 | `taktik/cli/prompts/outreach.py` *(nouveau, 273 lignes)* | ✅ Cold DM / auto-reply / discovery extraits de `main.py` |
+| 5 | `taktik/cli/commands/management_cmds.py` *(nouveau, 978 lignes)* | ✅ Groupe Click `management` (auth, dm, content) extrait de `main.py` |
+| 6 | `taktik/cli/main.py` | ✅ Réduit de 2787 → 896 lignes (−68%) |
+| 7 | `taktik/cli/prompts/outreach.py` | ✅ Fix bug pré-existant : `generate_discovery_workflow` manquait `from datetime import datetime` |
 
 ---
 ## 📊 SYNTHÈSE EXÉCUTIVE
@@ -43,12 +69,12 @@
 2. ~~**Clés API OpenRouter stockées en clair en DB**~~ ✅ **CORRIGÉ** — `_redact_sensitive()` avant toute sérialisation
 3. ~~**`cursor.execute(f"...")` sans validation**~~ ✅ **CORRIGÉ** — `_validate_sql_identifier()` sur les identifiants dynamiques
 4. ~~**68 `except:` bare**~~ ✅ **CORRIGÉ** — tous remplacés par `except Exception:`
-5. **`taktik/cli/main.py` : 131KB / 2788 lignes** — Anti-pattern God Object total *(Sprint 2)*
+5. ~~**`taktik/cli/main.py` : 131KB / 2788 lignes**~~ ✅ **CORRIGÉ** — Découpé en 5 modules (896 lignes restantes)
 
 **Problèmes restants haute priorité :**
 - `taktik/core/security/protection.py` — module leurre (à documenter ou supprimer)
-- God Objects : ~~`main.py` (131KB)~~✅, `service.py` (98KB), `smart_comment_bridge.py` (87KB)
-- 0 tests unitaires réels
+- God Objects restants : `smart_comment_bridge.py` (87KB), `dm_bridge.py` → Sprint 4
+- ~~`main.py` (131KB)~~✅ ~~`service.py` (98KB)~~✅ ~~0 tests~~✅
 
 ---
 
