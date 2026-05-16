@@ -32,7 +32,10 @@ class FeedSelectors:
     
     # === Indicateurs de Reel dans le feed ===
     reel_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Reel")]',
+        '//*[contains(@content-desc, "Reel de")]',
+        '//*[contains(@content-desc, "Reel by")]',
+        '//*[contains(@content-desc, "Réel de")]',
+        # NOTE: "//*[contains(@content-desc, "Reel")]" trop large — matche le bouton nav "Reels" (toujours présent)
         # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     

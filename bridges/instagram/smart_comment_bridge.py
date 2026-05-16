@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Smart Comment Bridge for TAKTIK Desktop
 AI-powered comment reply marketing system.
@@ -435,7 +435,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                             self.post_context.likes_count = count
                         elif left < 500 and self.post_context.comments_count == 0:
                             self.post_context.comments_count = count
-                except:
+                except Exception:
                     continue
 
         except Exception as e:
@@ -554,7 +554,7 @@ class SmartCommentBridge(InstagramBridgeBase):
             try:
                 self.device.press("back")
                 time.sleep(0.5)
-            except:
+            except Exception:
                 pass
             return ""
 
@@ -622,7 +622,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                         if title.exists and title.get_text() == "Comments":
                             logger.info("Comments page opened via count button")
                             return True
-            except:
+            except Exception:
                 continue
 
         logger.error("Could not open comments")
@@ -1086,7 +1086,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                             elem.click()
                             expanded = True
                             time.sleep(0.5)
-                    except:
+                    except Exception:
                         continue
 
             # Backup: find by descriptionContains
@@ -1103,7 +1103,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                                 elems[i].click()
                                 expanded = True
                                 time.sleep(0.5)
-                            except:
+                            except Exception:
                                 continue
 
         except Exception as e:
@@ -1387,7 +1387,7 @@ class SmartCommentBridge(InstagramBridgeBase):
             center_x = self.screen_width // 2
             start_y = top + int((bottom - top) * 0.2)
             end_y = top + int((bottom - top) * 0.9)
-        except:
+        except Exception:
             center_x = self.screen_width // 2
             start_y = 200
             end_y = 600
@@ -1396,7 +1396,7 @@ class SmartCommentBridge(InstagramBridgeBase):
             try:
                 self.device.swipe(center_x, start_y, center_x, end_y, duration=0.1)
                 time.sleep(0.15)
-            except:
+            except Exception:
                 break
 
     def _type_with_taktik_keyboard(self, text: str) -> bool:
@@ -1664,7 +1664,7 @@ class SmartCommentBridge(InstagramBridgeBase):
             if title.exists:
                 title.click()
                 time.sleep(1)
-        except:
+        except Exception:
             pass
 
         time.sleep(1)
@@ -1929,7 +1929,7 @@ def main():
             if title.exists:
                 title.click()
                 time.sleep(1)
-        except:
+        except Exception:
             pass
 
         time.sleep(1)

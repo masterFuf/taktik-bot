@@ -1,4 +1,4 @@
-"""Likers and comments scraping for the Post Scraping workflow."""
+﻿"""Likers and comments scraping for the Post Scraping workflow."""
 
 import re
 import time
@@ -202,7 +202,7 @@ class PostEngagementScrapingMixin:
                                     
                                     if len(self.comments) >= self.max_comments:
                                         break
-                        except:
+                        except Exception:
                             continue
                     
                     # Check for "View X more reply" buttons
@@ -269,7 +269,7 @@ class PostEngagementScrapingMixin:
                     try:
                         btn.click()
                         time.sleep(0.5)
-                    except:
+                    except Exception:
                         pass
-        except:
+        except Exception:
             pass

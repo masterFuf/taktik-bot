@@ -1,4 +1,4 @@
-"""Text input — character-by-character human simulation + Taktik Keyboard management."""
+﻿"""Text input — character-by-character human simulation + Taktik Keyboard management."""
 
 import time
 import random
@@ -155,5 +155,5 @@ class TypingMixin:
                     return True
                 self.device.send_keys(text)
                 return True
-            except:
+            except Exception:
                 return False

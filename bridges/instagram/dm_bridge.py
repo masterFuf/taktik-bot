@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 DM Bridge for TAKTIK Desktop
 Unified bridge for reading and sending Instagram DM messages.
@@ -181,7 +181,7 @@ class DMBridge(InstagramBridgeBase):
                             item.click()
                             time.sleep(2)
                             return True
-            except:
+            except Exception:
                 continue
         return False
     
@@ -210,7 +210,7 @@ class DMBridge(InstagramBridgeBase):
                         elem.click()
                         time.sleep(2)
                         return True
-            except:
+            except Exception:
                 continue
         
         # Method 3: Try textContains with original username (handles exact text)
@@ -348,7 +348,7 @@ class DMBridge(InstagramBridgeBase):
                 elem = clickables[i]
                 info = elem.info
                 logger.info(f"Clickable {i}: {info.get('resourceId', '')} - {info.get('contentDescription', '')} - {info.get('className', '')}")
-        except:
+        except Exception:
             pass
         
         return False
@@ -376,7 +376,7 @@ class DMBridge(InstagramBridgeBase):
                     bounds = thread.info.get('bounds', {})
                     top = bounds.get('top', 0)
                     threads_with_pos.append((top, thread))
-                except:
+                except Exception:
                     continue
             threads_with_pos.sort(key=lambda x: x[0])
             
@@ -410,7 +410,7 @@ class DMBridge(InstagramBridgeBase):
                                         bounds.get('bottom', 0) <= thread_bounds.get('bottom', 0)):
                                         username = elem.get_text() or username
                                         break
-                    except:
+                    except Exception:
                         pass
                     
                     # Check if already processed (case-insensitive)
@@ -598,7 +598,7 @@ class DMBridge(InstagramBridgeBase):
                     'is_sent': not is_received,
                     'top': msg_top
                 })
-            except:
+            except Exception:
                 continue
         
         # Reels
@@ -622,7 +622,7 @@ class DMBridge(InstagramBridgeBase):
                             t_bounds.get('bottom', 0) <= reel_bounds.get('bottom', 0)):
                             reel_author = t.get_text() or ""
                             break
-                    except:
+                    except Exception:
                         continue
                 
                 all_items.append({
@@ -631,7 +631,7 @@ class DMBridge(InstagramBridgeBase):
                     'is_sent': not is_received,
                     'top': reel_top
                 })
-            except:
+            except Exception:
                 continue
         
         # Sort all messages by position (top to bottom = chronological order)

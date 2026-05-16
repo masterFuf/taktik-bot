@@ -1,4 +1,4 @@
-"""DM Workflow for TikTok automation.
+﻿"""DM Workflow for TikTok automation.
 
 Dernière mise à jour: 7 janvier 2026
 Basé sur les UI dumps réels de TikTok.
@@ -274,7 +274,7 @@ class DMWorkflow(BaseTikTokWorkflow):
             # Try to go back to inbox
             try:
                 self.dm.go_back_to_inbox()
-            except:
+            except Exception:
                 pass
             
             return None
@@ -346,7 +346,7 @@ class DMWorkflow(BaseTikTokWorkflow):
             # Try to go back to inbox
             try:
                 self.dm.go_back_to_inbox()
-            except:
+            except Exception:
                 pass
             
             return False

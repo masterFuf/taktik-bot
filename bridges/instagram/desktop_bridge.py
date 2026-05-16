@@ -211,7 +211,8 @@ class DesktopBridge:
             api_key = self.ai_config.get('openrouterApiKey', '')
             if api_key and len(api_key) > 5:
                 from bridges.common.ai_service import AIService
-                self.ai_service = AIService(api_key=api_key, ipc=_ipc)
+                vision_model = self.ai_config.get('visionModel') or None
+                self.ai_service = AIService(api_key=api_key, ipc=_ipc, vision_model=vision_model)
                 send_log("info", "🤖 AI mode enabled — Smart Comments / Profile Analysis / Post Analysis")
             else:
                 send_log("warning", "AI mode requested but no OpenRouter API key provided")

@@ -173,8 +173,8 @@ class TikTokRepository(BaseRepository):
             cursor = self.execute(
                 """INSERT INTO tiktok_sessions (account_id, session_name, workflow_type, target, config_used)
                    VALUES (?, ?, ?, ?, ?)""",
-                (account_id, session_name, workflow_type, target, 
-                 json.dumps(config_used) if config_used else None)
+                (account_id, session_name, workflow_type, target,
+                 json.dumps(self._redact_sensitive(config_used)) if config_used else None)
             )
             return cursor.lastrowid
         except Exception as e:

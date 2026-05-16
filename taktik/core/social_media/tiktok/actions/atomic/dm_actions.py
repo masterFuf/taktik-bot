@@ -1,4 +1,4 @@
-"""Atomic DM actions for TikTok.
+﻿"""Atomic DM actions for TikTok.
 
 Actions pour la lecture et l'envoi de messages directs TikTok.
 
@@ -279,7 +279,7 @@ class DMActions(BaseAction):
             # Extract number from text like "29"
             try:
                 info['member_count'] = int(''.join(filter(str.isdigit, member_count_text)))
-            except:
+            except Exception:
                 info['member_count'] = None
         
         return info

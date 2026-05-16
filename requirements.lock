@@ -1,0 +1,152 @@
+adbutils==2.12.0
+    # via
+    #   -r requirements.txt
+    #   uiautomator2
+annotated-doc==0.0.4
+    # via typer
+annotated-types==0.7.0
+    # via pydantic
+black==26.3.1
+    # via -r requirements.txt
+certifi==2026.4.22
+    # via requests
+cffi==2.0.0
+    # via cryptography
+charset-normalizer==3.4.7
+    # via
+    #   reportlab
+    #   requests
+click==8.3.3
+    # via
+    #   -r requirements.txt
+    #   black
+    #   typer
+colorama==0.4.6
+    # via
+    #   click
+    #   loguru
+    #   pytest
+coverage==7.14.0
+    # via pytest-cov
+cryptography==48.0.0
+    # via -r requirements.txt
+decorator==5.2.1
+    # via retry2
+deprecation==2.1.0
+    # via adbutils
+exceptiongroup==1.3.1
+    # via pytest
+flake8==7.3.0
+    # via -r requirements.txt
+idna==3.15
+    # via requests
+iniconfig==2.3.0
+    # via pytest
+isort==8.0.1
+    # via -r requirements.txt
+loguru==0.7.3
+    # via -r requirements.txt
+lxml==6.1.0
+    # via uiautomator2
+markdown-it-py==4.2.0
+    # via rich
+mccabe==0.7.0
+    # via flake8
+mdurl==0.1.2
+    # via markdown-it-py
+mypy-extensions==1.1.0
+    # via black
+numpy==2.2.6
+    # via opencv-python
+opencv-python==4.13.0.92
+    # via -r requirements.txt
+packaging==26.2
+    # via
+    #   -r requirements.txt
+    #   black
+    #   deprecation
+    #   pytest
+pathspec==1.1.1
+    # via black
+pillow==12.2.0
+    # via
+    #   -r requirements.txt
+    #   adbutils
+    #   reportlab
+    #   uiautomator2
+platformdirs==4.9.6
+    # via black
+pluggy==1.6.0
+    # via
+    #   pytest
+    #   pytest-cov
+pure-python-adb==0.3.0.dev0
+    # via -r requirements.txt
+pycodestyle==2.14.0
+    # via flake8
+pycparser==3.0
+    # via cffi
+pydantic==2.13.4
+    # via -r requirements.txt
+pydantic-core==2.46.4
+    # via pydantic
+pyflakes==3.4.0
+    # via flake8
+pygments==2.20.0
+    # via
+    #   pytest
+    #   rich
+pytest==9.0.3
+    # via
+    #   -r requirements.txt
+    #   pytest-cov
+pytest-cov==7.1.0
+    # via -r requirements.txt
+python-dotenv==1.2.2
+    # via -r requirements.txt
+pytokens==0.4.1
+    # via black
+pyyaml==6.0.3
+    # via -r requirements.txt
+reportlab==4.5.1
+    # via -r requirements.txt
+requests==2.34.2
+    # via
+    #   -r requirements.txt
+    #   adbutils
+    #   uiautomator2
+retry2==0.9.5
+    # via
+    #   adbutils
+    #   uiautomator2
+rich==15.0.0
+    # via
+    #   -r requirements.txt
+    #   typer
+schedule==1.2.2
+    # via -r requirements.txt
+shellingham==1.5.4
+    # via typer
+tomli==2.4.1
+    # via
+    #   black
+    #   coverage
+    #   pytest
+typer==0.25.1
+    # via -r requirements.txt
+typing-extensions==4.15.0
+    # via
+    #   black
+    #   cryptography
+    #   exceptiongroup
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via pydantic
+uiautomator2==3.5.0
+    # via -r requirements.txt
+urllib3==2.7.0
+    # via requests
+win32-setctime==1.2.0
+    # via loguru

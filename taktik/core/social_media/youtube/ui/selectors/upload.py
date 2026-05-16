@@ -172,7 +172,7 @@ class UploadSelectors:
 
     # ── Visibility row on the details screen (opens visibility sub-screen) ───
     detail_row_visibility: List[str] = field(default_factory=lambda: [
-        # Text-based: most reliable
+        # Text-based: works when YouTube exposes @text on rows
         '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Visibilit") or contains(@text, "Visibility")]]',
         '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Priv") and not(contains(@text, "Description"))]]',
         '//android.view.ViewGroup[@clickable="true"][.//*[contains(@text, "Non list") or contains(@text, "Unlisted")]]',
@@ -180,20 +180,32 @@ class UploadSelectors:
         # content-desc
         '//*[contains(@content-desc, "visibilit")]',
         '//*[contains(@content-desc, "Visibility")]',
-        # Direct clickable rows of RecyclerView (description=[1], visibility=[2..])
+        # Positional: RecyclerView → outer container → clickable rows.
+        # From UI dump: clickable[1]=Visibilité, [2]=Lieu, [3]=Audience, [4]=Vidéo similaire.
+        # Visibilité is always the FIRST clickable row; use [1].
+        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[1]',
+        # Direct children fallback (layout variant without intermediate ViewGroup)
+        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[1]',
+        # Legacy higher indices kept as last resort (were incorrectly used before)
         '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[2]',
-        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[3]',
-        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[4]',
-        # Nested (higher indices to skip title-row inner sub-elements)
-        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[4]',
-        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[5]',
-        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[6]',
+        '(//android.support.v7.widget.RecyclerView/android.view.ViewGroup/android.view.ViewGroup[@clickable="true"])[2]',
     ])
 
-    # Indicator that we've landed on the visibility sub-screen
+    # Indicator that we've landed on the visibility sub-screen.
+    # The back button in this screen header has content-desc="Retour" (FR) or "Back" (EN),
+    # which is distinct from the Add Details back button ("Revenir en haut de la page").
     visibility_screen_indicator: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="Retour"]',
+        '//*[@content-desc="Back"]',
         '//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"]',
         f'//*[@resource-id="{YOUTUBE_PACKAGE}:id/accessibility_layer_container"]',
+    ])
+
+    # Back button on the Set Visibility screen (header, next to "Définir la visibilité").
+    # Confirmed from XML dump: content-desc="Retour" (FR), "Back" (EN).
+    visibility_back_button: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="Retour"]',
+        '//*[@content-desc="Back"]',
     ])
 
     # Audience/kids sub-screen detector — if present we opened the WRONG row
@@ -205,12 +217,40 @@ class UploadSelectors:
     ])
 
     # Visibility options inside the visibility sub-screen.
-    # YouTube standard order: Public (1st row shown), Unlisted (2nd), Private (3rd).
-    # The rows have no accessible text — ordered XPath within the ScrollView.
-    visibility_row: Dict[str, str] = field(default_factory=lambda: {
-        "public":   '(//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"])[2]',
-        "unlisted": '(//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"])[3]',
-        "private":  '(//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"])[4]',
+    # YouTube does NOT expose text/content-desc for these rows — position only.
+    #
+    # Confirmed structure (Samsung Galaxy A80Pro, Android 9, YouTube FR):
+    #   ScrollView
+    #     ViewGroup (not-clickable)
+    #       ViewGroup [clickable, index=0]  → currently-selected indicator (with checkmark)
+    #       ViewGroup [NOT clickable, index=1]  → wrapper for the 3 option rows
+    #         ViewGroup [clickable, index=0]  → Public
+    #         ViewGroup [clickable, index=1]  → Non répertorié / Unlisted
+    #         ViewGroup [clickable, index=2]  → Privé / Private
+    #       ViewGroup [clickable, index=2]  → extra row (Members / Scheduled)
+    #
+    # Primary selector: descend into the non-clickable wrapper specifically so [1..3]
+    # refer only to the 3 standard options (not the header or extra row).
+    # Fallback: position-based with // (may be off if YouTube version differs).
+    visibility_row: Dict[str, List[str]] = field(default_factory=lambda: {
+        "public": [
+            '(//android.widget.ScrollView/android.view.ViewGroup'
+            '/android.view.ViewGroup[@clickable="false"]'
+            '/android.view.ViewGroup[@clickable="true"])[1]',
+            '(//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"])[2]',
+        ],
+        "unlisted": [
+            '(//android.widget.ScrollView/android.view.ViewGroup'
+            '/android.view.ViewGroup[@clickable="false"]'
+            '/android.view.ViewGroup[@clickable="true"])[2]',
+            '(//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"])[3]',
+        ],
+        "private": [
+            '(//android.widget.ScrollView/android.view.ViewGroup'
+            '/android.view.ViewGroup[@clickable="false"]'
+            '/android.view.ViewGroup[@clickable="true"])[3]',
+            '(//android.widget.ScrollView//android.view.ViewGroup[@clickable="true"])[4]',
+        ],
     })
 
     # ── Final upload / post button ────────────────────────────────────────────

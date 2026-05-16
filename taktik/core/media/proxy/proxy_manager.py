@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Proxy Manager for mitmproxy + Frida SSL bypass.
 Manages the interception infrastructure for capturing Instagram media.
@@ -324,7 +324,7 @@ class ProxyManager:
             try:
                 self.frida_process.terminate()
                 self.frida_process.wait(timeout=5)
-            except:
+            except Exception:
                 self.frida_process.kill()
             self.frida_process = None
         
@@ -333,7 +333,7 @@ class ProxyManager:
             try:
                 self.mitm_process.terminate()
                 self.mitm_process.wait(timeout=5)
-            except:
+            except Exception:
                 self.mitm_process.kill()
             self.mitm_process = None
         

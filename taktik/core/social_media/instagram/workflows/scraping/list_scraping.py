@@ -1,4 +1,4 @@
-"""List scraping, hashtag scraping, and post URL scraping for the Scraping workflow."""
+﻿"""List scraping, hashtag scraping, and post URL scraping for the Scraping workflow."""
 
 import time
 from datetime import datetime
@@ -152,13 +152,20 @@ class ScrapingListMixin:
                             self.device.press("back")
                             time.sleep(1)
                             
+                            # Safety: if not back on the followers list, press back again
+                            # (can happen if Instagram opened a nested screen, e.g. story → profile)
+                            if not self.detection_actions.is_followers_list_open():
+                                self.logger.debug("⚠️ Not on followers list after back press - pressing back once more")
+                                self.device.press("back")
+                                time.sleep(1)
+                            
                         except Exception as e:
                             self.logger.warning(f"Failed to enrich @{username}: {e}")
                             # Try to go back anyway
                             try:
                                 self.device.press("back")
                                 time.sleep(0.5)
-                            except:
+                            except Exception:
                                 pass
                     
                     scraped.append(profile_data)
@@ -180,11 +187,33 @@ class ScrapingListMixin:
                     
                     if len(scraped) >= max_count:
                         break
+                    
+                    # When enriching on-the-fly, navigating away and back makes
+                    # all remaining elements in `visible` stale (their cached bounds
+                    # now point to the wrong UI nodes after the followers list reloads).
+                    # Break so the outer while loop re-fetches fresh elements.
+                    if enrich_on_the_fly:
+                        break
+                
+                # Check if there are still unprocessed profiles in the current visible set.
+                # In enrich_on_the_fly mode we process one profile per outer loop iteration
+                # (break after each to avoid stale element refs). We must NOT scroll until
+                # every currently visible profile has been processed.
+                has_unprocessed_visible = any(
+                    f.get('username') and f.get('username') not in seen_usernames
+                    for f in visible
+                )
                 
                 # Notify scroll detector
                 scroll_detector.notify_new_page(list(seen_usernames))
                 
                 if new_count == 0:
+                    # Check if there's a "See more" / "Load more" button before giving up
+                    if self.scroll_actions.check_and_click_load_more():
+                        self.logger.info("✅ Clicked 'See more' - waiting for new followers to load")
+                        time.sleep(2.0)
+                        continue  # Re-process without counting as a failed scroll
+
                     no_new_users_count += 1
                     self.logger.debug(f"No new users found ({no_new_users_count}/{max_no_new_users})")
                     
@@ -239,18 +268,22 @@ class ScrapingListMixin:
                 else:
                     # Reset counter when we find new users
                     no_new_users_count = 0
-                    # Scroll down to reveal more followers
-                    self.scroll_actions.scroll_followers_list_down()
-                    
-                    # Wait for Instagram to finish loading (detect spinner)
-                    max_loading_wait = 10  # Max 10 seconds waiting for loading
-                    for _ in range(max_loading_wait):
-                        time.sleep(1.0)
-                        if not self.detection_actions.is_loading_spinner_visible():
-                            self.logger.debug("✅ Loading complete, continuing...")
-                            break
-                    else:
-                        self.logger.debug("⏳ Loading timeout, continuing anyway...")
+                    # Only scroll when all currently visible profiles have been processed.
+                    # In enrich_on_the_fly mode we break after each profile and re-fetch,
+                    # so visible may still contain unprocessed profiles — don't scroll yet.
+                    if not has_unprocessed_visible:
+                        # Scroll down to reveal more followers
+                        self.scroll_actions.scroll_followers_list_down()
+                        
+                        # Wait for Instagram to finish loading (detect spinner)
+                        max_loading_wait = 10  # Max 10 seconds waiting for loading
+                        for _ in range(max_loading_wait):
+                            time.sleep(1.0)
+                            if not self.detection_actions.is_loading_spinner_visible():
+                                self.logger.debug("✅ Loading complete, continuing...")
+                                break
+                        else:
+                            self.logger.debug("⏳ Loading timeout, continuing anyway...")
         
         # Log final count vs expected
         if total_available and len(scraped) < total_available:
@@ -272,6 +305,7 @@ class ScrapingListMixin:
                 result = self._ai_service.classify_profile_niche(
                     username=username,
                     screenshot_path=screenshot_path,
+                    profile_context=profile,
                 )
             except Exception as e:
                 self.logger.warning(f"Vision classification failed for @{username}: {e}")
@@ -292,6 +326,19 @@ class ScrapingListMixin:
                 self.logger.info(f"🤖 @{username}: {analysis}")
                 # No score in scraping mode — store niche classification in ai_analysis
                 self._update_scraped_profile_ai(profile_id, None, True, analysis)
+                # Save cities extracted from bio
+                cities_raw = c.get('cities', [])
+                if isinstance(cities_raw, str):
+                    cities_raw = [cities_raw] if cities_raw.strip() else []
+                cities = [s.strip() for s in cities_raw if s.strip()]
+                if cities:
+                    city_str = ', '.join(cities)
+                    try:
+                        from taktik.core.database.local.service import get_local_database
+                        get_local_database().update_profile_city(profile_id, city_str)
+                        self.logger.info(f"📍 @{username}: cities={city_str}")
+                    except Exception as e:
+                        self.logger.debug(f"Could not save cities for @{username}: {e}")
             return
 
         # ── Text-based fallback (no screenshot available) ────────────────────────

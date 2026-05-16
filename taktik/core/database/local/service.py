@@ -21,6 +21,14 @@ from ..repositories import (
     DiscoveryRepository,
     TikTokRepository
 )
+from ..repositories._base.base_repository import BaseRepository
+
+# Convenience alias for redacting sensitive keys before DB storage
+_redact_sensitive = BaseRepository._redact_sensitive
+
+# Schema DDL and incremental migrations live in their own modules
+from .schema import create_schema
+from .migrations import run_migrations
 
 
 class LocalDatabaseService:
@@ -40,8 +48,13 @@ class LocalDatabaseService:
         """
         if db_path:
             self.db_path = db_path
+        elif os.environ.get('TAKTIK_DB_PATH'):
+            # Electron injects the exact path it uses so both sides hit the same file.
+            # This handles packaged builds where app.getPath('userData') differs from
+            # the hardcoded 'taktik-desktop' folder name.
+            self.db_path = os.environ['TAKTIK_DB_PATH']
         else:
-            # Use same location as Electron app
+            # Fallback for standalone / dev runs without Electron
             appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
             self.db_path = os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
         
@@ -141,701 +154,11 @@ class LocalDatabaseService:
     
     def _create_tables(self) -> None:
         """Create all required tables if they don't exist."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Instagram Accounts
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS instagram_accounts (
-                account_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                is_bot INTEGER DEFAULT 1,
-                user_id INTEGER,
-                license_id INTEGER,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        
-        # Instagram Profiles
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS instagram_profiles (
-                profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                full_name TEXT DEFAULT '',
-                biography TEXT,
-                followers_count INTEGER DEFAULT 0,
-                following_count INTEGER DEFAULT 0,
-                posts_count INTEGER DEFAULT 0,
-                is_private INTEGER DEFAULT 0,
-                is_verified INTEGER DEFAULT 0,
-                is_business INTEGER DEFAULT 0,
-                business_category TEXT,
-                website TEXT,
-                linked_accounts TEXT,
-                profile_pic_path TEXT,
-                notes TEXT,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        
-        # Interaction History
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS interaction_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id INTEGER,
-                account_id INTEGER NOT NULL,
-                profile_id INTEGER NOT NULL,
-                interaction_type TEXT NOT NULL,
-                interaction_time TEXT DEFAULT (datetime('now')),
-                success INTEGER DEFAULT 1,
-                content TEXT,
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # Filtered Profiles
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS filtered_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id INTEGER NOT NULL,
-                account_id INTEGER NOT NULL,
-                username TEXT NOT NULL,
-                filtered_at TEXT DEFAULT (datetime('now')),
-                reason TEXT,
-                source_type TEXT DEFAULT 'GENERAL',
-                source_name TEXT DEFAULT 'unknown',
-                session_id INTEGER,
-                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(profile_id, account_id)
-            )
-        """)
-        
-        # Sessions
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sessions (
-                session_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                session_name TEXT NOT NULL,
-                target_type TEXT NOT NULL,
-                target TEXT NOT NULL,
-                start_time TEXT DEFAULT (datetime('now')),
-                end_time TEXT,
-                duration_seconds INTEGER DEFAULT 0,
-                config_used TEXT,
-                status TEXT DEFAULT 'ACTIVE',
-                error_message TEXT,
-                synced_to_api INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # Profile Stats History
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS profile_stats_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id INTEGER NOT NULL,
-                followers_count INTEGER NOT NULL,
-                following_count INTEGER NOT NULL,
-                posts_count INTEGER NOT NULL,
-                engagement_rate REAL,
-                is_verified INTEGER,
-                biography TEXT,
-                external_url TEXT,
-                profile_pic_url TEXT,
-                recorded_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # Instagram Posts
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS instagram_posts (
-                post_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id INTEGER NOT NULL,
-                account_id INTEGER,
-                source TEXT DEFAULT 'SCRAPED',
-                instagram_post_id TEXT UNIQUE,
-                instagram_id TEXT,
-                media_type TEXT NOT NULL,
-                is_video INTEGER DEFAULT 0,
-                caption TEXT,
-                media_urls TEXT,
-                thumbnail_url TEXT,
-                video_url TEXT,
-                likes_count INTEGER DEFAULT 0,
-                comments_count INTEGER DEFAULT 0,
-                views_count INTEGER DEFAULT 0,
-                posted_at TEXT,
-                scraped_at TEXT,
-                hashtags TEXT,
-                mentions TEXT,
-                tagged_users TEXT,
-                location TEXT,
-                location_data TEXT,
-                coauthors TEXT,
-                status TEXT DEFAULT 'DRAFT',
-                scheduled_for TEXT,
-                published_at TEXT,
-                error_message TEXT,
-                retry_count INTEGER DEFAULT 0,
-                dimensions TEXT,
-                product_type TEXT,
-                accessibility_caption TEXT,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # Scraping Sessions
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS scraping_sessions (
-                scraping_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER,
-                scraping_type TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                source_name TEXT NOT NULL,
-                total_scraped INTEGER DEFAULT 0,
-                max_profiles INTEGER DEFAULT 500,
-                export_csv INTEGER DEFAULT 0,
-                csv_path TEXT,
-                save_to_db INTEGER DEFAULT 1,
-                start_time TEXT DEFAULT (datetime('now')),
-                end_time TEXT,
-                duration_seconds INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'RUNNING',
-                error_message TEXT,
-                config_used TEXT,
-                discovery_campaign_id INTEGER,
-                platform TEXT DEFAULT 'instagram',
-                created_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL,
-                FOREIGN KEY (discovery_campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE SET NULL
-            )
-        """)
-        
-        # Processed Hashtag Posts (to avoid re-processing same posts)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS processed_hashtag_posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                hashtag TEXT NOT NULL,
-                post_author TEXT NOT NULL,
-                post_caption_hash TEXT,
-                post_caption_preview TEXT,
-                likes_count INTEGER,
-                comments_count INTEGER,
-                likers_processed INTEGER DEFAULT 0,
-                interactions_made INTEGER DEFAULT 0,
-                processed_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(account_id, hashtag, post_author, post_caption_hash)
-            )
-        """)
-        
-        # Daily Stats (for API sync)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS daily_stats (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                date TEXT NOT NULL,
-                total_likes INTEGER DEFAULT 0,
-                total_follows INTEGER DEFAULT 0,
-                total_unfollows INTEGER DEFAULT 0,
-                total_comments INTEGER DEFAULT 0,
-                total_story_views INTEGER DEFAULT 0,
-                total_story_likes INTEGER DEFAULT 0,
-                total_profile_visits INTEGER DEFAULT 0,
-                total_sessions INTEGER DEFAULT 0,
-                completed_sessions INTEGER DEFAULT 0,
-                failed_sessions INTEGER DEFAULT 0,
-                total_duration_seconds INTEGER DEFAULT 0,
-                synced_to_api INTEGER DEFAULT 0,
-                synced_at TEXT,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(account_id, date)
-            )
-        """)
-
-        # Following Sync — incremental cache of the account's following list
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS following_sync (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                username TEXT NOT NULL,
-                display_name TEXT DEFAULT '',
-                first_seen_at TEXT DEFAULT (datetime('now')),
-                last_seen_at TEXT DEFAULT (datetime('now')),
-                is_follower_back INTEGER DEFAULT NULL,
-                followed_by_bot INTEGER DEFAULT 0,
-                unfollowed_at TEXT DEFAULT NULL,
-                source TEXT DEFAULT 'sync',
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(account_id, username)
-            )
-        """)
-        
-        # Followers Sync — incremental cache of who follows this account
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS followers_sync (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                username TEXT NOT NULL,
-                display_name TEXT DEFAULT '',
-                first_seen_at TEXT DEFAULT (datetime('now')),
-                last_seen_at TEXT DEFAULT (datetime('now')),
-                is_following_back INTEGER DEFAULT NULL,
-                source TEXT DEFAULT 'sync',
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(account_id, username)
-            )
-        """)
-
-        # ============================================
-        # TIKTOK TABLES
-        # ============================================
-        
-        # TikTok Accounts
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_accounts (
-                account_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                display_name TEXT,
-                is_bot INTEGER DEFAULT 1,
-                user_id INTEGER,
-                license_id INTEGER,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        
-        # TikTok Profiles (users we interact with)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_profiles (
-                profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                display_name TEXT DEFAULT '',
-                followers_count INTEGER DEFAULT 0,
-                following_count INTEGER DEFAULT 0,
-                likes_count INTEGER DEFAULT 0,
-                videos_count INTEGER DEFAULT 0,
-                is_private INTEGER DEFAULT 0,
-                is_verified INTEGER DEFAULT 0,
-                biography TEXT,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        
-        # TikTok Interaction History
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_interaction_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id INTEGER,
-                account_id INTEGER NOT NULL,
-                profile_id INTEGER NOT NULL,
-                interaction_type TEXT NOT NULL,
-                interaction_time TEXT DEFAULT (datetime('now')),
-                success INTEGER DEFAULT 1,
-                content TEXT,
-                video_id TEXT,
-                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
-                FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # TikTok Sessions
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_sessions (
-                session_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                session_name TEXT NOT NULL,
-                workflow_type TEXT NOT NULL,
-                target TEXT,
-                start_time TEXT DEFAULT (datetime('now')),
-                end_time TEXT,
-                duration_seconds INTEGER DEFAULT 0,
-                config_used TEXT,
-                status TEXT DEFAULT 'ACTIVE',
-                profiles_visited INTEGER DEFAULT 0,
-                posts_watched INTEGER DEFAULT 0,
-                likes INTEGER DEFAULT 0,
-                follows INTEGER DEFAULT 0,
-                favorites INTEGER DEFAULT 0,
-                comments INTEGER DEFAULT 0,
-                shares INTEGER DEFAULT 0,
-                errors INTEGER DEFAULT 0,
-                error_message TEXT,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # TikTok Filtered Profiles (profiles to skip)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_filtered_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                profile_id INTEGER NOT NULL,
-                account_id INTEGER NOT NULL,
-                username TEXT NOT NULL,
-                filtered_at TEXT DEFAULT (datetime('now')),
-                reason TEXT,
-                source_type TEXT DEFAULT 'GENERAL',
-                source_name TEXT DEFAULT 'unknown',
-                session_id INTEGER,
-                FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
-                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(profile_id, account_id)
-            )
-        """)
-        
-        # TikTok Daily Stats
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tiktok_daily_stats (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER NOT NULL,
-                date TEXT NOT NULL,
-                total_likes INTEGER DEFAULT 0,
-                total_follows INTEGER DEFAULT 0,
-                total_favorites INTEGER DEFAULT 0,
-                total_comments INTEGER DEFAULT 0,
-                total_shares INTEGER DEFAULT 0,
-                total_profile_visits INTEGER DEFAULT 0,
-                total_posts_watched INTEGER DEFAULT 0,
-                total_sessions INTEGER DEFAULT 0,
-                completed_sessions INTEGER DEFAULT 0,
-                failed_sessions INTEGER DEFAULT 0,
-                total_duration_seconds INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
-                UNIQUE(account_id, date)
-            )
-        """)
-        
-        # ============================================
-        # DISCOVERY TABLES
-        # ============================================
-        
-        # Discovery Campaigns
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS discovery_campaigns (
-                campaign_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_id INTEGER,
-                name TEXT NOT NULL,
-                niche_keywords TEXT DEFAULT '[]',
-                target_hashtags TEXT DEFAULT '[]',
-                target_accounts TEXT DEFAULT '[]',
-                target_post_urls TEXT DEFAULT '[]',
-                total_discovered INTEGER DEFAULT 0,
-                total_qualified INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'ACTIVE',
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL
-            )
-        """)
-        
-        # Discovery Progress (for resume capability)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS discovery_progress (
-                progress_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                campaign_id INTEGER NOT NULL,
-                source_type TEXT NOT NULL,
-                source_value TEXT NOT NULL,
-                current_post_index INTEGER DEFAULT 0,
-                total_posts INTEGER DEFAULT 0,
-                current_phase TEXT DEFAULT 'profile',
-                likers_scraped INTEGER DEFAULT 0,
-                likers_total INTEGER DEFAULT 0,
-                comments_scraped INTEGER DEFAULT 0,
-                comments_total INTEGER DEFAULT 0,
-                last_scroll_position TEXT DEFAULT '{}',
-                status TEXT DEFAULT 'pending',
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE CASCADE,
-                UNIQUE(campaign_id, source_type, source_value)
-            )
-        """)
-        
-        # Discovered Profiles
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS discovered_profiles (
-                profile_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                campaign_id INTEGER NOT NULL,
-                username TEXT NOT NULL,
-                source_type TEXT,
-                source_name TEXT,
-                biography TEXT,
-                followers_count INTEGER DEFAULT 0,
-                following_count INTEGER DEFAULT 0,
-                posts_count INTEGER DEFAULT 0,
-                is_private INTEGER DEFAULT 0,
-                is_verified INTEGER DEFAULT 0,
-                is_business INTEGER DEFAULT 0,
-                category TEXT,
-                engagement_score REAL,
-                ai_score REAL,
-                status TEXT DEFAULT 'new',
-                created_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (campaign_id) REFERENCES discovery_campaigns(campaign_id) ON DELETE CASCADE
-            )
-        """)
-        
-        # Scraped Profiles (junction table linking scraping sessions to profiles)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS scraped_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scraping_id INTEGER NOT NULL,
-                profile_id INTEGER NOT NULL,
-                scraped_at TEXT DEFAULT (datetime('now')),
-                ai_score INTEGER,
-                ai_qualified INTEGER DEFAULT 0,
-                ai_analysis TEXT,
-                qualification_criteria TEXT,
-                scored_at TEXT,
-                FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
-                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
-                UNIQUE(scraping_id, profile_id)
-            )
-        """)
-        
-        # Scraped Comments
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS scraped_comments (
-                comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scraping_session_id INTEGER,
-                profile_id INTEGER,
-                target_username TEXT,
-                post_url TEXT,
-                username TEXT NOT NULL,
-                content TEXT,
-                likes_count INTEGER DEFAULT 0,
-                is_reply INTEGER DEFAULT 0,
-                parent_comment_id INTEGER,
-                scraped_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (scraping_session_id) REFERENCES scraping_sessions(scraping_id) ON DELETE SET NULL,
-                FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL
-            )
-        """)
-        
-        # Add index for scraped_comments (indexes created in _run_migrations after columns are added)
-        
-        # Create indexes
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_username ON instagram_accounts(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_username ON instagram_profiles(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_session ON interaction_history(session_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_account ON interaction_history(account_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_time ON interaction_history(interaction_time)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_username ON filtered_profiles(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_stats_account_date ON daily_stats(account_id, date)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_status ON scraping_sessions(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_source ON scraping_sessions(source_type, source_name)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_processed_hashtag_posts_lookup ON processed_hashtag_posts(account_id, hashtag, post_author)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_session ON scraped_profiles(scraping_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_profile ON scraped_profiles(profile_id)")
-        
-        # TikTok indexes
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_accounts_username ON tiktok_accounts(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_profiles_username ON tiktok_profiles(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_session ON tiktok_interaction_history(session_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_account ON tiktok_interaction_history(account_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_time ON tiktok_interaction_history(interaction_time)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_account ON tiktok_sessions(account_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_status ON tiktok_sessions(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_account ON tiktok_filtered_profiles(account_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_username ON tiktok_filtered_profiles(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_daily_stats_account_date ON tiktok_daily_stats(account_id, date)")
-
-        # ============================================
-        # GMAIL ACCOUNTS (admin tool — OTP retrieval)
-        # ============================================
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS gmail_accounts (
-                account_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE,
-                device_id TEXT,
-                last_used_at TEXT,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_accounts_email ON gmail_accounts(email)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_gmail_accounts_device ON gmail_accounts(device_id)")
-
-        conn.commit()
+        create_schema(self._get_connection())
     
     def _run_migrations(self) -> None:
-        """Run migrations to add missing columns to existing tables."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Migration: Add missing columns to scraped_comments table
-        try:
-            cursor.execute("SELECT scraping_session_id FROM scraped_comments LIMIT 1")
-        except sqlite3.OperationalError:
-            # Column doesn't exist, add it
-            logger.info("Migration: Adding scraping_session_id to scraped_comments")
-            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN scraping_session_id INTEGER")
-        
-        try:
-            cursor.execute("SELECT profile_id FROM scraped_comments LIMIT 1")
-        except sqlite3.OperationalError:
-            logger.info("Migration: Adding profile_id to scraped_comments")
-            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN profile_id INTEGER")
-        
-        try:
-            cursor.execute("SELECT target_username FROM scraped_comments LIMIT 1")
-        except sqlite3.OperationalError:
-            logger.info("Migration: Adding target_username to scraped_comments")
-            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN target_username TEXT")
-        
-        try:
-            cursor.execute("SELECT is_reply FROM scraped_comments LIMIT 1")
-        except sqlite3.OperationalError:
-            logger.info("Migration: Adding is_reply to scraped_comments")
-            cursor.execute("ALTER TABLE scraped_comments ADD COLUMN is_reply INTEGER DEFAULT 0")
-        
-        # Create indexes if they don't exist (safe to run multiple times)
-        try:
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_session ON scraped_comments(scraping_session_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_username ON scraped_comments(username)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_target ON scraped_comments(target_username)")
-        except sqlite3.OperationalError:
-            pass  # Indexes might fail if columns don't exist yet
-        
-        # Migration: Add missing columns to instagram_profiles
-        for col_name, col_def in [
-            ("is_verified", "INTEGER DEFAULT 0"),
-            ("is_business", "INTEGER DEFAULT 0"),
-            ("business_category", "TEXT"),
-            ("website", "TEXT"),
-            ("linked_accounts", "TEXT"),
-            ("account_based_in", "TEXT"),
-            ("date_joined", "TEXT"),
-        ]:
-            try:
-                cursor.execute(f"SELECT {col_name} FROM instagram_profiles LIMIT 1")
-            except sqlite3.OperationalError:
-                logger.info(f"Migration: Adding {col_name} to instagram_profiles")
-                cursor.execute(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} {col_def}")
-        
-        # Migration: Add discovery_campaign_id to scraping_sessions
-        try:
-            cursor.execute("SELECT discovery_campaign_id FROM scraping_sessions LIMIT 1")
-        except sqlite3.OperationalError:
-            logger.info("Migration: Adding discovery_campaign_id to scraping_sessions")
-            cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN discovery_campaign_id INTEGER")
-        
-        # Migration: Add platform column to scraping_sessions
-        try:
-            cursor.execute("SELECT platform FROM scraping_sessions LIMIT 1")
-        except sqlite3.OperationalError:
-            logger.info("Migration: Adding platform to scraping_sessions")
-            cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN platform TEXT DEFAULT 'instagram'")
-        
-        # Migration: Add AI qualification columns to scraped_profiles
-        for col_name, col_def in [
-            ("ai_score", "INTEGER"),
-            ("ai_qualified", "INTEGER DEFAULT 0"),
-            ("ai_analysis", "TEXT"),
-            ("qualification_criteria", "TEXT"),
-            ("scored_at", "TEXT"),
-        ]:
-            try:
-                cursor.execute(f"SELECT {col_name} FROM scraped_profiles LIMIT 1")
-            except sqlite3.OperationalError:
-                logger.info(f"Migration: Adding {col_name} to scraped_profiles")
-                cursor.execute(f"ALTER TABLE scraped_profiles ADD COLUMN {col_name} {col_def}")
-        
-        # Create indexes for AI qualification
-        try:
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_qualified ON scraped_profiles(ai_qualified)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_score ON scraped_profiles(ai_score)")
-        except sqlite3.OperationalError:
-            pass
-        
-        # Migration: Migrate old tiktok_scraped_profiles data to tiktok_profiles
-        # This ensures profiles scraped before the architecture change are in the main table
-        try:
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tiktok_scraped_profiles'")
-            if cursor.fetchone():
-                # Check if old table has the old schema (with all profile data)
-                cursor.execute("PRAGMA table_info(tiktok_scraped_profiles)")
-                columns = [col[1] for col in cursor.fetchall()]
-                
-                if 'bio' in columns and 'followers_count' in columns:
-                    # Old schema detected - migrate data to tiktok_profiles
-                    logger.info("Migration: Migrating old tiktok_scraped_profiles data to tiktok_profiles")
-                    
-                    # Insert profiles that don't exist yet
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO tiktok_profiles 
-                            (username, display_name, followers_count, following_count, likes_count, 
-                             videos_count, biography, is_private, is_verified)
-                        SELECT DISTINCT 
-                            username, display_name, followers_count, following_count, likes_count,
-                            posts_count, bio, is_private, is_verified
-                        FROM tiktok_scraped_profiles
-                        WHERE username IS NOT NULL AND username != ''
-                    """)
-                    migrated = cursor.rowcount
-                    if migrated > 0:
-                        logger.info(f"Migration: Migrated {migrated} TikTok profiles to main table")
-                    
-                    # Now recreate tiktok_scraped_profiles as junction table
-                    # First, backup the scraping_id -> username mappings
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS _tiktok_scraped_profiles_backup AS
-                        SELECT scraping_id, username, is_enriched, scraped_at
-                        FROM tiktok_scraped_profiles
-                    """)
-                    
-                    # Drop old table
-                    cursor.execute("DROP TABLE IF EXISTS tiktok_scraped_profiles")
-                    
-                    # Create new junction table
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS tiktok_scraped_profiles (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            scraping_id INTEGER NOT NULL,
-                            profile_id INTEGER NOT NULL,
-                            is_enriched INTEGER DEFAULT 0,
-                            scraped_at TEXT DEFAULT (datetime('now')),
-                            FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
-                            FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
-                            UNIQUE(scraping_id, profile_id)
-                        )
-                    """)
-                    
-                    # Restore mappings using profile_id from tiktok_profiles
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO tiktok_scraped_profiles (scraping_id, profile_id, is_enriched, scraped_at)
-                        SELECT b.scraping_id, tp.profile_id, b.is_enriched, b.scraped_at
-                        FROM _tiktok_scraped_profiles_backup b
-                        JOIN tiktok_profiles tp ON tp.username = b.username
-                        WHERE b.scraping_id IS NOT NULL
-                    """)
-                    
-                    # Drop backup table
-                    cursor.execute("DROP TABLE IF EXISTS _tiktok_scraped_profiles_backup")
-                    
-                    logger.info("Migration: TikTok scraped profiles table converted to junction table")
-        except sqlite3.OperationalError as e:
-            logger.warning(f"Migration warning (tiktok_scraped_profiles): {e}")
-        
-        conn.commit()
+        """Run incremental migrations. Implementation lives in migrations.py."""
+        run_migrations(self._get_connection())
     
     def close(self) -> None:
         """Close the database connection."""
@@ -900,18 +223,16 @@ class LocalDatabaseService:
                 
                 # Insert enriched stats into profile_stats_history
                 cursor.execute("""
-                    INSERT INTO profile_stats_history 
-                    (profile_id, followers_count, following_count, posts_count, 
-                     is_verified, is_business, category, external_url, profile_pic_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO profile_stats_history
+                    (profile_id, followers_count, following_count, posts_count,
+                     is_verified, external_url, profile_pic_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     profile_id,
                     profile_data.get('followers_count', 0),
                     profile_data.get('following_count', 0),
                     profile_data.get('posts_count', 0),
                     1 if profile_data.get('is_verified') else 0,
-                    1 if profile_data.get('is_business') else 0,
-                    profile_data.get('category'),
                     profile_data.get('external_url'),
                     profile_data.get('profile_pic_url')
                 ))
@@ -1345,7 +666,7 @@ class LocalDatabaseService:
                 max_profiles,
                 1 if export_csv else 0,
                 1 if save_to_db else 0,
-                json.dumps(config) if config else None
+                json.dumps(_redact_sensitive(config)) if config else None
             ))
             conn.commit()
             
@@ -1479,6 +800,21 @@ class LocalDatabaseService:
             return cursor.rowcount > 0
         except Exception as e:
             logger.debug(f"Error updating AI score for profile {profile_id} / session {scraping_id}: {e}")
+            return False
+
+    def update_profile_city(self, profile_id: int, city: str) -> bool:
+        """Update the location_city field on an instagram_profiles row."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE instagram_profiles SET location_city = ? WHERE profile_id = ?",
+                (city, profile_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.debug(f"Error updating location_city for profile {profile_id}: {e}")
             return False
 
     def cleanup_orphan_sessions(self) -> int:
@@ -1634,7 +970,7 @@ class LocalDatabaseService:
             profile_id = None
             try:
                 profile_id, _ = self.get_or_create_profile({'username': username})
-            except:
+            except Exception:
                 pass
             
             cursor.execute("""
@@ -1982,7 +1318,7 @@ class LocalDatabaseService:
                 session_name[:100],
                 workflow_type,
                 target[:50] if target else None,
-                json.dumps(config_used) if config_used else None
+                json.dumps(_redact_sensitive(config_used)) if config_used else None
             ))
             conn.commit()
             

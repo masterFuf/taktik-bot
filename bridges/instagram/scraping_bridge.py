@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Scraping Bridge for TAKTIK Desktop
 Connects the Electron app to the Python scraping workflow
@@ -99,6 +99,7 @@ def main():
             scraping_config['ai_niche'] = ai_config.get('niche', '')
             scraping_config['ai_qualification_prompt'] = ai_config.get('qualificationPrompt', '')
             scraping_config['openrouter_api_key'] = ai_config.get('openrouterApiKey', '')
+            scraping_config['vision_model'] = ai_config.get('visionModel', '')
         else:
             scraping_config['ai_mode'] = False
 
@@ -123,7 +124,7 @@ def main():
     finally:
         try:
             connection.disconnect()
-        except:
+        except Exception:
             pass
 
 if __name__ == '__main__':

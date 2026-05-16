@@ -1,4 +1,4 @@
-"""Likers scraping for the Discovery workflow."""
+﻿"""Likers scraping for the Discovery workflow."""
 
 import time
 from typing import Dict, Any, Optional
@@ -138,7 +138,7 @@ class DiscoveryLikersScrapingMixin:
                         try:
                             self.device.press("back")
                             time.sleep(0.5)
-                        except:
+                        except Exception:
                             pass
                 
                 self.scraped_profiles.append(profile)
