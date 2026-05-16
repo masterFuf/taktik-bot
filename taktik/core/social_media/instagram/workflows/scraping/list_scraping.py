@@ -34,6 +34,8 @@ class ScrapingListMixin:
         seen_usernames = set()
         no_new_users_count = 0
         max_no_new_users = 5  # Stop after 5 consecutive scrolls with no new users
+        consecutive_empty_visible = 0  # Count consecutive scans returning 0 elements
+        max_consecutive_empty = 3  # After this many, check if still on followers list
         
         # Use actual available count for progress bar if provided
         progress_total = min(max_count, total_available) if total_available else max_count
@@ -78,15 +80,45 @@ class ScrapingListMixin:
                 visible = self.detection_actions.get_visible_followers_with_elements()
                 
                 if not visible:
+                    consecutive_empty_visible += 1
+
+                    # After a few consecutive empty scans, verify we're still on the
+                    # followers list. If not (e.g. bot got stuck on a profile's posts
+                    # grid after a failed back-navigation), attempt recovery.
+                    if consecutive_empty_visible >= max_consecutive_empty:
+                        if not self.detection_actions.is_followers_list_open():
+                            self.logger.warning(
+                                f"⚠️ {consecutive_empty_visible} consecutive empty scans and not on "
+                                f"followers list — attempting recovery"
+                            )
+                            recovered = False
+                            for _attempt in range(5):
+                                self.device.press("back")
+                                time.sleep(1.2)
+                                if self.detection_actions.is_followers_list_open():
+                                    self.logger.info(f"✅ Recovered to followers list after {_attempt + 1} back press(es)")
+                                    consecutive_empty_visible = 0
+                                    recovered = True
+                                    break
+                            if not recovered:
+                                self.logger.error("❌ Could not recover to followers list — stopping scraping")
+                                break
+                        else:
+                            # We ARE on the list but it's empty — treat as end of list
+                            consecutive_empty_visible = 0
+
                     # Try scrolling - wait for Instagram to load
                     self.scroll_actions.scroll_followers_list_down()
                     time.sleep(1.5)
-                    
+
                     if scroll_detector.is_the_end():
                         self.logger.info("Reached end of list")
                         break
                     continue
-                
+
+                # Successful scan — reset the empty-visible counter
+                consecutive_empty_visible = 0
+
                 new_count = 0
                 for follower in visible:
                     username = follower.get('username')
@@ -148,16 +180,18 @@ class ScrapingListMixin:
                                 except Exception as _e:
                                     self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
 
-                            # Go back to the list
-                            self.device.press("back")
-                            time.sleep(1)
-                            
-                            # Safety: if not back on the followers list, press back again
-                            # (can happen if Instagram opened a nested screen, e.g. story → profile)
-                            if not self.detection_actions.is_followers_list_open():
-                                self.logger.debug("⚠️ Not on followers list after back press - pressing back once more")
+                            # Go back to the list — retry up to 5 times
+                            # (Instagram can push extra screens: story preview, nested profile, etc.)
+                            for _back_attempt in range(5):
                                 self.device.press("back")
-                                time.sleep(1)
+                                time.sleep(1.2)
+                                if self.detection_actions.is_followers_list_open():
+                                    if _back_attempt > 0:
+                                        self.logger.debug(f"✅ Back on followers list after {_back_attempt + 1} press(es)")
+                                    break
+                                self.logger.debug(f"⚠️ Not on followers list after {_back_attempt + 1} back press(es), retrying...")
+                            else:
+                                self.logger.warning("⚠️ Could not return to followers list after 5 back presses")
                             
                         except Exception as e:
                             self.logger.warning(f"Failed to enrich @{username}: {e}")
