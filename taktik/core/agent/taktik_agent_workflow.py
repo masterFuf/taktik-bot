@@ -197,7 +197,8 @@ class TaktikAgentWorkflow:
         try:
             from bridges.common.ai_service import AIService
 
-            ai_service = AIService(api_key=api_key, ipc=self.ipc)
+            vision_model = self.config.get("vision_model") or None
+            ai_service = AIService(api_key=api_key, ipc=self.ipc, vision_model=vision_model)
             self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc)
             logger.info("[TaktikAgent] AI engine initialized")
             # Generate hashtag pool now that AI is ready
@@ -283,6 +284,10 @@ class TaktikAgentWorkflow:
             if not screenshot_path:
                 feed._scroll_to_next_post()
                 continue
+
+            # Check stop BEFORE the AI call (can take 5-20s)
+            if self._stop_requested:
+                break
 
             # AI decision
             decision = self._ai.decide_feed_action(
@@ -388,6 +393,8 @@ class TaktikAgentWorkflow:
         hashtag = self._hashtag_pool[self._hashtag_index % len(self._hashtag_pool)]
         self._hashtag_index += 1
 
+        skip_reels = self.config.get("skip_reels", True)
+
         logger.info(
             f"[TaktikAgent] 🏷️ Strategy switch → #{hashtag} "
             f"(after {self._consecutive_skips} consecutive skips)"
@@ -417,16 +424,50 @@ class TaktikAgentWorkflow:
                     time.sleep(1.0)
                     break
 
-            # Open first post from the grid
-            if not open_first_post_of_profile(self.device, logger):
-                logger.warning(f"[TaktikAgent] Could not open first post in #{hashtag}")
-                return
+            # Open first non-reel post from the grid (try up to 6 posts if needed)
+            MAX_GRID_ATTEMPTS = 6
+            grid_index = 0
+            opened = False
+            while grid_index < MAX_GRID_ATTEMPTS:
+                if grid_index == 0:
+                    ok = open_first_post_of_profile(self.device, logger)
+                else:
+                    ok = self._click_hashtag_grid_post(grid_index)
 
-            time.sleep(1.0)
+                if not ok:
+                    break
+
+                time.sleep(1.5)
+
+                if skip_reels and self._is_viewing_reel():
+                    logger.debug(
+                        f"[TaktikAgent] #{hashtag} grid[{grid_index}] is a Reel — "
+                        f"pressing back and trying next post"
+                    )
+                    self._press_instagram_back()
+                    time.sleep(1.0)
+                    grid_index += 1
+                    continue
+
+                opened = True
+                break
+
+            if not opened:
+                logger.warning(f"[TaktikAgent] No non-reel post found in #{hashtag} grid")
+                return
 
             for i in range(HASHTAG_POSTS_PER_BURST):
                 if self._should_stop(session_deadline):
                     break
+
+                # Detect Reel BEFORE screenshot — can appear as we swipe through hashtag posts
+                if skip_reels and self._is_viewing_reel():
+                    logger.debug(
+                        f"[TaktikAgent] Reel encountered mid-burst in #{hashtag} — "
+                        f"pressing back and exiting burst"
+                    )
+                    self._press_instagram_back()
+                    return
 
                 self.stats["posts_seen"] += 1
                 self.stats["posts_stopped"] += 1
@@ -438,7 +479,7 @@ class TaktikAgentWorkflow:
 
                 screenshot_path = self._take_screenshot(f"hashtag_{hashtag}_{i}")
                 if not screenshot_path:
-                    feed._scroll_to_next_post()
+                    self._simple_swipe_next_post()
                     time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
                     continue
 
@@ -471,7 +512,7 @@ class TaktikAgentWorkflow:
                         # _handle_profile_visit navigates back to feed — exit burst
                         return
 
-                feed._scroll_to_next_post()
+                self._simple_swipe_next_post()
                 time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
 
         except Exception as exc:
@@ -482,6 +523,70 @@ class TaktikAgentWorkflow:
             time.sleep(1.5)
             if self.ipc:
                 self.ipc.strategy_switch(from_strategy="hashtag", to_strategy="feed", hashtag=hashtag)
+
+    # ------------------------------------------------------------------
+    # Hashtag burst helpers
+    # ------------------------------------------------------------------
+
+    def _is_viewing_reel(self) -> bool:
+        """Return True if we're currently inside a fullscreen Reel player."""
+        from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS, FEED_SELECTORS
+        # reel_player_indicators: audio/sound controls present only in the Reel player UI
+        for sel in POST_SELECTORS.reel_player_indicators:
+            try:
+                if self.device.xpath(sel).exists:
+                    return True
+            except Exception:
+                pass
+        # feed reel_indicators: content-desc "Reel de …" / "Reel by …" visible in feed & hashtag viewer
+        for sel in FEED_SELECTORS.reel_indicators:
+            try:
+                if self.device.xpath(sel).exists:
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def _press_instagram_back(self):
+        """Click the Instagram in-app back arrow; fall back to the system back button."""
+        from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS
+        for sel in POST_SELECTORS.back_button_selectors:
+            try:
+                el = self.device.xpath(sel)
+                if el.exists:
+                    el.click()
+                    return
+            except Exception:
+                pass
+        self.device.press('back')
+
+    def _click_hashtag_grid_post(self, index: int) -> bool:
+        """Click the post at *index* (0-based) in the currently visible hashtag grid."""
+        from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, POST_SELECTORS
+        try:
+            posts = self.device.xpath(DETECTION_SELECTORS.post_thumbnail_selectors[0]).all()
+            if not posts:
+                posts = self.device.xpath(POST_SELECTORS.first_post_grid).all()
+            if posts and index < len(posts):
+                posts[index].click()
+                time.sleep(2.5)
+                return True
+        except Exception as exc:
+            logger.debug(f"[TaktikAgent] _click_hashtag_grid_post({index}) error: {exc}")
+        return False
+
+    def _simple_swipe_next_post(self):
+        """Single vertical swipe to the next post — used in hashtag burst (no smart alignment needed)."""
+        try:
+            screen_h = self.device.info.get('displayHeight', 1920)
+            screen_w = self.device.info.get('displayWidth', 1080)
+            self.device.swipe_coordinates(
+                screen_w // 2, int(screen_h * 0.72),
+                screen_w // 2, int(screen_h * 0.22),
+                duration=0.3,
+            )
+        except Exception as exc:
+            logger.debug(f"[TaktikAgent] _simple_swipe_next_post error: {exc}")
 
     # ------------------------------------------------------------------
     # Profile visit

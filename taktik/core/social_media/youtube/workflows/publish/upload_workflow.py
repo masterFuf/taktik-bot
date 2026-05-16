@@ -149,32 +149,19 @@ class YouTubeUploadWorkflow:
                 return {"success": False, "message": "Failed to push media to device"}
             _log("info", f"✅ Pushed to {remote_path}")
 
-            # ── Step 2: open YouTube ─────────────────────────────────────────
-            _status("running", "Opening YouTube…")
-            # Force-stop first so we always start from a clean state
-            # (handles cases where a previous run crashed mid-flow)
-            d.shell(f"am force-stop {YOUTUBE_PACKAGE}")
-            time.sleep(0.8)
-            # Use monkey to launch — am start with hardcoded activity path fails silently
-            d.shell(f"monkey -p {YOUTUBE_PACKAGE} -c android.intent.category.LAUNCHER 1")
-            # Wait up to 6 s for YouTube to appear in the foreground
-            deadline = time.time() + 6
-            launched = False
-            while time.time() < deadline:
-                fg = d.shell("dumpsys window | grep mCurrentFocus").output or ""
-                if YOUTUBE_PACKAGE in fg:
-                    launched = True
-                    break
-                time.sleep(0.5)
-            if not launched:
-                # Fallback: am start intent
-                d.shell(f"am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n {YOUTUBE_PACKAGE}/.app.honeycomb.Shell$HomeActivity")
-                time.sleep(3)
-            else:
-                time.sleep(1.5)
+            # ── Step 2: force-stop + restart YouTube from scratch ────────────
+            # Close whatever is currently on screen (YouTube or any other app)
+            # then relaunch YouTube fresh — same pattern as Instagram/TikTok workflows.
+            _status("running", "Restarting YouTube…")
+            d.app_stop(YOUTUBE_PACKAGE)
+            _log("info", "🔄 YouTube closed — restarting…")
+            time.sleep(1)
+            d.app_start(YOUTUBE_PACKAGE, "com.google.android.youtube.app.honeycomb.Shell$HomeActivity")
+            # Wait 4 s for YouTube to fully render (mirrors AppService launch_wait)
+            time.sleep(4)
 
-            # Make sure we're on home (not a watch page)
-            _try_tap(d, _S.home_tab, timeout=2, label="nav-home")
+            # Navigate to home tab in case YouTube opened on a video/watch page
+            _try_tap(d, _S.home_tab, timeout=3, label="nav-home")
             time.sleep(1)
 
             # ── Dismiss notification permission popup if present ──────────────
@@ -332,7 +319,7 @@ class YouTubeUploadWorkflow:
                     d.xpath(vis_candidate).click()
                 except Exception:
                     continue
-                time.sleep(1)  # wait for sub-screen animation
+                time.sleep(1.5)  # wait for sub-screen animation
                 # Detect if we accidentally opened the audience/kids screen
                 on_wrong_screen = any(
                     d.xpath(s).exists for s in _S.audience_screen_indicator
@@ -340,21 +327,22 @@ class YouTubeUploadWorkflow:
                 if on_wrong_screen:
                     _log("warning", "⚠️  Opened audience/kids screen (wrong row) — pressing back, trying next")
                     d.press("back")
-                    time.sleep(1.5)  # wait for RecyclerView to re-render
+                    time.sleep(1.5)
                     continue
-                # Check we're on the correct visibility sub-screen
+                # Confirm we're on the Set Visibility screen (back button "Retour" in header)
                 if _wait_for_any(d, _S.visibility_screen_indicator, timeout=4, label="visibility-screen"):
-                    vis_sel = _S.visibility_row.get(vis)
-                    if vis_sel and _try_tap(d, [vis_sel], timeout=4, label=f"visibility-{vis}"):
+                    time.sleep(1.0)  # allow option rows to fully render before querying
+                    vis_sels = _S.visibility_row.get(vis, [])
+                    if vis_sels and _try_tap(d, vis_sels, timeout=4, label=f"visibility-{vis}"):
                         _log("info", f"✅ Visibility set to {vis}")
                         vis_set = True
                         time.sleep(0.5)
-                        d.press("back")  # return to details
-                        time.sleep(1)
                     else:
                         _log("warning", f"⚠️  Could not find {vis} option — leaving default")
-                        d.press("back")
-                        time.sleep(0.5)
+                    # Tap the in-app back button (header "Retour") to return to Add Details
+                    if not _try_tap(d, _S.visibility_back_button, timeout=3, label="visibility-back"):
+                        d.press("back")  # fallback to system back
+                    time.sleep(1)
                 else:
                     _log("warning", "⚠️  Visibility sub-screen not detected — going back")
                     d.press("back")

@@ -48,8 +48,13 @@ class LocalDatabaseService:
         """
         if db_path:
             self.db_path = db_path
+        elif os.environ.get('TAKTIK_DB_PATH'):
+            # Electron injects the exact path it uses so both sides hit the same file.
+            # This handles packaged builds where app.getPath('userData') differs from
+            # the hardcoded 'taktik-desktop' folder name.
+            self.db_path = os.environ['TAKTIK_DB_PATH']
         else:
-            # Use same location as Electron app
+            # Fallback for standalone / dev runs without Electron
             appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
             self.db_path = os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
         
@@ -795,6 +800,21 @@ class LocalDatabaseService:
             return cursor.rowcount > 0
         except Exception as e:
             logger.debug(f"Error updating AI score for profile {profile_id} / session {scraping_id}: {e}")
+            return False
+
+    def update_profile_city(self, profile_id: int, city: str) -> bool:
+        """Update the location_city field on an instagram_profiles row."""
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE instagram_profiles SET location_city = ? WHERE profile_id = ?",
+                (city, profile_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.debug(f"Error updating location_city for profile {profile_id}: {e}")
             return False
 
     def cleanup_orphan_sessions(self) -> int:

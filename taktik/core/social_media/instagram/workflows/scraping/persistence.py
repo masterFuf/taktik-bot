@@ -67,6 +67,10 @@ class ScrapingPersistenceMixin:
             local_db = get_local_database()
             username = profile['username']
             
+            import json as _json
+            linked_raw = profile.get('linked_accounts', [])
+            linked_json = _json.dumps(linked_raw) if linked_raw else None
+
             profile_data = {
                 'username': username,
                 'followers_count': profile.get('followers_count', 0),
@@ -75,6 +79,11 @@ class ScrapingPersistenceMixin:
                 'is_private': profile.get('is_private', False),
                 'biography': profile.get('biography', ''),
                 'full_name': profile.get('full_name', ''),
+                'is_verified': profile.get('is_verified', False),
+                'is_business': profile.get('is_business', False),
+                'business_category': profile.get('business_category', ''),
+                'website': profile.get('website', ''),
+                'linked_accounts': linked_json,
                 'account_based_in': profile.get('account_based_in'),
                 'date_joined': profile.get('date_joined'),
                 'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
@@ -128,6 +137,10 @@ class ScrapingPersistenceMixin:
                     username = profile['username']
                     
                     # Use enriched data if available, otherwise use defaults
+                    import json as _json
+                    _linked_raw = profile.get('linked_accounts', [])
+                    _linked_json = _json.dumps(_linked_raw) if _linked_raw else None
+
                     profile_data = {
                         'username': username,
                         'followers_count': profile.get('followers_count', 0),
@@ -136,6 +149,11 @@ class ScrapingPersistenceMixin:
                         'is_private': profile.get('is_private', False),
                         'biography': profile.get('biography', ''),
                         'full_name': profile.get('full_name', ''),
+                        'is_verified': profile.get('is_verified', False),
+                        'is_business': profile.get('is_business', False),
+                        'business_category': profile.get('business_category', ''),
+                        'website': profile.get('website', ''),
+                        'linked_accounts': _linked_json,
                         'account_based_in': profile.get('account_based_in'),
                         'date_joined': profile.get('date_joined'),
                         'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"

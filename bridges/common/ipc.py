@@ -277,12 +277,14 @@ class IPC:
     # ------------------------------------------------------------------
 
     def ai_profile_analyzing(self, username: str, prompt: str = None, model: str = None,
-                              image_url: str = None) -> None:
+                              image_url: str = None, avatar_url: str = None) -> None:
         """Signal that AI profile classification has started."""
         data = dict(username=username, target_username=username,
                     prompt=prompt, model=model, workflow_type="automation")
         if image_url:
             data["image"] = image_url
+        if avatar_url:
+            data["avatar_url"] = avatar_url
         self.send("ai_profile_start", **data)
 
     def ai_profile_analyzed(self, username: str, result: str, duration_ms: int = 0,

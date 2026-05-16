@@ -43,6 +43,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
             website TEXT,
             linked_accounts TEXT,
             profile_pic_path TEXT,
+            location_city TEXT,
             notes TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))

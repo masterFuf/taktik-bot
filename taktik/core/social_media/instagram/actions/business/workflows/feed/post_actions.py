@@ -185,19 +185,68 @@ class FeedPostActionsMixin:
             return False
     
     def _scroll_to_next_post(self):
-        """Scroller vers le post suivant dans le feed."""
+        """Scroll to the next post and align so the post header is near the top of the screen."""
         try:
-            # Scroll d'environ 70% de l'écran pour passer au post suivant
             screen_height = self.device.info.get('displayHeight', 1920)
             screen_width = self.device.info.get('displayWidth', 1080)
-            
-            start_y = int(screen_height * 0.7)
-            end_y = int(screen_height * 0.2)
             center_x = screen_width // 2
-            
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.3)
-            
+
+            # Primary scroll: ~50% of screen height
+            self.device.swipe_coordinates(
+                center_x, int(screen_height * 0.72),
+                center_x, int(screen_height * 0.22),
+                duration=0.3,
+            )
+            time.sleep(0.4)
+
+            # Align to the next post header (up to 4 micro-adjustments)
+            no_header_streak = 0
+            for _ in range(4):
+                header_y = self._get_post_header_top_y()
+
+                if header_y is not None and header_y < int(screen_height * 0.35):
+                    # Header is already in the upper 35% → good position
+                    return
+
+                if header_y is None:
+                    no_header_streak += 1
+                    if no_header_streak >= 2:
+                        # Two consecutive misses → likely in Reel viewer or suggestions section
+                        # Stop micro-scrolling to avoid drifting further
+                        break
+                    # One bigger micro-scroll to skip suggestions / between-post gap
+                    self.device.swipe_coordinates(
+                        center_x, int(screen_height * 0.65),
+                        center_x, int(screen_height * 0.35),
+                        duration=0.25,
+                    )
+                else:
+                    no_header_streak = 0
+                    # Header found but too low on screen → small scroll to bring it up
+                    self.device.swipe_coordinates(
+                        center_x, int(screen_height * 0.55),
+                        center_x, int(screen_height * 0.38),
+                        duration=0.2,
+                    )
+                time.sleep(0.3)
+
         except Exception as e:
             self.logger.debug(f"Error scrolling to next post: {e}")
-            # Fallback: utiliser scroll_actions
-            self.scroll_actions.scroll_down()
+            try:
+                self.scroll_actions.scroll_down()
+            except Exception:
+                pass
+
+    def _get_post_header_top_y(self) -> Optional[int]:
+        """Return the top Y pixel of the first visible post author element, or None if not found."""
+        try:
+            for selector in self._feed_selectors['post_author_username']:
+                el = self.device.xpath(selector)
+                if el.exists:
+                    bounds = el.info.get('bounds', {})
+                    top = bounds.get('top')
+                    if top is not None:
+                        return int(top)
+        except Exception:
+            pass
+        return None

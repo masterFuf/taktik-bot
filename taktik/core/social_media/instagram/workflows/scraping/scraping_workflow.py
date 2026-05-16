@@ -88,6 +88,7 @@ class ScrapingWorkflow(
                 self._ai_service = AIService(
                     api_key=config['openrouter_api_key'],
                     ipc=self._ipc,
+                    vision_model=config.get('vision_model') or None,
                 )
                 logger.info("🤖 AI qualification service initialized (OpenRouter)")
             except Exception as e:

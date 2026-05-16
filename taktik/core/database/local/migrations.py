@@ -73,6 +73,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         ("linked_accounts", "TEXT"),
         ("account_based_in", "TEXT"),
         ("date_joined", "TEXT"),
+        ("location_city", "TEXT"),
     ]:
         try:
             _col = _validate_sql_identifier(col_name)

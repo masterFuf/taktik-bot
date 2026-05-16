@@ -99,6 +99,7 @@ def main():
             scraping_config['ai_niche'] = ai_config.get('niche', '')
             scraping_config['ai_qualification_prompt'] = ai_config.get('qualificationPrompt', '')
             scraping_config['openrouter_api_key'] = ai_config.get('openrouterApiKey', '')
+            scraping_config['vision_model'] = ai_config.get('visionModel', '')
         else:
             scraping_config['ai_mode'] = False
 
