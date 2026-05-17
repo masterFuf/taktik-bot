@@ -67,8 +67,12 @@ _CREATE_BTN = [
 
 # Bouton "Upload/Gallery" dans le panneau de création (vue caméra)
 # NOTE: same dual-package issue — use contains() for resource-ids
+# Resource-id history:
+#   cl2  → TikTok v44.9+
+#   r3r  → TikTok v43.1.4 (même id sur Android 13 Pixel 4 et Android 14 C57S)
 _UPLOAD_BTN = [
-    '//*[contains(@resource-id, ":id/cl2")]',
+    '//*[contains(@resource-id, ":id/r3r")]',   # v43.x — folder/gallery icon (no text, cd=@resource_ref)
+    '//*[contains(@resource-id, ":id/cl2")]',   # v44.9+
     '//*[@content-desc="Upload"]',
     '//*[contains(@content-desc, "Upload")]',
     '//*[@text="Upload"]',
@@ -90,22 +94,24 @@ _PERMISSION_ALLOW_BTN = [
 ]
 
 # Écran galerie — premier élément (fichier le plus récent)
-# Dump réel (TikTok 44.9) :
-#   GridView rid=ir_  (galerie plein écran modal)
-#   ImageView rid=nm8  (miniature de chaque item — premier = le plus récent)
-#   Bounds premier item : [4,231][239,469] sur écran 720×1430
-# Note: nm8 n'est pas marqué clickable=true mais uiautomator2 peut le tapper
+# Resource-id history:
+#   mub  → TikTok v43.x  (ImageView thumbnail, GridView=i8o)
+#   nm8  → TikTok v44.9+ (ImageView thumbnail, GridView=ir_)
 _GALLERY_FIRST_ITEM = [
+    '(//android.widget.ImageView[contains(@resource-id, ":id/mub")])[1]',
+    '(//android.widget.GridView[contains(@resource-id, ":id/i8o")]//android.widget.ImageView)[1]',
     '(//android.widget.ImageView[contains(@resource-id, ":id/nm8")])[1]',
     '(//android.widget.GridView[contains(@resource-id, ":id/ir_")]//android.widget.ImageView)[1]',
     '//*[contains(@resource-id, ":id/ir_")]//*[@class="android.widget.ImageView"][1]',
 ]
 
 # Bouton "Next" / "Suivant" (plusieurs écrans)
-# Dump réel (TikTok 44.9) :
-#   rid=ooo  text='Next'  → écran trim/preview après sélection galerie (DUMP2)
-#   rid=w51  text='Next'  → barre bas de la galerie (mode multi-sélect, ck=false avant sélection)
+# Resource-id history:
+#   uyb  → TikTok v43.x  — galerie "Next" bar (text='Next', clickable après sélection)
+#   ooo  → TikTok v44.9+ — trim/preview Next
+#   w51  → TikTok v44.9+ — galerie multi-sélect bar
 _NEXT_BTN = [
+    '//android.widget.Button[contains(@resource-id, ":id/uyb")]',
     '//android.widget.Button[contains(@resource-id, ":id/ooo")]',
     '//android.widget.Button[contains(@resource-id, ":id/w51")]',
     '//android.widget.Button[contains(@resource-id, ":id/next_btn")]',
@@ -255,7 +261,7 @@ class TikTokUploadWorkflow:
         _ipc.status("selecting", "Selecting media from gallery...")
         if not self._select_first_gallery_item():
             return self._error("gallery_item_not_found", "Could not select media from gallery")
-        time.sleep(2.0)
+        time.sleep(2.5)  # wait for TikTok to enable the Next button after item selection
 
         # 8. Taper "Next" jusqu'à l'écran de description (max 3 fois)
         _ipc.status("navigating", "Navigating to post screen...")
@@ -402,20 +408,22 @@ class TikTokUploadWorkflow:
     def _tap_upload(self) -> bool:
         """Tap the Upload/Gallery button in the camera creation panel.
         
-        In TikTok 44.9+, the upload button is the folder icon (cl2)
-        at the bottom-right of the camera view, beside the gallery strip.
-        Fallback: tap the gallery strip area directly.
+        In TikTok v43.x: resource-id=r3r (folder icon, no readable text)
+        In TikTok v44.9+: resource-id=cl2
+        Fallback: the gallery icon is consistently at ~50% width, ~80% height.
         """
         if self._tap(_UPLOAD_BTN, timeout=6.0):
             return True
-        # Fallback: tap the bottom-right area of the creation panel
-        # (coordinate ~80% width, ~78% height — where cl2 is located)
+        # Fallback: gallery/upload icon is always at ~50% width on the camera screen
+        # (left side of the bottom strip — NOT 81% which would be off-screen right)
         try:
             info = self.device.info
             w = info.get("displayWidth", 720)
             h = info.get("displayHeight", 1520)
-            _ipc.log("debug", f"[upload] fallback coord tap: ({int(w*0.81)}, {int(h*0.80)})")
-            self.device.click(int(w * 0.81), int(h * 0.80))
+            tap_x = int(w * 0.50)
+            tap_y = int(h * 0.80)
+            _ipc.log("debug", f"[upload] fallback coord tap: ({tap_x}, {tap_y})")
+            self.device.click(tap_x, tap_y)
             return True
         except Exception as e:
             _ipc.log("error", f"[upload] fallback failed: {e}")
@@ -481,24 +489,21 @@ class TikTokUploadWorkflow:
     def _select_first_gallery_item(self) -> bool:
         """
         Select the first (most recent) item in TikTok's gallery picker.
-        Falls back to coordinate-based tap in the first grid cell.
+
+        Uses XPath selectors derived from real UI dumps — device-resolution-independent.
+        The gallery thumbnail ImageViews (mub / nm8) are clickable=false; uiautomator2
+        taps their center coordinates which Android routes to the parent clickable
+        FrameLayout, so the selection works regardless of screen size.
+
+        Selector history (from real dumps):
+          mub  → TikTok v43.x  (Pixel 4 / C57S, bounds match parent FrameLayout exactly)
+          nm8  → TikTok v44.9+ (Samsung and newer builds)
         """
         if self._tap(_GALLERY_FIRST_ITEM, timeout=5.0):
             return True
-        # Coordinate fallback: first item in gallery GridView
-        # Based on real dump: nm8 bounds=[4,231][239,469] on 720×1430 → center=(122,350)
-        # Relative: x≈17%, y≈24.5%
-        try:
-            info = self.device.info
-            w = info.get("displayWidth", 720)
-            h = info.get("displayHeight", 1430)
-            tap_x = int(w * 0.17)
-            tap_y = int(h * 0.245)
-            _ipc.log("debug", f"[gallery] coord fallback tap: ({tap_x}, {tap_y})")
-            self.device.click(tap_x, tap_y)
-            return True
-        except Exception:
-            return False
+        _ipc.log("error", "[gallery] no gallery thumbnail selector matched — "
+                 "add a dump from this device to update _GALLERY_FIRST_ITEM")
+        return False
 
     def _is_on_post_screen(self) -> bool:
         """Check if we're on the post description screen."""
