@@ -427,9 +427,12 @@ class TikTokUploadWorkflow:
         taps their center coordinates which Android routes to the parent clickable
         FrameLayout, so the selection works regardless of screen size.
 
-        Selector history (from real dumps):
-          mub  → TikTok v43.x  (Pixel 4 / C57S, bounds match parent FrameLayout exactly)
-          nm8  → TikTok v44.9+ (Samsung and newer builds)
+        Selector history (from real UI dumps):
+          mub  → ImageView inside each grid cell (Pixel 4 + C57S confirmed, both packages)
+               Structure: GridView(i8o) → FrameLayout(clickable) → ImageView(mub, same bounds)
+               Tapping mub propagates to parent FrameLayout (clickable=true)
+          nm8  → TikTok v44.9+ Samsung builds (grid = ir_)
+          i8o  → the GridView container itself (same on Pixel 4 and C57S)
         """
         if self._tap(PUBLISH_SELECTORS.gallery_first_item, timeout=5.0):
             return True
