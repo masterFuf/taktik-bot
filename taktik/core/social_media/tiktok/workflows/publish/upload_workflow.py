@@ -207,6 +207,10 @@ class TikTokUploadWorkflow:
         # 12. Vérification succès (best-effort)
         _ipc.status("success", "Post published successfully!")
         _ipc.log("info", "✅ TikTok post published")
+
+        # 13. Close TikTok after successful post
+        self._adb_force_stop(tiktok_pkg)
+
         return {"success": True, "message": "Post published successfully", "error_type": None}
 
     # ------------------------------------------------------------------
