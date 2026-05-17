@@ -320,29 +320,45 @@ class TikTokUploadWorkflow:
             return False
 
     def _tap_upload(self) -> bool:
-        """Tap the gallery thumbnail (bottom-left) in the camera creation panel.
+        """Tap the gallery thumbnail in the camera creation panel to open the gallery picker.
 
-        In TikTok v43.x+: resource-id=ymg (FrameLayout clickable, bottom-left corner)
-        In TikTok v44.9+: resource-id=cl2  (Samsung variant)
-        NOTE: r3r is the SHUTTER/RECORD button (center of screen) — not the gallery.
-        Fallback: bottom-left corner at ~8.6% width, ~92% height.
+        Known resource-ids (all via _rids() which uses contains() across all TikTok packages):
+          ymg  → Pixel 4 / large-screen layouts: FrameLayout clickable, bottom-left corner
+          ce9  → C57S (576x1280): ce9 is directly clickable (no ymg wrapper), right of shutter
+          cl2  → Samsung v44.9+
+        NOTE: r3r is the SHUTTER button (center screen) — never use it here.
+        Fallback: try the camera-strip right thumbnail (ce9 position), then bottom-left corner.
         """
         if self._tap(PUBLISH_SELECTORS.upload_btn, timeout=6.0):
             return True
-        # Fallback: gallery thumbnail is always in the bottom-LEFT corner (not center).
-        # ymg bounds on 1080x2280: [0,2023][187,2177] → center ≈ (93, 2100) = (8.6%, 92.1%)
-        # r3r is the SHUTTER button (center ~50% width) — do NOT use as fallback.
+        # Fallback A: try ce9 position in the camera strip (right of shutter).
+        # On C57S (576x1280): ce9 bounds [409,945][529,1065] → center=(469,1005) = (81%, 78%)
+        # On larger devices this coordinate may be different; we'll try both fallbacks.
         try:
             info = self.device.info
             w = info.get("displayWidth", 720)
             h = info.get("displayHeight", 1520)
-            tap_x = int(w * 0.086)   # ~93px on 1080 = center of bottom-left gallery thumbnail
-            tap_y = int(h * 0.921)   # ~2100px on 2280 = center of ymg FrameLayout
-            _ipc.log("debug", f"[upload] fallback coord tap bottom-left gallery: ({tap_x}, {tap_y})")
+            # Try right-side gallery thumbnail (ce9 layout — C57S and similar)
+            tap_x_r = int(w * 0.815)
+            tap_y_strip = int(h * 0.785)
+            _ipc.log("debug", f"[upload] fallback A (right-strip): ({tap_x_r}, {tap_y_strip})")
+            self.device.click(tap_x_r, tap_y_strip)
+            return True
+        except Exception as e:
+            _ipc.log("debug", f"[upload] fallback A failed: {e}")
+        # Fallback B: bottom-left corner (ymg layout — Pixel 4 and larger screens)
+        # ymg bounds on 1080x2280: [0,2023][187,2177] → center=(93,2100) = (8.6%, 92.1%)
+        try:
+            info = self.device.info
+            w = info.get("displayWidth", 720)
+            h = info.get("displayHeight", 1520)
+            tap_x = int(w * 0.086)
+            tap_y = int(h * 0.921)
+            _ipc.log("debug", f"[upload] fallback B (bottom-left): ({tap_x}, {tap_y})")
             self.device.click(tap_x, tap_y)
             return True
         except Exception as e:
-            _ipc.log("error", f"[upload] fallback failed: {e}")
+            _ipc.log("error", f"[upload] fallback B failed: {e}")
             return False
 
     def _handle_permission_dialog(self) -> bool:
@@ -417,8 +433,22 @@ class TikTokUploadWorkflow:
         """
         if self._tap(PUBLISH_SELECTORS.gallery_first_item, timeout=5.0):
             return True
-        _ipc.log("error", "[gallery] no gallery thumbnail selector matched — "
-                 "add a dump from this device to update PUBLISH_SELECTORS.gallery_first_item")
+        # Fallback: no XPath selector matched — tap the first thumbnail by coordinates.
+        # Gallery grid is typically in the top 35% of the screen (above the pull-to-refresh zone).
+        # Most-recent item = top-left cell of a 3-column grid.
+        # w/6 = center of first column; h*0.20 = first row just below any gallery header.
+        try:
+            info = self.device.info
+            w = info.get("displayWidth", 720)
+            h = info.get("displayHeight", 1520)
+            tap_x = w // 6          # center of first column (3-col grid)
+            tap_y = int(h * 0.20)   # first row, below ~header (~100px on most screens)
+            _ipc.log("warning", f"[gallery] XPath selectors failed — coord fallback ({tap_x},{tap_y}). "
+                     "Provide a dump from this device to add the correct resource-id.")
+            self.device.click(tap_x, tap_y)
+            return True
+        except Exception as e:
+            _ipc.log("error", f"[gallery] coord fallback failed: {e}")
         return False
 
     def _is_on_post_screen(self) -> bool:

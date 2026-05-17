@@ -78,10 +78,11 @@ class PublishSelectors:
     ])
 
     # ── 2. Bouton "Upload / Galerie" (panneau création, vue caméra) ─────────
-    # ymg = FrameLayout clickable en bas-à-gauche (vignette galerie) — Pixel 4, toutes versions
+    # ymg = FrameLayout clickable bas-gauche — Pixel 4 (layout grand écran)
+    # ce9 = FrameLayout clickable directement (sans wrapper ymg) — C57S (576x1280)
     # cl2 = variante Samsung v44.9+
     # NE PAS utiliser r3r : c'est le bouton shutter (obturateur caméra, centre écran)
-    _upload_btn_rids: List[str] = field(default_factory=lambda: _rids("ymg", "cl2"))
+    _upload_btn_rids: List[str] = field(default_factory=lambda: _rids("ymg", "ce9", "cl2"))
     _upload_btn_en: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Upload"]',
         '//*[contains(@content-desc, "Upload")]',
