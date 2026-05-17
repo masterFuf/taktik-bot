@@ -157,8 +157,55 @@ def _build_selectors(resource_ids: list[str], texts_en: list[str], texts_fr: lis
 
 
 # Pre-built selector lists (module-level constants, built once)
+# These are used as fallback when SDK is unknown.  PermissionHandler builds an
+# SDK-aware version lazily via _build_allow_selectors_for_sdk() so that the
+# most likely resource-id for the detected Android version is tried FIRST,
+# avoiding up to 4 × 4 s timeouts on wrong-version selectors.
 ALLOW_SELECTORS: list[str] = _build_selectors(_ALLOW_RESOURCE_IDS, _ALLOW_TEXT_EN, _ALLOW_TEXT_FR)
 DENY_SELECTORS: list[str] = _build_selectors(_DENY_RESOURCE_IDS, _DENY_TEXT_EN, _DENY_TEXT_FR)
+
+
+def _build_allow_selectors_for_sdk(sdk: int) -> list[str]:
+    """
+    Build an Allow-button selector list with SDK-appropriate resource-ids first.
+
+    Effect: the correct Allow button is tried before spending 4 s each on
+    resource-ids that belong to a different Android version.
+
+    Android 9  (SDK ≤ 28) : packageinstaller:id/permission_allow_button
+    Android 10-12 (SDK 29-32) : permissioncontroller basic buttons
+    Android 13+ (SDK 33+) : permissioncontroller + media-split selected button
+    """
+    if sdk <= 28:
+        # Android 9 — com.android.packageinstaller hosts the dialog.
+        # Skip the 4 permissioncontroller IDs entirely (they don't exist).
+        rid_list = [
+            "com.android.packageinstaller:id/permission_allow_button",
+            # Keep as fallback: some OEMs on Android 9 still use permissioncontroller
+            "com.android.permissioncontroller:id/permission_allow_button",
+            "com.miui.securitycenter:id/btn_agree",
+        ]
+    elif sdk >= 33:
+        # Android 13+ — media/photos/audio permissions split into separate dialogs.
+        # "Allow selected" is the new primary choice; the rest are fallbacks.
+        rid_list = [
+            "com.android.permissioncontroller:id/permission_allow_selected_button",
+            "com.android.permissioncontroller:id/permission_allow_foreground_only_button",
+            "com.android.permissioncontroller:id/permission_allow_one_time_button",
+            "com.android.permissioncontroller:id/permission_allow_button",
+            "com.android.packageinstaller:id/permission_allow_button",
+            "com.miui.securitycenter:id/btn_agree",
+        ]
+    else:
+        # Android 10-12 — permissioncontroller, foreground/one-time first.
+        rid_list = [
+            "com.android.permissioncontroller:id/permission_allow_foreground_only_button",
+            "com.android.permissioncontroller:id/permission_allow_one_time_button",
+            "com.android.permissioncontroller:id/permission_allow_button",
+            "com.android.packageinstaller:id/permission_allow_button",
+            "com.miui.securitycenter:id/btn_agree",
+        ]
+    return _build_selectors(rid_list, _ALLOW_TEXT_EN, _ALLOW_TEXT_FR)
 DIALOG_INDICATORS: list[str] = [_rid(r) for r in _DIALOG_RESOURCE_IDS] + [
     _text_exact("AUTORISER"),
     _text_exact("Autoriser"),
@@ -268,6 +315,13 @@ class PermissionHandler:
     # Grant / Deny
     # ------------------------------------------------------------------
 
+    @property
+    def _allow_selectors(self) -> list[str]:
+        """SDK-optimised Allow selector list, built once per PermissionHandler instance."""
+        if not hasattr(self, "_cached_allow_selectors"):
+            self._cached_allow_selectors = _build_allow_selectors_for_sdk(self.sdk)
+        return self._cached_allow_selectors
+
     def grant(self, rounds: int = 3, per_round_wait: float = 3.0) -> int:
         """
         Tap "Allow / Autoriser" on up to `rounds` stacked permission dialogs.
@@ -281,7 +335,7 @@ class PermissionHandler:
             logger.info(
                 f"[PermissionHandler] 🔐 Permission dialog #{i + 1} on Android {self._sdk_to_name()} — granting"
             )
-            if _try_tap(self._d, ALLOW_SELECTORS, timeout=4.0):
+            if _try_tap(self._d, self._allow_selectors, timeout=4.0):
                 dismissed += 1
                 time.sleep(0.8)
             else:

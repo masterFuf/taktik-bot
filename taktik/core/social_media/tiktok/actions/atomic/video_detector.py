@@ -14,39 +14,6 @@ from loguru import logger
 from ..core.base_action import BaseAction
 from ...ui.selectors import VIDEO_SELECTORS
 
-# TikTok packages (resource IDs identical across variants)
-_TIKTOK_PACKAGES = [
-    'com.ss.android.ugc.trill',
-    'com.zhiliaoapp.musically',
-    'com.ss.android.ugc.aweme',
-]
-
-# Selectors for trill/musically author avatar (content-desc = "username profile")
-_AUTHOR_CONTENT_DESC_SELECTORS = [
-    f'//*[@resource-id="{p}:id/yx4"]' for p in _TIKTOK_PACKAGES
-]
-
-# Selectors for like button with count in content-desc (e.g. "Like video. 2 likes")
-_LIKE_CONTENT_DESC_SELECTORS = [
-    *[f'//*[@resource-id="{p}:id/f57"][contains(@content-desc, "Like video")]' for p in _TIKTOK_PACKAGES],
-    '//*[contains(@content-desc, "Like video")]',
-]
-
-# Selectors for comment button with count in content-desc
-_COMMENT_CONTENT_DESC_SELECTORS = [
-    *[f'//*[@resource-id="{p}:id/dtv"]' for p in _TIKTOK_PACKAGES],
-    '//*[contains(@content-desc, "comments")]',
-]
-
-# Selectors for description element (video caption)
-_DESC_SELECTORS = [f'//*[@resource-id="{p}:id/desc"]' for p in _TIKTOK_PACKAGES]
-
-# Selectors for sound/music button
-_SOUND_SELECTORS = [
-    *[f'//*[@resource-id="{p}:id/nhe"]' for p in _TIKTOK_PACKAGES],
-    '//android.widget.Button[contains(@content-desc, "Sound:")]',
-]
-
 
 def _parse_description(raw: str) -> Dict[str, Any]:
     """Split raw description text into clean text and hashtag list."""
@@ -95,7 +62,7 @@ class VideoDetector(BaseAction):
         if text:
             return text
 
-        desc = self._get_element_content_desc(_AUTHOR_CONTENT_DESC_SELECTORS, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.creator_profile_image, timeout=1)
         if desc and desc.endswith(' profile'):
             return desc[:-len(' profile')].strip()
 
@@ -118,7 +85,7 @@ class VideoDetector(BaseAction):
         # Check if truncated
         if 'more' in raw and ('…' in raw or raw.rstrip().endswith('...more')):
             try:
-                for sel in _DESC_SELECTORS:
+                for sel in self.video_selectors.video_description:
                     elem = self.device.xpath(sel)
                     if elem.exists:
                         elem.click()
@@ -154,7 +121,7 @@ class VideoDetector(BaseAction):
         Trill content-desc: 'Sound: Pretty (Sped Up) by MEYY'
         Returns the part after 'Sound: ', e.g. 'Pretty (Sped Up) by MEYY'.
         """
-        desc = self._get_element_content_desc(_SOUND_SELECTORS, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.sound_button, timeout=1)
         if desc:
             if desc.startswith('Sound: '):
                 return desc[7:].strip()
@@ -186,7 +153,7 @@ class VideoDetector(BaseAction):
             tree = etree.fromstring(xml.encode('utf-8'))
 
             bounds = None
-            for pkg in _TIKTOK_PACKAGES:
+            for pkg in ("com.zhiliaoapp.musically", "com.ss.android.ugc.trill", "com.ss.android.ugc.aweme"):
                 elems = tree.xpath(f'//*[@resource-id="{pkg}:id/yx4"]')
                 if elems:
                     bounds_str = elems[0].get('bounds', '')
@@ -237,7 +204,8 @@ class VideoDetector(BaseAction):
         if count:
             return count
 
-        desc = self._get_element_content_desc(_LIKE_CONTENT_DESC_SELECTORS, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.like_button_for_count
+                                              + ['//*[contains(@content-desc, "Like video")]'], timeout=1)
         if desc:
             m = re.search(r'Like video[.\s]+(.+?)\s+like', desc, re.IGNORECASE)
             if m:
@@ -254,7 +222,7 @@ class VideoDetector(BaseAction):
         if count:
             return count
 
-        desc = self._get_element_content_desc(_COMMENT_CONTENT_DESC_SELECTORS, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.comment_button_for_count, timeout=1)
         if desc:
             m = re.search(r'comments?\.\s+(.+?)\s+comment', desc, re.IGNORECASE)
             if m:
@@ -296,123 +264,4 @@ class VideoDetector(BaseAction):
 
     def is_ad_video(self) -> bool:
         """Check if current video is an advertisement."""
-        return self._element_exists(self.video_selectors.ad_label, timeout=1)
-
-
-
-class VideoDetector(BaseAction):
-    """Detects video and profile state on TikTok UI."""
-
-    def __init__(self, device):
-        super().__init__(device)
-        self.logger = logger.bind(module="tiktok-video-detector")
-        self.video_selectors = VIDEO_SELECTORS
-
-    # === Video State Detection ===
-
-    def is_video_liked(self) -> bool:
-        """Check if current video is liked.
-        
-        Détecte via le content-desc qui change de "Like" à "Unlike".
-        """
-        return self._element_exists(self.video_selectors.unlike_indicator, timeout=1)
-
-    def is_video_favorited(self) -> bool:
-        """Check if current video is in favorites."""
-        return self._element_exists(self.video_selectors.video_favorited_indicator, timeout=1)
-
-    def is_user_followed(self) -> bool:
-        """Check if current user is followed.
-        
-        Détecte via le texte du bouton qui change de "Follow" à "Following" ou "Friends".
-        """
-        return self._element_exists(self.video_selectors.user_followed_indicator, timeout=1)
-
-    # === Video Info Extraction ===
-
-    def get_video_author(self) -> Optional[str]:
-        """Get current video author username.
-        
-        Tries text node first (musically), then parses content-desc of the
-        author avatar element (trill: content-desc = "username profile").
-        """
-        # Try text node (older/musically variant)
-        text = self._get_element_text(self.video_selectors.author_username, timeout=1)
-        if text:
-            return text
-
-        # Trill variant: avatar content-desc = "some username profile"
-        desc = self._get_element_content_desc(_AUTHOR_CONTENT_DESC_SELECTORS, timeout=1)
-        if desc and desc.endswith(' profile'):
-            return desc[:-len(' profile')].strip()
-
-        return None
-
-    def get_video_description(self) -> Optional[str]:
-        """Get current video description."""
-        return self._get_element_text(self.video_selectors.video_description, timeout=1)
-
-    def get_video_like_count(self) -> Optional[str]:
-        """Get current video like count.
-        
-        Tries text node first (musically), then parses content-desc
-        (trill: "Like video. 2 likes" or "Like video. 1.2K likes").
-        """
-        # Try text node (older/musically variant)
-        count = self._get_element_text(self.video_selectors.like_count, timeout=1)
-        if count:
-            return count
-
-        # Trill variant: "Like video. 2 likes" / "Like video. 1.2K likes"
-        desc = self._get_element_content_desc(_LIKE_CONTENT_DESC_SELECTORS, timeout=1)
-        if desc:
-            m = re.search(r'Like video[.\s]+(.+?)\s+like', desc, re.IGNORECASE)
-            if m:
-                return m.group(1).strip()
-
-        return None
-
-    def get_video_comment_count(self) -> Optional[str]:
-        """Get current video comment count.
-        
-        Trill: content-desc = "Read or add comments. 0 comments".
-        """
-        count = self._get_element_text(self.video_selectors.comment_count, timeout=1)
-        if count:
-            return count
-
-        desc = self._get_element_content_desc(_COMMENT_CONTENT_DESC_SELECTORS, timeout=1)
-        if desc:
-            m = re.search(r'comments?\.\s+(.+?)\s+comment', desc, re.IGNORECASE)
-            if m:
-                return m.group(1).strip()
-
-        return None
-
-    def get_video_info(self, include_comment_count: bool = False) -> Dict[str, Any]:
-        """Get all available info about current video.
-        
-        Args:
-            include_comment_count: If True, also fetch comment count (slower).
-        """
-        info = {
-            'author': self.get_video_author(),
-            'description': self.get_video_description(),
-            'like_count': self.get_video_like_count(),
-            'is_liked': self.is_video_liked(),
-            'is_favorited': self.is_video_favorited(),
-            'is_ad': self.is_ad_video(),
-        }
-        if include_comment_count:
-            info['comment_count'] = self.get_video_comment_count()
-        return info
-
-    # === Ad Detection ===
-
-    def is_ad_video(self) -> bool:
-        """Check if current video is an advertisement.
-        
-        Détecte via le label "Ad" visible sur les vidéos sponsorisées.
-        Resource-id: com.zhiliaoapp.musically:id/ru3
-        """
         return self._element_exists(self.video_selectors.ad_label, timeout=1)
