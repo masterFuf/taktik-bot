@@ -145,6 +145,17 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
     except Exception as e:
         logger.warning(f"Could not navigate to Home: {e}")
 
+    # Detect app language and prune wrong-language selectors in-place.
+    # Home/For-You screen is ideal: bottom-nav exposes Home/Profile/Inbox content-desc.
+    # Non-fatal: if detection fails or returns 'unknown', all selectors are kept.
+    try:
+        from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
+        detected_lang = detect_and_optimize(manager.device_manager.device)
+        logger.info(f"🌐 TikTok language detected: {detected_lang.upper()}")
+        send_log("info", f"App language detected: {detected_lang.upper()}")
+    except Exception as e:
+        logger.warning(f"Language detection failed (non-fatal): {e}")
+
     # Fetch own profile
     bot_username = None
     if fetch_profile:

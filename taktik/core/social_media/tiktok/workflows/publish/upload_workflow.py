@@ -141,6 +141,16 @@ class TikTokUploadWorkflow:
         self._wait_for_tiktok_home(timeout=30.0)
         _ipc.status("navigating", "TikTok ready")
 
+        # 5b. Detect app language and prune wrong-language selectors in-place.
+        # Home/For-You screen exposes the bottom-nav with Home/Profile content-desc.
+        # Non-fatal: failure leaves all selectors in place.
+        try:
+            from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
+            lang = detect_and_optimize(self.device)
+            _ipc.log("info", f"🌐 TikTok language detected: {lang.upper()}")
+        except Exception as e:
+            _ipc.log("warning", f"Language detection failed (non-fatal): {e}")
+
         # 6. Appuyer sur le bouton Create
         _ipc.status("navigating", "Tapping Create button...")
         if not self._tap_create_button():
