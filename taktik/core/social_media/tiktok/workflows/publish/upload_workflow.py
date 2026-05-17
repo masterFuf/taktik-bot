@@ -34,6 +34,8 @@ from taktik.core.shared.device.media_store import (
     trigger_media_scan,
     scan_wait_for,
 )
+from taktik.core.shared.device.permissions import PermissionHandler
+from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS
 
 try:
     from bridges.common.ipc import IPC as _IPC
@@ -47,111 +49,13 @@ except Exception:
 # ---------------------------------------------------------------------------
 # Sélecteurs
 # ---------------------------------------------------------------------------
-
-# Bouton "Create" (bottom nav)
-# NOTE: TikTok exists under two package names:
-#   com.zhiliaoapp.musically  (Global / Play Store)
-#   com.ss.android.ugc.trill  (EEA / alternative stores)
-# Resource-ids use the package prefix, so we use contains() to match both.
-_CREATE_BTN = [
-    '//*[contains(@resource-id, ":id/nc_")]',
-    '//*[contains(@resource-id, ":id/mkn")]',
-    # content-desc selectors — restrict to Button to avoid matching system nav bar
-    '//android.widget.Button[@content-desc="Create"]',
-    '//android.widget.Button[contains(@content-desc, "Créer")]',
-    '//android.widget.Button[contains(@content-desc, "Create")]',
-    # FrameLayout/ImageView variants (older TikTok versions)
-    '//android.widget.FrameLayout[@content-desc="Create"]',
-    '//android.widget.ImageView[@content-desc="Create"]',
-]
-
-# Bouton "Upload/Gallery" dans le panneau de création (vue caméra)
-# NOTE: same dual-package issue — use contains() for resource-ids
-# Resource-id history:
-#   cl2  → TikTok v44.9+
-#   r3r  → TikTok v43.1.4 (même id sur Android 13 Pixel 4 et Android 14 C57S)
-_UPLOAD_BTN = [
-    '//*[contains(@resource-id, ":id/r3r")]',   # v43.x — folder/gallery icon (no text, cd=@resource_ref)
-    '//*[contains(@resource-id, ":id/cl2")]',   # v44.9+
-    '//*[@content-desc="Upload"]',
-    '//*[contains(@content-desc, "Upload")]',
-    '//*[@text="Upload"]',
-    '//*[contains(@text, "Upload")]',
-    '//*[contains(@text, "Importer")]',
-    '//*[contains(@text, "Gallery")]',
-    '//*[contains(@text, "Galerie")]',
-]
-
-# Dialog permission : "Allow TikTok to access photos and media"
-# resource-id : com.android.permissioncontroller:id/permission_allow_button
-_PERMISSION_ALLOW_BTN = [
-    '//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]',
-    '//android.widget.Button[@text="ALLOW"]',
-    '//android.widget.Button[contains(@text, "Allow")]',
-    '//android.widget.Button[contains(@text, "Autoriser")]',
-    '//android.widget.Button[contains(@text, "Toujours autoriser")]',
-    '//android.widget.Button[@text="While using the app"]',
-]
-
-# Écran galerie — premier élément (fichier le plus récent)
-# Resource-id history:
-#   mub  → TikTok v43.x  (ImageView thumbnail, GridView=i8o)
-#   nm8  → TikTok v44.9+ (ImageView thumbnail, GridView=ir_)
-_GALLERY_FIRST_ITEM = [
-    '(//android.widget.ImageView[contains(@resource-id, ":id/mub")])[1]',
-    '(//android.widget.GridView[contains(@resource-id, ":id/i8o")]//android.widget.ImageView)[1]',
-    '(//android.widget.ImageView[contains(@resource-id, ":id/nm8")])[1]',
-    '(//android.widget.GridView[contains(@resource-id, ":id/ir_")]//android.widget.ImageView)[1]',
-    '//*[contains(@resource-id, ":id/ir_")]//*[@class="android.widget.ImageView"][1]',
-]
-
-# Bouton "Next" / "Suivant" (plusieurs écrans)
-# Resource-id history:
-#   uyb  → TikTok v43.x  — galerie "Next" bar (text='Next', clickable après sélection)
-#   ooo  → TikTok v44.9+ — trim/preview Next
-#   w51  → TikTok v44.9+ — galerie multi-sélect bar
-_NEXT_BTN = [
-    '//android.widget.Button[contains(@resource-id, ":id/uyb")]',
-    '//android.widget.Button[contains(@resource-id, ":id/ooo")]',
-    '//android.widget.Button[contains(@resource-id, ":id/w51")]',
-    '//android.widget.Button[contains(@resource-id, ":id/next_btn")]',
-    '//android.widget.Button[@text="Next"]',
-    '//android.widget.Button[contains(@text, "Next")]',
-    '//android.widget.Button[contains(@text, "Suivant")]',
-    '//android.widget.TextView[contains(@text, "Next")]',
-    '//android.widget.TextView[contains(@text, "Suivant")]',
-]
-
-# Zone de description / caption
-_CAPTION_INPUT = [
-    '//android.widget.EditText[contains(@hint, "description")]',
-    '//android.widget.EditText[contains(@hint, "Description")]',
-    '//android.widget.EditText[contains(@content-desc, "Description")]',
-    '//android.widget.EditText[contains(@hint, "caption")]',
-    '//android.widget.EditText[@clickable="true"][1]',
-    '(//android.widget.EditText)[1]',
-]
-
-# Bouton "Post" / "Publier"
-_POST_BTN = [
-    '//android.widget.Button[@content-desc="Post"]',
-    '//android.widget.Button[contains(@content-desc, "Post")]',
-    '//android.widget.Button[@text="Post"]',
-    '//android.widget.Button[contains(@text, "Post")]',
-    '//android.widget.Button[contains(@text, "Publier")]',
-    '//android.widget.TextView[contains(@text, "Post")]',
-    '//android.widget.TextView[contains(@text, "Publier")]',
-    '//*[contains(@resource-id, ":id/post_btn")]',
-]
-
-# Indicateur que le post a bien été publié
-_SUCCESS_INDICATOR = [
-    '//*[contains(@text, "successfully")]',
-    '//*[contains(@text, "published")]',
-    '//*[contains(@text, "publié")]',
-    '//*[contains(@text, "succès")]',
-    '//*[contains(@content-desc, "Posted")]',
-]
+# Tous les sélecteurs sont centralisés dans
+#   taktik/core/social_media/tiktok/ui/selectors/publish.py
+# Voir ce fichier pour l'historique des resource-ids par version d'app TikTok.
+#
+# Les sélecteurs des popups système Android (autorisations) sont gérés par
+# `PermissionHandler` (taktik/core/shared/device/permissions.py), qui sait
+# détecter la version d'Android et la langue système.
 
 # ── XPath lxml translator (identique au signup_workflow) ─────────────────────
 _CLASS_STEP_RE = _re.compile(
@@ -268,7 +172,7 @@ class TikTokUploadWorkflow:
         for _ in range(3):
             if self._is_on_post_screen():
                 break
-            if not self._tap(selectors=_NEXT_BTN, timeout=3.0):
+            if not self._tap(selectors=PUBLISH_SELECTORS.next_btn, timeout=3.0):
                 break
             time.sleep(1.5)
 
@@ -281,7 +185,7 @@ class TikTokUploadWorkflow:
 
         # 10. Taper "Post"
         _ipc.status("publishing", "Publishing...")
-        if not self._tap(selectors=_POST_BTN, timeout=5.0):
+        if not self._tap(selectors=PUBLISH_SELECTORS.post_btn, timeout=5.0):
             return self._error("post_btn_not_found", "Post button not found")
 
         time.sleep(3.0)
@@ -389,7 +293,7 @@ class TikTokUploadWorkflow:
         In TikTok 44.9+: resource-id=nc_, content-desc='Create'
         Located at 40% from left in the bottom nav bar.
         """
-        if self._tap(_CREATE_BTN, timeout=3.0):
+        if self._tap(PUBLISH_SELECTORS.create_btn, timeout=3.0):
             return True
         # Fallback: tap bottom nav at 40% width (Create is 3rd/5 items = 40% = center of 3rd slot)
         try:
@@ -412,7 +316,7 @@ class TikTokUploadWorkflow:
         In TikTok v44.9+: resource-id=cl2
         Fallback: the gallery icon is consistently at ~50% width, ~80% height.
         """
-        if self._tap(_UPLOAD_BTN, timeout=6.0):
+        if self._tap(PUBLISH_SELECTORS.upload_btn, timeout=6.0):
             return True
         # Fallback: gallery/upload icon is always at ~50% width on the camera screen
         # (left side of the bottom strip — NOT 81% which would be off-screen right)
@@ -430,19 +334,19 @@ class TikTokUploadWorkflow:
             return False
 
     def _handle_permission_dialog(self) -> bool:
-        """Handle 'Allow TikTok to access photos and media' permission dialog.
-        
-        Returns True if a dialog was found and dismissed, False if none.
+        """Grant any Android permission dialogs (media access, etc.).
+
+        Delegates to the central PermissionHandler, which is aware of the
+        Android SDK level and system language.
         """
-        el = self._find_element(_PERMISSION_ALLOW_BTN, timeout=3.0)
-        if el:
-            try:
-                _ipc.log("info", "🔓 Granting media access permission...")
-                el.click()
-                time.sleep(1.0)
+        try:
+            handler = PermissionHandler(self.device, self.device_id)
+            dismissed = handler.grant(rounds=2, per_round_wait=1.5)
+            if dismissed:
+                _ipc.log("info", f"🔓 Granted {dismissed} permission dialog(s)")
                 return True
-            except Exception as e:
-                _ipc.log("warning", f"Permission tap failed: {e}")
+        except Exception as e:
+            _ipc.log("warning", f"Permission handler failed: {e}")
         return False
 
     def _dismiss_post_popups(self):
@@ -499,10 +403,10 @@ class TikTokUploadWorkflow:
           mub  → TikTok v43.x  (Pixel 4 / C57S, bounds match parent FrameLayout exactly)
           nm8  → TikTok v44.9+ (Samsung and newer builds)
         """
-        if self._tap(_GALLERY_FIRST_ITEM, timeout=5.0):
+        if self._tap(PUBLISH_SELECTORS.gallery_first_item, timeout=5.0):
             return True
         _ipc.log("error", "[gallery] no gallery thumbnail selector matched — "
-                 "add a dump from this device to update _GALLERY_FIRST_ITEM")
+                 "add a dump from this device to update PUBLISH_SELECTORS.gallery_first_item")
         return False
 
     def _is_on_post_screen(self) -> bool:
@@ -511,7 +415,7 @@ class TikTokUploadWorkflow:
             from lxml import etree
             xml = self.device.dump_hierarchy(compressed=False)
             tree = etree.fromstring(xml.encode("utf-8"))
-            for xp in _POST_BTN + _CAPTION_INPUT:
+            for xp in PUBLISH_SELECTORS.post_btn + PUBLISH_SELECTORS.caption_input:
                 try:
                     if tree.xpath(_to_lxml(xp)):
                         return True
@@ -541,7 +445,7 @@ class TikTokUploadWorkflow:
         caption_part = " ".join(caption_words)
 
         # ── Focus the EditText ───────────────────────────────────────────────
-        el = self._find_element(_CAPTION_INPUT, timeout=5.0)
+        el = self._find_element(PUBLISH_SELECTORS.caption_input, timeout=5.0)
         try:
             if el:
                 el.click()

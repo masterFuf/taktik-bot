@@ -24,6 +24,7 @@ from .popup import PopupSelectors, POPUP_SELECTORS
 from .scroll import ScrollSelectors, SCROLL_SELECTORS
 from .detection import DetectionSelectors, DETECTION_SELECTORS
 from .followers import FollowersSelectors, FOLLOWERS_SELECTORS
+from .publish import PublishSelectors, PUBLISH_SELECTORS
 
 __all__ = [
     'TIKTOK_PACKAGE',
@@ -42,6 +43,7 @@ __all__ = [
     'ScrollSelectors',
     'DetectionSelectors',
     'FollowersSelectors',
+    'PublishSelectors',
     'AUTH_SELECTORS',
     'SIGNUP_SELECTORS',
     'LOGOUT_SELECTORS',
@@ -57,4 +59,5 @@ __all__ = [
     'SCROLL_SELECTORS',
     'DETECTION_SELECTORS',
     'FOLLOWERS_SELECTORS',
+    'PUBLISH_SELECTORS',
 ]
