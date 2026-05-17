@@ -320,23 +320,25 @@ class TikTokUploadWorkflow:
             return False
 
     def _tap_upload(self) -> bool:
-        """Tap the Upload/Gallery button in the camera creation panel.
-        
-        In TikTok v43.x: resource-id=r3r (folder icon, no readable text)
-        In TikTok v44.9+: resource-id=cl2
-        Fallback: the gallery icon is consistently at ~50% width, ~80% height.
+        """Tap the gallery thumbnail (bottom-left) in the camera creation panel.
+
+        In TikTok v43.x+: resource-id=ymg (FrameLayout clickable, bottom-left corner)
+        In TikTok v44.9+: resource-id=cl2  (Samsung variant)
+        NOTE: r3r is the SHUTTER/RECORD button (center of screen) — not the gallery.
+        Fallback: bottom-left corner at ~8.6% width, ~92% height.
         """
         if self._tap(PUBLISH_SELECTORS.upload_btn, timeout=6.0):
             return True
-        # Fallback: gallery/upload icon is always at ~50% width on the camera screen
-        # (left side of the bottom strip — NOT 81% which would be off-screen right)
+        # Fallback: gallery thumbnail is always in the bottom-LEFT corner (not center).
+        # ymg bounds on 1080x2280: [0,2023][187,2177] → center ≈ (93, 2100) = (8.6%, 92.1%)
+        # r3r is the SHUTTER button (center ~50% width) — do NOT use as fallback.
         try:
             info = self.device.info
             w = info.get("displayWidth", 720)
             h = info.get("displayHeight", 1520)
-            tap_x = int(w * 0.50)
-            tap_y = int(h * 0.80)
-            _ipc.log("debug", f"[upload] fallback coord tap: ({tap_x}, {tap_y})")
+            tap_x = int(w * 0.086)   # ~93px on 1080 = center of bottom-left gallery thumbnail
+            tap_y = int(h * 0.921)   # ~2100px on 2280 = center of ymg FrameLayout
+            _ipc.log("debug", f"[upload] fallback coord tap bottom-left gallery: ({tap_x}, {tap_y})")
             self.device.click(tap_x, tap_y)
             return True
         except Exception as e:

@@ -20,8 +20,9 @@ Historique des resource-ids (collecté depuis des dumps réels) :
     mkn   → variante observée (paquet trill)
 
   Bouton "Upload / Galerie" (vue caméra) :
-    r3r   → v43.1.4  (Pixel 4 Android 13, C57S Android 14)
-    cl2   → v44.9+   (Samsung)
+    ymg   → v43.x+  (FrameLayout galerie, bas-gauche, toutes versions connues)
+    cl2   → v44.9+   (Samsung, variante alt)
+    NOTE: r3r = bouton shutter/obturateur (centre écran), PAS le bouton galerie
 
   Galerie — premier thumbnail :
     mub   → v43.x    (ImageView, GridView=i8o)
@@ -77,7 +78,10 @@ class PublishSelectors:
     ])
 
     # ── 2. Bouton "Upload / Galerie" (panneau création, vue caméra) ─────────
-    _upload_btn_rids: List[str] = field(default_factory=lambda: _rids("r3r", "cl2"))
+    # ymg = FrameLayout clickable en bas-à-gauche (vignette galerie) — Pixel 4, toutes versions
+    # cl2 = variante Samsung v44.9+
+    # NE PAS utiliser r3r : c'est le bouton shutter (obturateur caméra, centre écran)
+    _upload_btn_rids: List[str] = field(default_factory=lambda: _rids("ymg", "cl2"))
     _upload_btn_en: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Upload"]',
         '//*[contains(@content-desc, "Upload")]',
