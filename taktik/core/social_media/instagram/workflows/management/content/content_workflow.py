@@ -109,6 +109,71 @@ class ContentWorkflow(ContentUIHelpersMixin):
         
         return result
     
+    def post_reel(
+        self,
+        video_path: str,
+        caption: Optional[str] = None,
+        hashtags: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Poster un Reel sur Instagram."""
+        result = {
+            'success': False,
+            'message': '',
+            'video_path': video_path
+        }
+
+        try:
+            if not Path(video_path).exists():
+                result['message'] = f"Video not found: {video_path}"
+                self.logger.error(result['message'])
+                return result
+
+            self.logger.info(f"🎬 Starting reel creation with video: {video_path}")
+
+            if not self._open_content_creation():
+                result['message'] = "Failed to open content creation"
+                return result
+
+            if not self._select_reel_type():
+                result['message'] = "Failed to select REEL type"
+                return result
+
+            device_video_path = self._push_image_to_device(video_path)
+            if not device_video_path:
+                result['message'] = "Failed to push video to device"
+                return result
+
+            if not self._select_image_from_gallery(device_video_path):
+                result['message'] = "Failed to select video from gallery"
+                return result
+
+            self._handle_popups()
+
+            if not self._click_next():
+                result['message'] = "Failed to click Next"
+                return result
+
+            self._handle_popups()
+
+            if caption or hashtags:
+                if not self._add_caption(caption, hashtags):
+                    result['message'] = "Failed to add caption"
+                    return result
+
+            if not self._publish_post():
+                result['message'] = "Failed to publish reel"
+                return result
+
+            result['success'] = True
+            result['message'] = "Reel published successfully"
+            self.logger.success(f"✅ Reel published: {video_path}")
+
+        except Exception as e:
+            result['message'] = f"Error: {str(e)}"
+            self.logger.error(f"Error posting reel: {e}")
+
+        return result
+
     def post_story(
         self,
         image_path: str,
