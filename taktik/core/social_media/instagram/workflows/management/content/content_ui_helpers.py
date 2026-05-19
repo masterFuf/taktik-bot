@@ -51,6 +51,56 @@ class ContentUIHelpersMixin:
             self.logger.error(f"Error selecting POST type: {e}")
             return False
 
+    def _select_reel_type(self) -> bool:
+        """Sélectionner le type REEL"""
+        try:
+            self.logger.debug("Selecting REEL type...")
+
+            reel_button = self.device(text="REEL")
+            if not reel_button.exists(timeout=3):
+                reel_button = self.device(text="Reels")
+            if not reel_button.exists(timeout=3):
+                reel_button = self.device(text="REELS")
+
+            if reel_button.exists(timeout=5):
+                reel_button.click()
+                time.sleep(2)
+                self.logger.debug("✅ REEL type selected")
+                self._handle_reel_draft_modal()
+                return True
+
+            self.logger.error("REEL button not found")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error selecting REEL type: {e}")
+            return False
+
+    def _handle_reel_draft_modal(self) -> bool:
+        """Gérer la modale 'Keep editing your draft?' en cliquant sur 'Start new video'."""
+        try:
+            # Detect via headline text or auxiliary_button resource-id
+            draft_headline = self.device(resourceId="com.instagram.android:id/igds_headline_headline",
+                                         text="Keep editing your draft?")
+            if not draft_headline.exists(timeout=3):
+                # Try French variant
+                draft_headline = self.device(resourceId="com.instagram.android:id/igds_headline_headline")
+
+            aux_button = self.device(resourceId=self.content_selectors.auxiliary_button)
+            if aux_button.exists(timeout=3):
+                self.logger.debug("Found reel draft modal — clicking 'Start new video'")
+                aux_button.click()
+                time.sleep(2)
+                self.logger.debug("✅ Reel draft modal dismissed (Start new video)")
+                return True
+
+            self.logger.debug("No reel draft modal detected")
+            return False
+
+        except Exception as e:
+            self.logger.warning(f"Error handling reel draft modal: {e}")
+            return False
+
     def _select_story_type(self) -> bool:
         """Sélectionner le type STORY"""
         try:
