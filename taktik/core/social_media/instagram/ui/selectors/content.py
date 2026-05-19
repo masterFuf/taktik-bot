@@ -13,6 +13,7 @@ class ContentCreationSelectors:
     
     # === Boutons de popup ===
     primary_button: str = 'com.instagram.android:id/primary_button'
+    auxiliary_button: str = 'com.instagram.android:id/auxiliary_button'
     bb_primary_action: str = 'com.instagram.android:id/bb_primary_action'
     
     # === Navigation création ===
