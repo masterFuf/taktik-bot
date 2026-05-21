@@ -111,10 +111,18 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             logger.info(f"Migration: Adding {col_name} to scraped_profiles")
             cursor.execute(f"ALTER TABLE scraped_profiles ADD COLUMN {_col} {col_def}")
 
-    # Create indexes for AI qualification
+    # Migration: Add source_post_url to scraped_profiles
+    try:
+        cursor.execute("SELECT source_post_url FROM scraped_profiles LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migration: Adding source_post_url to scraped_profiles")
+        cursor.execute("ALTER TABLE scraped_profiles ADD COLUMN source_post_url TEXT")
+
+    # Create indexes for AI qualification and source_post_url
     try:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_qualified ON scraped_profiles(ai_qualified)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_score ON scraped_profiles(ai_score)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_post_url ON scraped_profiles(source_post_url)")
     except sqlite3.OperationalError:
         pass
 

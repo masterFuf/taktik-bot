@@ -469,6 +469,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
             scraping_id INTEGER NOT NULL,
             profile_id INTEGER NOT NULL,
             scraped_at TEXT DEFAULT (datetime('now')),
+            source_post_url TEXT,
             ai_score INTEGER,
             ai_qualified INTEGER DEFAULT 0,
             ai_analysis TEXT,

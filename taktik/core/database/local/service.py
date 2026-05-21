@@ -309,29 +309,67 @@ class LocalDatabaseService:
         row = cursor.fetchone()
         return row is not None
     
-    def get_recently_scraped_usernames(self, days: int = 7, limit: int = 10000) -> set:
+    def profile_exists_in_db(self, username: str, days: int = None) -> bool:
         """
-        Get a set of usernames that were recently scraped.
-        
-        This is used to bulk-load usernames for efficient checking
-        during Discovery workflow.
-        
+        Check if a profile exists in the DB. Used for per-username dedup during scraping.
+
         Args:
-            days: Number of days to consider as "recent" (default 7)
-            limit: Maximum number of usernames to return
-            
+            username: Instagram username to check
+            days: If None, pure existence check (profile ever seen).
+                  If > 0, returns True only if profile was CREATED within the last N days.
+
         Returns:
-            Set of usernames that were recently scraped
+            True if profile exists (within the time window if days is set)
         """
         conn = self._get_connection()
         cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT username 
-            FROM instagram_profiles 
-            WHERE updated_at >= datetime('now', '-' || ? || ' days')
-            LIMIT ?
-        """, (days, limit))
+        if days is None:
+            cursor.execute(
+                "SELECT 1 FROM instagram_profiles WHERE username = ? LIMIT 1",
+                (username,)
+            )
+        else:
+            cursor.execute(
+                """SELECT 1 FROM instagram_profiles
+                   WHERE username = ?
+                   AND created_at >= datetime('now', '-' || ? || ' days')
+                   LIMIT 1""",
+                (username, days)
+            )
+        return cursor.fetchone() is not None
+
+    def get_recently_scraped_usernames(self, days: int = None, limit: int = 10000) -> set:
+        """
+        Get a set of known profile usernames for dedup during scraping.
+
+        Uses `created_at` — the date the profile was first inserted — rather than
+        `updated_at`, which gets bumped by automation workflows (interactions,
+        classification, etc.) and would produce false positives.
+
+        Args:
+            days: If set, only return profiles whose created_at is within the last N days.
+                  If None (default), return ALL known profiles (pure existence dedup).
+            limit: Maximum number of usernames to return
+
+        Returns:
+            Set of usernames already known in the DB
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        if days is None:
+            cursor.execute("""
+                SELECT username
+                FROM instagram_profiles
+                LIMIT ?
+            """, (limit,))
+        else:
+            cursor.execute("""
+                SELECT username
+                FROM instagram_profiles
+                WHERE created_at >= datetime('now', '-' || ? || ' days')
+                LIMIT ?
+            """, (days, limit))
         
         return {row['username'] for row in cursor.fetchall()}
     
@@ -759,29 +797,56 @@ class LocalDatabaseService:
             status='CANCELLED'
         )
     
-    def link_profile_to_session(self, scraping_id: int, profile_id: int) -> bool:
+    def link_profile_to_session(self, scraping_id: int, profile_id: int,
+                                  source_post_url: str = None) -> bool:
         """
         Link a profile to a scraping session in the scraped_profiles junction table.
-        
+
         Args:
             scraping_id: The scraping session ID
             profile_id: The profile ID
-            
+            source_post_url: Optional Instagram post URL from which this profile was scraped.
+
         Returns:
             True if linked successfully
         """
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
-            
+
             cursor.execute("""
-                INSERT OR IGNORE INTO scraped_profiles (scraping_id, profile_id)
-                VALUES (?, ?)
-            """, (scraping_id, profile_id))
+                INSERT INTO scraped_profiles (scraping_id, profile_id, source_post_url)
+                VALUES (?, ?, ?)
+                ON CONFLICT(scraping_id, profile_id)
+                DO UPDATE SET source_post_url = COALESCE(excluded.source_post_url, source_post_url)
+            """, (scraping_id, profile_id, source_post_url))
             conn.commit()
             return True
         except Exception as e:
             logger.debug(f"Error linking profile {profile_id} to session {scraping_id}: {e}")
+            return False
+
+    def is_post_url_already_scraped(self, post_url: str) -> bool:
+        """Check if likers from this Instagram post URL were already scraped in any session.
+
+        Args:
+            post_url: Instagram post URL (e.g. https://www.instagram.com/p/ABC123/)
+
+        Returns:
+            True if at least one profile was scraped from this post URL before.
+        """
+        if not post_url:
+            return False
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM scraped_profiles WHERE source_post_url = ? LIMIT 1",
+                (post_url,)
+            )
+            return cursor.fetchone() is not None
+        except Exception as e:
+            logger.debug(f"Error checking scraped post URL: {e}")
             return False
 
     def update_scraped_profile_ai(self, scraping_id: int, profile_id: int,
