@@ -247,6 +247,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                             # Deep qualify: open following list, collect usernames, cross-ref DB
                             # Runs while still on the profile page, BEFORE taking the screenshot.
                             if deep_qualify:
+                                IPCEmitter.emit_scraping_profile_visit(username, profile_data)
                                 _dq = self._deep_qualify_collect(
                                     username=username,
                                     max_following=deep_qualify_max_following,
@@ -428,6 +429,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                     username=username,
                     screenshot_path=screenshot_path,
                     profile_context=profile,
+                    response_language=self.config.get('response_language', 'en'),
                 )
             except Exception as e:
                 self.logger.warning(f"Vision classification failed for @{username}: {e}")
