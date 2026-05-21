@@ -83,6 +83,10 @@ def main():
             if dq_max is not None:
                 scraping_config['deep_qualify_max_following'] = int(dq_max)
 
+        # App language — controls AI summary/insights language
+        app_lang = config.get('appLanguage', 'en')
+        scraping_config['response_language'] = app_lang
+
         # Type-specific config
         if config.get('type') == 'target':
             scraping_config['target_usernames'] = config.get('targetUsernames', [])
@@ -137,6 +141,10 @@ def main():
         logger.info(f"Starting scraping workflow: {scraping_config['type']}")
         if scraping_config.get('enrich_profiles', False):
             logger.info("Enriched scraping enabled - will visit each profile for details")
+        if scraping_config.get('deep_qualify', False):
+            logger.info(f"🔬 Deep qualify enabled — max_following={scraping_config.get('deep_qualify_max_following', 30)}")
+        else:
+            logger.info(f"🔬 Deep qualify OFF — config received deepQualify={config.get('deepQualify')!r}, enrichProfiles={config.get('enrichProfiles')!r}")
         workflow = ScrapingWorkflow(device_manager, scraping_config)
         result = workflow.run()
         
