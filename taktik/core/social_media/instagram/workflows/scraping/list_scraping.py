@@ -15,11 +15,12 @@ from .list_strategy import (
     make_followers_strategy,
     make_commenters_strategy,
 )
+from .deep_qualify import DeepQualifyMixin
 
 console = Console()
 
 
-class ScrapingListMixin:
+class ScrapingListMixin(DeepQualifyMixin):
     """Mixin: generic list scraping, hashtag scraping, post URL scraping."""
 
     def _scrape_list(self, max_count: int, source_type: str, source_name: str,
@@ -82,6 +83,15 @@ class ScrapingListMixin:
         max_no_new_users = 5  # Stop after 5 consecutive scrolls with no new users
         consecutive_empty_visible = 0  # Count consecutive scans returning 0 elements
         max_consecutive_empty = 3  # After this many, check if still on followers list
+
+        # Deep qualify: open following list per profile + DB cross-reference
+        deep_qualify: bool = bool(self.config.get('deep_qualify', False)) and enrich_on_the_fly
+        deep_qualify_max_following: int = int(self.config.get('deep_qualify_max_following', 30))
+        if deep_qualify:
+            self.logger.info(
+                f"🔬 Deep qualify ON — will collect up to {deep_qualify_max_following} "
+                "followings per profile and cross-reference DB"
+            )
         
         # Use actual available count for progress bar if provided
         progress_total = min(max_count, total_available) if total_available else max_count
@@ -233,6 +243,15 @@ class ScrapingListMixin:
                                 self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
                             else:
                                 self.logger.warning(f"Could not get profile info for @{username}")
+
+                            # Deep qualify: open following list, collect usernames, cross-ref DB
+                            # Runs while still on the profile page, BEFORE taking the screenshot.
+                            if deep_qualify:
+                                _dq = self._deep_qualify_collect(
+                                    username=username,
+                                    max_following=deep_qualify_max_following,
+                                )
+                                profile_data.update(_dq)
 
                             # Capture screenshot for AI vision analysis (while still on profile page)
                             # Skip if ai_rescrape_mode = 'stats_only' and profile already existed in DB

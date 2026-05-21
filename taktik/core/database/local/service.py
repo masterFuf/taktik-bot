@@ -197,7 +197,45 @@ class LocalDatabaseService:
     def get_profile_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Get profile by username."""
         return self.profiles.find_by_username(username)
-    
+
+    def get_profiles_by_usernames(self, usernames: List[str]) -> List[Dict[str, Any]]:
+        """
+        Batch-lookup profiles by username list.  Returns only profiles that exist
+        in the DB (order not guaranteed).  Uses a single SQL query with IN clause.
+        """
+        if not usernames:
+            return []
+        try:
+            conn = self._get_connection()
+            placeholders = ','.join('?' * len(usernames))
+            rows = conn.execute(
+                f"""
+                SELECT
+                    p.username,
+                    p.full_name,
+                    p.biography,
+                    p.is_business,
+                    sp.ai_analysis,
+                    sp.ai_qualified
+                FROM instagram_profiles p
+                LEFT JOIN (
+                    SELECT profile_id,
+                           MAX(scraped_at) AS latest,
+                           ai_analysis,
+                           ai_qualified
+                    FROM scraped_profiles
+                    WHERE ai_qualified = 1
+                    GROUP BY profile_id
+                ) sp ON sp.profile_id = p.id
+                WHERE p.username IN ({placeholders})
+                """,
+                usernames,
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            logger.debug(f"get_profiles_by_usernames failed: {e}")
+            return []
+
     def save_profile(self, profile_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Save a profile and optionally record enriched stats.

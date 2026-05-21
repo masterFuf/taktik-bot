@@ -76,6 +76,13 @@ def main():
         if rescrape_after_days is not None:
             scraping_config['rescrape_after_days'] = int(rescrape_after_days)
 
+        # Deep qualify — open following list per profile + DB cross-reference
+        if config.get('deepQualify'):
+            scraping_config['deep_qualify'] = True
+            dq_max = config.get('deepQualifyMaxFollowing')
+            if dq_max is not None:
+                scraping_config['deep_qualify_max_following'] = int(dq_max)
+
         # Type-specific config
         if config.get('type') == 'target':
             scraping_config['target_usernames'] = config.get('targetUsernames', [])

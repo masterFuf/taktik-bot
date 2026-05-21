@@ -366,6 +366,37 @@ class AIService:
             if ctx_parts:
                 user_prompt += "\n\nAdditional profile context (use to improve classification accuracy):\n" + "\n".join(ctx_parts)
 
+            # Deep qualify context — following sample + already-classified profiles from DB
+            following_sample = profile_context.get('_following_sample') or []
+            known_followings = profile_context.get('_known_followings') or []
+
+            if following_sample:
+                user_prompt += (
+                    f"\n\nFollowing sample ({len(following_sample)} accounts this user follows):\n"
+                    + ", ".join(f"@{u}" for u in following_sample)
+                )
+
+            if known_followings:
+                lines = []
+                for kf in known_followings[:20]:  # cap at 20 to keep prompt size reasonable
+                    parts = [f"@{kf.get('username', '?')}"]
+                    if kf.get('niche_category'):
+                        parts.append(f"niche={kf['niche_category']}")
+                    if kf.get('niche'):
+                        parts.append(f"({kf['niche']})")
+                    if kf.get('cities'):
+                        parts.append(f"city={kf['cities']}")
+                    if kf.get('profession'):
+                        parts.append(f"profession={kf['profession']}")
+                    if kf.get('tags') and isinstance(kf['tags'], list):
+                        parts.append(f"tags=[{', '.join(kf['tags'][:4])}]")
+                    lines.append(' '.join(parts))
+                user_prompt += (
+                    "\n\nAlready-classified profiles from following list "
+                    "(use to infer interests, location, community):\n"
+                    + "\n".join(f"  • {l}" for l in lines)
+                )
+
         result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
                                         temperature=0.2, max_tokens=600)
         duration_ms = int((time.time() - t0) * 1000)
