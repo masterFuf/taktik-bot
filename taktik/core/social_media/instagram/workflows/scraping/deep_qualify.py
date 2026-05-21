@@ -23,6 +23,11 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
+try:
+    from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter as _IPCEmitter
+except ImportError:
+    _IPCEmitter = None  # type: ignore
+
 
 class DeepQualifyMixin:
     """Mixin: collect following sample + DB cross-reference for deep qualification."""
@@ -55,7 +60,7 @@ class DeepQualifyMixin:
         }
 
         try:
-            following_usernames = self._quick_collect_following(max_count=max_following)
+            following_usernames = self._quick_collect_following(max_count=max_following, username=username)
             if following_usernames:
                 result['_following_sample'] = following_usernames
                 result['_known_followings'] = self._get_known_followings(following_usernames)
@@ -72,7 +77,7 @@ class DeepQualifyMixin:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _quick_collect_following(self, max_count: int = 30) -> List[str]:
+    def _quick_collect_following(self, max_count: int = 30, username: str = "") -> List[str]:
         """
         Open the following list of the current profile page, collect up to
         *max_count* usernames (1–2 pages, no deep scroll), then press back
@@ -88,20 +93,34 @@ class DeepQualifyMixin:
             self.logger.debug("[deep_qualify] nav_actions.open_following_list not available")
             return usernames
 
+        # Diagnostic: verify we're on the profile page before attempting
+        device = getattr(self, 'device', None)
+        if device is not None:
+            on_profile = device.xpath(
+                '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
+            ).exists
+            if not on_profile:
+                self.logger.warning(
+                    "[deep_qualify] Not on profile screen when trying to open following list — skipping"
+                )
+                return usernames
+
         opened = nav.open_following_list()
         if not opened:
-            self.logger.debug("[deep_qualify] Could not open following list (private or unavailable)")
+            self.logger.warning("[deep_qualify] Could not open following list (private or unavailable)")
             return usernames
 
         time.sleep(1.2)  # let the list settle
 
-        # 2. Collect usernames — grab 1 visible page, scroll once if needed ----
+        # 2. Collect usernames — grab visible pages, scrolling until we have enough ----
         det = getattr(self, 'detection_actions', None)
         scr = getattr(self, 'scroll_actions', None)
 
         seen: set = set()
         pages_fetched = 0
-        max_pages = 2  # at most 2 "pages" to keep it fast (~30–60 usernames)
+        # Each scroll reveals ~9 new usernames; compute pages needed + 1 safety page
+        _users_per_scroll = 9
+        max_pages = min(50, max(2, -(-max_count // _users_per_scroll) + 1))  # ceil div + 1, cap 50
 
         while len(usernames) < max_count and pages_fetched < max_pages:
             try:
@@ -122,6 +141,13 @@ class DeepQualifyMixin:
                     break
 
             pages_fetched += 1
+
+            # Emit live progress so the Agent panel can update the counter
+            if new_on_page > 0 and username and _IPCEmitter is not None:
+                try:
+                    _IPCEmitter.emit_scraping_dq_progress(username, len(usernames), max_count)
+                except Exception:
+                    pass
 
             # Stop scrolling if we have enough or nothing new appeared
             if len(usernames) >= max_count or new_on_page == 0:
@@ -167,6 +193,17 @@ class DeepQualifyMixin:
             # Parse niche / tags out of ai_analysis field if stored there
             ai_analysis = p.get('ai_analysis') or ''
 
+            # ai_profession_tags is stored as a JSON string in the DB
+            raw_tags = p.get('profession_tags')
+            if isinstance(raw_tags, str):
+                try:
+                    import json as _json
+                    raw_tags = _json.loads(raw_tags)
+                except Exception:
+                    raw_tags = []
+            if not isinstance(raw_tags, list):
+                raw_tags = []
+
             entry: Dict[str, Any] = {
                 'username': p.get('username', ''),
                 'full_name': p.get('full_name') or '',
@@ -174,7 +211,7 @@ class DeepQualifyMixin:
                 'is_business': bool(p.get('is_business', False)),
                 'niche_category': p.get('niche_category') or '',
                 'niche': p.get('niche') or '',
-                'tags': p.get('tags') or [],
+                'tags': raw_tags,
                 'cities': p.get('cities') or '',
                 'profession': p.get('profession') or '',
                 'summary': p.get('summary') or ai_analysis,
