@@ -103,6 +103,16 @@ class ProfileExtraction(BaseBusinessAction):
                 if about_info:
                     profile_info['date_joined'] = about_info.get('date_joined')
                     profile_info['account_based_in'] = about_info.get('account_based_in')
+
+                # Safety: verify we're back on the profile page after About navigation.
+                # get_about_account_info navigates away and the back press may overshoot
+                # (e.g. returns to the followers list instead of the profile).
+                if not self.device.xpath(
+                    '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
+                ).exists:
+                    self.logger.warning("⚠️ Profile page lost after 'About this account' navigation, pressing back")
+                    self.device.press("back")
+                    self._random_sleep(1.0, 1.5)
             
             # Clean username if necessary
             if profile_info['username']:
