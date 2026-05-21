@@ -305,7 +305,8 @@ class AIService:
     ]
 
     def classify_profile_niche(self, username: str, screenshot_path: str,
-                               profile_context: dict = None) -> Dict[str, Any]:
+                               profile_context: dict = None,
+                               response_language: str = 'en') -> Dict[str, Any]:
         """
         Classify an Instagram profile from a screenshot into a niche (scraping mode).
         No relevance score — focus is on niche classification + profile summary.
@@ -318,12 +319,33 @@ class AIService:
         """
         t0 = time.time()
 
+        # ── Build a human-readable context summary for the AgentPanel ────────────
+        context_lines: list[str] = []
+        if profile_context:
+            bio = (profile_context.get('biography') or '').strip()
+            if bio:
+                bio_short = bio[:120] + ('…' if len(bio) > 120 else '')
+                context_lines.append(f"Bio: {bio_short}")
+            cat = profile_context.get('business_category') or ''
+            if cat:
+                context_lines.append(f"Category: {cat}")
+            following_sample = profile_context.get('_following_sample') or []
+            if following_sample:
+                preview = ', '.join(f"@{u}" for u in following_sample[:5])
+                extra = len(following_sample) - 5
+                extra_str = f' +{extra} more' if extra > 0 else ''
+                context_lines.append(f"Following ({len(following_sample)}): {preview}{extra_str}")
+            known = profile_context.get('_known_followings') or []
+            if known:
+                context_lines.append(f"{len(known)} already-classified in DB")
+        ipc_prompt = '\n'.join(context_lines) if context_lines else f"Classifying @{username}"
+
         if self.ipc:
             screenshot_thumb = self._image_to_thumbnail_url(screenshot_path)
             avatar_thumb = self._extract_avatar_thumbnail(screenshot_path)
             self.ipc.ai_profile_analyzing(
                 username,
-                prompt=f"Classifying @{username}",
+                prompt=ipc_prompt,
                 model=self.vision_model,
                 image_url=screenshot_thumb,
                 avatar_url=avatar_thumb,
@@ -331,6 +353,8 @@ class AIService:
 
         niche_list = ", ".join(self.NICHE_CATEGORIES)
         sub_niche_list = " | ".join(self.SUB_NICHES)
+        _lang_map = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}
+        _lang_full = _lang_map.get(response_language, 'English')
         system_prompt = (
             "You are an Instagram profile classifier.\n"
             "Analyze this profile screenshot and identify the account's niche.\n"
@@ -340,9 +364,15 @@ class AIService:
             "If the person has a clear professional trade (Actor, Director, Screenwriter, Photographer, Chef, Coach, Tattoo Artist, Musician, Model, etc.), set profession to that trade in the profile language. "
             "Set profession_tags to up to 3 subcategory tags (e.g. ['UGC', 'short film', 'coaching'] for an actor). "
             "If no clear profession is identifiable, set profession to null and profession_tags to [].\n"
+            "For 'summary': write 2-3 sentences describing who this person is, their content style, typical audience, and likely purpose. Be specific and insightful — avoid generic descriptions.\n"
+            "For 'following_insights': if a following sample was provided, write 1-2 sentences explaining what it reveals about this person (interests, community circles, cultural background, location signals, professional network, etc.). "
+            "Be concrete: name specific patterns you observe. Set to null if no following data was provided.\n"
+            f"Write the 'summary' and 'following_insights' text fields in {_lang_full}. "
+            "All structured fields (niche_category, niche, language, content_type, tags, cities, profession, profession_tags) must remain in English.\n"
             "Respond ONLY with valid JSON — no extra text:\n"
             '{"niche_category": "travel", "niche": "Adventure & Backpacking", '
-            '"summary": "One sentence describing the account.", '
+            '"summary": "2-3 sentences describing the account in detail.", '
+            '"following_insights": "What the following sample reveals about this person, or null.", '
             '"language": "en", "content_type": "creator", "tags": ["tag1", "tag2"], '
             '"cities": [], "profession": null, "profession_tags": []}'
         )
@@ -397,9 +427,19 @@ class AIService:
                     + "\n".join(f"  • {l}" for l in lines)
                 )
 
+        logger.debug(
+            f"[AIService] classify_profile_niche @{username} — prompt sent:\n"
+            f"{'─' * 60}\n{user_prompt}\n{'─' * 60}"
+        )
+
         result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
-                                        temperature=0.2, max_tokens=600)
+                                        temperature=0.2, max_tokens=900)
         duration_ms = int((time.time() - t0) * 1000)
+
+        logger.debug(
+            f"[AIService] classify_profile_niche @{username} — raw response:\n"
+            f"{'─' * 60}\n{result.get('text', '(no text)')}\n{'─' * 60}"
+        )
 
         if not result["success"]:
             if self.ipc:
@@ -431,6 +471,11 @@ class AIService:
         result_text = f"[{niche_cat}] {niche}"
         if summary:
             result_text += f" · {summary}"
+
+        # Inject deep-qualify context so the frontend card can display it
+        following_sample = (profile_context or {}).get('_following_sample') or []
+        if following_sample:
+            classification['following_sample'] = following_sample
 
         if self.ipc:
             screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=800)
