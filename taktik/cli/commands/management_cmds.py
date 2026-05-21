@@ -6,6 +6,7 @@ from rich.table import Table
 from rich.prompt import Prompt
 from taktik.core.social_media.instagram.actions.core.device import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
+from taktik.core.clone import rid
 
 console = Console()
 
@@ -247,7 +248,7 @@ def dm_inbox(device_id, limit, unread_only):
                     
                     # Essayer d'extraire le username via le resource-id spécifique
                     try:
-                        username_elem = thread.child(resourceId="com.instagram.android:id/row_inbox_username")
+                        username_elem = thread.child(resourceId=rid("com.instagram.android:id/row_inbox_username"))
                         if username_elem.exists:
                             username = username_elem.get_text() or username
                     except Exception:
@@ -260,7 +261,7 @@ def dm_inbox(device_id, limit, unread_only):
                     
                     # Essayer d'extraire le digest (preview)
                     try:
-                        digest_elem = thread.child(resourceId="com.instagram.android:id/row_inbox_digest")
+                        digest_elem = thread.child(resourceId=rid("com.instagram.android:id/row_inbox_digest"))
                         if digest_elem.exists:
                             preview = digest_elem.get_text() or preview
                     except Exception:
@@ -268,7 +269,7 @@ def dm_inbox(device_id, limit, unread_only):
                     
                     # Essayer d'extraire le timestamp
                     try:
-                        time_elem = thread.child(resourceId="com.instagram.android:id/row_inbox_timestamp")
+                        time_elem = thread.child(resourceId=rid("com.instagram.android:id/row_inbox_timestamp"))
                         if time_elem.exists:
                             timestamp = time_elem.get_text() or timestamp
                     except Exception:
@@ -435,7 +436,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                     
                     # Essayer via resource-id
                     try:
-                        username_elem = device(resourceId="com.instagram.android:id/row_inbox_username")
+                        username_elem = device(resourceId=rid("com.instagram.android:id/row_inbox_username"))
                         if username_elem.exists:
                             for i in range(username_elem.count):
                                 elem = username_elem[i]
@@ -462,7 +463,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                     time.sleep(2)
                     
                     # Vérifier qu'on est dans la conversation (header_title présent)
-                    header_title = device(resourceId="com.instagram.android:id/header_title")
+                    header_title = device(resourceId=rid("com.instagram.android:id/header_title"))
                     if not header_title.exists(timeout=3):
                         console.print(f"[yellow]⚠️ Impossible d'ouvrir la conversation avec {username}[/yellow]")
                         # Essayer de revenir en arrière
@@ -476,7 +477,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                     # Détecter si c'est un groupe (subtitle contient "membres" ou "members")
                     is_group = False
                     can_reply = True
-                    header_subtitle = device(resourceId="com.instagram.android:id/header_subtitle")
+                    header_subtitle = device(resourceId=rid("com.instagram.android:id/header_subtitle"))
                     if header_subtitle.exists:
                         try:
                             subtitle_desc = header_subtitle.info.get('contentDescription', '')
@@ -485,7 +486,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                                 console.print(f"[yellow]      ⚠️ C'est un groupe ({subtitle_desc})[/yellow]")
                                 
                                 # Vérifier si on peut écrire (champ de saisie présent)
-                                composer = device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
+                                composer = device(resourceId=rid("com.instagram.android:id/row_thread_composer_edittext"))
                                 if not composer.exists:
                                     can_reply = False
                                     console.print(f"[yellow]      ⚠️ Impossible d'écrire dans ce groupe[/yellow]")
@@ -500,7 +501,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                     all_items = []
                     
                     # 1. Messages texte
-                    msg_elements = device(resourceId="com.instagram.android:id/direct_text_message_text_view")
+                    msg_elements = device(resourceId=rid("com.instagram.android:id/direct_text_message_text_view"))
                     for i in range(msg_elements.count):
                         try:
                             msg_elem = msg_elements[i]
@@ -523,7 +524,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                             continue
                     
                     # 2. Reels/médias partagés
-                    reel_shares = device(resourceId="com.instagram.android:id/reel_share_item_view")
+                    reel_shares = device(resourceId=rid("com.instagram.android:id/reel_share_item_view"))
                     for i in range(reel_shares.count):
                         try:
                             reel = reel_shares[i]
@@ -533,7 +534,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                             is_received = reel_left < screen_width * 0.5
                             
                             # Chercher le titre (auteur du reel)
-                            title_elem = device(resourceId="com.instagram.android:id/title_text")
+                            title_elem = device(resourceId=rid("com.instagram.android:id/title_text"))
                             reel_author = ""
                             for j in range(title_elem.count):
                                 try:
@@ -590,7 +591,7 @@ def dm_read_all(device_id, limit, messages_per_conv):
                     console.print(f"[green]   ✅ {len(last_messages)} dernier(s) message(s) reçu(s)[/green]")
                     
                     # Revenir en arrière
-                    back_btn = device(resourceId="com.instagram.android:id/header_left_button")
+                    back_btn = device(resourceId=rid("com.instagram.android:id/header_left_button"))
                     if back_btn.exists:
                         back_btn.click()
                     else:

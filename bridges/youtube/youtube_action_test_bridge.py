@@ -104,34 +104,17 @@ def _action(action_id: str):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+from taktik.core.shared.device.wait import wait_for_any as _wait_for_any_shared, try_tap as _try_tap_shared
+
+
 def _wait_for_any(d, selectors: list, timeout: float = 6.0, label: str = "") -> str | None:
-    """Return the first selector that becomes visible within timeout seconds."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        for sel in selectors:
-            try:
-                if d.xpath(sel).exists:
-                    _log("debug", f"✅ [{label or 'found'}] {sel[:80]}")
-                    return sel
-            except Exception:
-                continue
-        time.sleep(0.5)
-    if label:
-        _log("debug", f"❌ [{label}] no match after {timeout:.0f}s ({len(selectors)} tried)")
-    return None
+    """Bridge wrapper around the shared `wait_for_any` that forwards `_log`."""
+    return _wait_for_any_shared(d, selectors, timeout=timeout, label=label, log=_log)
 
 
 def _try_tap(d, selectors: list, timeout: float = 4.0, label: str = "") -> bool:
-    """Find the first visible selector within timeout, then tap it."""
-    found = _wait_for_any(d, selectors, timeout=timeout, label=label)
-    if not found:
-        return False
-    try:
-        d.xpath(found).click()
-        return True
-    except Exception as e:
-        _log("warning", f"⚠️ [{label}] found but click failed: {e}")
-        return False
+    """Bridge wrapper around the shared `try_tap` that forwards `_log`."""
+    return _try_tap_shared(d, selectors, timeout=timeout, label=label, log=_log)
 
 
 # =============================================================================

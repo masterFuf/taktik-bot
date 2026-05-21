@@ -86,7 +86,15 @@ class YouTubeUploadBridge:
         # ── Run workflow ─────────────────────────────────────────────────────
         send_status("running", "Starting YouTube upload workflow…")
         try:
-            from taktik.core.social_media.youtube.workflows.publish.upload_workflow import YouTubeUploadWorkflow
+            from taktik.core.social_media.youtube.workflows.publish.upload_workflow import (
+                YouTubeUploadWorkflow,
+                set_callbacks as _set_upload_callbacks,
+            )
+
+            # Inject IPC callbacks so the workflow can emit log/status events
+            # without importing `bridges.common.ipc` directly.
+            _set_upload_callbacks(log=send_log, status=send_status)
+
             workflow = YouTubeUploadWorkflow(device, self.device_id)
             result = workflow.execute(
                 local_path=self.local_path,

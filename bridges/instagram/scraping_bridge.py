@@ -67,29 +67,50 @@ def main():
             'save_to_db': config.get('saveToDb', True),
             'enrich_profiles': config.get('enrichProfiles', False),
         }
-        
+
+        # Dedup filter:
+        #   rescrapeAfterDays not set  → Python defaults: skip all known profiles
+        #   rescrapeAfterDays = 0      → always re-scrape (dedup disabled)
+        #   rescrapeAfterDays = N > 0  → skip profiles created within N days
+        rescrape_after_days = config.get('rescrapeAfterDays')
+        if rescrape_after_days is not None:
+            scraping_config['rescrape_after_days'] = int(rescrape_after_days)
+
         # Type-specific config
         if config.get('type') == 'target':
             scraping_config['target_usernames'] = config.get('targetUsernames', [])
             scraping_config['scrape_type'] = config.get('scrapeType', 'followers')
+            # Posts sub-options
+            scraping_config['scrape_post_likers'] = config.get('scrapePostLikers', True)
+            scraping_config['scrape_post_commenters'] = config.get('scrapePostCommenters', False)
         elif config.get('type') == 'hashtag':
-            scraping_config['hashtag'] = config.get('hashtag', '')
-            scraping_config['scrape_type'] = config.get('scrapeType', 'authors')
+            # Frontend sends 'hashtags' (array); fall back to legacy 'hashtag' (string)
+            hashtags = config.get('hashtags') or []
+            if not hashtags and config.get('hashtag'):
+                hashtags = [config.get('hashtag')]
+            scraping_config['hashtags'] = hashtags
+            scraping_config['hashtag'] = hashtags[0] if hashtags else ''  # backward compat
+            scraping_config['scrape_likers'] = config.get('scrapeHashtagLikers', True)
+            scraping_config['scrape_commenters'] = config.get('scrapeHashtagCommenters', False)
             scraping_config['max_posts'] = config.get('maxPosts', 50)
         elif config.get('type') == 'post_url':
-            scraping_config['post_url'] = config.get('postUrl', '')
-            # Extract post ID from URL
+            # Frontend sends 'postUrls' (array); fall back to legacy 'postUrl' (string)
+            post_urls = config.get('postUrls') or []
+            if not post_urls and config.get('postUrl'):
+                post_urls = [config.get('postUrl')]
+            scraping_config['post_urls'] = post_urls
+            scraping_config['post_url'] = post_urls[0] if post_urls else ''  # backward compat
+            scraping_config['scrape_likers'] = config.get('scrapePostUrlLikers', True)
+            scraping_config['scrape_commenters'] = config.get('scrapePostUrlCommenters', False)
+            # Extract post ID from first URL (legacy single-url field)
             import re
-            match = re.search(r'/p/([^/]+)/', config.get('postUrl', ''))
+            first_url = post_urls[0] if post_urls else ''
+            match = re.search(r'/p/([^/]+)/', first_url)
             if match:
                 scraping_config['post_id'] = match.group(1)
             else:
-                # Try reel URL format
-                match = re.search(r'/reel/([^/]+)/', config.get('postUrl', ''))
-                if match:
-                    scraping_config['post_id'] = match.group(1)
-                else:
-                    scraping_config['post_id'] = 'unknown'
+                match = re.search(r'/reel/([^/]+)/', first_url)
+                scraping_config['post_id'] = match.group(1) if match else 'unknown'
         
         # AI Mode config
         ai_config = config.get('ai', {})
@@ -100,6 +121,8 @@ def main():
             scraping_config['ai_qualification_prompt'] = ai_config.get('qualificationPrompt', '')
             scraping_config['openrouter_api_key'] = ai_config.get('openrouterApiKey', '')
             scraping_config['vision_model'] = ai_config.get('visionModel', '')
+            # When re-scraping existing profiles in AI mode: 'full' = redo screenshot+AI, 'stats_only' = skip AI
+            scraping_config['ai_rescrape_mode'] = config.get('aiRescrapeMode', 'full')
         else:
             scraping_config['ai_mode'] = False
 

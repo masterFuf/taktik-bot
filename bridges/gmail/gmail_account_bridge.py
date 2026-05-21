@@ -281,36 +281,15 @@ class GmailAccountBridge:
 
     def _persist_account(self, email: str) -> None:
         """Insert or update the account in gmail_accounts."""
-        try:
-            from taktik.core.database.local.service import get_local_database
-            db = get_local_database()
-            conn = db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO gmail_accounts (email, device_id, last_used_at)
-                VALUES (?, ?, datetime('now'))
-                ON CONFLICT(email) DO UPDATE SET
-                    device_id = excluded.device_id,
-                    last_used_at = datetime('now')
-                """,
-                (email, self.device_id),
-            )
-            conn.commit()
-        except Exception as e:
-            send_log("warning", f"⚠️ Could not persist Gmail account: {e}")
+        from taktik.core.database.repositories.accounts import GmailAccountRepository
+        if not GmailAccountRepository().upsert(email, self.device_id):
+            send_log("warning", f"⚠️ Could not persist Gmail account {email}")
 
     def _unpersist_account(self, email: str) -> None:
         """Delete the account from gmail_accounts."""
-        try:
-            from taktik.core.database.local.service import get_local_database
-            db = get_local_database()
-            conn = db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM gmail_accounts WHERE email = ?", (email,))
-            conn.commit()
-        except Exception as e:
-            send_log("warning", f"⚠️ Could not unpersist Gmail account: {e}")
+        from taktik.core.database.repositories.accounts import GmailAccountRepository
+        if not GmailAccountRepository().delete(email):
+            send_log("warning", f"⚠️ Could not unpersist Gmail account {email}")
 
 
 def main():

@@ -335,24 +335,9 @@ class YouTubeAccountBridge:
 
     def _persist_account(self, email: str) -> None:
         """Reuse the gmail_accounts table — same Google account."""
-        try:
-            from taktik.core.database.local.service import get_local_database
-            db = get_local_database()
-            conn = db._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO gmail_accounts (email, device_id, last_used_at)
-                VALUES (?, ?, datetime('now'))
-                ON CONFLICT(email) DO UPDATE SET
-                    device_id = excluded.device_id,
-                    last_used_at = datetime('now')
-                """,
-                (email, self.device_id),
-            )
-            conn.commit()
-        except Exception as e:
-            send_log("warning", f"⚠️ Could not persist account: {e}")
+        from taktik.core.database.repositories.accounts import GmailAccountRepository
+        if not GmailAccountRepository().upsert(email, self.device_id):
+            send_log("warning", f"⚠️ Could not persist account {email}")
 
 
 def main():

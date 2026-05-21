@@ -165,35 +165,12 @@ def setup_stats_callback():
 
 
 # ── Clone-aware device proxy ─────────────────────────────────────────
+# The proxy implementation lives in `taktik.core.clone.proxy` so that
+# non-bridge code (workflows, CLI, recorder) can reuse the exact same
+# rewriting logic. We re-export the class here as `_CloneAwareDeviceProxy`
+# for backward compatibility with any external import.
 
-class _CloneAwareDeviceProxy:
-    """Transparent proxy around a uiautomator2 device that rewrites
-    ``resourceId`` keyword arguments on-the-fly so that bridges written
-    for ``com.instagram.android`` work unmodified on clone packages
-    (e.g. ``com.taktik.ig1``).
-
-    All attribute access and method calls are forwarded to the real device.
-    Only ``__call__`` (selector creation) intercepts ``resourceId`` to patch
-    the package prefix.
-    """
-
-    __slots__ = ("_device", "_official", "_clone")
-
-    def __init__(self, device, clone_package: str):
-        object.__setattr__(self, "_device", device)
-        object.__setattr__(self, "_official", "com.instagram.android")
-        object.__setattr__(self, "_clone", clone_package)
-
-    # Forward attribute access (press, swipe, xpath, screenshot, …)
-    def __getattr__(self, name):
-        return getattr(self._device, name)
-
-    # Intercept selector creation: device(resourceId="com.instagram.android:id/…")
-    def __call__(self, *args, **kwargs):
-        rid = kwargs.get("resourceId")
-        if rid and self._official in rid:
-            kwargs["resourceId"] = rid.replace(self._official, self._clone)
-        return self._device(*args, **kwargs)
+from taktik.core.clone.proxy import CloneAwareDeviceProxy as _CloneAwareDeviceProxy  # noqa: E402
 
 
 # ── Base class for Instagram bridges ─────────────────────────────────
@@ -204,6 +181,8 @@ class InstagramBridgeBase(PlatformBridgeBase):
     Extends `PlatformBridgeBase` with:
     - Clone package registration (``set_active_package``)
     - Transparent device proxy that rewrites resourceId for clone packages
+    - The proxy is propagated to ``device_manager.device`` so workflows
+      constructed from the manager also benefit from it transparently.
     - ``rid()`` helper for manual resourceId resolution
     - ``restart_instagram()`` backward-compatible alias
     """
@@ -212,15 +191,34 @@ class InstagramBridgeBase(PlatformBridgeBase):
     DEFAULT_PACKAGE = "com.instagram.android"
 
     def _after_connect(self) -> None:
-        """Register clone package globally and wrap device proxy."""
-        if self.package_name and self.package_name != self.DEFAULT_PACKAGE:
-            from taktik.core.clone import set_active_package
-            set_active_package(self.package_name)
-            # Wrap raw underlying device (not the alias we set) so attribute
-            # forwarding works correctly.
-            self.device = _CloneAwareDeviceProxy(
-                self._connection.device, self.package_name
-            )
+        """Register clone package globally and wrap device proxy everywhere
+        (bridge, ConnectionService, DeviceManager) so that workflows and
+        helpers constructed downstream see the same proxy."""
+        if not (self.package_name and self.package_name != self.DEFAULT_PACKAGE):
+            return
+
+        from taktik.core.clone import set_active_package
+        set_active_package(self.package_name)
+
+        # The raw uiautomator2 device — wrap it once.
+        raw_device = self._connection.device
+        # Avoid double-wrapping if connect() is somehow called twice.
+        if isinstance(raw_device, _CloneAwareDeviceProxy):
+            proxy = raw_device
+        else:
+            proxy = _CloneAwareDeviceProxy(raw_device, self.package_name)
+
+        # Bridge attribute (used by bridge methods)
+        self.device = proxy
+        # DeviceManager attribute — workflows do `self.device = device_manager.device`
+        # so this is what makes the proxy visible to every downstream workflow.
+        if self.device_manager is not None:
+            self.device_manager.device = proxy
+        # ConnectionService cache — keep in sync so `conn.device` also returns proxy.
+        try:
+            self._connection._device = proxy
+        except AttributeError:
+            pass
 
     def rid(self, resource_id: str) -> str:
         """Resolve a resource-id for the active package.
