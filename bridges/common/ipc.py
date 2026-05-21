@@ -144,6 +144,28 @@ class IPC:
         """Send profile visit event."""
         self.send("instagram_profile_visit", username=username, followers=followers, is_private=is_private)
 
+    def scraping_profile_visit(self, username: str, biography: str = None,
+                               followers_count: int = None, following_count: int = None,
+                               full_name: str = None, is_business: bool = False,
+                               business_category: str = None, is_private: bool = False) -> None:
+        """Signal that we've visited a profile during scraping (pre-AI)."""
+        data: dict = dict(username=username, is_business=is_business, is_private=is_private)
+        if biography is not None:
+            data['biography'] = biography
+        if followers_count is not None:
+            data['followers_count'] = followers_count
+        if following_count is not None:
+            data['following_count'] = following_count
+        if full_name is not None:
+            data['full_name'] = full_name
+        if business_category is not None:
+            data['business_category'] = business_category
+        self.send("scraping_profile_visit", **data)
+
+    def scraping_dq_progress(self, username: str, count: int, max_count: int) -> None:
+        """Emit live following-collection progress during deep qualify."""
+        self.send("scraping_dq_progress", username=username, count=count, max_count=max_count)
+
     def post_skipped(self, author: str, reason: str = "already_processed", hashtag: str = None) -> None:
         """Send post skipped event."""
         self.send("post_skipped", author=author, reason=reason, hashtag=hashtag)
