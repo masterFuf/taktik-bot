@@ -35,6 +35,7 @@ from taktik.core.social_media.instagram.ui.selectors import (
     STORY_SELECTORS,
     DM_SELECTORS,
 )
+from taktik.core.clone import rid as _rid
 
 # ---------------------------------------------------------------------------
 # Screen constants
@@ -90,14 +91,14 @@ def _now_iso() -> str:
 
 def _exists(device, selector: str) -> bool:
     try:
-        return device.xpath(selector).exists
+        return device.xpath(_rid(selector)).exists
     except Exception:
         return False
 
 
 def _text(device, selector: str) -> Optional[str]:
     try:
-        el = device.xpath(selector)
+        el = device.xpath(_rid(selector))
         if el.exists:
             return el.get_text() or None
     except Exception:
