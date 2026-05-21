@@ -7,7 +7,14 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from ..common.post_navigation import open_likers_list
+from ..common.detection import is_likers_popup_open
+from .list_strategy import (
+    ListScrapingStrategy,
+    make_followers_strategy,
+    make_commenters_strategy,
+)
 
 console = Console()
 
@@ -15,24 +22,63 @@ console = Console()
 class ScrapingListMixin:
     """Mixin: generic list scraping, hashtag scraping, post URL scraping."""
 
-    def _scrape_list(self, max_count: int, source_type: str, source_name: str, total_available: int = None, enrich_on_the_fly: bool = False) -> List[Dict[str, Any]]:
+    def _scrape_list(self, max_count: int, source_type: str, source_name: str,
+                      total_available: int = None, enrich_on_the_fly: bool = False,
+                      source_post_url: str = None,
+                      strategy: ListScrapingStrategy = None) -> List[Dict[str, Any]]:
         """
-        Scrape usernames from a visible list (followers, following, likers).
-        
+        Scrape usernames from a visible list (followers, following, likers, commenters).
+
+        The traversal logic — dedup, click-to-enrich, AI qualification, back-to-list
+        retry, scroll-and-detect-end — is shared. UI specifics (how to enumerate
+        visible rows, how to scroll, which popup we're on) are injected via
+        `strategy` (see ``list_strategy.py``).
+
         Args:
             max_count: Maximum profiles to scrape
-            source_type: Type of source (FOLLOWER, FOLLOWING, LIKER, etc.)
+            source_type: Type of source (FOLLOWER, FOLLOWING, LIKER, POST_COMMENTER, etc.)
             source_name: Name of the source (target username, hashtag, etc.)
             total_available: Total profiles available (for accurate progress display)
-            enrich_on_the_fly: If True, click on each profile to get detailed info (followers, following, posts, bio)
-            
+            enrich_on_the_fly: If True, click on each profile to get detailed info
+            source_post_url: Optional Instagram post URL from which these profiles are scraped
+                             (used for likers/commenters from hashtag posts — enables dedup on next run).
+            strategy: ListScrapingStrategy implementing the UI-specific extraction.
+                      Defaults to ``make_followers_strategy(self)`` for backward compat
+                      (followers / following / post likers).
+
         Returns:
             List of scraped profile data
         """
+        if strategy is None:
+            strategy = make_followers_strategy(self)
         scraped = []
         scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
         seen_usernames = set()
         no_new_users_count = 0
+
+        # Dedup: skip profiles already known in DB — checked directly per username.
+        # - rescrape_after_days = None (default)  → skip ALL known profiles (pure existence check)
+        # - rescrape_after_days = N > 0           → skip only profiles created within N days
+        # - rescrape_after_days = 0               → disabled (always re-scrape)
+        rescrape_after_days: int | None = self.config.get('rescrape_after_days')
+        _dedup_db = None
+        if rescrape_after_days == 0:
+            self.logger.info("🔄 Dedup disabled — always re-scrape mode")
+        else:
+            try:
+                from taktik.core.database.local.service import get_local_database
+                _dedup_db = get_local_database()
+                if rescrape_after_days:
+                    self.logger.info(
+                        f"🔍 Dedup active (window {rescrape_after_days}d): "
+                        f"profiles created < {rescrape_after_days}d ago will be skipped [db: {_dedup_db.db_path}]"
+                    )
+                else:
+                    self.logger.info(
+                        f"🔍 Dedup active (all known): existing profiles will be skipped [db: {_dedup_db.db_path}]"
+                    )
+            except Exception as _e:
+                self.logger.warning(f"Could not initialize dedup DB: {_e}")
         max_no_new_users = 5  # Stop after 5 consecutive scrolls with no new users
         consecutive_empty_visible = 0  # Count consecutive scans returning 0 elements
         max_consecutive_empty = 3  # After this many, check if still on followers list
@@ -62,8 +108,8 @@ class ScrapingListMixin:
             while len(scraped) < max_count and self._should_continue():
                 # Only check suggestions section after collecting some profiles
                 # This prevents false positives when suggestions are visible but we haven't scrolled yet
-                if len(scraped) >= min_profiles_before_suggestions_check:
-                    if self.detection_actions.is_in_suggestions_section():
+                if strategy.enable_suggestions_check and len(scraped) >= min_profiles_before_suggestions_check:
+                    if strategy.is_in_suggestions():
                         suggestions_check_count += 1
                         # Require 2 consecutive detections to confirm we're really in suggestions
                         if suggestions_check_count >= 2:
@@ -77,38 +123,38 @@ class ScrapingListMixin:
                         suggestions_check_count = 0  # Reset if not in suggestions
                 
                 # Get visible usernames
-                visible = self.detection_actions.get_visible_followers_with_elements()
+                visible = strategy.get_visible()
                 
                 if not visible:
                     consecutive_empty_visible += 1
 
                     # After a few consecutive empty scans, verify we're still on the
-                    # followers list. If not (e.g. bot got stuck on a profile's posts
-                    # grid after a failed back-navigation), attempt recovery.
+                    # list. If not (e.g. bot got stuck on a profile's posts grid after
+                    # a failed back-navigation), attempt recovery.
                     if consecutive_empty_visible >= max_consecutive_empty:
-                        if not self.detection_actions.is_followers_list_open():
+                        if not strategy.is_on_list():
                             self.logger.warning(
                                 f"⚠️ {consecutive_empty_visible} consecutive empty scans and not on "
-                                f"followers list — attempting recovery"
+                                f"target list — attempting recovery"
                             )
                             recovered = False
                             for _attempt in range(5):
                                 self.device.press("back")
                                 time.sleep(1.2)
-                                if self.detection_actions.is_followers_list_open():
-                                    self.logger.info(f"✅ Recovered to followers list after {_attempt + 1} back press(es)")
+                                if strategy.is_on_list():
+                                    self.logger.info(f"✅ Recovered to target list after {_attempt + 1} back press(es)")
                                     consecutive_empty_visible = 0
                                     recovered = True
                                     break
                             if not recovered:
-                                self.logger.error("❌ Could not recover to followers list — stopping scraping")
+                                self.logger.error("❌ Could not recover to target list — stopping scraping")
                                 break
                         else:
                             # We ARE on the list but it's empty — treat as end of list
                             consecutive_empty_visible = 0
 
                     # Try scrolling - wait for Instagram to load
-                    self.scroll_actions.scroll_followers_list_down()
+                    strategy.scroll_down()
                     time.sleep(1.5)
 
                     if scroll_detector.is_the_end():
@@ -120,6 +166,7 @@ class ScrapingListMixin:
                 consecutive_empty_visible = 0
 
                 new_count = 0
+                new_visible_count = 0  # new usernames seen (including dedup-skipped) — used for end-of-list detection
                 for follower in visible:
                     username = follower.get('username')
                     element = follower.get('element')
@@ -127,7 +174,26 @@ class ScrapingListMixin:
                         continue
                     
                     seen_usernames.add(username)
-                    
+                    new_visible_count += 1  # counts even if dedup-skipped
+
+                    # Skip profiles already scraped within the rescrape window — direct DB check
+                    # Also track whether the profile pre-existed (used for ai_rescrape_mode below)
+                    _profile_preexisted = False
+                    if _dedup_db is not None:
+                        try:
+                            if _dedup_db.profile_exists_in_db(username, days=rescrape_after_days):
+                                if rescrape_after_days:
+                                    skip_reason = f"in DB, created < {rescrape_after_days}d ago"
+                                else:
+                                    skip_reason = "already in DB"
+                                self.logger.info(f"⏭️  @{username} — skipped ({skip_reason})")
+                                IPCEmitter.emit_profile_skipped(username, skip_reason)
+                                continue
+                            # Profile passed dedup: check if it pre-existed (for AI rescrape mode)
+                            _profile_preexisted = _dedup_db.profile_exists_in_db(username, days=None)
+                        except Exception as _dedup_err:
+                            self.logger.debug(f"Dedup check failed for @{username}: {_dedup_err}")
+
                     profile_data = {
                         'username': username,
                         'source_type': source_type,
@@ -169,7 +235,10 @@ class ScrapingListMixin:
                                 self.logger.warning(f"Could not get profile info for @{username}")
 
                             # Capture screenshot for AI vision analysis (while still on profile page)
-                            if getattr(self, '_ai_service', None):
+                            # Skip if ai_rescrape_mode = 'stats_only' and profile already existed in DB
+                            _ai_rescrape_mode = self.config.get('ai_rescrape_mode', 'full')
+                            _skip_ai_for_existing = _ai_rescrape_mode == 'stats_only' and _profile_preexisted
+                            if getattr(self, '_ai_service', None) and not _skip_ai_for_existing:
                                 try:
                                     import tempfile as _tempfile, os as _os2
                                     _tmp_dir = _os2.path.join(_tempfile.gettempdir(), 'taktik_ai')
@@ -185,13 +254,13 @@ class ScrapingListMixin:
                             for _back_attempt in range(5):
                                 self.device.press("back")
                                 time.sleep(1.2)
-                                if self.detection_actions.is_followers_list_open():
+                                if strategy.is_on_list():
                                     if _back_attempt > 0:
-                                        self.logger.debug(f"✅ Back on followers list after {_back_attempt + 1} press(es)")
+                                        self.logger.debug(f"✅ Back on list after {_back_attempt + 1} press(es)")
                                     break
-                                self.logger.debug(f"⚠️ Not on followers list after {_back_attempt + 1} back press(es), retrying...")
+                                self.logger.debug(f"⚠️ Not on target list after {_back_attempt + 1} back press(es), retrying...")
                             else:
-                                self.logger.warning("⚠️ Could not return to followers list after 5 back presses")
+                                self.logger.warning("⚠️ Could not return to target list after 5 back presses")
                             
                         except Exception as e:
                             self.logger.warning(f"Failed to enrich @{username}: {e}")
@@ -204,7 +273,7 @@ class ScrapingListMixin:
                     
                     scraped.append(profile_data)
                     self.scraped_profiles.append(profile_data)
-                    profile_id = self._save_profile_immediately(profile_data)
+                    profile_id = self._save_profile_immediately(profile_data, source_post_url=source_post_url)
 
                     # AI qualification (if enabled and profile was enriched with bio data)
                     if enrich_on_the_fly and profile_id and getattr(self, '_ai_service', None):
@@ -241,10 +310,10 @@ class ScrapingListMixin:
                 # Notify scroll detector
                 scroll_detector.notify_new_page(list(seen_usernames))
                 
-                if new_count == 0:
+                if new_visible_count == 0:
                     # Check if there's a "See more" / "Load more" button before giving up
-                    if self.scroll_actions.check_and_click_load_more():
-                        self.logger.info("✅ Clicked 'See more' - waiting for new followers to load")
+                    if strategy.check_load_more():
+                        self.logger.info("✅ Clicked 'See more' - waiting for new profiles to load")
                         time.sleep(2.0)
                         continue  # Re-process without counting as a failed scroll
 
@@ -252,8 +321,8 @@ class ScrapingListMixin:
                     self.logger.debug(f"No new users found ({no_new_users_count}/{max_no_new_users})")
                     
                     # Check suggestions only after collecting enough profiles
-                    if len(scraped) >= min_profiles_before_suggestions_check:
-                        if self.detection_actions.is_in_suggestions_section():
+                    if strategy.enable_suggestions_check and len(scraped) >= min_profiles_before_suggestions_check:
+                        if strategy.is_in_suggestions():
                             suggestions_check_count += 1
                             if suggestions_check_count >= 2:
                                 self.logger.info("📋 Reached suggestions section - stopping")
@@ -269,13 +338,13 @@ class ScrapingListMixin:
                     current_usernames = set(f.get('username') for f in visible if f.get('username'))
                     
                     # Scroll to find more
-                    self.scroll_actions.scroll_followers_list_down()
+                    strategy.scroll_down()
                     
                     # Wait for content to actually change (not just a fixed delay)
                     max_wait_attempts = 5
                     for wait_attempt in range(max_wait_attempts):
                         time.sleep(1.0)  # Wait 1s between checks
-                        new_visible = self.detection_actions.get_visible_followers_with_elements()
+                        new_visible = strategy.get_visible()
                         new_usernames = set(f.get('username') for f in new_visible if f.get('username'))
                         
                         # Check if we have new usernames (content loaded)
@@ -291,13 +360,13 @@ class ScrapingListMixin:
                         break
                     
                     # Check for "And X others" indicator (limited list end)
-                    if self.detection_actions.is_followers_list_end_reached():
-                        self.logger.info("📋 Reached 'And X others' - end of accessible followers")
+                    if strategy.is_end_reached():
+                        self.logger.info("📋 Reached 'And X others' - end of accessible profiles")
                         break
                     
                     # Check for suggestions section
-                    if self.detection_actions.is_suggestions_section_visible():
-                        self.logger.info("📋 Reached suggestions section - end of real followers")
+                    if strategy.enable_suggestions_check and strategy.is_suggestions_visible():
+                        self.logger.info("📋 Reached suggestions section - end of real profiles")
                         break
                 else:
                     # Reset counter when we find new users
@@ -306,14 +375,14 @@ class ScrapingListMixin:
                     # In enrich_on_the_fly mode we break after each profile and re-fetch,
                     # so visible may still contain unprocessed profiles — don't scroll yet.
                     if not has_unprocessed_visible:
-                        # Scroll down to reveal more followers
-                        self.scroll_actions.scroll_followers_list_down()
+                        # Scroll down to reveal more profiles
+                        strategy.scroll_down()
                         
                         # Wait for Instagram to finish loading (detect spinner)
                         max_loading_wait = 10  # Max 10 seconds waiting for loading
                         for _ in range(max_loading_wait):
                             time.sleep(1.0)
-                            if not self.detection_actions.is_loading_spinner_visible():
+                            if not strategy.is_loading():
                                 self.logger.debug("✅ Loading complete, continuing...")
                                 break
                         else:
@@ -463,7 +532,8 @@ class ScrapingListMixin:
         if not hashtags:
             return {"success": False, "error": "No hashtag provided"}
 
-        scrape_type = self.config.get('scrape_type', 'authors')
+        scrape_likers = self.config.get('scrape_likers', True)
+        scrape_commenters = self.config.get('scrape_commenters', False)
         max_profiles = self.config.get('max_profiles', 200)
         max_posts = self.config.get('max_posts', 50)
 
@@ -487,60 +557,95 @@ class ScrapingListMixin:
 
             posts_checked = 0
             remaining = max_profiles - total_scraped
+            scrape_mode = []
+            if scrape_likers: scrape_mode.append('likers')
+            if scrape_commenters: scrape_mode.append('commenters')
+            console.print(f"[cyan]🔍 Scraping #{hashtag} ({'+'.join(scrape_mode) or 'none'}, max {remaining} profiles)...[/cyan]")
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console
-            ) as progress:
-                task = progress.add_task(f"[cyan]Scraping #{hashtag}...", total=remaining)
+            # Track which post grid positions have already been clicked this hashtag
+            # so we never re-open the same thumbnail after pressing back.
+            seen_post_positions: set = set()
+            no_new_posts_scrolls = 0  # consecutive scrolls that produced no new post to click
+            max_no_new_posts_scrolls = 3
 
-                while total_scraped < max_profiles and posts_checked < max_posts and self._should_continue():
-                    # Click on a post
-                    if not self._click_next_post():
-                        self.logger.info("No more posts to check")
+            while total_scraped < max_profiles and posts_checked < max_posts and self._should_continue():
+                # Click the next unseen post thumbnail
+                clicked = self._click_next_post(seen_post_positions)
+                if not clicked:
+                    # All currently visible posts have been processed — scroll the
+                    # hashtag grid to load the next batch of thumbnails.
+                    no_new_posts_scrolls += 1
+                    if no_new_posts_scrolls >= max_no_new_posts_scrolls:
+                        self.logger.info("No more new posts in hashtag grid after scrolling")
                         break
-
-                    posts_checked += 1
+                    self.logger.debug(f"All visible posts processed, scrolling hashtag grid ({no_new_posts_scrolls}/{max_no_new_posts_scrolls})...")
+                    self.scroll_actions.scroll_down()
                     time.sleep(1.5)
+                    continue  # retry without incrementing posts_checked
 
-                    if scrape_type == 'authors':
-                        # Get post author
-                        author = self._get_post_author()
-                        if author and author not in [p['username'] for p in self.scraped_profiles]:
-                            profile_data = {
-                                'username': author,
-                                'source_type': 'HASHTAG_AUTHOR',
-                                'source_name': hashtag,
-                                'scraped_at': datetime.now().isoformat()
-                            }
-                            self.scraped_profiles.append(profile_data)
-                            self._save_profile_immediately(profile_data)
-                            total_scraped += 1
-                            progress.update(task, advance=1)
-                    else:
-                        # Scrape likers
-                        if self._open_likers_list():
+                no_new_posts_scrolls = 0
+                posts_checked += 1
+                time.sleep(1.5)
+
+                # Get post URL first for dedup and tracking (needed by both likers and commenters)
+                post_url = self._get_post_url()
+                if post_url:
+                    self.logger.info(f"🔗 URL du post récupérée : {post_url}")
+                    if self._ipc:
+                        self._ipc.send("post_url_found", url=post_url, hashtag=hashtag)
+                    try:
+                        from taktik.core.database.local.service import get_local_database
+                        _db = get_local_database()
+                        if _db.is_post_url_already_scraped(post_url):
+                            self.logger.info(f"⏭️  Post already scraped: {post_url} — skipping")
+                            self.device.press("back")
                             time.sleep(1)
-                            enrich_profiles = self.config.get('enrich_profiles', False)
-                            likers = self._scrape_list(
-                                max_count=min(20, max_profiles - total_scraped),
-                                source_type='HASHTAG_LIKER',
-                                source_name=hashtag,
-                                enrich_on_the_fly=enrich_profiles
-                            )
-                            total_scraped += len(likers)
-                            progress.update(task, advance=len(likers))
+                            continue
+                    except Exception as _e:
+                        self.logger.debug(f"Post URL dedup check failed: {_e}")
+                else:
+                    self.logger.debug("Could not retrieve post URL (share button unavailable)")
+
+                enrich_profiles = self.config.get('enrich_profiles', False)
+
+                if scrape_likers:
+                    # Open likers popup and scrape
+                    if self._open_likers_list():
+                        time.sleep(1)
+                        likers = self._scrape_list(
+                            max_count=min(20, max_profiles - total_scraped),
+                            source_type='HASHTAG_LIKER',
+                            source_name=hashtag,
+                            enrich_on_the_fly=enrich_profiles,
+                            source_post_url=post_url,
+                        )
+                        total_scraped += len(likers)
+                        # Close the likers popup. When the user has scrolled to the
+                        # end of the list, Instagram expands the bottom sheet to
+                        # full-screen. In that case, the first back press only
+                        # collapses it (half-open); we detect this and press again.
+                        self.device.press("back")
+                        time.sleep(0.5)
+                        if is_likers_popup_open(self.device, self.logger):
+                            self.logger.debug("Likers popup still open after back (was fully expanded), closing again")
                             self.device.press("back")
                             time.sleep(0.5)
 
-                    # Go back to hashtag grid
-                    self.device.press("back")
-                    time.sleep(1)
+                if scrape_commenters and total_scraped < max_profiles:
+                    # Open comments and scrape commenters
+                    commenters = self._scrape_post_commenters(
+                        max_count=min(20, max_profiles - total_scraped),
+                        source_name=hashtag,
+                        enrich_on_the_fly=enrich_profiles,
+                        source_post_url=post_url,
+                    )
+                    total_scraped += len(commenters)
 
-            posts_checked_total += posts_checked
+                # Go back to hashtag grid
+                self.device.press("back")
+                time.sleep(1)
+
+            console.print(f"[green]✅ #{hashtag}: {total_scraped} profiles scraped ({posts_checked} posts checked)[/green]")
 
         return {
             "success": True,
@@ -549,7 +654,7 @@ class ScrapingListMixin:
         }
 
     def _scrape_post_url(self) -> Dict[str, Any]:
-        """Scrape likers from one or more post URLs."""
+        """Scrape likers and/or commenters from one or more post URLs."""
         # Support both post_urls list (new) and single post_url (backward compat)
         post_urls = self.config.get('post_urls', [])
         if not post_urls:
@@ -559,7 +664,10 @@ class ScrapingListMixin:
         if not post_urls:
             return {"success": False, "error": "No post URL provided"}
 
+        scrape_likers = self.config.get('scrape_likers', True)
+        scrape_commenters = self.config.get('scrape_commenters', False)
         max_profiles = self.config.get('max_profiles', 200)
+        enrich_profiles = self.config.get('enrich_profiles', False)
         total_scraped = 0
 
         for post_url in post_urls:
@@ -582,43 +690,53 @@ class ScrapingListMixin:
 
             time.sleep(2)
 
-            # Extract post metadata (likes count)
-            console.print(f"[dim]📊 Getting post info...[/dim]")
-            likes_count = self.ui_extractors.extract_likes_count_from_ui()
+            if scrape_likers:
+                # Extract post metadata (likes count)
+                console.print(f"[dim]📊 Getting post info...[/dim]")
+                likes_count = self.ui_extractors.extract_likes_count_from_ui()
 
-            remaining = max_profiles - total_scraped
-            target_count = remaining
-            if likes_count:
-                console.print(f"[green]✅ Post has {likes_count:,} likes[/green]")
-                if likes_count < remaining:
-                    console.print(f"[dim]   Adjusting target: {likes_count:,} (instead of {remaining:,})[/dim]")
-                    target_count = likes_count
+                remaining = max_profiles - total_scraped
+                target_count = remaining
+                if likes_count:
+                    console.print(f"[green]✅ Post has {likes_count:,} likes[/green]")
+                    if likes_count < remaining:
+                        console.print(f"[dim]   Adjusting target: {likes_count:,} (instead of {remaining:,})[/dim]")
+                        target_count = likes_count
 
-            # Detect if it's a Reel or regular post
-            is_reel = self._is_reel_post()
+                # Detect if it's a Reel or regular post
+                is_reel = self._is_reel_post()
 
-            if is_reel:
-                console.print("[cyan]📍 Reel detected - opening likers list...[/cyan]")
-                likers = self._extract_likers_from_reel(target_count)
-            else:
-                console.print("[cyan]📍 Regular post - opening likers list...[/cyan]")
-                likers = self._extract_likers_from_regular_post(target_count)
+                if is_reel:
+                    console.print("[cyan]📍 Reel detected - opening likers list...[/cyan]")
+                    likers = self._extract_likers_from_reel(target_count)
+                else:
+                    console.print("[cyan]📍 Regular post - opening likers list...[/cyan]")
+                    likers = self._extract_likers_from_regular_post(target_count)
 
-            if not likers:
-                self.logger.error("Failed to extract likers")
-                continue
+                if likers:
+                    console.print(f"[cyan]📍 Processing {len(likers)} likers...[/cyan]")
+                    for username in likers[:target_count]:
+                        profile_data = {
+                            'username': username,
+                            'source_type': 'POST_LIKER',
+                            'source_name': post_id,
+                            'scraped_at': datetime.now().isoformat()
+                        }
+                        self.scraped_profiles.append(profile_data)
+                        self._save_profile_immediately(profile_data)
+                        total_scraped += 1
+                else:
+                    self.logger.error("Failed to extract likers")
 
-            console.print(f"[cyan]📍 Processing {len(likers)} likers...[/cyan]")
-            for username in likers[:target_count]:
-                profile_data = {
-                    'username': username,
-                    'source_type': 'POST_LIKER',
-                    'source_name': post_id,
-                    'scraped_at': datetime.now().isoformat()
-                }
-                self.scraped_profiles.append(profile_data)
-                self._save_profile_immediately(profile_data)
-                total_scraped += 1
+            if scrape_commenters and total_scraped < max_profiles:
+                console.print("[cyan]📍 Scraping commenters...[/cyan]")
+                commenters = self._scrape_post_commenters(
+                    max_count=max_profiles - total_scraped,
+                    source_name=post_id,
+                    enrich_on_the_fly=enrich_profiles,
+                    source_post_url=post_url,
+                )
+                total_scraped += len(commenters)
 
         return {
             "success": True,

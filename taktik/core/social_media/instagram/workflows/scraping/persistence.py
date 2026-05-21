@@ -54,9 +54,15 @@ class ScrapingPersistenceMixin:
         console.print(f"\n[green]📁 Exported {len(self.scraped_profiles)} profiles to:[/green]")
         console.print(f"   [cyan]{filepath}[/cyan]")
 
-    def _save_profile_immediately(self, profile: Dict[str, Any]) -> Optional[int]:
+    def _save_profile_immediately(self, profile: Dict[str, Any],
+                                    source_post_url: str = None) -> Optional[int]:
         """Save a single profile to database immediately as it's scraped.
-        
+
+        Args:
+            profile: Profile dict (must contain 'username', 'source_type', 'source_name').
+            source_post_url: Optional Instagram post URL from which this profile was found
+                             (used for likers scraped from hashtag posts).
+
         Returns:
             profile_id if saved successfully, None otherwise.
         """
@@ -92,10 +98,16 @@ class ScrapingPersistenceMixin:
             result = local_db.save_profile(profile_data)
             
             profile_id = result.get('profile_id') if result else None
+            created = result.get('created', True) if result else True
+            if created:
+                self.logger.debug(f"✨ New profile saved: @{username} (id={profile_id})")
+            else:
+                self.logger.debug(f"♻️  Known profile updated: @{username} (id={profile_id})")
 
-            # Link profile to scraping session in junction table
+            # Link profile to scraping session in junction table (with optional post URL)
             if self.scraping_session_id and profile_id:
-                local_db.link_profile_to_session(self.scraping_session_id, profile_id)
+                local_db.link_profile_to_session(self.scraping_session_id, profile_id,
+                                                  source_post_url=source_post_url)
             
             # Update session count in database
             if self.scraping_session_id:

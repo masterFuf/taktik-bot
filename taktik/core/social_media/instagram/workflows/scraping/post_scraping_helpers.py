@@ -9,7 +9,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, POST_SELECTORS, BUTTON_SELECTORS
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from ..common.detection import is_reel_post, is_in_post_view
-from ..common.post_navigation import open_first_post_of_profile
+from ..common.post_navigation import open_first_post_of_profile, get_post_url_from_share
+from .list_strategy import make_commenters_strategy
 
 console = Console()
 
@@ -84,6 +85,10 @@ class ScrapingPostHelpersMixin:
         """Open the first post of the current profile."""
         console.print(f"[dim]📸 Looking for first post...[/dim]")
         return open_first_post_of_profile(self.device, self.logger)
+
+    def _get_post_url(self) -> Optional[str]:
+        """Get the Instagram URL of the currently open post via the Share button."""
+        return get_post_url_from_share(self.device, self.logger)
 
     def _is_in_post_view(self) -> bool:
         """Check if we're in a post view."""
@@ -166,15 +171,21 @@ class ScrapingPostHelpersMixin:
         self, 
         max_count: int, 
         source_name: str,
-        enrich_on_the_fly: bool = False
+        enrich_on_the_fly: bool = False,
+        source_post_url: str = None,
     ) -> List[Dict[str, Any]]:
-        """Scrape commenters from the current post."""
+        """Scrape commenters from the current post.
+
+        Opens the comments popup, then delegates to the generic `_scrape_list`
+        loop with a commenters-specific strategy. This gives commenters the
+        exact same enrichment / AI / dedup / IPC behaviour as likers.
+        """
         scraped = []
-        
+
         try:
             # Click on comment button to open comments
             comment_button_selectors = BUTTON_SELECTORS.comment_button
-            
+
             comments_opened = False
             for selector in comment_button_selectors:
                 element = self.device.xpath(selector)
@@ -183,63 +194,38 @@ class ScrapingPostHelpersMixin:
                     time.sleep(2)
                     comments_opened = True
                     break
-            
+
             if not comments_opened:
                 self.logger.warning("Could not open comments")
                 return scraped
-            
-            # Extract commenters from the comments section
-            seen_usernames = set()
-            scroll_attempts = 0
-            max_scroll_attempts = 20
-            
-            while len(scraped) < max_count and scroll_attempts < max_scroll_attempts:
-                # Find comment author usernames
-                username_selectors = POST_SELECTORS.comment_username_selectors
-                
-                found_new = False
-                for selector in username_selectors:
-                    elements = self.device.xpath(selector).all()
-                    for elem in elements:
-                        try:
-                            username = elem.attrib.get('content-desc', '') or elem.text or ''
-                            # Clean username
-                            username = username.strip().lstrip('@')
-                            if username and username not in seen_usernames and username != source_name:
-                                seen_usernames.add(username)
-                                profile_data = {
-                                    'username': username,
-                                    'source': f'POST_COMMENTERS:{source_name}',
-                                    'scraped_at': datetime.now().isoformat()
-                                }
-                                scraped.append(profile_data)
-                                self.scraped_profiles.append(profile_data)
-                                self._save_profile_immediately(profile_data)
-                                found_new = True
-                                
-                                if len(scraped) >= max_count:
-                                    break
-                        except Exception:
-                            continue
-                    if len(scraped) >= max_count:
-                        break
-                
-                if not found_new:
-                    scroll_attempts += 1
-                else:
-                    scroll_attempts = 0
-                
-                # Scroll to load more comments
-                self.scroll_actions.scroll_down()
-                time.sleep(1)
-            
-            # Go back from comments
+
+            # Delegate to the unified scraping loop with the commenters strategy.
+            scraped = self._scrape_list(
+                max_count=max_count,
+                source_type='POST_COMMENTER',
+                source_name=source_name,
+                total_available=max_count,
+                enrich_on_the_fly=enrich_on_the_fly,
+                source_post_url=source_post_url,
+                strategy=make_commenters_strategy(self),
+            )
+
+            # Close comments popup. Like the likers bottom sheet, Instagram may
+            # expand it to full-screen when scrolled — needing a second back.
             self.device.press("back")
-            time.sleep(1)
-            
+            time.sleep(0.5)
+            try:
+                from ..common.detection import is_comments_view_open
+                if is_comments_view_open(self.device, self.logger):
+                    self.logger.debug("Comments popup still open after back, closing again")
+                    self.device.press("back")
+                    time.sleep(0.5)
+            except Exception:
+                pass
+
         except Exception as e:
             self.logger.error(f"Error scraping post commenters: {e}")
-        
+
         return scraped
 
     def _is_reel_post(self) -> bool:
@@ -393,20 +379,47 @@ class ScrapingPostHelpersMixin:
         
         return likers
 
-    def _click_next_post(self) -> bool:
-        """Click on the next post in a grid. Returns False if no more posts."""
-        # Try to find and click a post thumbnail
-        selectors = POST_SELECTORS.hashtag_post_selectors
-        
-        for selector in selectors:
+    def _click_next_post(self, seen_positions: set = None) -> bool:
+        """Click on the next unseen post in the hashtag/explore grid.
+
+        Args:
+            seen_positions: optional set of (left, top) tuples already clicked.
+                Each selected element's position is added before clicking so
+                subsequent calls skip it.  Pass the same set across iterations
+                to advance through the grid without re-clicking the same post.
+
+        Returns:
+            True if a (new) post was clicked, False if no more posts are visible.
+        """
+        for selector in POST_SELECTORS.hashtag_post_selectors:
             try:
                 elements = self.device.xpath(selector).all()
-                if elements:
-                    elements[0].click()
+                if not elements:
+                    continue
+
+                for element in elements:
+                    pos_key = None
+                    try:
+                        bounds = element.info.get('bounds', {})
+                        pos_key = (bounds.get('left', 0), bounds.get('top', 0))
+                    except Exception:
+                        pass
+
+                    # Skip posts we have already processed this session
+                    if seen_positions is not None and pos_key and pos_key in seen_positions:
+                        continue
+
+                    if seen_positions is not None and pos_key:
+                        seen_positions.add(pos_key)
+                    element.click()
                     return True
+
+                # All visible elements for this selector were already seen
+                return False
+
             except Exception:
                 continue
-        
+
         return False
 
     def _get_post_author(self) -> Optional[str]:

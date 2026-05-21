@@ -13,6 +13,8 @@ Internal structure (SRP split):
 - scraping_workflow.py     — Orchestrator (this file)
 """
 
+import json
+import sys
 import time
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -223,6 +225,18 @@ class ScrapingWorkflow(
                     'available': available_count,
                     'to_scrape': actual_max
                 })
+                # Emit target_info to Electron live panel (only when count is known)
+                if scrape_type in ('followers', 'following'):
+                    try:
+                        print(json.dumps({
+                            "type": "target_info",
+                            "username": target,
+                            "available_count": available_count,
+                            "effective_max": actual_max,
+                            "scrape_type": scrape_type
+                        }), flush=True)
+                    except Exception:
+                        pass
             else:
                 self.logger.warning(f"Could not get profile info for @{target}")
                 actual_max = remaining_to_scrape

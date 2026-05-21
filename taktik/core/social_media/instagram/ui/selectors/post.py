@@ -337,9 +337,11 @@ class PostSelectors:
     comments_list_resource_id: str = 'com.instagram.android:id/sticky_header_list'
     
     comment_username_selectors: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/sticky_header_list"]//android.view.ViewGroup[@text]/android.widget.Button[@text]',
-        '//*[@resource-id="com.instagram.android:id/sticky_header_list"]//android.widget.Button[@text]',
-        '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment_container"]//android.widget.Button',
+        # Username buttons have empty content-desc; action buttons (Reply, See translation, like counts)
+        # always have content-desc matching their text — so @content-desc="" is the key discriminator.
+        '//android.widget.Button[not(@resource-id) and @content-desc="" and @text!=""]',
+        # Fallback scoped to the comments RecyclerView (handles clone APK parent IDs via contains)
+        '//*[contains(@resource-id, "sticky_header_list")]//android.widget.Button[@content-desc="" and @text!=""]',
     ])
     
     comments_view_indicators: List[str] = field(default_factory=lambda: [
@@ -379,12 +381,40 @@ class PostSelectors:
         '//*[contains(@resource-id, "row_feed_button_save")]'
     ])
     
+    # Share button (feed post & reel) — used to open the share sheet and retrieve the post URL.
+    # Uses contains(@resource-id) so the selector remains valid for clone APKs whose
+    # package name differs from com.instagram.android.
     share_button_selectors: List[str] = field(default_factory=lambda: [
+        # Reels: clips/direct share button (resource-id ends in "direct_share_button")
+        '//*[contains(@resource-id, "direct_share_button")]',
+        # Regular feed posts: action-bar share button (resource-id ends in "row_feed_button_share")
+        '//*[contains(@resource-id, "row_feed_button_share")]',
+        # Content-desc fallbacks (FR + EN)
+        '//*[@content-desc="Send Post"]',
+        '//*[@content-desc="Envoyer le post"]',
         '//android.widget.ImageView[contains(@content-desc, "Partager")]',
         '//android.widget.ImageView[contains(@content-desc, "Share")]',
-        '//*[contains(@resource-id, "share_button")]'
     ])
-    
+
+    # "Copy link" action inside Instagram's share sheet (FR + EN)
+    copy_link_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@text="Copy link"]',
+        '//*[@content-desc="Copy link"]',
+        '//*[@text="Copier le lien"]',
+        '//*[@content-desc="Copier le lien"]',
+    ])
+
+    # URL text element visible in the Android system share picker after tapping "Copy link"
+    share_picker_url_selectors: List[str] = field(default_factory=lambda: [
+        '//*[starts-with(@text, "https://www.instagram.com/p/")]',
+        '//*[starts-with(@text, "https://www.instagram.com/reel/")]',
+        '//*[starts-with(@text, "https://www.instagram.com/tv/")]',
+    ])
+
+    # Background dimmer that stays visible after the share sheet is dismissed.
+    # Uses contains(@resource-id) for clone APK compatibility.
+    share_sheet_dimmer: str = '//*[contains(@resource-id, "background_dimmer")]'
+
     # === Caption selectors ===
     caption_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_comment_text"]',

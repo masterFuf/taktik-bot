@@ -92,6 +92,18 @@ class IPCEmitter:
             log.debug(f"IPC profile_captured event error: {e}")
 
     @staticmethod
+    def emit_profile_skipped(username: str, reason: str = "already in DB") -> None:
+        """Emit a profile_skipped event (dedup skip) to the Taktik Agent panel."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, 'send_profile_skipped'):
+                bridge.send_profile_skipped(username, reason=reason)
+        except Exception as e:
+            log.debug(f"IPC profile_skipped event error: {e}")
+
+    @staticmethod
     def emit_action(action_type: str, username: str, data: Optional[Dict[str, Any]] = None) -> None:
         """Emit a generic action event to the frontend."""
         bridge = _get_bridge()
