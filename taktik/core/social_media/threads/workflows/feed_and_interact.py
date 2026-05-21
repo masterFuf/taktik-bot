@@ -200,70 +200,22 @@ def run_feed_and_interact(
                 pass
 
     # ── Connect + launch ───────────────────────────────────────────────────
-    manager = ThreadsManager(device_id=config.device_id)
-    if not manager.device_manager.connect():
-        _log("error", f"Failed to connect to device {config.device_id}")
-        stats.errors += 1
-        _push_stats()
-        return stats
+    from taktik.core.social_media.threads.workflows._common import threads_startup
 
-    if not manager.is_installed():
-        _log("error", "Threads (com.instagram.barcelona) is not installed on this device")
-        stats.errors += 1
-        _push_stats()
-        return stats
-
-    device = manager.device_manager.device
-
-    # Force-stop + relaunch for a clean initial state (same as search workflow).
-    _log("info", "Restarting Threads for a clean initial state…")
-    if not manager.restart():
-        _log("error", "Failed to restart Threads")
-        stats.errors += 1
-        _push_stats()
-        return stats
-
-    wait_after_launch = random.uniform(8.0, 12.0)
-    _log("info", f"Waiting {wait_after_launch:.1f}s for Threads to load…")
-    time.sleep(wait_after_launch)
-
-    anchor, anchor_rid = _wait_any_resource(
-        device,
-        resource_ids=(
+    startup = threads_startup(
+        config.device_id,
+        log=_log,
+        anchors=(
             tui.TABS_BOTTOM_BAR,
             tui.MAIN_FEED_SCREEN,
             tui.PROFILE_SCREEN_ROOT,
         ),
-        timeout=25.0,
     )
-    if anchor is None:
-        try:
-            current = device.app_current() or {}
-            _log("error",
-                 f"Threads UI did not appear after restart — "
-                 f"foreground={current.get('package')!r} activity={current.get('activity')!r}")
-        except Exception as exc:  # noqa: BLE001
-            _log("error", f"Threads UI did not appear ({exc})")
+    if startup is None:
         stats.errors += 1
         _push_stats()
         return stats
-
-    _log("info", f"Threads UI ready (anchor={anchor_rid})")
-
-    # Back out to the main feed if we landed elsewhere.
-    if anchor_rid == tui.PROFILE_SCREEN_ROOT:
-        for _ in range(3):
-            device.press("back")
-            time.sleep(0.6)
-            if device(resourceId=tui.TABS_BOTTOM_BAR).exists:
-                break
-
-    # Wait for the header to be fully rendered before navigating.
-    hamburger = device(resourceId=tui.MAIN_FEED_MENU_BUTTON)
-    if not hamburger.wait(timeout=10.0):
-        _log("warning", "Main feed header not detected — proceeding anyway")
-    else:
-        time.sleep(0.5)
+    manager, device, anchor_rid = startup
 
     # ── Navigate to Home feed tab ──────────────────────────────────────────
     if not _navigate_to_home_feed(device, _log):

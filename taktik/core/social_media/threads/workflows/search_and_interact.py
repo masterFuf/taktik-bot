@@ -292,93 +292,24 @@ def run_search_and_interact(
         return stats
 
     # ── Connect + launch ───────────────────────────────────────────────────
-    manager = ThreadsManager(device_id=config.device_id)
-    if not manager.device_manager.connect():
-        _log("error", f"Failed to connect to device {config.device_id}")
-        stats.errors += 1
-        _push_stats()
-        return stats
+    from taktik.core.social_media.threads.workflows._common import threads_startup
 
-    if not manager.is_installed():
-        _log("error", "Threads (com.instagram.barcelona) is not installed on this device")
-        stats.errors += 1
-        _push_stats()
-        return stats
-
-    device = manager.device_manager.device
-
-    # Always force-stop + relaunch Threads to start from a known clean state
-    # (same pattern as Instagram / TikTok workflows).
-    _log("info", "Restarting Threads for a clean initial state…")
-    if not manager.restart():
-        _log("error", "Failed to restart Threads")
-        stats.errors += 1
-        _push_stats()
-        return stats
-
-    # Cold start takes longer than a warm launch: wait 8-12 s before the first
-    # probe, then give the UI up to 25 s to settle across every known anchor.
-    wait_after_launch = random.uniform(8.0, 12.0)
-    _log("info", f"Waiting {wait_after_launch:.1f}s for Threads to load…")
-    time.sleep(wait_after_launch)
-
-    anchor, anchor_rid = _wait_any_resource(
-        device,
-        resource_ids=(
+    startup = threads_startup(
+        config.device_id,
+        log=_log,
+        anchors=(
             tui.TABS_BOTTOM_BAR,
             tui.MAIN_FEED_SCREEN,
             tui.SEARCH_BAR,
             tui.PROFILE_SCREEN_ROOT,
             tui.SERP_MENU_BUTTON,
         ),
-        timeout=25.0,
     )
-    if anchor is None:
-        # Diagnostic dump — helps pinpoint whether Threads is actually in the
-        # foreground and what resource-ids the current screen exposes.
-        try:
-            current = device.app_current() or {}
-            _log(
-                "error",
-                "Threads UI did not appear after restart — "
-                f"foreground package={current.get('package')!r} activity={current.get('activity')!r}",
-            )
-        except Exception as exc:  # noqa: BLE001
-            _log("error", f"Threads UI did not appear after restart (app_current failed: {exc})")
-
-        # Sample visible resource-ids so we know what screen we are stuck on.
-        try:
-            visible_rids: list[str] = []
-            for elem in device.xpath("//*[@resource-id]").all()[:40]:
-                rid = elem.attrib.get("resource-id")
-                if rid and rid not in visible_rids:
-                    visible_rids.append(rid)
-            if visible_rids:
-                _log("info", f"Visible resource-ids on current screen: {visible_rids}")
-        except Exception as exc:  # noqa: BLE001
-            _log("info", f"Could not enumerate visible resource-ids: {exc}")
-
+    if startup is None:
         stats.errors += 1
         _push_stats()
         return stats
-    _log("info", f"Threads UI ready (anchor={anchor_rid})")
-    # If we somehow landed on a profile screen, back out to the main feed.
-    if anchor_rid == tui.PROFILE_SCREEN_ROOT:
-        for _ in range(3):
-            device.press("back")
-            time.sleep(0.6)
-            if device(resourceId=tui.TABS_BOTTOM_BAR).exists:
-                break
-
-    # Wait for the main feed header (hamburger button) to be fully rendered
-    # before tapping the loupe. The bottom bar appears first; the header
-    # buttons lag by up to a few seconds on slow devices.
-    hamburger = device(resourceId=tui.MAIN_FEED_MENU_BUTTON)
-    if not hamburger.wait(timeout=10.0):
-        _log("warning", "Main feed header not detected — proceeding anyway")
-    else:
-        _log("info", "Main feed header ready")
-        time.sleep(0.5)  # brief settle before interaction
+    manager, device, anchor_rid = startup
 
     # ── Search ────────────────────────────────────────────────────────────
     if not _open_search_and_submit(device, query, _log):
