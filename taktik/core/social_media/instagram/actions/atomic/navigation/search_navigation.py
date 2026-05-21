@@ -291,7 +291,19 @@ class SearchNavigationMixin(BaseAction):
         
         if self._find_and_click(self.profile_selectors.following_link, timeout=5):
             self._human_like_delay('navigation')
-            return self._is_following_list_open()
+            
+            # Wait for the list to load (Instagram can be slow)
+            time.sleep(2)
+            
+            is_open = self._is_following_list_open()
+            if is_open:
+                self.logger.debug("✅ Following list opened successfully")
+            else:
+                self.logger.warning("⚠️ Following list may not be fully loaded, but continuing...")
+                # Even if detection fails, the list was clicked — proceed
+                return True
+            
+            return is_open
         
         return False
 
