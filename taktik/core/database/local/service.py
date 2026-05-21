@@ -215,6 +215,11 @@ class LocalDatabaseService:
                     p.full_name,
                     p.biography,
                     p.is_business,
+                    p.ai_niche         AS niche_category,
+                    p.ai_specific_niche AS niche,
+                    p.ai_profession    AS profession,
+                    p.ai_profession_tags AS profession_tags,
+                    p.location_city    AS cities,
                     sp.ai_analysis,
                     sp.ai_qualified
                 FROM instagram_profiles p
@@ -226,7 +231,7 @@ class LocalDatabaseService:
                     FROM scraped_profiles
                     WHERE ai_qualified = 1
                     GROUP BY profile_id
-                ) sp ON sp.profile_id = p.id
+                ) sp ON sp.profile_id = p.profile_id
                 WHERE p.username IN ({placeholders})
                 """,
                 usernames,
