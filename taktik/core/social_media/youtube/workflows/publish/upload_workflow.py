@@ -26,72 +26,71 @@ from loguru import logger
 
 from taktik.core.shared.device.media_store import push_and_scan
 from taktik.core.shared.device.permissions import PermissionHandler, ALLOW_SELECTORS, DENY_SELECTORS
+from taktik.core.shared.device.wait import wait_for_any as _wait_for_any_shared, try_tap as _try_tap_shared
 from taktik.core.shared.input.taktik_keyboard import (
     type_with_taktik_keyboard,
     clear_text_with_taktik_keyboard,
 )
 from taktik.core.social_media.youtube.ui.selectors import UPLOAD_SELECTORS, YOUTUBE_PACKAGE
 
-try:
-    from bridges.common.ipc import IPC as _IPC
-    _ipc = _IPC()
-except Exception:
-    class _FallbackIPC:  # type: ignore
-        def log(self, level, msg): logger.info(msg)
-        def status(self, s, m=""): logger.info(f"[{s}] {m}")
-    _ipc = _FallbackIPC()
+# ---------------------------------------------------------------------------
+# Callback injection (decouples this workflow from the IPC transport layer).
+#
+# Bridges import this module and call `set_callbacks(log=..., status=...)`
+# *before* calling `YouTubeUploadWorkflow().execute()`. Defaults route to
+# loguru only so unit tests / direct programmatic use keep working.
+# ---------------------------------------------------------------------------
+
+_LogCallback = "Callable[[str, str], None] | None"
+_StatusCallback = "Callable[[str, str], None] | None"
+
+_log_callback = None  # type: ignore[var-annotated]
+_status_callback = None  # type: ignore[var-annotated]
+
+
+def set_callbacks(log=None, status=None) -> None:
+    """Register IPC callbacks. Either argument may be left as ``None``.
+
+    Call this once from the bridge layer; subsequent ``_log`` / ``_status``
+    invocations inside this module will forward to the registered callbacks
+    (and always also write to loguru).
+    """
+    global _log_callback, _status_callback
+    if log is not None:
+        _log_callback = log
+    if status is not None:
+        _status_callback = status
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _log(level: str, msg: str) -> None:
-    _ipc.log(level, msg)
     getattr(logger, level, logger.info)(msg)
+    if _log_callback is not None:
+        try:
+            _log_callback(level, msg)
+        except Exception:  # noqa: BLE001 — never let IPC errors break the workflow
+            pass
 
 
 def _status(state: str, msg: str) -> None:
-    _ipc.status(state, msg)
+    if _status_callback is not None:
+        try:
+            _status_callback(state, msg)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _try_tap(device, selectors: list[str], timeout: float = 3.0, label: str = "") -> bool:
-    """
-    Find the first visible selector within `timeout` seconds, then tap it.
-
-    Uses a single scan loop (like _wait_for_any) so total wait ≤ timeout,
-    instead of waiting `timeout` per selector.  Logs which selector won.
-    """
-    found_sel = _wait_for_any(device, selectors, timeout=timeout, label=label)
-    if not found_sel:
-        return False
-    try:
-        device.xpath(found_sel).click()
-        return True
-    except Exception as e:
-        _log("warning", f"⚠️  [{label or 'tap'}] element found but click failed: {e}")
-        return False
+    """Local wrapper around the shared `try_tap` that forwards `_log`."""
+    return _try_tap_shared(device, selectors, timeout=timeout, label=label, log=_log)
 
 
 def _wait_for_any(device, selectors: list[str], timeout: float = 10.0, label: str = "") -> Optional[str]:
-    """
-    Return the first selector that becomes visible within `timeout` seconds.
-
-    Scans all selectors in a tight loop (0.5 s sleep between rounds).
-    Logs the winning selector so you can see in real time which one matched.
-    """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        for sel in selectors:
-            try:
-                if device.xpath(sel).exists:
-                    _log("debug", f"✅ [{label or 'found'}] selector: {sel}")
-                    return sel
-            except Exception:
-                continue
-        time.sleep(0.5)
-    if label:
-        _log("debug", f"❌ [{label}] no match after {timeout:.0f}s ({len(selectors)} selectors tried)")
-    return None
+    """Local wrapper around the shared `wait_for_any` that forwards `_log`."""
+    return _wait_for_any_shared(device, selectors, timeout=timeout, label=label, log=_log)
 
 
 # Alias court pour lisibilité dans le workflow
