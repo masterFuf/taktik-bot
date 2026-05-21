@@ -114,3 +114,27 @@ class IPCEmitter:
                 bridge.send_instagram_action(action_type, username, data or {})
         except Exception as e:
             log.debug(f"IPC action event error: {e}")
+
+    @staticmethod
+    def emit_scraping_profile_visit(username: str, profile_data: Optional[Dict[str, Any]] = None) -> None:
+        """Emit a profile-visit event during scraping (before deep qualify + AI)."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, 'send_scraping_profile_visit'):
+                bridge.send_scraping_profile_visit(username, profile_data=profile_data)
+        except Exception as e:
+            log.debug(f"IPC scraping_profile_visit error: {e}")
+
+    @staticmethod
+    def emit_scraping_dq_progress(username: str, count: int, max_count: int) -> None:
+        """Emit live following-collection progress during deep qualify."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, 'send_scraping_dq_progress'):
+                bridge.send_scraping_dq_progress(username, count, max_count)
+        except Exception as e:
+            log.debug(f"IPC scraping_dq_progress error: {e}")
