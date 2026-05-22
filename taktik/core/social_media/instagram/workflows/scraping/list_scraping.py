@@ -210,7 +210,10 @@ class ScrapingListMixin(DeepQualifyMixin):
                         'source_name': source_name,
                         'scraped_at': datetime.now().isoformat()
                     }
-                    
+
+                    # Emit visit event BEFORE clicking — card shows up in Agent panel immediately
+                    IPCEmitter.emit_scraping_profile_visit(username, profile_data)
+
                     # If enriching on the fly, click on profile to get details
                     if enrich_on_the_fly and element:
                         try:
@@ -219,10 +222,13 @@ class ScrapingListMixin(DeepQualifyMixin):
                             time.sleep(1.5)
                             
                             # Use get_complete_profile_info with enrich=True for full data
+                            # emit_ipc=False / save_to_db=False: list_scraping owns the IPC + save
                             enriched_data = self.profile_manager.get_complete_profile_info(
                                 username=username,
                                 navigate_if_needed=False,
-                                enrich=True
+                                enrich=True,
+                                emit_ipc=False,
+                                save_to_db=False
                             )
                             
                             if enriched_data:
@@ -244,15 +250,23 @@ class ScrapingListMixin(DeepQualifyMixin):
                             else:
                                 self.logger.warning(f"Could not get profile info for @{username}")
 
+                            # Also carry over profile_pic_base64 for the profile_captured event below
+                            if enriched_data:
+                                profile_data['profile_pic_base64'] = enriched_data.get('profile_pic_base64')
+
                             # Deep qualify: open following list, collect usernames, cross-ref DB
                             # Runs while still on the profile page, BEFORE taking the screenshot.
+                            # Skip if the account is private — following list is inaccessible and
+                            # attempting to open it desynchronises navigation (back-press loop).
                             if deep_qualify:
-                                IPCEmitter.emit_scraping_profile_visit(username, profile_data)
-                                _dq = self._deep_qualify_collect(
-                                    username=username,
-                                    max_following=deep_qualify_max_following,
-                                )
-                                profile_data.update(_dq)
+                                if profile_data.get('is_private'):
+                                    self.logger.debug(f"⏭ @{username}: private account — skipping deep qualify")
+                                else:
+                                    _dq = self._deep_qualify_collect(
+                                        username=username,
+                                        max_following=deep_qualify_max_following,
+                                    )
+                                    profile_data.update(_dq)
 
                             # Capture screenshot for AI vision analysis (while still on profile page)
                             # Skip if ai_rescrape_mode = 'stats_only' and profile already existed in DB
@@ -294,6 +308,10 @@ class ScrapingListMixin(DeepQualifyMixin):
                     scraped.append(profile_data)
                     self.scraped_profiles.append(profile_data)
                     profile_id = self._save_profile_immediately(profile_data, source_post_url=source_post_url)
+
+                    # Signal Agent panel that this profile has been saved (completes the visit card)
+                    _pic_b64 = profile_data.pop('profile_pic_base64', None)
+                    IPCEmitter.emit_profile_captured(username, profile_data, profile_pic_base64=_pic_b64)
 
                     # AI qualification (if enabled and profile was enriched with bio data)
                     if enrich_on_the_fly and profile_id and getattr(self, '_ai_service', None):

@@ -255,8 +255,15 @@ class DetectionSelectors:
     
     # === Private account detection ===
     private_account_indicators: List[str] = field(default_factory=lambda: [
+        # New Instagram UI (2024+): private_profile_empty_state container
+        '//*[@resource-id="com.instagram.android:id/private_profile_empty_state"]',
+        # New Instagram UI: emphasized headline with private text
+        '//*[@resource-id="com.instagram.android:id/igds_headline_emphasized_headline" and contains(@text, "private")]',
+        '//*[@resource-id="com.instagram.android:id/igds_headline_emphasized_headline" and contains(@text, "privé")]',
+        # Old Instagram UI (kept for backward compat)
         '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="This account is private"]',
         '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="Ce compte est privé"]',
+        # Generic text fallback
         '//*[contains(@text, "This account is private")]',
         '//*[contains(@text, "Ce compte est privé")]',
         '//*[contains(@content-desc, "This account is private")]',

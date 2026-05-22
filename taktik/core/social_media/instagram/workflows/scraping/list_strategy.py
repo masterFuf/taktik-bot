@@ -98,7 +98,7 @@ def make_followers_strategy(workflow) -> ListScrapingStrategy:
     return ListScrapingStrategy(
         get_visible=det.get_visible_followers_with_elements,
         is_on_list=_is_on_list,
-        scroll_down=scr.scroll_followers_list_down,
+        scroll_down=lambda: scr.scroll_followers_list_down(duration=0.4, distance_ratio=0.45),
         check_load_more=scr.check_and_click_load_more,
         is_end_reached=det.is_followers_list_end_reached,
         is_loading=det.is_loading_spinner_visible,

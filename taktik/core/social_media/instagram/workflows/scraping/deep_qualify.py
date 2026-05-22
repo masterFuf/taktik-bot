@@ -68,6 +68,8 @@ class DeepQualifyMixin:
                     f"[deep_qualify] @{username}: collected {len(following_usernames)} followings, "
                     f"{len(result['_known_followings'])} already known in DB"
                 )
+                # Persist to social graph
+                self._save_followings_to_db(username, following_usernames)
         except Exception as e:
             self.logger.debug(f"[deep_qualify] @{username}: failed to collect followings — {e}")
 
@@ -153,10 +155,10 @@ class DeepQualifyMixin:
             if len(usernames) >= max_count or new_on_page == 0:
                 break
 
-            # One gentle scroll to reveal the next batch
+            # Scroll to reveal the next batch — faster duration for scraping context
             if scr:
                 try:
-                    scr.scroll_followers_list_down()
+                    scr.scroll_followers_list_down(duration=0.4, distance_ratio=0.45)
                     time.sleep(0.8)
                 except Exception:
                     break
@@ -166,6 +168,39 @@ class DeepQualifyMixin:
         time.sleep(1.0)
 
         return usernames[:max_count]
+
+    def _save_followings_to_db(self, profile_username: str, following_usernames: List[str]) -> None:
+        """
+        Persist the collected following list to the ``profile_following`` table.
+
+        Ensures the scraped profile exists in ``instagram_profiles`` first so the
+        ``profile_id`` FK can be populated immediately (no NULL / orphan rows).
+        Fire-and-forget: errors are swallowed so the scraping flow is never interrupted.
+        """
+        try:
+            from taktik.core.database.local.service import get_local_database
+            db = get_local_database()
+            session_id = str(getattr(self, '_scraping_id', None) or '')
+
+            # Ensure the profile has a row in instagram_profiles so profile_id FK is valid
+            profile_id: Optional[int] = None
+            try:
+                pid, _ = db.get_or_create_profile({'username': profile_username})
+                profile_id = pid
+            except Exception as e:
+                self.logger.debug(f"[deep_qualify] Could not ensure profile in DB for @{profile_username}: {e}")
+
+            inserted = db.save_profile_followings(
+                profile_username=profile_username,
+                following_usernames=following_usernames,
+                session_id=session_id or None,
+                profile_id=profile_id,
+            )
+            self.logger.debug(
+                f"[deep_qualify] @{profile_username} (id={profile_id}): {inserted} new following edge(s) saved to DB"
+            )
+        except Exception as e:
+            self.logger.debug(f"[deep_qualify] _save_followings_to_db failed for @{profile_username}: {e}")
 
     def _get_known_followings(self, usernames: List[str]) -> List[Dict[str, Any]]:
         """

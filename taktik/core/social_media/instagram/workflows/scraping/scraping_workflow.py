@@ -196,6 +196,12 @@ class ScrapingWorkflow(
             console.print(f"[dim]📊 Getting profile info...[/dim]")
             profile_info = self.profile_manager.get_complete_profile_info(username=target, navigate_if_needed=False)
             
+            # Skip private accounts — their followers/following lists are inaccessible
+            if profile_info and profile_info.get('is_private', False):
+                console.print(f"[yellow]🔒 @{target}: Compte privé — ignoré[/yellow]")
+                self.logger.warning(f"Private account @{target} — skipped (followers/following list inaccessible)")
+                continue
+
             remaining_to_scrape = max_profiles_requested - total_scraped
             
             if profile_info:
