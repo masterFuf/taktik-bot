@@ -532,6 +532,34 @@ def create_schema(conn: sqlite3.Connection) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_daily_stats_account_date ON tiktok_daily_stats(account_id, date)")
 
     # ============================================
+    # SOCIAL GRAPH — Profile Following
+    # ============================================
+
+    # Social graph: following relationships discovered during deep qualify.
+    # Each row = "profile_username follows following_username".
+    # JOIN with instagram_profiles (nullable) to enrich with known niche/city.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS profile_following (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            profile_username   TEXT NOT NULL,
+            profile_id         INTEGER REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL,
+            following_username TEXT NOT NULL,
+            following_id       INTEGER REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL,
+            session_id         TEXT,
+            discovered_at      TEXT DEFAULT (datetime('now')),
+            UNIQUE(profile_username, following_username)
+        )
+    """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_profile_following_profile "
+        "ON profile_following(profile_username)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_profile_following_following "
+        "ON profile_following(following_username)"
+    )
+
+    # ============================================
     # GMAIL ACCOUNTS (admin tool — OTP retrieval)
     # ============================================
     cursor.execute("""

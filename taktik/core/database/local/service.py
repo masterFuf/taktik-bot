@@ -1750,6 +1750,148 @@ class LocalDatabaseService:
         return [dict(row) for row in cursor.fetchall()]
 
 
+    # ============================================
+    # SOCIAL GRAPH — profile_following
+    # ============================================
+
+    def save_profile_followings(
+        self,
+        profile_username: str,
+        following_usernames: List[str],
+        session_id: Optional[str] = None,
+        profile_id: Optional[int] = None,
+    ) -> int:
+        """
+        Batch-insert following relationships discovered during deep qualify.
+
+        If *profile_id* is not provided, it is looked up from instagram_profiles
+        so the row is properly linked via FK.
+
+        Uses INSERT OR IGNORE so re-running the same profile never raises
+        a UNIQUE constraint error.
+
+        Returns the number of newly inserted rows.
+        """
+        if not profile_username or not following_usernames:
+            return 0
+        try:
+            conn = self._get_connection()
+            # Resolve profile_id from username if not supplied
+            if profile_id is None:
+                row = conn.execute(
+                    "SELECT profile_id FROM instagram_profiles WHERE username = ?",
+                    (profile_username,),
+                ).fetchone()
+                if row:
+                    profile_id = row[0]
+            # Batch-resolve following_id for all known following usernames (one query)
+            clean = [u for u in following_usernames if u]
+            following_id_map: Dict[str, Optional[int]] = {}
+            if clean:
+                placeholders = ','.join('?' * len(clean))
+                fid_rows = conn.execute(
+                    f"SELECT username, profile_id FROM instagram_profiles WHERE username IN ({placeholders})",
+                    clean,
+                ).fetchall()
+                following_id_map = {r[0]: r[1] for r in fid_rows}
+            rows = [
+                (profile_username, profile_id, u, following_id_map.get(u), session_id)
+                for u in clean
+            ]
+            conn.executemany(
+                """
+                INSERT OR IGNORE INTO profile_following
+                    (profile_username, profile_id, following_username, following_id, session_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            conn.commit()
+            inserted = conn.execute(
+                "SELECT changes()"
+            ).fetchone()[0]
+            return inserted
+        except Exception as e:
+            logger.debug(f"save_profile_followings failed for @{profile_username}: {e}")
+            return 0
+
+    def get_profiles_following_target(
+        self,
+        following_username: str,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return all scraped profiles that follow *following_username*.
+
+        Useful for building seed lists: "give me everyone in our DB
+        that follows @mma_lorraine".
+
+        Each row contains: profile_username, discovered_at, and (when
+        available via JOIN) niche_category, niche, cities, profession.
+        """
+        try:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT
+                    pf.profile_username,
+                    pf.profile_id,
+                    pf.discovered_at,
+                    p.ai_niche          AS niche_category,
+                    p.ai_specific_niche AS niche,
+                    p.location_city     AS cities,
+                    p.ai_profession     AS profession
+                FROM profile_following pf
+                LEFT JOIN instagram_profiles p
+                    ON p.profile_id = pf.profile_id
+                WHERE pf.following_username = ?
+                ORDER BY pf.discovered_at DESC
+                LIMIT ?
+                """,
+                (following_username, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            logger.debug(f"get_profiles_following_target failed for @{following_username}: {e}")
+            return []
+
+    def get_following_with_enrichment(
+        self,
+        profile_username: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return the following list stored for *profile_username*, enriched
+        with classification data from instagram_profiles where available.
+
+        Each row: following_username, discovered_at, niche_category,
+        niche, cities, profession (all nullable when unknown).
+        """
+        try:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT
+                    pf.following_username,
+                    pf.following_id,
+                    pf.discovered_at,
+                    p.ai_niche          AS niche_category,
+                    p.ai_specific_niche AS niche,
+                    p.location_city     AS cities,
+                    p.ai_profession     AS profession
+                FROM profile_following pf
+                LEFT JOIN instagram_profiles p
+                    ON p.profile_id = pf.following_id
+                WHERE pf.profile_username = ?
+                ORDER BY pf.discovered_at ASC
+                """,
+                (profile_username,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            logger.debug(f"get_following_with_enrichment failed for @{profile_username}: {e}")
+            return []
+
+
 # Singleton instance
 _local_db_instance: Optional[LocalDatabaseService] = None
 
