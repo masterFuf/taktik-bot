@@ -14,7 +14,9 @@ class ProfileExtraction(BaseBusinessAction):
     
     def get_complete_profile_info(self, username: str = None, 
                                  navigate_if_needed: bool = True,
-                                 enrich: bool = False) -> Optional[Dict[str, Any]]:
+                                 enrich: bool = False,
+                                 emit_ipc: bool = True,
+                                 save_to_db: bool = True) -> Optional[Dict[str, Any]]:
         try:
             if navigate_if_needed:
                 if username:
@@ -143,22 +145,24 @@ class ProfileExtraction(BaseBusinessAction):
                 profile_info['profile_pic_base64'] = profile_pic_base64
             
             # Save profile to database with actual information
-            from .persistence import save_profile_to_database
-            save_profile_to_database(profile_info, self.logger)
+            if save_to_db:
+                from .persistence import save_profile_to_database
+                save_profile_to_database(profile_info, self.logger)
             
             # Emit profile_captured IPC event for live display in Electron
-            try:
-                from ....core.ipc.emitter import IPCEmitter
-                # Don't include base64 in profile_data (it's sent separately)
-                ipc_profile_data = {k: v for k, v in profile_info.items() if k != 'profile_pic_base64'}
-                IPCEmitter.emit_profile_captured(
-                    username=profile_info['username'],
-                    profile_data=ipc_profile_data,
-                    profile_pic_base64=profile_pic_base64
-                )
-                self.logger.debug(f"📤 profile_captured IPC sent for @{profile_info['username']} (pic={'yes' if profile_pic_base64 else 'no'})")
-            except Exception as e:
-                self.logger.warning(f"IPC profile_captured error: {e}")
+            if emit_ipc:
+                try:
+                    from ....core.ipc.emitter import IPCEmitter
+                    # Don't include base64 in profile_data (it's sent separately)
+                    ipc_profile_data = {k: v for k, v in profile_info.items() if k != 'profile_pic_base64'}
+                    IPCEmitter.emit_profile_captured(
+                        username=profile_info['username'],
+                        profile_data=ipc_profile_data,
+                        profile_pic_base64=profile_pic_base64
+                    )
+                    self.logger.debug(f"📤 profile_captured IPC sent for @{profile_info['username']} (pic={'yes' if profile_pic_base64 else 'no'})")
+                except Exception as e:
+                    self.logger.warning(f"IPC profile_captured error: {e}")
             
             return profile_info
             

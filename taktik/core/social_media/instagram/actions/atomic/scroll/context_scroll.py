@@ -10,17 +10,15 @@ from ....ui.selectors import DETECTION_SELECTORS, POST_SELECTORS
 class ContextScrollMixin(BaseAction):
     """Mixin: context-specific scrolls (followers, comments, feed, grid) + load more + smart scroll."""
 
-    def scroll_followers_list_down(self) -> bool:
+    def scroll_followers_list_down(self, duration: float = 0.8, distance_ratio: float = 0.30) -> bool:
         self.logger.debug("👥 Scrolling followers list down")
         
         try:
             center_x = self.screen_width // 2
-            # Gentler scroll: from 70% to 40% (30% of screen) instead of 80% to 20% (60%)
             start_y = int(self.screen_height * 0.70)
-            end_y = int(self.screen_height * 0.40)
+            end_y = int(start_y - self.screen_height * distance_ratio)
             
-            # Slower swipe: 0.8s instead of 0.5s for smoother scrolling
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.8)
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration)
             
             self._human_like_delay('scroll')
             return True

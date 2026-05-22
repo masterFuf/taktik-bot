@@ -83,13 +83,13 @@ class CommentAction(BaseBusinessAction):
             
             self._close_comment_popup()
             
-            # Record quota
+            # Record local session counters
             try:
                 if self.session_manager:
-                    self.session_manager.record_action('comment', success=True)
-                    self.logger.debug("Comment quota incremented")
+                    self.session_manager.record_action('comment_posts', success=True)
+                    self.logger.debug("Comment session counter incremented")
             except Exception as e:
-                self.logger.error(f"Failed to increment comment quota: {e}")
+                self.logger.error(f"Failed to increment comment session counter: {e}")
                 stats['errors'] += 1
             
             # Record comment in database

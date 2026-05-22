@@ -368,13 +368,16 @@ class AIService:
             "For 'following_insights': if a following sample was provided, write 1-2 sentences explaining what it reveals about this person (interests, community circles, cultural background, location signals, professional network, etc.). "
             "Be concrete: name specific patterns you observe. Set to null if no following data was provided.\n"
             f"Write the 'summary' and 'following_insights' text fields in {_lang_full}. "
-            "All structured fields (niche_category, niche, language, content_type, tags, cities, profession, profession_tags) must remain in English.\n"
+            "All structured fields (niche_category, niche, language, content_type, tags, cities, profession, profession_tags, gender, age_group) must remain in English.\n"
+            "For 'gender': determine if this is a 'female', 'male', 'brand' (company/organization/product page), or 'unknown' account. Base this on profile photo, name, and bio cues.\n"
+            "For 'age_group': estimate the person's age range as 'teen' (<18), 'young_adult' (18-24), 'adult' (25-34), 'mature' (35+), or 'unknown'. Use 'unknown' for brands or if unclear.\n"
             "Respond ONLY with valid JSON — no extra text:\n"
             '{"niche_category": "travel", "niche": "Adventure & Backpacking", '
             '"summary": "2-3 sentences describing the account in detail.", '
             '"following_insights": "What the following sample reveals about this person, or null.", '
             '"language": "en", "content_type": "creator", "tags": ["tag1", "tag2"], '
-            '"cities": [], "profession": null, "profession_tags": []}'
+            '"cities": [], "profession": null, "profession_tags": [], '
+            '"gender": "female", "age_group": "young_adult"}'
         )
 
         # Build user prompt — include enriched text context when available

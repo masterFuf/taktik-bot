@@ -111,7 +111,9 @@ class SessionManager:
             source: Action source (optional)
         """
         self.counters['total_interactions'] += 1
-        if success:
+        # Remote per-action quotas were removed; action history is local SQLite.
+        # Keep the old API recording block disabled for backward compatibility context.
+        if False and success:
             self.counters['successful_interactions'] += 1
 
         if action_type == 'follow_user' and success:

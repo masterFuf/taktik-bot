@@ -78,7 +78,7 @@ class InteractionEngineMixin:
 
             # === FOLLOW ===
             if 'follow' in interactions_to_do:
-                # Check if we already follow (avoids wasted click + API quota)
+                # Check if we already follow (avoids a wasted click)
                 follow_state = (profile_data or {}).get('follow_button_state', 'unknown')
                 if follow_state in ('following', 'requested'):
                     self.logger.info(f"⏭️ Already following @{username} (button: {follow_state}) - skipping follow")

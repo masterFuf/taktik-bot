@@ -100,13 +100,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         self.session_manager.record_action('like_posts', success=True, source=username)
                     self.logger.debug(f"Session stats recorded: {posts_liked} individual likes for @{username}")
                 except Exception as e:
-                    self.logger.error(f"CRITICAL FAILURE: Unable to record likes in API")
-                    self.logger.error(f"SECURITY: {posts_liked} likes for @{username} cancelled to avoid quota leak")
+                    self.logger.error(f"Unable to record likes in session counters")
                     
                     stats['posts_liked'] = 0
                     stats['success'] = False
                     
-                    raise Exception(f"Likes cancelled for @{username} - API quota recording failed: {e}")
+                    raise Exception(f"Likes cancelled for @{username} - session counter recording failed: {e}")
             else:
                 self.logger.warning(f"Stats NOT recorded - Reason: session_manager={self.session_manager}, posts_liked={posts_liked}")
             

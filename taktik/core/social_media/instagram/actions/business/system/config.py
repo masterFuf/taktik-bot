@@ -79,8 +79,7 @@ class ConfigBusiness(BaseAction):
                 'interactions': f"{base_url}/interactions",
                 'sessions': f"{base_url}/sessions",
                 'usage': f"{base_url}/usage",
-                'filtered_profiles': f"{base_url}/filtered-profiles",
-                'remaining_actions': f"{base_url}/usage/remaining-actions-by-api-key"
+                'filtered_profiles': f"{base_url}/filtered-profiles"
             }
             
             self.logger.debug(f"🔗 Endpoints API configurés: {base_url}")
@@ -96,8 +95,7 @@ class ConfigBusiness(BaseAction):
                 'interactions': f"{base_url}/interactions",
                 'sessions': f"{base_url}/sessions",
                 'usage': f"{base_url}/usage",
-                'filtered_profiles': f"{base_url}/filtered-profiles",
-                'remaining_actions': f"{base_url}/usage/remaining-actions-by-api-key"
+                'filtered_profiles': f"{base_url}/filtered-profiles"
             }
     
     
