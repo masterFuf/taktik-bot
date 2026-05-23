@@ -866,18 +866,14 @@ class DesktopBridge:
                         img = device.screenshot()  # PIL Image
                         img.save(screenshot_path, format='PNG')
 
-                        account_username = None
-                        if bridge.automation:
-                            account_username = bridge.automation.active_username
-
-                        classification = ai.classify_profile(
+                        result = ai.classify_profile_niche(
                             username=username,
                             screenshot_path=screenshot_path,
-                            account_username=account_username,
+                            profile_context=profile_data or {},
                         )
-                        if classification.get('success') and classification.get('classification'):
-                            c = classification['classification']
-                            send_log("info", f"🧠 @{username}: [{c.get('niche_category', '?')}] {c.get('niche', '?')} — Score: {c.get('score', 0)}/100")
+                        if result.get('success') and result.get('classification'):
+                            c = result['classification']
+                            send_log("info", f"🧠 @{username}: [{c.get('niche_category', '?')}] {c.get('niche', '?')} — {c.get('gender', '?')}, {c.get('age_group', '?')}")
                     except Exception as e:
                         send_log("warning", f"AI profile analysis error for @{username}: {e}")
 
