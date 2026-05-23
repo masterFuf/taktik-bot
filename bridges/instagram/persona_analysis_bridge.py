@@ -63,9 +63,9 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
         }
 
         try:
-            # ── Step 1: Launch Instagram ──────────────────────────────
-            _ipc.status("launching", "Lancement d'Instagram…")
-            if not self._app.launch():
+            # ── Step 1: Restart Instagram (clean state) ───────────────
+            _ipc.status("launching", "Redémarrage d'Instagram…")
+            if not self._app.restart():
                 _ipc.error("Impossible de lancer Instagram", error_code="LAUNCH_FAILED")
                 return {"success": False, "error": "Failed to launch Instagram"}
             time.sleep(2)
@@ -257,8 +257,7 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
                     break
 
             _ipc.status("comments_collected",
-                f"{len(comments)} commentaires collectés pour le post {post_idx + 1}",
-                stats={"count": len(comments)})
+                f"{len(comments)} commentaires collectés pour le post {post_idx + 1}")
 
         except Exception as e:
             logger.warning(f"[PersonaAnalysis] Comment scraping error: {e}")
@@ -297,9 +296,27 @@ def main():
         print(json.dumps({"success": False, "error": "deviceId is required"}))
         sys.exit(1)
 
+    # Configure local SQLite database service
+    try:
+        from taktik.core.database import configure_db_service
+        configure_db_service()
+        logger.info("[PersonaAnalysis] Database service configured")
+    except Exception as exc:
+        logger.warning(f"[PersonaAnalysis] Could not configure DB service: {exc}")
+
     bridge = PersonaAnalysisBridge(device_id, config, package_name=package_name)
-    result = bridge.run()
-    print(json.dumps(result))
+
+    if not bridge.connect():
+        print(json.dumps({"success": False, "error": f"Failed to connect to device {device_id}"}), flush=True)
+        sys.exit(1)
+
+    try:
+        result = bridge.run()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        result = {"success": False, "error": f"Bridge crashed: {e}"}
+    print(json.dumps(result), flush=True)
 
 
 if __name__ == "__main__":
