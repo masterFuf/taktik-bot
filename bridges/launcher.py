@@ -30,6 +30,7 @@ BRIDGE_MODULES = {
     "smart_comment_bridge": "bridges.instagram.smart_comment_bridge",
     "account_bridge":       "bridges.instagram.account_bridge",
     "taktik_agent_bridge":  "bridges.instagram.taktik_agent_bridge",
+    "persona_analysis_bridge": "bridges.instagram.persona_analysis_bridge",
     # TikTok
     "tiktok_bridge":          "bridges.tiktok.tiktok_bridge",
     "tiktok_unfollow_bridge": "bridges.tiktok.tiktok_unfollow_bridge",
