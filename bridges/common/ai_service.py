@@ -165,6 +165,72 @@ class AIService:
         ]
         return self._call_openrouter(self.text_model, messages, temperature, max_tokens)
 
+    def classify_following_usernames_batch(
+        self,
+        usernames: list,
+        batch_size: int = 20,
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Infer niche_category, niche and gender for a list of Instagram usernames
+        using text-only LLM (no screenshot required — username is the sole signal).
+
+        Uses the same niche taxonomy as classify_profile_niche for consistency.
+        Processes in batches of *batch_size* to keep prompt size manageable.
+
+        Returns a dict: {username: {"niche_category": ..., "niche": ..., "gender": ...}}
+        Unclassifiable usernames get niche_category="other", niche="Other", gender="unknown".
+        """
+        if not usernames:
+            return {}
+
+        niche_list = ", ".join(self.NICHE_CATEGORIES)
+        sub_niche_list = " | ".join(self.SUB_NICHES)
+        system_prompt = (
+            "You are an Instagram username analyst.\n"
+            "Given a list of Instagram usernames, infer for each:\n"
+            "  - niche_category: one of: " + niche_list + "\n"
+            "  - niche: one sub-niche from: " + sub_niche_list + "\n"
+            "  - gender: 'male', 'female', 'brand' (company/org/product), or 'unknown'\n\n"
+            "Base your inference solely on the username (words, patterns, name cues, brand signals).\n"
+            "Use 'other' / 'Other' / 'unknown' when there is no clear signal.\n"
+            "Respond ONLY with a valid JSON object, keys are usernames:\n"
+            '{"username1": {"niche_category": "travel", "niche": "Adventure & Backpacking", "gender": "female"}, '
+            '"username2": {"niche_category": "other", "niche": "Other", "gender": "unknown"}}'
+        )
+
+        results: Dict[str, Dict[str, str]] = {}
+        clean = [u for u in usernames if u]
+
+        for i in range(0, len(clean), batch_size):
+            batch = clean[i:i + batch_size]
+            user_prompt = "Classify these Instagram usernames:\n" + "\n".join(f"- {u}" for u in batch)
+            try:
+                result = self.text_completion(system_prompt, user_prompt, temperature=0.1, max_tokens=1200)
+                if not result.get("success"):
+                    logger.warning(f"[AIService] classify_following_usernames_batch failed: {result.get('error')}")
+                    continue
+                text = result["text"].strip()
+                # Strip markdown fences if present
+                if "```" in text:
+                    parts = text.split("```")
+                    text = parts[1] if len(parts) > 1 else text
+                    if text.startswith("json"):
+                        text = text[4:]
+                    text = text.strip()
+                batch_result = json.loads(text)
+                for username, data in batch_result.items():
+                    if isinstance(data, dict):
+                        results[username] = {
+                            "niche_category": str(data.get("niche_category") or "other"),
+                            "niche": str(data.get("niche") or "Other"),
+                            "gender": str(data.get("gender") or "unknown"),
+                        }
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"[AIService] classify_following_usernames_batch batch error: {e}")
+                continue
+
+        return results
+
     # ------------------------------------------------------------------
     # Vision completion
     # ------------------------------------------------------------------
