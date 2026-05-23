@@ -199,6 +199,13 @@ class ScrapingPostHelpersMixin:
                 self.logger.warning("Could not open comments")
                 return scraped
 
+            # Check for 'No comments yet' empty state — close popup and bail out
+            if self.device.xpath('//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]').exists:
+                self.logger.info("Post has no comments — closing popup and skipping commenters")
+                self.device.press("back")
+                time.sleep(0.5)
+                return scraped
+
             # Delegate to the unified scraping loop with the commenters strategy.
             scraped = self._scrape_list(
                 max_count=max_count,
