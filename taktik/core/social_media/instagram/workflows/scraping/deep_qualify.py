@@ -68,6 +68,14 @@ class DeepQualifyMixin:
                     f"[deep_qualify] @{username}: collected {len(following_usernames)} followings, "
                     f"{len(result['_known_followings'])} already known in DB"
                 )
+                # Bot ratio heuristic — adds _bot_ratio_estimate and _has_bot_indicator
+                bot_info = self._detect_bot_ratio(following_usernames, result['_known_followings'])
+                result.update(bot_info)
+                if bot_info['_has_bot_indicator']:
+                    self.logger.debug(
+                        f"[deep_qualify] @{username}: bot indicator flagged "
+                        f"(ratio={bot_info['_bot_ratio_estimate']:.0%})"
+                    )
                 # Persist to social graph
                 self._save_followings_to_db(username, following_usernames)
                 # Classify any following usernames that haven't been classified yet
@@ -237,6 +245,59 @@ class DeepQualifyMixin:
                 )
         except Exception as e:
             self.logger.debug(f"[deep_qualify] _classify_new_followings failed: {e}")
+
+    def _detect_bot_ratio(
+        self,
+        usernames: List[str],
+        known_profiles: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Heuristic estimation of the bot ratio in a following sample.
+
+        Checks:
+        1. Username patterns typical of automated/fake accounts (random
+           alphanumeric strings, heavy digit suffix, very long handles).
+        2. Known profiles in DB that have fewer than 50 followers (low-reach
+           accounts are often bots or fake amplifiers).
+
+        Returns:
+            {
+                '_bot_ratio_estimate': float  # [0.0, 1.0]
+                '_has_bot_indicator':  bool   # True if ratio >= 0.30
+            }
+        """
+        import re as _re
+
+        if not usernames:
+            return {'_bot_ratio_estimate': 0.0, '_has_bot_indicator': False}
+
+        total = len(usernames)
+        bot_signals = 0
+
+        # Heuristic 1: bot-like username patterns
+        # Matches: word+4+ digits, digit-only, word+digits+word, handles ≥18 chars with no separator
+        _bot_pattern = _re.compile(
+            r'^[a-z]+\d{4,}$'           # "mariedup1234"
+            r'|^\d+[a-z]\d+$'           # "1234a567"
+            r'|^[a-z0-9]{18,}$'         # very long, no underscore or dot
+            r'|^[a-z]{2,4}\d{6,}$',     # short prefix + many digits
+            _re.IGNORECASE,
+        )
+        for u in usernames:
+            if _bot_pattern.match(u):
+                bot_signals += 1
+
+        # Heuristic 2: known profiles with very low followers (<50)
+        for p in known_profiles:
+            fc = p.get('followers_count')
+            if fc is not None and isinstance(fc, int) and fc < 50:
+                bot_signals += 1
+
+        ratio = min(1.0, bot_signals / total)
+        return {
+            '_bot_ratio_estimate': round(ratio, 2),
+            '_has_bot_indicator': ratio >= 0.30,
+        }
 
     def _get_known_followings(self, usernames: List[str]) -> List[Dict[str, Any]]:
         """
