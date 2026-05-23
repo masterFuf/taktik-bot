@@ -249,6 +249,24 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         except sqlite3.OperationalError:
             pass
 
+    # Migration: Add niche/gender classification columns to profile_following
+    # Populated by the batch text-LLM classifier (username → niche + gender).
+    try:
+        cursor.execute("SELECT niche_category FROM profile_following LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migration: Adding niche_category, niche, gender, classified_at to profile_following")
+        cursor.execute("ALTER TABLE profile_following ADD COLUMN niche_category TEXT")
+        cursor.execute("ALTER TABLE profile_following ADD COLUMN niche TEXT")
+        cursor.execute("ALTER TABLE profile_following ADD COLUMN gender TEXT")
+        cursor.execute("ALTER TABLE profile_following ADD COLUMN classified_at TEXT")
+        try:
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_profile_following_niche_category "
+                "ON profile_following(niche_category)"
+            )
+        except sqlite3.OperationalError:
+            pass
+
     # Migration: Add ai_gender column to instagram_profiles
     try:
         cursor.execute("SELECT ai_gender FROM instagram_profiles LIMIT 1")
