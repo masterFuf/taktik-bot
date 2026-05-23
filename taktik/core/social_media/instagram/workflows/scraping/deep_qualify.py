@@ -70,6 +70,8 @@ class DeepQualifyMixin:
                 )
                 # Persist to social graph
                 self._save_followings_to_db(username, following_usernames)
+                # Classify any following usernames that haven't been classified yet
+                self._classify_new_followings(following_usernames)
         except Exception as e:
             self.logger.debug(f"[deep_qualify] @{username}: failed to collect followings — {e}")
 
@@ -201,6 +203,40 @@ class DeepQualifyMixin:
             )
         except Exception as e:
             self.logger.debug(f"[deep_qualify] _save_followings_to_db failed for @{profile_username}: {e}")
+
+    def _classify_new_followings(self, following_usernames: List[str]) -> None:
+        """
+        Batch-classify following usernames that don't have a niche/gender yet.
+
+        Uses the text-only AI service (no screenshot needed — username is the sole
+        signal). Fire-and-forget: errors never interrupt the scraping flow.
+
+        Only fires when ``_ai_service`` is available on the workflow instance
+        (i.e. AI mode is enabled and an OpenRouter key is configured).
+        """
+        ai_service = getattr(self, '_ai_service', None)
+        if ai_service is None:
+            return  # AI mode not enabled — skip silently
+        try:
+            from taktik.core.database.local.service import get_local_database
+            db = get_local_database()
+            # Only classify usernames that don't have a classification yet
+            pending = db.get_unclassified_following_usernames(limit=500)
+            # Intersect with the current batch so we only process relevant ones
+            to_classify = [u for u in following_usernames if u in set(pending)]
+            if not to_classify:
+                return
+            self.logger.debug(
+                f"[deep_qualify] classifying {len(to_classify)} new following username(s) via LLM"
+            )
+            classifications = ai_service.classify_following_usernames_batch(to_classify)
+            if classifications:
+                saved = db.save_following_classifications(classifications)
+                self.logger.debug(
+                    f"[deep_qualify] {saved} following username classification(s) saved to DB"
+                )
+        except Exception as e:
+            self.logger.debug(f"[deep_qualify] _classify_new_followings failed: {e}")
 
     def _get_known_followings(self, usernames: List[str]) -> List[Dict[str, Any]]:
         """
