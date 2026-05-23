@@ -1815,6 +1815,71 @@ class LocalDatabaseService:
             logger.debug(f"save_profile_followings failed for @{profile_username}: {e}")
             return 0
 
+    def save_following_classifications(
+        self,
+        classifications: Dict[str, Dict[str, str]],
+    ) -> int:
+        """
+        Persist AI-inferred niche/gender classifications for following_username rows.
+
+        *classifications* is a dict keyed by username:
+            {username: {"niche_category": ..., "niche": ..., "gender": ...}}
+
+        Only updates rows where classified_at IS NULL (never classify twice).
+        Returns the total number of rows updated.
+        """
+        if not classifications:
+            return 0
+        updated = 0
+        try:
+            conn = self._get_connection()
+            now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            for username, data in classifications.items():
+                conn.execute(
+                    """
+                    UPDATE profile_following
+                    SET niche_category = ?, niche = ?, gender = ?, classified_at = ?
+                    WHERE following_username = ? AND classified_at IS NULL
+                    """,
+                    (
+                        data.get("niche_category") or "other",
+                        data.get("niche") or "Other",
+                        data.get("gender") or "unknown",
+                        now,
+                        username,
+                    ),
+                )
+                updated += conn.execute("SELECT changes()").fetchone()[0]
+            conn.commit()
+        except Exception as e:
+            logger.debug(f"save_following_classifications failed: {e}")
+        return updated
+
+    def get_unclassified_following_usernames(
+        self,
+        limit: int = 200,
+    ) -> List[str]:
+        """
+        Return distinct following_username values that have no classification yet
+        (classified_at IS NULL). Used by the batch classifier to find pending work.
+        """
+        try:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT DISTINCT following_username
+                FROM profile_following
+                WHERE classified_at IS NULL
+                ORDER BY discovered_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [r[0] for r in rows]
+        except Exception as e:
+            logger.debug(f"get_unclassified_following_usernames failed: {e}")
+            return []
+
     def get_profiles_following_target(
         self,
         following_username: str,
