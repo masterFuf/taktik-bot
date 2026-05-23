@@ -29,6 +29,13 @@ class DiscoveryCommentsScrapingMixin:
             return
         
         time.sleep(1.5)
+
+        # Check for 'No comments yet' empty state — close popup and move to next post
+        if self.device.xpath('//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]').exists:
+            self.logger.info("No comments on this post — closing popup")
+            self.device.press("back")
+            time.sleep(0.5)
+            return
         
         # Change sort if needed
         self._change_comment_sort()
