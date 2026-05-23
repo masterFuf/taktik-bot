@@ -1,0 +1,105 @@
+{
+  "instagram": {
+    "automation": [
+      "target_followers",
+      "target_following",
+      "hashtags",
+      "post_url",
+      "notifications",
+      "unfollow",
+      "feed",
+      "sync_following",
+      "sync_followers_following"
+    ],
+    "scraping": [
+      "target",
+      "hashtag",
+      "post_url"
+    ],
+    "account": [
+      "login",
+      "register",
+      "logout"
+    ],
+    "engagement": [
+      "dm_read",
+      "dm_send",
+      "coldDm",
+      "smart_comment",
+      "taktik_agent"
+    ],
+    "panel": [
+      "target",
+      "hashtag",
+      "feed",
+      "post_likers",
+      "unfollow",
+      "sync",
+      "coldDm",
+      "taktik_agent",
+      "other"
+    ]
+  },
+  "tiktok": {
+    "automation": [
+      "for_you",
+      "search",
+      "hashtag",
+      "target",
+      "followers",
+      "dm_read",
+      "dm_send",
+      "scraping"
+    ],
+    "account": [
+      "login",
+      "register",
+      "logout"
+    ],
+    "standalone": [
+      "tiktok_unfollow",
+      "tiktok_dm_outreach",
+      "tiktok_scraping",
+      "upload_post"
+    ],
+    "panel": [
+      "tiktok",
+      "tiktok_unfollow",
+      "tiktok_dm_outreach"
+    ],
+    "live_panel": [
+      "foryou",
+      "followers",
+      "target",
+      "hashtag"
+    ]
+  },
+  "threads": {
+    "automation": [
+      "follow",
+      "target",
+      "feed"
+    ]
+  },
+  "gmail": {
+    "account": [
+      "login",
+      "logout",
+      "read_otp",
+      "scan_accounts"
+    ]
+  },
+  "youtube": {
+    "account": [
+      "login",
+      "logout"
+    ],
+    "publish": [
+      "upload_post"
+    ],
+    "planned": [
+      "watch_feed",
+      "search"
+    ]
+  }
+}
