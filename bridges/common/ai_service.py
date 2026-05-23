@@ -183,16 +183,24 @@ class AIService:
         if not usernames:
             return {}
 
-        niche_list = ", ".join(self.NICHE_CATEGORIES)
-        sub_niche_list = " | ".join(self.SUB_NICHES)
+        niche_map = "\n".join(
+            f"  {cat}: {' | '.join(subs)}"
+            for cat, subs in self.SUB_NICHES.items()
+        )
         system_prompt = (
             "You are an Instagram username analyst.\n"
             "Given a list of Instagram usernames, infer for each:\n"
-            "  - niche_category: one of: " + niche_list + "\n"
-            "  - niche: one sub-niche from: " + sub_niche_list + "\n"
+            "  - niche_category: choose from the keys below\n"
+            "  - niche: choose from that category's sub-niches (after the colon)\n"
             "  - gender: 'male', 'female', 'brand' (company/org/product), or 'unknown'\n\n"
+            "Niche taxonomy (category: sub-niche1 | sub-niche2 | ...):\n"
+            + niche_map + "\n\n"
             "Base your inference solely on the username (words, patterns, name cues, brand signals).\n"
-            "Use 'other' / 'Other' / 'unknown' when there is no clear signal.\n"
+            "IMPORTANT: always try to match an existing sub-niche first. "
+            "Only if the account genuinely doesn't fit ANY listed sub-niche, pick the closest niche_category "
+            "and write a short descriptive sub-niche label freely (e.g. 'Associative & Non-Profit', 'Motorsport & Racing'). "
+            "Do NOT invent a new sub-niche just to be more specific — use the existing one whenever reasonable.\n"
+            "Use 'other' / 'Other' / 'unknown' only when no category applies at all.\n"
             "Respond ONLY with a valid JSON object, keys are usernames:\n"
             '{"username1": {"niche_category": "travel", "niche": "Adventure & Backpacking", "gender": "female"}, '
             '"username2": {"niche_category": "other", "niche": "Other", "gender": "unknown"}}'
@@ -218,11 +226,15 @@ class AIService:
                         text = text[4:]
                     text = text.strip()
                 batch_result = json.loads(text)
+                known_sub_niches = self._known_sub_niches
                 for username, data in batch_result.items():
                     if isinstance(data, dict):
+                        niche_val = str(data.get("niche") or "Other")
+                        if niche_val not in known_sub_niches and niche_val != "Other":
+                            logger.info(f"[AIService] Proposed new sub-niche '{niche_val}' for @{username}")
                         results[username] = {
                             "niche_category": str(data.get("niche_category") or "other"),
-                            "niche": str(data.get("niche") or "Other"),
+                            "niche": niche_val,
                             "gender": str(data.get("gender") or "unknown"),
                         }
             except (json.JSONDecodeError, Exception) as e:
@@ -278,97 +290,115 @@ class AIService:
     # High-level AI operations
     # ------------------------------------------------------------------
 
-    # Ordered list of supported niche categories (must match niche-categories.ts)
+    # Ordered list of supported niche categories (must match NICHE_CATEGORIES in niche-taxonomy.ts)
     NICHE_CATEGORIES = [
-        "lifestyle", "travel", "fitness_sport", "food_cooking", "fashion_beauty",
-        "tech_gaming", "business_entrepreneurship", "music_entertainment", "art_creativity",
-        "education_personal_dev", "health_wellness", "parenting_family", "pets_animals",
-        "humor_memes", "sports", "other",
+        "lifestyle", "travel", "fitness_sports", "food_drink", "fashion",
+        "beauty_wellness", "tech_education", "business_marketing", "music_entertainment",
+        "art_design", "finance", "health_family", "home_interior", "events_services",
+        "community_causes", "other",
     ]
 
-    # Controlled sub-niche taxonomy (must stay in sync with SUB_NICHE_CATEGORIES in niche-taxonomy.ts)
-    # Flat list — AI picks the single best match. Constraining this prevents free-form explosion.
-    SUB_NICHES = [
-        # lifestyle
-        "Daily Life & Vlogs", "Personal Blog",
-        "Relatable Humor & Memes", "Animal & Pet Humor", "Dark & Sarcastic Humor",
-        "Couple & Relationship Content",
-        "Fan Page", "Quotes & Wisdom", "Inspiration & Motivation", "Minimalism & Slow Life",
-        # beauty_wellness
-        "Makeup & Cosmetics", "Skincare & Anti-Aging", "Hair & Nail Art",
-        "Barber & Men's Grooming",
-        "Yoga & Pilates", "Mindfulness & Meditation", "Wellness & Naturopathy",
-        "Perfume & Fragrance",
-        # fitness_sports
-        "Gym & Bodybuilding", "CrossFit & Functional Training",
-        "Running & Marathon", "Cycling & Triathlon",
-        "Martial Arts & Combat Sports", "Dance & Choreography",
-        "Football & Team Sports", "Equestrian Sports",
-        "Hiking & Outdoor Sports", "Water Sports & Surfing", "Winter Sports & Skiing",
-        # fashion
-        "Streetwear & Urban", "Luxury & High Fashion", "Sustainable Fashion",
-        "Style & Outfit Inspiration", "Accessories & Jewelry",
-        "Vintage & Thrift", "Men's Fashion", "Lingerie & Swimwear",
-        # food_drink
-        "Home Cooking & Recipes", "Restaurant & Food Reviews", "Vegan & Plant-Based",
-        "Pastry & Baking", "Coffee & Specialty Drinks", "Bar & Cocktails",
-        "BBQ & Street Food", "Healthy Eating & Meal Prep",
-        # art_design
-        "Fine Art & Illustration", "Portrait Photography", "Nature & Landscape Photography",
-        "Graphic & UI Design", "Sculpture & Ceramics",
-        "Digital Art & AI Art", "Animation & Motion Graphics",
-        "Tattoo & Body Art", "Videography & Cinematography",
-        # music_entertainment
-        "Music Artists & Bands", "DJ & Electronic Music", "Rap & Hip-Hop",
-        "Gaming & Esports", "Comedy Sketches & Stand-Up",
-        "Movies & Series", "Anime & Manga",
-        "Podcasts & Interviews", "Live Events & Concerts",
-        "Acting & Performance", "Film & Cinema Production",
-        "Screenwriting & Storytelling", "Video Editing & Post-Production",
-        # business_marketing
-        "Entrepreneurship & Startups", "Digital Marketing & SEO",
-        "E-commerce & Dropshipping", "Business Coaching & Mentoring",
-        "Personal Branding", "B2B & Corporate",
-        "Freelancing & Remote Work", "Network Marketing & MLM",
-        # travel
-        "Adventure & Backpacking", "City Breaks & Urban Exploration",
-        "Luxury & Boutique Travel", "Road Trip & Van Life",
-        "Cultural & Heritage Travel", "Travel Photography & Drone",
-        "Digital Nomad & Remote Living", "Solo & Budget Travel",
-        # events_services
-        "Event Planning & Management", "Wedding & Ceremony",
-        "Local Trade Services", "Catering & Food Services",
-        "Childcare & Nanny Services", "Pet Care & Veterinary",
-        "Cleaning & Home Services", "Beauty & Personal Services",
-        # tech_education
-        "Programming & Development", "AI & Machine Learning",
-        "Cybersecurity & Ethical Hacking", "Gadgets & Tech Reviews",
-        "Online Education & Courses", "Science & Engineering",
-        "No-Code & Automation Tools", "Hardware & Electronics",
-        # finance
-        "Stock Market & Investing", "Crypto & Web3",
-        "Personal Finance & Budgeting", "Real Estate & Property",
-        "Financial Independence & FIRE", "Insurance & Fintech",
-        "Options & Day Trading", "Financial Education",
-        # health_family
-        "Parenting & Family Life", "Pregnancy & New Mothers",
-        "Kids & Baby Content", "Nutrition & Healthy Eating",
-        "Mental Health & Therapy", "Alternative & Holistic Medicine",
-        "Medical & Healthcare", "Senior & Healthy Aging",
-        # home_interior
-        "Interior Design & Staging", "DIY & Home Renovation",
-        "Gardening & Urban Farming", "Minimalist Home & Organization",
-        "Luxury & Premium Real Estate", "Architecture & Urban Design",
-        "Smart Home & Tech",
-        # community_causes
-        "Social Activism & Human Rights", "Environment & Climate Change",
-        "Faith & Religious Community", "Politics & Current Affairs",
-        "Wildlife & Nature Conservation", "Pets & Pet Owners",
-        "LGBTQ+ Community", "Women & Empowerment",
-        "Cultural Heritage & Diaspora",
-        # other
-        "Other",
-    ]
+    # Controlled sub-niche taxonomy — dict keyed by niche_category.
+    # Mirrors SUB_NICHE_CATEGORIES in niche-taxonomy.ts (single source of truth).
+    # AI must pick niche_category first, then niche from that category's list.
+    SUB_NICHES: Dict[str, list] = {
+        "lifestyle": [
+            "Daily Life & Vlogs", "Personal Blog", "Relatable Humor & Memes",
+            "Couple & Relationship Content", "Fan Page", "Quotes & Wisdom",
+            "Inspiration & Motivation", "Minimalism & Slow Life",
+        ],
+        "travel": [
+            "Adventure & Backpacking", "City Breaks & Urban Exploration",
+            "Luxury & Boutique Travel", "Road Trip & Van Life",
+            "Cultural & Heritage Travel", "Travel Photography & Drone",
+            "Digital Nomad & Remote Living", "Solo & Budget Travel",
+        ],
+        "fitness_sports": [
+            "Gym & Bodybuilding", "CrossFit & Functional Training",
+            "Running & Marathon", "Cycling & Triathlon",
+            "Martial Arts & Combat Sports", "Dance & Choreography",
+            "Football & Team Sports", "Equestrian Sports",
+            "Hiking & Outdoor Sports", "Water Sports & Surfing", "Winter Sports & Skiing",
+        ],
+        "food_drink": [
+            "Home Cooking & Recipes", "Restaurant & Food Reviews", "Vegan & Plant-Based",
+            "Pastry & Baking", "Coffee & Specialty Drinks", "Bar & Cocktails",
+            "BBQ & Street Food", "Healthy Eating & Meal Prep",
+        ],
+        "fashion": [
+            "Streetwear & Urban", "Luxury & High Fashion", "Sustainable Fashion",
+            "Style & Outfit Inspiration", "Accessories & Jewelry",
+            "Vintage & Thrift", "Men's Fashion", "Lingerie & Swimwear",
+        ],
+        "beauty_wellness": [
+            "Makeup & Cosmetics", "Skincare & Anti-Aging", "Hair & Nail Art",
+            "Barber & Men's Grooming", "Yoga & Pilates", "Mindfulness & Meditation",
+            "Wellness & Naturopathy", "Perfume & Fragrance",
+        ],
+        "tech_education": [
+            "Programming & Development", "AI & Machine Learning",
+            "Cybersecurity & Ethical Hacking", "Gadgets & Tech Reviews",
+            "Online Education & Courses", "Science & Engineering",
+            "No-Code & Automation Tools", "Hardware & Electronics",
+        ],
+        "business_marketing": [
+            "Entrepreneurship & Startups", "Digital Marketing & SEO",
+            "E-commerce & Dropshipping", "Business Coaching & Mentoring",
+            "Personal Branding", "B2B & Corporate",
+            "Freelancing & Remote Work", "Network Marketing & MLM",
+        ],
+        "music_entertainment": [
+            "Music Artists & Bands", "DJ & Electronic Music", "Rap & Hip-Hop",
+            "Gaming & Esports", "Comedy Sketches & Stand-Up",
+            "Movies & Series", "Anime & Manga", "Podcasts & Interviews",
+            "Live Events & Concerts", "Acting & Performance",
+            "Film & Cinema Production", "Screenwriting & Storytelling",
+            "Video Editing & Post-Production",
+        ],
+        "art_design": [
+            "Fine Art & Illustration", "Portrait Photography",
+            "Nature & Landscape Photography", "Graphic & UI Design",
+            "Sculpture & Ceramics", "Digital Art & AI Art",
+            "Animation & Motion Graphics", "Tattoo & Body Art",
+            "Videography & Cinematography",
+        ],
+        "finance": [
+            "Stock Market & Investing", "Crypto & Web3",
+            "Personal Finance & Budgeting", "Real Estate & Property",
+            "Financial Independence & FIRE", "Insurance & Fintech",
+            "Options & Day Trading", "Financial Education",
+        ],
+        "health_family": [
+            "Parenting & Family Life", "Pregnancy & New Mothers",
+            "Kids & Baby Content", "Nutrition & Healthy Eating",
+            "Mental Health & Therapy", "Alternative & Holistic Medicine",
+            "Medical & Healthcare", "Senior & Healthy Aging",
+        ],
+        "home_interior": [
+            "Interior Design & Staging", "DIY & Home Renovation",
+            "Gardening & Urban Farming", "Minimalist Home & Organization",
+            "Luxury & Premium Real Estate", "Architecture & Urban Design",
+            "Smart Home & Tech",
+        ],
+        "events_services": [
+            "Event Planning & Management", "Wedding & Ceremony",
+            "Local Trade Services", "Catering & Food Services",
+            "Childcare & Nanny Services", "Pet Care & Veterinary",
+            "Cleaning & Home Services", "Beauty & Personal Services",
+        ],
+        "community_causes": [
+            "Social Activism & Human Rights", "Environment & Climate Change",
+            "Faith & Religious Community", "Politics & Current Affairs",
+            "Wildlife & Nature Conservation", "Pets & Pet Owners",
+            "LGBTQ+ Community", "Women & Empowerment", "Cultural Heritage & Diaspora",
+        ],
+        "other": ["Other"],
+    }
+
+    @property
+    def _known_sub_niches(self) -> set:
+        """Flat set of all canonical sub-niche labels (for proposed-niche detection)."""
+        return {s for subs in self.SUB_NICHES.values() for s in subs}
 
     def classify_profile_niche(self, username: str, screenshot_path: str,
                                profile_context: dict = None,
@@ -417,15 +447,21 @@ class AIService:
                 avatar_url=avatar_thumb,
             )
 
-        niche_list = ", ".join(self.NICHE_CATEGORIES)
-        sub_niche_list = " | ".join(self.SUB_NICHES)
+        niche_map = "\n".join(
+            f"  {cat}: {' | '.join(subs)}"
+            for cat, subs in self.SUB_NICHES.items()
+        )
         _lang_map = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}
         _lang_full = _lang_map.get(response_language, 'English')
         system_prompt = (
             "You are an Instagram profile classifier.\n"
             "Analyze this profile screenshot and identify the account's niche.\n"
-            f"Choose niche_category from exactly one of: {niche_list}\n"
-            f"Choose niche from exactly one of these sub-niches: {sub_niche_list}\n"
+            "Choose niche_category from the keys below, then choose niche from that category's sub-niches:\n"
+            + niche_map + "\n"
+            "IMPORTANT: always match an existing sub-niche when possible. "
+            "Only if the account genuinely doesn't fit any listed sub-niche, pick the closest niche_category "
+            "and write a short descriptive sub-niche label freely (e.g. 'Associative & Non-Profit', 'Motorsport & Racing'). "
+            "Do NOT invent a new sub-niche just to be more specific — use the existing one whenever reasonable.\n"
             "Extract all cities explicitly mentioned in the bio (e.g. 'Paris - Metz' → both cities). Use empty array if none.\n"
             "If the person has a clear professional trade (Actor, Director, Screenwriter, Photographer, Chef, Coach, Tattoo Artist, Musician, Model, etc.), set profession to that trade in the profile language. "
             "Set profession_tags to up to 3 subcategory tags (e.g. ['UGC', 'short film', 'coaching'] for an actor). "
@@ -536,6 +572,9 @@ class AIService:
 
         niche = classification.get("niche", "?")
         niche_cat = classification.get("niche_category", "other")
+        # Detect proposed sub-niches (not in canonical taxonomy) for monitoring
+        if niche and niche not in self._known_sub_niches and niche != "Other":
+            logger.info(f"[AIService] Proposed new sub-niche '{niche}' for @{username} (cat: {niche_cat})")
         summary = classification.get("summary", "")
         result_text = f"[{niche_cat}] {niche}"
         if summary:
