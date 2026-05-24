@@ -124,10 +124,12 @@ def send_scraping_profile_visit(username: str, profile_data: dict = None):
         biography=pd.get('biography', ''),
         followers_count=pd.get('followers_count'),
         following_count=pd.get('following_count'),
+        posts_count=pd.get('posts_count'),
         full_name=pd.get('full_name', ''),
         is_business=bool(pd.get('is_business', False)),
         business_category=pd.get('business_category', ''),
         is_private=bool(pd.get('is_private', False)),
+        is_verified=bool(pd.get('is_verified', False)),
     )
 
 
