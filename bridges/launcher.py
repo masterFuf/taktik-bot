@@ -26,7 +26,6 @@ BRIDGE_MODULES = {
     "dm_bridge":            "bridges.instagram.dm_bridge",
     "scraping_bridge":      "bridges.instagram.scraping_bridge",
     "cold_dm_bridge":       "bridges.instagram.cold_dm_bridge",
-    "discovery_bridge":     "bridges.instagram.discovery_bridge",
     "smart_comment_bridge": "bridges.instagram.smart_comment_bridge",
     "account_bridge":       "bridges.instagram.account_bridge",
     "taktik_agent_bridge":  "bridges.instagram.taktik_agent_bridge",

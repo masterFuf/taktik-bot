@@ -29,7 +29,7 @@ from taktik.cli.prompts.scraping import (
     generate_url_scraping_workflow, generate_post_scraping_workflow,
 )
 from taktik.cli.prompts.outreach import (
-    generate_cold_dm_workflow, generate_dm_auto_reply_workflow, generate_discovery_workflow,
+    generate_cold_dm_workflow, generate_dm_auto_reply_workflow,
 )
 from taktik.cli.commands.management_cmds import management
 
@@ -537,12 +537,11 @@ def cli(ctx, lang=None):
                     console.print("[bold]1.[/bold] 👥 Target Scraping (Followers/Following)")
                     console.print("[bold]2.[/bold] #️⃣ Hashtag Scraping (Authors/Likers)")
                     console.print("[bold]3.[/bold] 🔗 Post URL Scraping (Likers/Comments)")
-                    console.print("[bold]4.[/bold] 🎯 Discovery (AI-powered prospect finding)")
-                    console.print("[bold]5.[/bold] ← Back")
+                    console.print("[bold]4.[/bold] ← Back")
                     
-                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
+                    scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
                     
-                    if scraping_choice == 5:
+                    if scraping_choice == 4:
                         continue
                     
                     scraping_config = None
@@ -586,27 +585,6 @@ def cli(ctx, lang=None):
                             scraping_config = generate_url_scraping_workflow()
                             if scraping_config:
                                 scraping_config['scrape_type'] = 'likers' if post_scraping_choice == 1 else 'comments'
-                    
-                    elif scraping_choice == 4:
-                        # Discovery Workflow
-                        discovery_config = generate_discovery_workflow()
-                        if not discovery_config:
-                            console.print("[red]❌ Discovery configuration cancelled.[/red]")
-                            continue
-                        
-                        from taktik.cli.common.device_selector import connect_device as _cd2
-                        if not _cd2(device_manager, device_id, current_translations):
-                            continue
-                        
-                        # Lancer le Discovery Workflow (v2 takes device_id, not device_manager)
-                        from taktik.core.social_media.instagram.workflows.discovery import DiscoveryWorkflow
-                        
-                        console.print("[blue]🎯 Initializing discovery workflow...[/blue]")
-                        discovery_workflow = DiscoveryWorkflow(device_id, discovery_config)
-                        discovery_workflow.run()
-                        
-                        console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
-                        sys.exit(0)
                     
                     if scraping_choice in [1, 2] or (scraping_choice == 3 and scraping_config):
                         if not scraping_config:

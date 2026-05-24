@@ -359,25 +359,6 @@ def _run_instagram_publish(conn, device, ipc, workflow_type):
         return False
 
 
-def _run_instagram_discovery(conn, device, ipc, target, limits):
-    """Run an Instagram Discovery workflow."""
-    try:
-        from taktik.core.social_media.instagram.discovery.engine import DiscoveryEngine
-        max_results = limits.get("maxResults", 50)
-
-        ipc.send("workflow_step", step="discovery_run", status="running")
-        engine = DiscoveryEngine(device)
-        results = engine.discover(target=target, max_results=max_results)
-        count = len(results) if results else 0
-        ipc.send("workflow_step", step="discovery_run", status="done")
-        ipc.send("action_event", action="discovery_complete", username=target,
-                 success=count > 0, data={"count": count})
-        return count > 0
-    except Exception as e:
-        logger.exception(f"[WorkflowTest] Discovery failed: {e}")
-        ipc.send("workflow_step", step="discovery", status="error", error=str(e))
-        return False
-
 
 def _run_tiktok_automation(conn, device, ipc, workflow_type, target, limits, probs, delays):
     """Run a TikTok automation workflow (for_you, hashtag, target, followers)."""
@@ -546,25 +527,6 @@ def _run_tiktok_scraping(conn, device, ipc, workflow_type, target, limits):
         return False
 
 
-def _run_tiktok_discovery(conn, device, ipc, target, limits):
-    """Run TikTok discovery workflow."""
-    try:
-        from taktik.core.social_media.tiktok.discovery.engine import TikTokDiscoveryEngine
-        max_results = limits.get("maxResults", 50)
-
-        ipc.send("workflow_step", step="tiktok_discovery", status="running")
-        engine = TikTokDiscoveryEngine(device)
-        results = engine.discover(target=target, max_results=max_results)
-        count = len(results) if results else 0
-        ipc.send("workflow_step", step="tiktok_discovery", status="done")
-        ipc.send("action_event", action="tiktok_discovery_complete", username=target,
-                 success=count > 0, data={"count": count})
-        return count > 0
-    except Exception as e:
-        logger.exception(f"[WorkflowTest] TikTok discovery failed: {e}")
-        ipc.send("workflow_step", step="tiktok_discovery", status="error", error=str(e))
-        return False
-
 
 # Default test configs per workflow type
 DEFAULT_CONFIGS = {
@@ -616,7 +578,7 @@ def main():
     NEEDS_TARGET = (
         "target_followers", "target_following", "hashtag", "post_likers", "post_url",
         "scrape_account", "scrape_hashtag", "scrape_post_url", "scrape_e_story",
-        "smart_comment", "discovery",
+        "smart_comment",
     )
     if not target and workflow_type in NEEDS_TARGET:
         ipc.send("error", error="No target provided for this workflow", error_code="MISSING_TARGET")
@@ -806,11 +768,6 @@ def main():
             workflow_success = _run_instagram_publish(conn, device, ipc, workflow_type)
             tracer.end_step(success=workflow_success)
 
-        # ── Instagram Discovery ────────────────────────────────────
-        elif app_name == "instagram" and workflow_type == "discovery":
-            tracer.begin_step("discovery")
-            workflow_success = _run_instagram_discovery(conn, device, ipc, target, limits)
-            tracer.end_step(success=workflow_success)
 
         # ── TikTok Automation workflows ────────────────────────────
         elif app_name == "tiktok" and workflow_type in TIKTOK_AUTOMATION_WF:
@@ -842,11 +799,6 @@ def main():
             workflow_success = _run_tiktok_scraping(conn, device, ipc, workflow_type, target, limits)
             tracer.end_step(success=workflow_success)
 
-        # ── TikTok Discovery ───────────────────────────────────────
-        elif app_name == "tiktok" and workflow_type == "discovery":
-            tracer.begin_step("tiktok:discovery")
-            workflow_success = _run_tiktok_discovery(conn, device, ipc, target, limits)
-            tracer.end_step(success=workflow_success)
 
         else:
             workflow_error = f"Unsupported workflow: {app_name}/{workflow_type}"
