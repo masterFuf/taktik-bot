@@ -22,7 +22,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 # Default models
-DEFAULT_TEXT_MODEL = "anthropic/claude-3.5-haiku"
+DEFAULT_TEXT_MODEL = "google/gemini-2.5-flash-lite"
 DEFAULT_VISION_MODEL = "google/gemini-2.5-flash"
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
