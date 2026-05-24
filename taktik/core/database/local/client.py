@@ -74,13 +74,14 @@ class LocalDatabaseClient:
         try:
             profile_data = {
                 'username': profile.username,
-                'full_name': profile.full_name,
-                'biography': getattr(profile, 'biography', ''),
+                'full_name': getattr(profile, 'full_name', None) or None,
+                'biography': getattr(profile, 'biography', None) or None,
+                'website': getattr(profile, 'website', None) or None,
                 'followers_count': profile.followers_count,
                 'following_count': profile.following_count,
                 'posts_count': profile.posts_count,
                 'is_private': profile.is_private,
-                'notes': profile.notes
+                'notes': getattr(profile, 'notes', None) or None
             }
             result = self.local_db.save_profile(profile_data)
             return result is not None
@@ -131,13 +132,14 @@ class LocalDatabaseClient:
         try:
             profile_data = {
                 'username': profile.username,
-                'full_name': profile.full_name,
-                'biography': getattr(profile, 'biography', ''),
+                'full_name': getattr(profile, 'full_name', None) or None,
+                'biography': getattr(profile, 'biography', None) or None,
+                'website': getattr(profile, 'website', None) or None,
                 'followers_count': profile.followers_count,
                 'following_count': profile.following_count,
                 'posts_count': profile.posts_count,
                 'is_private': profile.is_private,
-                'notes': profile.notes
+                'notes': getattr(profile, 'notes', None) or None
             }
             result = self.local_db.save_profile(profile_data)
             if result:
