@@ -49,6 +49,7 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
         self.target_username = config.get("username", "").lstrip("@").lower()
         self.max_posts = int(config.get("max_posts", 4))
         self.max_comments = int(config.get("max_comments_per_post", 15))
+        self.profile_screenshot_only = bool(config.get("profile_screenshot_only", False))
 
     # ------------------------------------------------------------------
     def run(self):
@@ -60,6 +61,7 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
             "posts_count": None,
             "post_captions": [],
             "comments": [],
+            "profile_screenshot": None,
         }
 
         try:
@@ -113,12 +115,33 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
                     collected["following_count"] = profile_info.get("following_count")
                     collected["posts_count"]     = profile_info.get("posts_count")
 
+            # ── Step 3b: Full-page profile screenshot for AI vision ────
+            try:
+                import io as _io
+                import base64 as _b64
+                pil_img = nav.device.screenshot_pil()
+                if pil_img:
+                    buf = _io.BytesIO()
+                    pil_img.convert('RGB').save(buf, format='JPEG', quality=75)
+                    collected["profile_screenshot"] = (
+                        "data:image/jpeg;base64,"
+                        + _b64.b64encode(buf.getvalue()).decode()
+                    )
+                    _ipc.status("screenshot_taken", "Screenshot du profil capturé")
+                    logger.info("[PersonaAnalysis] Profile screenshot captured")
+            except Exception as _e:
+                logger.warning(f"[PersonaAnalysis] Screenshot failed: {_e}")
+
+            if self.profile_screenshot_only:
+                _ipc.status("completed", "Screenshot du profil capturé")
+                return {"success": True, "data": collected}
+
             # ── Step 4: Scrape posts ───────────────────────────────────
             _ipc.status("scraping_posts", f"Scraping des {self.max_posts} derniers posts…")
-            from taktik.core.social_media.instagram.actions.atomic.interaction.post_interaction import PostInteractionActions
+            from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
             from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS
 
-            post_actions = PostInteractionActions(self.device_manager)
+            post_actions = ClickActions(self.device_manager)
 
             for post_idx in range(self.max_posts):
                 try:
@@ -134,7 +157,9 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
                     _ipc.status("opening_post",
                         f"Ouverture du post {post_idx + 1}/{self.max_posts}…")
 
-                    clicked = post_actions.click_post_thumbnail(post_index=post_idx)
+                    clicked = post_actions.click_post_in_grid(post_index=post_idx)
+                    if not clicked:
+                        clicked = post_actions.click_post_thumbnail(post_index=post_idx)
                     if not clicked:
                         logger.warning(f"[PersonaAnalysis] Could not click post {post_idx}")
                         break
