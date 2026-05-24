@@ -84,9 +84,16 @@ class PostInteractionMixin(BaseAction):
     def click_post_thumbnail(self, post_index: int = 0) -> bool:
         self.logger.debug(f"🖼️ Clicking post thumbnail #{post_index}")
         
-        # Trouver tous les posts
+        # Trouver tous les posts. `first_post_grid` is a string in
+        # PostSelectors; normalize it to avoid iterating XPath characters.
+        selectors = self.post_selectors.first_post_grid
+        if isinstance(selectors, str):
+            selectors = [selectors]
+
         post_elements = []
-        for selector in self.post_selectors.first_post_grid:
+        for selector in selectors:
+            if not selector or selector == "/":
+                continue
             try:
                 elements = self.device.xpath(selector)
                 if elements.exists:
