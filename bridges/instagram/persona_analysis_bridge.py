@@ -55,7 +55,9 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
     def run(self):
         collected = {
             "username": self.target_username,
+            "full_name": None,
             "biography": None,
+            "website": None,
             "followers_count": None,
             "following_count": None,
             "posts_count": None,
@@ -85,7 +87,7 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
 
             # ── Step 3: Detect logged-in username ─────────────────────
             _ipc.status("detecting_account", "Détection du compte connecté…")
-            own_info = profile_biz.get_complete_profile_info(navigate_if_needed=False)
+            own_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=True)
             own_username = (own_info.get("username") or "").lower() if own_info else ""
 
             is_own = (own_username == self.target_username)
@@ -93,9 +95,11 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
             if is_own:
                 _ipc.status("own_profile_detected",
                     f"Compte @{self.target_username} connecté — profil propre utilisé")
-                # Already on profile page, collect basic info
+                # Already on profile page, collect all info (enrich=True already called above)
                 if own_info:
+                    collected["full_name"]       = own_info.get("full_name")
                     collected["biography"]       = own_info.get("biography")
+                    collected["website"]         = own_info.get("website")
                     collected["followers_count"] = own_info.get("followers_count")
                     collected["following_count"] = own_info.get("following_count")
                     collected["posts_count"]     = own_info.get("posts_count")
@@ -108,9 +112,11 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
                     _ipc.error(f"Impossible d'accéder au profil @{self.target_username}")
                     return {"success": False, "error": f"Cannot navigate to @{self.target_username}"}
                 time.sleep(2)
-                profile_info = profile_biz.get_complete_profile_info(navigate_if_needed=False)
+                profile_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=True)
                 if profile_info:
+                    collected["full_name"]       = profile_info.get("full_name")
                     collected["biography"]       = profile_info.get("biography")
+                    collected["website"]         = profile_info.get("website")
                     collected["followers_count"] = profile_info.get("followers_count")
                     collected["following_count"] = profile_info.get("following_count")
                     collected["posts_count"]     = profile_info.get("posts_count")
