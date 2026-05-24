@@ -146,16 +146,24 @@ class IPC:
 
     def scraping_profile_visit(self, username: str, biography: str = None,
                                followers_count: int = None, following_count: int = None,
-                               full_name: str = None, is_business: bool = False,
-                               business_category: str = None, is_private: bool = False) -> None:
+                               posts_count: int = None, full_name: str = None,
+                               is_business: bool = False, business_category: str = None,
+                               is_private: bool = False, is_verified: bool = False) -> None:
         """Signal that we've visited a profile during scraping (pre-AI)."""
-        data: dict = dict(username=username, is_business=is_business, is_private=is_private)
+        data: dict = dict(
+            username=username,
+            is_business=is_business,
+            is_private=is_private,
+            is_verified=is_verified,
+        )
         if biography is not None:
             data['biography'] = biography
         if followers_count is not None:
             data['followers_count'] = followers_count
         if following_count is not None:
             data['following_count'] = following_count
+        if posts_count is not None:
+            data['posts_count'] = posts_count
         if full_name is not None:
             data['full_name'] = full_name
         if business_category is not None:
