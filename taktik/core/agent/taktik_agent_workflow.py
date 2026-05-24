@@ -198,7 +198,8 @@ class TaktikAgentWorkflow:
             from bridges.common.ai_service import AIService
 
             vision_model = self.config.get("vision_model") or None
-            ai_service = AIService(api_key=api_key, ipc=self.ipc, vision_model=vision_model)
+            text_model = self.config.get("text_model") or None
+            ai_service = AIService(api_key=api_key, ipc=self.ipc, vision_model=vision_model, text_model=text_model)
             self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc)
             logger.info("[TaktikAgent] AI engine initialized")
             # Generate hashtag pool now that AI is ready
