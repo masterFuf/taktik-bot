@@ -23,6 +23,37 @@ console = Console()
 class ScrapingListMixin(DeepQualifyMixin):
     """Mixin: generic list scraping, hashtag scraping, post URL scraping."""
 
+    def _get_profile_filter_reason(self, profile: Dict[str, Any]) -> Optional[str]:
+        min_followers = self.config.get('minFollowers')
+        max_followers = self.config.get('maxFollowers')
+        min_following = self.config.get('minFollowing')
+        max_following = self.config.get('maxFollowing')
+        min_posts = self.config.get('minPosts')
+        require_profile_picture = bool(self.config.get('requireProfilePicture', False))
+        skip_private_profiles = bool(self.config.get('skipPrivateProfiles', True))
+
+        followers_count = int(profile.get('followers_count') or 0)
+        following_count = int(profile.get('following_count') or 0)
+        posts_count = int(profile.get('posts_count') or 0)
+        is_private = bool(profile.get('is_private', False))
+        has_profile_picture = bool(profile.get('profile_pic_base64'))
+
+        if skip_private_profiles and is_private:
+            return 'private profile'
+        if min_followers is not None and followers_count < int(min_followers):
+            return f'followers < {int(min_followers)}'
+        if max_followers is not None and followers_count > int(max_followers):
+            return f'followers > {int(max_followers)}'
+        if min_following is not None and following_count < int(min_following):
+            return f'following < {int(min_following)}'
+        if max_following is not None and following_count > int(max_following):
+            return f'following > {int(max_following)}'
+        if min_posts is not None and posts_count < int(min_posts):
+            return f'posts < {int(min_posts)}'
+        if require_profile_picture and not has_profile_picture:
+            return 'missing profile picture'
+        return None
+
     def _scrape_list(self, max_count: int, source_type: str, source_name: str,
                       total_available: int = None, enrich_on_the_fly: bool = False,
                       source_post_url: str = None,
@@ -247,12 +278,26 @@ class ScrapingListMixin(DeepQualifyMixin):
                                 profile_data['account_based_in'] = enriched_data.get('account_based_in', '')
                                 
                                 self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
+                                # Re-emit the visit with complete profile stats immediately,
+                                # so the desktop live card updates before deep qualify starts.
+                                IPCEmitter.emit_scraping_profile_visit(username, profile_data)
                             else:
                                 self.logger.warning(f"Could not get profile info for @{username}")
 
                             # Also carry over profile_pic_base64 for the profile_captured event below
                             if enriched_data:
                                 profile_data['profile_pic_base64'] = enriched_data.get('profile_pic_base64')
+
+                            filter_reason = self._get_profile_filter_reason(profile_data) if enriched_data else None
+                            if filter_reason:
+                                self.logger.info(f"⏭️  @{username} — skipped ({filter_reason})")
+                                IPCEmitter.emit_profile_skipped(username, filter_reason)
+                                for _back_attempt in range(5):
+                                    self.device.press("back")
+                                    time.sleep(1.2)
+                                    if strategy.is_on_list():
+                                        break
+                                continue
 
                             # Deep qualify: open following list, collect usernames, cross-ref DB
                             # Runs while still on the profile page, BEFORE taking the screenshot.
@@ -314,7 +359,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                     IPCEmitter.emit_profile_captured(username, profile_data, profile_pic_base64=_pic_b64)
 
                     # AI qualification (if enabled and profile was enriched with bio data)
-                    if enrich_on_the_fly and profile_id and getattr(self, '_ai_service', None):
+                    if enrich_on_the_fly and profile_id and getattr(self, '_ai_service', None) and not profile_data.get('is_private', False):
                         self._qualify_profile_ai(profile_data, profile_id)
 
                     new_count += 1
@@ -438,6 +483,10 @@ class ScrapingListMixin(DeepQualifyMixin):
 
         username = profile.get('username', '')
         screenshot_path = profile.get('_screenshot_path')
+
+        if profile.get('is_private', False):
+            self.logger.debug(f"⏭ @{username}: private account — skipping AI classification")
+            return
 
         # ── Vision-based classification (screenshot captured on profile page) ──────
         if screenshot_path and _os.path.exists(screenshot_path):
