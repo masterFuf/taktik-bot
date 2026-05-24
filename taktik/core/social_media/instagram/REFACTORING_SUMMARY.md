@@ -1,62 +1,62 @@
-# 📦 Restructuration Architecture Instagram - Option 1
+﻿# ðŸ“¦ Restructuration Architecture Instagram - Option 1
 
 **Date:** 15 octobre 2025  
-**Objectif:** Réorganiser le dossier `core/` qui était devenu un "bordel"
+**Objectif:** RÃ©organiser le dossier `core/` qui Ã©tait devenu un "bordel"
 
 ---
 
-## ✅ **Changements effectués**
+## âœ… **Changements effectuÃ©s**
 
 ### **Nouveau dossier `workflows/`**
 Regroupe toute la logique d'orchestration des workflows Instagram :
 
 ```
 workflows/
-├── __init__.py
-├── automation.py      # Anciennement core/automation.py
-├── session.py         # Anciennement core/session_manager.py  
-└── config.py          # Anciennement core/workflow_config.py
+â”œâ”€â”€ __init__.py
+â”œâ”€â”€ automation.py      # Anciennement core/automation.py
+â”œâ”€â”€ session.py         # Anciennement core/session_manager.py  
+â””â”€â”€ config.py          # Anciennement core/workflow_config.py
 ```
 
-**Responsabilités :**
+**ResponsabilitÃ©s :**
 - Orchestration des 4 workflows (Target, Hashtags, URL post, Place)
 - Gestion des sessions et limites
-- Configuration des probabilités d'actions
+- Configuration des probabilitÃ©s d'actions
 
 ---
 
 ### **Nouveau dossier `ui/detectors/`**
-Regroupe les détecteurs d'interface utilisateur :
+Regroupe les dÃ©tecteurs d'interface utilisateur :
 
 ```
 ui/
-├── selectors.py       # Existant
-└── detectors/         # NOUVEAU
-    ├── __init__.py
-    ├── problematic_page.py   # Anciennement core/problematic_page_detector.py
-    └── scroll_end.py         # Anciennement core/scroll_end_detector.py
+â”œâ”€â”€ selectors.py       # Existant
+â””â”€â”€ detectors/         # NOUVEAU
+    â”œâ”€â”€ __init__.py
+    â”œâ”€â”€ problematic_page.py   # Anciennement core/problematic_page_detector.py
+    â””â”€â”€ scroll_end.py         # Anciennement core/scroll_end_detector.py
 ```
 
-**Responsabilités :**
-- Détection des pages problématiques (soft ban, etc.)
-- Détection de fin de scroll
+**ResponsabilitÃ©s :**
+- DÃ©tection des pages problÃ©matiques (soft ban, etc.)
+- DÃ©tection de fin de scroll
 
 ---
 
-### **Dossier `core/` nettoyé**
+### **Dossier `core/` nettoyÃ©**
 ```
 core/
-├── __init__.py
-└── manager.py         # Seul fichier restant
+â”œâ”€â”€ __init__.py
+â””â”€â”€ manager.py         # Seul fichier restant
 ```
 
 Le dossier `core/` est maintenant minimaliste.
 
 ---
 
-## 🔧 **Imports mis à jour**
+## ðŸ”§ **Imports mis Ã  jour**
 
-### **Avant (❌ Old):**
+### **Avant (âŒ Old):**
 ```python
 from taktik.core.social_media.instagram.core.automation import InstagramAutomation
 from taktik.core.social_media.instagram.core.session_manager import SessionManager
@@ -65,7 +65,7 @@ from taktik.core.social_media.instagram.core.problematic_page_detector import Pr
 from taktik.core.social_media.instagram.core.scroll_end_detector import ScrollEndDetector
 ```
 
-### **Après (✅ New):**
+### **AprÃ¨s (âœ… New):**
 ```python
 from taktik.core.social_media.instagram.workflows.automation import InstagramAutomation
 from taktik.core.social_media.instagram.workflows.session import SessionManager
@@ -76,39 +76,39 @@ from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEnd
 
 ---
 
-## 📂 **Architecture complète**
+## ðŸ“‚ **Architecture complÃ¨te**
 
 ```
 instagram/
-├── actions/              # Business logic & actions
-│   ├── business/
-│   ├── core/
-│   └── compatibility/
-│
-├── workflows/            # 🆕 Orchestration
-│   ├── automation.py
-│   ├── session.py
-│   └── config.py
-│
-├── ui/                   # Interface & detection
-│   ├── selectors.py
-│   └── detectors/        # 🆕 UI detectors
-│       ├── problematic_page.py
-│       └── scroll_end.py
-│
-├── core/                 # 🧹 Minimal
-│   └── manager.py
-│
-├── models/               # Data models
-├── utils/                # Utilities
-└── views/                # UI views
+â”œâ”€â”€ actions/              # Business logic & actions
+â”‚   â”œâ”€â”€ business/
+â”‚   â”œâ”€â”€ core/
+â”‚   â””â”€â”€ compatibility/
+â”‚
+â”œâ”€â”€ workflows/            # ðŸ†• Orchestration
+â”‚   â”œâ”€â”€ automation.py
+â”‚   â”œâ”€â”€ session.py
+â”‚   â””â”€â”€ config.py
+â”‚
+â”œâ”€â”€ ui/                   # Interface & detection
+â”‚   â”œâ”€â”€ selectors.py
+â”‚   â””â”€â”€ detectors/        # ðŸ†• UI detectors
+â”‚       â”œâ”€â”€ problematic_page.py
+â”‚       â””â”€â”€ scroll_end.py
+â”‚
+â”œâ”€â”€ core/                 # ðŸ§¹ Minimal
+â”‚   â””â”€â”€ manager.py
+â”‚
+â”œâ”€â”€ models/               # Data models
+â”œâ”€â”€ utils/                # Utilities
+â””â”€â”€ views/                # UI views
 ```
 
 ---
 
-## 📝 **Fichiers modifiés**
+## ðŸ“ **Fichiers modifiÃ©s**
 
-### **Imports mis à jour dans :**
+### **Imports mis Ã  jour dans :**
 1. `__init__.py` (principal)
 2. `workflows/automation.py`
 3. `actions/business/actions/like.py`
@@ -120,19 +120,19 @@ instagram/
 
 ---
 
-## ✅ **Avantages**
+## âœ… **Avantages**
 
-- ✅ **Clarté** : Séparation logique des responsabilités
-- ✅ **Maintenabilité** : Plus facile de trouver les fichiers
-- ✅ **Scalabilité** : Structure prête pour évolution
-- ✅ **Minimalisme** : `core/` nettoyé
+- âœ… **ClartÃ©** : SÃ©paration logique des responsabilitÃ©s
+- âœ… **MaintenabilitÃ©** : Plus facile de trouver les fichiers
+- âœ… **ScalabilitÃ©** : Structure prÃªte pour Ã©volution
+- âœ… **Minimalisme** : `core/` nettoyÃ©
 
 ---
 
-## 🧪 **Tests à effectuer**
+## ðŸ§ª **Tests Ã  effectuer**
 
 ```bash
-# Vérifier que les imports fonctionnent
+# VÃ©rifier que les imports fonctionnent
 python -c "from taktik.core.social_media.instagram import InstagramAutomation, SessionManager"
 
 # Lancer le CLI
@@ -144,44 +144,44 @@ python main.py --workflow target --target-username XXX
 
 ---
 
-## 📊 **Statistiques**
+## ðŸ“Š **Statistiques**
 
-| Métrique | Avant | Après |
+| MÃ©trique | Avant | AprÃ¨s |
 |----------|-------|-------|
 | Fichiers dans `core/` | 7 | 2 |
 | Lignes dans `core/` | ~115KB | ~2KB |
-| Clarté architecture | 3/10 | 8/10 |
+| ClartÃ© architecture | 3/10 | 8/10 |
 
 ---
 
-**Status:** ✅ **REFACTORISATION TERMINÉE**
+**Status:** âœ… **REFACTORISATION TERMINÃ‰E**
 
 ---
 
-## 🔄 Phase 2 — Extraction core/shared/ & refactoring CLI (12 février 2026)
+## ðŸ”„ Phase 2 â€” Extraction core/shared/ & refactoring CLI (12 fÃ©vrier 2026)
 
 ### **Nouveau dossier `core/shared/`**
-Modules de base partagés entre Instagram et TikTok :
+Modules de base partagÃ©s entre Instagram et TikTok :
 
 ```
 core/shared/
-├── __init__.py                  # Re-exports publics
-├── actions/
-│   └── base_action.py           # SharedBaseAction (delays, clicks, keyboard input)
-├── device/
-│   ├── facade.py                # BaseDeviceFacade + Direction enum (ADB/uiautomator2)
-│   └── manager.py               # DeviceManager (device listing, connection)
-├── input/
-│   └── taktik_keyboard.py       # ADB Keyboard utilities (type, clear, activate)
-├── platform/
-│   └── social_media_base.py     # SocialMediaBase (abstract platform interface)
-└── utils/
-    └── action_utils.py          # ActionUtils + parse_count (common parsers)
+â”œâ”€â”€ __init__.py                  # Re-exports publics
+â”œâ”€â”€ actions/
+â”‚   â””â”€â”€ base_action.py           # SharedBaseAction (delays, clicks, keyboard input)
+â”œâ”€â”€ device/
+â”‚   â”œâ”€â”€ facade.py                # BaseDeviceFacade + Direction enum (ADB/uiautomator2)
+â”‚   â””â”€â”€ manager.py               # DeviceManager (device listing, connection)
+â”œâ”€â”€ input/
+â”‚   â””â”€â”€ taktik_keyboard.py       # ADB Keyboard utilities (type, clear, activate)
+â”œâ”€â”€ platform/
+â”‚   â””â”€â”€ social_media_base.py     # SocialMediaBase (abstract platform interface)
+â””â”€â”€ utils/
+    â””â”€â”€ action_utils.py          # ActionUtils + parse_count (common parsers)
 ```
 
-### **Héritage Instagram/TikTok → shared**
+### **HÃ©ritage Instagram/TikTok â†’ shared**
 
-| Classe plateforme                    | Hérite de                          |
+| Classe plateforme                    | HÃ©rite de                          |
 |--------------------------------------|------------------------------------|
 | `instagram.DeviceFacade`             | `shared.BaseDeviceFacade`          |
 | `instagram.BaseAction`               | `shared.SharedBaseAction`          |
@@ -192,37 +192,37 @@ core/shared/
 | `tiktok.ActionUtils`                 | `shared.ActionUtils`               |
 
 ### **Nouveau dossier `cli/common/`**
-Helpers CLI partagés pour réduire la duplication dans `cli/main.py` :
+Helpers CLI partagÃ©s pour rÃ©duire la duplication dans `cli/main.py` :
 
 ```
 cli/common/
-├── __init__.py
-├── workflow_builder.py          # collect_probabilities, collect_filters, collect_session_settings,
-│                                # build_*_config, display_*_rows, display_estimates
-└── device_selector.py           # select_device, connect_device, select_and_connect_device
+â”œâ”€â”€ __init__.py
+â”œâ”€â”€ workflow_builder.py          # collect_probabilities, collect_filters, collect_session_settings,
+â”‚                                # build_*_config, display_*_rows, display_estimates
+â””â”€â”€ device_selector.py           # select_device, connect_device, select_and_connect_device
 ```
 
 ### **Refactoring cli/main.py**
-- `generate_target_workflow`, `generate_hashtags_workflow`, `generate_post_url_workflow` → utilisent `workflow_builder.py`
-- 2× device selection blocks (Instagram + TikTok) → `select_device()`
-- 6× connect+check blocks → `connect_device()`
-- Fix bugs copier-coller dans `generate_place_workflow` (prompt dupliqué, variables inexistantes)
+- `generate_target_workflow`, `generate_hashtags_workflow`, `generate_post_url_workflow` â†’ utilisent `workflow_builder.py`
+- 2Ã— device selection blocks (Instagram + TikTok) â†’ `select_device()`
+- 6Ã— connect+check blocks â†’ `connect_device()`
+- Fix bugs copier-coller dans `generate_place_workflow` (prompt dupliquÃ©, variables inexistantes)
 
 ### **Discovery Workflow**
-- Suppression de `discovery_workflow.py` (v1)
-- `DiscoveryWorkflowV2` aliasé comme `DiscoveryWorkflow` dans `__init__.py`
-- CLI mis à jour pour passer `device_id` au lieu de `device_manager`
+- Retire le 2026-05-24.
+- Remplace par scraping cible + Deep Qualify + qualification IA + Taktik Agent.
+- Ne plus ajouter de dependance au `discovery_bridge` ni a `workflows/discovery/`.
 
 ### **Nettoyage**
 - Suppression du dossier `business/legacy/` (vide)
-- Déduplication logique extraction likers dans `BaseBusinessAction._extract_likers_after_click()`
+- DÃ©duplication logique extraction likers dans `BaseBusinessAction._extract_likers_after_click()`
 - Nouveaux modules atomiques TikTok (popup, video, search actions/detectors)
 
 ### **Statistiques Phase 2**
 
-| Métrique                          | Valeur          |
+| MÃ©trique                          | Valeur          |
 |-----------------------------------|-----------------|
-| Lignes supprimées (duplication)   | ~800            |
-| Nouveaux modules partagés         | 6 (core/shared) |
+| Lignes supprimÃ©es (duplication)   | ~800            |
+| Nouveaux modules partagÃ©s         | 6 (core/shared) |
 | Nouveaux helpers CLI              | 2 (cli/common)  |
 | Commits                           | 7               |
