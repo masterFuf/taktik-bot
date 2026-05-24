@@ -40,7 +40,8 @@ def save_profile_to_database(profile_info: Dict[str, Any], log: logger = None):
                 following_count=profile_data['following_count'],
                 posts_count=profile_data['posts_count'],
                 is_private=profile_data['is_private'],
-                notes=profile_data['notes']
+                notes=profile_data['notes'],
+                website=profile_info.get('website'),
             )
             
             success = db_service.save_profile(profile)
