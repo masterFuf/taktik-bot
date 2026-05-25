@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 @dataclass
 class AgentContext:
-    """Mutable context shared by memory, planner, narrator, and executor."""
+    """Runtime context consumed by the bot during a desktop-orchestrated session."""
 
     platform: str = "instagram"
     account_username: str = ""
