@@ -64,6 +64,26 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
                 return stats
             
             time.sleep(2)
+
+            if effective_config.get('view_feed_stories', False):
+                self.logger.info("Viewing friends' stories from feed tray")
+                story_result = self.story_business.view_feed_stories({
+                    'max_feed_profiles': effective_config.get('max_feed_story_profiles', 5),
+                    'max_stories_per_profile': effective_config.get('max_stories_per_profile', 3),
+                    'view_duration_range': effective_config.get('story_view_duration_range', (2, 6)),
+                    'like_probability': effective_config.get('story_like_percentage', 0) / 100,
+                    'reaction_probability': effective_config.get('feed_story_reaction_percentage', 0) / 100,
+                    'reaction': effective_config.get('feed_story_reaction', 'laugh'),
+                    'reaction_index': effective_config.get('feed_story_reaction_index'),
+                })
+                stats['stories_watched'] += story_result.get('stories_viewed', 0)
+                stats['stories_liked'] += story_result.get('stories_liked', 0)
+                stats['story_reactions'] = story_result.get('stories_reacted', 0)
+                stats['errors'] += story_result.get('errors', 0)
+
+                if not self.nav_actions.navigate_to_home():
+                    self.logger.warning("Could not return to home after feed stories")
+                time.sleep(1)
             
             # Mode simplifié : liker directement les posts dans le feed
             if effective_config.get('like_posts_directly', True):
