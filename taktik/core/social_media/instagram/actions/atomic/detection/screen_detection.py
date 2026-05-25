@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS, POST_SELECTORS
+from ....ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS, POST_SELECTORS, STORY_SELECTORS
 
 
 class ScreenDetectionMixin(BaseAction):
@@ -161,11 +161,29 @@ class ScreenDetectionMixin(BaseAction):
         except Exception as e:
             self.logger.debug(f"Error counting stories: {e}")
             return 0
+
+    def count_visible_highlights(self) -> int:
+        """Count currently visible highlight bubbles on a profile page."""
+        try:
+            elements = self.device.xpath(STORY_SELECTORS.highlight_buttons).all()
+            count = len(elements or [])
+            self.logger.debug(f"{count} visible highlights")
+            return count
+        except Exception as e:
+            self.logger.debug(f"Error counting highlights: {e}")
+            return 0
+
+    def has_unseen_profile_story(self) -> bool:
+        """Detect the active profile-avatar story ring, excluding highlight bubbles."""
+        try:
+            element = self.device.xpath(STORY_SELECTORS.profile_unseen_story_avatar)
+            return bool(element and element.exists)
+        except Exception as e:
+            self.logger.debug(f"Error checking profile story avatar: {e}")
+            return False
     
     def get_story_count_from_viewer(self) -> tuple[int, int]:
         try:
-            from ....ui.selectors import STORY_SELECTORS
-            
             element = self.device.xpath(STORY_SELECTORS.story_viewer_text_container).get()
             
             if element:
@@ -191,6 +209,69 @@ class ScreenDetectionMixin(BaseAction):
         except Exception as e:
             self.logger.debug(f"Error extracting story count: {e}")
             return (0, 0)
+
+    def get_story_viewer_metadata(self) -> Dict[str, Any]:
+        """
+        Extract metadata exposed by Instagram's story viewer.
+
+        Current stories expose content-desc like:
+        - "username's story, 17 hours ago"
+        Highlights expose:
+        - "Highlight title EVJF, story 2 of 2, May 14"
+        - "Highlight title Travaux, story 3 of 56, February 6"
+
+        Duration is not exposed in the UI dump; only progress-bar bounds are.
+        """
+        metadata: Dict[str, Any] = {
+            'is_open': False,
+            'is_highlight': False,
+            'title': None,
+            'timestamp': None,
+            'current_story': 0,
+            'total_stories': 0,
+            'raw_content_desc': '',
+        }
+
+        try:
+            element = self.device.xpath(STORY_SELECTORS.story_viewer_text_container).get()
+            if not element:
+                return metadata
+
+            content_desc = element.attrib.get('content-desc', '') or ''
+            metadata['is_open'] = True
+            metadata['raw_content_desc'] = content_desc
+
+            import re
+            highlight_match = re.search(
+                r'highlight\s+title\s+(.+?),\s*story\s+(\d+)\s+of\s+(\d+),\s*(.+)$',
+                content_desc,
+                re.IGNORECASE,
+            )
+            if highlight_match:
+                metadata.update({
+                    'is_highlight': True,
+                    'title': highlight_match.group(1).strip(),
+                    'current_story': int(highlight_match.group(2)),
+                    'total_stories': int(highlight_match.group(3)),
+                    'timestamp': highlight_match.group(4).strip(),
+                })
+                return metadata
+
+            story_match = re.search(
+                r"(.+?)'s\s+story,\s*(.+)$",
+                content_desc,
+                re.IGNORECASE,
+            )
+            if story_match:
+                metadata.update({
+                    'title': story_match.group(1).strip(),
+                    'timestamp': story_match.group(2).strip(),
+                })
+
+            return metadata
+        except Exception as e:
+            self.logger.debug(f"Error extracting story viewer metadata: {e}")
+            return metadata
     
     def has_stories(self) -> bool:
         try:
