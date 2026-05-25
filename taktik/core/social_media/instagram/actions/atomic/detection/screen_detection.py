@@ -173,6 +173,23 @@ class ScreenDetectionMixin(BaseAction):
             self.logger.debug(f"Error counting highlights: {e}")
             return 0
 
+    def count_visible_feed_stories(self, skip_own_story: bool = True) -> int:
+        """Count visible story bubbles in the home feed tray."""
+        try:
+            elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
+            if not elements:
+                elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
+
+            count = len(elements or [])
+            if skip_own_story and count > 0:
+                count -= 1
+
+            self.logger.debug(f"{count} visible feed stories")
+            return max(0, count)
+        except Exception as e:
+            self.logger.debug(f"Error counting feed stories: {e}")
+            return 0
+
     def has_unseen_profile_story(self) -> bool:
         """Detect the active profile-avatar story ring, excluding highlight bubbles."""
         try:
@@ -266,6 +283,20 @@ class ScreenDetectionMixin(BaseAction):
                 metadata.update({
                     'title': story_match.group(1).strip(),
                     'timestamp': story_match.group(2).strip(),
+                })
+                return metadata
+
+            feed_story_match = re.search(
+                r"story\s+de\s+(.+?),\s*(\d+)\s+sur\s+(\d+),\s*(.+)$",
+                content_desc,
+                re.IGNORECASE,
+            )
+            if feed_story_match:
+                metadata.update({
+                    'title': feed_story_match.group(1).strip(),
+                    'current_story': int(feed_story_match.group(2)),
+                    'total_stories': int(feed_story_match.group(3)),
+                    'timestamp': feed_story_match.group(4).strip(),
                 })
 
             return metadata
