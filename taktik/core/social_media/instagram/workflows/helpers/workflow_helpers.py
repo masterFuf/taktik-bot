@@ -131,29 +131,29 @@ class WorkflowHelpers:
             self.logger.warning(f"Post-restart popup check failed: {e}")
 
     def initialize_session(self) -> Optional[int]:
-        # Always restart Instagram to ensure clean state
-        # This is necessary because if Instagram is on a random page (like a profile),
-        # the workflow cannot navigate properly to start
-        pkg = self._get_package()
-        self.logger.info(f"🔄 Restarting Instagram ({pkg}) to ensure clean initial state...")
-        if self.automation.device_manager.launch_app(pkg, stop_first=True):
-            self.logger.info("✅ Instagram restarted successfully")
-            
-            # Wait for app to fully load (5-10s)
-            wait_time = random.randint(5, 10)
-            self.logger.info(f"⏳ Waiting {wait_time}s for Instagram to fully load...")
-            time.sleep(wait_time)
-            
-            # Handle any popups that appeared after restart (ad consent, etc.)
-            self._handle_post_restart_popups()
+        session_settings = self.automation.config.get('session_settings', {})
+        skip_initial_restart = bool(session_settings.get('skip_initial_restart', False))
+
+        if skip_initial_restart:
+            pkg = self._get_package()
+            self.logger.info(f"Skipping initial Instagram restart ({pkg}); already launched by bridge")
         else:
-            self.logger.warning("⚠️ Failed to restart Instagram, continuing with current state")
-        
+            # Keep the clean restart for standalone bot runs.
+            pkg = self._get_package()
+            self.logger.info(f"Restarting Instagram ({pkg}) to ensure clean initial state...")
+            if self.automation.device_manager.launch_app(pkg, stop_first=True):
+                self.logger.info("Instagram restarted successfully")
+                wait_time = random.randint(5, 10)
+                self.logger.info(f"Waiting {wait_time}s for Instagram to fully load...")
+                time.sleep(wait_time)
+                self._handle_post_restart_popups()
+            else:
+                self.logger.warning("Failed to restart Instagram, continuing with current state")
+
         if not self.automation.active_account_id:
             self.logger.info("Detecting active Instagram account...")
             profile_info = self.automation.get_profile_info(username=None, save_to_db=True, log_result=False)
-            
-            # Send active_account IPC message to frontend (authoritative, replaces log parsing)
+
             if profile_info and profile_info.get('username'):
                 import json
                 active_account_msg = {
@@ -165,29 +165,28 @@ class WorkflowHelpers:
                 }
                 print(json.dumps(active_account_msg), flush=True)
                 self.logger.info(f"Active account sent to frontend: @{profile_info['username']}")
-            
+
         if not self.automation.active_account_id:
             self.logger.error("Cannot detect active Instagram account")
             return None
-            
+
         session_id = self.automation._create_workflow_session()
         if not session_id:
             self.logger.error("Cannot create session, stopping workflow")
             return None
-            
+
         self.automation.current_session_id = session_id
         self.logger.info(f"Session created with ID: {session_id}")
-        
-        # Send session_id to frontend for tracking
+
         import json
         session_start_message = {
             "type": "session_start",
             "session_id": session_id
         }
         print(json.dumps(session_start_message), flush=True)
-        
+
         return session_id
-    
+
     def create_workflow_session(self, action_override: Optional[Dict[str, Any]] = None) -> Optional[int]:
         try:
             if not self.automation.active_account_id:
