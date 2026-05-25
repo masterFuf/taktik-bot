@@ -143,17 +143,62 @@ class DMBridge(InstagramBridgeBase):
         
         logger.warning("Primary tab not found")
         return False
+
+    def _is_dm_inbox_top_visible(self) -> bool:
+        """Return True when the inbox header area is visible near the top."""
+        header = self.device(resourceId="com.instagram.android:id/header_text", text="Messages")
+        requests = self.device(resourceId="com.instagram.android:id/header_action_button", text="Requests")
+        if header.exists or requests.exists:
+            return True
+
+        # Fallback for localized / slightly changed Instagram builds. The top
+        # of the DM inbox usually exposes Search/Requests/Notes/Map before the
+        # conversation list starts.
+        for text in (
+            "Messages",
+            "Requests",
+            "Demandes",
+            "Search or ask Meta AI",
+            "Search",
+            "Rechercher",
+            "Your note",
+            "Votre note",
+            "Map",
+            "Carte",
+        ):
+            elem = self.device(text=text)
+            if elem.exists or self.device(textContains=text).exists:
+                return True
+        return False
+
+    def _is_accounts_to_follow_visible(self) -> bool:
+        """Detect the bottom recommendations block in the DM inbox."""
+        for text in (
+            "Accounts to follow",
+            "Suggested for you",
+            "See all",
+            "Comptes à suivre",
+            "Suggestions pour vous",
+            "Voir tout",
+        ):
+            if self.device(text=text).exists or self.device(textContains=text).exists:
+                return True
+        return False
     
-    def _scroll_to_top_of_inbox(self):
+    def _scroll_to_top_of_inbox(self, max_swipes: int = 8):
         """Scroll to the top of the inbox list and ensure we're on Primary tab."""
         logger.info("Scrolling to top of inbox...")
         
         # Ensure we're on Primary tab
         self._ensure_primary_tab()
         
-        # Scroll up by swiping DOWN (pull down to reveal content above)
-        # Use the lower part of the screen to avoid the tabs area
-        for _ in range(3):
+        # If we ended the read pass at "Accounts to follow", we are at the
+        # bottom of the inbox. Swipe down until the "Messages / Requests" header
+        # is visible again so sending starts from a deterministic position.
+        for attempt in range(max_swipes):
+            if self._is_dm_inbox_top_visible():
+                logger.info(f"DM inbox top visible after {attempt} swipe(s)")
+                break
             self.device.swipe(
                 self.screen_width // 2, int(self.screen_height * 0.55),
                 self.screen_width // 2, int(self.screen_height * 0.85),
@@ -162,6 +207,79 @@ class DMBridge(InstagramBridgeBase):
             time.sleep(0.3)
         
         time.sleep(0.5)
+
+    def _reset_inbox_via_tab_roundtrip(self) -> bool:
+        """
+        Leave the DM inbox through a regular Instagram tab, then re-open DMs.
+        This gives us a second non-identical reset strategy compared to swiping
+        all the way back to the top of the inbox.
+        """
+        logger.info("Resetting DM inbox via tab roundtrip...")
+        tab_ids = [
+            "com.instagram.android:id/feed_tab",
+            "com.instagram.android:id/search_tab",
+            "com.instagram.android:id/clips_tab",
+            "com.instagram.android:id/profile_tab",
+        ]
+        random.shuffle(tab_ids)
+
+        for resource_id in tab_ids:
+            try:
+                tab = self.device(resourceId=resource_id)
+                if tab.exists(timeout=1):
+                    tab.click()
+                    time.sleep(random.uniform(0.8, 1.4))
+                    if self.navigate_to_dm_inbox():
+                        self._ensure_primary_tab()
+                        if self._is_dm_inbox_top_visible():
+                            logger.info(f"DM inbox reset via tab roundtrip ({resource_id})")
+                            return True
+                        self._scroll_to_top_of_inbox(max_swipes=4)
+                        return self._is_dm_inbox_top_visible()
+            except Exception as exc:
+                logger.debug(f"Tab roundtrip failed for {resource_id}: {exc}")
+
+        # Some Instagram builds expose the bottom bar visually but not through
+        # stable resource ids. Tap a regular bottom tab by coordinates, then
+        # reopen DMs through the existing navigation method.
+        y = int(self.screen_height * 0.94)
+        x_positions = [
+            int(self.screen_width * 0.12),
+            int(self.screen_width * 0.32),
+            int(self.screen_width * 0.55),
+            int(self.screen_width * 0.78),
+        ]
+        random.shuffle(x_positions)
+        for x in x_positions:
+            try:
+                self.device.click(x, y)
+                time.sleep(random.uniform(0.8, 1.4))
+                if self.navigate_to_dm_inbox():
+                    self._ensure_primary_tab()
+                    if self._is_dm_inbox_top_visible():
+                        logger.info(f"DM inbox reset via bottom bar coordinate ({x},{y})")
+                        return True
+                    self._scroll_to_top_of_inbox(max_swipes=4)
+                    return self._is_dm_inbox_top_visible()
+            except Exception as exc:
+                logger.debug(f"Bottom bar coordinate roundtrip failed at x={x}: {exc}")
+
+        return False
+
+    def _reset_inbox_to_top(self, strategy: str = "auto"):
+        """Reset inbox position using either scroll or tab roundtrip."""
+        if self._is_dm_inbox_top_visible():
+            logger.info("DM inbox already at top")
+            return
+
+        chosen = strategy
+        if strategy == "auto":
+            chosen = random.choice(["scroll", "tab_roundtrip"])
+
+        if chosen == "tab_roundtrip" and self._reset_inbox_via_tab_roundtrip():
+            return
+
+        self._scroll_to_top_of_inbox(max_swipes=10)
     
     def _search_conversation_in_visible_list(self, username_lower: str) -> bool:
         """Search for a conversation in the currently visible inbox list."""
@@ -561,6 +679,14 @@ class DMBridge(InstagramBridgeBase):
             
             if conversations_read >= limit:
                 break
+
+            if self._is_accounts_to_follow_visible():
+                logger.info("Reached bottom of DM inbox (Accounts to follow visible), stopping read")
+                break
+
+            if new_conversations_in_scroll == 0:
+                logger.info("No new conversations found in current inbox viewport, stopping read")
+                break
             
             # Scroll to load more
             scroll_count += 1
@@ -666,6 +792,14 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
     
     time.sleep(2)
     conversations = bridge.read_conversations(limit)
+
+    # Leave the inbox in a deterministic state for the next command. Without
+    # this, the following send process can start from the bottom of a long DM
+    # list and fail to find conversations that were read near the top.
+    try:
+        bridge._reset_inbox_to_top(strategy="auto")
+    except Exception as exc:
+        logger.warning(f"Could not reset DM inbox to top after read: {exc}")
     
     print(json.dumps({
         "type": "result",
@@ -740,7 +874,7 @@ def cmd_send(device_id: str, username: str, message: str, package_name: str = No
         # Pas trouvé à l'écran actuel, scroller en haut et réessayer
         logger.info(f"Utilisateur {username} non visible, scroll en haut et réessai...")
         bridge._ensure_primary_tab()
-        bridge._scroll_to_top_of_inbox()
+        bridge._reset_inbox_to_top(strategy="scroll")
         
         if not bridge.open_conversation(username):
             print(json.dumps({"success": False, "error": f"Cannot find conversation with {username}"}))
