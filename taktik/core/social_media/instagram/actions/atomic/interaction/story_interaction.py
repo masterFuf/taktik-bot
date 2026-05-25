@@ -1,6 +1,6 @@
 """Story interaction actions (profile rings, feed stories, highlights, reactions)."""
 
-from typing import Optional, Sequence
+from typing import Optional
 
 from ...core.base_action import BaseAction
 from ....ui.selectors import STORY_SELECTORS
@@ -87,9 +87,9 @@ class StoryInteractionMixin(BaseAction):
         `skip_own_story=True`.
         """
         try:
-            elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
+            elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
             if not elements:
-                elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
+                elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
 
             if not elements:
                 self.logger.debug("No visible feed stories found")
