@@ -1,11 +1,49 @@
-"""Story interaction actions (profile story ring, highlights, story like)."""
+"""Story interaction actions (profile rings, feed stories, highlights, reactions)."""
+
+from typing import Optional, Sequence
 
 from ...core.base_action import BaseAction
 from ....ui.selectors import STORY_SELECTORS
 
 
 class StoryInteractionMixin(BaseAction):
-    """Mixin: story ring clicks, highlight clicks, and story like button."""
+    """Mixin: story ring clicks, highlight clicks, story likes and reactions."""
+
+    STORY_REACTION_INDEXES = {
+        "laugh": 0,
+        "laughing": 0,
+        "joy": 0,
+        "surprise": 1,
+        "wow": 1,
+        "heart_eyes": 2,
+        "love": 2,
+        "cry": 3,
+        "sad": 3,
+        "clap": 4,
+        "applause": 4,
+        "fire": 5,
+    }
+
+    def _click_element_center(self, element, label: str) -> bool:
+        """Click the center of a uiautomator element, falling back to element.click."""
+        try:
+            bounds = element.info.get('bounds', {}) if hasattr(element, 'info') else {}
+            left = bounds.get('left', 0)
+            right = bounds.get('right', 0)
+            top = bounds.get('top', 0)
+            bottom = bounds.get('bottom', 0)
+
+            if right > left and bottom > top:
+                self.device.click_coordinates((left + right) // 2, (top + bottom) // 2)
+            else:
+                element.click()
+
+            self._human_like_delay('click')
+            self.logger.debug(f"Clicked {label}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error clicking {label}: {e}")
+            return False
 
     def click_story_ring(self, story_index: int = 0) -> bool:
         """Backward-compatible generic story click.
@@ -41,6 +79,32 @@ class StoryInteractionMixin(BaseAction):
             self.logger.error(f"Error clicking story: {e}")
             return False
 
+    def click_feed_story(self, story_index: int = 0, skip_own_story: bool = True) -> bool:
+        """Click a visible story bubble from the home feed tray.
+
+        The home tray normally exposes the user's own story as the first item.
+        `story_index=0` therefore means the first friend's story when
+        `skip_own_story=True`.
+        """
+        try:
+            elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
+            if not elements:
+                elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
+
+            if not elements:
+                self.logger.debug("No visible feed stories found")
+                return False
+
+            target_index = story_index + 1 if skip_own_story and len(elements) > 1 else story_index
+            if target_index >= len(elements):
+                self.logger.warning(f"Feed story index {story_index} out of bounds (visible: {len(elements)})")
+                return False
+
+            return self._click_element_center(elements[target_index], f"feed story #{story_index}")
+        except Exception as e:
+            self.logger.error(f"Error clicking feed story #{story_index}: {e}")
+            return False
+
     def click_profile_story_ring(self) -> bool:
         """Click the current profile's active story ring, excluding highlights."""
         try:
@@ -49,17 +113,7 @@ class StoryInteractionMixin(BaseAction):
                 self.logger.debug("No unseen profile story avatar found")
                 return False
 
-            bounds = element.info.get('bounds', {})
-            left = bounds.get('left', 0)
-            right = bounds.get('right', 0)
-            top = bounds.get('top', 0)
-            bottom = bounds.get('bottom', 0)
-            if right <= left or bottom <= top:
-                return False
-
-            self.device.click_coordinates((left + right) // 2, (top + bottom) // 2)
-            self._human_like_delay('click')
-            return True
+            return self._click_element_center(element, "profile story ring")
         except Exception as e:
             self.logger.error(f"Error clicking profile story ring: {e}")
             return False
@@ -75,9 +129,7 @@ class StoryInteractionMixin(BaseAction):
                 self.logger.warning(f"Highlight index {highlight_index} out of bounds (max: {len(elements) - 1})")
                 return False
 
-            elements[highlight_index].click()
-            self._human_like_delay('click')
-            return True
+            return self._click_element_center(elements[highlight_index], f"highlight #{highlight_index}")
         except Exception as e:
             self.logger.error(f"Error clicking highlight #{highlight_index}: {e}")
             return False
@@ -113,9 +165,85 @@ class StoryInteractionMixin(BaseAction):
             self.logger.error(f"Error scrolling highlights tray: {e}")
             return False
 
+    def scroll_feed_stories_left(self) -> bool:
+        """Swipe the home story tray left to reveal more friends' stories."""
+        try:
+            tray = self.device.xpath(STORY_SELECTORS.feed_story_recycler).get()
+            if tray:
+                bounds = tray.info.get('bounds', {})
+                left = bounds.get('left', 0)
+                right = bounds.get('right', 0)
+                top = bounds.get('top', 0)
+                bottom = bounds.get('bottom', 0)
+                if right > left and bottom > top:
+                    y = (top + bottom) // 2
+                    self.device.swipe_coordinates(
+                        int(left + (right - left) * 0.85),
+                        y,
+                        int(left + (right - left) * 0.15),
+                        y,
+                        duration=0.35,
+                    )
+                    self._human_like_delay('scroll')
+                    return True
+
+            width, height = self.device.get_screen_size()
+            y = int(height * 0.17)
+            self.device.swipe_coordinates(int(width * 0.82), y, int(width * 0.18), y, duration=0.35)
+            self._human_like_delay('scroll')
+            return True
+        except Exception as e:
+            self.logger.error(f"Error scrolling feed story tray: {e}")
+            return False
+
     def click_story_like_button(self) -> bool:
-        return self._click_button(STORY_SELECTORS.story_like_button, "Story Like button", "heart", timeout=3)
+        return self._find_and_click(STORY_SELECTORS.story_like_button, timeout=3)
 
     def like_story(self) -> bool:
         """Backward-compatible alias used by business story workflows."""
         return self.click_story_like_button()
+
+    def open_story_reactions(self) -> bool:
+        """Open the story reaction toolbar by clicking the message composer."""
+        try:
+            if self._is_element_present(STORY_SELECTORS.story_reaction_toolbar):
+                return True
+
+            if not self._find_and_click(STORY_SELECTORS.story_message_composer, timeout=3):
+                self.logger.debug("Story message composer not found")
+                return False
+
+            return self._wait_for_element(STORY_SELECTORS.story_reaction_toolbar, timeout=3, silent=True)
+        except Exception as e:
+            self.logger.error(f"Error opening story reactions: {e}")
+            return False
+
+    def react_to_story(self, reaction: Optional[str] = None, emoji_index: Optional[int] = None) -> bool:
+        """React to the current story using Instagram's 2x3 quick reaction grid.
+
+        Known order from the dump:
+        0 laugh, 1 surprise, 2 heart_eyes, 3 cry, 4 clap, 5 fire.
+        """
+        try:
+            if not self.open_story_reactions():
+                return False
+
+            elements = self.device.xpath(STORY_SELECTORS.story_reaction_emojis).all()
+            if not elements:
+                self.logger.debug("No story reaction emojis found")
+                return False
+
+            index = emoji_index
+            if index is None and reaction:
+                index = self.STORY_REACTION_INDEXES.get(reaction.strip().lower())
+            if index is None:
+                index = 0
+
+            if index < 0 or index >= len(elements):
+                self.logger.warning(f"Story reaction index {index} out of bounds (visible: {len(elements)})")
+                return False
+
+            return self._click_element_center(elements[index], f"story reaction #{index}")
+        except Exception as e:
+            self.logger.error(f"Error reacting to story: {e}")
+            return False
