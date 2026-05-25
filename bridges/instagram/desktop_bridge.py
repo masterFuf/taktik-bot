@@ -539,6 +539,7 @@ class DesktopBridge:
                 "total_follows_limit": math.ceil(max_profiles * (follow_percentage / 100)) if follow_percentage > 0 else 0,
                 "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,  # use max as upper bound
                 "session_duration_minutes": session_duration,
+                "skip_initial_restart": True,
                 "delay_between_actions": {
                     "min": min_delay,
                     "max": max_delay
