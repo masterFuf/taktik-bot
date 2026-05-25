@@ -24,8 +24,6 @@ from taktik.core.database import get_db_service
 from taktik.core.ai.comment_ai import UserProfile
 from taktik.core.agent.agent_ai import AgentAI
 from taktik.core.agent.agent_context import AgentContext
-from taktik.core.agent.agent_memory import AgentMemory
-from taktik.core.agent.agent_narrator import AgentNarrator
 
 
 # ---------------------------------------------------------------------------
@@ -89,8 +87,9 @@ class TaktikAgentWorkflow:
         self._persona_block: str = ""
         self._ai: Optional[Any] = None  # AgentAI instance, set after AI service init
         self._context = AgentContext(platform="instagram")
-        self._memory: Optional[AgentMemory] = None
-        self._narrator = AgentNarrator(ipc=ipc)
+        # Premium orchestration is prepared by the desktop app and passed in
+        # through config. The open-source bot only consumes this runtime context.
+        self._desktop_orchestration_context = config.get("desktop_orchestration_context") or {}
 
         # Strategy switching
         self._consecutive_skips: int = 0      # consecutive AI-analyzed SKIPs in feed
@@ -110,18 +109,15 @@ class TaktikAgentWorkflow:
             if not self._initialize_persona():
                 return self._fail("Could not identify bot account")
 
-            # Step 2: Rebuild chronological memory and explain context
-            self._initialize_memory_and_narration()
+            # Step 2: Consume desktop-provided orchestration context
+            self._apply_desktop_orchestration_context()
 
             # Step 3: Initialize AI decision engine
             if not self._initialize_ai():
                 return self._fail("Could not initialize AI service — check API key")
 
             # Step 4: Navigate to home feed
-            self._narrator.next_step(
-                "Je commence par revenir sur le feed pour observer le contexte actuel.",
-                tool="browse_feed",
-            )
+            self._announce_desktop_step("browse_feed", "Navigating to home feed")
             self._send_status("navigating", "Navigating to home feed…")
             if not self._navigate_to_feed():
                 return self._fail("Could not navigate to home feed")
@@ -134,7 +130,6 @@ class TaktikAgentWorkflow:
 
             # Finalize
             self._context.update_stats(self.stats)
-            self._narrator.final_summary(self.stats)
             self._send_status("completed", "Session completed", stats=self.stats)
             return {"success": True, "stats": self.stats}
 
@@ -209,31 +204,51 @@ class TaktikAgentWorkflow:
             logger.error(f"[TaktikAgent] _initialize_persona error: {exc}")
             return False
 
-    def _initialize_memory_and_narration(self) -> None:
-        """Load recent chronological memory and announce the session context."""
-        try:
-            db = get_db_service()
-            self._memory = AgentMemory(db)
-            timeline = self._memory.load_recent_timeline(
-                account_id=self._account_id,
-                account_username=self._bot_username or "",
-                limit=self.config.get("memory_timeline_limit", 12),
-            )
-            warnings = self._memory.build_pattern_warnings(timeline)
+    def _apply_desktop_orchestration_context(self) -> None:
+        """Apply premium orchestration context prepared by the desktop app."""
+        context = self._desktop_orchestration_context
+        if not isinstance(context, dict):
+            return
+
+        timeline = context.get("timeline") or []
+        warnings = context.get("patternWarnings") or []
+        if isinstance(timeline, list):
             self._context.recent_timeline = timeline
+        if isinstance(warnings, list):
             self._context.pattern_warnings = warnings
 
-            summary = self._memory.summarize_timeline(timeline)
-            logger.info(f"[TaktikAgent] Recent timeline loaded: {len(timeline)} episode(s)")
-            if warnings:
-                logger.info(f"[TaktikAgent] Pattern warnings: {warnings}")
-            self._narrator.session_intro(self._context, summary)
-        except Exception as exc:
-            logger.warning(f"[TaktikAgent] Could not initialize memory: {exc}")
-            self._narrator.say(
-                "memory_unavailable",
-                "Je n'ai pas pu relire l'historique recent, je continue avec le contexte du compte.",
+        logger.info(
+            "[TaktikAgent] Desktop orchestration context loaded: "
+            f"{len(self._context.recent_timeline)} episode(s), "
+            f"{len(self._context.pattern_warnings)} warning(s)"
+        )
+
+        intro = context.get("introMessage")
+        if intro:
+            self._send_status(
+                "orchestration_context",
+                str(intro),
+                stats={
+                    "source": context.get("source") or "desktop",
+                    "timeline_count": len(self._context.recent_timeline),
+                    "pattern_warnings": self._context.pattern_warnings,
+                },
             )
+
+    def _announce_desktop_step(self, tool: str, fallback_message: str) -> None:
+        """Emit the desktop-planned next step when available."""
+        context = self._desktop_orchestration_context
+        steps = context.get("nextSteps") if isinstance(context, dict) else None
+        if isinstance(steps, list):
+            for step in steps:
+                if isinstance(step, dict) and step.get("tool") == tool and step.get("message"):
+                    self._send_status(
+                        "planning",
+                        str(step.get("message")),
+                        stats={"tool": tool, "source": context.get("source") or "desktop"},
+                    )
+                    return
+        self._send_status("planning", fallback_message, stats={"tool": tool})
 
     def _initialize_ai(self) -> bool:
         """Set up the AI service and AgentAI decision engine."""
