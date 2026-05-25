@@ -176,9 +176,9 @@ class ScreenDetectionMixin(BaseAction):
     def count_visible_feed_stories(self, skip_own_story: bool = True) -> int:
         """Count visible story bubbles in the home feed tray."""
         try:
-            elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
+            elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
             if not elements:
-                elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
+                elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
 
             count = len(elements or [])
             if skip_own_story and count > 0:
