@@ -189,6 +189,7 @@ class DesktopBridge:
         self.filters = config.get('filters', {})
         self.session_config = config.get('session', {})
         self.comments_config = config.get('comments', {})
+        self.feed_stories_config = config.get('feedStories', {})
         self.unfollow_config = config.get('unfollow', {})  # Unfollow specific settings
         self.language = config.get('language', 'en')
         self.package_name = config.get('packageName')  # Clone package (e.g. com.instagram.android.c1)
@@ -370,13 +371,21 @@ class DesktopBridge:
         # Configuration spécifique pour le workflow FEED
         if action_type == 'feed':
             feed_filters = self.filters or {}
+            feed_stories_cfg = self.feed_stories_config or {}
+            feed_story_enabled = bool(feed_stories_cfg.get('enabled', story_percentage > 0))
             return {
                 "type": "feed",
                 "max_interactions": max_profiles,
+                "max_posts_to_check": max_profiles,
                 "like_percentage": like_percentage,
                 "follow_percentage": follow_percentage,
                 "comment_percentage": comment_percentage,
                 "story_watch_percentage": story_percentage,
+                "story_like_percentage": story_like_percentage,
+                "view_feed_stories": feed_story_enabled,
+                "max_feed_story_profiles": feed_stories_cfg.get('maxProfiles', self.limits.get('maxFeedStoryProfiles', 5)),
+                "feed_story_reaction_percentage": self.probabilities.get('feedStoryReaction', 0),
+                "feed_story_reaction": feed_stories_cfg.get('reaction', 'laugh'),
                 "min_post_likes": feed_filters.get('minPostLikes', 0),
                 "max_post_likes": feed_filters.get('maxPostLikes', 0),
                 "custom_comments": self.comments_config.get('customComments', [])
