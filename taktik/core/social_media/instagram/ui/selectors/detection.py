@@ -51,6 +51,8 @@ class DetectionSelectors:
     ])
     
     story_viewer_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/reel_viewer_root"]',
+        '//*[@resource-id="com.instagram.android:id/reel_viewer_text_container"]',
         '//*[contains(@resource-id, "reel_viewer")]',
         '//*[contains(@resource-id, "story_viewer")]'
     ])
@@ -79,8 +81,12 @@ class DetectionSelectors:
     
     # === Détection de contenu ===
     story_ring_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "unseen story")]',
+        '//*[@resource-id="com.instagram.android:id/highlights_reel_tray_recycler_view"]//android.widget.Button[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")]',
+        '//*[@resource-id="com.instagram.android:id/highlights_reel_tray_recycler_view"]//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "highlight story")]',
         '//*[contains(@resource-id, "story_ring")]',
         '//*[contains(@content-desc, "Story")]',
+        '//*[contains(@content-desc, "story")]',
         '//*[contains(@resource-id, "reel_ring")]'
     ])
     
