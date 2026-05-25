@@ -88,12 +88,14 @@ class BaseBusinessAction(
         from ...business.management.filtering import FilteringBusiness
         from ...business.actions.like import LikeBusiness
         from ...business.actions.comment import CommentBusiness
+        from ...business.actions.story import StoryBusiness
         
         self.profile_business = ProfileBusiness(self.device, self.session_manager)
         self.content_business = ContentBusiness(self.device, self.session_manager)
         self.filtering_business = FilteringBusiness(self.device, self.session_manager)
         self.like_business = LikeBusiness(self.device, self.session_manager, self.automation)
         self.comment_business = CommentBusiness(self.device, self.session_manager, self.automation)
+        self.story_business = StoryBusiness(self.device, self.session_manager, self.automation)
 
     def _is_valid_username(self, username: str) -> bool:
         """Validate an Instagram username. Delegates to ui_extractors."""
