@@ -23,6 +23,9 @@ from loguru import logger
 from taktik.core.database import get_db_service
 from taktik.core.ai.comment_ai import UserProfile
 from taktik.core.agent.agent_ai import AgentAI
+from taktik.core.agent.agent_context import AgentContext
+from taktik.core.agent.agent_memory import AgentMemory
+from taktik.core.agent.agent_narrator import AgentNarrator
 
 
 # ---------------------------------------------------------------------------
@@ -82,8 +85,12 @@ class TaktikAgentWorkflow:
         self._stop_requested = False
         self._session_start = None
         self._bot_username: Optional[str] = None
+        self._account_id: Optional[int] = None
         self._persona_block: str = ""
         self._ai: Optional[Any] = None  # AgentAI instance, set after AI service init
+        self._context = AgentContext(platform="instagram")
+        self._memory: Optional[AgentMemory] = None
+        self._narrator = AgentNarrator(ipc=ipc)
 
         # Strategy switching
         self._consecutive_skips: int = 0      # consecutive AI-analyzed SKIPs in feed
@@ -103,11 +110,18 @@ class TaktikAgentWorkflow:
             if not self._initialize_persona():
                 return self._fail("Could not identify bot account")
 
-            # Step 2: Initialize AI decision engine
+            # Step 2: Rebuild chronological memory and explain context
+            self._initialize_memory_and_narration()
+
+            # Step 3: Initialize AI decision engine
             if not self._initialize_ai():
                 return self._fail("Could not initialize AI service — check API key")
 
-            # Step 3: Navigate to home feed
+            # Step 4: Navigate to home feed
+            self._narrator.next_step(
+                "Je commence par revenir sur le feed pour observer le contexte actuel.",
+                tool="browse_feed",
+            )
             self._send_status("navigating", "Navigating to home feed…")
             if not self._navigate_to_feed():
                 return self._fail("Could not navigate to home feed")
@@ -119,6 +133,8 @@ class TaktikAgentWorkflow:
             self._run_feed_loop()
 
             # Finalize
+            self._context.update_stats(self.stats)
+            self._narrator.final_summary(self.stats)
             self._send_status("completed", "Session completed", stats=self.stats)
             return {"success": True, "stats": self.stats}
 
@@ -161,6 +177,7 @@ class TaktikAgentWorkflow:
             # Load account profile data from SQLite
             db = get_db_service()
             account_data = db.get_account_by_username(self._bot_username)
+            self._account_id = _get(account_data, "account_id")
 
             # Build UserProfile (persona)
             user_profile = UserProfile(
@@ -175,6 +192,11 @@ class TaktikAgentWorkflow:
             )
             self._persona_block = user_profile.to_prompt_block()
             logger.info(f"[TaktikAgent] Persona loaded:\n{self._persona_block}")
+            self._context.account_username = self._bot_username
+            self._context.account_id = self._account_id
+            self._context.persona_block = self._persona_block
+            self._context.session_started_at = self._session_start
+            self._context.update_stats(self.stats)
 
             self._send_status(
                 "account_detected",
@@ -186,6 +208,32 @@ class TaktikAgentWorkflow:
         except Exception as exc:
             logger.error(f"[TaktikAgent] _initialize_persona error: {exc}")
             return False
+
+    def _initialize_memory_and_narration(self) -> None:
+        """Load recent chronological memory and announce the session context."""
+        try:
+            db = get_db_service()
+            self._memory = AgentMemory(db)
+            timeline = self._memory.load_recent_timeline(
+                account_id=self._account_id,
+                account_username=self._bot_username or "",
+                limit=self.config.get("memory_timeline_limit", 12),
+            )
+            warnings = self._memory.build_pattern_warnings(timeline)
+            self._context.recent_timeline = timeline
+            self._context.pattern_warnings = warnings
+
+            summary = self._memory.summarize_timeline(timeline)
+            logger.info(f"[TaktikAgent] Recent timeline loaded: {len(timeline)} episode(s)")
+            if warnings:
+                logger.info(f"[TaktikAgent] Pattern warnings: {warnings}")
+            self._narrator.session_intro(self._context, summary)
+        except Exception as exc:
+            logger.warning(f"[TaktikAgent] Could not initialize memory: {exc}")
+            self._narrator.say(
+                "memory_unavailable",
+                "Je n'ai pas pu relire l'historique recent, je continue avec le contexte du compte.",
+            )
 
     def _initialize_ai(self) -> bool:
         """Set up the AI service and AgentAI decision engine."""
