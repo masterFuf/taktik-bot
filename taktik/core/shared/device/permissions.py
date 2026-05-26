@@ -83,6 +83,7 @@ _ALLOW_TEXT_FR = [
 
 _DENY_RESOURCE_IDS = [
     "com.android.permissioncontroller:id/permission_deny_button",
+    "com.android.permissioncontroller:id/permission_deny_and_dont_ask_again_button",
     "com.android.packageinstaller:id/permission_deny_button",
     "com.miui.securitycenter:id/btn_cancel",
 ]
@@ -216,6 +217,14 @@ DIALOG_INDICATORS: list[str] = [_rid(r) for r in _DIALOG_RESOURCE_IDS] + [
     _text_contains("Pendant l"),
 ]
 
+CONTACT_PERMISSION_TEXTS = [
+    "access your contacts",
+    "access to your contacts",
+    "accéder à vos contacts",
+    "acceder a vos contacts",
+    "contacts",
+]
+
 
 # ---------------------------------------------------------------------------
 # Low-level XPath helpers (device-agnostic, work with any uiautomator2 device)
@@ -311,6 +320,21 @@ class PermissionHandler:
         """Return True if a permission dialog appears to be on screen."""
         return _wait_for_any(self._d, DIALOG_INDICATORS, timeout=timeout) is not None
 
+    def _dump_text(self) -> str:
+        try:
+            if hasattr(self._d, "dump_hierarchy"):
+                return (self._d.dump_hierarchy() or "").lower()
+        except Exception:
+            pass
+        return ""
+
+    def is_contacts_permission_visible(self, timeout: float = 1.5) -> bool:
+        """Return True if the visible permission dialog is specifically about contacts."""
+        if not self.is_visible(timeout=timeout):
+            return False
+        dump = self._dump_text()
+        return any(token in dump for token in CONTACT_PERMISSION_TEXTS)
+
     # ------------------------------------------------------------------
     # Grant / Deny
     # ------------------------------------------------------------------
@@ -379,6 +403,15 @@ class PermissionHandler:
     def deny_if_present(self, wait: float = 3.0) -> bool:
         """Deny a single permission dialog if visible. Returns True if one was dismissed."""
         return self.deny(rounds=1, per_round_wait=wait) > 0
+
+    def deny_contacts_if_present(self, wait: float = 1.5) -> bool:
+        """Deny the Android contacts permission popup when it appears."""
+        if not self.is_contacts_permission_visible(timeout=wait):
+            return False
+        logger.info(
+            f"[PermissionHandler] Contacts permission detected on Android {self._sdk_to_name()} - denying"
+        )
+        return self.deny(rounds=1, per_round_wait=0.5) > 0
 
 
 # ---------------------------------------------------------------------------

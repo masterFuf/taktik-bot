@@ -19,6 +19,8 @@ TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
 TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
 IME_MESSAGE_B64 = 'ADB_INPUT_B64'
 IME_CLEAR_TEXT = 'ADB_CLEAR_TEXT'
+_ACTIVE_CACHE_TTL_SECONDS = 120.0
+_active_ime_cache: dict[str, float] = {}
 
 
 def run_adb_shell(device_id: str, command: str) -> str:
@@ -55,9 +57,15 @@ def run_adb_shell(device_id: str, command: str) -> str:
 
 def is_taktik_keyboard_active(device_id: str) -> bool:
     """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
+    cached_at = _active_ime_cache.get(device_id)
+    if cached_at and (time.time() - cached_at) < _ACTIVE_CACHE_TTL_SECONDS:
+        return True
     try:
         result = run_adb_shell(device_id, 'settings get secure default_input_method')
-        return TAKTIK_KEYBOARD_IME in result
+        active = TAKTIK_KEYBOARD_IME in result
+        if active:
+            _active_ime_cache[device_id] = time.time()
+        return active
     except Exception as e:
         logger.debug(f"Cannot check keyboard status: {e}")
         return False
@@ -102,29 +110,33 @@ def type_with_taktik_keyboard(device_id: str, text: str, delay_mean: int = 80, d
         return True
     
     try:
-        # Check if Taktik Keyboard is active, activate if not
+        # Check if Taktik Keyboard is active, activate if not.
+        # A short in-memory cache avoids re-checking the IME for every hashtag.
         if not is_taktik_keyboard_active(device_id):
             logger.debug("Taktik Keyboard not active, activating...")
             if not activate_taktik_keyboard(device_id):
                 logger.warning("⚠️ Could not activate Taktik Keyboard")
                 return False
         
-        # Encode text as base64
         text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-        
-        # Send broadcast with text
         broadcast_cmd = f'am broadcast -a {IME_MESSAGE_B64} --es msg {text_b64} --ei delay_mean {delay_mean} --ei delay_deviation {delay_deviation}'
+        started_at = time.time()
         result = run_adb_shell(device_id, broadcast_cmd)
+        ack_duration = time.time() - started_at
         
         if result and 'error' not in result.lower():
-            # Wait for typing to complete
             typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-            logger.debug(f"⌨️ Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
-            time.sleep(typing_time + 0.5)  # Add small buffer
+            settle_buffer = 0.15 if len(text) <= 24 else 0.3
+            logger.debug(
+                f"⌨️ Taktik Keyboard typing '{text[:20]}...' "
+                f"({typing_time:.1f}s, ack {ack_duration:.1f}s)"
+            )
+            _active_ime_cache[device_id] = time.time()
+            time.sleep(typing_time + settle_buffer)
             return True
-        else:
-            logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result}")
-            return False
+
+        logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result}")
+        return False
             
     except Exception as e:
         logger.error(f"❌ Error using Taktik Keyboard: {e}")
@@ -139,3 +151,4 @@ def clear_text_with_taktik_keyboard(device_id: str) -> bool:
     except Exception as e:
         logger.error(f"Error clearing text: {e}")
         return False
+
