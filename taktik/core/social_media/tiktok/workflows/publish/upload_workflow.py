@@ -28,6 +28,9 @@ from loguru import logger
 # Using this with app_start() makes the launch non-blocking (am start -n pkg/activity)
 # and is the same mechanism used by TikTokManager.restart() in the automation workflows.
 _TIKTOK_SPLASH_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
+_TIKTOK_MAX_HASHTAGS = 5
+_HASHTAG_TOKEN_RE = _re.compile(r"#[A-Za-z0-9_\u00C0-\u024F]+")
+_PERCENT_TEXT_RE = _re.compile(r"^\s*(\d{1,3})\s*%\s*$")
 
 from taktik.core.shared.device.media_store import (
     push_media,
@@ -35,7 +38,7 @@ from taktik.core.shared.device.media_store import (
     scan_wait_for,
 )
 from taktik.core.shared.device.permissions import PermissionHandler
-from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS, POPUP_SELECTORS
 
 try:
     from bridges.common.ipc import IPC as _IPC
@@ -104,7 +107,13 @@ class TikTokUploadWorkflow:
         -------
         dict avec keys :  success (bool), message (str), error_type (str | None)
         """
-        hashtags = hashtags or []
+        caption, hashtags, dropped_hashtags = self._sanitize_caption_and_hashtags(caption, hashtags)
+        if dropped_hashtags:
+            _ipc.log(
+                "warning",
+                f"TikTok accepts {_TIKTOK_MAX_HASHTAGS} hashtags maximum; "
+                f"{dropped_hashtags} extra hashtag(s) were removed."
+            )
 
         # 1. Vérifier que le fichier existe
         if not os.path.isfile(local_path):
@@ -151,31 +160,32 @@ class TikTokUploadWorkflow:
         except Exception as e:
             _ipc.log("warning", f"Language detection failed (non-fatal): {e}")
 
+        self._dismiss_post_popups()
+
         # 6. Appuyer sur le bouton Create
         _ipc.status("navigating", "Tapping Create button...")
         if not self._tap_create_button():
             return self._error("create_btn_not_found", "Create button not found")
         time.sleep(1.0)
+        if self._handle_permission_dialog():
+            time.sleep(1.0)
 
         # 7. Taper le bouton Upload/Gallery dans le panneau de création caméra
         _ipc.status("navigating", "Tapping Upload/Gallery button...")
         if not self._tap_upload():
-            return self._error("upload_btn_not_found", "Upload button not found in creation panel")
-        time.sleep(1.5)
-
-        # 7b. Gérer la dialog de permission (accès aux photos)
-        self._handle_permission_dialog()
-        time.sleep(2.0)
-
-        # 7c. Pull-to-refresh the gallery so MediaStore changes are visible
-        self._refresh_tiktok_gallery()
-        time.sleep(1.0)
+            self._dismiss_post_popups()
+            if self._handle_permission_dialog():
+                time.sleep(0.8)
+            if not self._tap_upload():
+                return self._error("upload_btn_not_found", "Upload button not found in creation panel")
+        if not self._ensure_gallery_picker_open():
+            return self._error("gallery_not_opened", "TikTok gallery did not open after tapping Upload")
 
         # 8. Sélectionner le premier fichier de la galerie
         _ipc.status("selecting", "Selecting media from gallery...")
         if not self._select_first_gallery_item():
             return self._error("gallery_item_not_found", "Could not select media from gallery")
-        time.sleep(2.5)  # wait for TikTok to enable the Next button after item selection
+        time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
 
         # 8. Taper "Next" jusqu'à l'écran de description (max 3 fois)
         _ipc.status("navigating", "Navigating to post screen...")
@@ -186,22 +196,45 @@ class TikTokUploadWorkflow:
                 break
             time.sleep(1.5)
 
+        if not self._is_on_post_screen():
+            return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
+
         # 9. Saisir la description
         full_caption = self._build_caption(caption, hashtags)
         if full_caption:
             _ipc.status("filling", "Entering caption...")
-            self._fill_caption(full_caption)
+            if not self._fill_caption(caption, hashtags):
+                return self._error("caption_fill_failed", "Could not enter TikTok caption")
             time.sleep(0.5)
 
         # 10. Taper "Post"
         _ipc.status("publishing", "Publishing...")
+        self._recover_from_video_edit_screen()
         if not self._tap(selectors=PUBLISH_SELECTORS.post_btn, timeout=5.0):
+            self._recover_from_video_edit_screen()
+            if self._tap(selectors=PUBLISH_SELECTORS.post_btn, timeout=3.0):
+                time.sleep(3.0)
+                self._dismiss_post_popups()
+                _ipc.status("success", "Post published successfully!")
+                _ipc.log("info", "âœ… TikTok post published")
+                self._adb_force_stop(tiktok_pkg)
+                return {"success": True, "message": "Post published successfully", "error_type": None}
             return self._error("post_btn_not_found", "Post button not found")
 
-        time.sleep(3.0)
+        time.sleep(1.8)
+
+        # TikTok can ask for an extra confirmation before the real publication.
+        if self._handle_publish_confirmation_dialog():
+            time.sleep(1.2)
 
         # 11. Dismiss any system dialogs that may appear after posting
         # (e.g. Android "Add to Home Screen" / widget install prompt from TikTok)
+        if not self._wait_for_publish_commit():
+            return self._error(
+                "publish_not_committed",
+                "TikTok did not appear to finish publishing before timeout",
+            )
+
         self._dismiss_post_popups()
 
         # 12. Vérification succès (best-effort)
@@ -335,6 +368,8 @@ class TikTokUploadWorkflow:
         """
         if self._tap(PUBLISH_SELECTORS.upload_btn, timeout=6.0):
             return True
+        if self._tap_upload_from_dump():
+            return True
         # Fallback A: try ce9 position in the camera strip (right of shutter).
         # On C57S (576x1280): ce9 bounds [409,945][529,1065] → center=(469,1005) = (81%, 78%)
         # On larger devices this coordinate may be different; we'll try both fallbacks.
@@ -365,6 +400,129 @@ class TikTokUploadWorkflow:
             _ipc.log("error", f"[upload] fallback B failed: {e}")
             return False
 
+    def _tap_upload_from_dump(self) -> bool:
+        """Tap the visible TikTok gallery button by reading its bounds from XML.
+
+        TikTok can A/B test the create screen even on identical device models and
+        APK versions. The gallery button is still exposed as either `ymg` or
+        clickable `ce9`; coordinates vary, resource-ids do not.
+        """
+        try:
+            from lxml import etree
+
+            xml = self.device.dump_hierarchy(compressed=False)
+            tree = etree.fromstring(xml.encode("utf-8"))
+            candidates = []
+
+            for rid in ("ymg", "ce9", "cl2"):
+                nodes = tree.xpath(f'//*[contains(@resource-id, ":id/{rid}")]')
+                for node in nodes:
+                    bounds = node.attrib.get("bounds", "")
+                    if not bounds:
+                        continue
+                    coords = [int(v) for v in _re.findall(r"\d+", bounds)]
+                    if len(coords) != 4:
+                        continue
+                    left, top, right, bottom = coords
+                    width = right - left
+                    height = bottom - top
+                    if width <= 12 or height <= 12:
+                        continue
+                    if node.attrib.get("visible-to-user") == "false" or node.attrib.get("enabled") == "false":
+                        continue
+                    clickable = node.attrib.get("clickable") == "true"
+                    candidates.append((not clickable, rid, left, top, right, bottom))
+
+            if not candidates:
+                return False
+
+            candidates.sort()
+            _, rid, left, top, right, bottom = candidates[0]
+            tap_x = (left + right) // 2
+            tap_y = (top + bottom) // 2
+            _ipc.log("debug", f"[upload] dump bounds tap {rid}: ({tap_x}, {tap_y})")
+            self.device.click(tap_x, tap_y)
+            return True
+        except Exception as e:
+            _ipc.log("debug", f"[upload] dump bounds tap failed: {e}")
+            return False
+
+    def _ensure_gallery_picker_open(self, attempts: int = 3) -> bool:
+        """Ensure the TikTok gallery picker is actually open after tapping Upload.
+
+        On some Android/TikTok combinations the first tap only triggers the
+        runtime permission dialog. After the permissions are granted, TikTok
+        stays on the camera screen and needs the gallery thumbnail tapped again.
+        """
+        for attempt in range(1, attempts + 1):
+            time.sleep(1.2)
+            self._handle_permission_dialog()
+            time.sleep(1.0)
+
+            if self._is_gallery_picker_open():
+                return True
+
+            if self._is_on_camera_creation_screen():
+                _ipc.log(
+                    "info",
+                    f"[upload] still on TikTok camera after upload tap; retrying gallery tap ({attempt}/{attempts})"
+                )
+                self._tap_upload()
+                continue
+
+            # Transitional screen: wait a little more before retrying.
+            _ipc.log("debug", f"[upload] gallery not detected yet ({attempt}/{attempts}); retrying")
+            self._tap_upload()
+
+        time.sleep(1.0)
+        self._handle_permission_dialog()
+        return self._is_gallery_picker_open()
+
+    def _is_gallery_picker_open(self) -> bool:
+        """Return True when the TikTok media picker/grid is visible."""
+        for selector in PUBLISH_SELECTORS.gallery_first_item:
+            try:
+                if self.device.xpath(selector).wait(timeout=0.4):
+                    return True
+            except Exception:
+                pass
+
+        try:
+            xml = self.device.dump_hierarchy(compressed=False)
+            xml_lower = xml.lower()
+            return any(token in xml_lower for token in (
+                ':id/i8o',
+                ':id/ir_',
+                ':id/mub',
+                ':id/nm8',
+            ))
+        except Exception:
+            return False
+
+    def _is_on_camera_creation_screen(self) -> bool:
+        """Return True when TikTok is on the camera/create screen, not picker/details."""
+        try:
+            xml = self.device.dump_hierarchy(compressed=False)
+            xml_lower = xml.lower()
+            has_camera_copy = any(token in xml_lower for token in (
+                'ajouter un son',
+                'add sound',
+                'text="photo"',
+                'text="texte"',
+                'text="publier"',
+                'text="créer"',
+                'text="create"',
+            ))
+            has_camera_controls = any(token in xml_lower for token in (
+                ':id/ce9',
+                ':id/r3r',
+                ':id/d8a',
+                ':id/v5w',
+            ))
+            return has_camera_copy and has_camera_controls
+        except Exception:
+            return False
+
     def _handle_permission_dialog(self) -> bool:
         """Grant any Android permission dialogs (media access, etc.).
 
@@ -373,6 +531,9 @@ class TikTokUploadWorkflow:
         """
         try:
             handler = PermissionHandler(self.device, self.device_id)
+            if handler.deny_contacts_if_present(wait=0.8):
+                _ipc.log("info", "🚫 Denied TikTok contacts permission dialog")
+                return True
             dismissed = handler.grant(rounds=2, per_round_wait=1.5)
             if dismissed:
                 _ipc.log("info", f"🔓 Granted {dismissed} permission dialog(s)")
@@ -387,6 +548,11 @@ class TikTokUploadWorkflow:
         Known dialogs (TikTok 44.9 on Nokia 4.2 / Android 11):
           - "Add to Home Screen" (widget install) → Button text='CANCEL'
         """
+        if self._tap(POPUP_SELECTORS.gdpr_got_it_button, timeout=1.5):
+            _ipc.log("info", "[popup] dismissed TikTok GDPR data-transfer notice")
+            time.sleep(0.5)
+            return
+
         _CANCEL_BTNS = [
             '//android.widget.Button[@text="CANCEL"]',
             '//android.widget.Button[contains(@text, "Cancel")]',
@@ -403,24 +569,189 @@ class TikTokUploadWorkflow:
             except Exception as e:
                 _ipc.log("debug", f"[dismiss_popup] click failed: {e}")
 
-    def _refresh_tiktok_gallery(self):
-        """Pull-to-refresh the TikTok gallery picker to pick up newly scanned media.
-        
-        Swipes down on the gallery grid area to trigger a refresh.
-        This is needed when the file was added after the gallery was opened.
-        """
+    def _handle_publish_confirmation_dialog(self) -> bool:
+        """Confirm TikTok's optional 'Publier la vidéo publiquement ?' dialog."""
+        if not self._find_element(PUBLISH_SELECTORS.publish_confirm_dialog, timeout=1.5):
+            return False
+
+        _ipc.log("info", "[publishing] confirming TikTok visibility dialog...")
+        if self._tap(PUBLISH_SELECTORS.publish_confirm_btn, timeout=2.0):
+            return True
+        return False
+
+    def _wait_for_publish_commit(self, timeout: float = 25.0) -> bool:
+        """Wait until TikTok has likely finished committing the publication."""
+        min_grace = 8.0
+        start = time.time()
+        last_logged_second = -1
+
+        _ipc.log("info", "[publishing] waiting for TikTok to finish upload…")
+
+        while time.time() - start < timeout:
+            elapsed = time.time() - start
+
+            if self._handle_publish_confirmation_dialog():
+                time.sleep(1.0)
+                continue
+
+            self._dismiss_post_popups()
+
+            if elapsed < min_grace:
+                current_second = int(elapsed)
+                if current_second != last_logged_second and current_second in (2, 4, 6):
+                    last_logged_second = current_second
+                    _ipc.log("debug", f"[publishing] grace period… {current_second}s")
+                time.sleep(1.0)
+                continue
+
+            if self._is_on_post_screen():
+                current_second = int(elapsed)
+                if current_second != last_logged_second:
+                    last_logged_second = current_second
+                    _ipc.log("info", f"[publishing] still on caption screen after {current_second}s, waiting…")
+                time.sleep(1.2)
+                continue
+
+            if self._find_element(PUBLISH_SELECTORS.success_indicator, timeout=1.0):
+                _ipc.log("info", "[publishing] TikTok success indicator detected")
+                time.sleep(2.0)
+                return True
+
+            _ipc.log("info", f"[publishing] publish flow stabilized after {elapsed:.1f}s")
+            time.sleep(2.0)
+            return True
+
+        _ipc.log("warning", "[publishing] commit wait timed out")
+        return False
+
+    def _extract_percent_value(self, value: str | None) -> Optional[int]:
+        """Parse a `81%`-style progress label into an integer percentage."""
+        if not value:
+            return None
+        match = _PERCENT_TEXT_RE.match(value)
+        if not match:
+            return None
         try:
-            info = self.device.info
-            w = info.get("displayWidth", 720)
-            h = info.get("displayHeight", 1520)
-            # Swipe down in the gallery area (top 60% of the screen, where image grid is)
-            mid_x = w // 2
-            start_y = int(h * 0.35)
-            end_y = int(h * 0.60)
-            _ipc.log("debug", f"[gallery] pull-to-refresh swipe ({mid_x},{start_y}) → ({mid_x},{end_y})")
-            self.device.swipe(mid_x, start_y, mid_x, end_y, duration=0.4)
+            percent = int(match.group(1))
+        except Exception:
+            return None
+        if 0 <= percent <= 100:
+            return percent
+        return None
+
+    def _get_publish_progress_percent(self) -> Optional[int]:
+        """Read TikTok's top-left upload progress badge while publish is still running."""
+        try:
+            from lxml import etree
+
+            xml = self.device.dump_hierarchy(compressed=False)
+            tree = etree.fromstring(xml.encode("utf-8"))
+
+            for xp in PUBLISH_SELECTORS.publish_progress_indicator:
+                try:
+                    nodes = tree.xpath(_to_lxml(xp))
+                except Exception:
+                    continue
+                for node in nodes:
+                    percent = self._extract_percent_value(node.attrib.get("text"))
+                    if percent is not None:
+                        return percent
+
+            for node in tree.xpath('//*[@text and @bounds]'):
+                percent = self._extract_percent_value(node.attrib.get("text"))
+                if percent is None:
+                    continue
+                coords = [int(v) for v in _re.findall(r"\d+", node.attrib.get("bounds", ""))]
+                if len(coords) != 4:
+                    continue
+                left, top, right, bottom = coords
+                if left > 160 or top > 320:
+                    continue
+                if (right - left) > 120 or (bottom - top) > 80:
+                    continue
+                return percent
         except Exception as e:
-            _ipc.log("debug", f"[gallery] refresh swipe skipped: {e}")
+            _ipc.log("debug", f"[publishing] progress parse failed: {e}")
+        return None
+
+    def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
+        """Wait until TikTok has likely finished committing the publication."""
+        min_grace = 8.0
+        settle_after_progress_gone = 3.0
+        start = time.time()
+        last_logged_second = -1
+        last_progress: Optional[int] = None
+        progress_seen = False
+        progress_gone_since: Optional[float] = None
+
+        _ipc.log("info", "[publishing] waiting for TikTok to finish upload...")
+
+        while time.time() - start < timeout:
+            elapsed = time.time() - start
+
+            if self._handle_publish_confirmation_dialog():
+                time.sleep(1.0)
+                continue
+
+            self._dismiss_post_popups()
+
+            progress = self._get_publish_progress_percent()
+            if progress is not None:
+                progress_seen = True
+                progress_gone_since = None
+                if progress != last_progress:
+                    last_progress = progress
+                    _ipc.log("info", f"[publishing] TikTok upload progress: {progress}%")
+                time.sleep(1.2)
+                continue
+
+            if progress_seen and progress_gone_since is None:
+                progress_gone_since = time.time()
+                _ipc.log("info", "[publishing] TikTok upload badge disappeared, verifying completion...")
+
+            if elapsed < min_grace:
+                current_second = int(elapsed)
+                if current_second != last_logged_second and current_second in (2, 4, 6):
+                    last_logged_second = current_second
+                    _ipc.log("debug", f"[publishing] grace period... {current_second}s")
+                time.sleep(1.0)
+                continue
+
+            if self._is_on_post_screen():
+                current_second = int(elapsed)
+                if current_second != last_logged_second:
+                    last_logged_second = current_second
+                    _ipc.log("info", f"[publishing] still on caption screen after {current_second}s, waiting...")
+                time.sleep(1.2)
+                continue
+
+            if self._find_element(PUBLISH_SELECTORS.success_indicator, timeout=1.0):
+                _ipc.log("info", "[publishing] TikTok success indicator detected")
+                time.sleep(2.0)
+                return True
+
+            if progress_gone_since is not None:
+                clear_elapsed = time.time() - progress_gone_since
+                if clear_elapsed < settle_after_progress_gone:
+                    current_second = int(elapsed)
+                    if current_second != last_logged_second:
+                        last_logged_second = current_second
+                        _ipc.log(
+                            "debug",
+                            f"[publishing] upload badge cleared; settling {clear_elapsed:.1f}/{settle_after_progress_gone:.1f}s",
+                        )
+                    time.sleep(1.0)
+                    continue
+
+            _ipc.log("info", f"[publishing] publish flow stabilized after {elapsed:.1f}s")
+            time.sleep(2.0)
+            return True
+
+        if last_progress is not None:
+            _ipc.log("warning", f"[publishing] commit wait timed out (last seen progress: {last_progress}%)")
+        else:
+            _ipc.log("warning", "[publishing] commit wait timed out")
+        return False
 
     def _select_first_gallery_item(self) -> bool:
         """
@@ -453,6 +784,10 @@ class TikTokUploadWorkflow:
             _ipc.log("warning", f"[gallery] XPath selectors failed — coord fallback ({tap_x},{tap_y}). "
                      "Provide a dump from this device to add the correct resource-id.")
             self.device.click(tap_x, tap_y)
+            time.sleep(1.0)
+            if self._is_on_camera_creation_screen():
+                _ipc.log("warning", "[gallery] coord fallback did not leave the camera screen")
+                return False
             return True
         except Exception as e:
             _ipc.log("error", f"[gallery] coord fallback failed: {e}")
@@ -474,25 +809,41 @@ class TikTokUploadWorkflow:
         except Exception:
             return False
 
-    def _fill_caption(self, text: str):
-        """Find the caption/description field and type the text.
+    def _is_video_edit_screen(self) -> bool:
+        """Return True when TikTok opened the post-upload video editor."""
+        try:
+            xml = self.device.dump_hierarchy(compressed=False).lower()
+            return (
+                'text="annuler"' in xml
+                and 'text="enregistrer"' in xml
+                and (
+                    'text="aperçu"' in xml
+                    or 'text="importer"' in xml
+                    or 'id/xay' in xml
+                )
+            )
+        except Exception:
+            return False
 
-        TikTok shows an autocomplete suggestion dropdown after each typed hashtag.
-        If the dropdown is left open, the Post button stays hidden behind it.
-        Strategy:
-          1. Focus the EditText
-          2. Type the non-hashtag caption (one send_keys call)
-          3. For each hashtag: type it, wait for suggestion, tap first suggestion
-             (or fall back to adding a space to close the dropdown)
-          4. Tap the video preview area to unfocus and dismiss the keyboard
-        """
-        # Split into caption part and hashtag parts
-        words = text.split()
-        caption_words = [w for w in words if not w.startswith('#')]
-        hashtag_words  = [w for w in words if w.startswith('#')]
+    def _recover_from_video_edit_screen(self) -> bool:
+        """Leave TikTok's video editor if a misplaced tap opened it."""
+        if not self._is_video_edit_screen():
+            return False
 
-        caption_part = " ".join(caption_words)
+        _ipc.log("warning", "[publish] video editor opened; tapping Annuler to return to post screen")
+        cancel_selectors = [
+            '//*[contains(@resource-id, ":id/xay")]',
+            '//android.widget.Button[@text="Annuler"]',
+            '//android.widget.TextView[@text="Annuler"]',
+            '//android.widget.Button[contains(@text, "Cancel")]',
+        ]
+        if self._tap(cancel_selectors, timeout=2.0):
+            time.sleep(1.2)
+            return True
+        return False
 
+    def _fill_caption(self, caption: str, hashtags: list[str]) -> bool:
+        """Fill caption and validate TikTok hashtag suggestions one by one."""
         # ── Focus the EditText ───────────────────────────────────────────────
         el = self._find_element(PUBLISH_SELECTORS.caption_input, timeout=5.0)
         try:
@@ -507,44 +858,149 @@ class TikTokUploadWorkflow:
         except Exception as e:
             _ipc.log("warning", f"[caption] focus failed: {e}")
 
-        # ── Type caption text (no hashtags) ──────────────────────────────────
-        try:
-            if caption_part:
-                self.device.send_keys(caption_part, clear=True)
-                time.sleep(0.3)
-        except Exception as e:
-            _ipc.log("warning", f"[caption] typing failed: {e}")
+        if not self._clear_caption_text():
+            _ipc.log("debug", "[caption] clear text skipped or failed")
 
-        # ── Type each hashtag and confirm suggestion ─────────────────────────
-        for tag in hashtag_words:
+        caption = (caption or "").strip()
+        if caption and not self._type_caption_text(caption, delay_mean=85, delay_deviation=25):
+            return False
+
+        for index, tag in enumerate(hashtags or []):
+            clean_tag = str(tag).lstrip("#").strip()
+            if not clean_tag:
+                continue
+
+            prefix = " " if (index > 0 or caption) else ""
+            token = f"{prefix}#{clean_tag}"
+            if not self._type_caption_text(token, delay_mean=70, delay_deviation=18):
+                return False
+
+            time.sleep(0.25)
+            if not self._confirm_hashtag_suggestion(clean_tag):
+                _ipc.log("warning", f"[hashtag] could not confirm suggestion for #{clean_tag}")
+                self._type_caption_text(" ", delay_mean=40, delay_deviation=10)
+                time.sleep(0.15)
+
+        self._dismiss_caption_keyboard()
+        return True
+
+    def _clear_caption_text(self) -> bool:
+        try:
+            from taktik.core.shared.input.taktik_keyboard import (
+                activate_taktik_keyboard,
+                clear_text_with_taktik_keyboard,
+            )
+            activate_taktik_keyboard(self.device_id)
+            return clear_text_with_taktik_keyboard(self.device_id)
+        except Exception as e:
+            _ipc.log("debug", f"[caption] Taktik Keyboard clear failed: {e}")
+            return False
+
+    def _type_caption_text(self, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
+        """Type caption through Taktik Keyboard first, with slower human pacing."""
+        if not text:
+            return True
+
+        try:
+            from taktik.core.shared.input.taktik_keyboard import (
+                type_with_taktik_keyboard,
+            )
+            if type_with_taktik_keyboard(
+                self.device_id,
+                text,
+                delay_mean=delay_mean,
+                delay_deviation=delay_deviation,
+            ):
+                _ipc.log("debug", "[caption] text inserted with Taktik Keyboard")
+                return True
+        except Exception as e:
+            _ipc.log("debug", f"[caption] Taktik Keyboard failed: {e}")
+
+        if all(ord(ch) < 128 for ch in text):
             try:
-                # Add a newline separator before first hashtag, space between subsequent ones
-                separator = "\n" if not caption_part and tag == hashtag_words[0] else " "
-                self.device.send_keys(separator + tag)
-                time.sleep(1.2)  # wait for TikTok autocomplete dropdown to appear
-
-                # Try to tap the first suggestion item
-                if not self._confirm_hashtag_suggestion():
-                    # Fallback: type a space — closes the dropdown in most TikTok versions
-                    _ipc.log("debug", f"[hashtag] no suggestion found for {tag!r}, using space fallback")
-                    self.device.send_keys(" ")
-                    time.sleep(0.3)
+                escaped = text.replace("\\", "\\\\").replace(" ", "%s")
+                escaped = escaped.replace("&", "\\&").replace("|", "\\|").replace(";", "\\;")
+                result = subprocess.run(
+                    ["adb", "-s", self.device_id, "shell", "input", "text", escaped],
+                    capture_output=True,
+                    text=True,
+                    timeout=8,
+                )
+                if result.returncode == 0:
+                    _ipc.log("debug", "[caption] text inserted with adb input text")
+                    return True
+                _ipc.log("debug", f"[caption] adb input text failed: {result.stderr}")
             except Exception as e:
-                _ipc.log("warning", f"[hashtag] failed to type {tag!r}: {e}")
+                _ipc.log("debug", f"[caption] adb input text exception: {e}")
 
-        # ── Dismiss keyboard by tapping the video preview (top-right area) ───
-        # This ensures the Post button is visible and the keyboard/autocomplete is gone
+        return False
+
+    def _dismiss_caption_keyboard(self) -> None:
+        """Hide the keyboard without tapping the preview/editor area."""
         try:
-            info = self.device.info
-            w = info.get("displayWidth", 576)
-            h = info.get("displayHeight", 1280)
-            # Video preview thumbnail is at ~75% width, ~25% height on post screen
-            self.device.click(int(w * 0.75), int(h * 0.22))
-            time.sleep(0.6)
-        except Exception as e:
-            _ipc.log("debug", f"[caption] preview tap to dismiss keyboard failed: {e}")
+            if not self._is_keyboard_visible():
+                return None
 
-    def _confirm_hashtag_suggestion(self) -> bool:
+            _ipc.log("debug", "[caption] keyboard visible; closing it with Back")
+            try:
+                self.device.press("back")
+            except Exception:
+                subprocess.run(
+                    ["adb", "-s", self.device_id, "shell", "input", "keyevent", "4"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+            time.sleep(0.35)
+
+            if self._is_keyboard_visible():
+                _ipc.log("debug", "[caption] keyboard still visible after Back")
+        except Exception as e:
+            _ipc.log("debug", f"[caption] keyboard dismiss failed: {e}")
+        return None
+
+    def _is_keyboard_visible(self) -> bool:
+        """Detect visible system/Taktik keyboard overlays from the hierarchy dump."""
+        return self._find_element(PUBLISH_SELECTORS.keyboard_overlay_indicators, timeout=1.0) is not None
+
+    def _tap_hashtag_suggestion_from_dump(self, expected_tag: str | None = None) -> bool:
+        """Tap the first visible TikTok hashtag suggestion from the XML dump."""
+        try:
+            from lxml import etree
+
+            xml = self.device.dump_hierarchy(compressed=False)
+            tree = etree.fromstring(xml.encode("utf-8"))
+            expected = f"#{str(expected_tag or '').lstrip('#').strip()}".lower()
+            candidates = []
+
+            for node in tree.xpath('//*[@class="android.widget.TextView" and starts-with(@text, "#")]'):
+                text = node.attrib.get("text", "")
+                bounds = node.attrib.get("bounds", "")
+                coords = [int(v) for v in _re.findall(r"\d+", bounds)]
+                if len(coords) != 4:
+                    continue
+                left, top, right, bottom = coords
+                if top < 480:
+                    continue
+                exact = expected and text.lower() == expected
+                candidates.append((not exact, top, left, text, right, bottom))
+
+            if not candidates:
+                return False
+
+            candidates.sort()
+            _, top, left, text, right, bottom = candidates[0]
+            tap_x = (left + right) // 2
+            tap_y = (top + bottom) // 2
+            _ipc.log("debug", f"[hashtag] tapping suggestion {text!r} at ({tap_x}, {tap_y})")
+            self.device.click(tap_x, tap_y)
+            time.sleep(0.15)
+            return True
+        except Exception as e:
+            _ipc.log("debug", f"[hashtag] dump suggestion tap failed: {e}")
+            return False
+
+    def _confirm_hashtag_suggestion(self, expected_tag: str | None = None) -> bool:
         """Tap the first item in TikTok's hashtag autocomplete suggestion list.
 
         After typing a `#word`, TikTok shows a suggestion dropdown above the keyboard.
@@ -552,6 +1008,9 @@ class TikTokUploadWorkflow:
 
         Returns True if a suggestion was tapped, False if none was found.
         """
+        if self._tap_hashtag_suggestion_from_dump(expected_tag):
+            return True
+
         _SUGGESTION_SELECTORS = [
             # Clickable row in suggestion RecyclerView containing a # TextView
             '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
@@ -621,6 +1080,26 @@ class TikTokUploadWorkflow:
         if hashtags:
             parts.append(" ".join(f"#{h.lstrip('#')}" for h in hashtags))
         return "\n".join(parts)
+
+    @staticmethod
+    def _sanitize_caption_and_hashtags(caption: str, hashtags) -> tuple[str, list[str], int]:
+        caption = caption or ""
+        explicit_hashtags = hashtags if isinstance(hashtags, list) else str(hashtags or "").replace(",", " ").split()
+        caption_hashtags = _HASHTAG_TOKEN_RE.findall(caption)
+        clean_hashtags: list[str] = []
+
+        for raw in [*caption_hashtags, *explicit_hashtags]:
+            tag = _re.sub(r"[^A-Za-z0-9_\u00C0-\u024F]", "", str(raw).lstrip("#").strip()).lower()
+            if tag and tag not in clean_hashtags:
+                clean_hashtags.append(tag)
+
+        selected = clean_hashtags[:_TIKTOK_MAX_HASHTAGS]
+        stripped_caption = _HASHTAG_TOKEN_RE.sub("", caption)
+        stripped_caption = _re.sub(r"[ \t]{2,}", " ", stripped_caption)
+        stripped_caption = _re.sub(r"[ \t]+\n", "\n", stripped_caption)
+        stripped_caption = _re.sub(r"\n{3,}", "\n\n", stripped_caption).strip()
+
+        return stripped_caption, selected, max(0, len(clean_hashtags) - len(selected))
 
     @staticmethod
     def _error(error_type: str, message: str) -> dict:

@@ -82,7 +82,16 @@ class PublishSelectors:
     # ce9 = FrameLayout clickable directement (sans wrapper ymg) — C57S (576x1280)
     # cl2 = variante Samsung v44.9+
     # NE PAS utiliser r3r : c'est le bouton shutter (obturateur caméra, centre écran)
-    _upload_btn_rids: List[str] = field(default_factory=lambda: _rids("ymg", "ce9", "cl2"))
+    _upload_btn_rids: List[str] = field(default_factory=lambda: [
+        # Two real camera layouts observed on identical Samsung A10e devices:
+        #   ymg clickable => gallery at bottom-left
+        #   ce9 clickable => gallery thumbnail at lower-right
+        # Keep clickable variants first so non-clickable child nodes do not win.
+        '//*[contains(@resource-id, ":id/ymg") and @clickable="true"]',
+        '//*[contains(@resource-id, ":id/ce9") and @clickable="true"]',
+        '//*[contains(@resource-id, ":id/cl2") and @clickable="true"]',
+        *_rids("ymg", "ce9", "cl2"),
+    ])
     _upload_btn_en: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Upload"]',
         '//*[contains(@content-desc, "Upload")]',
@@ -121,6 +130,7 @@ class PublishSelectors:
 
     # ── 5. Zone de description / caption (EditText) ─────────────────────────
     _caption_input_rids: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/g19")]',
         # pas de resource-id stable connu — fallback générique via EditText
         '//android.widget.EditText[@clickable="true"][1]',
         '(//android.widget.EditText)[1]',
@@ -136,7 +146,7 @@ class PublishSelectors:
     ])
 
     # ── 6. Bouton "Post / Publier" ─────────────────────────────────────────
-    _post_btn_rids: List[str] = field(default_factory=lambda: _rids("post_btn"))
+    _post_btn_rids: List[str] = field(default_factory=lambda: _rids("qrb", "post_btn"))
     _post_btn_en: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Post"]',
         '//android.widget.Button[contains(@content-desc, "Post")]',
@@ -148,6 +158,32 @@ class PublishSelectors:
         '//android.widget.Button[contains(@text, "Publier")]',
         '//android.widget.TextView[contains(@text, "Publier")]',
     ])
+
+    # ── 6b. Confirmation optionnelle avant publication réelle ─────────────────
+    _publish_confirm_dialog_fr: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/w4m")][contains(@text, "Publier la vidéo publiquement")]',
+        '//*[contains(@text, "Publier la vidéo publiquement")]',
+    ])
+    _publish_confirm_dialog_en: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Publish video publicly")]',
+    ])
+    _publish_confirm_btn_fr: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Publier maintenant"]',
+        '//android.widget.Button[contains(@text, "Publier")]',
+    ])
+    _publish_confirm_btn_en: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[contains(@text, "Publish now")]',
+    ])
+
+    # ── 6c. Overlay clavier Taktik / ADB Keyboard ─────────────────────────────
+    _keyboard_overlay_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "com.alexal1.adbkeyboard:id/switchButton")]',
+        '//*[contains(@resource-id, "com.alexal1.adbkeyboard:id/subtitle")]',
+        '//*[contains(@resource-id, "com.alexal1.adbkeyboard:id/typingNoProgress")]',
+        '//*[contains(@text, "Waiting for a job")]',
+        '//*[contains(@text, "Auto-typing keyboard")]',
+    ])
+    _publish_progress_rids: List[str] = field(default_factory=lambda: _rids("x44"))
 
     # ── 7. Indicateur de succès post-publication ───────────────────────────
     _success_en: List[str] = field(default_factory=lambda: [
@@ -186,6 +222,22 @@ class PublishSelectors:
     @property
     def post_btn(self) -> List[str]:
         return self._post_btn_rids + self._post_btn_en + self._post_btn_fr
+
+    @property
+    def publish_confirm_dialog(self) -> List[str]:
+        return self._publish_confirm_dialog_en + self._publish_confirm_dialog_fr
+
+    @property
+    def publish_confirm_btn(self) -> List[str]:
+        return self._publish_confirm_btn_en + self._publish_confirm_btn_fr
+
+    @property
+    def keyboard_overlay_indicators(self) -> List[str]:
+        return self._keyboard_overlay_indicators
+
+    @property
+    def publish_progress_indicator(self) -> List[str]:
+        return self._publish_progress_rids
 
     @property
     def success_indicator(self) -> List[str]:
