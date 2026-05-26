@@ -109,6 +109,22 @@ class PopupSelectors:
         '//*[@text="Not now"][@clickable="true"]',
         '//*[@text="Pas maintenant"][@clickable="true"]',
     ])
+
+    # === GDPR / EEA data transfer modal ===
+    gdpr_popup: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/w4m")][contains(@text, "EEE")]',
+        '//*[contains(@resource-id, ":id/w4m")][contains(@text, "EEA")]',
+        '//*[contains(@text, "transferts de données des utilisateurs de l’EEE vers la Chine")]',
+        '//*[contains(@text, "transferts de données des utilisateurs de l\'EEE vers la Chine")]',
+        '//*[contains(@text, "transfers of EEA User Data to China")]',
+    ])
+
+    gdpr_got_it_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="J\'ai compris"]',
+        '//android.widget.Button[contains(@text, "J\'ai compris")]',
+        '//android.widget.Button[@text="Got it"]',
+        '//android.widget.Button[contains(@text, "Got it")]',
+    ])
     
     invite_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/fab")]',

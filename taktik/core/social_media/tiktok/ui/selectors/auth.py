@@ -419,6 +419,10 @@ class SignupSelectors:
     ])
 
     gdpr_got_it_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="Got it"]',
+        '//android.widget.Button[contains(@text, "Got it")]',
+        '//android.widget.Button[@text="J\'ai compris"]',
+        '//android.widget.Button[contains(@text, "J\'ai compris")]',
     ])
 
 

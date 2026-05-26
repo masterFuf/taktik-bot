@@ -33,25 +33,39 @@ class PopupActions(BaseAction):
         - Age verification
         - Notification requests
         """
-        self.logger.debug("❌ Trying to close popup")
-        
+        self.logger.debug("? Trying to close popup")
+
+        if self._find_and_click(self.popup_selectors.gdpr_got_it_button, timeout=2):
+            self.logger.info("? Closed GDPR popup via acknowledgment button")
+            return True
+
         # Try "Not now" button first (most common for feature popups)
         if self._find_and_click(self.popup_selectors.dismiss_button, timeout=2):
-            self.logger.info("✅ Closed popup via 'Not now' button")
+            self.logger.info("? Closed popup via 'Not now' button")
             return True
-        
+
         # Try close button (X icon)
         if self._find_and_click(self.popup_selectors.close_button, timeout=2):
-            self.logger.info("✅ Closed popup via close button")
+            self.logger.info("? Closed popup via close button")
             return True
-        
+
         # Try promo close button
         if self._find_and_click(self.popup_selectors.promo_close_button, timeout=2):
-            self.logger.info("✅ Closed promo banner")
+            self.logger.info("? Closed promo banner")
             return True
-        
+
         return False
-    
+
+    def close_gdpr_popup(self) -> bool:
+        """Close the GDPR / EEA data transfer notice via its acknowledgment button."""
+        self.logger.debug("? Trying to close GDPR popup")
+
+        if self._find_and_click(self.popup_selectors.gdpr_got_it_button, timeout=2):
+            self.logger.info("? Closed GDPR popup")
+            return True
+
+        return False
+
     def close_collections_popup(self) -> bool:
         """Close the 'Create shared collections with a friend' popup.
         

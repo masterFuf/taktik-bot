@@ -26,6 +26,8 @@ class PopupDetector(BaseAction):
             return True
         if self._element_exists(self.popup_selectors.dismiss_button, timeout=1):
             return True
+        if self._element_exists(self.popup_selectors.gdpr_popup, timeout=1):
+            return True
         if self._element_exists(self.popup_selectors.promo_banner, timeout=1):
             return True
         if self._element_exists(self.popup_selectors.collections_popup, timeout=1):
@@ -45,6 +47,10 @@ class PopupDetector(BaseAction):
     def has_link_email_popup(self) -> bool:
         """Check if the 'Link email' popup is visible."""
         return self._element_exists(self.popup_selectors.link_email_popup, timeout=1)
+
+    def has_gdpr_popup(self) -> bool:
+        """Check if the GDPR / EEA-to-China data transfer popup is visible."""
+        return self._element_exists(self.popup_selectors.gdpr_popup, timeout=1)
 
     def has_suggestion_page(self) -> bool:
         """Check if on a suggestion page (Follow back / Not interested).

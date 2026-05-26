@@ -86,6 +86,8 @@ class PopupHandler:
             found.add('inbox_page')
         if hit(POPUP_SELECTORS.link_email_popup):
             found.add('link_email')
+        if hit(POPUP_SELECTORS.gdpr_popup):
+            found.add('gdpr')
         if hit(POPUP_SELECTORS.follow_friends_popup):
             found.add('follow_friends')
         if hit(POPUP_SELECTORS.collections_popup):
@@ -151,6 +153,12 @@ class PopupHandler:
                 time.sleep(0.5)
                 return True
 
+        if 'gdpr' in detected:
+            if self.click.close_gdpr_popup():
+                self.logger.info("GDPR popup closed")
+                time.sleep(0.5)
+                return True
+
         # "Follow your friends" popup
         if 'follow_friends' in detected:
             if self.click.close_follow_friends_popup():
@@ -213,6 +221,12 @@ class PopupHandler:
         if self.detection.has_link_email_popup():
             if self.click.close_link_email_popup():
                 self.logger.info("✅ 'Link email' popup closed")
+                time.sleep(0.5)
+                return True
+
+        if self.detection.has_gdpr_popup():
+            if self.click.close_gdpr_popup():
+                self.logger.info("GDPR popup closed")
                 time.sleep(0.5)
                 return True
 
