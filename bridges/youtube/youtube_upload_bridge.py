@@ -35,6 +35,8 @@ from bridges.common.signal_handler import setup_signal_handlers
 class YouTubeUploadBridge:
     """Bridge for YouTube video upload (Shorts or standard)."""
 
+    SHORT_TITLE_MAX_LENGTH = 100
+
     def __init__(self, config: dict):
         self.config = config
         self.device_id = config.get("deviceId")
@@ -62,6 +64,11 @@ class YouTubeUploadBridge:
         if not os.path.isfile(self.local_path):
             send_error(f"File not found: {self.local_path}")
             return 1
+        if self.upload_type == "short" and self.title:
+            chars = list(self.title.strip())
+            if len(chars) > self.SHORT_TITLE_MAX_LENGTH:
+                self.title = "".join(chars[:self.SHORT_TITLE_MAX_LENGTH]).strip()
+                send_log("warning", f"YouTube Shorts title trimmed to {self.SHORT_TITLE_MAX_LENGTH} characters")
 
         # ── Connect ──────────────────────────────────────────────────────────
         send_status("connecting", f"Connecting to device {self.device_id}…")
