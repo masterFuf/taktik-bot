@@ -1,5 +1,6 @@
 """UI interaction helpers for the Content workflow: creation UI, gallery, popups, publishing."""
 
+import re
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -80,11 +81,11 @@ class ContentUIHelpersMixin:
         """Gérer la modale 'Keep editing your draft?' en cliquant sur 'Start new video'."""
         try:
             # Detect via headline text or auxiliary_button resource-id
-            draft_headline = self.device(resourceId="com.instagram.android:id/igds_headline_headline",
+            draft_headline = self.device(resourceId=self.content_selectors.draft_headline,
                                          text="Keep editing your draft?")
             if not draft_headline.exists(timeout=3):
                 # Try French variant
-                draft_headline = self.device(resourceId="com.instagram.android:id/igds_headline_headline")
+                draft_headline = self.device(resourceId=self.content_selectors.draft_headline)
 
             aux_button = self.device(resourceId=self.content_selectors.auxiliary_button)
             if aux_button.exists(timeout=3):
@@ -95,6 +96,57 @@ class ContentUIHelpersMixin:
                 return True
 
             self.logger.debug("No reel draft modal detected")
+            return False
+
+        except Exception as e:
+            self.logger.warning(f"Error handling reel draft modal: {e}")
+            return False
+
+    def _handle_reel_draft_modal(self) -> bool:
+        """Detect the reel draft modal and immediately reset it with 'Start new video'."""
+        try:
+            headline_detected = False
+
+            for headline_text in self.content_selectors.reel_draft_headlines:
+                draft_headline = self.device(
+                    resourceId=self.content_selectors.draft_headline,
+                    text=headline_text,
+                )
+                if draft_headline.exists(timeout=1.5):
+                    headline_detected = True
+                    break
+
+            if not headline_detected:
+                draft_headline = self.device(resourceId=self.content_selectors.draft_headline)
+                headline_detected = draft_headline.exists(timeout=1.0)
+
+            if not headline_detected:
+                self.logger.debug("No reel draft modal detected")
+                return False
+
+            self.logger.debug("Detected reel draft modal")
+
+            for button_text in self.content_selectors.reel_draft_start_new_texts:
+                start_new_button = self.device(
+                    resourceId=self.content_selectors.auxiliary_button,
+                    text=button_text,
+                )
+                if start_new_button.exists(timeout=1.5):
+                    self.logger.debug(f"Found draft reset button ({button_text})")
+                    start_new_button.click()
+                    time.sleep(1.2)
+                    self.logger.debug("Draft modal dismissed with Start new video")
+                    return True
+
+            aux_button = self.device(resourceId=self.content_selectors.auxiliary_button)
+            if aux_button.exists(timeout=1.5):
+                self.logger.debug("Using auxiliary draft button fallback")
+                aux_button.click()
+                time.sleep(1.2)
+                self.logger.debug("Draft modal dismissed via fallback")
+                return True
+
+            self.logger.warning("Reel draft modal detected but no reset button was found")
             return False
 
         except Exception as e:
@@ -220,31 +272,51 @@ class ContentUIHelpersMixin:
         """Cliquer sur le bouton Next."""
         try:
             self.logger.debug("Clicking Next button...")
-            time.sleep(3)
+            if self._handle_reel_draft_modal():
+                self.logger.debug("Draft modal intercepted before clicking Next")
+            time.sleep(1.5)
             
             next_button = self.device(resourceId=self.content_selectors.next_button)
             if next_button.exists(timeout=5):
                 self.logger.debug("Found Next button (method 1: resourceId)")
                 next_button.click()
-                time.sleep(3)
+                time.sleep(1.5)
+                self.logger.debug("✅ Next clicked")
+                return True
+
+            next_button = self.device(resourceId=self.content_selectors.share_button)
+            if next_button.exists(timeout=3):
+                self.logger.debug("Found Next button (method 1b: share_button)")
+                next_button.click()
+                time.sleep(1.5)
+                self.logger.debug("✅ Next clicked")
+                return True
+
+            next_button = self.device(resourceId=self.content_selectors.clips_right_action_button)
+            if next_button.exists(timeout=3):
+                self.logger.debug("Found Next button (method 1c: clips_right_action_button)")
+                next_button.click()
+                time.sleep(1.5)
                 self.logger.debug("✅ Next clicked")
                 return True
             
-            next_button = self.device(text="Next")
-            if next_button.exists(timeout=3):
-                self.logger.debug("Found Next button (method 2: text)")
-                next_button.click()
-                time.sleep(3)
-                self.logger.debug("✅ Next clicked")
-                return True
-            
-            next_button = self.device(text="Suivant")
-            if next_button.exists(timeout=3):
-                self.logger.debug("Found Next button (method 3: text Suivant)")
-                next_button.click()
-                time.sleep(3)
-                self.logger.debug("✅ Next clicked")
-                return True
+            for label in self.content_selectors.next_texts:
+                next_button = self.device(text=label)
+                if next_button.exists(timeout=2):
+                    self.logger.debug(f"Found Next button (text: {label})")
+                    next_button.click()
+                    time.sleep(1.5)
+                    self.logger.debug("✅ Next clicked")
+                    return True
+
+            for description in self.content_selectors.next_descriptions:
+                next_button = self.device(description=description)
+                if next_button.exists(timeout=2):
+                    self.logger.debug(f"Found Next button (content-desc: {description})")
+                    next_button.click()
+                    time.sleep(1.5)
+                    self.logger.debug("✅ Next clicked")
+                    return True
             
             self.logger.error("Next button not found with any method")
             return False
@@ -287,7 +359,8 @@ class ContentUIHelpersMixin:
                 if not type_with_taktik_keyboard(device_id, full_text):
                     self.logger.warning("Taktik Keyboard failed, falling back to set_text")
                     caption_field.set_text(full_text)
-                time.sleep(0.5)
+                time.sleep(0.8)
+                self._dismiss_caption_keyboard()
                 self.logger.debug("✅ Caption and hashtags added")
                 return True
             
@@ -338,23 +411,89 @@ class ContentUIHelpersMixin:
         """Publier le post"""
         try:
             self.logger.debug("Publishing post...")
-            
-            # Chercher le bouton "Share" ou "Partager"
-            share_button = self.device(text="Share")
-            if not share_button.exists(timeout=3):
-                share_button = self.device(text="Partager")
-            
-            if share_button.exists(timeout=5):
-                share_button.click()
-                time.sleep(3)
-                self.logger.debug("✅ Post published")
-                return True
-            
+
+            # Instagram reels can bounce between:
+            # 1) caption/share screen → share_button (content-desc often still "Next")
+            # 2) edit video screen → clips_right_action_button ("Next")
+            # 3) final share/publish screen → text button Share/Partager
+            for attempt in range(4):
+                if self._handle_reel_draft_modal():
+                    self.logger.debug("Draft modal intercepted during publish flow")
+                    continue
+
+                if self._is_instagram_edit_video_screen():
+                    self.logger.debug("Detected Instagram edit video screen, clicking Next")
+                    if self._click_next():
+                        continue
+
+                if self._tap_caption_share_button():
+                    self.logger.debug("Tapped caption/share button")
+                    time.sleep(1.2)
+                    continue
+
+                share_button = self.device(text="Share")
+                if not share_button.exists(timeout=2):
+                    share_button = self.device(text="Partager")
+                if not share_button.exists(timeout=2):
+                    share_button = self.device(text="Publier")
+
+                if share_button.exists(timeout=3):
+                    share_button.click()
+                    time.sleep(2)
+                    self.logger.debug("✅ Post published")
+                    return True
+
+                if attempt < 3 and self._click_next():
+                    continue
+
             self.logger.error("Share button not found")
             return False
             
         except Exception as e:
             self.logger.error(f"Error publishing post: {e}")
+            return False
+
+    def _dismiss_caption_keyboard(self) -> None:
+        """Close the Android keyboard if it is still covering the bottom action area."""
+        try:
+            if not self.device(className="android.inputmethodservice.SoftInputWindow").exists(timeout=1):
+                return
+        except Exception:
+            pass
+
+        try:
+            self.device.press("back")
+            time.sleep(0.4)
+        except Exception as e:
+            self.logger.debug(f"Keyboard dismiss failed: {e}")
+
+    def _tap_caption_share_button(self) -> bool:
+        """Tap the bottom-right action on Instagram's caption/share screen."""
+        try:
+            button = self.device(resourceId=self.content_selectors.share_button)
+            if button.exists(timeout=2):
+                button.click()
+                return True
+
+            for description in self.content_selectors.next_descriptions:
+                button = self.device(description=description)
+                if button.exists(timeout=2):
+                    button.click()
+                    return True
+        except Exception as e:
+            self.logger.debug(f"Caption share button tap failed: {e}")
+        return False
+
+    def _is_instagram_edit_video_screen(self) -> bool:
+        """Detect Instagram's reel edit-video screen from the current dump."""
+        try:
+            xml = self.device.dump_hierarchy(compressed=False).lower()
+            return (
+                any(indicator.lower() in xml for indicator in self.content_selectors.edit_video_indicators)
+                or self.content_selectors.clips_right_action_button in xml
+                or re.search(r'content-desc="next".{0,400}clips_right_action_button', xml, re.DOTALL) is not None
+            )
+        except Exception:
             return False
 
     def _publish_story(self) -> bool:

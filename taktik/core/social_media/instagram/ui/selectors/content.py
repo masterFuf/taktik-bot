@@ -18,7 +18,47 @@ class ContentCreationSelectors:
     
     # === Navigation création ===
     next_button: str = 'com.instagram.android:id/next_button_textview'
+    share_button: str = 'com.instagram.android:id/share_button'
+    clips_right_action_button: str = 'com.instagram.android:id/clips_right_action_button'
+    draft_headline: str = 'com.instagram.android:id/igds_headline_headline'
+    draft_body: str = 'com.instagram.android:id/igds_headline_body'
+
+    next_texts: List[str] = field(default_factory=lambda: [
+        "Next",
+        "Suivant",
+    ])
+
+    publish_texts: List[str] = field(default_factory=lambda: [
+        "Share",
+        "Partager",
+        "Publier",
+    ])
+
+    next_descriptions: List[str] = field(default_factory=lambda: [
+        "Next",
+        "Suivant",
+    ])
+
+    edit_video_indicators: List[str] = field(default_factory=lambda: [
+        "Edit video",
+        "Modifier la vidéo",
+    ])
     
+    reel_draft_headlines: List[str] = field(default_factory=lambda: [
+        "Keep editing your draft?",
+        "Continuer la modification de votre brouillon ?",
+    ])
+
+    reel_draft_bodies: List[str] = field(default_factory=lambda: [
+        "If you start a new video, this draft will be saved.",
+        "Si vous commencez une nouvelle vidÃ©o, ce brouillon sera enregistrÃ©.",
+    ])
+
+    reel_draft_start_new_texts: List[str] = field(default_factory=lambda: [
+        "Start new video",
+        "Commencer une nouvelle vidÃ©o",
+    ])
+
     # === Champs de texte ===
     caption_text_view: str = 'com.instagram.android:id/caption_text_view'
     caption_input_text_view: str = 'com.instagram.android:id/caption_input_text_view'
