@@ -81,6 +81,9 @@ def run_followers_workflow(config: Dict[str, Any]):
             'follows': 0,
             'already_friends': 0,
             'skipped': 0,
+            'known_usernames_seen': 0,
+            'new_usernames_seen': 0,
+            'consecutive_known_usernames': 0,
             'errors': 0
         }
         
@@ -134,6 +137,7 @@ def run_followers_workflow(config: Dict[str, Any]):
                 pause_duration_min=config.get('pauseDurationMin', 30.0),
                 pause_duration_max=config.get('pauseDurationMax', 60.0),
                 include_friends=config.get('includeFriends', False),
+                max_consecutive_known_usernames=config.get('maxConsecutiveKnownUsernames', 150),
             )
             
             # Create workflow for this target
@@ -164,6 +168,15 @@ def run_followers_workflow(config: Dict[str, Any]):
                     "follows": total_stats['follows'] + stats_dict.get('follows', 0),
                     "already_friends": total_stats['already_friends'] + stats_dict.get('already_friends', 0),
                     "skipped": total_stats['skipped'] + stats_dict.get('skipped', 0),
+                    "known_usernames_seen": (
+                        total_stats['known_usernames_seen']
+                        + stats_dict.get('known_usernames_seen', 0)
+                    ),
+                    "new_usernames_seen": (
+                        total_stats['new_usernames_seen']
+                        + stats_dict.get('new_usernames_seen', 0)
+                    ),
+                    "consecutive_known_usernames": stats_dict.get('consecutive_known_usernames', 0),
                     "errors": total_stats['errors'] + stats_dict.get('errors', 0),
                     "current_target": current_target,
                     "target_index": target_idx,
@@ -192,6 +205,9 @@ def run_followers_workflow(config: Dict[str, Any]):
             total_stats['follows'] += stats.follows
             total_stats['already_friends'] += stats.already_friends
             total_stats['skipped'] += stats.skipped
+            total_stats['known_usernames_seen'] += stats.known_usernames_seen
+            total_stats['new_usernames_seen'] += stats.new_usernames_seen
+            total_stats['consecutive_known_usernames'] = stats.consecutive_known_usernames
             total_stats['errors'] += stats.errors
             
             # Update remaining limits

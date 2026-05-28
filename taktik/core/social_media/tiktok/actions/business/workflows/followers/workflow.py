@@ -22,6 +22,11 @@ import time
 import random
 
 from taktik.core.database.local.service import get_local_database
+from taktik.core.social_media.tiktok.services.known_profiles_stop_policy import (
+    KnownProfileDecision,
+    KnownProfilesStopPolicy,
+    normalize_username,
+)
 
 from .._internal import BaseTikTokWorkflow
 from .models import FollowersConfig, FollowersStats
@@ -73,6 +78,8 @@ class FollowersWorkflow(
         self._current_profile_username = ""  # Username of the profile we're currently interacting with
         self._target_followers_count: int = 0  # Number of followers the target has
         self._already_visited_count: int = 0  # Number of target's followers we've already visited
+        self._known_profiles_policy = KnownProfilesStopPolicy(self.config.max_consecutive_known_usernames)
+        self._known_stop_requested = False
         
         # Database
         self._db = get_local_database()
@@ -96,6 +103,9 @@ class FollowersWorkflow(
         self._running = True
         self.stats = FollowersStats()
         self._processed_usernames.clear()
+        self._known_profiles_policy = KnownProfilesStopPolicy(self.config.max_consecutive_known_usernames)
+        self._known_profiles_policy.reset()
+        self._known_stop_requested = False
         
         self.logger.info(f"🚀 Starting Followers workflow for: {self.config.search_query}")
         self.logger.info(f"📊 Config: max_followers={self.config.max_followers}, posts_per_profile={self.config.posts_per_profile}")
@@ -146,13 +156,24 @@ class FollowersWorkflow(
                 
                 # Find and process next follower
                 if not self._process_next_follower():
+                    if self._known_stop_requested:
+                        completion_reason = 'max_consecutive_known_usernames'
+                        self.logger.info(
+                            "Stopping target because consecutive known usernames limit was reached"
+                        )
+                        break
+
                     # No more followers found - use smart scroll logic
                     max_scroll_attempts = self._calculate_smart_scroll_attempts()
                     scroll_attempts = 0
                     found_new = False
                     consecutive_zero_buttons = 0  # Track consecutive scrolls with 0 buttons
                     
-                    while scroll_attempts < max_scroll_attempts and not found_new:
+                    while (
+                        scroll_attempts < max_scroll_attempts
+                        and not found_new
+                        and not self._known_stop_requested
+                    ):
                         self.logger.debug(f"No new followers found, scrolling... (attempt {scroll_attempts + 1}/{max_scroll_attempts})")
                         self._scroll_followers_list()
                         # No need to clear _processed_usernames - usernames are stable across scrolls
@@ -180,9 +201,18 @@ class FollowersWorkflow(
                         if self._process_next_follower():
                             found_new = True
                             break
+                        if self._known_stop_requested:
+                            break
                         
                         scroll_attempts += 1
                     
+                    if self._known_stop_requested:
+                        completion_reason = 'max_consecutive_known_usernames'
+                        self.logger.info(
+                            "Stopping target because consecutive known usernames limit was reached"
+                        )
+                        break
+
                     if not found_new:
                         completion_reason = 'no_more_followers'
                         visited_ratio = self._get_visited_ratio()
@@ -232,6 +262,9 @@ class FollowersWorkflow(
                         'favorites': self.stats.favorites,
                         'comments': self.stats.comments,
                         'shares': self.stats.shares,
+                        'known_usernames_seen': self.stats.known_usernames_seen,
+                        'new_usernames_seen': self.stats.new_usernames_seen,
+                        'consecutive_known_usernames': self.stats.consecutive_known_usernames,
                         'errors': self.stats.errors,
                         'completion_reason': completion_reason
                     }
@@ -262,16 +295,21 @@ class FollowersWorkflow(
                 return False
             
             username = row_info.get('username', '')
+            username_key = normalize_username(username)
             
             # Skip if already processed in this session (by username)
-            if username and username in self._processed_usernames:
+            if username_key and username_key in self._processed_usernames:
+                if self._observe_username(username, is_known=True, reason='session_duplicate'):
+                    return False
                 continue
             
             # Skip if already interacted in database (past 7 days)
             if username and self._account_id:
                 if self._db.check_tiktok_recent_interaction(username, self._account_id, hours=168):
                     self.logger.debug(f"Skipping @{username} - already interacted in past 7 days")
-                    self._processed_usernames.add(username)
+                    self._processed_usernames.add(username_key)
+                    if self._observe_username(username, is_known=True, reason='recent_interaction'):
+                        return False
                     continue
             
             self.stats.followers_seen += 1
@@ -280,8 +318,10 @@ class FollowersWorkflow(
             status = row_info.get('status', '')
             if status in ['Friends', 'Following'] and not self.config.include_friends:
                 self.stats.already_friends += 1
-                if username:
-                    self._processed_usernames.add(username)
+                if username_key:
+                    self._processed_usernames.add(username_key)
+                    if self._observe_username(username, is_known=True, reason='friends_or_following'):
+                        return False
                 self._send_stats_update()
                 self._send_action('skip_friends', username or 'unknown')
                 self.logger.debug(f"Skipping Friends/Following account @{username}")
@@ -292,7 +332,9 @@ class FollowersWorkflow(
                 try:
                     if self._db.has_tiktok_interaction(self._account_id, username):
                         self.stats.skipped += 1
-                        self._processed_usernames.add(username)
+                        self._processed_usernames.add(username_key)
+                        if self._observe_username(username, is_known=True, reason='already_interacted'):
+                            return False
                         self._send_stats_update()
                         self._send_action('skip_already_interacted', username)
                         self.logger.debug(f"Skipping already interacted profile @{username}")
@@ -301,8 +343,10 @@ class FollowersWorkflow(
                     self.logger.debug(f"Error checking interaction history: {e}")
             
             # Mark as processed by username
-            if username:
-                self._processed_usernames.add(username)
+            if username_key:
+                if self._observe_username(username, is_known=False, reason='eligible_profile'):
+                    return False
+                self._processed_usernames.add(username_key)
             
             # Click on the profile row (not the button)
             if not self._click_follower_profile(row_info):
@@ -345,6 +389,43 @@ class FollowersWorkflow(
             return True
         
         return False
+
+    def _observe_username(self, username: str, *, is_known: bool, reason: str) -> bool:
+        """Update username-based target exhaustion state.
+
+        Returns True when the current target should stop because too many
+        already-known usernames were encountered in a row.
+        """
+        decision = self._known_profiles_policy.observe(username, is_known=is_known)
+        self._sync_known_profile_stats(decision)
+
+        if decision.status == "ignored":
+            return False
+
+        self.logger.debug(
+            "Known username policy: "
+            f"@{decision.username} status={decision.status} reason={reason} "
+            f"consecutive={decision.consecutive_known_usernames}/"
+            f"{decision.max_consecutive_known_usernames}"
+        )
+
+        if not decision.should_stop:
+            return False
+
+        self._known_stop_requested = True
+        self._send_stats_update()
+        self.logger.info(
+            "Known username limit reached for "
+            f"@{self.config.search_query}: "
+            f"{decision.consecutive_known_usernames}/"
+            f"{decision.max_consecutive_known_usernames}"
+        )
+        return True
+
+    def _sync_known_profile_stats(self, decision: KnownProfileDecision) -> None:
+        self.stats.known_usernames_seen = decision.known_usernames_seen
+        self.stats.new_usernames_seen = decision.new_usernames_seen
+        self.stats.consecutive_known_usernames = decision.consecutive_known_usernames
     
     def _find_follower_rows(self) -> List[Dict[str, Any]]:
         """Find all follower rows on screen with username extraction."""

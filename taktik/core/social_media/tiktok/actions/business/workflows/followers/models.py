@@ -47,6 +47,7 @@ class FollowersConfig:
     # Comportement
     include_friends: bool = False  # Inclure les comptes "Friends" (déjà amis)
     skip_private_accounts: bool = False
+    max_consecutive_known_usernames: int = 150
 
 
 @dataclass
@@ -63,6 +64,9 @@ class FollowersStats:
     follows: int = 0
     already_friends: int = 0
     skipped: int = 0
+    known_usernames_seen: int = 0
+    new_usernames_seen: int = 0
+    consecutive_known_usernames: int = 0
     errors: int = 0
     completion_reason: str = ''
     
@@ -82,6 +86,9 @@ class FollowersStats:
             'follows': self.follows,
             'already_friends': self.already_friends,
             'skipped': self.skipped,
+            'known_usernames_seen': self.known_usernames_seen,
+            'new_usernames_seen': self.new_usernames_seen,
+            'consecutive_known_usernames': self.consecutive_known_usernames,
             'errors': self.errors,
             'completion_reason': self.completion_reason,
             'elapsed_seconds': elapsed,
