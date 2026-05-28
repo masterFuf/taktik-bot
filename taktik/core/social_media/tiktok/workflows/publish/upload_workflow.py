@@ -43,10 +43,14 @@ from taktik.core.social_media.tiktok.services.publish_commit import (
     PublishCommitCallbacks,
     wait_for_publish_commit,
 )
+from taktik.core.social_media.tiktok.services.publish_hashtag_suggestions import (
+    tap_hashtag_suggestion_from_dump,
+)
 from taktik.core.social_media.tiktok.services.publish_progress import get_publish_progress_percent
+from taktik.core.social_media.tiktok.services.publish_upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
 from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS, POPUP_SELECTORS
-from taktik.core.social_media.tiktok.ui.xpath import find_element, parse_bounds, tap_element, to_lxml
+from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element, to_lxml
 
 try:
     from bridges.common.ipc import IPC as _IPC
@@ -382,45 +386,7 @@ class TikTokUploadWorkflow:
         TikTok can A/B test the create screen even on identical device models.
         Selectors live in PublishSelectors; this method only reads bounds.
         """
-        try:
-            from lxml import etree
-
-            xml = self.device.dump_hierarchy(compressed=False)
-            tree = etree.fromstring(xml.encode("utf-8"))
-            candidates = []
-
-            for rid, xpath in PUBLISH_SELECTORS.upload_dump_selectors:
-                nodes = tree.xpath(xpath)
-                for node in nodes:
-                    bounds = node.attrib.get("bounds", "")
-                    if not bounds:
-                        continue
-                    parsed_bounds = parse_bounds(bounds)
-                    if parsed_bounds is None:
-                        continue
-                    left, top, right, bottom = parsed_bounds
-                    width = right - left
-                    height = bottom - top
-                    if width <= 12 or height <= 12:
-                        continue
-                    if node.attrib.get("visible-to-user") == "false" or node.attrib.get("enabled") == "false":
-                        continue
-                    clickable = node.attrib.get("clickable") == "true"
-                    candidates.append((not clickable, rid, left, top, right, bottom))
-
-            if not candidates:
-                return False
-
-            candidates.sort()
-            _, rid, left, top, right, bottom = candidates[0]
-            tap_x = (left + right) // 2
-            tap_y = (top + bottom) // 2
-            _ipc.log("debug", f"[upload] dump bounds tap {rid}: ({tap_x}, {tap_y})")
-            self.device.click(tap_x, tap_y)
-            return True
-        except Exception as e:
-            _ipc.log("debug", f"[upload] dump bounds tap failed: {e}")
-            return False
+        return tap_upload_button_from_dump(self.device, log=_ipc.log)
 
     def _ensure_gallery_picker_open(self, attempts: int = 3) -> bool:
         """Ensure the TikTok gallery picker is actually open after tapping Upload.
@@ -718,44 +684,7 @@ class TikTokUploadWorkflow:
 
     def _tap_hashtag_suggestion_from_dump(self, expected_tag: str | None = None) -> bool:
         """Tap the first visible TikTok hashtag suggestion from the XML dump."""
-        try:
-            from lxml import etree
-
-            xml = self.device.dump_hierarchy(compressed=False)
-            tree = etree.fromstring(xml.encode("utf-8"))
-            expected = f"#{str(expected_tag or '').lstrip('#').strip()}".lower()
-            candidates = []
-
-            nodes = []
-            for xpath in PUBLISH_SELECTORS.hashtag_suggestion_nodes:
-                nodes.extend(tree.xpath(xpath))
-
-            for node in nodes:
-                text = node.attrib.get("text", "")
-                bounds = node.attrib.get("bounds", "")
-                parsed_bounds = parse_bounds(bounds)
-                if parsed_bounds is None:
-                    continue
-                left, top, right, bottom = parsed_bounds
-                if top < 480:
-                    continue
-                exact = expected and text.lower() == expected
-                candidates.append((not exact, top, left, text, right, bottom))
-
-            if not candidates:
-                return False
-
-            candidates.sort()
-            _, top, left, text, right, bottom = candidates[0]
-            tap_x = (left + right) // 2
-            tap_y = (top + bottom) // 2
-            _ipc.log("debug", f"[hashtag] tapping suggestion {text!r} at ({tap_x}, {tap_y})")
-            self.device.click(tap_x, tap_y)
-            time.sleep(0.15)
-            return True
-        except Exception as e:
-            _ipc.log("debug", f"[hashtag] dump suggestion tap failed: {e}")
-            return False
+        return tap_hashtag_suggestion_from_dump(self.device, expected_tag, log=_ipc.log)
 
     def _confirm_hashtag_suggestion(self, expected_tag: str | None = None) -> bool:
         """Tap the first item in TikTok's hashtag autocomplete suggestion list.
