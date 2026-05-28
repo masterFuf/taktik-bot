@@ -17,7 +17,6 @@ Flow :
 from __future__ import annotations
 
 import os
-import subprocess
 import time
 
 from loguru import logger
@@ -62,6 +61,10 @@ from taktik.core.social_media.tiktok.services.publish_screen_detector import (
     is_video_edit_screen,
     wait_for_tiktok_home,
 )
+from taktik.core.social_media.tiktok.services.publish_text_input import (
+    clear_caption_text,
+    type_caption_text,
+)
 from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import (
     tap_caption_focus_fallback,
     tap_create_button_fallback,
@@ -94,7 +97,6 @@ except Exception:
 # `PermissionHandler` (taktik/core/shared/device/permissions.py), qui sait
 # détecter la version d'Android et la langue système.
 
-# ── XPath lxml translator (identique au signup_workflow) ─────────────────────
 # ---------------------------------------------------------------------------
 # Workflow class
 # ---------------------------------------------------------------------------
@@ -467,55 +469,17 @@ class TikTokUploadWorkflow:
         return True
 
     def _clear_caption_text(self) -> bool:
-        try:
-            from taktik.core.shared.input.taktik_keyboard import (
-                activate_taktik_keyboard,
-                clear_text_with_taktik_keyboard,
-            )
-            activate_taktik_keyboard(self.device_id)
-            return clear_text_with_taktik_keyboard(self.device_id)
-        except Exception as e:
-            _ipc.log("debug", f"[caption] Taktik Keyboard clear failed: {e}")
-            return False
+        return clear_caption_text(self.device_id, log=_ipc.log)
 
     def _type_caption_text(self, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
         """Type caption through Taktik Keyboard first, with slower human pacing."""
-        if not text:
-            return True
-
-        try:
-            from taktik.core.shared.input.taktik_keyboard import (
-                type_with_taktik_keyboard,
-            )
-            if type_with_taktik_keyboard(
-                self.device_id,
-                text,
-                delay_mean=delay_mean,
-                delay_deviation=delay_deviation,
-            ):
-                _ipc.log("debug", "[caption] text inserted with Taktik Keyboard")
-                return True
-        except Exception as e:
-            _ipc.log("debug", f"[caption] Taktik Keyboard failed: {e}")
-
-        if all(ord(ch) < 128 for ch in text):
-            try:
-                escaped = text.replace("\\", "\\\\").replace(" ", "%s")
-                escaped = escaped.replace("&", "\\&").replace("|", "\\|").replace(";", "\\;")
-                result = subprocess.run(
-                    ["adb", "-s", self.device_id, "shell", "input", "text", escaped],
-                    capture_output=True,
-                    text=True,
-                    timeout=8,
-                )
-                if result.returncode == 0:
-                    _ipc.log("debug", "[caption] text inserted with adb input text")
-                    return True
-                _ipc.log("debug", f"[caption] adb input text failed: {result.stderr}")
-            except Exception as e:
-                _ipc.log("debug", f"[caption] adb input text exception: {e}")
-
-        return False
+        return type_caption_text(
+            self.device_id,
+            text,
+            delay_mean=delay_mean,
+            delay_deviation=delay_deviation,
+            log=_ipc.log,
+        )
 
     def _dismiss_caption_keyboard(self) -> None:
         """Hide the keyboard without tapping the preview/editor area."""
