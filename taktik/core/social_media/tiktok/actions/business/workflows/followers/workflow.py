@@ -31,6 +31,10 @@ from taktik.core.social_media.tiktok.services.followers_list import (
     find_follower_rows,
     tap_follower_username,
 )
+from taktik.core.social_media.tiktok.services.followers_scroll_policy import (
+    calculate_legacy_followers_scroll_attempts,
+    get_visited_ratio,
+)
 
 from .._internal import BaseTikTokWorkflow
 from .models import FollowersConfig, FollowersStats
@@ -509,46 +513,27 @@ class FollowersWorkflow(
         Returns:
             Number of scroll attempts to make before giving up.
         """
-        total_visited = self._already_visited_count + self.stats.profiles_visited
-        
-        # If we have the target's follower count, use ratio-based logic
+        decision = calculate_legacy_followers_scroll_attempts(
+            target_followers_count=self._target_followers_count,
+            already_visited_count=self._already_visited_count,
+            profiles_visited=self.stats.profiles_visited,
+        )
+
         if self._target_followers_count > 0:
-            visited_ratio = total_visited / self._target_followers_count
-            remaining = self._target_followers_count - total_visited
-            
-            self.logger.debug(f"📊 Smart scroll: {total_visited}/{self._target_followers_count} visited ({visited_ratio:.0%}), {remaining} remaining")
-            
-            if visited_ratio >= 0.9:
-                # We've visited 90%+ of followers - very few left, minimal scrolling
-                return 5
-            elif visited_ratio >= 0.7:
-                # We've visited 70-90% - some left, moderate scrolling
-                return 10
-            elif visited_ratio >= 0.5:
-                # We've visited 50-70% - many left, more scrolling
-                return 15
-            else:
-                # We've visited < 50% - lots of followers left, scroll aggressively
-                return 20
-        
-        # Fallback: we don't know total count, but we know how many we've visited
-        # Use heuristics based on visited count
-        if total_visited > 0:
-            # If we've visited many profiles, there are likely more to find
-            # Scroll more aggressively to find them
-            if total_visited < 50:
-                scroll_attempts = 15  # We've visited few, likely many more exist
-            elif total_visited < 100:
-                scroll_attempts = 10  # Moderate visited count
-            else:
-                scroll_attempts = 5   # We've visited many, might be near the end
-            
-            self.logger.debug(f"📊 Smart scroll (no total): {total_visited} visited, using {scroll_attempts} scroll attempts")
-            return scroll_attempts
-        
-        # No data at all - use default
-        self.logger.debug("📊 Smart scroll: no data, using default 3 attempts")
-        return 3
+            self.logger.debug(
+                "Smart scroll: "
+                f"{decision.total_visited}/{self._target_followers_count} visited "
+                f"({decision.visited_ratio:.0%}), {decision.remaining} remaining"
+            )
+        elif decision.total_visited > 0:
+            self.logger.debug(
+                "Smart scroll (no total): "
+                f"{decision.total_visited} visited, using {decision.attempts} scroll attempts"
+            )
+        else:
+            self.logger.debug("Smart scroll: no data, using default 3 attempts")
+
+        return decision.attempts
     
     def _get_visited_ratio(self) -> float:
         """Get the ratio of visited followers to total followers.
@@ -556,8 +541,8 @@ class FollowersWorkflow(
         Returns:
             Ratio between 0.0 and 1.0, or 0.0 if unknown.
         """
-        if self._target_followers_count == 0:
-            return 0.0
-        
-        total_visited = self._already_visited_count + self.stats.profiles_visited
-        return min(total_visited / self._target_followers_count, 1.0)
+        return get_visited_ratio(
+            target_followers_count=self._target_followers_count,
+            already_visited_count=self._already_visited_count,
+            profiles_visited=self.stats.profiles_visited,
+        )
