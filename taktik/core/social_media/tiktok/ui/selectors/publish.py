@@ -76,6 +76,14 @@ class PublishSelectors:
     _create_btn_fr: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[contains(@content-desc, "Créer")]',
     ])
+    _home_ready_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/nc_")]',
+        '//*[contains(@resource-id, ":id/mkn")]',
+        '//android.widget.Button[@content-desc="Create"]',
+        '//android.widget.Button[contains(@content-desc, "Créer")]',
+        '//android.widget.Button[contains(@content-desc, "Create")]',
+        '//android.widget.FrameLayout[@content-desc="Create"]',
+    ])
 
     # ── 2. Bouton "Upload / Galerie" (panneau création, vue caméra) ─────────
     # ymg = FrameLayout clickable bas-gauche — Pixel 4 (layout grand écran)
@@ -103,6 +111,11 @@ class PublishSelectors:
         '//*[contains(@text, "Importer")]',
         '//*[contains(@text, "Galerie")]',
     ])
+    _upload_dump_resource_ids: List[str] = field(default_factory=lambda: [
+        "ymg",
+        "ce9",
+        "cl2",
+    ])
 
     # ── 3. Galerie — premier élément (fichier le plus récent) ───────────────
     # `mub`/`nm8` sont clickable=false mais uiautomator2 tape leurs bounds,
@@ -114,6 +127,27 @@ class PublishSelectors:
         '(//android.widget.ImageView[contains(@resource-id, ":id/nm8")])[1]',
         '(//android.widget.GridView[contains(@resource-id, ":id/ir_")]//android.widget.ImageView)[1]',
         '//*[contains(@resource-id, ":id/ir_")]//*[@class="android.widget.ImageView"][1]',
+    ])
+    _gallery_picker_xml_markers: List[str] = field(default_factory=lambda: [
+        ":id/i8o",
+        ":id/ir_",
+        ":id/mub",
+        ":id/nm8",
+    ])
+    _camera_creation_copy_markers: List[str] = field(default_factory=lambda: [
+        "ajouter un son",
+        "add sound",
+        'text="photo"',
+        'text="texte"',
+        'text="publier"',
+        'text="créer"',
+        'text="create"',
+    ])
+    _camera_creation_control_markers: List[str] = field(default_factory=lambda: [
+        ":id/ce9",
+        ":id/r3r",
+        ":id/d8a",
+        ":id/v5w",
     ])
 
     # ── 4. Bouton "Next / Suivant" (galerie picker, trim, multi-sélect) ─────
@@ -136,13 +170,18 @@ class PublishSelectors:
         '(//android.widget.EditText)[1]',
     ])
     _caption_input_en: List[str] = field(default_factory=lambda: [
+        '//android.widget.EditText[contains(@hint, "Add a description")]',
+        '//android.widget.EditText[contains(@text, "Add a description")]',
+        '//android.widget.EditText[contains(@content-desc, "Add a description")]',
         '//android.widget.EditText[contains(@hint, "description")]',
         '//android.widget.EditText[contains(@hint, "Description")]',
         '//android.widget.EditText[contains(@content-desc, "Description")]',
         '//android.widget.EditText[contains(@hint, "caption")]',
     ])
     _caption_input_fr: List[str] = field(default_factory=lambda: [
-        # à compléter quand un dump FR sera disponible
+        '//android.widget.EditText[contains(@hint, "Ajouter une description")]',
+        '//android.widget.EditText[contains(@text, "Ajouter une description")]',
+        '//android.widget.EditText[contains(@content-desc, "Ajouter une description")]',
     ])
 
     # ── 6. Bouton "Post / Publier" ─────────────────────────────────────────
@@ -183,7 +222,50 @@ class PublishSelectors:
         '//*[contains(@text, "Waiting for a job")]',
         '//*[contains(@text, "Auto-typing keyboard")]',
     ])
+    _popup_cancel_buttons: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@text="CANCEL"]',
+        '//android.widget.Button[contains(@text, "Cancel")]',
+        '//android.widget.Button[contains(@text, "Annuler")]',
+        '//android.widget.Button[contains(@text, "Not now")]',
+        '//android.widget.Button[contains(@text, "Non merci")]',
+    ])
+    _video_edit_xml_markers: List[str] = field(default_factory=lambda: [
+        'text="annuler"',
+        'text="enregistrer"',
+        'text="aperçu"',
+        'text="importer"',
+        'id/xay',
+    ])
+    _video_edit_cancel_btn: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/xay")]',
+        '//android.widget.Button[@text="Annuler"]',
+        '//android.widget.TextView[@text="Annuler"]',
+        '//android.widget.Button[contains(@text, "Cancel")]',
+    ])
+    _hashtag_suggestion_nodes: List[str] = field(default_factory=lambda: [
+        '//*[@class="android.widget.TextView" and starts-with(@text, "#")]',
+    ])
+    _hashtag_suggestion_rows: List[str] = field(default_factory=lambda: [
+        '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
+        '(//android.widget.LinearLayout[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
+        '(//android.widget.TextView[@clickable="true"][starts-with(@text,"#")])[1]',
+        '(//androidx.recyclerview.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[1]',
+        '(//androidx.recyclerview.widget.RecyclerView/android.widget.LinearLayout[@clickable="true"])[1]',
+    ])
     _publish_progress_rids: List[str] = field(default_factory=lambda: _rids("x44"))
+    _publish_progress_text_nodes: List[str] = field(default_factory=lambda: [
+        '//*[@text and @bounds]',
+    ])
+    _post_screen_xml_markers_rids: List[str] = field(default_factory=lambda: [
+        ":id/g19",
+        ":id/qrb",
+    ])
+    _post_screen_xml_markers_en: List[str] = field(default_factory=lambda: [
+        "add a description",
+    ])
+    _post_screen_xml_markers_fr: List[str] = field(default_factory=lambda: [
+        "ajouter une description",
+    ])
 
     # ── 7. Indicateur de succès post-publication ───────────────────────────
     _success_en: List[str] = field(default_factory=lambda: [
@@ -204,12 +286,37 @@ class PublishSelectors:
         return self._create_btn_rids + self._create_btn_en + self._create_btn_fr
 
     @property
+    def home_ready_indicators(self) -> List[str]:
+        return self._home_ready_indicators
+
+    @property
     def upload_btn(self) -> List[str]:
         return self._upload_btn_rids + self._upload_btn_en + self._upload_btn_fr
 
     @property
+    def upload_dump_resource_ids(self) -> List[str]:
+        return self._upload_dump_resource_ids
+
+    @property
+    def upload_dump_selectors(self) -> List[tuple[str, str]]:
+        return [
+            (rid, f'//*[contains(@resource-id, ":id/{rid}")]')
+            for rid in self._upload_dump_resource_ids
+        ]
+
+    @property
     def gallery_first_item(self) -> List[str]:
         return self._gallery_first_item_rids
+
+    def has_gallery_picker_marker(self, xml: str) -> bool:
+        lowered_xml = xml.lower()
+        return any(marker.lower() in lowered_xml for marker in self._gallery_picker_xml_markers)
+
+    def has_camera_creation_marker(self, xml: str) -> bool:
+        lowered_xml = xml.lower()
+        has_camera_copy = any(marker.lower() in lowered_xml for marker in self._camera_creation_copy_markers)
+        has_camera_controls = any(marker.lower() in lowered_xml for marker in self._camera_creation_control_markers)
+        return has_camera_copy and has_camera_controls
 
     @property
     def next_btn(self) -> List[str]:
@@ -222,6 +329,46 @@ class PublishSelectors:
     @property
     def post_btn(self) -> List[str]:
         return self._post_btn_rids + self._post_btn_en + self._post_btn_fr
+
+    @property
+    def post_screen_indicators(self) -> List[str]:
+        return self.post_btn + self.caption_input
+
+    @property
+    def post_screen_xml_markers(self) -> List[str]:
+        return (
+            self._post_screen_xml_markers_rids
+            + self._post_screen_xml_markers_en
+            + self._post_screen_xml_markers_fr
+        )
+
+    def has_post_screen_marker(self, xml: str) -> bool:
+        lowered_xml = xml.lower()
+        return any(marker.lower() in lowered_xml for marker in self.post_screen_xml_markers)
+
+    @property
+    def popup_cancel_buttons(self) -> List[str]:
+        return self._popup_cancel_buttons
+
+    @property
+    def video_edit_cancel_btn(self) -> List[str]:
+        return self._video_edit_cancel_btn
+
+    @property
+    def hashtag_suggestion_nodes(self) -> List[str]:
+        return self._hashtag_suggestion_nodes
+
+    @property
+    def hashtag_suggestion_rows(self) -> List[str]:
+        return self._hashtag_suggestion_rows
+
+    def has_video_edit_screen_marker(self, xml: str) -> bool:
+        lowered_xml = xml.lower()
+        return (
+            self._video_edit_xml_markers[0] in lowered_xml
+            and self._video_edit_xml_markers[1] in lowered_xml
+            and any(marker in lowered_xml for marker in self._video_edit_xml_markers[2:])
+        )
 
     @property
     def publish_confirm_dialog(self) -> List[str]:
@@ -238,6 +385,10 @@ class PublishSelectors:
     @property
     def publish_progress_indicator(self) -> List[str]:
         return self._publish_progress_rids
+
+    @property
+    def publish_progress_text_nodes(self) -> List[str]:
+        return self._publish_progress_text_nodes
 
     @property
     def success_indicator(self) -> List[str]:

@@ -28,8 +28,6 @@ from loguru import logger
 # Using this with app_start() makes the launch non-blocking (am start -n pkg/activity)
 # and is the same mechanism used by TikTokManager.restart() in the automation workflows.
 _TIKTOK_SPLASH_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
-_TIKTOK_MAX_HASHTAGS = 5
-_HASHTAG_TOKEN_RE = _re.compile(r"#[A-Za-z0-9_\u00C0-\u024F]+")
 _PERCENT_TEXT_RE = _re.compile(r"^\s*(\d{1,3})\s*%\s*$")
 
 from taktik.core.shared.device.media_store import (
@@ -38,7 +36,15 @@ from taktik.core.shared.device.media_store import (
     scan_wait_for,
 )
 from taktik.core.shared.device.permissions import PermissionHandler
+from taktik.core.social_media.tiktok.services.package_resolver import resolve_tiktok_package
+from taktik.core.social_media.tiktok.services.publish_caption import (
+    MAX_TIKTOK_HASHTAGS,
+    build_caption,
+    sanitize_caption_and_hashtags,
+)
+from taktik.core.social_media.tiktok.ui.detectors.keyboard import is_keyboard_visible
 from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS, POPUP_SELECTORS
+from taktik.core.social_media.tiktok.ui.xpath import find_element, parse_bounds, tap_element, to_lxml
 
 try:
     from bridges.common.ipc import IPC as _IPC
@@ -61,14 +67,6 @@ except Exception:
 # détecter la version d'Android et la langue système.
 
 # ── XPath lxml translator (identique au signup_workflow) ─────────────────────
-_CLASS_STEP_RE = _re.compile(
-    r'(/{1,2})([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)'
-)
-
-def _to_lxml(xp: str) -> str:
-    return _CLASS_STEP_RE.sub(r'\1node[@class="\2"]', xp)
-
-
 # ---------------------------------------------------------------------------
 # Workflow class
 # ---------------------------------------------------------------------------
@@ -107,11 +105,11 @@ class TikTokUploadWorkflow:
         -------
         dict avec keys :  success (bool), message (str), error_type (str | None)
         """
-        caption, hashtags, dropped_hashtags = self._sanitize_caption_and_hashtags(caption, hashtags)
+        caption, hashtags, dropped_hashtags = sanitize_caption_and_hashtags(caption, hashtags)
         if dropped_hashtags:
             _ipc.log(
                 "warning",
-                f"TikTok accepts {_TIKTOK_MAX_HASHTAGS} hashtags maximum; "
+                f"TikTok accepts {MAX_TIKTOK_HASHTAGS} hashtags maximum; "
                 f"{dropped_hashtags} extra hashtag(s) were removed."
             )
 
@@ -134,7 +132,7 @@ class TikTokUploadWorkflow:
         # TikTokManager.restart() calls device.app_start(pkg, SplashActivity, stop=True),
         # which translates to `am start -S -n pkg/SplashActivity` (fast, non-blocking).
         # We replicate that here so publish and automation share the same boot path.
-        tiktok_pkg = package_name or self._get_tiktok_package()
+        tiktok_pkg = package_name or resolve_tiktok_package(self.device_id)
         _ipc.log("info", "🔄 Restarting TikTok (force stop + fresh launch)...")
         _ipc.status("navigating", "Restarting TikTok...")
         try:
@@ -151,7 +149,7 @@ class TikTokUploadWorkflow:
         _ipc.status("navigating", "TikTok ready")
 
         # 5b. Detect app language and prune wrong-language selectors in-place.
-        # Home/For-You screen exposes the bottom-nav with Home/Profile content-desc.
+        # Home/For-You screen exposes bottom-nav labels used by language detection.
         # Non-fatal: failure leaves all selectors in place.
         try:
             from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
@@ -200,7 +198,7 @@ class TikTokUploadWorkflow:
             return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
 
         # 9. Saisir la description
-        full_caption = self._build_caption(caption, hashtags)
+        full_caption = build_caption(caption, hashtags)
         if full_caption:
             _ipc.status("filling", "Entering caption...")
             if not self._fill_caption(caption, hashtags):
@@ -300,18 +298,6 @@ class TikTokUploadWorkflow:
         Strategy: try each indicator selector for 2s, rotate through them,
         total cap = timeout.  Reports progress every 10s.
         """
-        _HOME_INDICATORS = [
-            # TikTok-specific resource-ids (both package variants)
-            '//*[contains(@resource-id, ":id/nc_")]',
-            '//*[contains(@resource-id, ":id/mkn")]',
-            # Restrict content-desc to Button/FrameLayout/ImageView so we never
-            # match the Android system nav bar Home button (which is ImageView
-            # under com.android.systemui with desc "Home" / "Accueil")
-            '//android.widget.Button[@content-desc="Create"]',
-            '//android.widget.Button[contains(@content-desc, "Créer")]',
-            '//android.widget.Button[contains(@content-desc, "Create")]',
-            '//android.widget.FrameLayout[@content-desc="Create"]',
-        ]
         start = time.time()
         last_log = start
         while True:
@@ -319,7 +305,7 @@ class TikTokUploadWorkflow:
             if elapsed >= timeout:
                 _ipc.log("warning", f"⚠️  TikTok home not detected after {timeout:.0f}s, proceeding anyway")
                 return False
-            for xp in _HOME_INDICATORS:
+            for xp in PUBLISH_SELECTORS.home_ready_indicators:
                 try:
                     if self.device.xpath(xp).wait(timeout=2.0):
                         _ipc.log("info", f"✅ TikTok home ready in {elapsed + (time.time() - start - elapsed):.1f}s")
@@ -335,11 +321,7 @@ class TikTokUploadWorkflow:
                 last_log = now
 
     def _tap_create_button(self) -> bool:
-        """Tap the Create button in the bottom navigation bar.
-        
-        In TikTok 44.9+: resource-id=nc_, content-desc='Create'
-        Located at 40% from left in the bottom nav bar.
-        """
+        """Tap the Create button in the bottom navigation bar."""
         if self._tap(PUBLISH_SELECTORS.create_btn, timeout=3.0):
             return True
         # Fallback: tap bottom nav at 40% width (Create is 3rd/5 items = 40% = center of 3rd slot)
@@ -357,15 +339,7 @@ class TikTokUploadWorkflow:
             return False
 
     def _tap_upload(self) -> bool:
-        """Tap the gallery thumbnail in the camera creation panel to open the gallery picker.
-
-        Known resource-ids (all via _rids() which uses contains() across all TikTok packages):
-          ymg  → Pixel 4 / large-screen layouts: FrameLayout clickable, bottom-left corner
-          ce9  → C57S (576x1280): ce9 is directly clickable (no ymg wrapper), right of shutter
-          cl2  → Samsung v44.9+
-        NOTE: r3r is the SHUTTER button (center screen) — never use it here.
-        Fallback: try the camera-strip right thumbnail (ce9 position), then bottom-left corner.
-        """
+        """Tap the gallery thumbnail in the camera creation panel."""
         if self._tap(PUBLISH_SELECTORS.upload_btn, timeout=6.0):
             return True
         if self._tap_upload_from_dump():
@@ -403,9 +377,8 @@ class TikTokUploadWorkflow:
     def _tap_upload_from_dump(self) -> bool:
         """Tap the visible TikTok gallery button by reading its bounds from XML.
 
-        TikTok can A/B test the create screen even on identical device models and
-        APK versions. The gallery button is still exposed as either `ymg` or
-        clickable `ce9`; coordinates vary, resource-ids do not.
+        TikTok can A/B test the create screen even on identical device models.
+        Selectors live in PublishSelectors; this method only reads bounds.
         """
         try:
             from lxml import etree
@@ -414,16 +387,16 @@ class TikTokUploadWorkflow:
             tree = etree.fromstring(xml.encode("utf-8"))
             candidates = []
 
-            for rid in ("ymg", "ce9", "cl2"):
-                nodes = tree.xpath(f'//*[contains(@resource-id, ":id/{rid}")]')
+            for rid, xpath in PUBLISH_SELECTORS.upload_dump_selectors:
+                nodes = tree.xpath(xpath)
                 for node in nodes:
                     bounds = node.attrib.get("bounds", "")
                     if not bounds:
                         continue
-                    coords = [int(v) for v in _re.findall(r"\d+", bounds)]
-                    if len(coords) != 4:
+                    parsed_bounds = parse_bounds(bounds)
+                    if parsed_bounds is None:
                         continue
-                    left, top, right, bottom = coords
+                    left, top, right, bottom = parsed_bounds
                     width = right - left
                     height = bottom - top
                     if width <= 12 or height <= 12:
@@ -490,12 +463,7 @@ class TikTokUploadWorkflow:
         try:
             xml = self.device.dump_hierarchy(compressed=False)
             xml_lower = xml.lower()
-            return any(token in xml_lower for token in (
-                ':id/i8o',
-                ':id/ir_',
-                ':id/mub',
-                ':id/nm8',
-            ))
+            return PUBLISH_SELECTORS.has_gallery_picker_marker(xml_lower)
         except Exception:
             return False
 
@@ -504,22 +472,7 @@ class TikTokUploadWorkflow:
         try:
             xml = self.device.dump_hierarchy(compressed=False)
             xml_lower = xml.lower()
-            has_camera_copy = any(token in xml_lower for token in (
-                'ajouter un son',
-                'add sound',
-                'text="photo"',
-                'text="texte"',
-                'text="publier"',
-                'text="créer"',
-                'text="create"',
-            ))
-            has_camera_controls = any(token in xml_lower for token in (
-                ':id/ce9',
-                ':id/r3r',
-                ':id/d8a',
-                ':id/v5w',
-            ))
-            return has_camera_copy and has_camera_controls
+            return PUBLISH_SELECTORS.has_camera_creation_marker(xml_lower)
         except Exception:
             return False
 
@@ -553,14 +506,7 @@ class TikTokUploadWorkflow:
             time.sleep(0.5)
             return
 
-        _CANCEL_BTNS = [
-            '//android.widget.Button[@text="CANCEL"]',
-            '//android.widget.Button[contains(@text, "Cancel")]',
-            '//android.widget.Button[contains(@text, "Annuler")]',
-            '//android.widget.Button[contains(@text, "Not now")]',
-            '//android.widget.Button[contains(@text, "Non merci")]',
-        ]
-        el = self._find_element(_CANCEL_BTNS, timeout=3.0)
+        el = self._find_element(PUBLISH_SELECTORS.popup_cancel_buttons, timeout=3.0)
         if el:
             try:
                 _ipc.log("info", "🚫 Dismissing post-publishing dialog...")
@@ -577,51 +523,6 @@ class TikTokUploadWorkflow:
         _ipc.log("info", "[publishing] confirming TikTok visibility dialog...")
         if self._tap(PUBLISH_SELECTORS.publish_confirm_btn, timeout=2.0):
             return True
-        return False
-
-    def _wait_for_publish_commit(self, timeout: float = 25.0) -> bool:
-        """Wait until TikTok has likely finished committing the publication."""
-        min_grace = 8.0
-        start = time.time()
-        last_logged_second = -1
-
-        _ipc.log("info", "[publishing] waiting for TikTok to finish upload…")
-
-        while time.time() - start < timeout:
-            elapsed = time.time() - start
-
-            if self._handle_publish_confirmation_dialog():
-                time.sleep(1.0)
-                continue
-
-            self._dismiss_post_popups()
-
-            if elapsed < min_grace:
-                current_second = int(elapsed)
-                if current_second != last_logged_second and current_second in (2, 4, 6):
-                    last_logged_second = current_second
-                    _ipc.log("debug", f"[publishing] grace period… {current_second}s")
-                time.sleep(1.0)
-                continue
-
-            if self._is_on_post_screen():
-                current_second = int(elapsed)
-                if current_second != last_logged_second:
-                    last_logged_second = current_second
-                    _ipc.log("info", f"[publishing] still on caption screen after {current_second}s, waiting…")
-                time.sleep(1.2)
-                continue
-
-            if self._find_element(PUBLISH_SELECTORS.success_indicator, timeout=1.0):
-                _ipc.log("info", "[publishing] TikTok success indicator detected")
-                time.sleep(2.0)
-                return True
-
-            _ipc.log("info", f"[publishing] publish flow stabilized after {elapsed:.1f}s")
-            time.sleep(2.0)
-            return True
-
-        _ipc.log("warning", "[publishing] commit wait timed out")
         return False
 
     def _extract_percent_value(self, value: str | None) -> Optional[int]:
@@ -649,7 +550,7 @@ class TikTokUploadWorkflow:
 
             for xp in PUBLISH_SELECTORS.publish_progress_indicator:
                 try:
-                    nodes = tree.xpath(_to_lxml(xp))
+                    nodes = tree.xpath(to_lxml(xp))
                 except Exception:
                     continue
                 for node in nodes:
@@ -657,19 +558,20 @@ class TikTokUploadWorkflow:
                     if percent is not None:
                         return percent
 
-            for node in tree.xpath('//*[@text and @bounds]'):
-                percent = self._extract_percent_value(node.attrib.get("text"))
-                if percent is None:
-                    continue
-                coords = [int(v) for v in _re.findall(r"\d+", node.attrib.get("bounds", ""))]
-                if len(coords) != 4:
-                    continue
-                left, top, right, bottom = coords
-                if left > 160 or top > 320:
-                    continue
-                if (right - left) > 120 or (bottom - top) > 80:
-                    continue
-                return percent
+            for xpath in PUBLISH_SELECTORS.publish_progress_text_nodes:
+                for node in tree.xpath(xpath):
+                    percent = self._extract_percent_value(node.attrib.get("text"))
+                    if percent is None:
+                        continue
+                    bounds = parse_bounds(node.attrib.get("bounds", ""))
+                    if bounds is None:
+                        continue
+                    left, top, right, bottom = bounds
+                    if left > 160 or top > 320:
+                        continue
+                    if (right - left) > 120 or (bottom - top) > 80:
+                        continue
+                    return percent
         except Exception as e:
             _ipc.log("debug", f"[publishing] progress parse failed: {e}")
         return None
@@ -796,12 +698,15 @@ class TikTokUploadWorkflow:
     def _is_on_post_screen(self) -> bool:
         """Check if we're on the post description screen."""
         try:
-            from lxml import etree
             xml = self.device.dump_hierarchy(compressed=False)
+            if PUBLISH_SELECTORS.has_post_screen_marker(xml):
+                return True
+
+            from lxml import etree
             tree = etree.fromstring(xml.encode("utf-8"))
-            for xp in PUBLISH_SELECTORS.post_btn + PUBLISH_SELECTORS.caption_input:
+            for xp in PUBLISH_SELECTORS.post_screen_indicators:
                 try:
-                    if tree.xpath(_to_lxml(xp)):
+                    if tree.xpath(to_lxml(xp)):
                         return True
                 except Exception:
                     pass
@@ -812,16 +717,8 @@ class TikTokUploadWorkflow:
     def _is_video_edit_screen(self) -> bool:
         """Return True when TikTok opened the post-upload video editor."""
         try:
-            xml = self.device.dump_hierarchy(compressed=False).lower()
-            return (
-                'text="annuler"' in xml
-                and 'text="enregistrer"' in xml
-                and (
-                    'text="aperçu"' in xml
-                    or 'text="importer"' in xml
-                    or 'id/xay' in xml
-                )
-            )
+            xml = self.device.dump_hierarchy(compressed=False)
+            return PUBLISH_SELECTORS.has_video_edit_screen_marker(xml)
         except Exception:
             return False
 
@@ -831,13 +728,7 @@ class TikTokUploadWorkflow:
             return False
 
         _ipc.log("warning", "[publish] video editor opened; tapping Annuler to return to post screen")
-        cancel_selectors = [
-            '//*[contains(@resource-id, ":id/xay")]',
-            '//android.widget.Button[@text="Annuler"]',
-            '//android.widget.TextView[@text="Annuler"]',
-            '//android.widget.Button[contains(@text, "Cancel")]',
-        ]
-        if self._tap(cancel_selectors, timeout=2.0):
+        if self._tap(PUBLISH_SELECTORS.video_edit_cancel_btn, timeout=2.0):
             time.sleep(1.2)
             return True
         return False
@@ -961,7 +852,7 @@ class TikTokUploadWorkflow:
 
     def _is_keyboard_visible(self) -> bool:
         """Detect visible system/Taktik keyboard overlays from the hierarchy dump."""
-        return self._find_element(PUBLISH_SELECTORS.keyboard_overlay_indicators, timeout=1.0) is not None
+        return is_keyboard_visible(self.device, timeout=1.0)
 
     def _tap_hashtag_suggestion_from_dump(self, expected_tag: str | None = None) -> bool:
         """Tap the first visible TikTok hashtag suggestion from the XML dump."""
@@ -973,13 +864,17 @@ class TikTokUploadWorkflow:
             expected = f"#{str(expected_tag or '').lstrip('#').strip()}".lower()
             candidates = []
 
-            for node in tree.xpath('//*[@class="android.widget.TextView" and starts-with(@text, "#")]'):
+            nodes = []
+            for xpath in PUBLISH_SELECTORS.hashtag_suggestion_nodes:
+                nodes.extend(tree.xpath(xpath))
+
+            for node in nodes:
                 text = node.attrib.get("text", "")
                 bounds = node.attrib.get("bounds", "")
-                coords = [int(v) for v in _re.findall(r"\d+", bounds)]
-                if len(coords) != 4:
+                parsed_bounds = parse_bounds(bounds)
+                if parsed_bounds is None:
                     continue
-                left, top, right, bottom = coords
+                left, top, right, bottom = parsed_bounds
                 if top < 480:
                     continue
                 exact = expected and text.lower() == expected
@@ -1011,19 +906,7 @@ class TikTokUploadWorkflow:
         if self._tap_hashtag_suggestion_from_dump(expected_tag):
             return True
 
-        _SUGGESTION_SELECTORS = [
-            # Clickable row in suggestion RecyclerView containing a # TextView
-            '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
-            '(//android.widget.LinearLayout[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
-            # Direct clickable TextView (some TikTok versions)
-            '(//android.widget.TextView[@clickable="true"][starts-with(@text,"#")])[1]',
-            # First item in any RecyclerView appearing above keyboard
-            '(//androidx.recyclerview.widget.RecyclerView/android.view.ViewGroup[@clickable="true"])[1]',
-            '(//androidx.recyclerview.widget.RecyclerView/android.widget.LinearLayout[@clickable="true"])[1]',
-            # musically package variant
-            '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',
-        ]
-        tapped = self._tap(_SUGGESTION_SELECTORS, timeout=2.0)
+        tapped = self._tap(PUBLISH_SELECTORS.hashtag_suggestion_rows, timeout=2.0)
         if tapped:
             _ipc.log("debug", "[hashtag] suggestion tapped ✅")
             time.sleep(0.3)
@@ -1034,72 +917,14 @@ class TikTokUploadWorkflow:
     # ------------------------------------------------------------------
 
     def _find_element(self, selectors: list, timeout: float = _EXIST_TIMEOUT):
-        for xp in selectors:
-            try:
-                el = self.device.xpath(xp)
-                if el.wait(timeout=timeout):
-                    return el
-            except Exception:
-                continue
-        return None
+        return find_element(self.device, selectors, timeout)
 
     def _tap(self, selectors: list, timeout: float = _EXIST_TIMEOUT) -> bool:
-        el = self._find_element(selectors, timeout)
-        if el:
-            try:
-                el.click()
-                return True
-            except Exception:
-                pass
-        return False
+        return tap_element(self.device, selectors, timeout)
 
     # ------------------------------------------------------------------
     # Misc helpers
     # ------------------------------------------------------------------
-
-    def _get_tiktok_package(self) -> str:
-        """Return whichever TikTok package is installed on the device."""
-        for pkg in ("com.zhiliaoapp.musically", "com.ss.android.ugc.trill",
-                    "com.bytedance.trill"):
-            try:
-                result = subprocess.run(
-                    ["adb", "-s", self.device_id, "shell", "pm", "list", "packages", pkg],
-                    capture_output=True, text=True, timeout=10
-                )
-                if pkg in result.stdout:
-                    return pkg
-            except Exception:
-                pass
-        return "com.zhiliaoapp.musically"
-
-    @staticmethod
-    def _build_caption(caption: str, hashtags: list[str]) -> str:
-        parts = []
-        if caption:
-            parts.append(caption)
-        if hashtags:
-            parts.append(" ".join(f"#{h.lstrip('#')}" for h in hashtags))
-        return "\n".join(parts)
-
-    @staticmethod
-    def _sanitize_caption_and_hashtags(caption: str, hashtags) -> tuple[str, list[str], int]:
-        caption = caption or ""
-        explicit_hashtags = hashtags if isinstance(hashtags, list) else str(hashtags or "").replace(",", " ").split()
-        caption_hashtags = _HASHTAG_TOKEN_RE.findall(caption)
-        clean_hashtags: list[str] = []
-
-        for raw in [*caption_hashtags, *explicit_hashtags]:
-            tag = _re.sub(r"[^A-Za-z0-9_\u00C0-\u024F]", "", str(raw).lstrip("#").strip()).lower()
-            if tag and tag not in clean_hashtags:
-                clean_hashtags.append(tag)
-
-        selected = clean_hashtags[:_TIKTOK_MAX_HASHTAGS]
-        stripped_caption = _HASHTAG_TOKEN_RE.sub("", caption)
-        stripped_caption = _re.sub(r"[ \t]{2,}", " ", stripped_caption)
-        stripped_caption = _re.sub(r"[ \t]+\n", "\n", stripped_caption)
-        stripped_caption = _re.sub(r"\n{3,}", "\n\n", stripped_caption).strip()
-
-        return stripped_caption, selected, max(0, len(clean_hashtags) - len(selected))
 
     @staticmethod
     def _error(error_type: str, message: str) -> dict:
