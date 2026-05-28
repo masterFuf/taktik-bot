@@ -176,6 +176,29 @@ python -m taktik
 
 > ⚠️ The CLI is primarily maintained for the Desktop app integration. Some features may require updates for standalone use.
 
+### Development tests
+
+The Bot test suite is organized by test type, platform and feature family:
+
+```text
+tests/unit/database
+tests/unit/social_media/tiktok/bridges
+tests/unit/social_media/tiktok/services
+tests/unit/social_media/tiktok/ui
+tests/unit/social_media/tiktok/workflows/followers
+tests/unit/social_media/tiktok/workflows/publish
+```
+
+Run all unit tests with:
+
+```bash
+python -m pytest
+```
+
+Local POC and device smoke scripts belong under `tests/poc/` and `tests/smoke/`.
+They are intentionally ignored because they may contain dumps, screenshots or
+device-specific experiments.
+
 ### Requirements
 
 - **Android 10+** device or emulator

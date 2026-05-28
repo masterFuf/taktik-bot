@@ -13,6 +13,7 @@ screenshots/
 
 # Tests
 tests/*
+!tests/README.md
 !tests/unit/
 !tests/unit/**
 
