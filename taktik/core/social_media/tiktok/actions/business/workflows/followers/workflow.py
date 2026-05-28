@@ -27,6 +27,10 @@ from taktik.core.social_media.tiktok.services.known_profiles_stop_policy import 
     KnownProfilesStopPolicy,
     normalize_username,
 )
+from taktik.core.social_media.tiktok.services.followers_list import (
+    find_follower_rows,
+    tap_follower_username,
+)
 
 from .._internal import BaseTikTokWorkflow
 from .models import FollowersConfig, FollowersStats
@@ -429,61 +433,11 @@ class FollowersWorkflow(
     
     def _find_follower_rows(self) -> List[Dict[str, Any]]:
         """Find all follower rows on screen with username extraction."""
-        rows = []
-        
-        try:
-            # Find all Follow/Friends/Following buttons in the followers list
-            buttons = []
-            for sel in self.followers_selectors.follower_any_button:
-                buttons = self.device.xpath(sel).all()
-                if buttons:
-                    break
-            
-            self.logger.debug(f"Found {len(buttons)} follow buttons")
-            
-            for btn in buttons:
-                try:
-                    status = btn.text or ""
-                    btn_info = btn.info
-                    bounds = btn_info.get('bounds', {})
-                    
-                    # Extract username from the same row
-                    # Username is in a sibling TextView with resource-id ygv
-                    username = None
-                    btn_top = bounds.get('top', 0)
-                    btn_bottom = bounds.get('bottom', 0)
-                    
-                    # Find username TextViews and match by vertical position
-                    username_elements = []
-                    for sel in self.followers_selectors.follower_username:
-                        username_elements = self.device.xpath(sel).all()
-                        if username_elements:
-                            break
-                    for elem in username_elements:
-                        elem_bounds = elem.info.get('bounds', {})
-                        elem_top = elem_bounds.get('top', 0)
-                        elem_bottom = elem_bounds.get('bottom', 0)
-                        
-                        # Check if this username is in the same row (overlapping vertical bounds)
-                        if elem_top < btn_bottom and elem_bottom > btn_top:
-                            username = elem.text
-                            break
-                    
-                    rows.append({
-                        'button': btn,
-                        'status': status,
-                        'bounds': bounds,
-                        'username': username,
-                    })
-                    self.logger.debug(f"Found follower @{username} with status: {status}")
-                except Exception as e:
-                    self.logger.debug(f"Error processing button: {e}")
-                    continue
-                    
-        except Exception as e:
-            self.logger.debug(f"Error finding follower rows: {e}")
-        
-        return rows
+        return find_follower_rows(
+            self.device,
+            self.followers_selectors,
+            logger=self.logger,
+        )
     
     def _click_follower_profile(self, row_info: Dict[str, Any]) -> bool:
         """Click on a follower's profile (the username text, not the avatar).
@@ -496,30 +450,18 @@ class FollowersWorkflow(
         [Avatar ~0-120] [Username/Name ~120-350] [Follow Button ~350+]
         """
         try:
-            bounds = row_info.get('bounds', {})
             username = row_info.get('username', '')
-            
-            if bounds:
-                top = bounds.get('top', 0)
-                bottom = bounds.get('bottom', 0)
-                
-                # Click on the USERNAME area (center of the row, after avatar)
-                # Avatar is roughly 0-120px, username text starts around 120-350px
-                # We click at x=280 to be safely in the username/display name area
-                click_x = 280  # Username text area (avoids avatar which triggers story)
-                click_y = (top + bottom) // 2
-                
-                self.logger.debug(f"Clicking username area at ({click_x}, {click_y}) for @{username}")
-                self.device.click(click_x, click_y)
-                time.sleep(1.5)  # Wait for profile to load
-                
-                # Check if we accidentally landed on a story
-                if self._is_on_story_page():
-                    self.logger.info(f"📖 Landed on story for @{username}, handling story first...")
-                    self._handle_story_view()
-                
-                return True
-                
+
+            if not tap_follower_username(self.device, row_info, logger=self.logger):
+                return False
+
+            # Check if we accidentally landed on a story
+            if self._is_on_story_page():
+                self.logger.info(f"📖 Landed on story for @{username}, handling story first...")
+                self._handle_story_view()
+
+            return True
+
         except Exception as e:
             self.logger.debug(f"Error clicking follower profile: {e}")
         return False
