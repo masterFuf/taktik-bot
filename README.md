@@ -182,6 +182,7 @@ The Bot test suite is organized by test type, platform and feature family:
 
 ```text
 tests/unit/database
+tests/unit/database/repositories/tiktok
 tests/unit/social_media/tiktok/bridges
 tests/unit/social_media/tiktok/services
 tests/unit/social_media/tiktok/ui

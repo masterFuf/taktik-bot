@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.followers_repository import FollowersRepository
+from taktik.core.database.repositories.tiktok.followers_repository import FollowersRepository
 
 
 class _FakeDb:

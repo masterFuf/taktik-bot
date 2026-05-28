@@ -183,6 +183,7 @@ fonctionnalite :
 
 ```text
 tests/unit/database
+tests/unit/database/repositories/tiktok
 tests/unit/social_media/tiktok/bridges
 tests/unit/social_media/tiktok/services
 tests/unit/social_media/tiktok/ui

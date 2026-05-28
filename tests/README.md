@@ -10,6 +10,9 @@ This folder separates runnable tests from local diagnostics.
 tests/unit/
   database/
     SQLite schema and local database service tests.
+    repositories/
+      tiktok/
+        TikTok repository adapters and database access tests.
   social_media/
     tiktok/
       bridges/
