@@ -333,7 +333,9 @@ class DesktopBridge:
     def _build_action_config(self, action_type: str, interaction_type: str, primary_target: str,
                               target_list: list, max_profiles: int, min_likes_per_profile: int,
                               max_likes_per_profile: int, like_percentage: int, follow_percentage: int,
-                              comment_percentage: int, story_percentage: int, story_like_percentage: int) -> dict:
+                              comment_percentage: int, story_percentage: int, story_like_percentage: int,
+                              max_consecutive_known_usernames: Optional[int] = None,
+                              max_no_new_usernames_scrolls: Optional[int] = None) -> dict:
         """Build action configuration based on action type."""
         
         # Configuration spécifique pour le workflow SYNC_FOLLOWING
@@ -402,7 +404,7 @@ class DesktopBridge:
             }
         
         # Configuration par défaut pour les autres workflows (interact_with_followers, hashtag, post_url)
-        return {
+        action_config = {
             "type": action_type,
             "target_username": primary_target if action_type == 'interact_with_followers' else None,
             "target_usernames": target_list if action_type == 'interact_with_followers' else [],
@@ -455,6 +457,13 @@ class DesktopBridge:
                 "scroll_delay": 1.5
             }
         }
+
+        if max_consecutive_known_usernames is not None:
+            action_config["max_consecutive_known_usernames"] = max_consecutive_known_usernames
+        if max_no_new_usernames_scrolls is not None:
+            action_config["max_no_new_usernames_scrolls"] = max_no_new_usernames_scrolls
+
+        return action_config
     
     def build_workflow_config(self) -> dict:
         """Build the workflow configuration matching CLI format."""
@@ -473,6 +482,13 @@ class DesktopBridge:
         session_duration = self.session_config.get('durationMinutes', 60)
         min_delay = self.session_config.get('minDelay', 5)
         max_delay = self.session_config.get('maxDelay', 15)
+        max_consecutive_known_usernames = self.session_config.get('maxConsecutiveKnownUsernames')
+        if max_consecutive_known_usernames is not None:
+            max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
+
+        max_no_new_usernames_scrolls = self.session_config.get('maxNoNewUsernamesScrolls')
+        if max_no_new_usernames_scrolls is not None:
+            max_no_new_usernames_scrolls = max(1, int(max_no_new_usernames_scrolls or 1))
         
         # Parse multiple targets (comma-separated) into a list
         # e.g., "user1,user2,user3" -> ["user1", "user2", "user3"]
@@ -523,6 +539,27 @@ class DesktopBridge:
             session_workflow_type = 'target_followers'
         
         # Build config matching CLI format
+        session_settings = {
+            "workflow_type": session_workflow_type,  # Must match SessionManager check for skip limits
+            "total_profiles_limit": max_profiles,
+            "total_follows_limit": math.ceil(max_profiles * (follow_percentage / 100)) if follow_percentage > 0 else 0,
+            "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,  # use max as upper bound
+            "session_duration_minutes": session_duration,
+            "skip_initial_restart": True,
+            "delay_between_actions": {
+                "min": min_delay,
+                "max": max_delay
+            },
+            "randomize_actions": True,
+            "enable_screenshots": True,
+            "screenshot_path": "screenshots"
+        }
+
+        if max_consecutive_known_usernames is not None:
+            session_settings["max_consecutive_known_usernames"] = max_consecutive_known_usernames
+        if max_no_new_usernames_scrolls is not None:
+            session_settings["max_no_new_usernames_scrolls"] = max_no_new_usernames_scrolls
+
         workflow_config = {
             "filters": {
                 "min_followers": min_followers,
@@ -533,21 +570,7 @@ class DesktopBridge:
                 "privacy_relation": "public_and_private",
                 "blacklist_words": []
             },
-            "session_settings": {
-                "workflow_type": session_workflow_type,  # Must match SessionManager check for skip limits
-                "total_profiles_limit": max_profiles,
-                "total_follows_limit": math.ceil(max_profiles * (follow_percentage / 100)) if follow_percentage > 0 else 0,
-                "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_percentage / 100)) if like_percentage > 0 else 0,  # use max as upper bound
-                "session_duration_minutes": session_duration,
-                "skip_initial_restart": True,
-                "delay_between_actions": {
-                    "min": min_delay,
-                    "max": max_delay
-                },
-                "randomize_actions": True,
-                "enable_screenshots": True,
-                "screenshot_path": "screenshots"
-            },
+            "session_settings": session_settings,
             "actions": [
                 self._build_action_config(
                     action_type=action_type,
@@ -561,7 +584,9 @@ class DesktopBridge:
                     follow_percentage=follow_percentage,
                     comment_percentage=comment_percentage,
                     story_percentage=story_percentage,
-                    story_like_percentage=story_like_percentage
+                    story_like_percentage=story_like_percentage,
+                    max_consecutive_known_usernames=max_consecutive_known_usernames,
+                    max_no_new_usernames_scrolls=max_no_new_usernames_scrolls
                 )
             ]
         }
@@ -581,6 +606,16 @@ class DesktopBridge:
             send_log("info", f"Configuration: {json.dumps(workflow_config, indent=2)}")
             
             # Send structured session config for WorkflowAnalyzer
+            session_payload = {
+                "durationMinutes": self.session_config.get('durationMinutes', 60),
+                "minDelay": self.session_config.get('minDelay', 5),
+                "maxDelay": self.session_config.get('maxDelay', 15)
+            }
+            if self.session_config.get('maxConsecutiveKnownUsernames') is not None:
+                session_payload["maxConsecutiveKnownUsernames"] = self.session_config.get('maxConsecutiveKnownUsernames')
+            if self.session_config.get('maxNoNewUsernamesScrolls') is not None:
+                session_payload["maxNoNewUsernamesScrolls"] = self.session_config.get('maxNoNewUsernamesScrolls')
+
             send_message("session_config", config={
                 "deviceId": self.device_id,
                 "workflowType": self.workflow_type,
@@ -602,11 +637,7 @@ class DesktopBridge:
                     "minPosts": self.filters.get('minPosts', 5),
                     "maxFollowing": self.filters.get('maxFollowing', 7500)
                 },
-                "session": {
-                    "durationMinutes": self.session_config.get('durationMinutes', 60),
-                    "minDelay": self.session_config.get('minDelay', 5),
-                    "maxDelay": self.session_config.get('maxDelay', 15)
-                },
+                "session": session_payload,
                 **({"ai": {
                     "enabled": True,
                     "smartComments": self.ai_config.get('smartComments', False),

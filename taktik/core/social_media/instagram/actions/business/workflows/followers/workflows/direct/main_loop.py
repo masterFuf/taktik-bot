@@ -47,6 +47,15 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
         # Navigation configuration
         deep_link_percentage = config.get('deep_link_percentage', 90)
         force_search_for_target = config.get('force_search_for_target', False)
+        max_consecutive_known_usernames = config.get('max_consecutive_known_usernames')
+        if max_consecutive_known_usernames is not None:
+            max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
+
+        legacy_max_no_new_usernames_scrolls = config.get('max_no_new_usernames_scrolls')
+        if legacy_max_no_new_usernames_scrolls is not None:
+            legacy_max_no_new_usernames_scrolls = max(1, int(legacy_max_no_new_usernames_scrolls or 1))
+        elif max_consecutive_known_usernames is None:
+            legacy_max_no_new_usernames_scrolls = 20
         
         try:
             # 1. Naviguer vers le profil cible et ouvrir la liste
@@ -65,6 +74,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             scroll_attempts = 0
             max_scroll_attempts = 100
             no_new_profiles_count = 0
+            known_usernames_streak = 0
             total_usernames_seen = 0
             
             # Contexte de navigation pour savoir où on en est
@@ -178,6 +188,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                 username, account_id, hours_limit=24*60
                             )
                             if should_skip:
+                                known_usernames_streak += 1
                                 if skip_reason == "already_processed":
                                     self.logger.debug(f"@{username} already processed in DB, skipping")
                                     stats['already_processed'] += 1
@@ -188,8 +199,12 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                     tracker.log_skipped_from_db(username, "already_filtered")
                                 stats['skipped'] += 1
                                 continue
+                            known_usernames_streak = 0
                         except Exception as e:
                             self.logger.warning(f"Error checking @{username}: {e}")
+                            known_usernames_streak = 0
+                    else:
+                        known_usernames_streak = 0
                     
                     new_profiles_to_interact += 1
                     
@@ -247,7 +262,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     new_usernames_found, no_new_profiles_count, total_usernames_seen,
                     target_followers_count, scroll_detector, tracker, scroll_attempts,
                     new_profiles_to_interact, did_interact_this_iteration,
-                    stats, max_interactions
+                    stats, max_interactions, known_usernames_streak,
+                    max_consecutive_known_usernames, legacy_max_no_new_usernames_scrolls
                 )
                 
                 if stop_reason:
@@ -269,7 +285,13 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         coverage = (total_usernames_seen / target_followers_count) * 100
                         self.logger.debug(f"📊 Progress: {total_usernames_seen:,}/{target_followers_count:,} ({coverage:.1f}%) - {new_usernames_found} new this page")
                     if new_profiles_to_interact == 0 and new_usernames_found > 0:
-                        self.logger.debug(f"📋 {new_usernames_found} new usernames seen, but all already in DB - continuing scroll")
+                        if max_consecutive_known_usernames is not None:
+                            self.logger.debug(
+                                f"📋 {new_usernames_found} new usernames seen, but all already in DB - "
+                                f"known streak {known_usernames_streak}/{max_consecutive_known_usernames}"
+                            )
+                        else:
+                            self.logger.debug(f"📋 {new_usernames_found} new usernames seen, but all already in DB - continuing scroll")
                 
                 # Scroller si nécessaire
                 if stats['interacted'] < max_interactions:

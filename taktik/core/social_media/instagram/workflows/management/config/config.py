@@ -95,6 +95,11 @@ class WorkflowConfigBuilder:
             'custom_comments': custom_comments,
             'interaction_type': action.get('interaction_type', 'followers')  # 'followers' or 'following'
         }
+
+        if action.get('max_consecutive_known_usernames') is not None:
+            config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')
+        if action.get('max_no_new_usernames_scrolls') is not None:
+            config['max_no_new_usernames_scrolls'] = action.get('max_no_new_usernames_scrolls')
         
         return config
     
@@ -105,12 +110,19 @@ class WorkflowConfigBuilder:
         probabilities = ActionProbabilities.from_percentages(action.get('probabilities', {}))
         filters = FilterCriteria.from_action(action)
         
-        return {
+        config = {
             'max_interactions': max_interactions,
             **probabilities.to_dict(),
             'interaction_type': action.get('interaction_type', 'recent-likers'),
             'filter_criteria': filters.to_dict()
         }
+
+        if action.get('max_consecutive_known_usernames') is not None:
+            config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')
+        if action.get('max_no_new_usernames_scrolls') is not None:
+            config['max_no_new_usernames_scrolls'] = action.get('max_no_new_usernames_scrolls')
+
+        return config
     
     @staticmethod
     def build_post_url_config(action: Dict[str, Any]) -> Dict[str, Any]:
@@ -119,12 +131,19 @@ class WorkflowConfigBuilder:
         probabilities = ActionProbabilities.from_percentages(action.get('probabilities', {}))
         filters = FilterCriteria.from_action(action)
         
-        return {
+        config = {
             'max_interactions': max_interactions,
             'max_interactions_per_session': max_interactions,
             **probabilities.to_dict(),
             'filter_criteria': filters.to_dict()
         }
+
+        if action.get('max_consecutive_known_usernames') is not None:
+            config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')
+        if action.get('max_no_new_usernames_scrolls') is not None:
+            config['max_no_new_usernames_scrolls'] = action.get('max_no_new_usernames_scrolls')
+
+        return config
     
     @staticmethod
     def build_place_config(action: Dict[str, Any]) -> Dict[str, Any]:

@@ -145,7 +145,8 @@ class DirectNavigationMixin:
         self, new_usernames_found, no_new_profiles_count, total_usernames_seen,
         target_followers_count, scroll_detector, tracker, scroll_attempts,
         new_profiles_to_interact, did_interact_this_iteration,
-        stats, max_interactions
+        stats, max_interactions, known_usernames_streak,
+        max_consecutive_known_usernames, legacy_max_no_new_usernames_scrolls
     ):
         """
         Handle end-of-list detection when no new usernames found.
@@ -153,12 +154,35 @@ class DirectNavigationMixin:
         Returns:
             (should_stop: bool, stop_reason: str or None)
         """
+        if (
+            max_consecutive_known_usernames is not None
+            and known_usernames_streak >= max_consecutive_known_usernames
+        ):
+            reason = (
+                f"No new followers after {max_consecutive_known_usernames} known usernames in a row "
+                f"({total_usernames_seen} seen)"
+            )
+            self.logger.info(
+                f"🏁 No new followers discovered after {max_consecutive_known_usernames} known usernames in a row "
+                f"(seen {total_usernames_seen:,} usernames)"
+            )
+            return True, reason
+
         if new_usernames_found > 0:
             return False, None
         
         # No new usernames found
         remaining_followers = target_followers_count - total_usernames_seen if target_followers_count > 0 else float('inf')
-        self.logger.debug(f"⚠️ No new usernames found ({no_new_profiles_count}/15) - {total_usernames_seen} seen, ~{remaining_followers:,.0f} remaining")
+        if legacy_max_no_new_usernames_scrolls is not None:
+            self.logger.debug(
+                f"⚠️ No new usernames found ({no_new_profiles_count}/{legacy_max_no_new_usernames_scrolls}) - "
+                f"{total_usernames_seen} seen, ~{remaining_followers:,.0f} remaining"
+            )
+        else:
+            self.logger.debug(
+                f"⚠️ No new usernames found on this page - {total_usernames_seen} seen, "
+                f"~{remaining_followers:,.0f} remaining"
+            )
         
         # Vérifier bouton "Voir plus"
         if scroll_detector.click_load_more_if_present():
@@ -181,12 +205,26 @@ class DirectNavigationMixin:
             self.logger.info("🏁 Tracker: same followers seen multiple times - end of list")
             return True, reason
         
-        if no_new_profiles_count >= 20:
-            reason = f"No new followers after 20 scroll attempts ({total_usernames_seen} seen)"
-            self.logger.info(f"🏁 No new usernames found after 20 attempts (seen {total_usernames_seen:,} usernames)")
+        if (
+            legacy_max_no_new_usernames_scrolls is not None
+            and no_new_profiles_count >= legacy_max_no_new_usernames_scrolls
+        ):
+            reason = (
+                f"No new followers after {legacy_max_no_new_usernames_scrolls} scroll attempts "
+                f"({total_usernames_seen} seen)"
+            )
+            self.logger.info(
+                f"🏁 No new usernames found after {legacy_max_no_new_usernames_scrolls} attempts "
+                f"(seen {total_usernames_seen:,} usernames)"
+            )
             return True, reason
         
-        if no_new_profiles_count >= 10:
+        coverage_log_threshold = (
+            max(1, legacy_max_no_new_usernames_scrolls // 2)
+            if legacy_max_no_new_usernames_scrolls is not None
+            else None
+        )
+        if coverage_log_threshold is not None and no_new_profiles_count >= coverage_log_threshold:
             if target_followers_count > 0:
                 coverage = (total_usernames_seen / target_followers_count) * 100
                 self.logger.debug(f"📊 {coverage:.1f}% coverage ({total_usernames_seen:,}/{target_followers_count:,}), continuing...")

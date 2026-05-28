@@ -47,6 +47,11 @@ class LikersWorkflowBase(BaseBusinessAction):
         """
         processed_usernames: Set[str] = set()
         scroll_attempts = 0
+        known_usernames_streak = 0
+        max_consecutive_known_usernames = effective_config.get('max_consecutive_known_usernames')
+        if max_consecutive_known_usernames is not None:
+            max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
+
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
 
@@ -85,6 +90,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                     username, account_id, hours_limit=24 * 60
                 )
                 if should_skip:
+                    known_usernames_streak += 1
                     if skip_reason == "already_processed":
                         self.logger.info(f"🔄 @{username} already processed")
                     elif skip_reason == "already_filtered":
@@ -92,7 +98,24 @@ class LikersWorkflowBase(BaseBusinessAction):
                         stats['profiles_filtered'] += 1
                     stats['skipped'] += 1
                     self.stats_manager.increment('skipped')
+
+                    if (
+                        max_consecutive_known_usernames is not None
+                        and known_usernames_streak >= max_consecutive_known_usernames
+                    ):
+                        stop_reason = (
+                            f"No new followers after {max_consecutive_known_usernames} known usernames in a row "
+                            f"({stats['users_found']} seen)"
+                        )
+                        stats['stop_reason'] = stop_reason
+                        self.logger.info(
+                            f"🏁 No new followers discovered after {max_consecutive_known_usernames} known usernames in a row "
+                            f"(seen {stats['users_found']:,} usernames)"
+                        )
+                        return
+
                     continue
+                known_usernames_streak = 0
 
                 # Click on profile
                 self.logger.info(

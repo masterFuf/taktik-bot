@@ -125,6 +125,9 @@ class PostUrlBusiness(
             self.logger.info(f"Workflow completed: {stats['users_interacted']} interactions out of {stats['users_found']} users")
             
             self.stats_manager.display_final_stats(workflow_name="POST_URL")
+
+            if stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
+                self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
             
         except Exception as e:
             self.logger.error(f"General error in Post URL workflow: {e}")

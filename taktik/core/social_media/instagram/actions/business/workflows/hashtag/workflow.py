@@ -214,6 +214,9 @@ class HashtagBusiness(
                 self.logger.info(f"📋 Post by @{post_metadata['author']} recorded as processed")
             
             self.stats_manager.display_final_stats(workflow_name="HASHTAG")
+
+            if stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
+                self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
             
         except Exception as e:
             self.logger.error(f"General hashtag workflow error: {e}")
