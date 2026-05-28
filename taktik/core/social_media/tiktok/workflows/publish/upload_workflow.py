@@ -19,8 +19,6 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-import re as _re
-from typing import Optional
 
 from loguru import logger
 
@@ -28,7 +26,6 @@ from loguru import logger
 # Using this with app_start() makes the launch non-blocking (am start -n pkg/activity)
 # and is the same mechanism used by TikTokManager.restart() in the automation workflows.
 _TIKTOK_SPLASH_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
-_PERCENT_TEXT_RE = _re.compile(r"^\s*(\d{1,3})\s*%\s*$")
 
 from taktik.core.shared.device.media_store import (
     push_media,
@@ -42,7 +39,12 @@ from taktik.core.social_media.tiktok.services.publish_caption import (
     build_caption,
     sanitize_caption_and_hashtags,
 )
-from taktik.core.social_media.tiktok.ui.detectors.keyboard import is_keyboard_visible
+from taktik.core.social_media.tiktok.services.publish_commit import (
+    PublishCommitCallbacks,
+    wait_for_publish_commit,
+)
+from taktik.core.social_media.tiktok.services.publish_progress import get_publish_progress_percent
+from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
 from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS, POPUP_SELECTORS
 from taktik.core.social_media.tiktok.ui.xpath import find_element, parse_bounds, tap_element, to_lxml
 
@@ -525,135 +527,18 @@ class TikTokUploadWorkflow:
             return True
         return False
 
-    def _extract_percent_value(self, value: str | None) -> Optional[int]:
-        """Parse a `81%`-style progress label into an integer percentage."""
-        if not value:
-            return None
-        match = _PERCENT_TEXT_RE.match(value)
-        if not match:
-            return None
-        try:
-            percent = int(match.group(1))
-        except Exception:
-            return None
-        if 0 <= percent <= 100:
-            return percent
-        return None
-
-    def _get_publish_progress_percent(self) -> Optional[int]:
-        """Read TikTok's top-left upload progress badge while publish is still running."""
-        try:
-            from lxml import etree
-
-            xml = self.device.dump_hierarchy(compressed=False)
-            tree = etree.fromstring(xml.encode("utf-8"))
-
-            for xp in PUBLISH_SELECTORS.publish_progress_indicator:
-                try:
-                    nodes = tree.xpath(to_lxml(xp))
-                except Exception:
-                    continue
-                for node in nodes:
-                    percent = self._extract_percent_value(node.attrib.get("text"))
-                    if percent is not None:
-                        return percent
-
-            for xpath in PUBLISH_SELECTORS.publish_progress_text_nodes:
-                for node in tree.xpath(xpath):
-                    percent = self._extract_percent_value(node.attrib.get("text"))
-                    if percent is None:
-                        continue
-                    bounds = parse_bounds(node.attrib.get("bounds", ""))
-                    if bounds is None:
-                        continue
-                    left, top, right, bottom = bounds
-                    if left > 160 or top > 320:
-                        continue
-                    if (right - left) > 120 or (bottom - top) > 80:
-                        continue
-                    return percent
-        except Exception as e:
-            _ipc.log("debug", f"[publishing] progress parse failed: {e}")
-        return None
-
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
-        """Wait until TikTok has likely finished committing the publication."""
-        min_grace = 8.0
-        settle_after_progress_gone = 3.0
-        start = time.time()
-        last_logged_second = -1
-        last_progress: Optional[int] = None
-        progress_seen = False
-        progress_gone_since: Optional[float] = None
-
-        _ipc.log("info", "[publishing] waiting for TikTok to finish upload...")
-
-        while time.time() - start < timeout:
-            elapsed = time.time() - start
-
-            if self._handle_publish_confirmation_dialog():
-                time.sleep(1.0)
-                continue
-
-            self._dismiss_post_popups()
-
-            progress = self._get_publish_progress_percent()
-            if progress is not None:
-                progress_seen = True
-                progress_gone_since = None
-                if progress != last_progress:
-                    last_progress = progress
-                    _ipc.log("info", f"[publishing] TikTok upload progress: {progress}%")
-                time.sleep(1.2)
-                continue
-
-            if progress_seen and progress_gone_since is None:
-                progress_gone_since = time.time()
-                _ipc.log("info", "[publishing] TikTok upload badge disappeared, verifying completion...")
-
-            if elapsed < min_grace:
-                current_second = int(elapsed)
-                if current_second != last_logged_second and current_second in (2, 4, 6):
-                    last_logged_second = current_second
-                    _ipc.log("debug", f"[publishing] grace period... {current_second}s")
-                time.sleep(1.0)
-                continue
-
-            if self._is_on_post_screen():
-                current_second = int(elapsed)
-                if current_second != last_logged_second:
-                    last_logged_second = current_second
-                    _ipc.log("info", f"[publishing] still on caption screen after {current_second}s, waiting...")
-                time.sleep(1.2)
-                continue
-
-            if self._find_element(PUBLISH_SELECTORS.success_indicator, timeout=1.0):
-                _ipc.log("info", "[publishing] TikTok success indicator detected")
-                time.sleep(2.0)
-                return True
-
-            if progress_gone_since is not None:
-                clear_elapsed = time.time() - progress_gone_since
-                if clear_elapsed < settle_after_progress_gone:
-                    current_second = int(elapsed)
-                    if current_second != last_logged_second:
-                        last_logged_second = current_second
-                        _ipc.log(
-                            "debug",
-                            f"[publishing] upload badge cleared; settling {clear_elapsed:.1f}/{settle_after_progress_gone:.1f}s",
-                        )
-                    time.sleep(1.0)
-                    continue
-
-            _ipc.log("info", f"[publishing] publish flow stabilized after {elapsed:.1f}s")
-            time.sleep(2.0)
-            return True
-
-        if last_progress is not None:
-            _ipc.log("warning", f"[publishing] commit wait timed out (last seen progress: {last_progress}%)")
-        else:
-            _ipc.log("warning", "[publishing] commit wait timed out")
-        return False
+        callbacks = PublishCommitCallbacks(
+            handle_publish_confirmation=self._handle_publish_confirmation_dialog,
+            dismiss_popups=self._dismiss_post_popups,
+            get_progress_percent=lambda: get_publish_progress_percent(self.device, log=_ipc.log),
+            is_on_post_screen=self._is_on_post_screen,
+            has_success_indicator=lambda: self._find_element(
+                PUBLISH_SELECTORS.success_indicator,
+                timeout=1.0,
+            ) is not None,
+        )
+        return wait_for_publish_commit(callbacks, timeout=timeout, log=_ipc.log)
 
     def _select_first_gallery_item(self) -> bool:
         """
@@ -727,7 +612,7 @@ class TikTokUploadWorkflow:
         if not self._is_video_edit_screen():
             return False
 
-        _ipc.log("warning", "[publish] video editor opened; tapping Annuler to return to post screen")
+        _ipc.log("warning", "[publish] video editor opened; tapping cancel selector to return to post screen")
         if self._tap(PUBLISH_SELECTORS.video_edit_cancel_btn, timeout=2.0):
             time.sleep(1.2)
             return True
@@ -828,31 +713,8 @@ class TikTokUploadWorkflow:
 
     def _dismiss_caption_keyboard(self) -> None:
         """Hide the keyboard without tapping the preview/editor area."""
-        try:
-            if not self._is_keyboard_visible():
-                return None
-
-            _ipc.log("debug", "[caption] keyboard visible; closing it with Back")
-            try:
-                self.device.press("back")
-            except Exception:
-                subprocess.run(
-                    ["adb", "-s", self.device_id, "shell", "input", "keyevent", "4"],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-            time.sleep(0.35)
-
-            if self._is_keyboard_visible():
-                _ipc.log("debug", "[caption] keyboard still visible after Back")
-        except Exception as e:
-            _ipc.log("debug", f"[caption] keyboard dismiss failed: {e}")
+        dismiss_keyboard(self.device, self.device_id, log=_ipc.log)
         return None
-
-    def _is_keyboard_visible(self) -> bool:
-        """Detect visible system/Taktik keyboard overlays from the hierarchy dump."""
-        return is_keyboard_visible(self.device, timeout=1.0)
 
     def _tap_hashtag_suggestion_from_dump(self, expected_tag: str | None = None) -> bool:
         """Tap the first visible TikTok hashtag suggestion from the XML dump."""
