@@ -281,13 +281,13 @@ class GmailAccountBridge:
 
     def _persist_account(self, email: str) -> None:
         """Insert or update the account in gmail_accounts."""
-        from taktik.core.database.repositories.accounts import GmailAccountRepository
+        from taktik.core.database.repositories.gmail import GmailAccountRepository
         if not GmailAccountRepository().upsert(email, self.device_id):
             send_log("warning", f"⚠️ Could not persist Gmail account {email}")
 
     def _unpersist_account(self, email: str) -> None:
         """Delete the account from gmail_accounts."""
-        from taktik.core.database.repositories.accounts import GmailAccountRepository
+        from taktik.core.database.repositories.gmail import GmailAccountRepository
         if not GmailAccountRepository().delete(email):
             send_log("warning", f"⚠️ Could not unpersist Gmail account {email}")
 

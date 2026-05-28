@@ -31,14 +31,22 @@ database/
 │                              Appelé par get_db_service(), fournit les méthodes métier
 └── repositories/
     ├── __init__.py           ← Re-exports
-    ├── base_repository.py    ← Classe de base (BaseRepository)
-    ├── account_repository.py ← Comptes Instagram (CRUD)
-    ├── profile_repository.py ← Profils Instagram (CRUD + stats)
-    ├── interaction_repository.py ← Historique des interactions
-    ├── session_repository.py ← Sessions d'automatisation
-    ├── discovery_repository.py ← Campagnes de découverte + scraping
-    └── tiktok_repository.py  ← Comptes, profils, sessions TikTok
+    ├── _base/                ← BaseRepository
+    ├── gmail/                ← Comptes Google persistés dans gmail_accounts
+    ├── instagram/            ← Repositories Instagram par domaine
+    └── tiktok/               ← Repositories TikTok par domaine
 ```
+
+---
+
+## Règles de classement database
+
+- `local/` doit rester la couche infrastructure SQLite locale : chemin DB, connexion, WAL, bootstrap schema, migrations et façade legacy.
+- `local/service.py` est actuellement une façade legacy trop large. Ne pas y ajouter de nouveau SQL métier si un repository peut le porter.
+- `repositories/instagram/` porte les requêtes liées aux tables `instagram_*`, `sessions`, `interaction_history`, `filtered_profiles`, `daily_stats`, scraping/discovery Instagram et social graph Instagram.
+- `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
+- `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
+- Une table ou méthode partagée entre plateformes doit avoir un ownership explicite dans le nom, la doc et le test.
 
 ---
 
@@ -314,9 +322,9 @@ is_done = db.is_profile_processed(account_id=1, username="target")
 
 # Via le service local directement (accès aux repositories)
 local_db = get_local_database()
-local_db.accounts.get_all()
-local_db.profiles.search("keyword")
-local_db.sessions.get_by_account(account_id=1)
+local_db.accounts.find_all()
+local_db.profiles.search_by_username("keyword")
+local_db.sessions.find_by_account(account_id=1)
 local_db.tiktok.create_session(...)
 ```
 
