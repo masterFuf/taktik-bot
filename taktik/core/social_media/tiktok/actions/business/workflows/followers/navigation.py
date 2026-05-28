@@ -154,13 +154,12 @@ class NavigationMixin:
         except Exception as e:
             self.logger.debug(f"Could not extract followers count: {e}")
         
-        # Get count of already visited followers for this target
+        self._already_visited_count = self._followers_repository.count_recent_target_interactions(
+            account_id=self._account_id,
+            target=self.config.search_query,
+            hours=168,
+        )
         if self._account_id and self.config.search_query:
-            self._already_visited_count = self._db.count_tiktok_interactions_for_target(
-                self._account_id, 
-                self.config.search_query,
-                hours=168  # 7 days
-            )
             self.logger.info(f"📊 Already visited {self._already_visited_count} followers of @{self.config.search_query}")
         
         return self.click._find_and_click(selectors, timeout=5)

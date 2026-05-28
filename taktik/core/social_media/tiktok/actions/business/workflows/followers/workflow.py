@@ -21,7 +21,6 @@ from typing import Optional, Dict, Any, List, Callable, Set
 import time
 import random
 
-from taktik.core.database.local.service import get_local_database
 from taktik.core.social_media.tiktok.services.known_profiles_stop_policy import (
     KnownProfileDecision,
     KnownProfilesStopPolicy,
@@ -35,6 +34,7 @@ from taktik.core.social_media.tiktok.services.followers_scroll_policy import (
     calculate_legacy_followers_scroll_attempts,
     get_visited_ratio,
 )
+from taktik.core.social_media.tiktok.services.followers_repository import FollowersRepository
 
 from .._internal import BaseTikTokWorkflow
 from .models import FollowersConfig, FollowersStats
@@ -90,7 +90,7 @@ class FollowersWorkflow(
         self._known_stop_requested = False
         
         # Database
-        self._db = get_local_database()
+        self._followers_repository = FollowersRepository()
         self._account_id: Optional[int] = None
         self._session_id: Optional[int] = None
         
@@ -121,14 +121,13 @@ class FollowersWorkflow(
         # Initialize database tracking
         if bot_username:
             try:
-                self._account_id, _ = self._db.get_or_create_tiktok_account(bot_username)
-                self._session_id = self._db.create_tiktok_session(
-                    account_id=self._account_id,
-                    session_name=f"Followers @{self.config.search_query}",
-                    workflow_type='FOLLOWERS',
+                session_ref = self._followers_repository.create_session(
+                    bot_username=bot_username,
                     target=self.config.search_query,
-                    config_used=self.config.to_dict() if hasattr(self.config, 'to_dict') else None
+                    config_used=self.config.to_dict() if hasattr(self.config, 'to_dict') else None,
                 )
+                self._account_id = session_ref.account_id
+                self._session_id = session_ref.session_id
                 self.logger.info(f"📊 Database session created: {self._session_id}")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize database tracking: {e}")
@@ -256,30 +255,31 @@ class FollowersWorkflow(
         # Store completion reason for stats
         self.stats.completion_reason = completion_reason or 'unknown'
         
-        if self._session_id and self._account_id:
-            try:
-                self._db.end_tiktok_session(
-                    session_id=self._session_id,
-                    status=status,
-                    error_message=error_message,
-                    stats={
-                        'profiles_visited': self.stats.profiles_visited,
-                        'posts_watched': self.stats.posts_watched,
-                        'likes': self.stats.likes,
-                        'follows': self.stats.follows,
-                        'favorites': self.stats.favorites,
-                        'comments': self.stats.comments,
-                        'shares': self.stats.shares,
-                        'known_usernames_seen': self.stats.known_usernames_seen,
-                        'new_usernames_seen': self.stats.new_usernames_seen,
-                        'consecutive_known_usernames': self.stats.consecutive_known_usernames,
-                        'errors': self.stats.errors,
-                        'completion_reason': completion_reason
-                    }
-                )
+        try:
+            self._followers_repository.end_session(
+                account_id=self._account_id,
+                session_id=self._session_id,
+                status=status,
+                error_message=error_message,
+                stats={
+                    'profiles_visited': self.stats.profiles_visited,
+                    'posts_watched': self.stats.posts_watched,
+                    'likes': self.stats.likes,
+                    'follows': self.stats.follows,
+                    'favorites': self.stats.favorites,
+                    'comments': self.stats.comments,
+                    'shares': self.stats.shares,
+                    'known_usernames_seen': self.stats.known_usernames_seen,
+                    'new_usernames_seen': self.stats.new_usernames_seen,
+                    'consecutive_known_usernames': self.stats.consecutive_known_usernames,
+                    'errors': self.stats.errors,
+                    'completion_reason': completion_reason,
+                },
+            )
+            if self._session_id and self._account_id:
                 self.logger.info(f"📊 Database session {self._session_id} ended: {status} (reason: {completion_reason})")
-            except Exception as e:
-                self.logger.warning(f"Failed to end database session: {e}")
+        except Exception as e:
+            self.logger.warning(f"Failed to end database session: {e}")
 
     # ------------------------------------------------------------------
     # Follower processing (core loop body)
@@ -312,13 +312,16 @@ class FollowersWorkflow(
                 continue
             
             # Skip if already interacted in database (past 7 days)
-            if username and self._account_id:
-                if self._db.check_tiktok_recent_interaction(username, self._account_id, hours=168):
-                    self.logger.debug(f"Skipping @{username} - already interacted in past 7 days")
-                    self._processed_usernames.add(username_key)
-                    if self._observe_username(username, is_known=True, reason='recent_interaction'):
-                        return False
-                    continue
+            if self._followers_repository.has_recent_interaction(
+                account_id=self._account_id,
+                username=username,
+                hours=168,
+            ):
+                self.logger.debug(f"Skipping @{username} - already interacted in past 7 days")
+                self._processed_usernames.add(username_key)
+                if self._observe_username(username, is_known=True, reason='recent_interaction'):
+                    return False
+                continue
             
             self.stats.followers_seen += 1
             
@@ -338,7 +341,10 @@ class FollowersWorkflow(
             # Check if already interacted with this profile in database
             if username and self._account_id:
                 try:
-                    if self._db.has_tiktok_interaction(self._account_id, username):
+                    if self._followers_repository.has_interaction(
+                        account_id=self._account_id,
+                        username=username,
+                    ):
                         self.stats.skipped += 1
                         self._processed_usernames.add(username_key)
                         if self._observe_username(username, is_known=True, reason='already_interacted'):

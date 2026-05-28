@@ -215,14 +215,13 @@ class VideoInteractionMixin:
     
     def _record_interaction(self, interaction_type: str, target_username: str):
         """Record an interaction in the database."""
-        if self._account_id and target_username:
-            try:
-                self._db.record_tiktok_interaction(
-                    account_id=self._account_id,
-                    target_username=target_username,
-                    interaction_type=interaction_type,
-                    success=True,
-                    session_id=self._session_id
-                )
-            except Exception as e:
-                self.logger.debug(f"Failed to record interaction: {e}")
+        try:
+            self._followers_repository.record_interaction(
+                account_id=self._account_id,
+                target_username=target_username,
+                interaction_type=interaction_type,
+                success=True,
+                session_id=self._session_id,
+            )
+        except Exception as e:
+            self.logger.debug(f"Failed to record interaction: {e}")

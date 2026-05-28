@@ -61,15 +61,17 @@ class ProfileDataMixin:
             if posts:
                 profile_data['videos_count'] = len(posts)
             
-            # Save to database
-            if self._db and self._account_id:
-                try:
-                    self._db.get_or_create_tiktok_profile(profile_data)
+            try:
+                saved = self._followers_repository.save_profile(
+                    account_id=self._account_id,
+                    profile_data=profile_data,
+                )
+                if saved:
                     self.logger.debug(f"📊 Saved profile data for @{self._current_profile_username}: "
                                      f"{profile_data['followers_count']} followers, "
                                      f"{profile_data['likes_count']} likes")
-                except Exception as e:
-                    self.logger.debug(f"Error saving profile data: {e}")
+            except Exception as e:
+                self.logger.debug(f"Error saving profile data: {e}")
                     
         except Exception as e:
             self.logger.debug(f"Error extracting profile data: {e}")
