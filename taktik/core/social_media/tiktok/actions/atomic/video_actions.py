@@ -24,7 +24,8 @@ class VideoActions(BaseAction):
     def click_like_button(self) -> bool:
         """Click Like button on video.
         
-        Uses resource-id f57 with content-desc "Like video".
+        Uses the stable like rail structure (`f57` + child `f4u`) with
+        localized FR/EN content-desc fallbacks.
         """
         self.logger.debug("❤️ Clicking Like button")
         return self._find_and_click(self.video_selectors.like_button, timeout=3)
@@ -45,7 +46,7 @@ class VideoActions(BaseAction):
     def click_comment_button(self) -> bool:
         """Click Comment button on video.
         
-        Uses resource-id dtv with content-desc "Read or add comments".
+        Uses resource-id `dtv` with localized FR/EN content-desc fallbacks.
         """
         self.logger.debug("💬 Clicking Comment button")
         return self._find_and_click(self.video_selectors.comment_button, timeout=5)
@@ -53,7 +54,8 @@ class VideoActions(BaseAction):
     def click_share_button(self) -> bool:
         """Click Share button on video.
         
-        Uses resource-id f57 with content-desc "Share video".
+        Uses the stable share rail structure (`f57` + child `t_j`) with
+        localized FR/EN content-desc fallbacks.
         """
         self.logger.debug("🔗 Clicking Share button")
         return self._find_and_click(self.video_selectors.share_button, timeout=5)
@@ -61,7 +63,7 @@ class VideoActions(BaseAction):
     def click_favorite_button(self) -> bool:
         """Click Favorite button on video.
         
-        Uses resource-id guh with content-desc "Add or remove this video from Favourites".
+        Uses resource-id `guh` with localized FR/EN content-desc fallbacks.
         """
         self.logger.debug("⭐ Clicking Favorite button")
         return self._find_and_click(self.video_selectors.favorite_button, timeout=5)
@@ -69,7 +71,7 @@ class VideoActions(BaseAction):
     def click_video_follow_button(self) -> bool:
         """Click Follow button on video (under creator profile).
         
-        Uses resource-id hi1 with content-desc "Follow {username}".
+        Uses resource-id `hi1` with localized FR/EN content-desc fallbacks.
         """
         self.logger.debug("👤 Clicking Follow button on video")
         return self._find_and_click(self.video_selectors.follow_button, timeout=5)

@@ -28,6 +28,33 @@ def _parse_description(raw: str) -> Dict[str, Any]:
     }
 
 
+def _extract_count_from_content_desc(desc: str, patterns: List[str]) -> Optional[str]:
+    """Extract an overlay count from a localized TikTok content-desc."""
+    for pattern in patterns:
+        match = re.search(pattern, desc, re.IGNORECASE)
+        if not match:
+            continue
+        for group in match.groups():
+            if group:
+                return group.strip()
+    return None
+
+
+def _extract_french_like_count(desc: str) -> Optional[str]:
+    """Extract the like count from a French TikTok like button content-desc."""
+    if "J'aime" not in desc:
+        return None
+    if not any(token in desc for token in ("Attribuer", "Retirer", "Supprimer")):
+        return None
+
+    trailing = desc.split(". ", 1)[1] if ". " in desc else desc
+    match = re.search(r"([0-9][0-9\s.,KkMm]*)\s+(?:«\s*)?J'aime", trailing)
+    if match:
+        return match.group(1).strip()
+
+    return None
+
+
 class VideoDetector(BaseAction):
     """Detects video and profile state on TikTok UI."""
 
@@ -63,8 +90,13 @@ class VideoDetector(BaseAction):
             return text
 
         desc = self._get_element_content_desc(self.video_selectors.creator_profile_image, timeout=1)
-        if desc and desc.endswith(' profile'):
-            return desc[:-len(' profile')].strip()
+        if desc:
+            if desc.endswith(' profile'):
+                return desc[:-len(' profile')].strip()
+            if desc.startswith('Profile '):
+                return desc[len('Profile '):].strip()
+            if desc.startswith('Profil '):
+                return desc[len('Profil '):].strip()
 
         return None
 
@@ -123,8 +155,9 @@ class VideoDetector(BaseAction):
         """
         desc = self._get_element_content_desc(self.video_selectors.sound_button, timeout=1)
         if desc:
-            if desc.startswith('Sound: '):
-                return desc[7:].strip()
+            sound_match = re.match(r'^(?:Sound|Son)\s*:\s*(.+)$', desc, re.IGNORECASE)
+            if sound_match:
+                return sound_match.group(1).strip()
             # Fallback: sometimes just the name
             if desc:
                 return desc.strip()
@@ -204,12 +237,24 @@ class VideoDetector(BaseAction):
         if count:
             return count
 
-        desc = self._get_element_content_desc(self.video_selectors.like_button_for_count
-                                              + ['//*[contains(@content-desc, "Like video")]'], timeout=1)
+        desc = self._get_element_content_desc(
+            self.video_selectors.like_button_for_count
+            + [
+                '//*[contains(@content-desc, "Like video")]',
+                '//*[contains(@content-desc, "Attribuer un")]',
+            ],
+            timeout=1,
+        )
         if desc:
-            m = re.search(r'Like video[.\s]+(.+?)\s+like', desc, re.IGNORECASE)
-            if m:
-                return m.group(1).strip()
+            extracted = _extract_count_from_content_desc(desc, [
+                r'(?:Like video|Unlike video)[.\s]+(.+?)\s+likes?',
+            ])
+            if extracted:
+                return extracted
+
+            extracted = _extract_french_like_count(desc)
+            if extracted:
+                return extracted
 
         return None
 
@@ -224,9 +269,11 @@ class VideoDetector(BaseAction):
 
         desc = self._get_element_content_desc(self.video_selectors.comment_button_for_count, timeout=1)
         if desc:
-            m = re.search(r'comments?\.\s+(.+?)\s+comment', desc, re.IGNORECASE)
-            if m:
-                return m.group(1).strip()
+            extracted = _extract_count_from_content_desc(desc, [
+                r'(?:Read or add comments|Lire ou ajouter des commentaires)[.\s]+(.+?)\s+(?:comments?|commentaires?)',
+            ])
+            if extracted:
+                return extracted
 
         return None
 

@@ -52,12 +52,15 @@ _FR_WORDS: Set[str] = {
     "anniversaire", "naissance", "âge", "surnom", "mot de passe",
     # Content / publish
     "Importer", "Galerie", "Publier", "Publié", "publié",
+    "Ajouter une description",
     "succès", "Suivant", "Modifier le profil",
     "Vidéos", "Sons",
     # Interactions
     "Répondre", "Ajouter un commentaire", "Pas maintenant",
     "Refuser", "REFUSER", "Ne pas autoriser", "Autoriser",
     "Non", "Plus de", "Sponsorise", "Publicite",
+    "J'aime", "Attribuer un", "Partager une vidÃ©o",
+    "Lire ou ajouter des commentaires", "commentaires", "Son :",
     # Errors / states
     "erreur", "réseau", "trop de", "fonctionnalités",
 }
@@ -89,6 +92,7 @@ _EN_WORDS: Set[str] = {
     "Date of birth", "Birthday", "birthday",
     # Content / publish
     "Upload", "Gallery", "Post", "Posted", "Published",
+    "Add a description",
     "successfully", "published", "Next", "Edit profile",
     "Videos", "Sounds", "Sound:",
     # Interactions
