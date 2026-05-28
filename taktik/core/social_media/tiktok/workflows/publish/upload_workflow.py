@@ -32,6 +32,10 @@ from taktik.core.shared.device.media_store import (
     trigger_media_scan,
     scan_wait_for,
 )
+from taktik.core.social_media.tiktok.services.app_control import (
+    force_stop_app_package,
+    launch_app_non_blocking,
+)
 from taktik.core.social_media.tiktok.services.package_resolver import resolve_tiktok_package
 from taktik.core.social_media.tiktok.services.publish_dialogs import (
     dismiss_post_popups,
@@ -271,34 +275,11 @@ class TikTokUploadWorkflow:
         Unlike uiautomator2's app_start(), this returns immediately without
         waiting for the activity to be ready. Polling is done separately.
         """
-        try:
-            subprocess.run(
-                ['adb', '-s', self.device_id, 'shell', 'monkey',
-                 '-p', package_name, '-c', 'android.intent.category.LAUNCHER', '1'],
-                capture_output=True, text=True, timeout=5
-            )
-        except Exception:
-            # monkey timed-out or failed — try am start as fallback
-            try:
-                subprocess.run(
-                    ['adb', '-s', self.device_id, 'shell', 'am', 'start',
-                     '-a', 'android.intent.action.MAIN',
-                     '-c', 'android.intent.category.LAUNCHER',
-                     '-p', package_name],
-                    capture_output=True, text=True, timeout=5
-                )
-            except Exception as e:
-                logger.debug(f'[launch] non-fatal launch error: {e}')
+        launch_app_non_blocking(self.device_id, package_name, log=_ipc.log)
 
     def _adb_force_stop(self, package_name: str) -> None:
         """Force-stop an app package (non-fatal on error)."""
-        try:
-            subprocess.run(
-                ['adb', '-s', self.device_id, 'shell', 'am', 'force-stop', package_name],
-                capture_output=True, text=True, timeout=10
-            )
-        except Exception as e:
-            logger.debug(f'[force-stop] non-fatal error: {e}')
+        force_stop_app_package(self.device_id, package_name, log=_ipc.log)
 
     # ------------------------------------------------------------------
     # Navigation helpers
