@@ -32,8 +32,12 @@ from taktik.core.shared.device.media_store import (
     trigger_media_scan,
     scan_wait_for,
 )
-from taktik.core.shared.device.permissions import PermissionHandler
 from taktik.core.social_media.tiktok.services.package_resolver import resolve_tiktok_package
+from taktik.core.social_media.tiktok.services.publish_dialogs import (
+    dismiss_post_popups,
+    handle_permission_dialog,
+    handle_publish_confirmation_dialog,
+)
 from taktik.core.social_media.tiktok.services.publish_caption import (
     MAX_TIKTOK_HASHTAGS,
     build_caption,
@@ -47,10 +51,17 @@ from taktik.core.social_media.tiktok.services.publish_hashtag_suggestions import
     tap_hashtag_suggestion_from_dump,
 )
 from taktik.core.social_media.tiktok.services.publish_progress import get_publish_progress_percent
+from taktik.core.social_media.tiktok.services.publish_screen_detector import (
+    is_camera_creation_screen,
+    is_gallery_picker_open,
+    is_post_screen,
+    is_video_edit_screen,
+    wait_for_tiktok_home,
+)
 from taktik.core.social_media.tiktok.services.publish_upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
-from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS, POPUP_SELECTORS
-from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element, to_lxml
+from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS
+from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element
 
 try:
     from bridges.common.ipc import IPC as _IPC
@@ -294,37 +305,8 @@ class TikTokUploadWorkflow:
     # ------------------------------------------------------------------
 
     def _wait_for_tiktok_home(self, timeout: float = 60.0) -> bool:
-        """
-        Poll until TikTok's home screen is ready (Create button or Home tab visible).
-
-        This replaces a fixed time.sleep() after app_start so that:
-        - Fast devices are not penalised (returns as soon as the button appears)
-        - Slow/cold-start devices (e.g. 32-bit ARM) are given enough time
-
-        Strategy: try each indicator selector for 2s, rotate through them,
-        total cap = timeout.  Reports progress every 10s.
-        """
-        start = time.time()
-        last_log = start
-        while True:
-            elapsed = time.time() - start
-            if elapsed >= timeout:
-                _ipc.log("warning", f"⚠️  TikTok home not detected after {timeout:.0f}s, proceeding anyway")
-                return False
-            for xp in PUBLISH_SELECTORS.home_ready_indicators:
-                try:
-                    if self.device.xpath(xp).wait(timeout=2.0):
-                        _ipc.log("info", f"✅ TikTok home ready in {elapsed + (time.time() - start - elapsed):.1f}s")
-                        return True
-                except Exception:
-                    pass
-                if time.time() - start >= timeout:
-                    break
-            # Progress log every 10s so the UI doesn't look frozen
-            now = time.time()
-            if now - last_log >= 10.0:
-                _ipc.log("info", f"⏳ Waiting for TikTok home... ({int(now - start)}s)")
-                last_log = now
+        """Poll until TikTok's home screen is ready."""
+        return wait_for_tiktok_home(self.device, timeout=timeout, log=_ipc.log)
 
     def _tap_create_button(self) -> bool:
         """Tap the Create button in the bottom navigation bar."""
@@ -421,77 +403,23 @@ class TikTokUploadWorkflow:
 
     def _is_gallery_picker_open(self) -> bool:
         """Return True when the TikTok media picker/grid is visible."""
-        for selector in PUBLISH_SELECTORS.gallery_first_item:
-            try:
-                if self.device.xpath(selector).wait(timeout=0.4):
-                    return True
-            except Exception:
-                pass
-
-        try:
-            xml = self.device.dump_hierarchy(compressed=False)
-            xml_lower = xml.lower()
-            return PUBLISH_SELECTORS.has_gallery_picker_marker(xml_lower)
-        except Exception:
-            return False
+        return is_gallery_picker_open(self.device)
 
     def _is_on_camera_creation_screen(self) -> bool:
         """Return True when TikTok is on the camera/create screen, not picker/details."""
-        try:
-            xml = self.device.dump_hierarchy(compressed=False)
-            xml_lower = xml.lower()
-            return PUBLISH_SELECTORS.has_camera_creation_marker(xml_lower)
-        except Exception:
-            return False
+        return is_camera_creation_screen(self.device)
 
     def _handle_permission_dialog(self) -> bool:
-        """Grant any Android permission dialogs (media access, etc.).
-
-        Delegates to the central PermissionHandler, which is aware of the
-        Android SDK level and system language.
-        """
-        try:
-            handler = PermissionHandler(self.device, self.device_id)
-            if handler.deny_contacts_if_present(wait=0.8):
-                _ipc.log("info", "🚫 Denied TikTok contacts permission dialog")
-                return True
-            dismissed = handler.grant(rounds=2, per_round_wait=1.5)
-            if dismissed:
-                _ipc.log("info", f"🔓 Granted {dismissed} permission dialog(s)")
-                return True
-        except Exception as e:
-            _ipc.log("warning", f"Permission handler failed: {e}")
-        return False
+        """Grant any Android permission dialogs (media access, etc.)."""
+        return handle_permission_dialog(self.device, self.device_id, log=_ipc.log)
 
     def _dismiss_post_popups(self):
-        """Dismiss any system or app dialogs that appear after posting.
-
-        Known dialogs (TikTok 44.9 on Nokia 4.2 / Android 11):
-          - "Add to Home Screen" (widget install) → Button text='CANCEL'
-        """
-        if self._tap(POPUP_SELECTORS.gdpr_got_it_button, timeout=1.5):
-            _ipc.log("info", "[popup] dismissed TikTok GDPR data-transfer notice")
-            time.sleep(0.5)
-            return
-
-        el = self._find_element(PUBLISH_SELECTORS.popup_cancel_buttons, timeout=3.0)
-        if el:
-            try:
-                _ipc.log("info", "🚫 Dismissing post-publishing dialog...")
-                el.click()
-                time.sleep(0.5)
-            except Exception as e:
-                _ipc.log("debug", f"[dismiss_popup] click failed: {e}")
+        """Dismiss any system or app dialogs that appear after posting."""
+        dismiss_post_popups(self.device, log=_ipc.log)
 
     def _handle_publish_confirmation_dialog(self) -> bool:
-        """Confirm TikTok's optional 'Publier la vidéo publiquement ?' dialog."""
-        if not self._find_element(PUBLISH_SELECTORS.publish_confirm_dialog, timeout=1.5):
-            return False
-
-        _ipc.log("info", "[publishing] confirming TikTok visibility dialog...")
-        if self._tap(PUBLISH_SELECTORS.publish_confirm_btn, timeout=2.0):
-            return True
-        return False
+        """Confirm TikTok's optional publish visibility dialog."""
+        return handle_publish_confirmation_dialog(self.device, log=_ipc.log)
 
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
         callbacks = PublishCommitCallbacks(
@@ -548,30 +476,11 @@ class TikTokUploadWorkflow:
 
     def _is_on_post_screen(self) -> bool:
         """Check if we're on the post description screen."""
-        try:
-            xml = self.device.dump_hierarchy(compressed=False)
-            if PUBLISH_SELECTORS.has_post_screen_marker(xml):
-                return True
-
-            from lxml import etree
-            tree = etree.fromstring(xml.encode("utf-8"))
-            for xp in PUBLISH_SELECTORS.post_screen_indicators:
-                try:
-                    if tree.xpath(to_lxml(xp)):
-                        return True
-                except Exception:
-                    pass
-            return False
-        except Exception:
-            return False
+        return is_post_screen(self.device)
 
     def _is_video_edit_screen(self) -> bool:
         """Return True when TikTok opened the post-upload video editor."""
-        try:
-            xml = self.device.dump_hierarchy(compressed=False)
-            return PUBLISH_SELECTORS.has_video_edit_screen_marker(xml)
-        except Exception:
-            return False
+        return is_video_edit_screen(self.device)
 
     def _recover_from_video_edit_screen(self) -> bool:
         """Leave TikTok's video editor if a misplaced tap opened it."""
