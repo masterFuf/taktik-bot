@@ -11,6 +11,7 @@ from .base import (
     logger, send_status, send_message, send_action, 
     send_pause, send_error, set_workflow, tiktok_startup
 )
+from taktik.core.social_media.tiktok.services.navigation_reset import return_to_tiktok_home
 
 
 def run_followers_workflow(config: Dict[str, Any]):
@@ -231,30 +232,8 @@ def run_followers_workflow(config: Dict[str, Any]):
             if target_idx < len(target_list) - 1:
                 logger.info(f"⏳ Switching to next target in 3 seconds...")
                 time.sleep(2)
-                
-                # Navigate back to TikTok home before next target
-                try:
-                    logger.info("🏠 Returning to TikTok home for next target...")
-                    # Press back multiple times to ensure we're at home
-                    for _ in range(3):
-                        manager.device_manager.device.press("back")
-                        time.sleep(0.5)
-                    
-                    # Click on Home tab to ensure we're on the For You page
-                    home_clicked = manager.device_manager.device.xpath(
-                        '//android.widget.FrameLayout[@content-desc="Home"]'
-                    ).click_exists(timeout=2)
-                    
-                    if not home_clicked:
-                        # Try alternative selector
-                        manager.device_manager.device.xpath(
-                            '//*[@content-desc="Home" or @text="Home"]'
-                        ).click_exists(timeout=2)
-                    
-                    time.sleep(1.5)
-                    logger.info("✅ Back to TikTok home")
-                except Exception as nav_error:
-                    logger.warning(f"⚠️ Could not navigate to home: {nav_error}, trying anyway...")
+                if not return_to_tiktok_home(manager.device_manager.device, logger=logger):
+                    logger.warning("Could not navigate to home, trying next target anyway...")
         
         # Send final aggregated stats
         total_stats['completion_reason'] = completion_reason if 'completion_reason' in dir() else 'completed'

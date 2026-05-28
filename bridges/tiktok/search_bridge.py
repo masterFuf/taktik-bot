@@ -4,7 +4,6 @@ TikTok Search Bridge - Search/Hashtag workflow
 """
 
 from typing import Any, Dict, List
-import time
 
 from .base import (
     logger,
@@ -18,6 +17,9 @@ from .base import (
     set_workflow,
     tiktok_startup,
     send_final_video_stats,
+)
+from taktik.core.social_media.tiktok.services.navigation_reset import (
+    return_to_tiktok_home as return_device_to_tiktok_home,
 )
 
 
@@ -115,27 +117,7 @@ def _setup_search_workflow_callbacks(workflow, aggregate_stats: Dict[str, int], 
 
 def _return_to_tiktok_home(manager) -> None:
     """Best-effort reset to the TikTok home feed before the next query."""
-    try:
-        logger.info("Returning to TikTok home for next query...")
-        for _ in range(3):
-            manager.device_manager.device.press("back")
-            time.sleep(0.5)
-
-        selectors = [
-            '//android.widget.FrameLayout[@content-desc="Home"]',
-            '//android.widget.FrameLayout[@content-desc="Accueil"]',
-            '//*[@content-desc="Home" or @content-desc="Accueil" or @text="Home" or @text="Accueil"]',
-        ]
-
-        for selector in selectors:
-            if manager.device_manager.device.xpath(selector).click_exists(timeout=2):
-                time.sleep(1.5)
-                logger.info("Back to TikTok home")
-                return
-
-        logger.warning("Could not confirm Home tab click; continuing anyway")
-    except Exception as exc:
-        logger.warning(f"Could not navigate to home: {exc}")
+    return_device_to_tiktok_home(manager.device_manager.device, logger=logger)
 
 
 def run_search_workflow(config: Dict[str, Any]):
