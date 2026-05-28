@@ -53,6 +53,10 @@ class ProfileSelectors:
     username: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qh5")]',
     ])
+
+    username_content_description: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "@")]',
+    ])
     
     edit_profile_button: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@text="Edit"]',

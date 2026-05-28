@@ -4,31 +4,17 @@ Extracts username, display name, stats, bio from profile pages
 and saves to the local database.
 """
 
-
 class ProfileDataMixin:
     """Methods for extracting and persisting TikTok profile data."""
 
     def _get_current_profile_username(self) -> str:
         """Extract the username from the current profile page."""
         try:
-            from .....ui.selectors import PROFILE_SELECTORS
-            # Try to find username element on profile (starts with @)
-            for selector in PROFILE_SELECTORS.username:
-                username_elem = self.device.xpath(selector)
-                if username_elem.exists:
-                    text = username_elem.get_text()
-                    if text:
-                        return text.lstrip('@')
-            
-            # Fallback: try content-desc
-            username_elem = self.device.xpath('//*[contains(@content-desc, "@")]')
-            if username_elem.exists:
-                desc = username_elem.info.get('contentDescription', '')
-                if '@' in desc:
-                    parts = desc.split('@')
-                    if len(parts) > 1:
-                        return parts[1].split()[0]
-                        
+            from taktik.core.social_media.tiktok.services.profile_username import (
+                get_current_profile_username,
+            )
+
+            return get_current_profile_username(self.device)
         except Exception as e:
             self.logger.debug(f"Error getting profile username: {e}")
         
