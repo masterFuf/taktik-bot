@@ -62,6 +62,13 @@ from taktik.core.social_media.tiktok.services.publish_screen_detector import (
     is_video_edit_screen,
     wait_for_tiktok_home,
 )
+from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import (
+    tap_caption_focus_fallback,
+    tap_create_button_fallback,
+    tap_first_gallery_item_fallback,
+    tap_upload_bottom_left_fallback,
+    tap_upload_right_strip_fallback,
+)
 from taktik.core.social_media.tiktok.services.publish_upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
 from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS
@@ -293,19 +300,7 @@ class TikTokUploadWorkflow:
         """Tap the Create button in the bottom navigation bar."""
         if self._tap(PUBLISH_SELECTORS.create_btn, timeout=3.0):
             return True
-        # Fallback: tap bottom nav at 40% width (Create is 3rd/5 items = 40% = center of 3rd slot)
-        try:
-            info = self.device.info
-            w = info.get("displayWidth", 720)
-            h = info.get("displayHeight", 1520)
-            # Bottom nav starts at ~88% height; Create button is at ~40% width
-            tap_x = int(w * 0.40)
-            tap_y = int(h * 0.94)
-            _ipc.log("debug", f"[create] fallback coord tap: ({tap_x}, {tap_y})")
-            self.device.click(tap_x, tap_y)
-            return True
-        except Exception:
-            return False
+        return tap_create_button_fallback(self.device, log=_ipc.log)
 
     def _tap_upload(self) -> bool:
         """Tap the gallery thumbnail in the camera creation panel."""
@@ -313,35 +308,9 @@ class TikTokUploadWorkflow:
             return True
         if self._tap_upload_from_dump():
             return True
-        # Fallback A: try ce9 position in the camera strip (right of shutter).
-        # On C57S (576x1280): ce9 bounds [409,945][529,1065] → center=(469,1005) = (81%, 78%)
-        # On larger devices this coordinate may be different; we'll try both fallbacks.
-        try:
-            info = self.device.info
-            w = info.get("displayWidth", 720)
-            h = info.get("displayHeight", 1520)
-            # Try right-side gallery thumbnail (ce9 layout — C57S and similar)
-            tap_x_r = int(w * 0.815)
-            tap_y_strip = int(h * 0.785)
-            _ipc.log("debug", f"[upload] fallback A (right-strip): ({tap_x_r}, {tap_y_strip})")
-            self.device.click(tap_x_r, tap_y_strip)
+        if tap_upload_right_strip_fallback(self.device, log=_ipc.log):
             return True
-        except Exception as e:
-            _ipc.log("debug", f"[upload] fallback A failed: {e}")
-        # Fallback B: bottom-left corner (ymg layout — Pixel 4 and larger screens)
-        # ymg bounds on 1080x2280: [0,2023][187,2177] → center=(93,2100) = (8.6%, 92.1%)
-        try:
-            info = self.device.info
-            w = info.get("displayWidth", 720)
-            h = info.get("displayHeight", 1520)
-            tap_x = int(w * 0.086)
-            tap_y = int(h * 0.921)
-            _ipc.log("debug", f"[upload] fallback B (bottom-left): ({tap_x}, {tap_y})")
-            self.device.click(tap_x, tap_y)
-            return True
-        except Exception as e:
-            _ipc.log("error", f"[upload] fallback B failed: {e}")
-            return False
+        return tap_upload_bottom_left_fallback(self.device, log=_ipc.log)
 
     def _tap_upload_from_dump(self) -> bool:
         """Tap the visible TikTok gallery button by reading its bounds from XML.
@@ -433,27 +402,11 @@ class TikTokUploadWorkflow:
         """
         if self._tap(PUBLISH_SELECTORS.gallery_first_item, timeout=5.0):
             return True
-        # Fallback: no XPath selector matched — tap the first thumbnail by coordinates.
-        # Gallery grid is typically in the top 35% of the screen (above the pull-to-refresh zone).
-        # Most-recent item = top-left cell of a 3-column grid.
-        # w/6 = center of first column; h*0.20 = first row just below any gallery header.
-        try:
-            info = self.device.info
-            w = info.get("displayWidth", 720)
-            h = info.get("displayHeight", 1520)
-            tap_x = w // 6          # center of first column (3-col grid)
-            tap_y = int(h * 0.20)   # first row, below ~header (~100px on most screens)
-            _ipc.log("warning", f"[gallery] XPath selectors failed — coord fallback ({tap_x},{tap_y}). "
-                     "Provide a dump from this device to add the correct resource-id.")
-            self.device.click(tap_x, tap_y)
-            time.sleep(1.0)
-            if self._is_on_camera_creation_screen():
-                _ipc.log("warning", "[gallery] coord fallback did not leave the camera screen")
-                return False
-            return True
-        except Exception as e:
-            _ipc.log("error", f"[gallery] coord fallback failed: {e}")
-        return False
+        return tap_first_gallery_item_fallback(
+            self.device,
+            is_camera_creation_screen=self._is_on_camera_creation_screen,
+            log=_ipc.log,
+        )
 
     def _is_on_post_screen(self) -> bool:
         """Check if we're on the post description screen."""
@@ -482,10 +435,7 @@ class TikTokUploadWorkflow:
             if el:
                 el.click()
             else:
-                info = self.device.info
-                w = info.get("displayWidth", 576)
-                h = info.get("displayHeight", 1280)
-                self.device.click(w // 2, int(h * 0.30))
+                tap_caption_focus_fallback(self.device, log=_ipc.log)
             time.sleep(0.5)
         except Exception as e:
             _ipc.log("warning", f"[caption] focus failed: {e}")
