@@ -4,7 +4,11 @@ tiktok_interaction_history, tiktok_filtered_profiles, tiktok_daily_stats
 """
 
 import json
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
+
+from loguru import logger
+
 from .._base.base_repository import BaseRepository
 
 
@@ -94,12 +98,17 @@ class TikTokRepository(BaseRepository):
         """Update profile with non-None values"""
         updates = []
         values = []
-        
-        for key in ('display_name', 'followers_count', 'following_count', 
-                    'likes_count', 'videos_count', 'biography'):
-            if key in kwargs and kwargs[key] is not None:
+
+        for key in ('display_name', 'biography'):
+            if kwargs.get(key):
                 updates.append(f"{key} = COALESCE(?, {key})")
                 values.append(kwargs[key])
+
+        for key in ('followers_count', 'following_count', 'likes_count', 'videos_count'):
+            value = kwargs.get(key)
+            if value and value > 0:
+                updates.append(f"{key} = ?")
+                values.append(value)
         
         for key in ('is_private', 'is_verified'):
             if key in kwargs and kwargs[key] is not None:
@@ -173,12 +182,12 @@ class TikTokRepository(BaseRepository):
             cursor = self.execute(
                 """INSERT INTO tiktok_sessions (account_id, session_name, workflow_type, target, config_used)
                    VALUES (?, ?, ?, ?, ?)""",
-                (account_id, session_name, workflow_type, target,
+                (account_id, session_name[:100], workflow_type, target[:50] if target else None,
                  json.dumps(self._redact_sensitive(config_used)) if config_used else None)
             )
             return cursor.lastrowid
         except Exception as e:
-            print(f"Error creating TikTok session: {e}")
+            logger.error(f"Error creating TikTok session: {e}")
             return None
     
     def update_session(self, session_id: int, **kwargs) -> bool:
@@ -207,7 +216,7 @@ class TikTokRepository(BaseRepository):
                 values.append(kwargs[key])
         
         if len(updates) == 1:  # Only updated_at
-            return False
+            return True
         
         values.append(session_id)
         cursor = self.execute(
@@ -215,6 +224,72 @@ class TikTokRepository(BaseRepository):
             tuple(values)
         )
         return cursor.rowcount > 0
+
+    def end_session(
+        self,
+        session_id: int,
+        status: str = 'COMPLETED',
+        error_message: Optional[str] = None,
+        stats: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """End a TikTok session with final stats."""
+        try:
+            row = self.query_one(
+                "SELECT start_time FROM tiktok_sessions WHERE session_id = ?",
+                (session_id,),
+            )
+
+            duration = 0
+            if row and row['start_time']:
+                start = datetime.fromisoformat(row['start_time'].replace('Z', '+00:00'))
+                duration = int((datetime.now() - start.replace(tzinfo=None)).total_seconds())
+
+            update_data = {
+                'status': status,
+                'end_time': datetime.now().isoformat(),
+                'duration_seconds': duration,
+                'error_message': error_message,
+            }
+
+            if stats:
+                update_data.update({
+                    'profiles_visited': stats.get('profiles_visited', 0),
+                    'posts_watched': stats.get('posts_watched', 0),
+                    'likes': stats.get('likes', 0),
+                    'follows': stats.get('follows', 0),
+                    'favorites': stats.get('favorites', 0),
+                    'comments': stats.get('comments', 0),
+                    'shares': stats.get('shares', 0),
+                    'errors': stats.get('errors', 0),
+                })
+
+            return self.update_session(session_id, **update_data)
+        except Exception as e:
+            logger.error(f"Error ending TikTok session: {e}")
+            return False
+
+    def get_sessions(
+        self,
+        account_id: Optional[int] = None,
+        limit: int = 50,
+        workflow_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get TikTok sessions with optional filters."""
+        query = "SELECT * FROM tiktok_sessions WHERE 1=1"
+        params = []
+
+        if account_id:
+            query += " AND account_id = ?"
+            params.append(account_id)
+
+        if workflow_type:
+            query += " AND workflow_type = ?"
+            params.append(workflow_type)
+
+        query += " ORDER BY start_time DESC LIMIT ?"
+        params.append(limit)
+
+        return [dict(row) for row in self.query(query, tuple(params))]
     
     def get_sessions_by_account(self, account_id: int, limit: int = 50) -> List[Dict[str, Any]]:
         """Get sessions by account"""
@@ -265,8 +340,91 @@ class TikTokRepository(BaseRepository):
             )
             return cursor.lastrowid
         except Exception as e:
-            print(f"Error recording TikTok interaction: {e}")
+            logger.error(f"Error recording TikTok interaction: {e}")
             return None
+
+    def record_interaction_for_username(
+        self,
+        account_id: int,
+        target_username: str,
+        interaction_type: str,
+        success: bool = True,
+        content: Optional[str] = None,
+        video_id: Optional[str] = None,
+        session_id: Optional[int] = None,
+    ) -> bool:
+        """Record a TikTok interaction and update daily stats."""
+        try:
+            profile_id, _ = self.get_or_create_profile(target_username)
+            interaction_id = self.record_interaction(
+                account_id=account_id,
+                profile_id=profile_id,
+                interaction_type=interaction_type.upper(),
+                success=success,
+                content=content,
+                video_id=video_id,
+                session_id=session_id,
+            )
+            if interaction_id is None:
+                return False
+
+            self.increment_interaction_stat(account_id, interaction_type)
+            logger.debug(f"Recorded TikTok {interaction_type} on @{target_username}")
+            return True
+        except Exception as e:
+            logger.error(f"Error recording TikTok interaction: {e}")
+            return False
+
+    def check_recent_interaction(self, target_username: str, account_id: int, hours: int = 168) -> bool:
+        """Check if there was a recent TikTok interaction with a profile."""
+        profile = self.find_profile_by_username(target_username)
+        if not profile:
+            return False
+
+        row = self.query_one(
+            """
+            SELECT COUNT(*) as count FROM tiktok_interaction_history
+            WHERE account_id = ?
+            AND profile_id = ?
+            AND interaction_time >= datetime('now', '-' || ? || ' hours')
+            """,
+            (account_id, profile['profile_id'], hours),
+        )
+        return (row['count'] if row else 0) > 0
+
+    def get_interactions(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent TikTok interactions for an account."""
+        rows = self.query(
+            """
+            SELECT ih.*, tp.username as target_username
+            FROM tiktok_interaction_history ih
+            JOIN tiktok_profiles tp ON ih.profile_id = tp.profile_id
+            WHERE ih.account_id = ?
+            ORDER BY ih.interaction_time DESC
+            LIMIT ?
+            """,
+            (account_id, limit),
+        )
+        return [dict(row) for row in rows]
+
+    def has_interaction(self, account_id: int, target_username: str, hours: int = 168) -> bool:
+        """Check if an account already interacted with a TikTok profile."""
+        return self.check_recent_interaction(target_username, account_id, hours)
+
+    def count_interactions_for_target(self, account_id: int, target_username: str, hours: int = 168) -> int:
+        """Count unique interacted profiles for a target's follower workflow."""
+        row = self.query_one(
+            """
+            SELECT COUNT(DISTINCT ih.profile_id) as count
+            FROM tiktok_interaction_history ih
+            JOIN tiktok_sessions ts ON ih.session_id = ts.session_id
+            WHERE ih.account_id = ?
+            AND ts.target = ?
+            AND ih.interaction_time >= datetime('now', '-' || ? || ' hours')
+            """,
+            (account_id, target_username, hours),
+        )
+        return row['count'] if row else 0
     
     def get_interactions_by_session(self, session_id: int) -> List[Dict[str, Any]]:
         """Get interactions by session"""
@@ -308,7 +466,35 @@ class TikTokRepository(BaseRepository):
             )
             return True
         except Exception as e:
-            print(f"Error recording filtered TikTok profile: {e}")
+            logger.error(f"Error recording filtered TikTok profile: {e}")
+            return False
+
+    def record_filtered_profile_for_username(
+        self,
+        account_id: int,
+        username: str,
+        reason: str,
+        source_type: str,
+        source_name: str,
+        session_id: Optional[int] = None,
+    ) -> bool:
+        """Record a filtered TikTok profile, creating the profile row if needed."""
+        try:
+            profile_id, _ = self.get_or_create_profile(username)
+            result = self.record_filtered_profile(
+                account_id=account_id,
+                profile_id=profile_id,
+                username=username,
+                reason=reason,
+                source_type=source_type,
+                source_name=source_name,
+                session_id=session_id,
+            )
+            if result:
+                logger.debug(f"Recorded TikTok filtered profile: {username} ({reason})")
+            return result
+        except Exception as e:
+            logger.error(f"Error recording TikTok filtered profile: {e}")
             return False
     
     # ============================================
@@ -359,6 +545,35 @@ class TikTokRepository(BaseRepository):
             (amount, account_id, date)
         )
         return cursor.rowcount > 0
+
+    def increment_interaction_stat(self, account_id: int, interaction_type: str) -> bool:
+        """Increment the daily stat matching a TikTok interaction type."""
+        column_map = {
+            'LIKE': 'total_likes',
+            'FOLLOW': 'total_follows',
+            'FAVORITE': 'total_favorites',
+            'COMMENT': 'total_comments',
+            'SHARE': 'total_shares',
+            'PROFILE_VISIT': 'total_profile_visits',
+            'POST_WATCH': 'total_posts_watched',
+        }
+
+        column = column_map.get(interaction_type.upper())
+        if not column:
+            return False
+        return self.increment_stat(account_id, column)
+
+    def get_daily_stats(self, account_id: int, days: int = 7) -> List[Dict[str, Any]]:
+        """Get TikTok daily stats for an account."""
+        rows = self.query(
+            """
+            SELECT * FROM tiktok_daily_stats
+            WHERE account_id = ? AND date >= date('now', '-' || ? || ' days')
+            ORDER BY date DESC
+            """,
+            (account_id, days),
+        )
+        return [dict(row) for row in rows]
     
     # ============================================
     # MAPPERS

@@ -56,7 +56,7 @@ database/
 ## Règles de classement database
 
 - `local/` doit rester la couche infrastructure SQLite locale : chemin DB, connexion, WAL, bootstrap schema, migrations et façade legacy.
-- `local/service.py` est actuellement une façade legacy trop large. Ne pas y ajouter de nouveau SQL métier si un repository peut le porter.
+- `local/service.py` est actuellement une façade legacy trop large. Ne pas y ajouter de nouveau SQL métier si un repository peut le porter ; les méthodes publiques restantes doivent devenir des wrappers de compatibilité vers les repositories.
 - `local/schema.py` orchestre uniquement la création du schema. Les DDL doivent rester rangées dans `local/schemas/<domaine>.py`.
 - `local/migrations.py` orchestre uniquement `run_migrations()`. Les steps de migration doivent rester rangées dans `local/migration_steps/<domaine>.py`, avec l'ordre historique conservé dans l'orchestrateur.
 - `repositories/instagram/` porte les requêtes liées aux tables `instagram_*`, `sessions`, `interaction_history`, `filtered_profiles`, `daily_stats`, scraping/discovery Instagram et social graph Instagram.
@@ -389,3 +389,4 @@ const profiles = databaseService.getProfiles(accountId);
 | 2026-02 | Simplification de `get_db_service()` → `LocalDatabaseClient` direct |
 | 2026-05 | Découpage du bootstrap schema : `local/schema.py` orchestre, `local/schemas/*` contient les DDL par domaine |
 | 2026-05 | Découpage des migrations : `local/migrations.py` orchestre, `local/migration_steps/*` contient les steps par domaine |
+| 2026-05 | Début de réduction de `local/service.py` : les méthodes publiques TikTok délèguent à `repositories/tiktok/TikTokRepository` |
