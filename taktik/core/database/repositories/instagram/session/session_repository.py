@@ -4,6 +4,7 @@ Session Repository - Manages sessions and scraping_sessions tables
 
 import json
 from typing import Dict, List, Optional, Any
+from loguru import logger
 from ..._base.base_repository import BaseRepository
 
 
@@ -37,7 +38,7 @@ class SessionRepository(BaseRepository):
             )
             return cursor.lastrowid
         except Exception as e:
-            print(f"Error creating session: {e}")
+            logger.error(f"Error creating session: {e}")
             return None
     
     def update(
@@ -98,7 +99,7 @@ class SessionRepository(BaseRepository):
     def find_unsynced(self) -> List[Dict[str, Any]]:
         """Get unsynced sessions"""
         rows = self.query(
-            "SELECT * FROM sessions WHERE synced_to_api = 0 AND status IN ('COMPLETED', 'FAILED') ORDER BY start_time DESC"
+            "SELECT * FROM sessions WHERE synced_to_api = 0 AND status IN ('COMPLETED', 'FAILED', 'ERROR') ORDER BY start_time DESC"
         )
         return [self._map_session_row(row) for row in rows]
     
@@ -153,7 +154,7 @@ class SessionRepository(BaseRepository):
             )
             return cursor.lastrowid
         except Exception as e:
-            print(f"Error creating scraping session: {e}")
+            logger.error(f"Error creating scraping session: {e}")
             return None
     
     def update_scraping(

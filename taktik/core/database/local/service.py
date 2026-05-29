@@ -19,6 +19,7 @@ from ..repositories import (
     InteractionRepository,
     SessionRepository,
     DiscoveryRepository,
+    StatsRepository,
     TikTokRepository
 )
 from ..repositories._base.base_repository import BaseRepository
@@ -66,6 +67,7 @@ class LocalDatabaseService:
         self._interactions: Optional[InteractionRepository] = None
         self._sessions: Optional[SessionRepository] = None
         self._discovery: Optional[DiscoveryRepository] = None
+        self._stats: Optional[StatsRepository] = None
         self._tiktok: Optional[TikTokRepository] = None
         
         self._ensure_database()
@@ -93,6 +95,7 @@ class LocalDatabaseService:
         self._interactions = InteractionRepository(conn)
         self._sessions = SessionRepository(conn)
         self._discovery = DiscoveryRepository(conn)
+        self._stats = StatsRepository(conn)
         self._tiktok = TikTokRepository(conn)
     
     # Repository accessors for new code
@@ -130,6 +133,13 @@ class LocalDatabaseService:
         if not self._discovery:
             self._init_repositories()
         return self._discovery
+
+    @property
+    def stats(self) -> StatsRepository:
+        """Access StatsRepository for daily_stats and account analytics."""
+        if not self._stats:
+            self._init_repositories()
+        return self._stats
     
     @property
     def tiktok(self) -> TikTokRepository:
@@ -255,8 +265,7 @@ class LocalDatabaseService:
                 content=content,
                 session_id=session_id
             )
-            # Update daily stats
-            self._update_daily_stats(account_id, interaction_type)
+            self.stats.increment_interaction(account_id, interaction_type)
             logger.debug(f"Recorded {interaction_type} on {target_username}")
             return interaction_id is not None
         except Exception as e:
@@ -371,7 +380,7 @@ class LocalDatabaseService:
             config_used=config_used
         )
         if session_id:
-            self._increment_daily_session_count(account_id)
+            self.stats.increment_session_count(account_id)
             logger.info(f"Created session {session_id}: {session_name}")
         return session_id
     
@@ -383,7 +392,7 @@ class LocalDatabaseService:
         if result and status in ('COMPLETED', 'FAILED', 'ERROR'):
             session = self.get_session(session_id)
             if session:
-                self._update_daily_session_status(
+                self.stats.record_session_completion(
                     session['account_id'], 
                     status, 
                     kwargs.get('duration_seconds', 0)
@@ -403,152 +412,23 @@ class LocalDatabaseService:
         session = self.get_session(session_id)
         if not session:
             return None
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT 
-                COUNT(*) as total_interactions,
-                SUM(CASE WHEN interaction_type = 'LIKE' THEN 1 ELSE 0 END) as total_likes,
-                SUM(CASE WHEN interaction_type = 'FOLLOW' THEN 1 ELSE 0 END) as total_follows,
-                SUM(CASE WHEN interaction_type = 'UNFOLLOW' THEN 1 ELSE 0 END) as total_unfollows,
-                SUM(CASE WHEN interaction_type = 'COMMENT' THEN 1 ELSE 0 END) as total_comments,
-                SUM(CASE WHEN interaction_type = 'STORY_WATCH' THEN 1 ELSE 0 END) as total_story_views,
-                SUM(CASE WHEN interaction_type = 'STORY_LIKE' THEN 1 ELSE 0 END) as total_story_likes,
-                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_interactions
-            FROM interaction_history
-            WHERE session_id = ?
-        """, (session_id,))
-        
-        row = cursor.fetchone()
-        
-        return {
-            'total_interactions': row['total_interactions'] or 0,
-            'total_likes': row['total_likes'] or 0,
-            'total_follows': row['total_follows'] or 0,
-            'total_unfollows': row['total_unfollows'] or 0,
-            'total_comments': row['total_comments'] or 0,
-            'total_story_views': row['total_story_views'] or 0,
-            'total_story_likes': row['total_story_likes'] or 0,
-            'successful_interactions': row['successful_interactions'] or 0
-        }
-    
-    # ============================================
-    # DAILY STATS (for API sync)
-    # ============================================
-    
-    def _update_daily_stats(self, account_id: int, interaction_type: str) -> None:
-        """Update daily stats when an interaction is recorded."""
-        column_map = {
-            'LIKE': 'total_likes',
-            'FOLLOW': 'total_follows',
-            'UNFOLLOW': 'total_unfollows',
-            'COMMENT': 'total_comments',
-            'STORY_WATCH': 'total_story_views',
-            'STORY_LIKE': 'total_story_likes',
-            'PROFILE_VISIT': 'total_profile_visits'
-        }
-        
-        column = column_map.get(interaction_type.upper())
-        if not column:
-            return
-        
-        today = datetime.now().strftime('%Y-%m-%d')
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(f"""
-            INSERT INTO daily_stats (account_id, date, {column})
-            VALUES (?, ?, 1)
-            ON CONFLICT(account_id, date) DO UPDATE SET
-                {column} = {column} + 1,
-                updated_at = datetime('now')
-        """, (account_id, today))
-        conn.commit()
-    
-    def _increment_daily_session_count(self, account_id: int) -> None:
-        """Increment session count for today."""
-        today = datetime.now().strftime('%Y-%m-%d')
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            INSERT INTO daily_stats (account_id, date, total_sessions)
-            VALUES (?, ?, 1)
-            ON CONFLICT(account_id, date) DO UPDATE SET
-                total_sessions = total_sessions + 1,
-                updated_at = datetime('now')
-        """, (account_id, today))
-        conn.commit()
-    
-    def _update_daily_session_status(self, account_id: int, status: str, duration: int) -> None:
-        """Update daily stats when a session completes."""
-        today = datetime.now().strftime('%Y-%m-%d')
-        column = 'completed_sessions' if status == 'COMPLETED' else 'failed_sessions'
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(f"""
-            INSERT INTO daily_stats (account_id, date, {column}, total_duration_seconds)
-            VALUES (?, ?, 1, ?)
-            ON CONFLICT(account_id, date) DO UPDATE SET
-                {column} = {column} + 1,
-                total_duration_seconds = total_duration_seconds + ?,
-                updated_at = datetime('now')
-        """, (account_id, today, duration, duration))
-        conn.commit()
+        return self.interactions.get_session_stats(session_id)
     
     def get_unsynced_sessions(self) -> List[Dict[str, Any]]:
         """Get sessions that haven't been synced to the API."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT * FROM sessions 
-            WHERE synced_to_api = 0 AND status IN ('COMPLETED', 'FAILED', 'ERROR')
-        """)
-        
-        return [dict(row) for row in cursor.fetchall()]
+        return self.sessions.find_unsynced()
     
     def get_unsynced_daily_stats(self) -> List[Dict[str, Any]]:
         """Get daily stats that haven't been synced to the API."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM daily_stats WHERE synced_to_api = 0")
-        
-        return [dict(row) for row in cursor.fetchall()]
+        return self.stats.find_unsynced()
     
     def mark_sessions_synced(self, session_ids: List[int]) -> None:
         """Mark sessions as synced to API."""
-        if not session_ids:
-            return
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        placeholders = ','.join(['?' for _ in session_ids])
-        cursor.execute(f"""
-            UPDATE sessions SET synced_to_api = 1 WHERE session_id IN ({placeholders})
-        """, session_ids)
-        conn.commit()
+        self.sessions.mark_as_synced(session_ids)
     
     def mark_daily_stats_synced(self, stat_ids: List[int]) -> None:
         """Mark daily stats as synced to API."""
-        if not stat_ids:
-            return
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        placeholders = ','.join(['?' for _ in stat_ids])
-        cursor.execute(f"""
-            UPDATE daily_stats SET synced_to_api = 1, synced_at = datetime('now')
-            WHERE id IN ({placeholders})
-        """, stat_ids)
-        conn.commit()
+        self.stats.mark_as_synced(stat_ids)
     
     # ============================================
     # PROFILE PROCESSED CHECK
@@ -590,29 +470,7 @@ class LocalDatabaseService:
     
     def get_account_stats(self, account_id: int, days: int = 7) -> Dict[str, Any]:
         """Get aggregated stats for an account."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(total_sessions), 0) as total_sessions,
-                COALESCE(SUM(total_likes), 0) as total_likes,
-                COALESCE(SUM(total_follows), 0) as total_follows,
-                COALESCE(SUM(total_unfollows), 0) as total_unfollows,
-                COALESCE(SUM(total_comments), 0) as total_comments,
-                COALESCE(SUM(total_story_views), 0) as total_story_views,
-                COALESCE(SUM(total_story_likes), 0) as total_story_likes,
-                COALESCE(SUM(total_profile_visits), 0) as total_profile_visits,
-                COALESCE(SUM(total_duration_seconds), 0) as total_duration,
-                COALESCE(SUM(completed_sessions), 0) as completed_sessions,
-                COALESCE(SUM(failed_sessions), 0) as failed_sessions
-            FROM daily_stats
-            WHERE account_id = ?
-            AND date >= date('now', '-' || ? || ' days')
-        """, (account_id, days))
-        
-        row = cursor.fetchone()
-        return dict(row) if row else {}
+        return self.stats.get_account_stats(account_id, days)
     
     # ============================================
     # SCRAPING SESSIONS

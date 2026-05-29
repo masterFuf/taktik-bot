@@ -3,6 +3,7 @@ Interaction Repository - Manages interaction_history and filtered_profiles table
 """
 
 from typing import Dict, List, Optional, Tuple, Any
+from loguru import logger
 from ..._base.base_repository import BaseRepository
 
 
@@ -32,7 +33,7 @@ class InteractionRepository(BaseRepository):
             )
             return cursor.lastrowid
         except Exception as e:
-            print(f"Error recording interaction: {e}")
+            logger.error(f"Error recording interaction: {e}")
             return None
     
     def has_recent_interaction(
@@ -97,15 +98,44 @@ class InteractionRepository(BaseRepository):
         return row['count'] if row else 0
     
     def get_session_stats(self, session_id: int) -> Dict[str, int]:
-        """Get interaction stats for a session"""
-        rows = self.query(
-            """SELECT interaction_type, COUNT(*) as count
-               FROM interaction_history
-               WHERE session_id = ?
-               GROUP BY interaction_type""",
+        """Get aggregated interaction stats for a session."""
+        row = self.query_one(
+            """
+            SELECT
+                COUNT(*) as total_interactions,
+                SUM(CASE WHEN interaction_type = 'LIKE' THEN 1 ELSE 0 END) as total_likes,
+                SUM(CASE WHEN interaction_type = 'FOLLOW' THEN 1 ELSE 0 END) as total_follows,
+                SUM(CASE WHEN interaction_type = 'UNFOLLOW' THEN 1 ELSE 0 END) as total_unfollows,
+                SUM(CASE WHEN interaction_type = 'COMMENT' THEN 1 ELSE 0 END) as total_comments,
+                SUM(CASE WHEN interaction_type = 'STORY_WATCH' THEN 1 ELSE 0 END) as total_story_views,
+                SUM(CASE WHEN interaction_type = 'STORY_LIKE' THEN 1 ELSE 0 END) as total_story_likes,
+                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_interactions
+            FROM interaction_history
+            WHERE session_id = ?
+            """,
             (session_id,)
         )
-        return {row['interaction_type'].lower(): row['count'] for row in rows}
+        if not row:
+            return {
+                'total_interactions': 0,
+                'total_likes': 0,
+                'total_follows': 0,
+                'total_unfollows': 0,
+                'total_comments': 0,
+                'total_story_views': 0,
+                'total_story_likes': 0,
+                'successful_interactions': 0,
+            }
+        return {
+            'total_interactions': row['total_interactions'] or 0,
+            'total_likes': row['total_likes'] or 0,
+            'total_follows': row['total_follows'] or 0,
+            'total_unfollows': row['total_unfollows'] or 0,
+            'total_comments': row['total_comments'] or 0,
+            'total_story_views': row['total_story_views'] or 0,
+            'total_story_likes': row['total_story_likes'] or 0,
+            'successful_interactions': row['successful_interactions'] or 0,
+        }
     
     # ============================================
     # FILTERED PROFILES
@@ -131,7 +161,7 @@ class InteractionRepository(BaseRepository):
             )
             return True
         except Exception as e:
-            print(f"Error recording filtered profile: {e}")
+            logger.error(f"Error recording filtered profile: {e}")
             return False
     
     def is_filtered(self, username: str, account_id: int) -> bool:

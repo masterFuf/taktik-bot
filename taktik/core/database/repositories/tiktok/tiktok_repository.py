@@ -141,7 +141,7 @@ class TikTokRepository(BaseRepository):
             )
             return True
         except Exception as e:
-            print(f"Error linking scraped profile: {e}")
+            logger.error(f"Error linking scraped profile: {e}")
             return False
     
     def save_scraped_profile(self, scraping_id: int, profile: dict) -> None:

@@ -173,6 +173,25 @@ class TestSessions:
         assert stats["total_likes"] == 1
         assert stats["total_follows"] == 1
 
+    def test_get_unsynced_sessions_includes_error_status(self, db: LocalDatabaseService):
+        acc_id, _ = db.get_or_create_account("botaccount")
+        sid = db.create_session(acc_id, "run", "TARGET", "@t")
+        db.update_session(sid, status="ERROR", duration_seconds=12, error_message="boom")
+
+        unsynced = db.get_unsynced_sessions()
+
+        assert any(session["session_id"] == sid for session in unsynced)
+
+    def test_mark_sessions_synced_delegates_to_repository(self, db: LocalDatabaseService):
+        acc_id, _ = db.get_or_create_account("botaccount")
+        sid = db.create_session(acc_id, "run", "TARGET", "@t")
+        db.update_session(sid, status="COMPLETED", duration_seconds=12)
+
+        db.mark_sessions_synced([sid])
+
+        session = db.get_session(sid)
+        assert session["synced_to_api"] is True
+
     def test_create_scraping_session(self, db: LocalDatabaseService):
         acc_id, _ = db.get_or_create_account("botaccount")
         scraping_id = db.create_scraping_session(
@@ -214,6 +233,17 @@ class TestDailyStats:
         stats = db.get_account_stats(acc_id, days=1)
         assert stats["total_likes"] == 2
         assert stats["total_follows"] == 1
+
+    def test_daily_stats_track_started_and_failed_sessions(self, db: LocalDatabaseService):
+        acc_id, _ = db.get_or_create_account("botaccount")
+        sid = db.create_session(acc_id, "night run", "TARGET", "@t")
+        db.update_session(sid, status="FAILED", duration_seconds=30, error_message="oops")
+
+        stats = db.get_account_stats(acc_id, days=1)
+
+        assert stats["total_sessions"] == 1
+        assert stats["failed_sessions"] == 1
+        assert stats["total_duration"] == 30
 
     def test_unsynced_daily_stats(self, db: LocalDatabaseService):
         acc_id, _ = db.get_or_create_account("botaccount")

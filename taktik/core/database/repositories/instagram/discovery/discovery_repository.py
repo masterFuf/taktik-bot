@@ -4,6 +4,7 @@ Discovery Repository - Manages discovery_campaigns, scraped_profiles, discovery_
 
 import json
 from typing import Dict, List, Optional, Any, Tuple
+from loguru import logger
 from ..._base.base_repository import BaseRepository
 
 
@@ -45,7 +46,7 @@ class DiscoveryRepository(BaseRepository):
             )
             return cursor.lastrowid
         except Exception as e:
-            print(f"Error creating discovery campaign: {e}")
+            logger.error(f"Error creating discovery campaign: {e}")
             return None
     
     def find_campaign_by_id(self, campaign_id: int) -> Optional[Dict[str, Any]]:
@@ -109,7 +110,7 @@ class DiscoveryRepository(BaseRepository):
             )
             return True
         except Exception as e:
-            print(f"Error linking profile to session: {e}")
+            logger.error(f"Error linking profile to session: {e}")
             return False
     
     def link_profiles_to_session(self, scraping_id: int, profile_ids: List[int]) -> int:
@@ -175,7 +176,7 @@ class DiscoveryRepository(BaseRepository):
             if cursor.rowcount > 0:
                 updated += 1
         
-        print(f"[DiscoveryRepository] Updated AI scores for {updated} profiles")
+        logger.debug(f"Updated AI scores for {updated} profiles")
         return updated
     
     def get_qualified_profiles(self, scraping_id: int, min_score: int = 60) -> List[Dict[str, Any]]:

@@ -60,6 +60,7 @@ database/
 - `local/schema.py` orchestre uniquement la création du schema. Les DDL doivent rester rangées dans `local/schemas/<domaine>.py`.
 - `local/migrations.py` orchestre uniquement `run_migrations()`. Les steps de migration doivent rester rangées dans `local/migration_steps/<domaine>.py`, avec l'ordre historique conservé dans l'orchestrateur.
 - `repositories/instagram/` porte les requêtes liées aux tables `instagram_*`, `sessions`, `interaction_history`, `filtered_profiles`, `daily_stats`, scraping/discovery Instagram et social graph Instagram.
+- `repositories/instagram/stats/` porte les requêtes liées à `daily_stats` et aux agrégats analytics Instagram.
 - `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
 - `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
 - Une table ou méthode partagée entre plateformes doit avoir un ownership explicite dans le nom, la doc et le test.
@@ -391,3 +392,4 @@ const profiles = databaseService.getProfiles(accountId);
 | 2026-05 | Découpage des migrations : `local/migrations.py` orchestre, `local/migration_steps/*` contient les steps par domaine |
 | 2026-05 | Début de réduction de `local/service.py` : les méthodes publiques TikTok délèguent à `repositories/tiktok/TikTokRepository` |
 | 2026-05 | Réduction de `local/service.py` : les helpers profil Instagram et stats history délèguent à `repositories/instagram/profile/ProfileRepository` |
+| 2026-05 | Réduction de `local/service.py` : les sessions sync, les agrégats de session et `daily_stats` Instagram délèguent à `repositories/instagram/session`, `interaction` et `stats` |

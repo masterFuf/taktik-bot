@@ -4,7 +4,14 @@ Provides clean separation of database operations by domain
 """
 
 from ._base import BaseRepository
-from .instagram import AccountRepository, ProfileRepository, InteractionRepository, SessionRepository, DiscoveryRepository
+from .instagram import (
+    AccountRepository,
+    ProfileRepository,
+    InteractionRepository,
+    SessionRepository,
+    DiscoveryRepository,
+    StatsRepository,
+)
 from .tiktok import TikTokRepository
 
 __all__ = [
@@ -14,5 +21,6 @@ __all__ = [
     'InteractionRepository',
     'SessionRepository',
     'DiscoveryRepository',
+    'StatsRepository',
     'TikTokRepository',
 ]
