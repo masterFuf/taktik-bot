@@ -390,3 +390,4 @@ const profiles = databaseService.getProfiles(accountId);
 | 2026-05 | Découpage du bootstrap schema : `local/schema.py` orchestre, `local/schemas/*` contient les DDL par domaine |
 | 2026-05 | Découpage des migrations : `local/migrations.py` orchestre, `local/migration_steps/*` contient les steps par domaine |
 | 2026-05 | Début de réduction de `local/service.py` : les méthodes publiques TikTok délèguent à `repositories/tiktok/TikTokRepository` |
+| 2026-05 | Réduction de `local/service.py` : les helpers profil Instagram et stats history délèguent à `repositories/instagram/profile/ProfileRepository` |

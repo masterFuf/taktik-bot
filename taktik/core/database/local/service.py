@@ -203,40 +203,8 @@ class LocalDatabaseService:
         Batch-lookup profiles by username list.  Returns only profiles that exist
         in the DB (order not guaranteed).  Uses a single SQL query with IN clause.
         """
-        if not usernames:
-            return []
         try:
-            conn = self._get_connection()
-            placeholders = ','.join('?' * len(usernames))
-            rows = conn.execute(
-                f"""
-                SELECT
-                    p.username,
-                    p.full_name,
-                    p.biography,
-                    p.is_business,
-                    p.ai_niche         AS niche_category,
-                    p.ai_specific_niche AS niche,
-                    p.ai_profession    AS profession,
-                    p.ai_profession_tags AS profession_tags,
-                    p.location_city    AS cities,
-                    sp.ai_analysis,
-                    sp.ai_qualified
-                FROM instagram_profiles p
-                LEFT JOIN (
-                    SELECT profile_id,
-                           MAX(scraped_at) AS latest,
-                           ai_analysis,
-                           ai_qualified
-                    FROM scraped_profiles
-                    WHERE ai_qualified = 1
-                    GROUP BY profile_id
-                ) sp ON sp.profile_id = p.profile_id
-                WHERE p.username IN ({placeholders})
-                """,
-                usernames,
-            ).fetchall()
-            return [dict(r) for r in rows]
+            return self.profiles.find_profiles_with_latest_qualification(usernames)
         except Exception as e:
             logger.debug(f"get_profiles_by_usernames failed: {e}")
             return []
@@ -261,25 +229,7 @@ class LocalDatabaseService:
         
         if has_enriched_data and profile_id:
             try:
-                conn = self._get_connection()
-                cursor = conn.cursor()
-                
-                # Insert enriched stats into profile_stats_history
-                cursor.execute("""
-                    INSERT INTO profile_stats_history
-                    (profile_id, followers_count, following_count, posts_count,
-                     is_verified, external_url, profile_pic_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    profile_id,
-                    profile_data.get('followers_count', 0),
-                    profile_data.get('following_count', 0),
-                    profile_data.get('posts_count', 0),
-                    1 if profile_data.get('is_verified') else 0,
-                    profile_data.get('external_url'),
-                    profile_data.get('profile_pic_url')
-                ))
-                conn.commit()
+                self.profiles.record_stats_history(profile_id, profile_data)
                 logger.debug(f"Recorded enriched stats for profile {profile_id}")
             except Exception as e:
                 logger.warning(f"Failed to record enriched stats for profile {profile_id}: {e}")
@@ -339,18 +289,7 @@ class LocalDatabaseService:
         Returns:
             True if profile exists and was updated within the time window
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT profile_id, updated_at 
-            FROM instagram_profiles 
-            WHERE username = ? 
-            AND updated_at >= datetime('now', '-' || ? || ' days')
-        """, (username, days))
-        
-        row = cursor.fetchone()
-        return row is not None
+        return self.profiles.is_recently_scraped(username, days)
     
     def profile_exists_in_db(self, username: str, days: int = None) -> bool:
         """
@@ -364,22 +303,7 @@ class LocalDatabaseService:
         Returns:
             True if profile exists (within the time window if days is set)
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        if days is None:
-            cursor.execute(
-                "SELECT 1 FROM instagram_profiles WHERE username = ? LIMIT 1",
-                (username,)
-            )
-        else:
-            cursor.execute(
-                """SELECT 1 FROM instagram_profiles
-                   WHERE username = ?
-                   AND created_at >= datetime('now', '-' || ? || ' days')
-                   LIMIT 1""",
-                (username, days)
-            )
-        return cursor.fetchone() is not None
+        return self.profiles.exists_by_username(username, days)
 
     def get_recently_scraped_usernames(self, days: int = None, limit: int = 10000) -> set:
         """
@@ -397,24 +321,7 @@ class LocalDatabaseService:
         Returns:
             Set of usernames already known in the DB
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
-        if days is None:
-            cursor.execute("""
-                SELECT username
-                FROM instagram_profiles
-                LIMIT ?
-            """, (limit,))
-        else:
-            cursor.execute("""
-                SELECT username
-                FROM instagram_profiles
-                WHERE created_at >= datetime('now', '-' || ? || ' days')
-                LIMIT ?
-            """, (days, limit))
-        
-        return {row['username'] for row in cursor.fetchall()}
+        return self.profiles.get_known_usernames(days, limit)
     
     # ============================================
     # FILTERED PROFILES (delegated to InteractionRepository)

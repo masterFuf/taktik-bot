@@ -98,6 +98,118 @@ class ProfileRepository(BaseRepository):
             (username,)
         )
         return self._map_row(row)
+
+    def find_profiles_with_latest_qualification(self, usernames: List[str]) -> List[Dict[str, Any]]:
+        """Batch lookup profiles with latest positive scraping qualification data."""
+        if not usernames:
+            return []
+
+        placeholders = ','.join('?' * len(usernames))
+        rows = self.query(
+            f"""
+            SELECT
+                p.username,
+                p.full_name,
+                p.biography,
+                p.is_business,
+                p.ai_niche          AS niche_category,
+                p.ai_specific_niche AS niche,
+                p.ai_profession     AS profession,
+                p.ai_profession_tags AS profession_tags,
+                p.location_city     AS cities,
+                sp.ai_analysis,
+                sp.ai_qualified
+            FROM instagram_profiles p
+            LEFT JOIN (
+                SELECT profile_id,
+                       MAX(scraped_at) AS latest,
+                       ai_analysis,
+                       ai_qualified
+                FROM scraped_profiles
+                WHERE ai_qualified = 1
+                GROUP BY profile_id
+            ) sp ON sp.profile_id = p.profile_id
+            WHERE p.username IN ({placeholders})
+            """,
+            tuple(usernames),
+        )
+        return [dict(row) for row in rows]
+
+    def record_stats_history(self, profile_id: int, profile_data: Dict[str, Any]) -> bool:
+        """Record a profile_stats_history snapshot for enriched profile data."""
+        cursor = self.execute(
+            """
+            INSERT INTO profile_stats_history
+            (profile_id, followers_count, following_count, posts_count,
+             is_verified, external_url, profile_pic_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                profile_id,
+                profile_data.get('followers_count', 0),
+                profile_data.get('following_count', 0),
+                profile_data.get('posts_count', 0),
+                1 if profile_data.get('is_verified') else 0,
+                profile_data.get('external_url'),
+                profile_data.get('profile_pic_url'),
+            ),
+        )
+        return cursor.rowcount > 0
+
+    def is_recently_scraped(self, username: str, days: int = 7) -> bool:
+        """Check whether a profile was updated within the configured time window."""
+        row = self.query_one(
+            """
+            SELECT profile_id
+            FROM instagram_profiles
+            WHERE username = ?
+            AND updated_at >= datetime('now', '-' || ? || ' days')
+            """,
+            (username, days),
+        )
+        return row is not None
+
+    def exists_by_username(self, username: str, days: Optional[int] = None) -> bool:
+        """Check if a profile exists, optionally constrained by creation date."""
+        if days is None:
+            row = self.query_one(
+                "SELECT 1 FROM instagram_profiles WHERE username = ? LIMIT 1",
+                (username,),
+            )
+        else:
+            row = self.query_one(
+                """
+                SELECT 1 FROM instagram_profiles
+                WHERE username = ?
+                AND created_at >= datetime('now', '-' || ? || ' days')
+                LIMIT 1
+                """,
+                (username, days),
+            )
+        return row is not None
+
+    def get_known_usernames(self, days: Optional[int] = None, limit: int = 10000) -> set:
+        """Return usernames already known by the profile table."""
+        if days is None:
+            rows = self.query(
+                """
+                SELECT username
+                FROM instagram_profiles
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        else:
+            rows = self.query(
+                """
+                SELECT username
+                FROM instagram_profiles
+                WHERE created_at >= datetime('now', '-' || ? || ' days')
+                LIMIT ?
+                """,
+                (days, limit),
+            )
+        return {row['username'] for row in rows}
     
     def find_by_id(self, profile_id: int) -> Optional[Dict[str, Any]]:
         """Find profile by ID"""
