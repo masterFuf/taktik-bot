@@ -176,3 +176,54 @@ class TestRunMigrations:
         cols = {r["name"] for r in info}
         for col in ("ai_score", "ai_qualified", "ai_analysis", "qualification_criteria", "scored_at"):
             assert col in cols, f"Missing column: {col}"
+
+    def test_legacy_tiktok_scraped_profiles_are_migrated(self, base_conn):
+        base_conn.execute("""
+            CREATE TABLE tiktok_scraped_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scraping_id INTEGER,
+                username TEXT,
+                display_name TEXT,
+                followers_count INTEGER,
+                following_count INTEGER,
+                likes_count INTEGER,
+                posts_count INTEGER,
+                bio TEXT,
+                is_private INTEGER,
+                is_verified INTEGER,
+                is_enriched INTEGER,
+                scraped_at TEXT
+            )
+        """)
+        base_conn.execute("""
+            INSERT INTO tiktok_scraped_profiles (
+                scraping_id, username, display_name, followers_count,
+                following_count, likes_count, posts_count, bio,
+                is_private, is_verified, is_enriched, scraped_at
+            )
+            VALUES (42, 'creator_legacy', 'Legacy Creator', 1000, 50, 12345, 12,
+                    'Old bio', 0, 1, 1, '2026-01-01T00:00:00')
+        """)
+
+        run_migrations(base_conn)
+
+        profile = base_conn.execute(
+            "SELECT username, biography, followers_count FROM tiktok_profiles WHERE username = ?",
+            ("creator_legacy",),
+        ).fetchone()
+        assert profile is not None
+        assert profile["biography"] == "Old bio"
+        assert profile["followers_count"] == 1000
+
+        info = base_conn.execute("PRAGMA table_info(tiktok_scraped_profiles)").fetchall()
+        cols = {r["name"] for r in info}
+        assert "profile_id" in cols
+        assert "bio" not in cols
+
+        link = base_conn.execute("""
+            SELECT tsp.scraping_id, tp.username
+            FROM tiktok_scraped_profiles tsp
+            JOIN tiktok_profiles tp ON tp.profile_id = tsp.profile_id
+        """).fetchone()
+        assert link["scraping_id"] == 42
+        assert link["username"] == "creator_legacy"

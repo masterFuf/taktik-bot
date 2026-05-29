@@ -34,7 +34,13 @@ database/
 │   │   ├── discovery.py
 │   │   ├── social_graph.py
 │   │   └── gmail.py
-│   ├── migrations.py        ← Migrations legacy post-schema
+│   ├── migrations.py        ← Orchestrateur run_migrations()
+│   ├── migration_steps/     ← Migrations classées par domaine
+│   │   ├── instagram.py
+│   │   ├── tiktok.py
+│   │   ├── discovery.py
+│   │   ├── social_graph.py
+│   │   └── identifiers.py
 │   └── client.py            ← Interface publique (LocalDatabaseClient)
 │                              Appelé par get_db_service(), fournit les méthodes métier
 └── repositories/
@@ -52,6 +58,7 @@ database/
 - `local/` doit rester la couche infrastructure SQLite locale : chemin DB, connexion, WAL, bootstrap schema, migrations et façade legacy.
 - `local/service.py` est actuellement une façade legacy trop large. Ne pas y ajouter de nouveau SQL métier si un repository peut le porter.
 - `local/schema.py` orchestre uniquement la création du schema. Les DDL doivent rester rangées dans `local/schemas/<domaine>.py`.
+- `local/migrations.py` orchestre uniquement `run_migrations()`. Les steps de migration doivent rester rangées dans `local/migration_steps/<domaine>.py`, avec l'ordre historique conservé dans l'orchestrateur.
 - `repositories/instagram/` porte les requêtes liées aux tables `instagram_*`, `sessions`, `interaction_history`, `filtered_profiles`, `daily_stats`, scraping/discovery Instagram et social graph Instagram.
 - `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
 - `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
@@ -381,3 +388,4 @@ const profiles = databaseService.getProfiles(accountId);
 | 2026-02 | Réorganisation : `local/service.py`, `local/client.py`, `repositories/` |
 | 2026-02 | Simplification de `get_db_service()` → `LocalDatabaseClient` direct |
 | 2026-05 | Découpage du bootstrap schema : `local/schema.py` orchestre, `local/schemas/*` contient les DDL par domaine |
+| 2026-05 | Découpage des migrations : `local/migrations.py` orchestre, `local/migration_steps/*` contient les steps par domaine |
