@@ -20,13 +20,7 @@ Usage:
 from dataclasses import fields as dc_fields
 from typing import Any, Dict, List
 from loguru import logger
-
-
-# Original package names (same as detector.py — single source of truth)
-_ORIGINAL_PACKAGES = {
-    "instagram": "com.instagram.android",
-    "tiktok": "com.zhiliaoapp.musically",
-}
+from .package_map import ORIGINAL_PACKAGES
 
 
 def patch_selectors_for_package(platform: str, target_package: str) -> int:
@@ -44,11 +38,11 @@ def patch_selectors_for_package(platform: str, target_package: str) -> int:
     Returns:
         Number of individual string values patched.
     """
-    if platform not in _ORIGINAL_PACKAGES:
+    if platform not in ORIGINAL_PACKAGES:
         logger.error(f"[ClonePatch] Unknown platform: {platform}")
         return 0
 
-    original = _ORIGINAL_PACKAGES[platform]
+    original = ORIGINAL_PACKAGES[platform]
 
     if target_package == original:
         logger.debug(f"[ClonePatch] Package is original ({original}), nothing to patch")

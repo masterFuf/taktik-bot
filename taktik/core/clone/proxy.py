@@ -27,8 +27,7 @@ Usage:
 """
 
 from typing import Any, Optional
-
-OFFICIAL_PACKAGE = "com.instagram.android"
+from .package_map import OFFICIAL_PACKAGE
 
 # UiObject methods that return another UiObject — these must be wrapped
 # recursively so subsequent .child(resourceId=...) calls are also rewritten.

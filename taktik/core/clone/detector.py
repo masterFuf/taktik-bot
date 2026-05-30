@@ -25,26 +25,10 @@ Usage:
 
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 from loguru import logger
-
-
-# Original package names per platform
-ORIGINAL_PACKAGES = {
-    "instagram": "com.instagram.android",
-    "tiktok": "com.zhiliaoapp.musically",
-}
-
-# Prefix-based detection: any package starting with this prefix is a
-# potential Instagram/TikTok instance (original or clone).
-# NomixCloner mutates the last letter(s): android → androie, androif, …
-# Other cloners may append suffixes: android.c1, android.clone2, …
-# Using a generous prefix catches both patterns.
-_CLONE_PREFIXES = {
-    "instagram": "com.instagram.andro",
-    "tiktok": "com.zhiliaoapp.musical",
-}
+from .package_map import ORIGINAL_PACKAGES, CLONE_PREFIXES
 
 
 @dataclass(frozen=True)
@@ -91,7 +75,7 @@ def scan_clones(
         return []
 
     original_pkg = ORIGINAL_PACKAGES[platform]
-    prefix = _CLONE_PREFIXES[platform]
+    prefix = CLONE_PREFIXES[platform]
 
     # Query all installed packages
     try:
