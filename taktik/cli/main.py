@@ -11,7 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.prompt import Prompt, Confirm, IntPrompt
 from loguru import logger
-from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.core.manager import InstagramManager
 from taktik.core.social_media.tiktok.core.manager import TikTokManager
 from taktik.core.database import configure_db_service

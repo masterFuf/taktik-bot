@@ -31,6 +31,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant commence le lot 3 en branchant `instagram/core/manager.py` et `tiktok/core/manager.py` directement sur `shared/platform/social_media_base.py` et `shared/device/manager.py`, comme `threads/core/manager.py`.
 - un sous-lot suivant etend ce lot 3 aux workflows Instagram qui ne demandent aucune facade plateforme (`scraping`, `post_scraping`, `cold_dm`) afin de reduire les imports runtime qui traversent encore les shims `actions/core/device`.
 - un sous-lot suivant corrige aussi la compat top-level `taktik/core/__init__.py`, qui pointait vers un chemin `DeviceFacade` obsolete et n'exposait pas vraiment les symbols annonces dans `__all__`.
+- un sous-lot suivant etend enfin ce lot 3 au CLI, qui importait encore `DeviceManager` via le shim Instagram alors qu'il consomme seulement le manager shared canonique.
 
 ## Prompt pret a coller
 
