@@ -3,7 +3,7 @@
 import time
 from typing import Dict, Any, List, Optional
 
-from ....common import DatabaseHelpers
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class FollowerExtractionMixin:
@@ -64,7 +64,7 @@ class FollowerExtractionMixin:
             
             if account_id:
                 try:
-                    should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                    should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
                         follower_username, account_id, hours_limit=24*60
                     )
                     if should_skip:

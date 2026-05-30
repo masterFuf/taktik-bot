@@ -4,8 +4,8 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 
-from ...common.database_helpers import DatabaseHelpers
 from ....core.ipc import IPCEmitter
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class FeedUserInteractionsMixin:
@@ -64,9 +64,6 @@ class FeedUserInteractionsMixin:
                 result['stories'] = stories_result.get('watched', 0)
                 result['stories_liked'] = stories_result.get('liked', 0)
             
-            # Enregistrer l'interaction
-            self._record_interaction(username, result, config.get('source', 'feed'))
-            
             # Retourner au feed
             self.nav_actions.navigate_to_home()
             
@@ -124,7 +121,7 @@ class FeedUserInteractionsMixin:
             account_id = self._get_account_id()
             session_id = self._get_session_id()
             
-            DatabaseHelpers.record_filtered_profile(
+            InstagramWorkflowStateService.record_filtered_profile(
                 username=username,
                 reason=reason,
                 source_type='FEED',
@@ -134,24 +131,3 @@ class FeedUserInteractionsMixin:
             )
         except Exception as e:
             self.logger.debug(f"Error recording filtered profile: {e}")
-    
-    def _record_interaction(self, username: str, result: Dict[str, int], source: str):
-        """Enregistrer une interaction complète."""
-        try:
-            account_id = self._get_account_id()
-            session_id = self._get_session_id()
-            
-            DatabaseHelpers.record_profile_interaction(
-                username=username,
-                source_type='FEED',
-                source_name=source,
-                likes=result.get('likes', 0),
-                follows=result.get('follows', 0),
-                comments=result.get('comments', 0),
-                stories_watched=result.get('stories', 0),
-                stories_liked=result.get('stories_liked', 0),
-                account_id=account_id,
-                session_id=session_id
-            )
-        except Exception as e:
-            self.logger.debug(f"Error recording interaction: {e}")

@@ -4,8 +4,8 @@ import time
 import random
 from typing import Dict, Any, List
 
-from ....common import DatabaseHelpers
 from .....core.ipc import IPCEmitter
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class FollowerLegacyWorkflowMixin:
@@ -74,7 +74,7 @@ class FollowerLegacyWorkflowMixin:
                     account_id = follower.get('source_account_id')
                     if account_id:
                         try:
-                            should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                            should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
                                 username, account_id, hours_limit=24*60
                             )
                             if should_skip:

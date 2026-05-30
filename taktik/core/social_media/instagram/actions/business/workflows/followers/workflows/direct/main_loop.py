@@ -3,9 +3,9 @@
 import time
 from typing import Dict, Any
 
-from .....common import DatabaseHelpers
 from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from ....common.followers_tracker import FollowersTracker
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
@@ -184,7 +184,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     # Vérifier si déjà traité OU filtré via DB
                     if account_id:
                         try:
-                            should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                            should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
                                 username, account_id, hours_limit=24*60
                             )
                             if should_skip:

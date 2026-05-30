@@ -3,6 +3,7 @@
 from typing import Optional, Dict, Any, List
 
 from ..ipc import IPCEmitter
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class StatsRecordingMixin:
@@ -22,8 +23,6 @@ class StatsRecordingMixin:
             True if recording succeeded, False otherwise
         """
         try:
-            from ...business.common.database_helpers import DatabaseHelpers
-            
             account_id = self._get_account_id()
             session_id = self._get_session_id()
             
@@ -31,7 +30,7 @@ class StatsRecordingMixin:
                 self.logger.warning(f"Cannot record {action_type} - no account_id")
                 return False
             
-            DatabaseHelpers.record_individual_actions(
+            InstagramWorkflowStateService.record_individual_actions(
                 username=username,
                 action_type=action_type,
                 count=count,
@@ -66,8 +65,6 @@ class StatsRecordingMixin:
             account_id: Account ID for DB recording
             session_id: Session ID for DB recording
         """
-        from ...business.common.database_helpers import DatabaseHelpers
-        
         self.stats_manager.increment('profiles_visited')
         self.stats_manager.increment('profiles_interacted')
 
@@ -75,7 +72,7 @@ class StatsRecordingMixin:
             self.stats_manager.increment('likes', interaction_result['likes'])
         if interaction_result.get('follows', 0) > 0:
             self.stats_manager.increment('follows', interaction_result['follows'])
-            DatabaseHelpers.record_individual_actions(
+            InstagramWorkflowStateService.record_individual_actions(
                 username, 'FOLLOW', interaction_result['follows'],
                 account_id, session_id
             )

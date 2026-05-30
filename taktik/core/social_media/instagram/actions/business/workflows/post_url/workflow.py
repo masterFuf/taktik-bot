@@ -7,9 +7,7 @@ import re
 import time
 
 from ..common.likers_base import LikersWorkflowBase
-from ...common.database_helpers import DatabaseHelpers
 from ....core.stats import create_workflow_stats
-from taktik.core.database import get_db_service
 
 from .mixins.url_handling import PostUrlHandlingMixin
 from .mixins.extractors import PostUrlExtractorsMixin

@@ -14,7 +14,7 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from ....core.base_business.profile_processing import ProfileProcessingResult
-from ...common.database_helpers import DatabaseHelpers
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -86,7 +86,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                 stats['users_found'] += 1
 
                 # DB skip check
-                should_skip, skip_reason = DatabaseHelpers.is_profile_skippable(
+                should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
                     username, account_id, hours_limit=24 * 60
                 )
                 if should_skip:

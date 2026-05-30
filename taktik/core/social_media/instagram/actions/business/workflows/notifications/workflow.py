@@ -12,7 +12,7 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from ....core.stats import create_workflow_stats
-from ...common.database_helpers import DatabaseHelpers
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from .extraction import NotificationExtractionMixin
 from .interactions import NotificationInteractionsMixin
 
@@ -93,7 +93,7 @@ class NotificationsBusiness(NotificationExtractionMixin, NotificationInteraction
                 self.logger.info(f"[{i}/{len(users_to_process)}] Processing @{username}")
                 
                 account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
-                if DatabaseHelpers.is_profile_already_processed(username, account_id):
+                if InstagramWorkflowStateService.is_profile_already_processed(username, account_id):
                     self.logger.info(f"Profile @{username} already processed, skipped")
                     stats['skipped'] += 1
                     self.stats_manager.increment('skipped')

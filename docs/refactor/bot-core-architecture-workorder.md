@@ -23,6 +23,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 2 promeut ensuite ce social graph legacy vers `taktik/core/database/repositories/instagram/social_graph/`, en laissant `instagram_follow_graph.py` comme facade de compatibilite.
 - un sous-lot suivant reduit les call sites `unfollow` pour appeler `InstagramFollowGraphService` directement, afin d'eviter de garder `DatabaseHelpers` comme delegant pur sur cette famille.
 - un sous-lot suivant reduit les call sites `hashtag` pour appeler `InstagramHashtagPostService` directement, afin de continuer a vider `DatabaseHelpers` famille par famille.
+- un sous-lot suivant reduit les call sites `workflow_state` (`notifications`, `followers`, `likers`, `feed`, `stats_recording`) pour appeler `InstagramWorkflowStateService` directement, et supprime un faux enregistrement `feed` qui ne correspondait a aucun owner DB et doublonnait la source de verite action-level.
 
 ## Prompt pret a coller
 
