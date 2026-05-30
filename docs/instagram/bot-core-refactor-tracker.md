@@ -36,6 +36,7 @@
 - [x] Cible `core/agent` documentee comme runtime kernel transverse, separe du planner premium cote Front.
 - [x] `core/agent` n'importe plus directement `bridges.common.ai_service` ; le provider AI est maintenant injecte par le bridge appelant.
 - [x] Le scraping Instagram ne construit plus directement `IPC` + `AIService` dans `core`; bridge et CLI injectent maintenant le provider AI.
+- [x] `core/agent` expose maintenant un premier `WorkflowRegistry` et un `AgentPlanExecutor` minimaux, sans brancher encore les workflows historiques.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
 - [ ] Rationaliser l'owner provider dans `core/ai` pour les workflows qui importent encore `bridges.common.ai_service`.
 - [ ] Faire emerger `registry.py` / `executor.py` pour sortir `TaktikAgentWorkflow` du role de pseudo-noyau global.

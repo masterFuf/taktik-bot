@@ -9,6 +9,8 @@ from taktik.core.agent.contracts import (
     PlanStep,
     WorkflowInvocation,
 )
+from taktik.core.agent.executor import AgentPlanExecutor
+from taktik.core.agent.registry import WorkflowRegistry
 from taktik.core.agent.taktik_agent_workflow import TaktikAgentWorkflow
 
 __all__ = [
@@ -18,7 +20,9 @@ __all__ = [
     "AgentContext",
     "AgentEvent",
     "AgentPlan",
+    "AgentPlanExecutor",
     "PlanStep",
     "TaktikAgentWorkflow",
+    "WorkflowRegistry",
     "WorkflowInvocation",
 ]
