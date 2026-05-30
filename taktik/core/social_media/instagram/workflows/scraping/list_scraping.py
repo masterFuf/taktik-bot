@@ -98,8 +98,7 @@ class ScrapingListMixin(DeepQualifyMixin):
             self.logger.info("🔄 Dedup disabled — always re-scrape mode")
         else:
             try:
-                from taktik.core.database.local.service import get_local_database
-                _dedup_db = get_local_database()
+                _dedup_db = self._local_db()
                 if rescrape_after_days:
                     self.logger.info(
                         f"🔍 Dedup active (window {rescrape_after_days}d): "
@@ -525,8 +524,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                 if cities:
                     city_str = ', '.join(cities)
                     try:
-                        from taktik.core.database.local.service import get_local_database
-                        get_local_database().update_profile_city(profile_id, city_str)
+                        self._local_db().update_profile_city(profile_id, city_str)
                         self.logger.info(f"📍 @{username}: cities={city_str}")
                     except Exception as e:
                         self.logger.debug(f"Could not save cities for @{username}: {e}")
@@ -682,8 +680,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                     if self._ipc:
                         self._ipc.send("post_url_found", url=post_url, hashtag=hashtag)
                     try:
-                        from taktik.core.database.local.service import get_local_database
-                        _db = get_local_database()
+                        _db = self._local_db()
                         if _db.is_post_url_already_scraped(post_url):
                             self.logger.info(f"⏭️  Post already scraped: {post_url} — skipping")
                             self.device.press("back")

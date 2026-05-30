@@ -18,6 +18,14 @@ console = Console()
 class ScrapingPersistenceMixin:
     """Mixin: CSV export, DB save, session management, enrichment, stats display."""
 
+    def _local_db(self):
+        """Return the shared local DB boundary for scraping mixins."""
+        local_db = getattr(self, 'local_db', None)
+        if local_db is None:
+            local_db = get_local_database()
+            self.local_db = local_db
+        return local_db
+
     def _export_to_csv(self):
         """Export scraped profiles to CSV file."""
         if not self.scraped_profiles:
@@ -70,7 +78,7 @@ class ScrapingPersistenceMixin:
             return None
             
         try:
-            local_db = get_local_database()
+            local_db = self._local_db()
             username = profile['username']
             
             import json as _json
@@ -123,7 +131,7 @@ class ScrapingPersistenceMixin:
         if not self.scraping_session_id or not profile_id:
             return
         try:
-            local_db = get_local_database()
+            local_db = self._local_db()
             local_db.update_scraped_profile_ai(
                 scraping_id=self.scraping_session_id,
                 profile_id=profile_id,
@@ -140,7 +148,7 @@ class ScrapingPersistenceMixin:
             return
         
         try:
-            local_db = get_local_database()
+            local_db = self._local_db()
             saved_count = 0
             updated_count = 0
             
@@ -233,7 +241,7 @@ class ScrapingPersistenceMixin:
     def _create_scraping_session(self) -> None:
         """Create a scraping session in the database."""
         try:
-            local_db = get_local_database()
+            local_db = self._local_db()
             
             # Determine source type and name
             scraping_type = self.config.get('type', 'target')
@@ -277,7 +285,7 @@ class ScrapingPersistenceMixin:
             return
         
         try:
-            local_db = get_local_database()
+            local_db = self._local_db()
             local_db.complete_scraping_session(
                 scraping_id=self.scraping_session_id,
                 total_scraped=len(self.scraped_profiles),

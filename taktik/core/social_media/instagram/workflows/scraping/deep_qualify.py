@@ -188,8 +188,7 @@ class DeepQualifyMixin:
         Fire-and-forget: errors are swallowed so the scraping flow is never interrupted.
         """
         try:
-            from taktik.core.database.local.service import get_local_database
-            db = get_local_database()
+            db = self._local_db()
             session_id = str(getattr(self, '_scraping_id', None) or '')
 
             # Ensure the profile has a row in instagram_profiles so profile_id FK is valid
@@ -226,8 +225,7 @@ class DeepQualifyMixin:
         if ai_service is None:
             return  # AI mode not enabled — skip silently
         try:
-            from taktik.core.database.local.service import get_local_database
-            db = get_local_database()
+            db = self._local_db()
             # Only classify usernames that don't have a classification yet
             pending = db.get_unclassified_following_usernames(limit=500)
             # Intersect with the current batch so we only process relevant ones
@@ -313,8 +311,7 @@ class DeepQualifyMixin:
             return []
 
         try:
-            from taktik.core.database.local.service import get_local_database
-            db = get_local_database()
+            db = self._local_db()
             raw_profiles = db.get_profiles_by_usernames(usernames)
         except Exception as e:
             self.logger.debug(f"[deep_qualify] DB batch lookup failed: {e}")

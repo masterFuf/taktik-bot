@@ -27,6 +27,7 @@ from taktik.core.social_media.instagram.actions.atomic.detection import Detectio
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
+from taktik.core.database.local.service import get_local_database
 
 from .post_scraping_helpers import ScrapingPostHelpersMixin
 from .list_scraping import ScrapingListMixin
@@ -70,6 +71,7 @@ class ScrapingWorkflow(
         self.scroll_actions = ScrollActions(self.device)
         self.profile_manager = ProfileBusiness(self.device)
         self.ui_extractors = InstagramUIExtractors(self.device)
+        self.local_db = get_local_database()
         
         # Stats
         self.scraped_profiles: List[Dict[str, Any]] = []
