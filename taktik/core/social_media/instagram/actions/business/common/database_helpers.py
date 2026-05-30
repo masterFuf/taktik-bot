@@ -8,6 +8,7 @@ from typing import Optional
 
 from loguru import logger
 
+from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 log = logger.bind(module="instagram-database-helpers")
@@ -128,29 +129,13 @@ class DatabaseHelpers:
         Returns:
             True si le post a déjà été traité
         """
-        if not account_id:
-            return False
-        
-        try:
-            from taktik.core.database.local.service import get_local_database
-            local_db = get_local_database()
-            
-            is_processed = local_db.is_hashtag_post_processed(
-                account_id=account_id,
-                hashtag=hashtag,
-                post_author=post_author,
-                post_caption_hash=post_caption_hash,
-                hours_limit=hours_limit
-            )
-            
-            if is_processed:
-                log.debug(f"📋 Post #{hashtag} by @{post_author} already processed")
-            
-            return is_processed
-            
-        except Exception as e:
-            log.error(f"❌ Error checking hashtag post: {e}")
-            return False
+        return InstagramHashtagPostService.is_processed(
+            hashtag=hashtag,
+            post_author=post_author,
+            post_caption_hash=post_caption_hash,
+            account_id=account_id,
+            hours_limit=hours_limit,
+        )
     
     @staticmethod
     def record_hashtag_post_processed(
@@ -181,34 +166,17 @@ class DatabaseHelpers:
         Returns:
             True si enregistré avec succès
         """
-        if not account_id:
-            log.warning("⚠️ account_id manquant - impossible d'enregistrer le post hashtag")
-            return False
-        
-        try:
-            from taktik.core.database.local.service import get_local_database
-            local_db = get_local_database()
-            
-            success = local_db.record_processed_hashtag_post(
-                account_id=account_id,
-                hashtag=hashtag,
-                post_author=post_author,
-                post_caption_hash=post_caption_hash,
-                post_caption_preview=post_caption_preview,
-                likes_count=likes_count,
-                comments_count=comments_count,
-                likers_processed=likers_processed,
-                interactions_made=interactions_made
-            )
-            
-            if success:
-                log.debug(f"✅ Post #{hashtag} by @{post_author} recorded as processed")
-            
-            return success
-            
-        except Exception as e:
-            log.error(f"❌ Error recording hashtag post: {e}")
-            return False
+        return InstagramHashtagPostService.record_processed(
+            hashtag=hashtag,
+            post_author=post_author,
+            post_caption_hash=post_caption_hash,
+            post_caption_preview=post_caption_preview,
+            likes_count=likes_count,
+            comments_count=comments_count,
+            likers_processed=likers_processed,
+            interactions_made=interactions_made,
+            account_id=account_id,
+        )
     
     # ============================================
     # UNFOLLOW DECISION HELPERS
@@ -314,14 +282,7 @@ class DatabaseHelpers:
         Génère un hash court de la caption pour identification.
         Utilise les 100 premiers caractères normalisés.
         """
-        import hashlib
-        if not caption:
-            return "empty"
-        
-        # Normaliser: lowercase, strip, premiers 100 chars
-        normalized = caption.lower().strip()[:100]
-        # Hash MD5 tronqué à 16 chars
-        return hashlib.sha256(normalized.encode('utf-8')).hexdigest()[:16]
+        return InstagramHashtagPostService.generate_caption_hash(caption)
 
     # ============================================
     # FOLLOWING SYNC HELPERS

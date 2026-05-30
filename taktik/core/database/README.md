@@ -23,6 +23,9 @@ database/
 ├── __init__.py              ← API publique (configure_db_service, get_db_service)
 ├── models.py                ← Modèles de données (InstagramProfile, etc.)
 ├── README.md                ← Ce fichier
+├── instagram_hashtag_posts.py
+│                           ← Façade transitoire du tracking
+│                              `processed_hashtag_posts` pour Instagram
 ├── instagram_workflow_state.py
 │                           ← Façade transitoire des décisions DB
 │                              `already_processed` / `already_filtered`

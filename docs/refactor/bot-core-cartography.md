@@ -32,7 +32,7 @@ Note de contexte :
 | Priorite | Zone | Pourquoi c'est le bon lot | Direction |
 |---|---|---|---|
 | 1 | `device/` vs `shared/device/` | Duplication immediate, surface petite, nombreux call sites legacy. | Transformer `device/` en boundary de compat ; `shared/device/**` devient l'owner implementation. |
-| 2 | `social_media/instagram/actions/business/common/database_helpers.py` | Decision DB encore dans une plateforme, contraire a la taxonomie cible. | Extraction progressive vers `database/**` sans casser les workflows. Premier sous-lot : `processed / filtered / skip` deja deplace vers `database/instagram_workflow_state.py`. |
+| 2 | `social_media/instagram/actions/business/common/database_helpers.py` | Decision DB encore dans une plateforme, contraire a la taxonomie cible. | Extraction progressive vers `database/**` sans casser les workflows. Sous-lots deja faits : `processed / filtered / skip` via `database/instagram_workflow_state.py`, puis tracking `processed_hashtag_posts` via `database/instagram_hashtag_posts.py`. |
 | 3 | `social_media/*/core/manager.py` et `shared/platform/social_media_base.py` | Plusieurs managers importent encore des chemins Instagram legacy pour des concerns generiques. | Revenir a une base shared claire pour les managers applicatifs. |
 | 4 | `clone/` vs `compat/` | Les deux zones sont legitimes mais proches conceptuellement. | Documenter leur frontiere : package/app runtime d'un cote, version/selectors de l'autre. |
 | 5 | `recorder/` et `media/` | Zones techniques transverses, mais potentiellement trop couplees a Instagram desktop. | Decider si elles restent top-level runtime ou si une partie doit etre rattachee a une plateforme. |
@@ -47,7 +47,7 @@ Note de contexte :
 ## Lots proposes
 
 1. Lot 1 - boundary `device/` : doc + shim compat vers `shared/device/**` + tests unitaires.
-2. Lot 2 - ownership DB Instagram : premier sous-lot fait pour `processed / filtered / skip`. Reste a sortir les zones SQL directes hashtag/unfollow sync vers `database/repositories` ou une facade legacy `database`.
+2. Lot 2 - ownership DB Instagram : sous-lots faits pour `processed / filtered / skip` et `processed_hashtag_posts`. Reste a sortir les zones SQL directes `unfollow sync` vers `database/repositories` ou une facade legacy `database`.
 3. Lot 3 - managers runtime : aligner `instagram/core/manager.py`, `tiktok/core/manager.py`, `threads/core/manager.py` et les bases shared.
 4. Lot 4 - clarifier `clone/compat` : regles + petits deplacements si necessaire.
 5. Lot 5 - auditer `recorder/media/agent/email/ai` selon l'usage reel.
