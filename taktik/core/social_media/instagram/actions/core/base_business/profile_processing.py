@@ -8,7 +8,7 @@ This mixin only handles what happens WHILE on the profile screen.
 """
 
 from typing import Optional, Dict, Any
-from loguru import logger
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class ProfileProcessingResult:
@@ -170,8 +170,7 @@ class ProfileProcessingMixin:
                 self.logger.success(f"✅ Successful interaction with @{username}")
                 
                 # Record as processed in DB
-                from ...business.common.database_helpers import DatabaseHelpers
-                DatabaseHelpers.mark_profile_as_processed(
+                InstagramWorkflowStateService.mark_profile_as_processed(
                     username, source_name, account_id, session_id
                 )
             else:
@@ -192,8 +191,7 @@ class ProfileProcessingMixin:
     ) -> None:
         """Record a filtered profile in the database. Silent on failure."""
         try:
-            from ...business.common.database_helpers import DatabaseHelpers
-            DatabaseHelpers.record_filtered_profile(
+            InstagramWorkflowStateService.record_filtered_profile(
                 username=username,
                 reason=reason,
                 source_type=source_type,

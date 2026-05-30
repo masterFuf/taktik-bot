@@ -5,6 +5,7 @@ import random
 from typing import Optional, Dict, Any, List
 
 from ..ipc import IPCEmitter
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
 class InteractionEngineMixin:
@@ -221,13 +222,12 @@ class InteractionEngineMixin:
                         self.stats_manager.increment('profiles_filtered')
                 
                 try:
-                    from ..business.common.database_helpers import DatabaseHelpers
                     reasons_text = ', '.join(reasons) if reasons else reason
                     
                     source_type = 'HASHTAG' if 'hashtag' in self.logger._context.get('module', '') else 'POST_URL'
                     source_name = config.get('source', 'unknown')
                     
-                    DatabaseHelpers.record_filtered_profile(
+                    InstagramWorkflowStateService.record_filtered_profile(
                         username=username,
                         reason=reasons_text,
                         source_type=source_type,
