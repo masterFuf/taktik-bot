@@ -23,6 +23,10 @@ database/
 ├── __init__.py              ← API publique (configure_db_service, get_db_service)
 ├── models.py                ← Modèles de données (InstagramProfile, etc.)
 ├── README.md                ← Ce fichier
+├── instagram_workflow_state.py
+│                           ← Façade transitoire des décisions DB
+│                              `already_processed` / `already_filtered`
+│                              pour les workflows Instagram legacy
 ├── local/
 │   ├── __init__.py          ← Re-exports
 │   ├── service.py           ← Moteur SQLite (LocalDatabaseService)
@@ -63,6 +67,7 @@ database/
 - `repositories/instagram/stats/` porte les requêtes liées à `daily_stats` et aux agrégats analytics Instagram.
 - `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
 - `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
+- Une façade explicite sous `database/*.py` peut exister temporairement pour absorber des call sites legacy de workflow, mais elle doit seulement orchestrer le client/repositories DB. Elle ne doit pas redevenir un second dossier fourre-tout.
 - Une table ou méthode partagée entre plateformes doit avoir un ownership explicite dans le nom, la doc et le test.
 
 ---

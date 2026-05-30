@@ -17,6 +17,7 @@ Etat 2026-05-30 :
 
 - la cartographie de reference vit dans [bot-core-cartography.md](bot-core-cartography.md) ;
 - le premier lot structurel cible `taktik/core/device` comme boundary de compat vers `taktik/core/shared/device/**`.
+- le deuxieme lot structurel sort le bookkeeping `already_processed` / `already_filtered` / `skip` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_workflow_state.py`, en gardant un shim de compatibilite cote plateforme.
 
 ## Prompt pret a coller
 

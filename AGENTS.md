@@ -86,6 +86,7 @@ Definition simple :
 - Les repositories SQLite vivent dans `taktik/core/database/repositories/<domaine>/`. Ne pas creer de repository DB dans `taktik/core/social_media/**/services`, `workflows` ou un package parallele.
 - Le nom du package repository doit refleter le vrai domaine de donnee : `instagram`, `tiktok`, `gmail`, etc. Exemple : la table `gmail_accounts` appartient a `repositories/gmail/`, meme si YouTube la consomme aussi.
 - Une table analytique partagee comme `daily_stats` doit avoir son repository explicite. Ne pas la laisser comme SQL cache dans `LocalDatabaseService`.
+- Si un workflow legacy a encore besoin d'une decision DB composee (`already_processed`, `already_filtered`, bookkeeping d'interactions, etc.), creer ou etendre une facade nommee sous `taktik/core/database/*.py` avant de laisser cette logique dans `social_media/**/common/database_helpers.py`.
 - `taktik/core/database/local/schema.py` doit rester un orchestrateur. Les DDL doivent etre classees par domaine dans `taktik/core/database/local/schemas/<domaine>.py`.
 - `taktik/core/database/local/migrations.py` doit rester un orchestrateur. Les steps de migration doivent etre classees par domaine dans `taktik/core/database/local/migration_steps/<domaine>.py`, sans changer l'ordre historique par accident.
 - `taktik/core/database/local/service.py` peut garder des wrappers publics legacy, mais le SQL metier par domaine doit vivre dans le repository du domaine.
