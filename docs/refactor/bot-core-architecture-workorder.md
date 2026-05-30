@@ -35,6 +35,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant corrige aussi la compat top-level `taktik/core/__init__.py`, qui pointait vers un chemin `DeviceFacade` obsolete et n'exposait pas vraiment les symbols annonces dans `__all__`.
 - un sous-lot suivant etend enfin ce lot 3 au CLI, qui importait encore `DeviceManager` via le shim Instagram alors qu'il consomme seulement le manager shared canonique.
 - un sous-lot suivant aligne aussi les scripts de test/debug Instagram sur `shared/device/manager.py`, pour terminer la convergence des imports internes vers l'owner device shared avant d'auditer les surfaces de compat a conserver.
+- un sous-lot suivant commence la migration reelle de `social_media/instagram/ui/selectors` en introduisant `ui/selectors/shell/` comme owner pour `auth`, `popup`, `text_input`, `detection` et `problematic_page`, avec shims top-level conserves pour la compatibilite d'import.
 
 ## Prompt pret a coller
 

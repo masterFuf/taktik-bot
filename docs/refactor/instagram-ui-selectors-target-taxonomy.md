@@ -2,6 +2,11 @@
 
 ## Probleme actuel
 
+Etat 2026-05-30 :
+
+- `shell/` est maintenant introduit et possede deja `auth.py`, `popups.py`, `text_input.py`, `screen_state.py` et `blocking_states.py`.
+- les anciens chemins top-level (`auth.py`, `popup.py`, `text_input.py`, `detection.py`, `problematic_page.py`) restent volontairement des shims de compatibilite.
+
 Le dossier actuel :
 
 ```text
@@ -188,10 +193,12 @@ Pas de big-bang.
 
 - creer `shell/`, `surfaces/`, `flows/`, `support/`
 - garder `ui/selectors/__init__.py` comme facade publique
+- fait pour `shell/`
 
 ### Lot S2 - deplacer les petits fichiers faciles
 
 - `auth`, `popup`, `text_input`, `feed`, `hashtag`, `notification`, `dm`, `story`
+- en cours : `auth`, `popup`, `text_input` ont deja bascule vers `shell/`
 
 ### Lot S3 - traiter les gros fichiers
 
