@@ -1,0 +1,199 @@
+# [Bot] Mission parallele - Audit et refactor `taktik/core`
+
+## Role de cette page
+
+Cette page sert de feuille de route pour un agent IA ou un developpeur qui attaque le chantier d'architecture du dossier `bot/taktik/core`.
+
+Le but n'est pas de "faire du propre" de maniere vague. Le but est de :
+
+- rendre l'arborescence Bot lisible ;
+- eviter les dossiers fourre-tout ;
+- aligner la methode avec celle appliquee cote Front ;
+- reduire la dette sans casser les bridges, les workflows, ni le mode standalone du Bot.
+
+## Cartographie vivante
+
+Etat 2026-05-30 :
+
+- la cartographie de reference vit dans [bot-core-cartography.md](bot-core-cartography.md) ;
+- le premier lot structurel cible `taktik/core/device` comme boundary de compat vers `taktik/core/shared/device/**`.
+
+## Prompt pret a coller
+
+```text
+Tu travailles dans le monorepo TAKTIK avec acces au dossier `bot/` et au dossier `front/`.
+
+Ta mission porte d'abord sur `bot/taktik/core`.
+
+Avant toute modification :
+- lis le `AGENTS.md` racine, puis `bot/AGENTS.md`, puis `front/AGENTS.md` pour comprendre la methode deja appliquee ;
+- lis `bot/docs/refactor/bot-core-architecture-workorder.md` ;
+- lis `bot/docs/refactor/refactor-readiness.md` ;
+- lis `taktik-bot/docs/admin/instagram/quality-audit.md` et `taktik-bot/docs/admin/instagram/audit-remediation-plan.md` sur les sections Bot/core.
+
+Objectif :
+- auditer puis assainir l'architecture de `bot/taktik/core` ;
+- appliquer une logique proche du Front en termes de cloisonnement des responsabilites, sans recopier aveuglement son arborescence ;
+- utiliser SOLID de facon pragmatique ;
+- mettre a jour `bot/AGENTS.md` et la documentation a chaque lot qui change la structure ou les regles.
+
+Contraintes fortes :
+- pas de big-bang ;
+- pas de deplacements massifs sans cartographie prealable ;
+- pas de nouveau dossier fourre-tout (`utils`, `helpers`, `misc`, `common`) au niveau `taktik/core` ;
+- pas de repository SQLite hors `taktik/core/database/repositories` ;
+- pas de code plateforme dans `taktik/core/shared` ;
+- ne jamais casser stdout JSON des bridges ;
+- le Bot doit rester utilisable en standalone, sans dependre du Front.
+
+Methodologie obligatoire :
+1. Cartographier `bot/taktik/core` : dossier -> role -> owner -> imports entrants/sortants -> proposition.
+2. Identifier les zones floues ou dupliquees, par exemple `device` vs `shared/device`, `clone` vs `compat`, modules transverses caches dans une plateforme, logique DB hors `database`.
+3. Proposer des lots petits, commitables et verifiables.
+4. Traiter un lot a la fois.
+5. Apres chaque lot :
+   - mettre a jour la doc ;
+   - mettre a jour `bot/AGENTS.md` si une nouvelle regle structurelle apparait ;
+   - lancer les checks les plus proches (`pytest` cible, audits scripts, `git diff --check`) ;
+   - commit par famille de changement.
+
+Architecture cible a respecter :
+- `taktik/core/social_media/<platform>` : code metier propre a une plateforme ;
+- `taktik/core/shared` : primitives Android/ADB/input/actions partagees ;
+- `taktik/core/database` : schema, migrations, modeles, repositories ;
+- `taktik/core/config|security|device|media|email|ai|agent` : modules runtime/app avec owner explicite ;
+- `taktik/core/compat|clone` : compatibilite ou variantes legacy, jamais zone de depot par confort.
+
+Definition of done d'un lot :
+- ownership clair ;
+- imports coherents ;
+- pas de regression bridge/workflow evidente ;
+- doc a jour ;
+- checks lances ou impossibilite explicitee ;
+- commit propre.
+
+Tu dois privilegier les petits refactors robustes et documentes plutot qu'une "grande reorganisation" fragile.
+```
+
+## Lecture minimale obligatoire
+
+Avant de toucher le code :
+
+1. `AGENTS.md` a la racine du monorepo.
+2. `bot/AGENTS.md`.
+3. `front/AGENTS.md`.
+4. `bot/docs/refactor/refactor-readiness.md`.
+5. `taktik-bot/docs/admin/instagram/quality-audit.md`.
+6. `taktik-bot/docs/admin/instagram/audit-remediation-plan.md`.
+
+## Philosophie d'alignement Front/Bot
+
+L'objectif n'est pas de forcer le Bot a ressembler visuellement au Front. L'objectif est d'appliquer les memes principes de fond :
+
+| Principe | Cote Front | Traduction cote Bot |
+|---|---|---|
+| Owner clair | `app` / `platforms` / `shared` / `workspace` | `social_media/<platform>` / `shared` / `database` / runtime app explicite |
+| Contrats explicites | types centralises, handlers fins, repositories nommes | payloads bridge stables, workflows lisibles, repositories SQLite nommes |
+| SOLID | UI, handlers, services, repos separes | bridges, workflows, services, selectors, DB separes |
+| Refactor progressif | extraction par lots | cartographie puis deplacements par familles |
+
+Le Bot peut garder ses particularites, mais il ne doit plus accumuler de zones "on ne sait pas trop pourquoi c'est ici".
+
+## Perimetre du chantier
+
+Le chantier vise surtout :
+
+- `bot/taktik/core/social_media/**`
+- `bot/taktik/core/shared/**`
+- `bot/taktik/core/database/**`
+- `bot/taktik/core/device/**`
+- `bot/taktik/core/media/**`
+- `bot/taktik/core/compat/**`
+- `bot/taktik/core/clone/**`
+- `bot/taktik/core/agent/**`
+- `bot/taktik/core/ai/**`
+- `bot/taktik/core/email/**`
+- `bot/taktik/core/config/**`
+- `bot/taktik/core/security/**`
+
+Le chantier n'autorise pas par defaut :
+
+- une redefinition complete des bridges ;
+- une migration schema non necessaire au lot ;
+- des renommages massifs de packages sans couche de transition ;
+- des changements silencieux du protocole Electron <-> Bot.
+
+## Plan conseille
+
+### Lot 0 - Cartographie
+
+Produire un inventaire :
+
+| Champ | Attendu |
+|---|---|
+| Dossier | chemin |
+| Owner | plateforme, shared, persistence, runtime app, compat |
+| Role | ce que le dossier est cense porter |
+| Odeur | duplication, nom trompeur, melange de responsabilites, legacy |
+| Dependances | imports entrants/sortants principaux |
+| Action | garder, deplacer, splitter, documenter, deprecier |
+
+### Lot 1 - Frontieres de persistence
+
+Verifier que :
+
+- les repositories restent dans `database/repositories` ;
+- les services/workflows plateforme ne recreent pas leur propre couche DB ;
+- les modules transverses n'ecrivent pas directement SQLite "par facilite".
+
+### Lot 2 - Shared vs plateforme
+
+Verifier que :
+
+- `shared` ne porte pas de logique Instagram/TikTok cachee ;
+- une logique specifique a une seule plateforme ne fuit pas dans `shared` ;
+- les helpers techniques reutilisables n'ont pas ete recopies dans plusieurs plateformes.
+
+### Lot 3 - Runtime app et compat
+
+Verifier que :
+
+- `device`, `media`, `email`, `ai`, `agent`, `config`, `security`, `clone`, `compat` ont chacun un owner clair ;
+- les dossiers legacy servent vraiment a la compat, pas a stocker le code qu'on ne sait pas classer.
+
+### Lot 4 - Rationalisation finale
+
+Seulement apres les lots precedents :
+
+- petits deplacements ;
+- re-exports temporaires si necessaire ;
+- nettoyage de la doc ;
+- checks et commits.
+
+## Checks minimaux par lot
+
+| Type de lot | Checks minimaux |
+|---|---|
+| Structure pure/doc | `git diff --check` |
+| Bridge impacte | `python scripts/check_bridge_manifest.py` + verification import/bridge cible |
+| Workflow impacte | `pytest` cible + `python scripts/audit_workflow_registry.py` si registre touche |
+| DB impactee | `pytest tests/unit/test_db_schema.py` + audit doc schema si necessaire |
+
+## Ce qu'on veut eviter
+
+- "J'ai tout deplace, on verra ce qui casse".
+- "J'ai cree `helpers/` parce que je ne savais pas ou mettre le code".
+- "J'ai mis un repository dans une plateforme parce que c'etait plus simple".
+- "J'ai aligne le nom d'un dossier sans verifier les bridges/imports".
+- "J'ai recopie le Front tel quel alors que le Bot a des contraintes differentes".
+
+## Sortie attendue
+
+Une bonne execution de cette mission doit produire :
+
+- une cartographie claire de `taktik/core` ;
+- une convention d'architecture explicite ;
+- des petits refactors robustes ;
+- une documentation tenue a jour ;
+- des commits par famille ;
+- moins de melange entre plateforme, shared, persistence et compat.

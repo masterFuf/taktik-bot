@@ -1,7 +1,7 @@
 """
 Device Manager (compatibility shim)
 
-Canonical location: taktik.core.shared.device_manager
+Canonical location: taktik.core.shared.device.manager
 This file re-exports for backward compatibility.
 All existing imports from this path continue to work.
 """
