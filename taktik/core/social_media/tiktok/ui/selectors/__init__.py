@@ -1,8 +1,4 @@
-"""TikTok UI selectors.
-
-The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
-`support`) while keeping historical top-level imports stable.
-"""
+"""TikTok UI selectors organized by UI scope."""
 
 from .flows import (
     PUBLISH_COMPOSER_SELECTORS,

@@ -89,15 +89,15 @@ social_media/tiktok/ui/
 
 - `shell/` est maintenant introduit et possede deja `navigation.py`, `popups.py` et `screen_state.py`.
 - `shell/auth/` est maintenant un vrai package et possede `login.py`, `signup.py`, `country_picker.py`, `logout.py`.
-- les workflows management TikTok `signup` et `logout` pointent maintenant vers `ui/selectors/shell/auth/*` directement ; le shim top-level `auth.py` reste pour la compatibilite.
+- les workflows management TikTok `signup` et `logout` pointent maintenant vers `ui/selectors/shell/auth/*` directement.
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
 - `surfaces/video/` est maintenant introduit avec `detail.py`, `comments.py`, `creator.py`, `engagement.py`, `media.py` et `state.py`.
 - `flows/publish/` est maintenant un vrai package et possede `creation_entry.py`, `media_picker.py`, `editor.py`, `composer.py`, `progress.py`.
-- les anciens chemins top-level correspondants restent volontairement des shims de compatibilite.
+- les anciens fichiers top-level de compatibilite ont ete retires apres migration des imports internes du monorepo.
 - `video/detail.py` est maintenant une facade d'agregation legacy au-dessus de catalogues specialises (`creator`, `engagement`, `media`, `state`).
 - `publish/` n'est plus un monolithe : `PUBLISH_SELECTORS` est maintenant une facade d'agregation au-dessus de catalogues specialises par etape.
-- les services/runtime TikTok `publish` pointent maintenant vers `ui/selectors/flows/publish/*` directement ; le shim top-level `publish.py` reste pour la compatibilite.
+- les services/runtime TikTok `publish` pointent maintenant vers `ui/selectors/flows/publish/*` directement.
 
 ## Strategie de migration
 

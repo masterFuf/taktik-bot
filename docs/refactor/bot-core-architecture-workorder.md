@@ -51,6 +51,7 @@ Etat 2026-05-30 :
 - un sous-lot TikTok suivant specialise enfin la surface `video` en plusieurs catalogues publics (`VIDEO_CREATOR_SELECTORS`, `VIDEO_ENGAGEMENT_SELECTORS`, `VIDEO_MEDIA_SELECTORS`, `VIDEO_STATE_SELECTORS`), tout en gardant `VIDEO_SELECTORS` comme facade legacy d'agregation.
 - un sous-lot TikTok suivant transforme aussi `shell/auth.py` en vrai package `shell/auth/` et split proprement les selectors entre `login.py`, `signup.py`, `country_picker.py` et `logout.py`, tout en gardant `ui/selectors/auth.py` comme shim top-level.
 - un sous-lot TikTok suivant aligne aussi les workflows management `signup` et `logout` sur `ui/selectors/shell/auth/*`, afin de reserver `ui/selectors/auth.py` a la compatibilite plutot qu'aux imports internes.
+- un sous-lot TikTok suivant retire ensuite les fichiers top-level legacy `ui/selectors/*.py` une fois les imports internes et tests migres vers `shell/`, `surfaces/`, `flows/` et `support/`.
 - un sous-lot TikTok suivant transforme aussi `flows/publish.py` en vrai package `flows/publish/` et split les selectors entre `creation_entry.py`, `media_picker.py`, `editor.py`, `composer.py` et `progress.py`, tout en gardant `ui/selectors/publish.py` et `PUBLISH_SELECTORS` comme facades legacy.
 - un sous-lot TikTok suivant aligne ensuite les services/runtime `publish` sur les owners directs `ui/selectors/flows/publish/*`, afin de reserver la facade top-level `ui/selectors/publish.py` a la compatibilite plutot qu'aux imports internes.
 

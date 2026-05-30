@@ -1,6 +1,6 @@
 from taktik.core.social_media.tiktok.actions.atomic.video_detector import VideoDetector
 from taktik.core.social_media.tiktok.ui.language import filter_selectors
-from taktik.core.social_media.tiktok.ui.selectors.video import VideoSelectors
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VideoSelectors
 
 
 class _DummyDevice:

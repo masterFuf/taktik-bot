@@ -1,5 +1,5 @@
 from taktik.core.social_media.tiktok.ui.language import filter_selectors
-from taktik.core.social_media.tiktok.ui.selectors.publish import PublishSelectors
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import PublishSelectors
 
 
 def test_publish_post_screen_markers_are_centralized():

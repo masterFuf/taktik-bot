@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.ui.selectors.video import (
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
     VIDEO_CREATOR_SELECTORS,
     VIDEO_ENGAGEMENT_SELECTORS,
     VIDEO_MEDIA_SELECTORS,

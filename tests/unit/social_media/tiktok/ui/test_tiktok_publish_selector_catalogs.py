@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
     PUBLISH_CREATION_ENTRY_SELECTORS,
     PUBLISH_EDITOR_SELECTORS,
