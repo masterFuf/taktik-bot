@@ -1,22 +1,5 @@
-"""Sélecteurs UI pour le scroll et le chargement TikTok."""
+"""Compatibility shim for TikTok support scroll selectors."""
 
-from typing import List
-from dataclasses import dataclass, field
+from .support.scroll import ScrollSelectors, SCROLL_SELECTORS
 
-
-@dataclass
-class ScrollSelectors:
-    """Sélecteurs pour le scroll et le chargement TikTok."""
-    
-    loading_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.ProgressBar',
-        '//android.view.View[contains(@content-desc, "Loading")]'
-    ])
-    
-    end_of_list: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@text, "No more")]',
-        '//android.widget.TextView[contains(@text, "Plus de")]'
-    ])
-
-
-SCROLL_SELECTORS = ScrollSelectors()
+__all__ = ["ScrollSelectors", "SCROLL_SELECTORS"]

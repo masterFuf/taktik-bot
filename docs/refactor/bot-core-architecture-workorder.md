@@ -43,6 +43,8 @@ Etat 2026-05-30 :
 - un sous-lot suivant sort aussi le monolithe `post.py` de la racine vers `ui/selectors/surfaces/post/detail.py` comme owner transitoire, en gardant `post.py` comme shim jusqu'au futur split fin (`comments`, `likers`, `share_sheet`, `grid`, `reels`).
 - un sous-lot suivant introduit enfin plusieurs catalogues publics specialises pour les posts Instagram (`POST_DETAIL_SELECTORS`, `POST_COMMENTS_SELECTORS`, `POST_LIKERS_SELECTORS`, `POST_SHARE_SHEET_SELECTORS`, `POST_GRID_SELECTORS`, `POST_REELS_SELECTORS`), tout en gardant `POST_SELECTORS` comme facade legacy de compat.
 - le meme chantier de taxonomie selectors devra ensuite etre applique a `social_media/tiktok/ui/selectors`, en reprenant la logique `shell` / `surfaces` / `flows` / `support` et des catalogues publics specialises par surface sensible.
+- un premier sous-lot TikTok pose maintenant cette taxonomie via [tiktok-ui-selectors-target-taxonomy.md](tiktok-ui-selectors-target-taxonomy.md) et deplace les owners evidents `navigation`, `popup`, `detection` sous `shell/`, ainsi que `scroll` sous `support/`, avec shims top-level conserves.
+- un sous-lot TikTok suivant deplace aussi les petites surfaces evidentes `profile`, `search`, `inbox`, `conversation` et `followers` sous `ui/selectors/surfaces/`, toujours avec shims top-level de compatibilite.
 
 ## Prompt pret a coller
 
