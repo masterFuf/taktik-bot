@@ -1,13 +1,14 @@
-"""App compatibility public facade."""
+"""Selector compatibility framework owners."""
 
-from .selectors.registry import (
+from .registry import (
     VersionedSelectorRegistry,
     SelectorNotFound,
     SelectorEntry,
     build_full_selector_map,
     build_selector_map_from_dataclass,
 )
-from .selectors.setup import create_registry
+from .setup import create_registry, apply_version_overrides
+from .tracer import SelectorTracer
 
 __all__ = [
     "VersionedSelectorRegistry",
@@ -16,4 +17,6 @@ __all__ = [
     "build_full_selector_map",
     "build_selector_map_from_dataclass",
     "create_registry",
+    "apply_version_overrides",
+    "SelectorTracer",
 ]

@@ -55,6 +55,7 @@ Etat 2026-05-30 :
 - un sous-lot Instagram suivant retire ensuite les fichiers top-level legacy `ui/selectors/*.py` une fois les imports internes migres vers `shell/`, `surfaces/`, `flows/` et `support/`, pour laisser `ui/selectors/__init__.py` comme seule facade publique de package.
 - un sous-lot TikTok suivant transforme aussi `flows/publish.py` en vrai package `flows/publish/` et split les selectors entre `creation_entry.py`, `media_picker.py`, `editor.py`, `composer.py` et `progress.py`, tout en gardant `ui/selectors/publish.py` et `PUBLISH_SELECTORS` comme facades legacy.
 - un sous-lot TikTok suivant aligne ensuite les services/runtime `publish` sur les owners directs `ui/selectors/flows/publish/*`, afin de reserver la facade top-level `ui/selectors/publish.py` a la compatibilite plutot qu'aux imports internes.
+- un sous-lot suivant du lot 4 clarifie aussi `taktik/core/compat` : le framework selectors/versioning et tracing compat vit maintenant sous `taktik/core/compat/selectors/**`, les bridges internes et `clone/selector_patcher.py` importent ces owners directs, et `compat/selector_registry.py`, `compat/selector_tracer.py`, `compat/setup.py` ne restent plus que comme shims de compatibilite.
 
 ## Prompt pret a coller
 

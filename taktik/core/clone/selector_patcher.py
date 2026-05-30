@@ -55,7 +55,7 @@ def patch_selectors_for_package(platform: str, target_package: str) -> int:
         return 0
 
     # Import domain maps from compat setup (avoids circular imports)
-    from taktik.core.compat.setup import (
+    from taktik.core.compat.selectors.setup import (
         INSTAGRAM_SELECTOR_DOMAINS,
         TIKTOK_SELECTOR_DOMAINS,
     )

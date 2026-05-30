@@ -34,7 +34,7 @@ setup_environment()
 
 from bridges.common.ipc import IPC
 from loguru import logger
-from taktik.core.compat import create_registry, SelectorNotFound
+from taktik.core.compat.selectors import create_registry, SelectorNotFound
 
 
 def main():

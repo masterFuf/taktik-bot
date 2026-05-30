@@ -47,7 +47,7 @@ from bridges.common.ipc import IPC
 from bridges.common.connection import ConnectionService
 from bridges.common.app_manager import AppService
 from loguru import logger
-from taktik.core.compat.selector_tracer import SelectorTracer
+from taktik.core.compat.selectors.tracer import SelectorTracer
 
 
 # Module-level watchdog reference — set before workflow run so hooks can feed heartbeats
@@ -679,7 +679,7 @@ def main():
     ipc.send("step", step="version_overrides", status="running",
              message=f"Applying selector overrides for {app_name} v{version}...")
     try:
-        from taktik.core.compat.setup import apply_version_overrides
+        from taktik.core.compat.selectors.setup import apply_version_overrides
         patched_count = apply_version_overrides(app_name, version)
         ipc.send("step", step="version_overrides", status="done",
                  message=f"Patched {patched_count} selector(s) for v{version}")

@@ -663,7 +663,7 @@ class DesktopBridge:
             try:
                 detected_version = self._app.get_installed_version() if self._app else None
                 if detected_version:
-                    from taktik.core.compat.setup import apply_version_overrides
+                    from taktik.core.compat.selectors.setup import apply_version_overrides
                     patched = apply_version_overrides("instagram", detected_version)
                     if patched > 0:
                         send_log("info", f"Applied {patched} selector override(s) for Instagram v{detected_version}")

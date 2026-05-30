@@ -42,6 +42,7 @@ Regles macro :
 - `taktik/core/shared/device/**` est l'owner canonique des primitives device/ADB/ATX partagees. `taktik/core/device/**` peut subsister comme boundary de compat pour anciens imports scripts/bridges/tests, mais ne doit plus recevoir une seconde implementation autonome.
 - Une facade plateforme sous `taktik/core/social_media/<platform>/**/device/` est acceptable seulement si elle ajoute un comportement plateforme explicite. Un `DeviceManager` place a cet endroit doit etre un shim ou une specialisation documentee, pas une duplication generique de `shared/device/manager.py`.
 - Les dossiers `device`, `media`, `email`, `ai`, `agent`, `compat`, `clone` doivent rester auditables. Avant d'y deplacer du code, verifier si on clarifie vraiment l'ownership ou si on deplace seulement le foutoir.
+- Sous `taktik/core/compat`, le framework de compatibilite selectors/versioning doit vivre sous `compat/selectors/**`. Les fichiers top-level `compat/selector_registry.py`, `compat/selector_tracer.py` et `compat/setup.py` ne doivent servir qu'en shims de compatibilite tant que des imports legacy subsistent.
 - Pas de nouveau dossier fourre-tout `utils`, `helpers`, `misc`, `common` au niveau `taktik/core`. Preferer un owner clair.
 
 ## Refactor structurel Bot
