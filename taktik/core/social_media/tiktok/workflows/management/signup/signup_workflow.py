@@ -28,7 +28,7 @@ from typing import Optional
 
 from loguru import logger
 from bridges.common.ipc import IPC
-from taktik.core.social_media.tiktok.ui.selectors.auth import (
+from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
     SIGNUP_SELECTORS,
     COUNTRY_PICKER_SELECTORS,
     TIKTOK_PACKAGE,

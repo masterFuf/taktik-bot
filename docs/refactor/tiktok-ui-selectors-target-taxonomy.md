@@ -89,6 +89,7 @@ social_media/tiktok/ui/
 
 - `shell/` est maintenant introduit et possede deja `navigation.py`, `popups.py` et `screen_state.py`.
 - `shell/auth/` est maintenant un vrai package et possede `login.py`, `signup.py`, `country_picker.py`, `logout.py`.
+- les workflows management TikTok `signup` et `logout` pointent maintenant vers `ui/selectors/shell/auth/*` directement ; le shim top-level `auth.py` reste pour la compatibilite.
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
 - `surfaces/video/` est maintenant introduit avec `detail.py`, `comments.py`, `creator.py`, `engagement.py`, `media.py` et `state.py`.

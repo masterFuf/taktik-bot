@@ -11,7 +11,7 @@ Flow observé (app en anglais, dumps 02/05/2026) :
 import time
 from loguru import logger
 from bridges.common.ipc import IPC
-from taktik.core.social_media.tiktok.ui.selectors.auth import LOGOUT_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.auth import LOGOUT_SELECTORS
 
 _ipc = IPC()
 
