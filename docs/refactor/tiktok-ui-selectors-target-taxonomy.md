@@ -88,7 +88,7 @@ social_media/tiktok/ui/
 ## Etat 2026-05-30
 
 - `shell/` est maintenant introduit et possede deja `navigation.py`, `popups.py` et `screen_state.py`.
-- `shell/` possede aussi maintenant `auth.py`.
+- `shell/auth/` est maintenant un vrai package et possede `login.py`, `signup.py`, `country_picker.py`, `logout.py`.
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
 - `surfaces/video/` est maintenant introduit avec `detail.py`, `comments.py`, `creator.py`, `engagement.py`, `media.py` et `state.py`.
@@ -124,9 +124,9 @@ social_media/tiktok/ui/
 
 ### Lot T2c - shell auth
 
-- `auth.py` -> `shell/auth.py`
+- `auth.py` -> `shell/auth/`
+- split reel en `login.py`, `signup.py`, `country_picker.py`, `logout.py`
 - conservation du shim top-level `auth.py`
-- le split fin `login/signup/country_picker/logout` reste a faire ensuite
 
 ### Lot T2d - publish owner
 

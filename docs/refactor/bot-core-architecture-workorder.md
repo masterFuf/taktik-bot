@@ -49,6 +49,7 @@ Etat 2026-05-30 :
 - un sous-lot TikTok suivant rattache aussi `auth.py` a `ui/selectors/shell/auth.py` comme owner de compat transitoire, avant le futur split fin par flow (`login`, `signup`, `country_picker`, `logout`).
 - un sous-lot TikTok suivant rattache aussi `publish.py` a `ui/selectors/flows/publish.py`, pour sortir de la racine le dernier gros owner workflow avant son futur decoupage interne.
 - un sous-lot TikTok suivant specialise enfin la surface `video` en plusieurs catalogues publics (`VIDEO_CREATOR_SELECTORS`, `VIDEO_ENGAGEMENT_SELECTORS`, `VIDEO_MEDIA_SELECTORS`, `VIDEO_STATE_SELECTORS`), tout en gardant `VIDEO_SELECTORS` comme facade legacy d'agregation.
+- un sous-lot TikTok suivant transforme aussi `shell/auth.py` en vrai package `shell/auth/` et split proprement les selectors entre `login.py`, `signup.py`, `country_picker.py` et `logout.py`, tout en gardant `ui/selectors/auth.py` comme shim top-level.
 
 ## Prompt pret a coller
 
