@@ -1,14 +1,5 @@
-from typing import Dict, List, Optional, Any, Union
-from dataclasses import dataclass, field
+"""Compatibility shim for followers/following surface selectors."""
 
-@dataclass
-class FollowersListSelectors:
-    """Sélecteurs pour la détection et navigation dans la liste followers/following."""
-    
-    # === Détection liste followers (éléments UNIQUES à cette vue) ===
-    list_indicators: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
-        # Supprimés 2026-03-07: view_pager (0/15), mutual (0/15) — voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md
-    ])
+from .surfaces.followers_following import FollowersListSelectors, FOLLOWERS_LIST_SELECTORS
 
-FOLLOWERS_LIST_SELECTORS = FollowersListSelectors()
+__all__ = ["FollowersListSelectors", "FOLLOWERS_LIST_SELECTORS"]

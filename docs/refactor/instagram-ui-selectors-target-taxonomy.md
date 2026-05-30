@@ -5,7 +5,9 @@
 Etat 2026-05-30 :
 
 - `shell/` est maintenant introduit et possede deja `auth.py`, `popups.py`, `text_input.py`, `screen_state.py` et `blocking_states.py`.
+- `surfaces/` est maintenant introduit et possede deja `feed.py`, `hashtag.py`, `notifications.py`, `direct_messages.py`, `story_viewer.py`, `content_creation.py` et `followers_following.py`.
 - les anciens chemins top-level (`auth.py`, `popup.py`, `text_input.py`, `detection.py`, `problematic_page.py`) restent volontairement des shims de compatibilite.
+- les anciens chemins top-level des petites surfaces (`feed.py`, `hashtag.py`, `notification.py`, `dm.py`, `story.py`, `content.py`, `followers_list.py`) restent eux aussi des shims de compatibilite.
 
 Le dossier actuel :
 
@@ -198,7 +200,8 @@ Pas de big-bang.
 ### Lot S2 - deplacer les petits fichiers faciles
 
 - `auth`, `popup`, `text_input`, `feed`, `hashtag`, `notification`, `dm`, `story`
-- en cours : `auth`, `popup`, `text_input` ont deja bascule vers `shell/`
+- fait pour `feed`, `hashtag`, `notification`, `dm`, `story`, `content`, `followers_list`
+- l'etape suivante sur les "petits fichiers" concerne surtout `debug`, `scroll` et `unfollow`
 
 ### Lot S3 - traiter les gros fichiers
 
