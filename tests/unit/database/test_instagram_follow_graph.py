@@ -6,6 +6,7 @@ from taktik.core.database.local.schemas.instagram import (
     create_instagram_indexes,
     create_instagram_tables,
 )
+from taktik.core.database.repositories.instagram.social_graph import SocialGraphRepository
 
 
 class _FakeLocalDb:
@@ -16,6 +17,7 @@ class _FakeLocalDb:
         create_instagram_tables(cursor)
         create_instagram_indexes(cursor)
         self._conn.commit()
+        self.social_graph = SocialGraphRepository(self._conn)
 
     def _get_connection(self):
         return self._conn

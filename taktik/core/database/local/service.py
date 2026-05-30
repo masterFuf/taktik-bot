@@ -19,6 +19,7 @@ from ..repositories import (
     InteractionRepository,
     SessionRepository,
     DiscoveryRepository,
+    SocialGraphRepository,
     StatsRepository,
     TikTokRepository
 )
@@ -67,6 +68,7 @@ class LocalDatabaseService:
         self._interactions: Optional[InteractionRepository] = None
         self._sessions: Optional[SessionRepository] = None
         self._discovery: Optional[DiscoveryRepository] = None
+        self._social_graph: Optional[SocialGraphRepository] = None
         self._stats: Optional[StatsRepository] = None
         self._tiktok: Optional[TikTokRepository] = None
         
@@ -95,6 +97,7 @@ class LocalDatabaseService:
         self._interactions = InteractionRepository(conn)
         self._sessions = SessionRepository(conn)
         self._discovery = DiscoveryRepository(conn)
+        self._social_graph = SocialGraphRepository(conn)
         self._stats = StatsRepository(conn)
         self._tiktok = TikTokRepository(conn)
     
@@ -133,6 +136,13 @@ class LocalDatabaseService:
         if not self._discovery:
             self._init_repositories()
         return self._discovery
+
+    @property
+    def social_graph(self) -> SocialGraphRepository:
+        """Access SocialGraphRepository for following/follower sync operations."""
+        if not self._social_graph:
+            self._init_repositories()
+        return self._social_graph
 
     @property
     def stats(self) -> StatsRepository:

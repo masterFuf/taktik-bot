@@ -5,6 +5,7 @@ from .profile import ProfileRepository
 from .interaction import InteractionRepository
 from .session import SessionRepository
 from .discovery import DiscoveryRepository
+from .social_graph import SocialGraphRepository
 from .stats import StatsRepository
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     'InteractionRepository',
     'SessionRepository',
     'DiscoveryRepository',
+    'SocialGraphRepository',
     'StatsRepository',
 ]

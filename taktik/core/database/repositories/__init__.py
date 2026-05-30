@@ -10,6 +10,7 @@ from .instagram import (
     InteractionRepository,
     SessionRepository,
     DiscoveryRepository,
+    SocialGraphRepository,
     StatsRepository,
 )
 from .tiktok import TikTokRepository
@@ -21,6 +22,7 @@ __all__ = [
     'InteractionRepository',
     'SessionRepository',
     'DiscoveryRepository',
+    'SocialGraphRepository',
     'StatsRepository',
     'TikTokRepository',
 ]
