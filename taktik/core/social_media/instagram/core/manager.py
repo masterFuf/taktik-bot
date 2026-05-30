@@ -1,5 +1,5 @@
-from taktik.core.social_media.instagram.actions.core.social_media_base import SocialMediaBase
-from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.shared.platform.social_media_base import SocialMediaBase
+from taktik.core.shared.device.manager import DeviceManager
 from loguru import logger
 from typing import Optional
 
