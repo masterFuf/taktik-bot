@@ -30,6 +30,7 @@
 - [x] `compat/selectors/**` est maintenant l'owner interne du framework selectors/versioning ; `compat/*.py` ne restent plus qu'en shims de compatibilite.
 - [x] `clone/package_map.py` centralise les package names officiels et prefixes de clone.
 - [x] Le human recorder Instagram vit maintenant sous `social_media/instagram/recorder/**` ; `taktik/core/recorder` ne garde qu'une facade de compatibilite.
+- [x] Hygiene runtime `config/security` : alias legacy `get_primary_endpoint()` retabli pour `APIEndpointManager` et suppression des `print(...)` dans `core/security`.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
 - [ ] Cartographie puis assainissement des familles runtime/app restantes : `media`, `email`, `ai`, `agent`, `config`, `security`.
 - [ ] Validation manuelle des workflows et bridges sur device reel.

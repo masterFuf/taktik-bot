@@ -60,6 +60,10 @@ class APIEndpointManager:
             "Impossible de se connecter à l'API TAKTIK. "
             "Vérifiez votre connexion internet ou définissez TAKTIK_API_URL."
         )
+
+    def get_primary_endpoint(self) -> str:
+        """Legacy compatibility alias for historical runtime call sites."""
+        return self.get_api_url()
     
     def _load_from_config(self) -> Optional[str]:
         try:
@@ -103,7 +107,7 @@ class APIEndpointManager:
             
             return True
         except Exception as e:
-            print(f"Erreur lors de la sauvegarde de l'URL API: {e}")
+            logger.error(f"Erreur lors de la sauvegarde de l'URL API: {e}")
             return False
 
 

@@ -58,6 +58,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 4 clarifie aussi `taktik/core/compat` : le framework selectors/versioning et tracing compat vit maintenant sous `taktik/core/compat/selectors/**`, les bridges internes et `clone/selector_patcher.py` importent ces owners directs, et `compat/selector_registry.py`, `compat/selector_tracer.py`, `compat/setup.py` ne restent plus que comme shims de compatibilite.
 - un sous-lot suivant du lot 4 clarifie aussi `taktik/core/clone` : `clone/package_map.py` devient la source de verite des package names officiels et prefixes de clone, remplace les duplications dans `detector.py`, `proxy.py` et `selector_patcher.py`, et verrouille cette frontiere par un test unitaire cible.
 - un sous-lot suivant du lot 5 clarifie `taktik/core/recorder` : le human recorder Instagram n'est plus owner au niveau racine et vit maintenant sous `taktik/core/social_media/instagram/recorder/**`, tandis que `taktik/core/recorder/recorder.py` reste une facade de compatibilite pour les scripts et imports legacy.
+- un sous-lot suivant du lot 5 assainit aussi `config/security` sans big-bang : `APIEndpointManager` re-expose l'alias legacy `get_primary_endpoint()` attendu par `instagram/actions/business/system/config.py`, et `security/protection.py` n'utilise plus `print(...)` pour eviter tout risque de pollution stdout si ce chemin dormant est reveille.
 
 ## Prompt pret a coller
 
