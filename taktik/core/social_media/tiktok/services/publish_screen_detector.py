@@ -7,9 +7,15 @@ from typing import Callable
 
 from lxml import etree
 
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
-    PUBLISH_SELECTORS,
-    PublishSelectors,
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_COMPOSER_SELECTORS,
+    PUBLISH_CREATION_ENTRY_SELECTORS,
+    PUBLISH_EDITOR_SELECTORS,
+    PUBLISH_MEDIA_PICKER_SELECTORS,
+    PublishComposerSelectors,
+    PublishCreationEntrySelectors,
+    PublishEditorSelectors,
+    PublishMediaPickerSelectors,
 )
 from taktik.core.social_media.tiktok.ui.xpath import to_lxml
 
@@ -19,7 +25,7 @@ LogFn = Callable[[str, str], None]
 
 def is_gallery_picker_open(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     selector_timeout: float = 0.4,
 ) -> bool:
     """Return True when the TikTok media picker/grid is visible."""
@@ -39,7 +45,7 @@ def is_gallery_picker_open(
 
 def is_camera_creation_screen(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
 ) -> bool:
     """Return True when TikTok is on the camera/create screen."""
     try:
@@ -51,7 +57,7 @@ def is_camera_creation_screen(
 
 def is_post_screen(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishComposerSelectors = PUBLISH_COMPOSER_SELECTORS,
 ) -> bool:
     """Return True when TikTok is on the post description screen."""
     try:
@@ -73,7 +79,7 @@ def is_post_screen(
 
 def is_video_edit_screen(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishEditorSelectors = PUBLISH_EDITOR_SELECTORS,
 ) -> bool:
     """Return True when TikTok opened the post-upload video editor."""
     try:
@@ -85,7 +91,7 @@ def is_video_edit_screen(
 
 def wait_for_tiktok_home(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishCreationEntrySelectors = PUBLISH_CREATION_ENTRY_SELECTORS,
     timeout: float = 60.0,
     per_selector_timeout: float = 2.0,
     log: LogFn | None = None,

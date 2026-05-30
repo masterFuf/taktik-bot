@@ -7,9 +7,9 @@ from typing import Callable, Optional
 
 from lxml import etree
 
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
-    PUBLISH_SELECTORS,
-    PublishSelectors,
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_PROGRESS_SELECTORS,
+    PublishProgressSelectors,
 )
 from taktik.core.social_media.tiktok.ui.xpath import parse_bounds, to_lxml
 
@@ -40,7 +40,7 @@ def extract_percent_value(value: str | None) -> Optional[int]:
 
 def get_publish_progress_percent(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishProgressSelectors = PUBLISH_PROGRESS_SELECTORS,
     log: LogFn | None = None,
 ) -> Optional[int]:
     """Read TikTok's top-left upload progress badge while publish is running."""

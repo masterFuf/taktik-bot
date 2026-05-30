@@ -7,9 +7,9 @@ from typing import Callable
 
 from lxml import etree
 
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
-    PUBLISH_SELECTORS,
-    PublishSelectors,
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_COMPOSER_SELECTORS,
+    PublishComposerSelectors,
 )
 from taktik.core.social_media.tiktok.ui.xpath import parse_bounds
 
@@ -20,7 +20,7 @@ LogFn = Callable[[str, str], None]
 def tap_hashtag_suggestion_from_dump(
     device,
     expected_tag: str | None = None,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishComposerSelectors = PUBLISH_COMPOSER_SELECTORS,
     min_top: int = 480,
     settle_delay: float = 0.15,
     sleep: Callable[[float], None] = time.sleep,

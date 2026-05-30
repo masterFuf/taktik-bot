@@ -18,9 +18,11 @@ from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import (
     tap_upload_right_strip_fallback,
 )
 from taktik.core.social_media.tiktok.services.publish_upload_picker import tap_upload_button_from_dump
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
-    PUBLISH_SELECTORS,
-    PublishSelectors,
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_CREATION_ENTRY_SELECTORS,
+    PUBLISH_MEDIA_PICKER_SELECTORS,
+    PublishCreationEntrySelectors,
+    PublishMediaPickerSelectors,
 )
 from taktik.core.social_media.tiktok.ui.xpath import tap_element
 
@@ -32,7 +34,7 @@ SleepFn = Callable[[float], None]
 def tap_create_button(
     device,
     *,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishCreationEntrySelectors = PUBLISH_CREATION_ENTRY_SELECTORS,
     log: LogFn | None = None,
 ) -> bool:
     """Tap TikTok's Create button, then use a documented coordinate fallback."""
@@ -44,7 +46,7 @@ def tap_create_button(
 def tap_upload_button(
     device,
     *,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     log: LogFn | None = None,
 ) -> bool:
     """Tap Upload/Gallery using selectors, dump bounds, then coordinate fallbacks."""
@@ -62,7 +64,7 @@ def ensure_gallery_picker_open(
     device_id: str,
     *,
     attempts: int = 3,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     sleep: SleepFn = time.sleep,
     log: LogFn | None = None,
 ) -> bool:
@@ -95,7 +97,7 @@ def ensure_gallery_picker_open(
 def select_first_gallery_item(
     device,
     *,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     sleep: SleepFn = time.sleep,
     log: LogFn | None = None,
 ) -> bool:
@@ -114,7 +116,7 @@ def advance_to_post_screen(
     device,
     *,
     attempts: int = 3,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     sleep: SleepFn = time.sleep,
 ) -> bool:
     """Tap Next until TikTok reaches the post description screen."""

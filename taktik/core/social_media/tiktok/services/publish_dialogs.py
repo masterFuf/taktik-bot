@@ -7,9 +7,11 @@ from typing import Callable
 
 from taktik.core.shared.device.permissions import PermissionHandler
 from taktik.core.social_media.tiktok.ui.selectors import POPUP_SELECTORS
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
-    PUBLISH_SELECTORS,
-    PublishSelectors,
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_COMPOSER_SELECTORS,
+    PUBLISH_EDITOR_SELECTORS,
+    PublishComposerSelectors,
+    PublishEditorSelectors,
 )
 from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element
 
@@ -43,7 +45,7 @@ def handle_permission_dialog(
 
 def dismiss_post_popups(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishEditorSelectors = PUBLISH_EDITOR_SELECTORS,
     sleep: Callable[[float], None] = time.sleep,
     log: LogFn | None = None,
 ) -> bool:
@@ -72,7 +74,7 @@ def dismiss_post_popups(
 
 def handle_publish_confirmation_dialog(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishComposerSelectors = PUBLISH_COMPOSER_SELECTORS,
     log: LogFn | None = None,
 ) -> bool:
     """Confirm TikTok's optional publish visibility dialog."""

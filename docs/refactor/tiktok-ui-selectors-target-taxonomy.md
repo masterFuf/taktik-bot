@@ -96,6 +96,7 @@ social_media/tiktok/ui/
 - les anciens chemins top-level correspondants restent volontairement des shims de compatibilite.
 - `video/detail.py` est maintenant une facade d'agregation legacy au-dessus de catalogues specialises (`creator`, `engagement`, `media`, `state`).
 - `publish/` n'est plus un monolithe : `PUBLISH_SELECTORS` est maintenant une facade d'agregation au-dessus de catalogues specialises par etape.
+- les services/runtime TikTok `publish` pointent maintenant vers `ui/selectors/flows/publish/*` directement ; le shim top-level `publish.py` reste pour la compatibilite.
 
 ## Strategie de migration
 

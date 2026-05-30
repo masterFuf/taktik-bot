@@ -72,7 +72,7 @@ from taktik.core.social_media.tiktok.services.publish_text_input import (
 )
 from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import tap_caption_focus_fallback
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
-from taktik.core.social_media.tiktok.ui.selectors import PUBLISH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import PUBLISH_SELECTORS
 from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element
 
 try:

@@ -6,9 +6,9 @@ from typing import Callable
 
 from lxml import etree
 
-from taktik.core.social_media.tiktok.ui.selectors.publish import (
-    PUBLISH_SELECTORS,
-    PublishSelectors,
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_MEDIA_PICKER_SELECTORS,
+    PublishMediaPickerSelectors,
 )
 from taktik.core.social_media.tiktok.ui.xpath import parse_bounds
 
@@ -18,7 +18,7 @@ LogFn = Callable[[str, str], None]
 
 def tap_upload_button_from_dump(
     device,
-    selectors: PublishSelectors = PUBLISH_SELECTORS,
+    selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     log: LogFn | None = None,
 ) -> bool:
     """Tap the visible TikTok gallery button by reading XML bounds."""
