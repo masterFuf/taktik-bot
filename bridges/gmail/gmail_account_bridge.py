@@ -137,7 +137,7 @@ class GmailAccountBridge:
 
         try:
             from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
-            workflow = GmailWorkflow(device, self.device_id)
+            workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.ensure_account_added(email, password)
             outcome = "success" if result.get('success') else "error"
             send_status(outcome, result.get('message', ''))
@@ -174,7 +174,7 @@ class GmailAccountBridge:
 
         try:
             from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
-            workflow = GmailWorkflow(device, self.device_id)
+            workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             # Logout flow not yet implemented in GmailWorkflow — fall back to
             # opening Android Settings → Accounts so the user can confirm
             # removal manually.  We still mark as success at the bridge level
@@ -219,7 +219,7 @@ class GmailAccountBridge:
 
         try:
             from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
-            workflow = GmailWorkflow(device, self.device_id)
+            workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.get_latest_verification_code(
                 email=email,
                 sender_filter=sender_filter,
@@ -252,7 +252,7 @@ class GmailAccountBridge:
 
         try:
             from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
-            workflow = GmailWorkflow(device, self.device_id)
+            workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.scan_accounts()
             outcome = "success" if result.get('success') else "error"
             send_status(outcome, result.get('message', ''))

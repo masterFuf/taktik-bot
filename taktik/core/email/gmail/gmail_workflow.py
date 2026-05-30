@@ -35,10 +35,11 @@ Screen states handled
 """
 import re
 import time
-from typing import Optional
+from contextvars import ContextVar
+from functools import wraps
+from typing import Optional, Protocol
 
 from loguru import logger
-from bridges.common.ipc import IPC
 from taktik.core.email.gmail.selectors import (
     GMAIL_SWITCHER_SELECTORS,
     GMAIL_SETUP_SELECTORS,
@@ -49,7 +50,51 @@ from taktik.core.email.gmail.selectors import (
     GOOGLE_RECAPTCHA_SELECTORS,
 )
 
-_ipc = IPC()
+
+class GmailWorkflowNotifier(Protocol):
+    def status(self, status: str, message: str = "") -> None:
+        ...
+
+    def log(self, level: str, message: str) -> None:
+        ...
+
+
+class _NullNotifier:
+    def status(self, status: str, message: str = "") -> None:
+        return None
+
+    def log(self, level: str, message: str) -> None:
+        return None
+
+
+_NULL_NOTIFIER = _NullNotifier()
+_CURRENT_NOTIFIER: ContextVar[GmailWorkflowNotifier] = ContextVar(
+    "gmail_workflow_notifier",
+    default=_NULL_NOTIFIER,
+)
+
+
+class _NotifierProxy:
+    def status(self, status: str, message: str = "") -> None:
+        _CURRENT_NOTIFIER.get().status(status, message)
+
+    def log(self, level: str, message: str) -> None:
+        _CURRENT_NOTIFIER.get().log(level, message)
+
+
+def _with_bound_notifier(method):
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        token = _CURRENT_NOTIFIER.set(self._notifier)
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            _CURRENT_NOTIFIER.reset(token)
+
+    return wrapper
+
+
+_ipc = _NotifierProxy()
 
 _GMAIL_PACKAGE = "com.google.android.gm"
 
@@ -86,15 +131,22 @@ class GmailWorkflow:
     device_id  : ADB serial / device identifier (for logging)
     """
 
-    def __init__(self, device, device_id: str):
+    def __init__(
+        self,
+        device,
+        device_id: str,
+        notifier: Optional[GmailWorkflowNotifier] = None,
+    ):
         self.device    = device
         self.device_id = device_id
         self.logger    = logger.bind(device=device_id)
+        self._notifier = notifier or _NULL_NOTIFIER
 
     # ──────────────────────────────────────────────────────────────────
     # Public API
     # ──────────────────────────────────────────────────────────────────
 
+    @_with_bound_notifier
     def ensure_account_added(self, email: str, password: str) -> dict:
         """
         Ensure *email* is added as a Google account in the Gmail app.
@@ -377,6 +429,7 @@ class GmailWorkflow:
             _ipc.log("error", f"❌ Gmail error: {exc}")
             return {"success": False, "message": str(exc), "error_type": "exception"}
 
+    @_with_bound_notifier
     def get_latest_verification_code(
         self,
         email: str,
@@ -459,6 +512,7 @@ class GmailWorkflow:
             _ipc.log("error", f"❌ Gmail OTP error: {exc}")
             return {"success": False, "code": None, "message": str(exc), "error_type": "exception"}
 
+    @_with_bound_notifier
     def scan_accounts(self) -> dict:
         """
         Scan Gmail and return all Google accounts currently configured in the app.

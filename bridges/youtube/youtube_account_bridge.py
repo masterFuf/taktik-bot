@@ -123,7 +123,7 @@ class YouTubeAccountBridge:
             send_log("info", "🔑 Password provided — will add account to Gmail if missing")
             try:
                 from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
-                gw = GmailWorkflow(device, self.device_id)
+                gw = GmailWorkflow(device, self.device_id, notifier=_ipc)
                 result = gw.ensure_account_added(email, password)
                 if not result.get('success'):
                     # Non-fatal: account might already be registered via Android Settings

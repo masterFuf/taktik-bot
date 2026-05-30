@@ -697,7 +697,7 @@ class TikTokSignupWorkflow:
         """
         if method == "email" and email:
             _ipc.log("info", "📬 Fetching OTP from Gmail…")
-            gmail = GmailWorkflow(self.device, self.device_id)
+            gmail = GmailWorkflow(self.device, self.device_id, notifier=_ipc)
 
             if gmail_password:
                 # Password provided — ensure the account is present on the device
