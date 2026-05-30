@@ -16,6 +16,8 @@ Le but n'est pas de "faire du propre" de maniere vague. Le but est de :
 Etat 2026-05-30 :
 
 - la cartographie de reference vit dans [bot-core-cartography.md](bot-core-cartography.md) ;
+- la proposition de taxonomie cible racine vit dans [bot-core-target-taxonomy.md](bot-core-target-taxonomy.md) ;
+- la proposition de taxonomie cible pour `instagram/ui/selectors` vit dans [instagram-ui-selectors-target-taxonomy.md](instagram-ui-selectors-target-taxonomy.md) ;
 - le premier lot structurel cible `taktik/core/device` comme boundary de compat vers `taktik/core/shared/device/**`.
 - le deuxieme lot structurel sort le bookkeeping `already_processed` / `already_filtered` / `skip` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_workflow_state.py`, en gardant un shim de compatibilite cote plateforme.
 - un sous-lot suivant du lot 2 sort aussi le tracking `processed_hashtag_posts` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_hashtag_posts.py`.
