@@ -26,6 +26,10 @@ database/
 ├── instagram_hashtag_posts.py
 │                           ← Façade transitoire du tracking
 │                              `processed_hashtag_posts` pour Instagram
+├── instagram_follow_graph.py
+│                           ← Façade transitoire du social graph
+│                              `following_sync` / `followers_sync`
+│                              et lookups d'historique de follow
 ├── instagram_workflow_state.py
 │                           ← Façade transitoire des décisions DB
 │                              `already_processed` / `already_filtered`
@@ -71,6 +75,7 @@ database/
 - `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
 - `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
 - Une façade explicite sous `database/*.py` peut exister temporairement pour absorber des call sites legacy de workflow, mais elle doit seulement orchestrer le client/repositories DB. Elle ne doit pas redevenir un second dossier fourre-tout.
+- Les états Instagram de social graph legacy (`following_sync`, `followers_sync`, flags mutual/non-follower, lookup "followed by bot") doivent transiter par `instagram_follow_graph.py` tant que les repositories dédiés n'existent pas.
 - Une table ou méthode partagée entre plateformes doit avoir un ownership explicite dans le nom, la doc et le test.
 
 ---
@@ -401,3 +406,4 @@ const profiles = databaseService.getProfiles(accountId);
 | 2026-05 | Début de réduction de `local/service.py` : les méthodes publiques TikTok délèguent à `repositories/tiktok/TikTokRepository` |
 | 2026-05 | Réduction de `local/service.py` : les helpers profil Instagram et stats history délèguent à `repositories/instagram/profile/ProfileRepository` |
 | 2026-05 | Réduction de `local/service.py` : les sessions sync, les agrégats de session et `daily_stats` Instagram délèguent à `repositories/instagram/session`, `interaction` et `stats` |
+| 2026-05 | Extraction du social graph Instagram legacy : `database/instagram_follow_graph.py` absorbe `following_sync` / `followers_sync` et les lookups de follow utilisés par l'unfollow |
