@@ -12,7 +12,7 @@
 - Le chantier `bot/taktik/core` est transverse et ne doit pas etre enterre dans un seul audit plateforme.
 - Cette page est l'entree canonique pour savoir ou on en est avant d'ouvrir les audits specialises.
 
-## Etat global au 2026-05-30
+## Etat global au 2026-05-31
 
 - [x] Cartographie vivante de `bot/taktik/core` produite.
 - [x] Trajectoire cible documentee pour mieux separer `social_media`, `shared`, `database`, runtime/app et compat.
@@ -27,8 +27,11 @@
 - [x] `auth` TikTok splitte par flow.
 - [x] `publish` TikTok splitte par etape.
 - [x] Fichiers legacy top-level `ui/selectors/*.py` retires pour Instagram et TikTok apres migration des imports internes.
+- [x] `compat/selectors/**` est maintenant l'owner interne du framework selectors/versioning ; `compat/*.py` ne restent plus qu'en shims de compatibilite.
+- [x] `clone/package_map.py` centralise les package names officiels et prefixes de clone.
+- [x] Le human recorder Instagram vit maintenant sous `social_media/instagram/recorder/**` ; `taktik/core/recorder` ne garde qu'une facade de compatibilite.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
-- [ ] Cartographie puis assainissement des familles runtime/app restantes : `media`, `recorder`, `email`, `ai`, `agent`, `config`, `security`.
+- [ ] Cartographie puis assainissement des familles runtime/app restantes : `media`, `email`, `ai`, `agent`, `config`, `security`.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
 - [ ] Decision finale sur la deprecation ou non des agregateurs publics legacy.
 
