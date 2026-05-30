@@ -85,7 +85,7 @@ class TikTokPublishBridge:
         send_status("running", "Starting TikTok upload workflow...")
         try:
             from taktik.core.social_media.tiktok.workflows.publish.upload_workflow import TikTokUploadWorkflow
-            workflow = TikTokUploadWorkflow(device, self.device_id)
+            workflow = TikTokUploadWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.execute(
                 local_path=self.local_path,
                 caption=self.caption,

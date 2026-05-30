@@ -66,6 +66,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 applique la meme regle au scraping Instagram : `scraping_workflow.py` ne construit plus lui-meme `IPC` + `AIService`, et recoit maintenant notifier/provider AI depuis ses appelants bridge ou CLI.
 - un sous-lot suivant du lot 5 introduit enfin le premier noyau executable de `core/agent` : `registry.py` porte l'enregistrement des workflows canoniques et `executor.py` deroule un `AgentPlan` minimal en emettant des `AgentEvent`, sans encore remplacer les scenarios historiques existants.
 - un sous-lot suivant du lot 5 applique aussi la regle "notifier injecte" aux workflows TikTok de management (`login`, `logout`, `signup`) : ils n'instancient plus `bridges.common.ipc.IPC()` dans `core`, et le bridge compte TikTok leur passe maintenant `_ipc` depuis l'exterieur.
+- un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis `tiktok_publish_bridge.py`.
 
 ## Prompt pret a coller
 
