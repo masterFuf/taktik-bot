@@ -27,7 +27,7 @@ from taktik.core.social_media.instagram.actions.atomic.navigation import Navigat
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.database.local.service import get_local_database
-from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors import POST_DETAIL_SELECTORS, POST_GRID_SELECTORS
 
 # Re-export models for backward compatibility
 from .post_scraping_models import PostStats, CommentData, ScrapedProfile
@@ -184,12 +184,12 @@ class PostScrapingWorkflow(
         
         try:
             # Try to get author username
-            author_elem = self.device.xpath(POST_SELECTORS.post_author_username_selectors[0])
+            author_elem = self.device.xpath(POST_DETAIL_SELECTORS.post_author_username_selectors[0])
             if author_elem.exists:
                 author = author_elem.get_text() or ""
             
             # Try to get stats from carousel content-desc
-            carousel = self.device.xpath(POST_SELECTORS.carousel_indicators[2])
+            carousel = self.device.xpath(POST_GRID_SELECTORS.carousel_indicators[2])
             if carousel.exists:
                 desc = carousel.info.get('contentDescription', '')
                 # Parse "Photo X of Y by Author, N likes, M comments"

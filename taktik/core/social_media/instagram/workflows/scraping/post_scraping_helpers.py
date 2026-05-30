@@ -6,7 +6,14 @@ from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, POST_SELECTORS, BUTTON_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors import (
+    BUTTON_SELECTORS,
+    DETECTION_SELECTORS,
+    POST_DETAIL_SELECTORS,
+    POST_GRID_SELECTORS,
+    POST_LIKERS_SELECTORS,
+    POST_REELS_SELECTORS,
+)
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from ..common.detection import is_reel_post, is_in_post_view
 from ..common.post_navigation import open_first_post_of_profile, get_post_url_from_share
@@ -110,7 +117,7 @@ class ScrapingPostHelpersMixin:
             likers_opened = False
             
             # First priority: Click on "Liked by" / "Aimé par" text at the beginning
-            liked_by_selectors = POST_SELECTORS.liked_by_selectors
+            liked_by_selectors = POST_LIKERS_SELECTORS.liked_by_selectors
             
             for selector in liked_by_selectors:
                 element = self.device.xpath(selector)
@@ -135,7 +142,7 @@ class ScrapingPostHelpersMixin:
             
             if not likers_opened:
                 # Second priority: Try clicking on the like count directly (e.g., "1,234 likes")
-                like_count_selectors = POST_SELECTORS.like_count_selectors
+                like_count_selectors = POST_LIKERS_SELECTORS.like_count_selectors
                 for selector in like_count_selectors:
                     element = self.device.xpath(selector)
                     if element.exists:
@@ -268,7 +275,7 @@ class ScrapingPostHelpersMixin:
         """Extract likers from a Reel by clicking on likes count."""
         try:
             # Reel-specific selectors for like count
-            reel_like_selectors = POST_SELECTORS.reel_like_selectors
+            reel_like_selectors = POST_REELS_SELECTORS.reel_like_selectors
             
             like_element = None
             for selector in reel_like_selectors:
@@ -398,7 +405,7 @@ class ScrapingPostHelpersMixin:
         Returns:
             True if a (new) post was clicked, False if no more posts are visible.
         """
-        for selector in POST_SELECTORS.hashtag_post_selectors:
+        for selector in POST_GRID_SELECTORS.hashtag_post_selectors:
             try:
                 elements = self.device.xpath(selector).all()
                 if not elements:
@@ -431,7 +438,7 @@ class ScrapingPostHelpersMixin:
 
     def _get_post_author(self) -> Optional[str]:
         """Get the username of the current post author."""
-        selectors = POST_SELECTORS.post_author_username_selectors
+        selectors = POST_DETAIL_SELECTORS.post_author_username_selectors
         
         for selector in selectors:
             try:

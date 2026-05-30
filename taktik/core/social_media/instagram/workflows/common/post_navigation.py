@@ -6,7 +6,13 @@ All functions take `device` and `logger` as parameters — no class dependency.
 import time
 from typing import Optional
 
-from ...ui.selectors import DETECTION_SELECTORS, POST_SELECTORS, POPUP_SELECTORS
+from ...ui.selectors import (
+    DETECTION_SELECTORS,
+    POPUP_SELECTORS,
+    POST_GRID_SELECTORS,
+    POST_LIKERS_SELECTORS,
+    POST_SHARE_SHEET_SELECTORS,
+)
 from .detection import is_in_post_view, is_likers_popup_open
 
 
@@ -16,7 +22,7 @@ def open_first_post_of_profile(device, logger=None) -> bool:
         posts = device.xpath(DETECTION_SELECTORS.post_thumbnail_selectors[0]).all()
 
         if not posts:
-            posts = device.xpath(POST_SELECTORS.first_post_grid).all()
+            posts = device.xpath(POST_GRID_SELECTORS.first_post_grid).all()
 
         if not posts:
             if logger:
@@ -60,7 +66,7 @@ def open_likers_list(device, ui_extractors, logger=None) -> bool:
         clicked = False
 
         # ── Strategy 1: "Liked by" / "Aimé par" text ──────────────────────────
-        for selector in POST_SELECTORS.liked_by_selectors:
+        for selector in POST_LIKERS_SELECTORS.liked_by_selectors:
             try:
                 element = device.xpath(selector)
                 if element.exists:
@@ -136,10 +142,10 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
         # Different post types use different resource-ids / content-desc:
         #   - Reels: direct_share_button
         #   - Regular feed posts: row_feed_button_share / "Send Post"
-        # Selectors are centralised in POST_SELECTORS.share_button_selectors and use
+        # Selectors are centralised in POST_SHARE_SHEET_SELECTORS.share_button_selectors and use
         # contains(@resource-id) so they work with clone APKs.
         share_btn = None
-        for sel in POST_SELECTORS.share_button_selectors:
+        for sel in POST_SHARE_SHEET_SELECTORS.share_button_selectors:
             elem = device.xpath(sel)
             if elem.exists:
                 share_btn = elem
@@ -157,7 +163,7 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
         # Try the visible area first; if not found, scroll down to reveal the
         # action row that may be hidden below the DM recipients grid.
         copy_link = None
-        for sel in POST_SELECTORS.copy_link_selectors:
+        for sel in POST_SHARE_SHEET_SELECTORS.copy_link_selectors:
             elem = device.xpath(sel)
             if elem.exists:
                 copy_link = elem
@@ -168,7 +174,7 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
             # Endpoint y=600 stays safely within the share sheet (which starts at ~y=452).
             device.swipe(288, 900, 288, 600, duration=0.3)
             time.sleep(0.5)
-            for sel in POST_SELECTORS.copy_link_selectors:
+            for sel in POST_SHARE_SHEET_SELECTORS.copy_link_selectors:
                 elem = device.xpath(sel)
                 if elem.exists:
                     copy_link = elem
@@ -186,7 +192,7 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
 
         # Step 3: read URL from system share picker (visible as text element)
         url = None
-        for url_sel in POST_SELECTORS.share_picker_url_selectors:
+        for url_sel in POST_SHARE_SHEET_SELECTORS.share_picker_url_selectors:
             url_elem = device.xpath(url_sel)
             if url_elem.exists:
                 url = url_elem.get_text().strip()
@@ -199,7 +205,7 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
                 # the sheet to close it cleanly — safer than a blind second back press
                 # which would navigate away from the post.
                 try:
-                    if device.xpath(POST_SELECTORS.share_sheet_dimmer).exists:
+                    if device.xpath(POST_SHARE_SHEET_SELECTORS.share_sheet_dimmer).exists:
                         device.tap(288, 200)   # tap above the share modal (dimmer zone)
                         time.sleep(0.4)
                 except Exception:

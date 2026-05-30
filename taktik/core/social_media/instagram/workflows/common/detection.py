@@ -3,12 +3,17 @@
 All functions take `device` and `logger` as parameters — no class dependency.
 """
 
-from ...ui.selectors import POST_SELECTORS, POPUP_SELECTORS, DETECTION_SELECTORS
+from ...ui.selectors import (
+    DETECTION_SELECTORS,
+    POPUP_SELECTORS,
+    POST_DETAIL_SELECTORS,
+    POST_REELS_SELECTORS,
+)
 
 
 def is_reel_post(device, logger=None) -> bool:
     """Check if current post is a Reel."""
-    for selector in POST_SELECTORS.reel_indicators:
+    for selector in POST_REELS_SELECTORS.reel_indicators:
         try:
             if device.xpath(selector).exists:
                 if logger:
@@ -21,7 +26,7 @@ def is_reel_post(device, logger=None) -> bool:
 
 def is_in_post_view(device, logger=None) -> bool:
     """Check if we're currently viewing a post (not grid/profile)."""
-    indicators = POST_SELECTORS.post_view_indicators + POST_SELECTORS.post_detail_indicators
+    indicators = POST_DETAIL_SELECTORS.post_view_indicators + POST_DETAIL_SELECTORS.post_detail_indicators
     for indicator in indicators:
         try:
             if device.xpath(indicator).exists:

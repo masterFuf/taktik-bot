@@ -17,13 +17,13 @@ class UIHelpers:
         self.automation = automation
         self.device = automation.device
         self.logger = automation.logger
-        self.POST_SELECTORS = None
+        self.POST_LIKERS_SELECTORS = None
         self.POPUP_SELECTORS = None
         
         # Import selectors
         try:
-            from ...ui.selectors import POST_SELECTORS, POPUP_SELECTORS
-            self.POST_SELECTORS = POST_SELECTORS
+            from ...ui.selectors import POPUP_SELECTORS, POST_LIKERS_SELECTORS
+            self.POST_LIKERS_SELECTORS = POST_LIKERS_SELECTORS
             self.POPUP_SELECTORS = POPUP_SELECTORS
         except ImportError:
             self.logger.warning("Could not import UI selectors")
@@ -52,10 +52,10 @@ class UIHelpers:
     
     def has_likes_on_current_post(self) -> bool:
         try:
-            if not self.POST_SELECTORS:
+            if not self.POST_LIKERS_SELECTORS:
                 return False
             
-            if self._element_exists(self.POST_SELECTORS.automation_like_indicators):
+            if self._element_exists(self.POST_LIKERS_SELECTORS.automation_like_indicators):
                 self.logger.debug("Likes detected via selector")
                 return True
             
@@ -82,10 +82,10 @@ class UIHelpers:
     
     def open_likes_list(self) -> bool:
         try:
-            if not self.POST_SELECTORS:
+            if not self.POST_LIKERS_SELECTORS:
                 return False
                 
-            for selector in self.POST_SELECTORS.automation_like_count_selectors:
+            for selector in self.POST_LIKERS_SELECTORS.automation_like_count_selectors:
                 try:
                     element = self.device.xpath(selector)
                     if element.exists:

@@ -9,6 +9,7 @@ Etat 2026-05-30 :
 - `surfaces/` est maintenant introduit et possede deja `feed.py`, `hashtag.py`, `notifications.py`, `direct_messages.py`, `story_viewer.py`, `content_creation.py` et `followers_following.py`.
 - `surfaces/` possede aussi maintenant `profile.py`.
 - `surfaces/post/` est maintenant introduit avec `detail.py` comme owner transitoire du legacy `post.py`.
+- `surfaces/post/` expose maintenant aussi plusieurs catalogues publics specialises : `POST_DETAIL_SELECTORS`, `POST_COMMENTS_SELECTORS`, `POST_LIKERS_SELECTORS`, `POST_SHARE_SHEET_SELECTORS`, `POST_GRID_SELECTORS`, `POST_REELS_SELECTORS`.
 - `support/` est maintenant introduit et possede deja `debug.py` et `scroll.py`.
 - `flows/` est maintenant introduit et possede deja `unfollow.py`.
 - les anciens chemins top-level (`auth.py`, `popup.py`, `text_input.py`, `detection.py`, `problematic_page.py`) restent volontairement des shims de compatibilite.
@@ -220,6 +221,7 @@ Pas de big-bang.
 - `navigation.py` n'a finalement pas eu besoin de split interne : il a simplement bascule sous `shell/navigation.py`
 - `profile.py` n'a pas eu besoin de split non plus a ce stade : il a simplement bascule sous `surfaces/profile.py`
 - `post.py` n'est pas encore split finement, mais il a deja quitte la racine au profit de `surfaces/post/detail.py`, ce qui clarifie au moins son owner de surface avant le vrai decoupage interne.
+- premier pas concret du split fin : les call sites peuvent maintenant cibler des catalogues specialises, sans attendre la disparition immediate de `POST_SELECTORS`.
 
 ## Detail important sur `profile.py` et `navigation.py`
 

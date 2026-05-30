@@ -41,6 +41,8 @@ Etat 2026-05-30 :
 - un sous-lot suivant rattache aussi `navigation.py` a `ui/selectors/shell/navigation.py`, y compris `ButtonSelectors`, pour terminer l'app chrome Instagram avant l'audit des grosses surfaces restantes (`profile`, `post`).
 - un sous-lot suivant rattache aussi `profile.py` a `ui/selectors/surfaces/profile.py` sans le splitter, car le fichier reste centré sur la surface profil (header, counters, enrichissement, followers/following links).
 - un sous-lot suivant sort aussi le monolithe `post.py` de la racine vers `ui/selectors/surfaces/post/detail.py` comme owner transitoire, en gardant `post.py` comme shim jusqu'au futur split fin (`comments`, `likers`, `share_sheet`, `grid`, `reels`).
+- un sous-lot suivant introduit enfin plusieurs catalogues publics specialises pour les posts Instagram (`POST_DETAIL_SELECTORS`, `POST_COMMENTS_SELECTORS`, `POST_LIKERS_SELECTORS`, `POST_SHARE_SHEET_SELECTORS`, `POST_GRID_SELECTORS`, `POST_REELS_SELECTORS`), tout en gardant `POST_SELECTORS` comme facade legacy de compat.
+- le meme chantier de taxonomie selectors devra ensuite etre applique a `social_media/tiktok/ui/selectors`, en reprenant la logique `shell` / `surfaces` / `flows` / `support` et des catalogues publics specialises par surface sensible.
 
 ## Prompt pret a coller
 

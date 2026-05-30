@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, POST_SELECTORS
+from ....ui.selectors import DETECTION_SELECTORS, POST_COMMENTS_SELECTORS
 
 
 class ContextScrollMixin(BaseAction):
@@ -35,7 +35,7 @@ class ContextScrollMixin(BaseAction):
             # Try to scroll within the comments RecyclerView (sticky_header_list)
             # The comments view is a bottom sheet that covers most of the screen
             # We need to scroll within its bounds, not the full screen
-            comments_list = self.device.xpath(f'//*[@resource-id="{POST_SELECTORS.comments_list_resource_id}"]')
+            comments_list = self.device.xpath(f'//*[@resource-id="{POST_COMMENTS_SELECTORS.comments_list_resource_id}"]')
             
             if comments_list.exists:
                 # Get the bounds of the comments list

@@ -138,6 +138,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Toute signature UI doit etre centralisee dans les modules `taktik/core/social_media/**/ui/selectors/**` ou `ui/language.py`, avec un commentaire d'historique si elle vient d'un dump reel.
 - Sous `social_media/<platform>/ui/selectors`, classer d'abord par perimetre UI reel (`shell`, `surfaces`, `flows`, `support`) plutot que par fourre-tout technique. Un dev doit pouvoir deviner l'emplacement d'un selector a partir de l'ecran ou du flow Instagram/TikTok concerne.
 - Quand un selector est deplace vers un sous-package scope (`shell/**`, `surfaces/**`, etc.), laisser le fichier historique top-level comme shim de compatibilite explicite tant que des imports externes peuvent encore exister.
+- Quand une surface devient trop large pour un seul catalogue public, exposer plusieurs catalogues specialises (`*_DETAIL_SELECTORS`, `*_COMMENTS_SELECTORS`, etc.) avant d'ajouter de nouvelles clefs au catalogue legacy global. Le gros catalogue historique peut rester comme facade de compat, pas comme point d'extension par defaut.
 - Si un workflow a besoin d'un fast-path sur un dump XML, exposer une fonction/propriete depuis le catalogue selectors au lieu de mettre les strings dans le workflow.
 - Eviter les sleeps fixes quand un wait conditionnel ou une detection UI est possible.
 - Les selectors reutilisables doivent vivre dans des modules dedies ou partages, pas etre recopies dans plusieurs workflows.

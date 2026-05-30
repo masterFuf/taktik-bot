@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors import POST_COMMENTS_SELECTORS
 from .post_scraping_models import ScrapedProfile, CommentData
 
 console = Console()
@@ -109,7 +109,7 @@ class PostEngagementScrapingMixin:
         
         try:
             # Click comment button or count
-            comment_btn = self.device.xpath(POST_SELECTORS.comment_button_selectors[1])
+            comment_btn = self.device.xpath(POST_COMMENTS_SELECTORS.comment_button_selectors[1])
             if comment_btn.exists:
                 comment_btn.click()
                 time.sleep(2)
@@ -126,7 +126,7 @@ class PostEngagementScrapingMixin:
             
             # Verify we're on comments page
             is_comments_open = any(
-                self.device.xpath(s).exists for s in POST_SELECTORS.comments_view_indicators
+                self.device.xpath(s).exists for s in POST_COMMENTS_SELECTORS.comments_view_indicators
             )
             if not is_comments_open:
                 console.print("[yellow]⚠️ Could not open comments[/yellow]")
@@ -235,7 +235,7 @@ class PostEngagementScrapingMixin:
         
         try:
             # Click on sort button (e.g., "For you")
-            sort_btn = self.device.xpath(POST_SELECTORS.comment_sort_button)
+            sort_btn = self.device.xpath(POST_COMMENTS_SELECTORS.comment_sort_button)
             if sort_btn.exists:
                 sort_btn.click()
                 time.sleep(1)
@@ -263,7 +263,7 @@ class PostEngagementScrapingMixin:
         """Click on 'View X more reply' buttons to expand replies."""
         try:
             # Find "View X more reply" elements
-            reply_btns = self.device.xpath(POST_SELECTORS.expand_replies_selector)
+            reply_btns = self.device.xpath(POST_COMMENTS_SELECTORS.expand_replies_selector)
             if reply_btns.exists:
                 for btn in reply_btns.all()[:3]:  # Limit to avoid infinite loops
                     try:
