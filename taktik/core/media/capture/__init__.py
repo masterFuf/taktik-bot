@@ -1,5 +1,9 @@
-"""Media capture service."""
+"""Compatibility facade for the Instagram media capture service."""
 
-from .media_capture import MediaCaptureService
+from taktik.core.social_media.instagram.media.capture import (
+    MediaCapture,
+    MediaCaptureService,
+    ProfileCapture,
+)
 
-__all__ = ['MediaCaptureService']
+__all__ = ["MediaCapture", "MediaCaptureService", "ProfileCapture"]

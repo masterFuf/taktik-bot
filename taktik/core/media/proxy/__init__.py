@@ -1,5 +1,5 @@
-"""Proxy management for media interception."""
+"""Compatibility facade for Instagram media proxy management."""
 
-from .proxy_manager import ProxyManager
+from taktik.core.social_media.instagram.media.proxy import ProxyManager, resolve_media_scripts_dir
 
-__all__ = ['ProxyManager']
+__all__ = ["ProxyManager", "resolve_media_scripts_dir"]
