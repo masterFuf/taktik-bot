@@ -9,6 +9,7 @@ from .feed import FeedSelectors, FEED_SELECTORS
 from .followers_following import FollowersListSelectors, FOLLOWERS_LIST_SELECTORS
 from .hashtag import HashtagSelectors, HASHTAG_SELECTORS
 from .notifications import NotificationSelectors, NOTIFICATION_SELECTORS
+from .profile import ProfileSelectors, PROFILE_SELECTORS
 from .story_viewer import StorySelectors, STORY_SELECTORS
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "FOLLOWERS_LIST_SELECTORS",
     "HASHTAG_SELECTORS",
     "NOTIFICATION_SELECTORS",
+    "PROFILE_SELECTORS",
     "STORY_SELECTORS",
     "ContentCreationSelectors",
     "DirectMessageSelectors",
@@ -25,5 +27,6 @@ __all__ = [
     "FollowersListSelectors",
     "HashtagSelectors",
     "NotificationSelectors",
+    "ProfileSelectors",
     "StorySelectors",
 ]

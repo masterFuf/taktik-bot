@@ -5,7 +5,6 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 """
 
 from .post import PostSelectors, POST_SELECTORS
-from .profile import ProfileSelectors, PROFILE_SELECTORS
 from .flows import UnfollowSelectors, UNFOLLOW_SELECTORS
 from .shell import (
     AuthSelectors,
@@ -36,6 +35,8 @@ from .surfaces import (
     HASHTAG_SELECTORS,
     NotificationSelectors,
     NOTIFICATION_SELECTORS,
+    ProfileSelectors,
+    PROFILE_SELECTORS,
     StorySelectors,
     STORY_SELECTORS,
 )
