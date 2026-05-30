@@ -4,29 +4,28 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 `support`) while keeping historical top-level imports stable.
 """
 
-from .auth import (
-    AuthSelectors,
-    AUTH_SELECTORS,
-    SignupSelectors,
-    SIGNUP_SELECTORS,
-    LogoutSelectors,
-    LOGOUT_SELECTORS,
-    CountryPickerSelectors,
-    COUNTRY_PICKER_SELECTORS,
-    TIKTOK_PACKAGE,
-)
-from .comment import CommentSelectors, COMMENT_SELECTORS
 from .publish import PublishSelectors, PUBLISH_SELECTORS
 from .shell import (
+    AuthSelectors,
+    AUTH_SELECTORS,
+    CountryPickerSelectors,
+    COUNTRY_PICKER_SELECTORS,
     DetectionSelectors,
     DETECTION_SELECTORS,
+    LogoutSelectors,
+    LOGOUT_SELECTORS,
     NavigationSelectors,
     NAVIGATION_SELECTORS,
     PopupSelectors,
     POPUP_SELECTORS,
+    SignupSelectors,
+    SIGNUP_SELECTORS,
+    TIKTOK_PACKAGE,
 )
 from .support import ScrollSelectors, SCROLL_SELECTORS
 from .surfaces import (
+    CommentSelectors,
+    COMMENT_SELECTORS,
     ConversationSelectors,
     CONVERSATION_SELECTORS,
     FollowersSelectors,
@@ -37,8 +36,13 @@ from .surfaces import (
     PROFILE_SELECTORS,
     SearchSelectors,
     SEARCH_SELECTORS,
+    VideoCommentsSelectors,
+    VIDEO_COMMENTS_SELECTORS,
+    VideoDetailSelectors,
+    VIDEO_DETAIL_SELECTORS,
+    VideoSelectors,
+    VIDEO_SELECTORS,
 )
-from .video import VideoSelectors, VIDEO_SELECTORS
 
 __all__ = [
     "TIKTOK_PACKAGE",
@@ -48,10 +52,12 @@ __all__ = [
     "CountryPickerSelectors",
     "NavigationSelectors",
     "ProfileSelectors",
+    "VideoDetailSelectors",
     "VideoSelectors",
     "InboxSelectors",
     "ConversationSelectors",
     "CommentSelectors",
+    "VideoCommentsSelectors",
     "SearchSelectors",
     "PopupSelectors",
     "ScrollSelectors",
@@ -64,8 +70,10 @@ __all__ = [
     "COUNTRY_PICKER_SELECTORS",
     "NAVIGATION_SELECTORS",
     "PROFILE_SELECTORS",
+    "VIDEO_DETAIL_SELECTORS",
     "VIDEO_SELECTORS",
     "COMMENT_SELECTORS",
+    "VIDEO_COMMENTS_SELECTORS",
     "SEARCH_SELECTORS",
     "INBOX_SELECTORS",
     "CONVERSATION_SELECTORS",

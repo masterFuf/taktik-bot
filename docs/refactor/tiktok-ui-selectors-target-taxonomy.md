@@ -86,10 +86,13 @@ social_media/tiktok/ui/
 ## Etat 2026-05-30
 
 - `shell/` est maintenant introduit et possede deja `navigation.py`, `popups.py` et `screen_state.py`.
+- `shell/` possede aussi maintenant `auth.py`.
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
+- `surfaces/video/` est maintenant introduit avec `detail.py` et `comments.py`.
 - les anciens chemins top-level correspondants restent volontairement des shims de compatibilite.
-- `auth.py`, `video.py` et `publish.py` restent les trois gros prochains sujets a auditer avant move.
+- `publish.py` reste le prochain gros owner a sortir de la racine.
+- `video/detail.py` reste encore un gros catalogue a specialiser plus finement.
 
 ## Strategie de migration
 
@@ -109,6 +112,18 @@ social_media/tiktok/ui/
 - eclater `auth.py` par flow
 - sortir `publish.py` vers `flows/publish/*`
 - introduire plusieurs catalogues publics specialises pour `video.py`
+
+### Lot T2b - surface video
+
+- `video.py` -> `surfaces/video/detail.py`
+- `comment.py` -> `surfaces/video/comments.py`
+- exposition de `VIDEO_DETAIL_SELECTORS` et `VIDEO_COMMENTS_SELECTORS`
+
+### Lot T2c - shell auth
+
+- `auth.py` -> `shell/auth.py`
+- conservation du shim top-level `auth.py`
+- le split fin `login/signup/country_picker/logout` reste a faire ensuite
 
 ## Point important
 

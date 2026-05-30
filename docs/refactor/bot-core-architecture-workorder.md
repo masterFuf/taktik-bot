@@ -45,6 +45,8 @@ Etat 2026-05-30 :
 - le meme chantier de taxonomie selectors devra ensuite etre applique a `social_media/tiktok/ui/selectors`, en reprenant la logique `shell` / `surfaces` / `flows` / `support` et des catalogues publics specialises par surface sensible.
 - un premier sous-lot TikTok pose maintenant cette taxonomie via [tiktok-ui-selectors-target-taxonomy.md](tiktok-ui-selectors-target-taxonomy.md) et deplace les owners evidents `navigation`, `popup`, `detection` sous `shell/`, ainsi que `scroll` sous `support/`, avec shims top-level conserves.
 - un sous-lot TikTok suivant deplace aussi les petites surfaces evidentes `profile`, `search`, `inbox`, `conversation` et `followers` sous `ui/selectors/surfaces/`, toujours avec shims top-level de compatibilite.
+- un sous-lot TikTok suivant sort aussi `video.py` et `comment.py` de la racine vers `ui/selectors/surfaces/video/` et expose deja `VIDEO_DETAIL_SELECTORS` / `VIDEO_COMMENTS_SELECTORS` comme facades publiques de surface, en attendant le vrai split fin du catalogue video.
+- un sous-lot TikTok suivant rattache aussi `auth.py` a `ui/selectors/shell/auth.py` comme owner de compat transitoire, avant le futur split fin par flow (`login`, `signup`, `country_picker`, `logout`).
 
 ## Prompt pret a coller
 
