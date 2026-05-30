@@ -23,7 +23,7 @@ sys.path.insert(0, str(root_dir))
 from taktik.core.social_media.instagram.core.automation import InstagramAutomation
 from taktik.core.social_media.instagram.actions.navigation.navigation_manager import NavigationManager
 from taktik.core.social_media.instagram.actions.story.story_manager import StoryManager
-from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.utils.log_config import instagram_logger as logger
 
 
