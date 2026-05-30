@@ -7,9 +7,8 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ..common.likers_base import LikersWorkflowBase
-from ...common.database_helpers import DatabaseHelpers
 from ....core.stats import create_workflow_stats
-from taktik.core.database import get_db_service
+from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
 from .mixins.post_finder import HashtagPostFinderMixin
@@ -123,7 +122,7 @@ class HashtagBusiness(
                         self.logger.debug(f"Failed to send current_post: {e}")
                     
                     # Vérifier si ce post a déjà été traité
-                    if DatabaseHelpers.is_hashtag_post_processed(
+                    if InstagramHashtagPostService.is_processed(
                         hashtag=hashtag,
                         post_author=post_metadata['author'],
                         post_caption_hash=post_metadata.get('caption_hash'),
@@ -200,7 +199,7 @@ class HashtagBusiness(
             
             # Enregistrer le post comme traité pour éviter de le retraiter
             if post_metadata and post_metadata.get('author') and account_id:
-                DatabaseHelpers.record_hashtag_post_processed(
+                InstagramHashtagPostService.record_processed(
                     hashtag=hashtag,
                     post_author=post_metadata['author'],
                     post_caption_hash=post_metadata.get('caption_hash'),

@@ -47,7 +47,7 @@ Note de contexte :
 ## Lots proposes
 
 1. Lot 1 - boundary `device/` : doc + shim compat vers `shared/device/**` + tests unitaires.
-2. Lot 2 - ownership DB Instagram : sous-lots faits pour `processed / filtered / skip`, `processed_hashtag_posts` et `unfollow sync`. Le SQL `following_sync` / `followers_sync` vit maintenant dans `repositories/instagram/social_graph/`, et la famille `unfollow` appelle deja `InstagramFollowGraphService` directement. Prochain pas naturel : reduire `instagram_follow_graph.py` puis supprimer le shim `database_helpers.py` quand les call sites legacy auront disparu.
+2. Lot 2 - ownership DB Instagram : sous-lots faits pour `processed / filtered / skip`, `processed_hashtag_posts` et `unfollow sync`. Le SQL `following_sync` / `followers_sync` vit maintenant dans `repositories/instagram/social_graph/`, la famille `unfollow` appelle deja `InstagramFollowGraphService` directement, et la famille `hashtag` appelle deja `InstagramHashtagPostService` directement. Prochain pas naturel : reduire `instagram_follow_graph.py` puis supprimer le shim `database_helpers.py` quand les call sites legacy auront disparu.
 3. Lot 3 - managers runtime : aligner `instagram/core/manager.py`, `tiktok/core/manager.py`, `threads/core/manager.py` et les bases shared.
 4. Lot 4 - clarifier `clone/compat` : regles + petits deplacements si necessaire.
 5. Lot 5 - auditer `recorder/media/agent/email/ai` selon l'usage reel.

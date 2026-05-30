@@ -8,7 +8,7 @@ Internal structure:
 import time
 from typing import Dict, List, Any, Optional
 
-from ....common.database_helpers import DatabaseHelpers
+from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 from .post_detection import HashtagPostDetectionMixin
 
@@ -302,7 +302,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                                         pass
                                 
                                 metadata['caption'] = caption.strip()
-                                metadata['caption_hash'] = DatabaseHelpers.generate_caption_hash(caption)
+                                metadata['caption_hash'] = InstagramHashtagPostService.generate_caption_hash(caption)
                                 self.logger.debug(f"📝 Post caption: {caption[:80]}...")
                                 break
                     except Exception:
@@ -336,7 +336,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                             caption = element.info.get('contentDescription', '') or element.get_text() or ''
                             if caption:
                                 metadata['caption'] = caption.strip()
-                                metadata['caption_hash'] = DatabaseHelpers.generate_caption_hash(caption)
+                                metadata['caption_hash'] = InstagramHashtagPostService.generate_caption_hash(caption)
                                 self.logger.debug(f"📝 Post caption preview: {caption[:50]}...")
                                 break
                     except Exception:

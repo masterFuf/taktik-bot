@@ -22,6 +22,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 2 sort le bloc `unfollow sync` (`following_sync`, `followers_sync`, follow-history lookup) de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_follow_graph.py`.
 - un sous-lot suivant du lot 2 promeut ensuite ce social graph legacy vers `taktik/core/database/repositories/instagram/social_graph/`, en laissant `instagram_follow_graph.py` comme facade de compatibilite.
 - un sous-lot suivant reduit les call sites `unfollow` pour appeler `InstagramFollowGraphService` directement, afin d'eviter de garder `DatabaseHelpers` comme delegant pur sur cette famille.
+- un sous-lot suivant reduit les call sites `hashtag` pour appeler `InstagramHashtagPostService` directement, afin de continuer a vider `DatabaseHelpers` famille par famille.
 
 ## Prompt pret a coller
 
