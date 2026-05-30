@@ -60,6 +60,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 clarifie `taktik/core/recorder` : le human recorder Instagram n'est plus owner au niveau racine et vit maintenant sous `taktik/core/social_media/instagram/recorder/**`, tandis que `taktik/core/recorder/recorder.py` reste une facade de compatibilite pour les scripts et imports legacy.
 - un sous-lot suivant du lot 5 assainit aussi `config/security` sans big-bang : `APIEndpointManager` re-expose l'alias legacy `get_primary_endpoint()` attendu par `instagram/actions/business/system/config.py`, et `security/protection.py` n'utilise plus `print(...)` pour eviter tout risque de pollution stdout si ce chemin dormant est reveille.
 - un sous-lot suivant du lot 5 clarifie aussi `taktik/core/media` : la capture media Instagram vit maintenant sous `taktik/core/social_media/instagram/media/**`, `taktik/core/media/**` reste une facade de compatibilite pour les imports legacy, et `ProxyManager` resolve desormais ses assets runtime via le dossier repo `scripts/` au lieu de dependre de la profondeur du package Python.
+- un sous-lot suivant du lot 5 clarifie `taktik/core/email/gmail` : `gmail_workflow.py` ne depend plus directement de `bridges.common.ipc`, expose un notifier injecte optionnel, et les bridges/workflows appelants (`bridges/gmail`, `bridges/youtube`, TikTok signup) lui passent maintenant leur IPC existant depuis l'exterieur.
 
 ## Prompt pret a coller
 
