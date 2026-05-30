@@ -1,21 +1,35 @@
-"""
-Module Core pour Taktik.
-Contient la logique métier principale de l'application.
-"""
+"""Legacy top-level compatibility exports for ``taktik.core``."""
 
-# Import conditionnel pour éviter les problèmes circulaires
+
 def get_device_facade():
-    """Retourne DeviceFacade de manière paresseuse."""
-    from .social_media.instagram.actions.core.device_facade import DeviceFacade
+    """Return the Instagram ``DeviceFacade`` lazily."""
+    from .social_media.instagram.actions.core.device.facade import DeviceFacade
+
     return DeviceFacade
 
+
 def get_direction():
-    """Retourne Direction de manière paresseuse."""
+    """Return the shared ``Direction`` enum lazily."""
     from .shared.device.facade import Direction
+
     return Direction
 
-__all__ = [
-    'DeviceFacade',
-    'Direction',
-    'DeviceManager'
-]
+
+def get_device_manager():
+    """Return the legacy-compatible ``DeviceManager`` lazily."""
+    from .device import DeviceManager
+
+    return DeviceManager
+
+
+def __getattr__(name: str):
+    if name == "DeviceFacade":
+        return get_device_facade()
+    if name == "Direction":
+        return get_direction()
+    if name == "DeviceManager":
+        return get_device_manager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["DeviceFacade", "Direction", "DeviceManager"]
