@@ -95,50 +95,19 @@ class PostPersistenceMixin:
         console.print("\n[cyan]💾 Saving to database...[/cyan]")
         
         try:
-            # Save profiles
             for profile in self.enriched_profiles:
-                # Check if profile exists
-                existing = self.db.execute(
-                    "SELECT profile_id FROM instagram_profiles WHERE username = ?",
-                    (profile.username,)
-                ).fetchone()
-                
-                if existing:
-                    # Update
-                    self.db.execute("""
-                        UPDATE instagram_profiles SET
-                            biography = ?,
-                            followers_count = ?,
-                            following_count = ?,
-                            posts_count = ?,
-                            is_private = ?,
-                            updated_at = datetime('now')
-                        WHERE profile_id = ?
-                    """, (
-                        profile.bio,
-                        profile.followers_count,
-                        profile.following_count,
-                        profile.posts_count,
-                        1 if profile.is_private else 0,
-                        existing[0]
-                    ))
-                else:
-                    # Insert
-                    self.db.execute("""
-                        INSERT INTO instagram_profiles (
-                            username, biography, followers_count, following_count,
-                            posts_count, is_private
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                    """, (
-                        profile.username,
-                        profile.bio or '',
-                        profile.followers_count,
-                        profile.following_count,
-                        profile.posts_count,
-                        1 if profile.is_private else 0
-                    ))
-            
-            self.db.commit()
+                self.db.save_profile({
+                    'username': profile.username,
+                    'biography': profile.bio or '',
+                    'followers_count': profile.followers_count,
+                    'following_count': profile.following_count,
+                    'posts_count': profile.posts_count,
+                    'is_private': profile.is_private,
+                    'is_verified': profile.is_verified,
+                    'is_business': profile.is_business,
+                    'business_category': profile.category or None,
+                    'website': profile.website or None,
+                })
             console.print(f"[green]✅ Saved {len(self.enriched_profiles)} profiles[/green]")
             
         except Exception as e:

@@ -26,6 +26,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant reduit les call sites `workflow_state` (`notifications`, `followers`, `likers`, `feed`, `stats_recording`) pour appeler `InstagramWorkflowStateService` directement, et supprime un faux enregistrement `feed` qui ne correspondait a aucun owner DB et doublonnait la source de verite action-level.
 - un sous-lot suivant retire aussi les deux derniers call sites coeur (`profile_processing`, `interaction_engine`) de `DatabaseHelpers`. Le shim reste seulement comme surface de compatibilite package-level en attendant un audit d'usage externe.
 - un sous-lot suivant retire enfin le call site cache de `instagram/ui/extractors.py`, ce qui laisse `DatabaseHelpers` sans consommateur interne runtime.
+- un sous-lot suivant retire aussi le SQL inline de `instagram/workflows/post_scraping/post_persistence.py` au profit de la facade DB existante, pour eviter une ecriture `instagram_profiles` cachee dans le workflow.
 
 ## Prompt pret a coller
 
