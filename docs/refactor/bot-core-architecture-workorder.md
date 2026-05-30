@@ -59,6 +59,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 4 clarifie aussi `taktik/core/clone` : `clone/package_map.py` devient la source de verite des package names officiels et prefixes de clone, remplace les duplications dans `detector.py`, `proxy.py` et `selector_patcher.py`, et verrouille cette frontiere par un test unitaire cible.
 - un sous-lot suivant du lot 5 clarifie `taktik/core/recorder` : le human recorder Instagram n'est plus owner au niveau racine et vit maintenant sous `taktik/core/social_media/instagram/recorder/**`, tandis que `taktik/core/recorder/recorder.py` reste une facade de compatibilite pour les scripts et imports legacy.
 - un sous-lot suivant du lot 5 assainit aussi `config/security` sans big-bang : `APIEndpointManager` re-expose l'alias legacy `get_primary_endpoint()` attendu par `instagram/actions/business/system/config.py`, et `security/protection.py` n'utilise plus `print(...)` pour eviter tout risque de pollution stdout si ce chemin dormant est reveille.
+- un sous-lot suivant du lot 5 clarifie aussi `taktik/core/media` : la capture media Instagram vit maintenant sous `taktik/core/social_media/instagram/media/**`, `taktik/core/media/**` reste une facade de compatibilite pour les imports legacy, et `ProxyManager` resolve desormais ses assets runtime via le dossier repo `scripts/` au lieu de dependre de la profondeur du package Python.
 
 ## Prompt pret a coller
 

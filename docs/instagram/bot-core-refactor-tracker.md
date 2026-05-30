@@ -31,6 +31,7 @@
 - [x] `clone/package_map.py` centralise les package names officiels et prefixes de clone.
 - [x] Le human recorder Instagram vit maintenant sous `social_media/instagram/recorder/**` ; `taktik/core/recorder` ne garde qu'une facade de compatibilite.
 - [x] Hygiene runtime `config/security` : alias legacy `get_primary_endpoint()` retabli pour `APIEndpointManager` et suppression des `print(...)` dans `core/security`.
+- [x] La capture media Instagram vit maintenant sous `social_media/instagram/media/**` ; `taktik/core/media` ne garde qu'une facade de compatibilite et `ProxyManager` resolve ses assets via `scripts/`.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
 - [ ] Cartographie puis assainissement des familles runtime/app restantes : `media`, `email`, `ai`, `agent`, `config`, `security`.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
