@@ -12,12 +12,7 @@ Etat 2026-05-30 :
 - `surfaces/post/` expose maintenant aussi plusieurs catalogues publics specialises : `POST_DETAIL_SELECTORS`, `POST_COMMENTS_SELECTORS`, `POST_LIKERS_SELECTORS`, `POST_SHARE_SHEET_SELECTORS`, `POST_GRID_SELECTORS`, `POST_REELS_SELECTORS`.
 - `support/` est maintenant introduit et possede deja `debug.py` et `scroll.py`.
 - `flows/` est maintenant introduit et possede deja `unfollow.py`.
-- les anciens chemins top-level (`auth.py`, `popup.py`, `text_input.py`, `detection.py`, `problematic_page.py`) restent volontairement des shims de compatibilite.
-- l'ancien chemin top-level `navigation.py` reste lui aussi un shim de compatibilite.
-- les anciens chemins top-level des petites surfaces (`feed.py`, `hashtag.py`, `notification.py`, `dm.py`, `story.py`, `content.py`, `followers_list.py`) restent eux aussi des shims de compatibilite.
-- l'ancien chemin top-level `profile.py` reste lui aussi un shim de compatibilite.
-- l'ancien chemin top-level `post.py` reste lui aussi un shim de compatibilite.
-- les anciens chemins top-level `debug.py`, `scroll.py` et `unfollow.py` restent eux aussi des shims de compatibilite.
+- les anciens fichiers top-level de compatibilite ont ete retires apres migration des imports internes du monorepo.
 
 Le dossier actuel :
 
@@ -251,7 +246,7 @@ Je recommande de commencer par :
 
 1. documenter cette taxonomie
 2. deplacer les fichiers a scope evident
-3. garder `__init__.py` en facade de compat
+3. garder `__init__.py` comme facade publique de package
 4. traiter `post.py` en premier gros split
 
 Le premier lot rentable ici n'est pas de tout bouger.

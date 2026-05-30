@@ -1,8 +1,4 @@
-"""Instagram UI selectors.
-
-The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
-`support`) while keeping the historical top-level imports stable.
-"""
+"""Instagram UI selectors organized by UI scope."""
 
 from .flows import UnfollowSelectors, UNFOLLOW_SELECTORS
 from .shell import (
