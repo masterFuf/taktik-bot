@@ -90,9 +90,10 @@ social_media/tiktok/ui/
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
 - `surfaces/video/` est maintenant introduit avec `detail.py` et `comments.py`.
+- `flows/` est maintenant introduit et possede deja `publish.py`.
 - les anciens chemins top-level correspondants restent volontairement des shims de compatibilite.
-- `publish.py` reste le prochain gros owner a sortir de la racine.
 - `video/detail.py` reste encore un gros catalogue a specialiser plus finement.
+- `publish.py` a quitte la racine, mais reste un monolithe a eclater en sous-flows (`creation_entry`, `media_picker`, `editor`, `composer`, `progress`).
 
 ## Strategie de migration
 
@@ -124,6 +125,12 @@ social_media/tiktok/ui/
 - `auth.py` -> `shell/auth.py`
 - conservation du shim top-level `auth.py`
 - le split fin `login/signup/country_picker/logout` reste a faire ensuite
+
+### Lot T2d - publish owner
+
+- `publish.py` -> `flows/publish.py`
+- conservation du shim top-level `publish.py`
+- le split fin du workflow publish reste a faire ensuite
 
 ## Point important
 

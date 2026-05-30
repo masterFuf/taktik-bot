@@ -4,7 +4,7 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 `support`) while keeping historical top-level imports stable.
 """
 
-from .publish import PublishSelectors, PUBLISH_SELECTORS
+from .flows import PublishSelectors, PUBLISH_SELECTORS
 from .shell import (
     AuthSelectors,
     AUTH_SELECTORS,
