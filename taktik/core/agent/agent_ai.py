@@ -9,6 +9,8 @@ import time
 from typing import Dict, Any, Optional
 from loguru import logger
 
+from taktik.core.agent.contracts import AgentAIService
+
 
 # ---------------------------------------------------------------------------
 # System prompts
@@ -68,7 +70,7 @@ Rules:
 class AgentAI:
     """Brain of the Taktik Agent: decides what to do with each feed post and profile."""
 
-    def __init__(self, ai_service, ipc=None):
+    def __init__(self, ai_service: AgentAIService, ipc=None):
         self.ai_service = ai_service
         self.ipc = ipc
 
@@ -98,7 +100,7 @@ class AgentAI:
         user_msg = f"Analyse this feed post and decide what to do. Post author: @{author_username}"
 
         if self.ipc:
-            screenshot_thumb = self.ai_service._image_to_thumbnail_url(screenshot_path)
+            screenshot_thumb = self._build_screenshot_preview_url(screenshot_path)
             self.ipc.ai_screenshot_analyzing(
                 username=author_username,
                 prompt=user_msg,
@@ -224,6 +226,18 @@ class AgentAI:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    def _build_screenshot_preview_url(self, screenshot_path: str) -> Optional[str]:
+        """Best-effort thumbnail for runtime IPC previews."""
+        public_builder = getattr(self.ai_service, "image_to_thumbnail_url", None)
+        if callable(public_builder):
+            return public_builder(screenshot_path)
+
+        legacy_builder = getattr(self.ai_service, "_image_to_thumbnail_url", None)
+        if callable(legacy_builder):
+            return legacy_builder(screenshot_path)
+
+        return None
 
     @staticmethod
     def _parse_json(text: str) -> Optional[Dict[str, Any]]:

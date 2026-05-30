@@ -24,6 +24,7 @@ from taktik.core.database import get_db_service
 from taktik.core.ai.comment_ai import UserProfile
 from taktik.core.agent.agent_ai import AgentAI
 from taktik.core.agent.agent_context import AgentContext
+from taktik.core.agent.contracts import AgentAIService, AgentAIServiceFactory
 
 
 # ---------------------------------------------------------------------------
@@ -53,11 +54,20 @@ DELAY_AFTER_PROFILE_VISIT = (3.0, 6.0)
 class TaktikAgentWorkflow:
     """Autonomous Instagram agent that behaves like a human user."""
 
-    def __init__(self, device_manager, config: Dict[str, Any], ipc=None):
+    def __init__(
+        self,
+        device_manager,
+        config: Dict[str, Any],
+        ipc=None,
+        ai_service: Optional[AgentAIService] = None,
+        ai_service_factory: Optional[AgentAIServiceFactory] = None,
+    ):
         self.device_manager = device_manager
         self.device = device_manager.device if hasattr(device_manager, 'device') else device_manager
         self.config = config
         self.ipc = ipc
+        self._ai_service = ai_service
+        self._ai_service_factory = ai_service_factory
 
         # Session stats
         self.stats = {
@@ -252,17 +262,29 @@ class TaktikAgentWorkflow:
 
     def _initialize_ai(self) -> bool:
         """Set up the AI service and AgentAI decision engine."""
-        api_key = self.config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
-        if not api_key:
-            logger.error("[TaktikAgent] No OpenRouter API key configured")
-            return False
-
         try:
-            from bridges.common.ai_service import AIService
-
             vision_model = self.config.get("vision_model") or None
             text_model = self.config.get("text_model") or None
-            ai_service = AIService(api_key=api_key, ipc=self.ipc, vision_model=vision_model, text_model=text_model)
+            ai_service = self._ai_service
+
+            if ai_service is None:
+                if self._ai_service_factory is None:
+                    logger.error("[TaktikAgent] No AI service or factory injected")
+                    return False
+
+                api_key = self.config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
+                if not api_key:
+                    logger.error("[TaktikAgent] No OpenRouter API key configured")
+                    return False
+
+                ai_service = self._ai_service_factory(
+                    api_key=api_key,
+                    ipc=self.ipc,
+                    vision_model=vision_model,
+                    text_model=text_model,
+                )
+                self._ai_service = ai_service
+
             self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc)
             logger.info("[TaktikAgent] AI engine initialized")
             # Generate hashtag pool now that AI is ready

@@ -34,10 +34,16 @@ from bridges.common.signal_handler import setup_signal_handlers
 from taktik.core.database import configure_db_service
 from loguru import logger
 
+from bridges.common.ai_service import AIService
 from bridges.instagram.base import InstagramBridgeBase, _ipc
 
 # Graceful shutdown on SIGINT / SIGTERM
 setup_signal_handlers()
+
+
+def _build_agent_ai_service(*, api_key: str, ipc=None, vision_model: str = None, text_model: str = None):
+    """Bridge-owned AI provider factory for the agent runtime."""
+    return AIService(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
 
 
 class TaktikAgentBridge(InstagramBridgeBase):
@@ -63,6 +69,7 @@ class TaktikAgentBridge(InstagramBridgeBase):
             device_manager=self.device_manager,
             config=self.config,
             ipc=_ipc,
+            ai_service_factory=_build_agent_ai_service,
         )
         # Expose workflow to signal handler so Ctrl+C triggers graceful stop
         from bridges.common import signal_handler as _sig

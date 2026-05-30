@@ -30,8 +30,10 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] La capture media Instagram vit maintenant sous `social_media/instagram/media/**` ; `taktik/core/media` ne garde qu'une facade de compatibilite et `ProxyManager` resolve ses assets via `scripts/`.
 - [x] `core/email/gmail` n'importe plus directement l'IPC bridge ; le workflow Gmail recoit maintenant un notifier injecte depuis ses appelants.
 - [x] Cible `core/agent` documentee comme runtime kernel transverse, separe du planner premium cote Front.
+- [x] `core/agent` n'importe plus directement `bridges.common.ai_service` ; le provider AI est maintenant injecte par le bridge appelant.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
-- [ ] Cartographie puis assainissement des familles runtime/app restantes : `ai`, `agent`.
+- [ ] Rationaliser l'owner provider dans `core/ai` pour les workflows qui importent encore `bridges.common.ai_service`.
+- [ ] Faire emerger `registry.py` / `executor.py` pour sortir `TaktikAgentWorkflow` du role de pseudo-noyau global.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
 - [ ] Decision finale sur la deprecation ou non des agregateurs publics legacy.
 
