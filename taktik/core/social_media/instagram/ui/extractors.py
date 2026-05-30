@@ -2,6 +2,7 @@
 import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 log = logger.bind(module="instagram-ui-extractors")
 
 
@@ -347,9 +348,8 @@ class InstagramUIExtractors:
                 for username in new_users:
                     if username not in usernames and len(usernames) < target_count:
                         if automation:
-                            from ..actions.business.common.database_helpers import DatabaseHelpers
                             account_id = getattr(automation, 'active_account_id', None)
-                            if DatabaseHelpers.is_profile_already_processed(username, account_id):
+                            if InstagramWorkflowStateService.is_profile_already_processed(username, account_id):
                                 continue
                         
                         usernames.append(username)
