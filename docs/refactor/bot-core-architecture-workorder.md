@@ -48,6 +48,7 @@ Etat 2026-05-30 :
 - un sous-lot TikTok suivant sort aussi `video.py` et `comment.py` de la racine vers `ui/selectors/surfaces/video/` et expose deja `VIDEO_DETAIL_SELECTORS` / `VIDEO_COMMENTS_SELECTORS` comme facades publiques de surface, en attendant le vrai split fin du catalogue video.
 - un sous-lot TikTok suivant rattache aussi `auth.py` a `ui/selectors/shell/auth.py` comme owner de compat transitoire, avant le futur split fin par flow (`login`, `signup`, `country_picker`, `logout`).
 - un sous-lot TikTok suivant rattache aussi `publish.py` a `ui/selectors/flows/publish.py`, pour sortir de la racine le dernier gros owner workflow avant son futur decoupage interne.
+- un sous-lot TikTok suivant specialise enfin la surface `video` en plusieurs catalogues publics (`VIDEO_CREATOR_SELECTORS`, `VIDEO_ENGAGEMENT_SELECTORS`, `VIDEO_MEDIA_SELECTORS`, `VIDEO_STATE_SELECTORS`), tout en gardant `VIDEO_SELECTORS` comme facade legacy d'agregation.
 
 ## Prompt pret a coller
 

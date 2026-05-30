@@ -62,7 +62,9 @@ social_media/tiktok/ui/
         detail.py
         comments.py
         engagement.py
-        share_sheet.py
+        creator.py
+        media.py
+        state.py
       profile.py
       search.py
       inbox.py
@@ -89,10 +91,10 @@ social_media/tiktok/ui/
 - `shell/` possede aussi maintenant `auth.py`.
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
-- `surfaces/video/` est maintenant introduit avec `detail.py` et `comments.py`.
+- `surfaces/video/` est maintenant introduit avec `detail.py`, `comments.py`, `creator.py`, `engagement.py`, `media.py` et `state.py`.
 - `flows/` est maintenant introduit et possede deja `publish.py`.
 - les anciens chemins top-level correspondants restent volontairement des shims de compatibilite.
-- `video/detail.py` reste encore un gros catalogue a specialiser plus finement.
+- `video/detail.py` est maintenant une facade d'agregation legacy au-dessus de catalogues specialises (`creator`, `engagement`, `media`, `state`).
 - `publish.py` a quitte la racine, mais reste un monolithe a eclater en sous-flows (`creation_entry`, `media_picker`, `editor`, `composer`, `progress`).
 
 ## Strategie de migration
@@ -131,6 +133,12 @@ social_media/tiktok/ui/
 - `publish.py` -> `flows/publish.py`
 - conservation du shim top-level `publish.py`
 - le split fin du workflow publish reste a faire ensuite
+
+### Lot T2e - video catalogs specialises
+
+- `surfaces/video/detail.py` devient une facade legacy
+- les owners reels vivent maintenant dans `creator.py`, `engagement.py`, `media.py`, `state.py`
+- exposition publique de `VIDEO_CREATOR_SELECTORS`, `VIDEO_ENGAGEMENT_SELECTORS`, `VIDEO_MEDIA_SELECTORS`, `VIDEO_STATE_SELECTORS`
 
 ## Point important
 
