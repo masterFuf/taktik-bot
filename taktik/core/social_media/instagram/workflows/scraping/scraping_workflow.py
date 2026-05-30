@@ -52,7 +52,14 @@ class ScrapingWorkflow(
     - URL scraping: Extract likers from a specific post
     """
     
-    def __init__(self, device_manager: DeviceManager, config: Dict[str, Any]):
+    def __init__(
+        self,
+        device_manager: DeviceManager,
+        config: Dict[str, Any],
+        ai_notifier=None,
+        ai_service=None,
+        ai_service_factory=None,
+    ):
         """
         Initialize the scraping workflow.
         
@@ -81,23 +88,23 @@ class ScrapingWorkflow(
         self.csv_export_path: Optional[str] = None
         self._save_immediately = config.get('save_to_db', True)  # Save profiles as we scrape them
 
-        # AI qualification service (initialized if ai_mode is enabled and key is present)
-        self._ipc = None
-        self._ai_service = None
-        if config.get('ai_mode') and config.get('openrouter_api_key'):
-            try:
-                from bridges.common.ipc import IPC
-                from bridges.common.ai_service import AIService
-                self._ipc = IPC()
-                self._ai_service = AIService(
-                    api_key=config['openrouter_api_key'],
-                    ipc=self._ipc,
-                    vision_model=config.get('vision_model') or None,
-                )
-                logger.info("🤖 AI qualification service initialized (OpenRouter)")
-            except Exception as e:
-                logger.warning(f"AI service initialization failed: {e}")
-        elif config.get('ai_mode') and not config.get('openrouter_api_key'):
+        # AI qualification service (bridge/CLI injected when needed)
+        self._ipc = ai_notifier
+        self._ai_service = ai_service
+        if config.get('ai_mode') and self._ai_service is None and config.get('openrouter_api_key'):
+            if ai_service_factory is None:
+                logger.warning("AI Mode enabled but no AI service factory was injected - AI classification disabled.")
+            else:
+                try:
+                    self._ai_service = ai_service_factory(
+                        api_key=config['openrouter_api_key'],
+                        ipc=self._ipc,
+                        vision_model=config.get('vision_model') or None,
+                    )
+                    logger.info("AI qualification service initialized (injected provider)")
+                except Exception as e:
+                    logger.warning(f"AI service initialization failed: {e}")
+        elif config.get('ai_mode') and not config.get('openrouter_api_key') and self._ai_service is None:
             logger.warning("⚠️ AI Mode enabled but openrouter_api_key is missing or empty — AI classification disabled. Configure your OpenRouter key in Settings → AI.")
 
     def run(self) -> Dict[str, Any]:

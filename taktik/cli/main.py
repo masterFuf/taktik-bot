@@ -599,7 +599,21 @@ def cli(ctx, lang=None):
                         from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
                         
                         console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
-                        scraping_workflow = ScrapingWorkflow(device_manager, scraping_config)
+                        from bridges.common.ai_service import AIService
+
+                        def _build_scraping_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None):
+                            return AIService(
+                                api_key=api_key,
+                                ipc=ipc,
+                                vision_model=vision_model,
+                                text_model=text_model,
+                            )
+
+                        scraping_workflow = ScrapingWorkflow(
+                            device_manager,
+                            scraping_config,
+                            ai_service_factory=_build_scraping_ai_service,
+                        )
                         scraping_workflow.run()
                         
                         console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")

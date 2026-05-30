@@ -16,14 +16,21 @@ if bot_dir not in sys.path:
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
+from bridges.common.ai_service import AIService
 from bridges.common.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
+from bridges.instagram.base import _ipc
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from taktik.core.database import configure_db_service
 from loguru import logger
 
 # Signal handlers for graceful shutdown
 setup_signal_handlers()
+
+
+def _build_scraping_ai_service(*, api_key: str, ipc=None, vision_model: str = None, text_model: str = None):
+    """Bridge-owned AI provider factory for Instagram scraping workflows."""
+    return AIService(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
 
 def main():
     if len(sys.argv) < 2:
@@ -145,7 +152,12 @@ def main():
             logger.info(f"🔬 Deep qualify enabled — max_following={scraping_config.get('deep_qualify_max_following', 30)}")
         else:
             logger.info(f"🔬 Deep qualify OFF — config received deepQualify={config.get('deepQualify')!r}, enrichProfiles={config.get('enrichProfiles')!r}")
-        workflow = ScrapingWorkflow(device_manager, scraping_config)
+        workflow = ScrapingWorkflow(
+            device_manager,
+            scraping_config,
+            ai_notifier=_ipc,
+            ai_service_factory=_build_scraping_ai_service,
+        )
         result = workflow.run()
         
         # Output result as JSON for Electron to parse

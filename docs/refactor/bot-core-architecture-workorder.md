@@ -63,6 +63,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 clarifie `taktik/core/email/gmail` : `gmail_workflow.py` ne depend plus directement de `bridges.common.ipc`, expose un notifier injecte optionnel, et les bridges/workflows appelants (`bridges/gmail`, `bridges/youtube`, TikTok signup) lui passent maintenant leur IPC existant depuis l'exterieur.
 - un sous-lot suivant du lot 5 pose aussi la cible de `taktik/core/agent` comme runtime kernel transverse : `agent-runtime-kernel-target.md` documente la separation Front planner / Bot executor, les contrats cibles (`AgentPlan`, `PlanStep`, `WorkflowInvocation`, `AgentEvent`) et la trajectoire de `TaktikAgentWorkflow` vers un scenario historique branche sur un noyau d'execution plus generic.
 - un sous-lot suivant du lot 5 commence aussi le decouplage concret de `taktik/core/agent` : `contracts.py` devient la premiere surface runtime du noyau, `TaktikAgentWorkflow` recoit un provider AI injecte ou une factory injectee au lieu d'importer `bridges.common.ai_service`, et le bridge Instagram possede maintenant l'adapter de construction `AIService`.
+- un sous-lot suivant du lot 5 applique la meme regle au scraping Instagram : `scraping_workflow.py` ne construit plus lui-meme `IPC` + `AIService`, et recoit maintenant notifier/provider AI depuis ses appelants bridge ou CLI.
 
 ## Prompt pret a coller
 
