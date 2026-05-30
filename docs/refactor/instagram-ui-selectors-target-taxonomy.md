@@ -5,10 +5,12 @@
 Etat 2026-05-30 :
 
 - `shell/` est maintenant introduit et possede deja `auth.py`, `popups.py`, `text_input.py`, `screen_state.py` et `blocking_states.py`.
+- `shell/` possede aussi maintenant `navigation.py`.
 - `surfaces/` est maintenant introduit et possede deja `feed.py`, `hashtag.py`, `notifications.py`, `direct_messages.py`, `story_viewer.py`, `content_creation.py` et `followers_following.py`.
 - `support/` est maintenant introduit et possede deja `debug.py` et `scroll.py`.
 - `flows/` est maintenant introduit et possede deja `unfollow.py`.
 - les anciens chemins top-level (`auth.py`, `popup.py`, `text_input.py`, `detection.py`, `problematic_page.py`) restent volontairement des shims de compatibilite.
+- l'ancien chemin top-level `navigation.py` reste lui aussi un shim de compatibilite.
 - les anciens chemins top-level des petites surfaces (`feed.py`, `hashtag.py`, `notification.py`, `dm.py`, `story.py`, `content.py`, `followers_list.py`) restent eux aussi des shims de compatibilite.
 - les anciens chemins top-level `debug.py`, `scroll.py` et `unfollow.py` restent eux aussi des shims de compatibilite.
 
@@ -211,6 +213,7 @@ Pas de big-bang.
 - split `post.py`
 - split `profile.py` seulement si necessaire
 - split `navigation.py` seulement si le contenu melange shell/tab/search/result list
+- `navigation.py` n'a finalement pas eu besoin de split interne : il a simplement bascule sous `shell/navigation.py`
 
 ## Detail important sur `profile.py` et `navigation.py`
 

@@ -4,15 +4,18 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 `support`) while keeping the historical top-level imports stable.
 """
 
-from .navigation import NavigationSelectors, ButtonSelectors, NAVIGATION_SELECTORS, BUTTON_SELECTORS
 from .post import PostSelectors, POST_SELECTORS
 from .profile import ProfileSelectors, PROFILE_SELECTORS
 from .flows import UnfollowSelectors, UNFOLLOW_SELECTORS
 from .shell import (
     AuthSelectors,
     AUTH_SELECTORS,
+    ButtonSelectors,
+    BUTTON_SELECTORS,
     DetectionSelectors,
     DETECTION_SELECTORS,
+    NavigationSelectors,
+    NAVIGATION_SELECTORS,
     PopupSelectors,
     POPUP_SELECTORS,
     ProblematicPageSelectors,
