@@ -1,7 +1,8 @@
 """Legacy Instagram database helper shim.
 
-This module remains in the platform package for backward compatibility, but new
-database-backed workflow bookkeeping must be owned by `taktik.core.database`.
+This module remains in the platform package for backward compatibility only.
+In-repo runtime code should import `taktik.core.database` facades directly
+instead of reintroducing this shim in new workflows or UI modules.
 """
 
 from typing import Optional
