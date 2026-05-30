@@ -4,11 +4,10 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 `support`) while keeping the historical top-level imports stable.
 """
 
-from .debug import DebugSelectors, DEBUG_SELECTORS
 from .navigation import NavigationSelectors, ButtonSelectors, NAVIGATION_SELECTORS, BUTTON_SELECTORS
 from .post import PostSelectors, POST_SELECTORS
 from .profile import ProfileSelectors, PROFILE_SELECTORS
-from .scroll import ScrollSelectors, SCROLL_SELECTORS
+from .flows import UnfollowSelectors, UNFOLLOW_SELECTORS
 from .shell import (
     AuthSelectors,
     AUTH_SELECTORS,
@@ -37,7 +36,7 @@ from .surfaces import (
     StorySelectors,
     STORY_SELECTORS,
 )
-from .unfollow import UnfollowSelectors, UNFOLLOW_SELECTORS
+from .support import DebugSelectors, DEBUG_SELECTORS, ScrollSelectors, SCROLL_SELECTORS
 
 __all__ = [
     "AUTH_SELECTORS",

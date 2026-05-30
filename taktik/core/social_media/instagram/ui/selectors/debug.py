@@ -1,14 +1,5 @@
-from typing import Dict, List, Optional, Any, Union
-from dataclasses import dataclass, field
+"""Compatibility shim for support debug selectors."""
 
-@dataclass
-class DebugSelectors:
-    """Sélecteurs pour le debug et l'analyse de l'interface."""
-    
-    # === Éléments génériques ===
-    clickable_elements: str = '//*[@clickable="true"]'
-    image_views: str = '//android.widget.ImageView'
-    recycler_views: str = '//androidx.recyclerview.widget.RecyclerView'
-    image_buttons: str = '//*[contains(@resource-id, "image_button")]'
+from .support.debug import DebugSelectors, DEBUG_SELECTORS
 
-DEBUG_SELECTORS = DebugSelectors()
+__all__ = ["DebugSelectors", "DEBUG_SELECTORS"]
