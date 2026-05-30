@@ -29,6 +29,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant retire aussi le SQL inline de `instagram/workflows/post_scraping/post_persistence.py` au profit de la facade DB existante, pour eviter une ecriture `instagram_profiles` cachee dans le workflow.
 - un sous-lot suivant rend aussi la dependency DB explicite dans le scraping Instagram : `scraping_workflow` partage maintenant un `local_db` unique avec `persistence`, `list_scraping` et `deep_qualify`, au lieu de re-resoudre `get_local_database()` dans plusieurs branches runtime.
 - un sous-lot suivant commence le lot 3 en branchant `instagram/core/manager.py` et `tiktok/core/manager.py` directement sur `shared/platform/social_media_base.py` et `shared/device/manager.py`, comme `threads/core/manager.py`.
+- un sous-lot suivant etend ce lot 3 aux workflows Instagram qui ne demandent aucune facade plateforme (`scraping`, `post_scraping`, `cold_dm`) afin de reduire les imports runtime qui traversent encore les shims `actions/core/device`.
 
 ## Prompt pret a coller
 

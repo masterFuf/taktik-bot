@@ -9,7 +9,7 @@ from datetime import datetime
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.business.workflows.messaging.workflow import send_dm

@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 from loguru import logger
 from rich.console import Console
 
-from taktik.core.social_media.instagram.actions.core.device import DeviceManager
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
