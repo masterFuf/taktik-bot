@@ -15,8 +15,7 @@ import time
 import random
 from typing import Dict, Any, List, Optional, Set
 
-from ....common.database_helpers import DatabaseHelpers
-from taktik.core.database import get_db_service
+from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
 
 
@@ -76,7 +75,7 @@ class SyncFollowingMixin:
             time.sleep(1.5)
 
             # Récupérer les usernames déjà connus en BDD pour détecter le point d'arrêt
-            known_usernames = DatabaseHelpers.get_following_sync_usernames(account_id)
+            known_usernames = InstagramFollowGraphService.get_following_sync_usernames(account_id)
             self.logger.info(f"📋 {len(known_usernames)} known followings in DB")
 
             # For enriched mode, create a ProfileExtraction instance
@@ -149,8 +148,8 @@ class SyncFollowingMixin:
                         self.logger.debug(f"Known @{username} — processing anyway (enriched mode)")
 
                     # Following → upsert en BDD
-                    is_bot_follow = DatabaseHelpers.has_bot_follow_record(username, account_id)
-                    result = DatabaseHelpers.sync_following_upsert(
+                    is_bot_follow = InstagramFollowGraphService.has_bot_follow_record(username, account_id)
+                    result = InstagramFollowGraphService.sync_following_upsert(
                         username=username,
                         display_name=display_name,
                         account_id=account_id,
@@ -356,17 +355,17 @@ class SyncFollowingMixin:
 
             # Mettre à jour la BDD
             for username in non_follower_usernames:
-                DatabaseHelpers.mark_not_follower_back(username, account_id)
+                InstagramFollowGraphService.mark_not_follower_back(username, account_id)
 
             # Tous les followings en BDD qui ne sont PAS dans cette liste → mutuels
-            all_followings = DatabaseHelpers.get_following_sync_usernames(account_id)
+            all_followings = InstagramFollowGraphService.get_following_sync_usernames(account_id)
             non_followers_set = set(u.lower() for u in non_follower_usernames)
 
             all_followings_lower = {u.lower() for u in all_followings}
 
             for username in all_followings:
                 if username.lower() not in non_followers_set:
-                    DatabaseHelpers.mark_follower_back(username, account_id)
+                    InstagramFollowGraphService.mark_follower_back(username, account_id)
                     stats['mutuals_count'] += 1
 
             # ── Populate followers_sync ──
@@ -374,7 +373,7 @@ class SyncFollowingMixin:
             fans_count = 0
             for username in non_follower_usernames:
                 is_following = username.lower() in all_followings_lower
-                DatabaseHelpers.sync_follower_upsert(
+                InstagramFollowGraphService.sync_follower_upsert(
                     username=username,
                     account_id=account_id,
                     is_following_back=is_following,
@@ -386,7 +385,7 @@ class SyncFollowingMixin:
             # 2. Mutuals = our followings confirmed as followers too
             for username in all_followings:
                 if username.lower() not in non_followers_set:
-                    DatabaseHelpers.sync_follower_upsert(
+                    InstagramFollowGraphService.sync_follower_upsert(
                         username=username,
                         account_id=account_id,
                         is_following_back=True,

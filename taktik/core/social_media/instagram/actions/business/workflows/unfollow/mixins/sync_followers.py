@@ -16,7 +16,7 @@ import time
 import random
 from typing import Dict, Any, List, Set
 
-from ....common.database_helpers import DatabaseHelpers
+from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
 
 
@@ -89,7 +89,7 @@ class SyncFollowersMixin:
                 return stats
 
             # Get known following usernames for mutual detection
-            known_followings = DatabaseHelpers.get_following_sync_usernames(account_id)
+            known_followings = InstagramFollowGraphService.get_following_sync_usernames(account_id)
             self.logger.info(f"📋 {len(known_followings)} known followings for mutual detection")
 
             # For enriched mode, create a ProfileExtraction instance
@@ -142,7 +142,7 @@ class SyncFollowersMixin:
                     is_following_back = username.lower() in known_followings
 
                     # Upsert into followers_sync
-                    result = DatabaseHelpers.sync_follower_upsert(
+                    result = InstagramFollowGraphService.sync_follower_upsert(
                         username=username,
                         account_id=account_id,
                         display_name=display_name,

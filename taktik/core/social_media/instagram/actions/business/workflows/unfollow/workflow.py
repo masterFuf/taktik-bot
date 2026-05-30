@@ -13,8 +13,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
-from ...common.database_helpers import DatabaseHelpers
-from taktik.core.database import get_db_service
+from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 
 from .....ui.selectors import UNFOLLOW_SELECTORS
 from .mixins.decision import UnfollowDecisionMixin
@@ -187,7 +186,7 @@ class UnfollowBusiness(
                     try:
                         account_id = self._get_account_id()
                         if account_id:
-                            DatabaseHelpers.mark_unfollowed(username, account_id)
+                            InstagramFollowGraphService.mark_unfollowed(username, account_id)
                     except Exception:
                         pass
                     

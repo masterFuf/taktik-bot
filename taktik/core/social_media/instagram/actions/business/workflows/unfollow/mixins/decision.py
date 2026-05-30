@@ -12,8 +12,8 @@ Priority order:
 import time
 from typing import Dict, Any, Optional, List
 
-from ....common.database_helpers import DatabaseHelpers
 from taktik.core.database import get_db_service
+from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 
 
 class UnfollowDecisionMixin:
@@ -129,7 +129,7 @@ class UnfollowDecisionMixin:
                 return False
             
             # Query interaction_history for a FOLLOW action targeting this username
-            return DatabaseHelpers.has_bot_follow_record(username, account_id)
+            return InstagramFollowGraphService.has_bot_follow_record(username, account_id)
             
         except Exception as e:
             self.logger.debug(f"Error checking bot follow record for @{username}: {e}")
@@ -145,7 +145,7 @@ class UnfollowDecisionMixin:
             # Chercher dans l'historique des interactions
             db_service = get_db_service()
             if db_service:
-                return DatabaseHelpers.get_days_since_follow(username, account_id)
+                return InstagramFollowGraphService.get_days_since_follow(username, account_id)
             
             return None
             
