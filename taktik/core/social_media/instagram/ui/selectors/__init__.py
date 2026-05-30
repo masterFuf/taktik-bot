@@ -4,7 +4,6 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 `support`) while keeping the historical top-level imports stable.
 """
 
-from .post import PostSelectors, POST_SELECTORS
 from .flows import UnfollowSelectors, UNFOLLOW_SELECTORS
 from .shell import (
     AuthSelectors,
@@ -35,6 +34,8 @@ from .surfaces import (
     HASHTAG_SELECTORS,
     NotificationSelectors,
     NOTIFICATION_SELECTORS,
+    PostSelectors,
+    POST_SELECTORS,
     ProfileSelectors,
     PROFILE_SELECTORS,
     StorySelectors,

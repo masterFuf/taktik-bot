@@ -40,6 +40,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant termine la taxonomie "evidente" de `ui/selectors` en promouvant `support/` (`debug`, `scroll`) et `flows/` (`unfollow`) comme owners explicites, avec facade publique et shims top-level conserves.
 - un sous-lot suivant rattache aussi `navigation.py` a `ui/selectors/shell/navigation.py`, y compris `ButtonSelectors`, pour terminer l'app chrome Instagram avant l'audit des grosses surfaces restantes (`profile`, `post`).
 - un sous-lot suivant rattache aussi `profile.py` a `ui/selectors/surfaces/profile.py` sans le splitter, car le fichier reste centré sur la surface profil (header, counters, enrichissement, followers/following links).
+- un sous-lot suivant sort aussi le monolithe `post.py` de la racine vers `ui/selectors/surfaces/post/detail.py` comme owner transitoire, en gardant `post.py` comme shim jusqu'au futur split fin (`comments`, `likers`, `share_sheet`, `grid`, `reels`).
 
 ## Prompt pret a coller
 
