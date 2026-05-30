@@ -29,8 +29,9 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Hygiene runtime `config/security` : alias legacy `get_primary_endpoint()` retabli pour `APIEndpointManager` et suppression des `print(...)` dans `core/security`.
 - [x] La capture media Instagram vit maintenant sous `social_media/instagram/media/**` ; `taktik/core/media` ne garde qu'une facade de compatibilite et `ProxyManager` resolve ses assets via `scripts/`.
 - [x] `core/email/gmail` n'importe plus directement l'IPC bridge ; le workflow Gmail recoit maintenant un notifier injecte depuis ses appelants.
+- [x] Cible `core/agent` documentee comme runtime kernel transverse, separe du planner premium cote Front.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
-- [ ] Cartographie puis assainissement des familles runtime/app restantes : `media`, `email`, `ai`, `agent`, `config`, `security`.
+- [ ] Cartographie puis assainissement des familles runtime/app restantes : `ai`, `agent`.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
 - [ ] Decision finale sur la deprecation ou non des agregateurs publics legacy.
 
