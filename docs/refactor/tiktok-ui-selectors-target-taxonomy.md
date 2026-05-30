@@ -92,10 +92,10 @@ social_media/tiktok/ui/
 - `support/` est maintenant introduit et possede deja `scroll.py`.
 - `surfaces/` est maintenant introduit et possede deja `profile.py`, `search.py`, `inbox.py`, `conversation.py` et `followers.py`.
 - `surfaces/video/` est maintenant introduit avec `detail.py`, `comments.py`, `creator.py`, `engagement.py`, `media.py` et `state.py`.
-- `flows/` est maintenant introduit et possede deja `publish.py`.
+- `flows/publish/` est maintenant un vrai package et possede `creation_entry.py`, `media_picker.py`, `editor.py`, `composer.py`, `progress.py`.
 - les anciens chemins top-level correspondants restent volontairement des shims de compatibilite.
 - `video/detail.py` est maintenant une facade d'agregation legacy au-dessus de catalogues specialises (`creator`, `engagement`, `media`, `state`).
-- `publish.py` a quitte la racine, mais reste un monolithe a eclater en sous-flows (`creation_entry`, `media_picker`, `editor`, `composer`, `progress`).
+- `publish/` n'est plus un monolithe : `PUBLISH_SELECTORS` est maintenant une facade d'agregation au-dessus de catalogues specialises par etape.
 
 ## Strategie de migration
 
@@ -130,9 +130,9 @@ social_media/tiktok/ui/
 
 ### Lot T2d - publish owner
 
-- `publish.py` -> `flows/publish.py`
+- `publish.py` -> `flows/publish/`
+- split reel en `creation_entry.py`, `media_picker.py`, `editor.py`, `composer.py`, `progress.py`
 - conservation du shim top-level `publish.py`
-- le split fin du workflow publish reste a faire ensuite
 
 ### Lot T2e - video catalogs specialises
 

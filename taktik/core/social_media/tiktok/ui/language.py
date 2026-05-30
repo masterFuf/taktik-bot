@@ -356,7 +356,11 @@ def detect_and_optimize(device) -> str:
         COMMENT_SELECTORS, SEARCH_SELECTORS,
         INBOX_SELECTORS, CONVERSATION_SELECTORS, POPUP_SELECTORS,
         SCROLL_SELECTORS, DETECTION_SELECTORS, FOLLOWERS_SELECTORS,
-        PUBLISH_SELECTORS,
+        PUBLISH_COMPOSER_SELECTORS,
+        PUBLISH_CREATION_ENTRY_SELECTORS,
+        PUBLISH_EDITOR_SELECTORS,
+        PUBLISH_MEDIA_PICKER_SELECTORS,
+        PUBLISH_PROGRESS_SELECTORS,
     )
 
     instances = [
@@ -378,7 +382,11 @@ def detect_and_optimize(device) -> str:
         ("ScrollSelectors", SCROLL_SELECTORS),
         ("DetectionSelectors", DETECTION_SELECTORS),
         ("FollowersSelectors", FOLLOWERS_SELECTORS),
-        ("PublishSelectors", PUBLISH_SELECTORS),
+        ("PublishCreationEntrySelectors", PUBLISH_CREATION_ENTRY_SELECTORS),
+        ("PublishMediaPickerSelectors", PUBLISH_MEDIA_PICKER_SELECTORS),
+        ("PublishEditorSelectors", PUBLISH_EDITOR_SELECTORS),
+        ("PublishComposerSelectors", PUBLISH_COMPOSER_SELECTORS),
+        ("PublishProgressSelectors", PUBLISH_PROGRESS_SELECTORS),
     ]
 
     total_removed = 0

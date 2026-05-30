@@ -4,7 +4,20 @@ The package is being reorganized by UI scope (`shell`, `surfaces`, `flows`,
 `support`) while keeping historical top-level imports stable.
 """
 
-from .flows import PublishSelectors, PUBLISH_SELECTORS
+from .flows import (
+    PUBLISH_COMPOSER_SELECTORS,
+    PUBLISH_CREATION_ENTRY_SELECTORS,
+    PUBLISH_EDITOR_SELECTORS,
+    PUBLISH_MEDIA_PICKER_SELECTORS,
+    PUBLISH_PROGRESS_SELECTORS,
+    PUBLISH_SELECTORS,
+    PublishComposerSelectors,
+    PublishCreationEntrySelectors,
+    PublishEditorSelectors,
+    PublishMediaPickerSelectors,
+    PublishProgressSelectors,
+    PublishSelectors,
+)
 from .shell import (
     AuthSelectors,
     AUTH_SELECTORS,
@@ -74,6 +87,11 @@ __all__ = [
     "ScrollSelectors",
     "DetectionSelectors",
     "FollowersSelectors",
+    "PublishComposerSelectors",
+    "PublishCreationEntrySelectors",
+    "PublishEditorSelectors",
+    "PublishMediaPickerSelectors",
+    "PublishProgressSelectors",
     "PublishSelectors",
     "AUTH_SELECTORS",
     "SIGNUP_SELECTORS",
@@ -96,5 +114,10 @@ __all__ = [
     "DETECTION_SELECTORS",
     "FOLLOWERS_SELECTORS",
     "VIDEO_STATE_SELECTORS",
+    "PUBLISH_COMPOSER_SELECTORS",
+    "PUBLISH_CREATION_ENTRY_SELECTORS",
+    "PUBLISH_EDITOR_SELECTORS",
+    "PUBLISH_MEDIA_PICKER_SELECTORS",
+    "PUBLISH_PROGRESS_SELECTORS",
     "PUBLISH_SELECTORS",
 ]
