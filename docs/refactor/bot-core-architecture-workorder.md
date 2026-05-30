@@ -65,6 +65,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 commence aussi le decouplage concret de `taktik/core/agent` : `contracts.py` devient la premiere surface runtime du noyau, `TaktikAgentWorkflow` recoit un provider AI injecte ou une factory injectee au lieu d'importer `bridges.common.ai_service`, et le bridge Instagram possede maintenant l'adapter de construction `AIService`.
 - un sous-lot suivant du lot 5 applique la meme regle au scraping Instagram : `scraping_workflow.py` ne construit plus lui-meme `IPC` + `AIService`, et recoit maintenant notifier/provider AI depuis ses appelants bridge ou CLI.
 - un sous-lot suivant du lot 5 introduit enfin le premier noyau executable de `core/agent` : `registry.py` porte l'enregistrement des workflows canoniques et `executor.py` deroule un `AgentPlan` minimal en emettant des `AgentEvent`, sans encore remplacer les scenarios historiques existants.
+- un sous-lot suivant du lot 5 applique aussi la regle "notifier injecte" aux workflows TikTok de management (`login`, `logout`, `signup`) : ils n'instancient plus `bridges.common.ipc.IPC()` dans `core`, et le bridge compte TikTok leur passe maintenant `_ipc` depuis l'exterieur.
 
 ## Prompt pret a coller
 

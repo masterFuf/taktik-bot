@@ -24,10 +24,10 @@ Known screens and transitions :
                     → next: OTP / password  (TODO with next dumps)
 """
 import time
+from contextvars import ContextVar
 from typing import Optional
 
 from loguru import logger
-from bridges.common.ipc import IPC
 from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
     SIGNUP_SELECTORS,
     COUNTRY_PICKER_SELECTORS,
@@ -35,7 +35,25 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
 )
 from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
 
-_ipc = IPC()
+
+class _NullNotifier:
+    def status(self, *args, **kwargs):
+        return None
+
+    def log(self, *args, **kwargs):
+        return None
+
+
+_NULL_NOTIFIER = _NullNotifier()
+_CURRENT_NOTIFIER: ContextVar = ContextVar("tiktok_signup_notifier", default=_NULL_NOTIFIER)
+
+
+class _NotifierProxy:
+    def __getattr__(self, name):
+        return getattr(_CURRENT_NOTIFIER.get(), name)
+
+
+_ipc = _NotifierProxy()
 
 # ── State machine constants ─────────────────────────────────────────────────
 
@@ -80,10 +98,11 @@ _MONTH_NAMES: dict = {
 class TikTokSignupWorkflow:
     """Workflow for registering a new TikTok account on a connected Android device."""
 
-    def __init__(self, device, device_id: str):
+    def __init__(self, device, device_id: str, notifier=None):
         self.device = device
         self.device_id = device_id
         self.logger = logger.bind(device=device_id)
+        self._notifier = notifier or _NULL_NOTIFIER
 
     # ------------------------------------------------------------------
     # Public entry-point – state machine
@@ -131,6 +150,7 @@ class TikTokSignupWorkflow:
             dict: {success, step, message, error_type}
         """
         self.logger.info(f"📝 TikTok signup — method={method}")
+        token = _CURRENT_NOTIFIER.set(self._notifier)
         _ipc.status("running", f"Starting registration ({method})...")
 
         birthday_done = False
@@ -294,6 +314,8 @@ class TikTokSignupWorkflow:
             self.logger.exception("💥 TikTok signup failed")
             _ipc.log("error", f"❌ Signup error: {exc}")
             return {"success": False, "step": "exception", "message": str(exc), "error_type": "exception"}
+        finally:
+            _CURRENT_NOTIFIER.reset(token)
 
     # ------------------------------------------------------------------
     # Private helpers – screen detection

@@ -159,7 +159,7 @@ class TikTokAccountBridge:
 
         try:
             from taktik.core.social_media.tiktok.workflows.management.login.login_workflow import TikTokLoginWorkflow
-            workflow = TikTokLoginWorkflow(device, self.device_id)
+            workflow = TikTokLoginWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.execute(
                 username=username,
                 password=password,
@@ -191,7 +191,7 @@ class TikTokAccountBridge:
 
         try:
             from taktik.core.social_media.tiktok.workflows.management.logout.logout_workflow import TikTokLogoutWorkflow
-            workflow = TikTokLogoutWorkflow(device, self.device_id)
+            workflow = TikTokLogoutWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.execute()
             outcome = "success" if result['success'] else "error"
             send_status(outcome, result.get('message', ''))
@@ -225,7 +225,7 @@ class TikTokAccountBridge:
 
         try:
             from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import TikTokSignupWorkflow
-            workflow = TikTokSignupWorkflow(device, self.device_id)
+            workflow = TikTokSignupWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.execute(
                 method=method,
                 email=email or None,
