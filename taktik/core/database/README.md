@@ -21,7 +21,7 @@ L'API distante (`api.taktik-bot.com`) ne gère **que** :
 ```
 database/
 ├── __init__.py              ← API publique (configure_db_service, get_db_service)
-├── models.py                ← Modèles de données (InstagramProfile, etc.)
+├── models/                  ← Modèles de données (InstagramProfile, etc.)
 ├── README.md                ← Ce fichier
 ├── instagram_hashtag_posts.py
 │                           ← Façade transitoire du tracking

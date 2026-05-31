@@ -1,5 +1,5 @@
-"""Data models for Taktik."""
+"""Data models for TAKTIK database compatibility."""
 
-from .models import InstagramProfile, Column
+from .instagram_profile import Column, DatabaseQuery, DatabaseSession, InstagramProfile
 
-__all__ = ['InstagramProfile', 'Column']
+__all__ = ["Column", "DatabaseQuery", "DatabaseSession", "InstagramProfile"]

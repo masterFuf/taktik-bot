@@ -187,6 +187,8 @@ taktik/core/
       paths.py           # resolution chemin DB pour bridges standalone
     repositories/
       messaging/         # sent_dms / faits messaging multi-plateformes
+    models/
+      instagram_profile.py
 
   agent/                 # runtime kernel d'orchestration
     kernel/
