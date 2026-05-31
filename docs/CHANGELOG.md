@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok package resolution now accepts an injected command runner, matching the runtime app-control testability pattern.
 - TikTok publish now exposes an injectable Agent `WorkflowRegistry` handler for `tiktok.standalone.upload_post`, allowing the agent runtime to execute the real upload workflow when a caller provides device/notifier dependencies.
 - YouTube publish now exposes the same injectable Agent handler pattern for `youtube.publish.upload_post`, including bridge-compatible parameter normalization and Shorts title trimming.
+- `AGENTS.md` now documents where real Agent `WorkflowRegistry` handlers belong: next to their platform workflow owner, with injected device/notifier dependencies and no bridge ownership.
 - The Instagram human behavior recorder now lives under `taktik/core/social_media/instagram/recorder/**`; `taktik/core/recorder` remains only as a compatibility facade for legacy script imports.
 - Runtime hygiene continued in `taktik/core/config` and `taktik/core/security`: `APIEndpointManager` now keeps the legacy `get_primary_endpoint()` alias expected by historical Instagram code, and dormant security helpers no longer print to stdout.
 - Instagram media capture now lives under `taktik/core/social_media/instagram/media/**`; `taktik/core/media/**` remains as a compatibility facade, and proxy asset resolution now targets the repo-level `scripts/` directory explicitly.
