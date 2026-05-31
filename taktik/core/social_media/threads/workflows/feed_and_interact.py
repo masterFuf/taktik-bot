@@ -175,6 +175,7 @@ def run_feed_and_interact(
     on_stats: Optional[Callable[[InteractStats], None]] = None,
     on_profile_visit: Optional[Callable[[dict], None]] = None,
     on_action: Optional[Callable[[str, str, dict], None]] = None,
+    startup=None,
 ) -> InteractStats:
     """Run the Threads feed-and-interact workflow.
 
@@ -199,18 +200,19 @@ def run_feed_and_interact(
             except Exception:  # noqa: BLE001
                 pass
 
-    # ── Connect + launch ───────────────────────────────────────────────────
-    from taktik.core.social_media.threads.workflows._common import threads_startup
+    # Connect + launch remains the default bridge path; Agent handlers can inject startup.
+    if startup is None:
+        from taktik.core.social_media.threads.workflows._common import threads_startup
 
-    startup = threads_startup(
-        config.device_id,
-        log=_log,
-        anchors=(
-            tui.TABS_BOTTOM_BAR,
-            tui.MAIN_FEED_SCREEN,
-            tui.PROFILE_SCREEN_ROOT,
-        ),
-    )
+        startup = threads_startup(
+            config.device_id,
+            log=_log,
+            anchors=(
+                tui.TABS_BOTTOM_BAR,
+                tui.MAIN_FEED_SCREEN,
+                tui.PROFILE_SCREEN_ROOT,
+            ),
+        )
     if startup is None:
         stats.errors += 1
         _push_stats()

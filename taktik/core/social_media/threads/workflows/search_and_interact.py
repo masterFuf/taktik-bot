@@ -260,6 +260,7 @@ def run_search_and_interact(
     on_stats: Optional[Callable[[InteractStats], None]] = None,
     on_profile_visit: Optional[Callable[[dict], None]] = None,
     on_action: Optional[Callable[[str, str, dict], None]] = None,
+    startup=None,
 ) -> InteractStats:
     """Run the Threads search-and-interact workflow.
 
@@ -291,20 +292,21 @@ def run_search_and_interact(
         _push_stats()
         return stats
 
-    # ── Connect + launch ───────────────────────────────────────────────────
-    from taktik.core.social_media.threads.workflows._common import threads_startup
+    # Connect + launch remains the default bridge path; Agent handlers can inject startup.
+    if startup is None:
+        from taktik.core.social_media.threads.workflows._common import threads_startup
 
-    startup = threads_startup(
-        config.device_id,
-        log=_log,
-        anchors=(
-            tui.TABS_BOTTOM_BAR,
-            tui.MAIN_FEED_SCREEN,
-            tui.SEARCH_BAR,
-            tui.PROFILE_SCREEN_ROOT,
-            tui.SERP_MENU_BUTTON,
-        ),
-    )
+        startup = threads_startup(
+            config.device_id,
+            log=_log,
+            anchors=(
+                tui.TABS_BOTTOM_BAR,
+                tui.MAIN_FEED_SCREEN,
+                tui.SEARCH_BAR,
+                tui.PROFILE_SCREEN_ROOT,
+                tui.SERP_MENU_BUTTON,
+            ),
+        )
     if startup is None:
         stats.errors += 1
         _push_stats()

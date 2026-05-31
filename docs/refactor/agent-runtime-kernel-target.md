@@ -205,4 +205,4 @@ Au 2026-05-31, les IDs manifest encore sans handler concernent des zones qui dem
 
 - Instagram automation : les handlers `instagram.automation.*` sont maintenant branchables via `social_media/instagram/workflows/core/agent_handler.py`, apres extraction des builders config/session, hooks IA et setup package/selector/langue. Le lifecycle device/app/network/media reste volontairement chez le caller/bridge.
 - Instagram engagement/DM : `dm_bridge.py`, `cold_dm_bridge.py`, `smart_comment_bridge.py` et `taktik_agent_bridge.py` n'ont pas encore une frontiere core homogene par workflow.
-- Threads automation : les workflows appellent encore `threads_startup()` et creent leur connexion device ; il faut d'abord injecter le runtime device.
+- Threads automation : les workflows search/feed acceptent maintenant un `startup` injecte, tout en gardant `threads_startup()` par defaut pour les bridges. Prochain lot : ajouter les handlers `threads.automation.*` en exigeant ce startup depuis le caller.
