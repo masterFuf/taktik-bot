@@ -110,6 +110,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant branche les workflows Gmail core sur le noyau agent : `app/email/gmail/workflows/agent_handler.py` enregistre `gmail.account.login/read_otp/scan_accounts` avec persistence optionnelle injectee ; `gmail.account.logout` reste bridge-owned car il n'a pas encore de workflow core.
 - un sous-lot suivant extrait le workflow account YouTube hors du bridge : `social_media/youtube/workflows/account/account_workflow.py` porte le flow login/logout, `ui/selectors/account.py` porte les signatures UI, et `youtube_account_bridge.py` reste l'adaptateur device/stdout JSON.
 - un sous-lot suivant branche aussi YouTube account sur le noyau agent : `social_media/youtube/workflows/account/agent_handler.py` enregistre `youtube.account.login/logout` avec device, notifier et persistence injectables.
+- un sous-lot suivant branche les workflows Instagram account sur le noyau agent : `social_media/instagram/workflows/management/agent_handler.py` enregistre `instagram.account.login/logout/register` sans reprendre la connexion device ni le lancement app du bridge.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31
