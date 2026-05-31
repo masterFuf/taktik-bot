@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
-from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.base import logger, InstagramBridgeBase
 from bridges.instagram.engagement.runtime.cold_dm_ai import generate_ai_message
 from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNavigationMixin
@@ -24,95 +23,20 @@ from bridges.instagram.engagement.runtime.cold_dm_persistence import (
     check_dm_already_sent,
     record_sent_dm,
 )
+from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
 
 
-class ColdDMWorkflow(ColdDMNavigationMixin, InstagramBridgeBase):
+class ColdDMWorkflow(ColdDMSenderMixin, ColdDMNavigationMixin, InstagramBridgeBase):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
 
     def __init__(self, device_id: str, package_name: str = None):
         super().__init__(device_id, package_name=package_name)
-        self._keyboard = KeyboardService(device_id)
+        self._init_cold_dm_sender(device_id)
         # Stats
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
-
-    def send_message(self, message: str) -> bool:
-        """Send a message in the current conversation."""
-        logger.info("Sending message...")
-
-        # Find message input
-        msg_input = self.device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
-        if not msg_input.exists:
-            msg_input = self.device(className="android.widget.EditText")
-        if not msg_input.exists:
-            msg_input = self.device(textContains="Message")
-
-        if not msg_input.exists:
-            # Check if invite was already sent
-            if self.check_invite_already_sent():
-                return "invite_sent"  # Special return value
-            logger.error("Message input not found")
-            return False
-
-        msg_input.click()
-        time.sleep(0.5)
-
-        # Simulate typing delay
-        typing_time = min(len(message) * random.uniform(0.03, 0.05) + random.uniform(0.5, 1.5), 5.0)
-        time.sleep(typing_time)
-
-        # Use Taktik Keyboard for reliable input (supports emojis, special chars, etc.)
-        if self._keyboard.type_text(message):
-            logger.info("Text set via Taktik Keyboard")
-        else:
-            # Fallback to set_text or send_keys
-            logger.warning("Taktik Keyboard failed, trying fallback methods...")
-            try:
-                msg_input.set_text(message)
-            except Exception as e:
-                logger.warning(f"set_text failed: {e}, trying send_keys...")
-                try:
-                    msg_input.send_keys(message)
-                except Exception as e2:
-                    logger.error(f"send_keys also failed: {e2}")
-                    return False
-
-        time.sleep(0.5)
-
-        # Find and click send button
-        send_btn = self.device(resourceId="com.instagram.android:id/row_thread_composer_send_button_container")
-        if not send_btn.exists:
-            send_btn = self.device(resourceId="com.instagram.android:id/row_thread_composer_send_button")
-        if not send_btn.exists:
-            send_btn = self.device(description="Send")
-        if not send_btn.exists:
-            send_btn = self.device(description="Envoyer")
-
-        if send_btn.exists:
-            send_btn.click()
-            time.sleep(1)
-            logger.info("Message sent!")
-            return True
-
-        logger.error("Send button not found")
-        return False
-
-    def check_invite_already_sent(self) -> bool:
-        """Check if we're on the 'Invite sent' screen."""
-        invite_sent = self.device(textContains="Invite sent")
-        if invite_sent.exists:
-            logger.info("Invite already sent to this user")
-            return True
-
-        # Also check for "You can send more messages after your invite is accepted"
-        invite_msg = self.device(textContains="invite is accepted")
-        if invite_msg.exists:
-            logger.info("Invite already sent (waiting for acceptance)")
-            return True
-
-        return False
 
     def run(self, recipients: list, messages: list, delay_min: int = 30, delay_max: int = 60, max_dms: int = 50, account_id: int = 1, session_id: str = None, ai_prompt: str = '', openrouter_api_key: str = '') -> dict:
         """Run the cold DM workflow."""

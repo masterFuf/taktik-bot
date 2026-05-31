@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Cold DM sent-DM duplicate/persistence calls moved under `bridges/instagram/engagement/runtime/cold_dm_persistence.py`, keeping bridge DB access behind the bridge persistence adapter.
 - Instagram Cold DM OpenRouter message generation moved under `bridges/instagram/engagement/runtime/cold_dm_ai.py`; the bridge workflow now calls the runtime adapter instead of owning HTTP AI generation.
 - Instagram Cold DM search/profile/home navigation moved under `bridges/instagram/engagement/runtime/cold_dm_navigation.py`; `engagement/cold_dm.py` now keeps message sending and campaign orchestration instead of owning every UI step.
+- Instagram Cold DM composer/send-button/invite-state handling moved under `bridges/instagram/engagement/runtime/cold_dm_sender.py`; the bridge workflow no longer owns keyboard input details.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
