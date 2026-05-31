@@ -6,7 +6,7 @@ The bridge receives the OpenRouter API key via the session config (ai.openrouter
 and calls the API directly.
 
 Usage:
-    from taktik.core.ai.providers.openrouter import AIService
+    from taktik.core.app.ai.providers.openrouter import AIService
 
     ai = AIService(api_key="sk-or-...", ipc=_ipc)
     result = ai.classify_profile(username="travel_lover", screenshot_path="/tmp/screenshot.png")

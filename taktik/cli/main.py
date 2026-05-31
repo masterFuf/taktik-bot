@@ -599,7 +599,7 @@ def cli(ctx, lang=None):
                         from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
                         
                         console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
-                        from taktik.core.ai.providers.openrouter import AIService
+                        from taktik.core.app.ai.providers.openrouter import AIService
 
                         def _build_scraping_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None):
                             return AIService(

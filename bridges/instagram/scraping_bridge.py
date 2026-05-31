@@ -19,7 +19,7 @@ setup_environment()
 from bridges.common.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.base import _ipc
-from taktik.core.ai.providers.openrouter import AIService
+from taktik.core.app.ai.providers.openrouter import AIService
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from taktik.core.database import configure_db_service
 from loguru import logger

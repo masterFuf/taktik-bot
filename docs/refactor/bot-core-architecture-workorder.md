@@ -36,6 +36,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant lance la migration racine runtime sans shims : `taktik/core/config` et `taktik/core/security` sont supprimes et leurs owners deviennent `taktik/core/app/config` et `taktik/core/app/security`.
 - un sous-lot suivant supprime aussi la facade racine `taktik/core/recorder` : le recorder humain est Instagram-specific et se consomme via `taktik/core/social_media/instagram/recorder`.
 - un sous-lot suivant supprime aussi la facade racine `taktik/core/media` : la capture media est Instagram-specific et se consomme via `taktik/core/social_media/instagram/media`.
+- un sous-lot suivant migre `taktik/core/ai` vers `taktik/core/app/ai` sans shim racine ; bridges, CLI et agent importent l'owner app direct.
 - un sous-lot suivant commence le lot 3 en branchant `instagram/core/manager.py` et `tiktok/core/manager.py` directement sur `shared/platform/social_media_base.py` et `shared/device/manager.py`, comme `threads/core/manager.py`.
 - un sous-lot suivant etend ce lot 3 aux workflows Instagram qui ne demandent aucune facade plateforme (`scraping`, `post_scraping`, `cold_dm`) afin de reduire les imports runtime qui traversent encore les shims `actions/core/device`.
 - un sous-lot suivant corrige aussi la compat top-level `taktik/core/__init__.py`, qui pointait vers un chemin `DeviceFacade` obsolete et n'exposait pas vraiment les symbols annonces dans `__all__`.
@@ -73,7 +74,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 introduit enfin le premier noyau executable de `core/agent` : `registry.py` porte l'enregistrement des workflows canoniques et `executor.py` deroule un `AgentPlan` minimal en emettant des `AgentEvent`, sans encore remplacer les scenarios historiques existants.
 - un sous-lot suivant du lot 5 applique aussi la regle "notifier injecte" aux workflows TikTok de management (`login`, `logout`, `signup`) : ils n'instancient plus `bridges.common.ipc.IPC()` dans `core`, et le bridge compte TikTok leur passe maintenant `_ipc` depuis l'exterieur.
 - un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis `tiktok_publish_bridge.py`.
-- un sous-lot suivant du lot 5 clarifie aussi `taktik/core/ai` : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/ai/providers/openrouter.py`, les bridges et le CLI importent cet owner canonique, et `bridges/common/ai_service.py` ne reste qu'un shim de compatibilite.
+- un sous-lot suivant du lot 5 clarifie aussi l'IA : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/app/ai/providers/openrouter.py`, les bridges et le CLI importent cet owner canonique, et `bridges/common/ai_service.py` ne reste qu'un shim de compatibilite bridge.
 - un sous-lot suivant du lot 5 restructure physiquement `core/ai` : `providers/` porte les providers IA runtime comme OpenRouter, `comments/` porte l'IA commentaire/persona historique, et la racine du package reste une facade publique via `__init__.py`.
 - un sous-lot suivant clarifie encore `taktik/core/device` : l'API statique legacy vit maintenant sous `device/compat/legacy_static.py`, tandis que `device.py` reste un shim temporaire pour les anciens imports directs.
 - un sous-lot suivant de migration racine remplace ensuite ces chemins historiques : `taktik/core/config` et `taktik/core/security` sont supprimes, les implementations runtime vivent maintenant sous `app/config/**` et `app/security/**`, sans shims top-level.
@@ -141,7 +142,7 @@ Architecture cible a respecter :
 - `taktik/core/social_media/<platform>` : code metier propre a une plateforme ;
 - `taktik/core/shared` : primitives Android/ADB/input/actions partagees ;
 - `taktik/core/database` : schema, migrations, modeles, repositories ;
-- `taktik/core/app/<service>|device|email|ai|agent` : modules runtime/app avec owner explicite ;
+- `taktik/core/app/<service>|device|email|agent` : modules runtime/app avec owner explicite ;
 - `taktik/core/compat|clone` : compatibilite ou variantes legacy, jamais zone de depot par confort.
 
 Definition of done d'un lot :
@@ -190,7 +191,7 @@ Le chantier vise surtout :
 - `bot/taktik/core/compat/**`
 - `bot/taktik/core/clone/**`
 - `bot/taktik/core/agent/**`
-- `bot/taktik/core/ai/**`
+- `bot/taktik/core/app/ai/**`
 - `bot/taktik/core/email/**`
 - `bot/taktik/core/app/**`
 
@@ -236,7 +237,7 @@ Verifier que :
 
 Verifier que :
 
-- `device`, `email`, `ai`, `agent`, `app`, `clone`, `compat` ont chacun un owner clair ;
+- `device`, `email`, `agent`, `app`, `clone`, `compat` ont chacun un owner clair ;
 - les dossiers legacy servent vraiment a la compat, pas a stocker le code qu'on ne sait pas classer.
 
 ### Lot 4 - Rationalisation finale

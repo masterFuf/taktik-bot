@@ -189,11 +189,10 @@ taktik/core/
     decision/
     scenarios/
 
-  ai/                    # integrations IA
-    providers/
-    comments/
-
   app/                   # services applicatifs runtime
+    ai/
+      providers/
+      comments/
     config/
       runtime/
     security/
