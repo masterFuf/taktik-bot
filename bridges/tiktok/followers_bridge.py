@@ -11,7 +11,7 @@ from .base import (
     logger, send_status, send_message, send_action, 
     send_pause, send_error, set_workflow, tiktok_startup
 )
-from taktik.core.social_media.tiktok.services.navigation_reset import return_to_tiktok_home
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 
 
 def run_followers_workflow(config: Dict[str, Any]):

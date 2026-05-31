@@ -18,7 +18,7 @@ from .base import (
     tiktok_startup,
     send_final_video_stats,
 )
-from taktik.core.social_media.tiktok.services.navigation_reset import (
+from taktik.core.social_media.tiktok.services.navigation.reset import (
     return_to_tiktok_home as return_device_to_tiktok_home,
 )
 

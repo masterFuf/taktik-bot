@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok publish services moved from flat `services/publish_*.py` modules into the scoped `services/publish/**` package.
 - TikTok followers services moved from flat `services/followers_*.py` and `services/known_profiles_stop_policy.py` modules into the scoped `services/followers/**` package.
 - TikTok profile username extraction moved from flat `services/profile_username.py` into the scoped `services/profile/username.py` service.
+- TikTok navigation reset moved from flat `services/navigation_reset.py` into the scoped `services/navigation/reset.py` service.
 - `taktik/core/config` and `taktik/core/security` now scope their runtime implementation under `config/runtime/**` and `security/protection/**`, while keeping legacy import paths stable.
 - `taktik/core/recorder` is now reduced to a package-level compatibility facade; the Instagram recorder implementation remains under `social_media/instagram/recorder/**`.
 - `taktik/core/clone` is now split by ownership into `detection/`, `packages/`, `device/`, and `selectors/`, with the package root kept as the public facade.

@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.navigation_reset import return_to_tiktok_home
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 from taktik.core.social_media.tiktok.ui.selectors import NAVIGATION_SELECTORS
 
 
@@ -29,7 +29,7 @@ class _FakeDevice:
 
 def test_return_to_tiktok_home_uses_centralized_home_selectors(monkeypatch):
     monkeypatch.setattr(
-        "taktik.core.social_media.tiktok.services.navigation_reset.time.sleep",
+        "taktik.core.social_media.tiktok.services.navigation.reset.time.sleep",
         lambda _seconds: None,
     )
     device = _FakeDevice(success_selector=NAVIGATION_SELECTORS.home_tab[0])
@@ -43,7 +43,7 @@ def test_return_to_tiktok_home_uses_centralized_home_selectors(monkeypatch):
 
 def test_return_to_tiktok_home_returns_false_when_home_tab_is_not_found(monkeypatch):
     monkeypatch.setattr(
-        "taktik.core.social_media.tiktok.services.navigation_reset.time.sleep",
+        "taktik.core.social_media.tiktok.services.navigation.reset.time.sleep",
         lambda _seconds: None,
     )
     device = _FakeDevice(success_selector=None)

@@ -169,7 +169,7 @@ Symptome technique :
 
 Remediation retenue :
 
-- extraction de `services/navigation_reset.py` ;
+- extraction de `services/navigation/reset.py` ;
 - utilisation de `NAVIGATION_SELECTORS.home_tab` comme source unique ;
 - branchement dans les bridges search et followers ;
 - ajout de tests unitaires sur l'ordre des back presses et les selectors testes.
