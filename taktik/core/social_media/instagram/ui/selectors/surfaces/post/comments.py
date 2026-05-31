@@ -29,6 +29,7 @@ class PostCommentsSelectors:
     comment_username_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comment_username_selectors)
     )
+    commenter_button_nodes_selector: str = POST_SELECTORS.all_button_nodes_selector
     comments_view_indicators: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comments_view_indicators)
     )

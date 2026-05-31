@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List
 
 from ..common.detection import is_likers_popup_open, is_comments_view_open
+from ...ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
 
 
 # Action-button labels that pass the username regex but are NOT usernames.
@@ -124,7 +125,7 @@ def make_commenters_strategy(workflow) -> ListScrapingStrategy:
 
     def _get_visible() -> List[Dict[str, Any]]:
         try:
-            buttons = device.xpath('//android.widget.Button').all()
+            buttons = device.xpath(POST_COMMENTS_SELECTORS.commenter_button_nodes_selector).all()
         except Exception as e:
             logger.debug(f"[commenters] xpath dump failed: {e}")
             return []

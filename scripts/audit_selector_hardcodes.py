@@ -80,12 +80,6 @@ class AllowlistEntry:
 
 KNOWN_SELECTOR_DEBT = (
     AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/scraping/list_strategy.py",
-        "selector-string",
-        "//android.widget.Button",
-        "Comment-list username fast path still uses a raw class XPath.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/instagram/actions/compatibility/cli_adapter.py",
         "uiautomator-literal",
         "Instagram Bot - New Modular Architecture",

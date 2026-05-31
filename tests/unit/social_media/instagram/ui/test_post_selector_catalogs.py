@@ -20,6 +20,10 @@ def test_specialized_post_catalogs_remain_compatible_with_legacy_aggregate():
 
     assert POST_COMMENTS_SELECTORS.comment_button_selectors == POST_SELECTORS.comment_button_selectors
     assert POST_COMMENTS_SELECTORS.comments_list_resource_id == POST_SELECTORS.comments_list_resource_id
+    assert (
+        POST_COMMENTS_SELECTORS.commenter_button_nodes_selector
+        == POST_SELECTORS.all_button_nodes_selector
+    )
     assert POST_COMMENTS_SELECTORS.comments_list_selector() == (
         f'//*[@resource-id="{POST_SELECTORS.comments_list_resource_id}"]'
     )
