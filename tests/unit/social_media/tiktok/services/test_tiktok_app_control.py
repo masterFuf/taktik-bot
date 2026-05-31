@@ -1,6 +1,6 @@
 import subprocess
 
-from taktik.core.social_media.tiktok.services.app_control import (
+from taktik.core.social_media.tiktok.services.runtime.app_control import (
     force_stop_app_package,
     launch_app_non_blocking,
 )

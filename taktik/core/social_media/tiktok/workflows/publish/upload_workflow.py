@@ -32,11 +32,11 @@ from taktik.core.shared.device.media_store import (
     trigger_media_scan,
     scan_wait_for,
 )
-from taktik.core.social_media.tiktok.services.app_control import (
+from taktik.core.social_media.tiktok.services.runtime.app_control import (
     force_stop_app_package,
     launch_app_non_blocking,
 )
-from taktik.core.social_media.tiktok.services.package_resolver import resolve_tiktok_package
+from taktik.core.social_media.tiktok.services.runtime.package_resolver import resolve_tiktok_package
 from taktik.core.social_media.tiktok.services.publish.dialogs import (
     dismiss_post_popups,
     handle_permission_dialog,

@@ -84,7 +84,7 @@ Symptome technique :
 
 Remediation retenue :
 
-- extraction de `app_control.py` pour lancer et force-stop un package TikTok ;
+- extraction de `services/runtime/app_control.py` pour lancer et force-stop un package TikTok ;
 - conservation du comportement non fatal en cleanup ;
 - ajout de tests unitaires sur les commandes ADB construites et le fallback
   `monkey` -> `am start`.
