@@ -105,6 +105,7 @@ Definition simple :
 - Un wrapper public `bridges/<platform>/<bridge_name>.py` doit bootstraper `bot/` dans `sys.path` avant d'importer son implementation scopee, afin de rester lancable comme script direct par Electron ou en standalone.
 - Pour les gros bridges plateforme, l'entrypoint public racine peut etre un fichier mince qui delegue a une implementation scopee, par exemple `bridges/instagram/engagement/smart_comment.py`. Le wrapper racine est alors un contrat Electron, pas une zone de logique.
 - Les bridges d'automation plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/automation/**` quand l'entrypoint public racine reste seulement un wrapper Electron.
+- Les implementations d'entrypoints publics doivent choisir un owner metier nomme (`automation`, `engagement`, `scraping`, `account`, `publish`, etc.) au lieu de rester a plat par confort.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**` quand l'entrypoint public racine reste seulement un wrapper Electron.
 - Les bridges Agent plateforme peuvent vivre sous `bridges/<platform>/agent/**`, mais le noyau d'orchestration durable reste sous `taktik/core/agent/**` et doit recevoir ses dependances par injection.
 - Les sous-modules `bridges/**/workflows/**` restent des adaptateurs de bridge : ils peuvent normaliser un payload et brancher les callbacks stdout, mais la logique durable doit continuer a vivre dans `taktik/core/social_media/**`.

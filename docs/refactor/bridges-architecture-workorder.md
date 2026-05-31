@@ -26,7 +26,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/<bridge_name>.py` = entrypoint public seulement si declare dans `bridges.manifest.json` ou lance par le Front en dev.
 - `bridges/<platform>/base.py` = runtime bridge local de la plateforme : IPC, helpers stdout, startup commun. Il ne doit pas devenir un workflow.
 - `bridges/<platform>/workflows/**` = runners internes appeles par un entrypoint dispatcher, classes par famille de flow (`automation`, `engagement`, `scraping`, etc.).
-- `bridges/<platform>/automation|account|publish|analysis|agent|diagnostics/**` = implementations extractibles des entrypoints dedies, uniquement si l'entrypoint racine reste mince ou si le resolver Front est migre.
+- `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations extractibles des entrypoints dedies, uniquement si l'entrypoint racine reste mince ou si le resolver Front est migre.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
@@ -56,7 +56,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B15 | Fait | Deplacer l'implementation TikTok account sous `bridges/tiktok/account/account.py`; garder `tiktok_account_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B16 | Fait | Deplacer l'implementation TikTok publish sous `bridges/tiktok/publish/publish.py`; garder `tiktok_publish_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B17 | Fait | Deplacer l'implementation TikTok scraping sous `bridges/tiktok/scraping/scraping.py`; garder `scraping_bridge.py` comme entrypoint public mince et migrer le dispatcher TikTok vers l'owner scope. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B18 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B18 | Fait | Deplacer l'implementation TikTok DM outreach sous `bridges/tiktok/engagement/dm_outreach.py`; garder `dm_outreach_bridge.py` comme entrypoint public mince. | Import graph + direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B19 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 
