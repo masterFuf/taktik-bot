@@ -21,13 +21,7 @@ class ResultDetectionMixin:
         time.sleep(2)
         
         # Vérifier si la popup "Save your login info?" est présente (indicateur de succès)
-        save_login_popup_selectors = [
-            '//android.view.View[@content-desc="Save your login info?"]',
-            '//android.view.View[contains(@content-desc, "Save your login info")]',
-            '//android.view.View[contains(@text, "Save your login info")]',
-            '//android.view.View[contains(@content-desc, "Enregistrer vos informations")]',
-            '//android.view.View[contains(@text, "Enregistrer vos informations")]'
-        ]
+        save_login_popup_selectors = self.auth_selectors.save_login_info_success_popup
         if self._element_exists(save_login_popup_selectors):
             self.logger.success("✅ Login successful! (Save login info popup detected)")
             return LoginResult(success=True, message="Login successful")

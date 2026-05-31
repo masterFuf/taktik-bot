@@ -106,6 +106,24 @@ class AuthSelectors:
         '//android.widget.Button[@content-desc="Settings" and @package="com.instagram.android"]',
     ])
     
+    # === Écran de sélection de profil ===
+    use_another_profile_button: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@content-desc="Use another profile"]',
+        '//android.widget.Button[@content-desc="Utiliser un autre profil"]',
+        '//*[contains(@text, "Use another profile")]',
+        '//*[contains(@text, "Utiliser un autre profil")]'
+    ])
+
+    def saved_profile_tile_selectors(self, target_username: str, clean_username: str) -> List[str]:
+        return [
+            f'//android.view.ViewGroup[contains(@content-desc, "{target_username}")]',
+            f'//android.view.ViewGroup[contains(@content-desc, "{clean_username}")]',
+            f'//*[@text="{target_username}"]',
+            f'//*[@text="{clean_username}"]',
+            f'//*[contains(@content-desc, "{target_username}") and @clickable="true"]',
+            f'//*[contains(@content-desc, "{clean_username}") and @clickable="true"]'
+        ]
+
     # === Messages d'erreur et états ===
     error_message_selectors: List[str] = field(default_factory=lambda: [
         # Messages d'erreur génériques
@@ -169,6 +187,14 @@ class AuthSelectors:
         '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and contains(@text, "Enregistrer")]',
     ])
     
+    save_login_info_success_popup: List[str] = field(default_factory=lambda: [
+        '//android.view.View[@content-desc="Save your login info?"]',
+        '//android.view.View[contains(@content-desc, "Save your login info")]',
+        '//android.view.View[contains(@text, "Save your login info")]',
+        '//android.view.View[contains(@content-desc, "Enregistrer vos informations")]',
+        '//android.view.View[contains(@text, "Enregistrer vos informations")]'
+    ])
+
     notification_popup: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[contains(@text, "Turn on Notifications")]',
         '//android.widget.TextView[contains(@text, "Activer les notifications")]',
@@ -221,6 +247,13 @@ class AuthSelectors:
         '//android.widget.Button[.//android.view.View[@content-desc="Enregistrer"]]',
     ])
     
+    save_login_info_not_now_buttons: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@content-desc="Not now"]',
+        '//android.widget.Button[@content-desc="Pas maintenant"]',
+        '//android.widget.Button[.//android.view.View[@content-desc="Not now"]]',
+        '//android.widget.Button[.//android.view.View[@content-desc="Pas maintenant"]]',
+    ])
+
     skip_button_selectors: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Ignorer"]',
         '//android.widget.Button[@content-desc="Skip"]',

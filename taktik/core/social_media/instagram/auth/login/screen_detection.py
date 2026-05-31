@@ -75,14 +75,10 @@ class LoginScreenDetectionMixin:
                 clean_username = target_username.strip().lower().strip('@').strip('_')
                 self.logger.info(f"🔍 Also trying clean variant: '{clean_username}'")
 
-                profile_selectors = [
-                    f'//android.view.ViewGroup[contains(@content-desc, "{target_username}")]',
-                    f'//android.view.ViewGroup[contains(@content-desc, "{clean_username}")]',
-                    f'//*[@text="{target_username}"]',
-                    f'//*[@text="{clean_username}"]',
-                    f'//*[contains(@content-desc, "{target_username}") and @clickable="true"]',
-                    f'//*[contains(@content-desc, "{clean_username}") and @clickable="true"]'
-                ]
+                profile_selectors = self.auth_selectors.saved_profile_tile_selectors(
+                    target_username,
+                    clean_username,
+                )
 
                 for profile_selector in profile_selectors:
                     try:
@@ -103,12 +99,7 @@ class LoginScreenDetectionMixin:
 
             # Profil non trouvé ou pas de username cible : cliquer sur "Use another profile"
             self.logger.info("🔄 Looking for 'Use another profile' button...")
-            use_another_selectors = [
-                '//android.widget.Button[@content-desc="Use another profile"]',
-                '//android.widget.Button[@content-desc="Utiliser un autre profil"]',
-                '//*[contains(@text, "Use another profile")]',
-                '//*[contains(@text, "Utiliser un autre profil")]'
-            ]
+            use_another_selectors = self.auth_selectors.use_another_profile_button
             clicked_use_another = False
             for use_selector in use_another_selectors:
                 try:

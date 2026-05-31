@@ -76,12 +76,7 @@ class LoginPopupsMixin:
                     self.logger.warning("⚠️ Could not click 'Save' button")
             else:
                 # Bouton "Not now" — content-desc direct (plus fiable que resource-id)
-                not_now_selectors = [
-                    '//android.widget.Button[@content-desc="Not now"]',
-                    '//android.widget.Button[@content-desc="Pas maintenant"]',
-                    '//android.widget.Button[.//android.view.View[@content-desc="Not now"]]',
-                    '//android.widget.Button[.//android.view.View[@content-desc="Pas maintenant"]]',
-                ]
+                not_now_selectors = self.auth_selectors.save_login_info_not_now_buttons
                 clicked = self._click_first_match(not_now_selectors, "Not now")
                 if clicked:
                     self.logger.info("✅ Clicked 'Not now' — Instagram won't save login info")
