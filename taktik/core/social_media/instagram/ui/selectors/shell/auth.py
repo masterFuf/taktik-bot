@@ -74,6 +74,8 @@ class AuthSelectors:
     ])
     
     # === Détection de la page de login ===
+    clickable_visible_elements: str = '//*[@clickable="true" and @visible-to-user="true"]'
+
     login_screen_indicators: List[str] = field(default_factory=lambda: [
         # Logo Instagram
         '//android.widget.ImageView[@content-desc="Instagram from Meta"]',

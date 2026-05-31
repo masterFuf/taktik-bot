@@ -101,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram deep-qualify scraping now reads the profile header container selector from `PROFILE_SELECTORS` instead of keeping the resource id inline.
 - Instagram login screen/result/popup helpers now read profile-tile, use-another-profile, save-info and Not-now selectors from `AUTH_SELECTORS` instead of keeping inline XPath lists.
 - Instagram credential filling now reads autofill and password-only account selectors from `AUTH_SELECTORS` instead of keeping XPath probes inline.
+- Instagram login screen debug logging now reads its clickable-visible element probe from `AUTH_SELECTORS` instead of keeping the XPath inline.
 - TikTok popup actions now read the follow-friends close description from `POPUP_SELECTORS` instead of hardcoding the uiautomator2 description fallback.
 - Instagram profile extraction now reuses `PROFILE_SELECTORS.profile_header_container` for About-account recovery instead of keeping the profile header XPath inline.
 - Instagram profile count extraction now reads followers/following/posts resource ids and text probes from `PROFILE_SELECTORS` instead of passing raw UI labels from the extractor.

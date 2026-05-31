@@ -128,12 +128,6 @@ KNOWN_SELECTOR_DEBT = (
         "Compatibility CLI smoke test describes a synthetic UI probe, not a workflow selector.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/instagram/auth/login/screen_detection.py",
-        "selector-string",
-        '//*[@clickable="true" and @visible-to-user="true"]',
-        "Login screen detector still has a generic clickable fallback outside the auth catalog.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/tiktok/actions/business/workflows/_internal/profile_extractor.py",
         "uiautomator-literal",
         "android.widget.Button",

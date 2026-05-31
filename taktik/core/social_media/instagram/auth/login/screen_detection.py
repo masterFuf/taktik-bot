@@ -23,7 +23,9 @@ class LoginScreenDetectionMixin:
     def _log_all_clickable_elements(self) -> None:
         """Log tous les éléments cliquables visibles pour debug."""
         try:
-            elements = self.device.xpath('//*[@clickable="true" and @visible-to-user="true"]').all()
+            elements = self.device.xpath(
+                self.auth_selectors.clickable_visible_elements
+            ).all()
             self.logger.info(f"🔍 Clickable elements on screen ({len(elements)} total):")
             for el in elements[:20]:  # Limiter à 20 pour ne pas spammer
                 try:
