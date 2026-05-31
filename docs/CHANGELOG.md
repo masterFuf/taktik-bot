@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The unused `bridges/common/ai_service.py` compatibility shim was removed; bridge code imports AI providers from `taktik/core/app/ai/**` directly.
 - Bridge device connection and app lifecycle helpers now live under `bridges/common/device/{connection,app_manager}.py`; the flat `connection.py` and `app_manager.py` common modules were removed.
 - Bridge runtime helpers now live under `bridges/common/runtime/{bootstrap,ipc,bridge_base,signal_handler}.py`, leaving `bridges/common` as a package facade instead of a flat module bucket.
+- Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

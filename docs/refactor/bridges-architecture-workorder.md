@@ -45,8 +45,9 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B5 | Fait | Supprimer le shim IA inutilise `bridges/common/ai_service.py`; l'owner IA reste `taktik/core/app/ai/**`. | Import graph + `compileall` + `git diff --check`. |
 | B6 | Fait | Deplacer `ConnectionService`, `AppService` et `force_stop_app` sous `bridges/common/device/**`; supprimer les modules plats `connection.py` et `app_manager.py`. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B7 | Fait | Deplacer `bootstrap`, `ipc`, `bridge_base` et `signal_handler` sous `bridges/common/runtime/**`; la racine `common` devient une facade package. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B8 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
-| B9 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B8 | Fait | Deplacer l'implementation Smart Comment sous `bridges/instagram/engagement/smart_comment.py` et garder `smart_comment_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B9 | A faire | Extraire les autres implementations Instagram engagement (`dm`, `cold_dm`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
+| B10 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 
