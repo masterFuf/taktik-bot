@@ -18,6 +18,7 @@ from typing import Dict, Any, List, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
+from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 
 
 class SyncFollowersMixin:
@@ -75,7 +76,8 @@ class SyncFollowersMixin:
 
             # Attendre que les éléments de la liste soient réellement chargés
             d = self.device.device
-            username_resource_id = f'{get_active_package()}:id/follow_list_username'
+            active_package = get_active_package()
+            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
             wait_attempts = 0
             while wait_attempts < 10:
                 if d(resourceId=username_resource_id).exists:
@@ -99,8 +101,9 @@ class SyncFollowersMixin:
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
             d = self.device.device
-            username_resource_id = f'{get_active_package()}:id/follow_list_username'
-            subtitle_resource_id = f'{get_active_package()}:id/follow_list_subtitle'
+            active_package = get_active_package()
+            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
+            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
@@ -272,8 +275,9 @@ class SyncFollowersMixin:
         results = []
         try:
             d = self.device.device
-            username_resource_id = f'{get_active_package()}:id/follow_list_username'
-            subtitle_resource_id = f'{get_active_package()}:id/follow_list_subtitle'
+            active_package = get_active_package()
+            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
+            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
 
             username_elements = d(resourceId=username_resource_id)
             subtitle_elements = d(resourceId=subtitle_resource_id)
@@ -333,7 +337,7 @@ class SyncFollowersMixin:
         import random
 
         d = self.device.device
-        username_resource_id = f'{get_active_package()}:id/follow_list_username'
+        username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(get_active_package())
 
         for username in usernames:
             try:

@@ -17,6 +17,7 @@ from typing import Dict, Any, List, Optional, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
+from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 
 
 class SyncFollowingMixin:
@@ -85,7 +86,8 @@ class SyncFollowingMixin:
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
             d = self.device.device
-            username_resource_id = f'{get_active_package()}:id/follow_list_username'
+            active_package = get_active_package()
+            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
@@ -118,7 +120,9 @@ class SyncFollowingMixin:
                     # Récupérer le display_name (subtitle)
                     display_name = ''
                     try:
-                        subtitle_els = d(resourceId=f'{get_active_package()}:id/follow_list_subtitle')
+                        subtitle_els = d(
+                            resourceId=UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
+                        )
                         if subtitle_els.exists and i < subtitle_els.count:
                             display_name = subtitle_els[i].get_text() or ''
                     except Exception:
@@ -301,15 +305,15 @@ class SyncFollowingMixin:
 
             # Détecter si on est déjà dans la vue unifiée (après sync_following_list)
             d = self.device.device
-            unified_layout = d.xpath(f'//*[@resource-id="{get_active_package()}:id/unified_follow_list_tab_layout"]')
+            active_package = get_active_package()
+            unified_layout = d.xpath(
+                UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(active_package)
+            )
 
             if unified_layout.exists:
                 # Vue unifiée ouverte — cliquer sur le tab "Followers"
                 self.logger.debug("Already in unified follow list view, switching to Followers tab")
-                followers_tab = d.xpath(
-                    f'//*[@resource-id="{get_active_package()}:id/unified_follow_list_tab_layout"]'
-                    '//*[contains(@text, "Followers")]'
-                )
+                followers_tab = d.xpath(UNFOLLOW_SELECTORS.unified_followers_tab_selector(active_package))
                 if followers_tab.exists:
                     followers_tab.click()
                 else:
@@ -339,7 +343,10 @@ class SyncFollowingMixin:
             follow_back_visible = False
             for wait in range(5):
                 time.sleep(1)
-                if d(resourceId=f'{get_active_package()}:id/follow_list_row_large_follow_button', text='Follow back').exists:
+                if d(
+                    resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
+                    text=UNFOLLOW_SELECTORS.follow_back_button_text,
+                ).exists:
                     follow_back_visible = True
                     self.logger.debug(f"Non-followers view loaded after {wait + 1}s")
                     break
@@ -421,8 +428,9 @@ class SyncFollowingMixin:
         results = []
         try:
             d = self.device.device
-            username_resource_id = f'{get_active_package()}:id/follow_list_username'
-            subtitle_resource_id = f'{get_active_package()}:id/follow_list_subtitle'
+            active_package = get_active_package()
+            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
+            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
 
             username_elements = d(resourceId=username_resource_id)
             subtitle_elements = d(resourceId=subtitle_resource_id)
@@ -465,13 +473,7 @@ class SyncFollowingMixin:
         try:
             d = self.device.device
             pkg = get_active_package()
-            xpaths = [
-                '//*[contains(@content-desc, "don\'t follow back")]',
-                '//*[contains(@content-desc, "People you don")]',
-                f'//*[@resource-id="{pkg}:id/container"][contains(@content-desc, "follow")]',
-                f'//*[@resource-id="{pkg}:id/title"][contains(@text, "don\'t follow back")]',
-                f'//*[@resource-id="{pkg}:id/title"][contains(@text, "follow back")]',
-            ]
+            xpaths = UNFOLLOW_SELECTORS.non_followers_category_selectors(pkg)
             for i, xpath in enumerate(xpaths):
                 el = d.xpath(xpath)
                 if el.exists:
@@ -533,12 +535,13 @@ class SyncFollowingMixin:
         results = []
         try:
             d = self.device.device
-            username_resource_id = f'{get_active_package()}:id/follow_list_username'
+            active_package = get_active_package()
+            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
 
             # Vérifier qu'on est dans la bonne vue (bouton "Follow back" présent)
             follow_back_btn = d(
-                resourceId=f'{get_active_package()}:id/follow_list_row_large_follow_button',
-                text='Follow back'
+                resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
+                text=UNFOLLOW_SELECTORS.follow_back_button_text
             )
             if not follow_back_btn.exists:
                 self.logger.debug("No 'Follow back' buttons found — may not be in non-followers view")
