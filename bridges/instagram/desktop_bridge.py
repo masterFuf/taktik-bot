@@ -963,7 +963,7 @@ class DesktopBridge:
             return True
         
         try:
-            from taktik.core.media import MediaCaptureService
+            from taktik.core.social_media.instagram.media import MediaCaptureService
             
             send_status("initializing", "Starting media capture service...")
             

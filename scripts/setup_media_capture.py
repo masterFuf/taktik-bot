@@ -192,7 +192,7 @@ def create_test_script():
     content = '''#!/usr/bin/env python3
 """Test script for media capture setup."""
 import time
-from taktik.core.media import MediaCaptureService
+from taktik.core.social_media.instagram.media import MediaCaptureService
 
 def main():
     print("🧪 Testing Media Capture Service...")

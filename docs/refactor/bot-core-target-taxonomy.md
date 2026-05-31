@@ -43,7 +43,6 @@ taktik/core/
     ai/
     config/
     email/
-    media/
     security/
 
   runtime/               # runtime Android / device orchestration transverses
@@ -101,7 +100,6 @@ le melanger a la technique Android pure :
 - `ai/`
 - `config/`
 - `email/`
-- `media/`
 - `security/`
 
 Aujourd'hui ces dossiers sont deja presents, mais leur mise a plat a la racine
@@ -156,7 +154,6 @@ taktik/core/
   config/
   device/
   email/
-  media/
   security/
 ```
 
@@ -205,7 +202,6 @@ taktik/core/
     gmail/
       workflows/
       ui/
-  media/                 # facade media legacy package-level
   device/                # compat vers shared/device
     compat/
   clone/                 # runtime clone/package-aware
