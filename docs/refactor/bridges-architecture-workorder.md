@@ -30,6 +30,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/automation/runtime/**` = support local d'un bridge automation volumineux : parsing payload, lifecycle device/app, media capture, setup IA, runner. Ne pas laisser ces modules plats a cote de l'entrypoint automation.
 - `bridges/<platform>/engagement/runtime/**` = support local des bridges engagement : commandes CLI, parsing payload, navigation partagee, emitters JSON. Ne pas laisser ces modules gonfler l'entrypoint `engagement/<flow>.py`.
 - `bridges/<platform>/analysis/runtime/**` = support local des bridges analyse : commandes CLI, parsing config, capture/consolidation de donnees. Ne pas laisser ces modules gonfler l'entrypoint `analysis/<flow>.py`.
+- `bridges/<platform>/account/runtime/**` = support local des bridges compte : commandes CLI, preparation DB/device/app et dispatch login/logout/register. Ne pas laisser ces modules gonfler l'entrypoint `account/<flow>.py`.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
@@ -92,6 +93,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B48 | Fait | Extraire le parsing config/CLI du bridge Instagram Persona Analysis sous `analysis/runtime/persona_commands.py` et documenter l'owner `analysis/runtime`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B49 | Fait | Extraire la collecte commentaires des posts Persona Analysis sous `analysis/runtime/persona_comments.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B50 | Fait | Extraire la capture screenshot profil Persona Analysis sous `analysis/runtime/persona_media.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B51 | Fait | Extraire le support local TikTok Account sous `account/runtime/**` : commandes CLI/config, preparation DB/device/app/clone selectors et dispatch login/logout/register. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
