@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Iterable
 
-from taktik.core.agent.contracts import AgentEvent
+from taktik.core.agent.kernel.contracts import AgentEvent
 
 
 def agent_event_to_payload(event: AgentEvent) -> dict[str, Any]:

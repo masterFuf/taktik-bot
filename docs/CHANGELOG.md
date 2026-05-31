@@ -23,13 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok management workflows (`login`, `logout`, `signup`) no longer instantiate the bridge IPC inside `taktik/core`; the TikTok account bridge now injects the notifier instead.
 - The TikTok publish workflow now follows the same runtime rule: it keeps a standalone fallback notifier, but `tiktok_publish_bridge.py` injects the live bridge notifier instead of letting `taktik/core` create it directly.
 - The OpenRouter `AIService` provider now lives under `taktik/core/ai/openrouter.py`; bridge imports use the core owner while `bridges/common/ai_service.py` remains as a compatibility shim.
-- The agent runtime can now read `workflows.manifest.json` through `taktik/core/agent/workflow_manifest.py` and expose canonical `platform.family.workflow` ids for future `AgentPlan` execution.
-- The agent runtime now exposes JSON-safe `AgentPlan` parsing and serialization through `taktik/core/agent/plan_io.py`, with optional manifest validation for workflow ids.
+- The agent runtime can now read `workflows.manifest.json` through `taktik/core/agent/io/manifest.py` and expose canonical `platform.family.workflow` ids for future `AgentPlan` execution.
+- The agent runtime now exposes JSON-safe `AgentPlan` parsing and serialization through `taktik/core/agent/io/plan.py`, with optional manifest validation for workflow ids.
 - `TaktikAgentWorkflow` now accepts optional `agent_plan` / `agentPlan` payloads and exposes the parsed plan in `AgentContext` without changing the existing Instagram-first scenario execution or adding a new stdout event.
-- `taktik/core/agent/runtime.py` now provides the first parse-and-execute facade for injected workflow registries, keeping real Android workflow binding outside the kernel for now.
-- `taktik/core/agent/event_io.py` now serializes `AgentEvent` instances into JSON-safe payloads for future bridge integration.
+- `taktik/core/agent/kernel/runtime.py` now provides the first parse-and-execute facade for injected workflow registries, keeping real Android workflow binding outside the kernel for now.
+- `taktik/core/agent/io/events.py` now serializes `AgentEvent` instances into JSON-safe payloads for future bridge integration.
 - The Bot core refactor trackers now distinguish completed agent kernel extraction from the remaining work of binding real workflow handlers.
 - `clone/**` and `compat/**` now have an explicit structural audit: `clone` owns package/clone runtime, `compat/selectors` owns selector versioning/tracing, and top-level compat modules remain legacy shims only.
+- `taktik/core/agent` is now physically split into scoped owners: `kernel/`, `io/`, `decision/`, and `scenarios/`; the package root is kept as a public facade through `__init__.py`.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.

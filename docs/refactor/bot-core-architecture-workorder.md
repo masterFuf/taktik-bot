@@ -68,11 +68,12 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 applique aussi la regle "notifier injecte" aux workflows TikTok de management (`login`, `logout`, `signup`) : ils n'instancient plus `bridges.common.ipc.IPC()` dans `core`, et le bridge compte TikTok leur passe maintenant `_ipc` depuis l'exterieur.
 - un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis `tiktok_publish_bridge.py`.
 - un sous-lot suivant du lot 5 clarifie aussi `taktik/core/ai` : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/ai/openrouter.py`, les bridges et le CLI importent cet owner canonique, et `bridges/common/ai_service.py` ne reste qu'un shim de compatibilite.
-- un sous-lot suivant du lot 5 aligne aussi `core/agent` sur le manifest transversal : `workflow_manifest.py` lit `workflows.manifest.json` et expose les IDs canoniques `platform.family.workflow` utilises par les futurs `AgentPlan`.
-- un sous-lot suivant du lot 5 ajoute la boundary d'entree JSON du noyau agent : `plan_io.py` convertit un payload Front/CLI en `AgentPlan` et peut valider les `workflow_id` contre le manifest transversal.
+- un sous-lot suivant du lot 5 aligne aussi `core/agent` sur le manifest transversal : `io/manifest.py` lit `workflows.manifest.json` et expose les IDs canoniques `platform.family.workflow` utilises par les futurs `AgentPlan`.
+- un sous-lot suivant du lot 5 ajoute la boundary d'entree JSON du noyau agent : `io/plan.py` convertit un payload Front/CLI en `AgentPlan` et peut valider les `workflow_id` contre le manifest transversal.
 - un sous-lot suivant du lot 5 raccorde `TaktikAgentWorkflow` a cette boundary sans changer son comportement metier : un payload `agent_plan` / `agentPlan` est parse, valide contre le manifest et expose dans `AgentContext`, mais pas encore execute.
-- un sous-lot suivant du lot 5 ajoute `core/agent/runtime.py` comme facade parse/execute : le plan vient d'un payload JSON, les handlers reels restent injectes via `WorkflowRegistry`, et aucun workflow Android historique n'est branche par defaut.
-- un sous-lot suivant du lot 5 ajoute `core/agent/event_io.py` pour serialiser les `AgentEvent` en payloads JSON-safe avant tout branchement bridge, afin d'eviter des conversions ad hoc cote stdout.
+- un sous-lot suivant du lot 5 ajoute `core/agent/kernel/runtime.py` comme facade parse/execute : le plan vient d'un payload JSON, les handlers reels restent injectes via `WorkflowRegistry`, et aucun workflow Android historique n'est branche par defaut.
+- un sous-lot suivant du lot 5 ajoute `core/agent/io/events.py` pour serialiser les `AgentEvent` en payloads JSON-safe avant tout branchement bridge, afin d'eviter des conversions ad hoc cote stdout.
+- un sous-lot suivant du lot 5 restructure physiquement `core/agent` : `kernel/` porte contrats/contexte/registry/executor/runtime, `io/` porte manifest/plan/events, `decision/` porte `AgentAI`, `scenarios/` porte l'autopilot Instagram legacy, et la racine du package reste une facade publique via `__init__.py`.
 
 ## Audit `clone` / `compat` au 2026-05-31
 

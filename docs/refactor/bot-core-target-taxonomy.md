@@ -181,6 +181,7 @@ Je recommande une migration en **2 etapes** :
 - documenter la cible
 - continuer a nettoyer les imports et l'ownership
 - ne pas renommer toute la racine
+- privilegier les sous-packages internes quand une famille runtime est trop plate. Exemple applique : `taktik/core/agent` est maintenant classe en `kernel/`, `io/`, `decision/`, `scenarios/` sans deplacer toute la racine `core`.
 
 ### Etape B - plus tard, si on confirme l'arbitrage
 

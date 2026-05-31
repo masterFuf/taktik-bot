@@ -64,7 +64,7 @@ class TaktikAgentBridge(InstagramBridgeBase):
             return {"success": False, "error": "Failed to launch Instagram"}
         _ipc.status("instagram_ready", "Instagram launched successfully")
 
-        from taktik.core.agent.taktik_agent_workflow import TaktikAgentWorkflow
+        from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
         workflow = TaktikAgentWorkflow(
             device_manager=self.device_manager,
             config=self.config,

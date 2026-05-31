@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable
 
-from taktik.core.agent.contracts import WorkflowInvocation
+from taktik.core.agent.kernel.contracts import WorkflowInvocation
 
 WorkflowHandler = Callable[[WorkflowInvocation, Dict[str, Any]], Dict[str, Any]]
 

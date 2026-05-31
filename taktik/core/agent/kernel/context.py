@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from taktik.core.agent.contracts import AgentPlan
+from taktik.core.agent.kernel.contracts import AgentPlan
 
 
 @dataclass

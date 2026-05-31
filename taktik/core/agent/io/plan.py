@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping, Optional
 
-from taktik.core.agent.contracts import AgentPlan, PlanStep, WorkflowInvocation
-from taktik.core.agent.workflow_manifest import WorkflowManifest
+from taktik.core.agent.io.manifest import WorkflowManifest
+from taktik.core.agent.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
 
 
 def agent_plan_from_payload(

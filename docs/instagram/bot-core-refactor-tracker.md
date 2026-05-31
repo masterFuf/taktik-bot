@@ -43,8 +43,9 @@
 - [x] `core/agent` lit maintenant le manifest transversal pour exposer des IDs canoniques `platform.family.workflow`.
 - [x] `core/agent` sait parser/serialiser un payload JSON en `AgentPlan` avec validation optionnelle du manifest.
 - [x] `TaktikAgentWorkflow` charge maintenant un payload `agent_plan` / `agentPlan` dans son contexte runtime sans changer le scenario historique.
-- [x] `core/agent/runtime.py` fournit maintenant une facade parse/execute autour d'un `WorkflowRegistry` injecte, sans brancher les workflows Android par defaut.
-- [x] `core/agent/event_io.py` expose une serialisation JSON-safe des `AgentEvent` pour les futurs bridges.
+- [x] `core/agent/kernel/runtime.py` fournit maintenant une facade parse/execute autour d'un `WorkflowRegistry` injecte, sans brancher les workflows Android par defaut.
+- [x] `core/agent/io/events.py` expose une serialisation JSON-safe des `AgentEvent` pour les futurs bridges.
+- [x] `core/agent` est maintenant classe par owners internes : `kernel/`, `io/`, `decision/`, `scenarios/`, avec une racine limitee a la facade publique `__init__.py`.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [ ] Brancher progressivement de vrais handlers de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
 - [ ] Replier `TaktikAgentWorkflow` en scenario/autopilot historique quand le noyau `AgentRuntime` aura au moins un flow reel valide.

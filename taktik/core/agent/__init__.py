@@ -1,7 +1,7 @@
 # Taktik Agent - autonomous social media orchestration runtime
-from taktik.core.agent.agent_ai import AgentAI
-from taktik.core.agent.agent_context import AgentContext
-from taktik.core.agent.contracts import (
+from taktik.core.agent.decision.agent_ai import AgentAI
+from taktik.core.agent.kernel.context import AgentContext
+from taktik.core.agent.kernel.contracts import (
     AgentAIService,
     AgentAIServiceFactory,
     AgentEvent,
@@ -9,13 +9,13 @@ from taktik.core.agent.contracts import (
     PlanStep,
     WorkflowInvocation,
 )
-from taktik.core.agent.event_io import agent_event_to_payload, agent_events_to_payload
-from taktik.core.agent.executor import AgentPlanExecutor
-from taktik.core.agent.plan_io import agent_plan_from_payload, agent_plan_to_payload
-from taktik.core.agent.registry import WorkflowRegistry
-from taktik.core.agent.runtime import AgentRuntime
-from taktik.core.agent.taktik_agent_workflow import TaktikAgentWorkflow
-from taktik.core.agent.workflow_manifest import WorkflowManifest, canonical_workflow_id, load_workflow_manifest
+from taktik.core.agent.io.events import agent_event_to_payload, agent_events_to_payload
+from taktik.core.agent.io.manifest import WorkflowManifest, canonical_workflow_id, load_workflow_manifest
+from taktik.core.agent.io.plan import agent_plan_from_payload, agent_plan_to_payload
+from taktik.core.agent.kernel.executor import AgentPlanExecutor
+from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.agent.kernel.runtime import AgentRuntime
+from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
 
 __all__ = [
     "AgentAI",

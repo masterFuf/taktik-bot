@@ -102,23 +102,26 @@ Sans big-bang, la cible de structure devient :
 ```text
 taktik/core/agent/
   __init__.py
-  contracts.py
-  agent_context.py
-  agent_ai.py
-  workflow_manifest.py
-  plan_io.py
-  event_io.py
-  registry.py
-  executor.py
-  runtime.py
+  kernel/
+    contracts.py
+    context.py
+    registry.py
+    executor.py
+    runtime.py
+  io/
+    manifest.py
+    plan.py
+    events.py
+  decision/
+    agent_ai.py
   scenarios/
     instagram_feed_autopilot.py
 ```
 
 ### Notes
 
-- `taktik_agent_workflow.py` peut rester temporairement comme facade historique.
-- Son role cible est de devenir un scenario/autopilot branche sur les contrats du noyau.
+- `scenarios/instagram_feed_autopilot.py` porte le scenario Instagram-first historique.
+- Son role cible reste de devenir un scenario/autopilot branche sur les contrats du noyau.
 - Le scenario Instagram actuel ne doit pas dicter a lui seul l'architecture finale de `core/agent`.
 
 ## Lots recommandes
@@ -127,7 +130,7 @@ taktik/core/agent/
 
 - introduire `contracts.py` ;
 - documenter `core/agent` comme runtime kernel transverse ;
-- retirer l'import direct `bridges.common.ai_service` de `taktik_agent_workflow.py` via injection.
+- retirer l'ancien import direct `bridges.common.ai_service` du scenario agent via injection.
 
 ### Lot B - Scenario legacy
 
@@ -145,11 +148,12 @@ taktik/core/agent/
 
 Etat courant :
 
-- `workflow_manifest.py` lit le manifest transversal et valide les IDs de workflows ;
-- `plan_io.py` convertit un payload JSON-safe en `AgentPlan` ;
-- `event_io.py` convertit les `AgentEvent` en payloads JSON-safe pour les futurs bridges ;
-- `runtime.py` fournit une facade parse/execute qui depend d'un `WorkflowRegistry` injecte ;
+- `io/manifest.py` lit le manifest transversal et valide les IDs de workflows ;
+- `io/plan.py` convertit un payload JSON-safe en `AgentPlan` ;
+- `io/events.py` convertit les `AgentEvent` en payloads JSON-safe pour les futurs bridges ;
+- `kernel/runtime.py` fournit une facade parse/execute qui depend d'un `WorkflowRegistry` injecte ;
 - `TaktikAgentWorkflow` accepte deja `agent_plan` / `agentPlan`, le valide et l'expose dans `AgentContext` sans l'executer ni ajouter de nouvel event stdout.
+- l'arborescence physique est maintenant scopee : `kernel/`, `io/`, `decision/`, `scenarios/`. La racine du package expose seulement la facade publique `__init__.py`.
 
 ### Lot D - Extension multi-plateforme
 

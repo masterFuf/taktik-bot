@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Callable, List, Mapping, Optional
 
-from taktik.core.agent.contracts import AgentEvent, AgentPlan
-from taktik.core.agent.executor import AgentPlanExecutor
-from taktik.core.agent.plan_io import agent_plan_from_payload
-from taktik.core.agent.registry import WorkflowRegistry
-from taktik.core.agent.workflow_manifest import WorkflowManifest, load_workflow_manifest
+from taktik.core.agent.io.manifest import WorkflowManifest, load_workflow_manifest
+from taktik.core.agent.io.plan import agent_plan_from_payload
+from taktik.core.agent.kernel.contracts import AgentEvent, AgentPlan
+from taktik.core.agent.kernel.executor import AgentPlanExecutor
+from taktik.core.agent.kernel.registry import WorkflowRegistry
 
 
 class AgentRuntime:

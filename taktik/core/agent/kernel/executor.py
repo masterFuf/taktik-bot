@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
-from taktik.core.agent.contracts import AgentEvent, AgentPlan, PlanStep
-from taktik.core.agent.registry import WorkflowRegistry
+from taktik.core.agent.kernel.contracts import AgentEvent, AgentPlan, PlanStep
+from taktik.core.agent.kernel.registry import WorkflowRegistry
 
 
 class AgentPlanExecutor:
