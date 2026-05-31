@@ -106,6 +106,7 @@ taktik/core/agent/
   agent_context.py
   agent_ai.py
   workflow_manifest.py
+  plan_io.py
   registry.py
   executor.py
   scenarios/
@@ -135,6 +136,7 @@ taktik/core/agent/
 ### Lot C - Noyau d'execution
 
 - lire `workflows.manifest.json` comme source des IDs canoniques ;
+- convertir les payloads JSON Front/CLI en `AgentPlan` valide ;
 - introduire `registry.py` ;
 - introduire `executor.py` ;
 - faire consommer au Bot un `AgentPlan` explicite.

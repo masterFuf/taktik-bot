@@ -69,6 +69,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis `tiktok_publish_bridge.py`.
 - un sous-lot suivant du lot 5 clarifie aussi `taktik/core/ai` : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/ai/openrouter.py`, les bridges et le CLI importent cet owner canonique, et `bridges/common/ai_service.py` ne reste qu'un shim de compatibilite.
 - un sous-lot suivant du lot 5 aligne aussi `core/agent` sur le manifest transversal : `workflow_manifest.py` lit `workflows.manifest.json` et expose les IDs canoniques `platform.family.workflow` utilises par les futurs `AgentPlan`.
+- un sous-lot suivant du lot 5 ajoute la boundary d'entree JSON du noyau agent : `plan_io.py` convertit un payload Front/CLI en `AgentPlan` et peut valider les `workflow_id` contre le manifest transversal.
 
 ## Prompt pret a coller
 

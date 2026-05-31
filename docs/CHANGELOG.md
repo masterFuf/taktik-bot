@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The TikTok publish workflow now follows the same runtime rule: it keeps a standalone fallback notifier, but `tiktok_publish_bridge.py` injects the live bridge notifier instead of letting `taktik/core` create it directly.
 - The OpenRouter `AIService` provider now lives under `taktik/core/ai/openrouter.py`; bridge imports use the core owner while `bridges/common/ai_service.py` remains as a compatibility shim.
 - The agent runtime can now read `workflows.manifest.json` through `taktik/core/agent/workflow_manifest.py` and expose canonical `platform.family.workflow` ids for future `AgentPlan` execution.
+- The agent runtime now exposes JSON-safe `AgentPlan` parsing and serialization through `taktik/core/agent/plan_io.py`, with optional manifest validation for workflow ids.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.
