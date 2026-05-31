@@ -196,7 +196,9 @@ class ContentUIHelpersMixin:
                 self.logger.debug("✅ Image selected from gallery")
                 return True
             
-            first_image = self.device(className="android.view.ViewGroup", clickable=True).child(resourceId=self.content_selectors.gallery_grid_item)
+            first_image = self.device(
+                **self.content_selectors.gallery_image_container_selector
+            ).child(resourceId=self.content_selectors.gallery_grid_item)
             if first_image.exists(timeout=5):
                 self.logger.debug("Found image (method 2: ViewGroup child)")
                 first_image.click()
@@ -363,7 +365,7 @@ class ContentUIHelpersMixin:
                 time.sleep(1)
                 
                 # Rechercher la localisation
-                search_field = self.device(className="android.widget.EditText")
+                search_field = self.device(**self.content_selectors.location_search_field_selector)
                 if search_field.exists(timeout=3):
                     # Use Taktik Keyboard for reliable text input
                     device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
@@ -373,7 +375,7 @@ class ContentUIHelpersMixin:
                     time.sleep(2)
                     
                     # Sélectionner le premier résultat
-                    first_result = self.device(className="android.widget.TextView", instance=0)
+                    first_result = self.device(**self.content_selectors.location_first_result_selector)
                     if first_result.exists(timeout=3):
                         first_result.click()
                         time.sleep(1)
@@ -432,7 +434,7 @@ class ContentUIHelpersMixin:
     def _dismiss_caption_keyboard(self) -> None:
         """Close the Android keyboard if it is still covering the bottom action area."""
         try:
-            if not self.device(className="android.inputmethodservice.SoftInputWindow").exists(timeout=1):
+            if not self.device(**self.content_selectors.keyboard_window_selector).exists(timeout=1):
                 return
         except Exception:
             pass

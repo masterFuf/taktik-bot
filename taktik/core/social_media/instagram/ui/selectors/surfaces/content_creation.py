@@ -10,6 +10,7 @@ class ContentCreationSelectors:
     
     # === Galerie ===
     gallery_grid_item: str = 'com.instagram.android:id/gallery_grid_item_thumbnail'
+    view_group_class_name: str = "android.view.ViewGroup"
     
     # === Boutons de popup ===
     primary_button: str = 'com.instagram.android:id/primary_button'
@@ -54,6 +55,8 @@ class ContentCreationSelectors:
     location_button_texts: List[str] = field(default_factory=lambda: [
         "Add location",
     ])
+    edit_text_class_name: str = "android.widget.EditText"
+    text_view_class_name: str = "android.widget.TextView"
 
     next_descriptions: List[str] = field(default_factory=lambda: [
         "Next",
@@ -99,9 +102,26 @@ class ContentCreationSelectors:
     # === Champs de texte ===
     caption_text_view: str = 'com.instagram.android:id/caption_text_view'
     caption_input_text_view: str = 'com.instagram.android:id/caption_input_text_view'
+    soft_input_window_class_name: str = "android.inputmethodservice.SoftInputWindow"
     
     # === Feed interactions ===
     feed_like_button: str = 'com.instagram.android:id/row_feed_button_like'
     feed_profile_name: str = 'com.instagram.android:id/row_feed_photo_profile_name'
+
+    @property
+    def gallery_image_container_selector(self) -> Dict[str, Any]:
+        return {"className": self.view_group_class_name, "clickable": True}
+
+    @property
+    def location_search_field_selector(self) -> Dict[str, str]:
+        return {"className": self.edit_text_class_name}
+
+    @property
+    def location_first_result_selector(self) -> Dict[str, Any]:
+        return {"className": self.text_view_class_name, "instance": 0}
+
+    @property
+    def keyboard_window_selector(self) -> Dict[str, str]:
+        return {"className": self.soft_input_window_class_name}
 
 CONTENT_CREATION_SELECTORS = ContentCreationSelectors()

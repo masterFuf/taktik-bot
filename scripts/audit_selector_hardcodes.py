@@ -146,30 +146,6 @@ KNOWN_SELECTOR_DEBT = (
         "Login screen detector still has a generic clickable fallback outside the auth catalog.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/content/content_ui_helpers.py",
-        "uiautomator-literal",
-        "android.view.ViewGroup",
-        "Content publishing gallery fallback still uses a raw class selector.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/content/content_ui_helpers.py",
-        "uiautomator-literal",
-        "android.widget.EditText",
-        "Content publishing text/search fallbacks still use raw class selectors.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/content/content_ui_helpers.py",
-        "uiautomator-literal",
-        "android.widget.TextView",
-        "Content publishing location fallback still uses a raw class selector.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/content/content_ui_helpers.py",
-        "uiautomator-literal",
-        "android.inputmethodservice.SoftInputWindow",
-        "Keyboard visibility fallback should move to an input/support selector owner.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/tiktok/actions/business/workflows/_internal/profile_extractor.py",
         "uiautomator-literal",
         "android.widget.Button",
