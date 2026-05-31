@@ -95,6 +95,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant renforce le noyau `core/agent` avant le branchement de vrais workflows Android : le registre/runtime peuvent pre-valider les handlers manquants d'un `AgentPlan`, et l'executor refuse un plan incomplet avant tout event ou effet de bord.
 - un sous-lot suivant clarifie encore `core/agent/kernel` : `contracts.py` porte seulement les dataclasses de plan/event, tandis que les ports d'injection IA vivent dans `kernel/ports.py`.
 - un sous-lot suivant ajoute `kernel/errors.py` pour les erreurs structurees du noyau agent, en commencant par les handlers workflow manquants avec payload JSON-safe.
+- un sous-lot suivant branche le premier workflow reel sur le noyau agent sans modifier les bridges : `social_media/tiktok/workflows/publish/agent_handler.py` enregistre `tiktok.standalone.upload_post` via dependencies injectees.
 
 ## Audit `clone` / `compat` au 2026-05-31
 

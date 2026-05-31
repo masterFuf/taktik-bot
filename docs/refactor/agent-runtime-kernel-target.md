@@ -170,6 +170,11 @@ Etat courant :
 - garder le Front comme planner premium.
 - avant de brancher un workflow Android reel, ajouter son handler explicite dans le registre de l'appelant et verifier la couverture avec `missing_workflow_handlers()`.
 
+Etat courant :
+
+- `social_media/tiktok/workflows/publish/agent_handler.py` expose le premier handler reel branchable dans `WorkflowRegistry` : `tiktok.standalone.upload_post`.
+- Le handler TikTok publish reste injectable : il recoit `device`, `device_id`, notifier et factory de workflow depuis l'appelant. Il ne cree pas de connexion device et ne change pas le bridge existant.
+
 ## Point d'attention
 
 Le Bot doit rester utilisable sans le Front.
