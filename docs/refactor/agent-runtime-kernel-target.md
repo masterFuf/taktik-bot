@@ -175,6 +175,7 @@ Etat courant :
 - `social_media/tiktok/workflows/publish/agent_handler.py` expose le premier handler reel branchable dans `WorkflowRegistry` : `tiktok.standalone.upload_post`.
 - Le handler TikTok publish reste injectable : il recoit `device`, `device_id`, notifier et factory de workflow depuis l'appelant. Il ne cree pas de connexion device et ne change pas le bridge existant.
 - `social_media/youtube/workflows/publish/agent_handler.py` applique le meme pattern pour `youtube.publish.upload_post`, avec normalisation des parametres bridge-compatible.
+- `social_media/tiktok/actions/business/workflows/followers/agent_handler.py` applique le pattern aux followers TikTok via `tiktok.automation.followers`. Ce handler reste single-target : un plan multi-cibles doit composer plusieurs `PlanStep`, plutot que cacher une boucle bridge dans le handler.
 
 ## Point d'attention
 
