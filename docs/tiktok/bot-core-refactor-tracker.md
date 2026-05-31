@@ -54,6 +54,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Les handlers Agent TikTok partagent maintenant leurs primitives d'adaptation locales via `actions/business/workflows/_internal/agent_runtime.py`, sans nouveau helper transversal.
 - [x] TikTok Unfollow peut maintenant etre enregistre comme handler Agent `tiktok.standalone.tiktok_unfollow`, avec mapping conserve de `skipFriends` vers `include_friends`.
 - [x] TikTok Scraping peut maintenant etre enregistre comme handler Agent `tiktok.automation.scraping` / `tiktok.standalone.tiktok_scraping`, avec persistence profile injectable plutot que DB bridge integree.
+- [x] TikTok DM read/send peuvent maintenant etre enregistres comme handlers Agent `tiktok.automation.dm_read` / `tiktok.automation.dm_send`, sans melanger la logique `dm_outreach_bridge.py` encore bridge-owned.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement les autres handlers reels de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
