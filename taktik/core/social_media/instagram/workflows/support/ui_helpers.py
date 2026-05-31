@@ -7,6 +7,7 @@ from ..common.detection import is_reel_post, is_likers_popup_open
 from ...ui.selectors.shell.popups import POPUP_SELECTORS
 from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
+from ...ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class UIHelpers:        
@@ -23,6 +24,7 @@ class UIHelpers:
         self.POST_LIKERS_SELECTORS = POST_LIKERS_SELECTORS
         self.POPUP_SELECTORS = POPUP_SELECTORS
         self.DETECTION_SELECTORS = DETECTION_SELECTORS
+        self.PROFILE_SELECTORS = PROFILE_SELECTORS
     
     def _random_delay(self, min_delay: float = 0.5, max_delay: float = 1.0) -> None:
         """Add a random delay to simulate human behavior."""
@@ -135,17 +137,12 @@ class UIHelpers:
     
     def follow_user(self, username: str) -> bool:
         try:
-            follow_button = self.device(text="Follow")
-            if follow_button.exists():
-                follow_button.click()
-                self._random_delay(1, 2)
-                return True
-            
-            follow_button = self.device(text="Suivre")
-            if follow_button.exists():
-                follow_button.click()
-                self._random_delay(1, 2)
-                return True
+            for label in self.PROFILE_SELECTORS.follow_button_text_labels:
+                follow_button = self.device(text=label)
+                if follow_button.exists():
+                    follow_button.click()
+                    self._random_delay(1, 2)
+                    return True
             
             return False
         except Exception as e:

@@ -53,6 +53,11 @@ class ProfileSelectors:
         '//*[contains(@text, "Suivi(e)")]'
     ])
     
+    follow_button_text_labels: List[str] = field(default_factory=lambda: [
+        'Follow',
+        'Suivre',
+    ])
+
     message_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Message")]',
         '//*[contains(@text, "Envoyer un message")]',
