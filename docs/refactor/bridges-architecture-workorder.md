@@ -33,6 +33,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
 - `bridges/common/runtime/**` = bootstrap process, stdout JSON IPC, base bridge commune et signal handling.
 - Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, build PyInstaller et resolver Front.
+- Chaque wrapper public racine doit ajouter `bot/` a `sys.path` avant son import delegue, sinon `python bridges/<platform>/<bridge_name>.py` peut echouer hors lancement module.
 
 ## Lots
 

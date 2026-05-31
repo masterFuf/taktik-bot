@@ -6,6 +6,13 @@ stays at the platform root because the Front dev resolver launches
 `bridges/instagram/persona_analysis_bridge.py` directly.
 """
 
+import os
+import sys
+
+bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if bot_dir not in sys.path:
+    sys.path.insert(0, bot_dir)
+
 from bridges.instagram.analysis.persona import main
 
 
