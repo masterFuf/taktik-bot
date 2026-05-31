@@ -101,6 +101,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant branche TikTok For You sur le noyau agent : `social_media/tiktok/actions/business/workflows/for_you/agent_handler.py` enregistre `tiktok.automation.for_you` avec un adapter video-feed injectable, sans reprendre le startup bridge.
 - un sous-lot suivant branche les variantes TikTok Search/Hashtag/Target sur le noyau agent : `social_media/tiktok/actions/business/workflows/search/agent_handler.py` enregistre les IDs `tiktok.automation.search`, `tiktok.automation.hashtag` et `tiktok.automation.target` comme invocations single-query.
 - un sous-lot suivant factorise les primitives communes de handlers Agent TikTok sous `social_media/tiktok/actions/business/workflows/_internal/agent_runtime.py`, afin d'eviter la duplication sans creer de `utils`/`helpers` transversal.
+- un sous-lot suivant branche TikTok Unfollow sur le noyau agent : `social_media/tiktok/actions/business/workflows/unfollow/agent_handler.py` enregistre `tiktok.standalone.tiktok_unfollow` avec un mapping explicite du contrat bridge `skipFriends`.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31
