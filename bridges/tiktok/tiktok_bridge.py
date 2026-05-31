@@ -41,7 +41,7 @@ def main():
     # Network reset (get new IP before session)
     network_reset = config.get('networkReset', {})
     if network_reset.get('enabled', False):
-        from bridges.common.network import perform_network_reset
+        from bridges.common.device.network import perform_network_reset
         from bridges.tiktok.base import _ipc
         perform_network_reset(device_id, method=network_reset.get('method', 'data'), ipc=_ipc)
     

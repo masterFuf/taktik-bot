@@ -522,7 +522,7 @@ class DesktopBridge:
         
         # Network reset (get new IP before session)
         if self.network_reset_enabled:
-            from bridges.common.network import perform_network_reset
+            from bridges.common.device.network import perform_network_reset
             perform_network_reset(self.device_id, method=self.network_reset_method, ipc=_ipc)
         
         # Start media capture (non-blocking if fails)
