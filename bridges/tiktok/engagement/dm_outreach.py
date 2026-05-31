@@ -14,7 +14,7 @@ if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
 from bridges.common.persistence.database import SentDMService
-from bridges.tiktok.base import logger, send_error, send_message, send_status, set_workflow
+from bridges.tiktok.runtime.ipc import logger, send_error, send_message, send_status, set_workflow
 from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach import (
     TikTokDMOutreachWorkflow,
 )

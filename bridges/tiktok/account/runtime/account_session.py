@@ -4,7 +4,7 @@ import time
 
 from bridges.common.device.app_manager import AppService
 from bridges.common.device.connection import ConnectionService
-from bridges.tiktok.base import send_error, send_log, send_status
+from bridges.tiktok.runtime.ipc import send_error, send_log, send_status
 
 
 class TikTokAccountSessionMixin:

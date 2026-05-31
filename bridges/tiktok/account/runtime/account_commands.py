@@ -5,7 +5,7 @@ import sys
 from typing import Sequence
 
 from bridges.tiktok.account.account import TikTokAccountBridge
-from bridges.tiktok.base import send_error
+from bridges.tiktok.runtime.ipc import send_error
 
 
 def run_account_bridge_cli(argv: Sequence[str]) -> int:

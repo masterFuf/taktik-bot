@@ -5,19 +5,19 @@ TikTok Search Bridge - Search/Hashtag workflow
 
 from typing import Any, Dict, List
 
-from bridges.tiktok.base import (
+from bridges.tiktok.runtime.ipc import (
     logger,
-    send_status,
+    send_action,
     send_error,
     send_message,
-    send_video_info,
-    send_action,
     send_pause,
     send_stats,
+    send_status,
+    send_video_info,
     set_workflow,
-    tiktok_startup,
-    send_final_video_stats,
 )
+from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.runtime.video_callbacks import send_final_video_stats
 from taktik.core.social_media.tiktok.services.navigation.reset import (
     return_to_tiktok_home as return_device_to_tiktok_home,
 )

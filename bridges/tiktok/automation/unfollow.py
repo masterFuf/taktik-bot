@@ -14,10 +14,11 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.tiktok.base import (
+from bridges.tiktok.runtime.ipc import (
     logger, send_status, send_message,
-    send_error, set_workflow, tiktok_startup
+    send_error, set_workflow
 )
+from bridges.tiktok.runtime.startup import tiktok_startup
 
 
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:

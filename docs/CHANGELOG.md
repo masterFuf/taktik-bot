@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Persona Analysis profile screenshot capture moved under `bridges/instagram/analysis/runtime/persona_media.py`, preserving the base64 JPEG data URI output while moving media capture out of the workflow class.
 - TikTok Account bridge support moved under `bridges/tiktok/account/runtime/**`: CLI/config loading, DB/device/app preparation, clone selector patching and login/logout/register dispatch are no longer embedded in `account/account.py`.
 - TikTok bridge base runtime capabilities moved under `bridges/tiktok/runtime/**`: platform IPC helpers, app/profile startup and video callback wiring now have explicit owners while `base.py` stays a thin facade.
+- TikTok bridge internals now import runtime capabilities from their direct owners instead of depending on the `bridges/tiktok/base.py` facade.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

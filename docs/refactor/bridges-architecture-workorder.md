@@ -96,6 +96,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B50 | Fait | Extraire la capture screenshot profil Persona Analysis sous `analysis/runtime/persona_media.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B51 | Fait | Extraire le support local TikTok Account sous `account/runtime/**` : commandes CLI/config, preparation DB/device/app/clone selectors et dispatch login/logout/register. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B52 | Fait | Extraire les capacites de `bridges/tiktok/base.py` sous `bridges/tiktok/runtime/{ipc,startup,video_callbacks}.py`; `base.py` devient une facade stable. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B53 | Fait | Migrer les consumers internes TikTok vers les owners runtime directs (`runtime/ipc.py`, `runtime/startup.py`, `runtime/video_callbacks.py`) au lieu de passer par la facade `base.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 

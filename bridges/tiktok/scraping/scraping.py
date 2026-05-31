@@ -10,9 +10,10 @@ import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from bridges.tiktok.base import (
+from bridges.tiktok.runtime.ipc import (
     logger, send_status, send_message, send_error, set_workflow, get_workflow
 )
+from bridges.tiktok.runtime.startup import tiktok_startup
 from bridges.common.persistence.database import get_repository
 from taktik.core.database.repositories.tiktok.tiktok_repository import TikTokRepository
 from taktik.core.database.repositories.instagram.session.session_repository import SessionRepository
@@ -82,7 +83,6 @@ def update_scraping_session(session_id: int, total_scraped: int, status: str, du
 
 def run_scraping_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok scraping workflow."""
-    from bridges.tiktok.base import tiktok_startup
     from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import (
         ScrapingWorkflow, ScrapingConfig

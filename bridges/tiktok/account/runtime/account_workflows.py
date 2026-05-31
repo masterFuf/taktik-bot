@@ -1,6 +1,6 @@
 """Workflow adapters for TikTok account bridge actions."""
 
-from bridges.tiktok.base import _ipc, send_error, send_log, send_message, send_status
+from bridges.tiktok.runtime.ipc import _ipc, send_error, send_log, send_message, send_status
 
 
 class TikTokAccountWorkflowMixin:

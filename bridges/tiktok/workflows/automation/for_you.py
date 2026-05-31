@@ -5,9 +5,11 @@ TikTok For You Bridge - For You page workflow
 
 from typing import Dict, Any
 
-from bridges.tiktok.base import (
-    logger, send_status, send_error, set_workflow, tiktok_startup,
-    setup_video_workflow_callbacks, send_final_video_stats
+from bridges.tiktok.runtime.ipc import logger, send_error, send_status, set_workflow
+from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.runtime.video_callbacks import (
+    send_final_video_stats,
+    setup_video_workflow_callbacks,
 )
 
 

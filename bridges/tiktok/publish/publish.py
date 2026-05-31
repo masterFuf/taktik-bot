@@ -27,7 +27,7 @@ if bot_dir not in sys.path:
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.tiktok.base import logger, _ipc, send_message, send_status, send_error, send_log
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error, send_log, send_message, send_status
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 

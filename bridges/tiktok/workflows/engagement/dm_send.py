@@ -5,10 +5,11 @@ TikTok DM Send Bridge - DM sending workflow
 
 from typing import Dict, Any
 
-from bridges.tiktok.base import (
+from bridges.tiktok.runtime.ipc import (
     logger, send_status, send_dm_sent, send_dm_progress, 
-    send_dm_stats, send_error, set_workflow, tiktok_startup
+    send_dm_stats, send_error, set_workflow
 )
+from bridges.tiktok.runtime.startup import tiktok_startup
 
 
 def run_dm_send_workflow(config: Dict[str, Any]):

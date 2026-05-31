@@ -6,10 +6,11 @@ TikTok Followers Bridge - Followers workflow
 import time
 from typing import Dict, Any
 
-from bridges.tiktok.base import (
+from bridges.tiktok.runtime.ipc import (
     logger, send_status, send_message, send_action, 
-    send_pause, send_error, set_workflow, tiktok_startup
+    send_pause, send_error, set_workflow
 )
+from bridges.tiktok.runtime.startup import tiktok_startup
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 
 

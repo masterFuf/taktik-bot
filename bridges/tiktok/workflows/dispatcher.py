@@ -13,7 +13,7 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.tiktok.base import logger, send_error
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error
 
 
 def main():
@@ -42,7 +42,6 @@ def main():
     network_reset = config.get('networkReset', {})
     if network_reset.get('enabled', False):
         from bridges.common.device.network import perform_network_reset
-        from bridges.tiktok.base import _ipc
         perform_network_reset(device_id, method=network_reset.get('method', 'data'), ipc=_ipc)
 
     try:

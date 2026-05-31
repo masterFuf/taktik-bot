@@ -1,6 +1,6 @@
 """TikTok bridges package."""
 
-from .base import (
+from .runtime.ipc import (
     send_message, send_status, send_stats, send_video_info, send_action,
     send_pause, send_dm_conversation, send_dm_progress, send_dm_stats,
     send_dm_sent, send_error, send_log, signal_handler
