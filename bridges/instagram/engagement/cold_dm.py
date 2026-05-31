@@ -9,9 +9,6 @@ import sys
 import json
 import time
 import random
-import os
-import urllib.request
-import urllib.error
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
@@ -21,6 +18,7 @@ setup_environment(log_level="INFO")
 
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.base import logger, InstagramBridgeBase
+from bridges.instagram.engagement.runtime.cold_dm_ai import generate_ai_message
 from bridges.instagram.engagement.runtime.cold_dm_persistence import (
     check_dm_already_sent,
     record_sent_dm,
@@ -30,8 +28,6 @@ from bridges.instagram.engagement.runtime.cold_dm_persistence import (
 class ColdDMWorkflow(InstagramBridgeBase):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
 
-    OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-
     def __init__(self, device_id: str, package_name: str = None):
         super().__init__(device_id, package_name=package_name)
         self._keyboard = KeyboardService(device_id)
@@ -40,56 +36,6 @@ class ColdDMWorkflow(InstagramBridgeBase):
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
-
-    def generate_ai_message(self, username: str, ai_prompt: str, openrouter_api_key: str) -> str:
-        """Generate a personalized DM message for a user via OpenRouter."""
-        try:
-            system_prompt = """Tu es un expert en cold outreach Instagram. Tu gÃ©nÃ¨res des messages directs personnalisÃ©s, naturels et engageants.
-
-RÃ¨gles:
-- Message court (1-3 phrases max)
-- Ton amical et professionnel
-- Pas de spam, pas de messages gÃ©nÃ©riques
-- Adapte le message au contexte donnÃ©
-- Ne mentionne jamais que tu es une IA
-- RÃ©ponds UNIQUEMENT avec le texte du message, rien d'autre"""
-
-            user_prompt = f"""GÃ©nÃ¨re un message de prospection Instagram pour @{username}.
-
-Instructions spÃ©cifiques:
-{ai_prompt}
-
-Le message doit Ãªtre unique et personnalisÃ©. RÃ©ponds uniquement avec le texte du message."""
-
-            headers = {
-                "Authorization": f"Bearer {openrouter_api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://taktik-bot.com",
-                "X-Title": "TAKTIK Bot",
-            }
-            body = json.dumps({
-                "model": "anthropic/claude-3.5-haiku",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.8,
-                "max_tokens": 200,
-            }).encode("utf-8")
-
-            req = urllib.request.Request(self.OPENROUTER_API_URL, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                choice = data.get("choices", [{}])[0]
-                message = choice.get("message", {}).get("content", "").strip()
-                # Remove surrounding quotes if present
-                if message.startswith('"') and message.endswith('"'):
-                    message = message[1:-1]
-                logger.info(f"AI generated message for @{username}: {message[:50]}...")
-                return message
-        except Exception as e:
-            logger.error(f"AI message generation failed for @{username}: {e}")
-            return ""
 
     def navigate_to_search(self) -> bool:
         """Navigate to the search/explore tab."""
@@ -438,7 +384,7 @@ Le message doit Ãªtre unique et personnalisÃ©. RÃ©ponds uniquement avec le
 
                 # Pick a message (AI-generated or random from list)
                 if use_ai:
-                    message = self.generate_ai_message(recipient, ai_prompt, openrouter_api_key)
+                    message = generate_ai_message(recipient, ai_prompt, openrouter_api_key)
                     if not message:
                         logger.warning(f"AI generation failed for @{recipient}, skipping")
                         self.dms_failed += 1
