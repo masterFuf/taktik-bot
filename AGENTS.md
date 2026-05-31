@@ -48,6 +48,8 @@ Regles macro :
 - `taktik/core/ai/**` est l'owner des providers IA runtime reutilisables par le Bot. `bridges/common/ai_service.py` ne doit rester qu'un shim de compatibilite vers `taktik.core.ai.openrouter`.
 - Les dossiers `device`, `media`, `email`, `ai`, `agent`, `compat`, `clone` doivent rester auditables. Avant d'y deplacer du code, verifier si on clarifie vraiment l'ownership ou si on deplace seulement le foutoir.
 - Sous `taktik/core/compat`, le framework de compatibilite selectors/versioning doit vivre sous `compat/selectors/**`. Les fichiers top-level `compat/selector_registry.py`, `compat/selector_tracer.py` et `compat/setup.py` ne doivent servir qu'en shims de compatibilite tant que des imports legacy subsistent.
+- `taktik/core/clone/**` est l'owner transversal des variantes Android par package : detection de clones, package actif, proxy device clone-aware et patch de selectors par package. Ne pas y ajouter de logique metier Instagram/TikTok qui appartient a `social_media/<platform>`.
+- `taktik/core/compat/selectors/**` est l'owner de la compatibilite selectors par version et du tracing. Le nouveau code interne doit importer cet owner direct plutot que les shims top-level `compat/*.py`.
 - Pas de nouveau dossier fourre-tout `utils`, `helpers`, `misc`, `common` au niveau `taktik/core`. Preferer un owner clair.
 
 ## Refactor structurel Bot

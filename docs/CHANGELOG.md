@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `taktik/core/agent/runtime.py` now provides the first parse-and-execute facade for injected workflow registries, keeping real Android workflow binding outside the kernel for now.
 - `taktik/core/agent/event_io.py` now serializes `AgentEvent` instances into JSON-safe payloads for future bridge integration.
 - The Bot core refactor trackers now distinguish completed agent kernel extraction from the remaining work of binding real workflow handlers.
+- `clone/**` and `compat/**` now have an explicit structural audit: `clone` owns package/clone runtime, `compat/selectors` owns selector versioning/tracing, and top-level compat modules remain legacy shims only.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.

@@ -74,6 +74,16 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 ajoute `core/agent/runtime.py` comme facade parse/execute : le plan vient d'un payload JSON, les handlers reels restent injectes via `WorkflowRegistry`, et aucun workflow Android historique n'est branche par defaut.
 - un sous-lot suivant du lot 5 ajoute `core/agent/event_io.py` pour serialiser les `AgentEvent` en payloads JSON-safe avant tout branchement bridge, afin d'eviter des conversions ad hoc cote stdout.
 
+## Audit `clone` / `compat` au 2026-05-31
+
+| Dossier | Role | Owner | Imports entrants | Imports sortants | Proposition |
+|---|---|---|---|---|---|
+| `taktik/core/clone` | Variantes d'app Android et packages clones. | Runtime clone/package. | Bridges Instagram/TikTok, CLI, workflows/actions Instagram, tests clone. | `compat/selectors/setup` uniquement pour patcher les catalogues selectors par package. | Garder au niveau `core` : c'est transverse aux plateformes. Ne pas y ajouter de logique metier plateforme. |
+| `taktik/core/compat/selectors` | Compatibilite selectors par version et tracing. | Framework compat selectors. | Bridges compat, desktop bridge, `clone/selector_patcher.py`, tests compat. | Catalogues selectors Instagram/TikTok publics. | Owner correct. Continuer a importer ce package direct depuis le code interne. |
+| `taktik/core/compat/*.py` | Shims legacy top-level. | Compat transitoire. | Tests legacy uniquement a ce stade. | Re-export vers `compat/selectors/**`. | Garder temporairement pour compat package-level ; ne pas les utiliser depuis du nouveau code interne. |
+
+Conclusion : pas de deplacement mecanique recommande. Le risque actuel est surtout d'utiliser `clone` ou `compat` comme zone tampon ; la frontiere documentee suffit pour le moment.
+
 ## Prompt pret a coller
 
 ```text
