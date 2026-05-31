@@ -9,7 +9,7 @@ import time
 from typing import Dict, Any, Optional
 from loguru import logger
 
-from taktik.core.agent.kernel.contracts import AgentAIService
+from taktik.core.agent.kernel.ports import AgentAIService
 
 
 # ---------------------------------------------------------------------------

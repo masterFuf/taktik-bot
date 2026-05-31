@@ -2,8 +2,6 @@
 from taktik.core.agent.decision.agent_ai import AgentAI
 from taktik.core.agent.kernel.context import AgentContext
 from taktik.core.agent.kernel.contracts import (
-    AgentAIService,
-    AgentAIServiceFactory,
     AgentEvent,
     AgentPlan,
     PlanStep,
@@ -13,6 +11,7 @@ from taktik.core.agent.io.events import agent_event_to_payload, agent_events_to_
 from taktik.core.agent.io.manifest import WorkflowManifest, canonical_workflow_id, load_workflow_manifest
 from taktik.core.agent.io.plan import agent_plan_from_payload, agent_plan_to_payload
 from taktik.core.agent.kernel.executor import AgentPlanExecutor
+from taktik.core.agent.kernel.ports import AgentAIService, AgentAIServiceFactory
 from taktik.core.agent.kernel.registry import WorkflowRegistry
 from taktik.core.agent.kernel.runtime import AgentRuntime
 from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow

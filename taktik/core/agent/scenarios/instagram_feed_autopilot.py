@@ -26,7 +26,8 @@ from taktik.core.agent.decision.agent_ai import AgentAI
 from taktik.core.agent.io.manifest import load_workflow_manifest
 from taktik.core.agent.io.plan import agent_plan_from_payload
 from taktik.core.agent.kernel.context import AgentContext
-from taktik.core.agent.kernel.contracts import AgentAIService, AgentAIServiceFactory, AgentPlan
+from taktik.core.agent.kernel.contracts import AgentPlan
+from taktik.core.agent.kernel.ports import AgentAIService, AgentAIServiceFactory
 
 
 # ---------------------------------------------------------------------------

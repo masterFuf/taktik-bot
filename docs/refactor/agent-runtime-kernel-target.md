@@ -17,6 +17,7 @@ Owner : runtime/app transverse.
 Ce package doit porter :
 
 - les contrats d'orchestration (`AgentPlan`, `PlanStep`, `WorkflowInvocation`, `AgentEvent`) ;
+- les ports d'injection runtime (`AgentAIService`, factories, notifiers futurs) ;
 - le contexte runtime normalise de l'agent ;
 - le registre de workflows executables ;
 - l'executor qui deroule un plan ;
@@ -104,6 +105,7 @@ taktik/core/agent/
   __init__.py
   kernel/
     contracts.py
+    ports.py
     context.py
     registry.py
     executor.py
@@ -123,6 +125,7 @@ taktik/core/agent/
 - `scenarios/instagram_feed_autopilot.py` porte le scenario Instagram-first historique.
 - Son role cible reste de devenir un scenario/autopilot branche sur les contrats du noyau.
 - Le scenario Instagram actuel ne doit pas dicter a lui seul l'architecture finale de `core/agent`.
+- `kernel/contracts.py` ne porte que les dataclasses de plan/event. Les interfaces injectees vivent dans `kernel/ports.py` pour eviter de melanger contrat de donnees et ports runtime.
 
 ## Lots recommandes
 
@@ -151,6 +154,7 @@ Etat courant :
 - `io/manifest.py` lit le manifest transversal et valide les IDs de workflows ;
 - `io/plan.py` convertit un payload JSON-safe en `AgentPlan` ;
 - `io/events.py` convertit les `AgentEvent` en payloads JSON-safe pour les futurs bridges ;
+- `kernel/ports.py` porte les ports d'injection IA utilises par `decision/` et les scenarios historiques ;
 - `kernel/runtime.py` fournit une facade parse/execute qui depend d'un `WorkflowRegistry` injecte ;
 - `WorkflowRegistry` et `AgentRuntime` exposent une prevalidation des handlers manquants pour un `AgentPlan` valide, afin qu'un appelant Front/CLI puisse detecter les workflows non branches avant execution ;
 - `AgentPlanExecutor` refuse maintenant un plan dont au moins un workflow n'a pas de handler enregistre avant d'emettre le premier event, pour eviter les demi-executions ;
