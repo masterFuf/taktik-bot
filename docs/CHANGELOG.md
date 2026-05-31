@@ -110,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram content publishing helpers now read popup, caption, location, publish and story button labels from `CONTENT_CREATION_SELECTORS`.
 - Instagram content publishing helpers now read the edit-video detection regex from `CONTENT_CREATION_SELECTORS` instead of keeping the UI signature inline.
 - Instagram DM management helpers now read direct-tab, conversation-back, send-button and profile-message uiautomator fallbacks from `DM_SELECTORS` / `PROFILE_SELECTORS`.
+- Instagram DM reply/outreach/navigation helpers now also read edit-text/text-view class fallbacks and dynamic username/send-button uiautomator selectors from `DM_SELECTORS`, reducing the selector hardcode audit allowlist.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation; internal publish workflow code now uses the specialized publish catalogs directly.

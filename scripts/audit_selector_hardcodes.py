@@ -146,42 +146,6 @@ KNOWN_SELECTOR_DEBT = (
         "Login screen detector still has a generic clickable fallback outside the auth catalog.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/dm/reply_actions.py",
-        "uiautomator-literal",
-        "android.widget.EditText",
-        "DM reply input fallback needs a scoped DM selector builder.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/dm/reply_actions.py",
-        "uiautomator-literal",
-        "Send",
-        "DM reply send button text/description fallback needs catalog ownership.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/dm/reply_actions.py",
-        "uiautomator-literal",
-        "Envoyer",
-        "DM reply send button text/description fallback needs catalog ownership.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/dm/outreach_actions.py",
-        "uiautomator-literal",
-        "android.widget.EditText",
-        "DM outreach input/search fallbacks need scoped DM selector builders.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/dm/outreach_actions.py",
-        "uiautomator-literal",
-        "android.widget.TextView",
-        "DM outreach username result fallback needs scoped DM selector builders.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/management/dm/dm_navigation.py",
-        "uiautomator-literal",
-        "android.widget.TextView",
-        "DM inbox thread text fallback needs a scoped DM selector builder.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/instagram/workflows/management/content/content_ui_helpers.py",
         "uiautomator-literal",
         "android.view.ViewGroup",

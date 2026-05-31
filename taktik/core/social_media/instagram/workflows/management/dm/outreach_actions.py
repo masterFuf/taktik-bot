@@ -56,7 +56,7 @@ class OutreachActionsMixin:
                 return False
             
             # Cliquer sur la barre de recherche
-            search_field = self.device(className="android.widget.EditText")
+            search_field = self.device(**self.dm_selectors.message_input_class_selector)
             if search_field.exists(timeout=5):
                 search_field.click()
                 time.sleep(1)
@@ -72,7 +72,9 @@ class OutreachActionsMixin:
             
             # Cliquer sur le premier résultat (compte)
             # Chercher le compte dans les résultats
-            account_result = self.device(textContains=username, className="android.widget.TextView")
+            account_result = self.device(
+                **self.dm_selectors.account_result_selector_for_username(username)
+            )
             if account_result.exists(timeout=5):
                 account_result.click()
                 time.sleep(2)
@@ -162,7 +164,7 @@ class OutreachActionsMixin:
             
             if not message_input:
                 # Fallback générique
-                message_input = self.device(className="android.widget.EditText")
+                message_input = self.device(**self.dm_selectors.message_input_class_selector)
                 if not message_input.exists(timeout=5):
                     self.logger.error("Message input field not found")
                     return False

@@ -27,6 +27,7 @@ class DirectMessageSelectors:
     
     # === Inbox (Liste des conversations) ===
     inbox_thread_list: str = '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]'
+    text_view_class_name: str = "android.widget.TextView"
     
     # Conteneur d'une conversation dans la liste
     thread_container: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
@@ -84,6 +85,7 @@ class DirectMessageSelectors:
     ])
     
     # === Dans une conversation ===
+    edit_text_class_name: str = "android.widget.EditText"
     message_input: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_thread_composer_edittext"]',
         '//android.widget.EditText[contains(@hint, "Message")]',
@@ -123,5 +125,22 @@ class DirectMessageSelectors:
     search_recipient: str = '//android.widget.EditText[contains(@text, "Rechercher") or contains(@text, "Search")]'
     thread_list: str = '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]'
     thread_item: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
+
+    @property
+    def message_input_class_selector(self) -> Dict[str, str]:
+        return {"className": self.edit_text_class_name}
+
+    @property
+    def text_view_class_selector(self) -> Dict[str, str]:
+        return {"className": self.text_view_class_name}
+
+    def thread_selector_for_username(self, username: str) -> Dict[str, str]:
+        return {"textContains": username}
+
+    def account_result_selector_for_username(self, username: str) -> Dict[str, str]:
+        return {"textContains": username, "className": self.text_view_class_name}
+
+    def send_button_selector_for_description(self, description: str) -> Dict[str, str]:
+        return {"contentDescription": description}
 
 DM_SELECTORS = DirectMessageSelectors()

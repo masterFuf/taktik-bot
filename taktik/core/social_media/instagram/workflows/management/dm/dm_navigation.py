@@ -136,7 +136,7 @@ class DMNavigationMixin:
                         return username
             
             # Méthode 3: Fallback - chercher le premier TextView
-            text_views = thread_element.child(className="android.widget.TextView")
+            text_views = thread_element.child(**DM_SELECTORS.text_view_class_selector)
             if text_views.exists:
                 username = text_views.get_text()
                 if username and not username.startswith("Active"):
@@ -151,7 +151,7 @@ class DMNavigationMixin:
         """Ouvrir une conversation spécifique."""
         try:
             # Chercher le thread par username
-            thread = self.device(textContains=username)
+            thread = self.device(**DM_SELECTORS.thread_selector_for_username(username))
             if thread.exists(timeout=5):
                 thread.click()
                 time.sleep(2)

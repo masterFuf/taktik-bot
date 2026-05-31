@@ -93,7 +93,7 @@ class DMReplyActionsMixin:
         """Envoyer la réponse dans la conversation."""
         try:
             # Trouver le champ de saisie
-            message_input = self.device(className="android.widget.EditText")
+            message_input = self.device(**DM_SELECTORS.message_input_class_selector)
             if not message_input.exists(timeout=5):
                 self.logger.error("Message input not found")
                 return False
@@ -109,11 +109,15 @@ class DMReplyActionsMixin:
             time.sleep(0.5)
             
             # Envoyer
-            send_btn = self.device(contentDescription="Send")
-            if not send_btn.exists(timeout=3):
-                send_btn = self.device(contentDescription="Envoyer")
+            send_btn = None
+            for description in DM_SELECTORS.send_button_content_descriptions:
+                send_btn = self.device(
+                    **DM_SELECTORS.send_button_selector_for_description(description)
+                )
+                if send_btn.exists(timeout=3):
+                    break
             
-            if send_btn.exists(timeout=3):
+            if send_btn and send_btn.exists(timeout=3):
                 send_btn.click()
                 time.sleep(1)
                 return True
