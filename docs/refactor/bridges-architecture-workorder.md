@@ -28,6 +28,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/runtime/**` = capacites runtime partagees par plusieurs flows d'une plateforme : IPC specifique plateforme, startup app/profil, callbacks video. `base.py` peut rester une facade mince, pas l'owner durable.
 - `bridges/<platform>/workflows/**` = runners internes appeles par un entrypoint dispatcher, classes par famille de flow (`automation`, `engagement`, `scraping`, etc.).
 - `bridges/<platform>/workflows/<family>/runtime/**` = support local d'un runner workflow interne : planning payload, aggregation stats, callbacks stdout. Ce support reste bridge tant qu'il depend du contrat stdout.
+- `bridges/<platform>/workflows/runtime/**` = runners locaux d'un dispatcher plateforme quand aucune famille plus precise n'existe encore.
 - `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations d'entrypoints dedies routees directement par le launcher et le manifest.
 - `bridges/<platform>/automation/runtime/**` = support local d'un bridge automation volumineux : parsing payload, lifecycle device/app, media capture, setup IA, runner. Ne pas laisser ces modules plats a cote de l'entrypoint automation.
 - `bridges/<platform>/engagement/runtime/**` = support local des bridges engagement : commandes CLI, parsing payload, navigation partagee, emitters JSON. Ne pas laisser ces modules gonfler l'entrypoint `engagement/<flow>.py`.
@@ -101,6 +102,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B54 | Fait | Extraire le support local du runner TikTok Followers sous `workflows/automation/runtime/**` : targets/distribution/config, stats aggregation et callbacks live. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B55 | Fait | Extraire les capacites de `bridges/instagram/base.py` sous `bridges/instagram/runtime/{ipc,bridge}.py`; `base.py` devient une facade stable et conserve l'enregistrement IPC core. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B56 | Fait | Migrer les consumers internes Instagram vers les owners runtime directs (`runtime/ipc.py`, `runtime/bridge.py`) au lieu de passer par la facade `base.py`; seul le smoke de compat clone garde la facade. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B57 | Fait | Extraire les runners Threads feed/search sous `bridges/threads/workflows/runtime/**`; `workflows/dispatcher.py` redevient lecture config, routing et cleanup. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
