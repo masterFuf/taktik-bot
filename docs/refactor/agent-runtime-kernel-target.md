@@ -178,6 +178,7 @@ Etat courant :
 - `social_media/tiktok/actions/business/workflows/followers/agent_handler.py` applique le pattern aux followers TikTok via `tiktok.automation.followers`. Ce handler reste single-target : un plan multi-cibles doit composer plusieurs `PlanStep`, plutot que cacher une boucle bridge dans le handler.
 - `social_media/tiktok/actions/business/workflows/for_you/agent_handler.py` applique le pattern au feed For You via `tiktok.automation.for_you`, en normalisant les parametres video et en forwardant les callbacks sans reprendre le startup bridge.
 - `social_media/tiktok/actions/business/workflows/search/agent_handler.py` applique le pattern aux variantes Search/Hashtag/Target (`tiktok.automation.search`, `tiktok.automation.hashtag`, `tiktok.automation.target`). Chaque invocation reste single-query ; les lots multi-query historiques du bridge deviennent une composition explicite de steps.
+- Les primitives communes de ces adapters TikTok vivent sous `social_media/tiktok/actions/business/workflows/_internal/agent_runtime.py`. Elles restent plateforme/workflow-locales : merge payload, coercition de parametres et forwarding notifier, sans import bridge ni logique de planning.
 
 ## Point d'attention
 
