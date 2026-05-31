@@ -1,4 +1,19 @@
-"""Human Behavior Recorder — capture manual Instagram usage patterns."""
-from .recorder import HumanBehaviorRecorder
+"""Compatibility facade for the Instagram human behavior recorder."""
 
-__all__ = ["HumanBehaviorRecorder"]
+from taktik.core.social_media.instagram.recorder.human_behavior_recorder import (
+    ContentSampler,
+    DetectionProbe,
+    HumanBehaviorRecorder,
+    RecordedEvent,
+    ScreenDetector,
+    UISnapshot,
+)
+
+__all__ = [
+    "ContentSampler",
+    "DetectionProbe",
+    "HumanBehaviorRecorder",
+    "RecordedEvent",
+    "ScreenDetector",
+    "UISnapshot",
+]
