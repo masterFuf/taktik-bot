@@ -67,11 +67,9 @@ class PopupHandler:
                     continue
             return False
 
-        from .....ui.selectors import (
-            POPUP_SELECTORS,
-            INBOX_SELECTORS,
-            NAVIGATION_SELECTORS,
-        )
+        from .....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+        from .....ui.selectors.shell.popups import POPUP_SELECTORS
+        from .....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
         found = set()
         if hit(POPUP_SELECTORS.system_deny_button):

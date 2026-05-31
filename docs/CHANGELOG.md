@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok services now import navigation, popup, followers and profile selectors from scoped `shell/**` / `surfaces/**` owners instead of the top-level selector aggregate.
 - TikTok atomic/profile actions now import scoped selector owners directly instead of the top-level selector aggregate.
 - The TikTok Followers workflow now imports selector catalogs from scoped `surfaces/**` owners instead of the top-level selector aggregate.
+- TikTok shared workflow internals, scraping and unfollow workflows now import selector catalogs from scoped owners instead of the top-level selector aggregate.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation; internal publish workflow code now uses the specialized publish catalogs directly.
