@@ -200,6 +200,7 @@ taktik/core/
   media/                 # facade media legacy + sous-domaines techniques
   recorder/              # facade recorder legacy
   device/                # compat vers shared/device
+    compat/
   clone/                 # runtime clone/package-aware
   compat/                # compat/versioning selectors
 ```

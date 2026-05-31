@@ -7,6 +7,6 @@ This package keeps the historic `taktik.core.device` import path available for
 bridges, scripts and tests that still expect the old static helper API.
 """
 
-from .device import DeviceManager
+from taktik.core.device.compat.legacy_static import DeviceManager
 
 __all__ = ['DeviceManager']

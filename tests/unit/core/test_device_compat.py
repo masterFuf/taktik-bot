@@ -1,6 +1,8 @@
 from unittest.mock import Mock
 
 from taktik.core.device import device as device_module
+from taktik.core.device.compat import legacy_static
+from taktik.core.device.compat.legacy_static import DeviceManager as ScopedDeviceManager
 
 
 def test_get_connected_devices_filters_non_ready_entries(monkeypatch):
@@ -13,9 +15,13 @@ def test_get_connected_devices_filters_non_ready_entries(monkeypatch):
                 {"id": "serial-unauthorized", "status": "unauthorized"},
             ]
 
-    monkeypatch.setattr(device_module, "SharedDeviceManager", FakeSharedDeviceManager)
+    monkeypatch.setattr(legacy_static, "SharedDeviceManager", FakeSharedDeviceManager)
 
     assert device_module.DeviceManager.get_connected_devices() == ["serial-ready"]
+
+
+def test_legacy_device_module_points_to_scoped_compat_owner():
+    assert device_module.DeviceManager is ScopedDeviceManager
 
 
 def test_connect_to_device_delegates_to_shared_manager(monkeypatch):
@@ -31,7 +37,7 @@ def test_connect_to_device_delegates_to_shared_manager(monkeypatch):
             calls["verify_atx"] = verify_atx
             return True
 
-    monkeypatch.setattr(device_module, "SharedDeviceManager", FakeSharedDeviceManager)
+    monkeypatch.setattr(legacy_static, "SharedDeviceManager", FakeSharedDeviceManager)
 
     device = device_module.DeviceManager.connect_to_device("emulator-5554")
 
