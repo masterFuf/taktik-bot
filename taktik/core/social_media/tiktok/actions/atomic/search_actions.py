@@ -11,7 +11,8 @@ Basé sur les UI dumps réels de TikTok.
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import NAVIGATION_SELECTORS, SEARCH_SELECTORS
+from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ...ui.selectors.surfaces.search import SEARCH_SELECTORS
 
 
 class SearchActions(BaseAction):

@@ -15,11 +15,9 @@ from loguru import logger
 
 from ..core.base_action import BaseAction
 from ..core.utils import extract_resource_id
-from ...ui.selectors import (
-    INBOX_SELECTORS,
-    CONVERSATION_SELECTORS,
-    NAVIGATION_SELECTORS,
-)
+from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ...ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
+from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 
 class DMActions(BaseAction):

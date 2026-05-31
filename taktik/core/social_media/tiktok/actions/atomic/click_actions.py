@@ -12,10 +12,8 @@ from loguru import logger
 
 from .video_actions import VideoActions
 from .popup_actions import PopupActions
-from ...ui.selectors import (
-    PROFILE_SELECTORS, 
-    NAVIGATION_SELECTORS,
-)
+from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ...ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class ClickActions(VideoActions, PopupActions):
@@ -50,4 +48,3 @@ class ClickActions(VideoActions, PopupActions):
         """Click For You tab in header."""
         self.logger.debug("📱 Clicking For You tab")
         return self._find_and_click(self.navigation_selectors.for_you_tab, timeout=3)
-

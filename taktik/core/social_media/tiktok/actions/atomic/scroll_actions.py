@@ -9,7 +9,8 @@ import time
 import random
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import VIDEO_SELECTORS, SCROLL_SELECTORS
+from ...ui.selectors.support.scroll import SCROLL_SELECTORS
+from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 class ScrollActions(BaseAction):

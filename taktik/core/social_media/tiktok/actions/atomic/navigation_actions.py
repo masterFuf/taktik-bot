@@ -12,7 +12,7 @@ and get every method via a single class.
 from loguru import logger
 
 from .search_actions import SearchActions
-from ...ui.selectors import NAVIGATION_SELECTORS
+from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 class NavigationActions(SearchActions):

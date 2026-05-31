@@ -10,7 +10,7 @@ Basé sur les UI dumps réels de TikTok.
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import VIDEO_SELECTORS
+from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 class VideoActions(BaseAction):

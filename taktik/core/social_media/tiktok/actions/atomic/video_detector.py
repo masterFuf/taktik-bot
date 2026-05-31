@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import VIDEO_SELECTORS
+from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 def _parse_description(raw: str) -> Dict[str, Any]:

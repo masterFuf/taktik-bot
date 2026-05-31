@@ -203,7 +203,7 @@ class BaseAction(SharedBaseAction):
     
     def _close_popup(self) -> bool:
         """Try to close any popup."""
-        from ...ui.selectors import POPUP_SELECTORS
+        from ...ui.selectors.shell.popups import POPUP_SELECTORS
         
         if self._find_and_click(POPUP_SELECTORS.close_button, timeout=2):
             self.logger.debug("✅ Popup closed")

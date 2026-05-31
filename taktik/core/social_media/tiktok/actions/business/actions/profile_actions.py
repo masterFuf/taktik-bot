@@ -9,7 +9,8 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ...core.utils import parse_count
-from ....ui.selectors import PROFILE_SELECTORS, NAVIGATION_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 @dataclass
@@ -36,7 +37,7 @@ class TikTokProfileInfo:
 class ProfileActions(BaseAction):
     """Actions for TikTok profile interactions.
     
-    Uses centralized selectors from ui/selectors/ (PROFILE_SELECTORS, NAVIGATION_SELECTORS).
+    Uses scoped selectors from ui/selectors/shell and ui/selectors/surfaces.
     """
     
     def navigate_to_own_profile(self) -> bool:

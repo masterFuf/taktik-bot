@@ -13,10 +13,8 @@ from loguru import logger
 
 from .video_detector import VideoDetector
 from .popup_detector import PopupDetector
-from ...ui.selectors import (
-    NAVIGATION_SELECTORS,
-    INBOX_SELECTORS,
-)
+from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 
 class DetectionActions(VideoDetector, PopupDetector):

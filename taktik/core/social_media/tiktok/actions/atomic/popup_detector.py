@@ -9,7 +9,7 @@ Basé sur les UI dumps réels de TikTok.
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ...ui.selectors import POPUP_SELECTORS
+from ...ui.selectors.shell.popups import POPUP_SELECTORS
 
 
 class PopupDetector(BaseAction):
