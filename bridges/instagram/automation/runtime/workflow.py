@@ -1,4 +1,4 @@
-"""Workflow runner for the Instagram desktop automation bridge."""
+"""Workflow runner for the Instagram desktop automation bridge runtime."""
 
 from __future__ import annotations
 

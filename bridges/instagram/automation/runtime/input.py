@@ -1,4 +1,4 @@
-"""CLI/stdin payload loading for the Instagram desktop automation bridge."""
+"""CLI/stdin payload loading for the Instagram desktop automation bridge runtime."""
 
 from __future__ import annotations
 

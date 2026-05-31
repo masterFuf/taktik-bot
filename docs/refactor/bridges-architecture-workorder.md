@@ -27,6 +27,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/base.py` = runtime bridge local de la plateforme : IPC, helpers stdout, startup commun. Il ne doit pas devenir un workflow.
 - `bridges/<platform>/workflows/**` = runners internes appeles par un entrypoint dispatcher, classes par famille de flow (`automation`, `engagement`, `scraping`, etc.).
 - `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations d'entrypoints dedies routees directement par le launcher et le manifest.
+- `bridges/<platform>/automation/runtime/**` = support local d'un bridge automation volumineux : parsing payload, lifecycle device/app, media capture, setup IA, runner. Ne pas laisser ces modules plats a cote de l'entrypoint automation.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
@@ -64,9 +65,10 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B23 | Fait | Deplacer l'implementation dispatcher Threads sous `bridges/threads/workflows/dispatcher.py`; garder `threads_bridge.py` comme entrypoint public mince. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B24 | Fait | Deplacer les implementations compat/action/selector/workflow diagnostics sous `bridges/compat/diagnostics/**`; garder les entrypoints publics racine. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B25 | Fait | Migrer dev/prod vers le launcher unique, pointer manifest/launcher/build sur les modules scopees, supprimer les wrappers racine. | Launcher smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B26 | Fait | Decouper le bridge Instagram desktop automation : diagnostics debug sous `instagram/diagnostics/`, parsing CLI/stdin sous `automation/input.py`, media capture sous `automation/media_capture.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
-| B27 | Fait | Extraire le runner workflow Instagram desktop sous `automation/workflow_runner.py` et le setup IA sous `automation/ai_runtime.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
-| B28 | Fait | Extraire le runtime bridge Instagram desktop sous `automation/runtime.py` : SQLite, device connection, app launch, network reset et cleanup app. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B26 | Fait | Decouper le bridge Instagram desktop automation : diagnostics debug sous `instagram/diagnostics/`, parsing CLI/stdin sous `automation/runtime/input.py`, media capture sous `automation/runtime/media_capture.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B27 | Fait | Extraire le runner workflow Instagram desktop sous `automation/runtime/workflow.py` et le setup IA sous `automation/runtime/ai.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B28 | Fait | Extraire le runtime bridge Instagram desktop sous `automation/runtime/session.py` : SQLite, device connection, app launch, network reset et cleanup app. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B29 | Fait | Harmoniser l'arborescence Instagram automation avec le pattern TikTok : entrypoint `automation/desktop.py`, support sous `automation/runtime/**`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 

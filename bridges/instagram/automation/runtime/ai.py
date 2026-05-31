@@ -1,4 +1,4 @@
-"""AI service setup for the Instagram desktop automation bridge."""
+"""AI service setup for the Instagram desktop automation bridge runtime."""
 
 from __future__ import annotations
 

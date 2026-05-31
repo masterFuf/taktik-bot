@@ -16,11 +16,11 @@ bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pat
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
-from bridges.instagram.automation.ai_runtime import create_instagram_ai_service
-from bridges.instagram.automation.input import load_desktop_config
-from bridges.instagram.automation.media_capture import InstagramMediaCaptureRuntime
-from bridges.instagram.automation.runtime import InstagramDesktopRuntime
-from bridges.instagram.automation.workflow_runner import InstagramAutomationRunner
+from bridges.instagram.automation.runtime.ai import create_instagram_ai_service
+from bridges.instagram.automation.runtime.input import load_desktop_config
+from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
+from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
+from bridges.instagram.automation.runtime.workflow import InstagramAutomationRunner
 from bridges.instagram.base import (
     logger, _ipc,
     send_status, send_error, send_log,

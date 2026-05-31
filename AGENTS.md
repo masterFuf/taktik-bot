@@ -106,6 +106,7 @@ Definition simple :
 - Le launcher doit bootstraper `bot/` dans `sys.path` afin de rester lancable en standalone depuis `bot/` sans dependance Front.
 - Les bridges d'automation plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/automation/**`.
 - Les implementations d'entrypoints publics doivent choisir un owner metier nomme (`automation`, `engagement`, `scraping`, `account`, `publish`, etc.) au lieu de rester a plat par confort.
+- Quand un bridge d'automation a besoin de support local (parsing payload, lifecycle device/app, media capture, setup IA, runner), le ranger sous un sous-owner `bridges/<platform>/automation/runtime/**` plutot que de laisser ces modules au meme niveau que l'entrypoint produit.
 - Les bridges de compatibilite et debug doivent vivre sous `bridges/compat/diagnostics/**` ; ne pas les melanger avec les bridges produit.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Les bridges Agent plateforme peuvent vivre sous `bridges/<platform>/agent/**`, mais le noyau d'orchestration durable reste sous `taktik/core/agent/**` et doit recevoir ses dependances par injection.

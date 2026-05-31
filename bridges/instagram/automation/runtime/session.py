@@ -1,4 +1,4 @@
-"""Device, database and app lifecycle for Instagram desktop automation."""
+"""Device, database and app lifecycle for Instagram desktop automation runtime."""
 
 from __future__ import annotations
 
