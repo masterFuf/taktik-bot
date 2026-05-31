@@ -43,13 +43,6 @@ class DesktopBridge:
         self.device_id = config.get('deviceId')
         self.workflow_type = config.get('workflowType')
         self.target = config.get('target')
-        self.limits = config.get('limits', {})
-        self.probabilities = config.get('probabilities', {})
-        self.filters = config.get('filters', {})
-        self.session_config = config.get('session', {})
-        self.comments_config = config.get('comments', {})
-        self.feed_stories_config = config.get('feedStories', {})
-        self.unfollow_config = config.get('unfollow', {})  # Unfollow specific settings
         self.language = config.get('language', 'en')
         self.package_name = config.get('packageName')  # Clone package (e.g. com.instagram.android.c1)
         self.running = True
