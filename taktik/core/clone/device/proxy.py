@@ -20,14 +20,15 @@ The proxy is a no-op when the active package equals the official one, so
 installing it is always safe — there is no overhead on stock Instagram.
 
 Usage:
-    from taktik.core.clone.proxy import CloneAwareDeviceProxy
+    from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
     proxy = CloneAwareDeviceProxy(raw_device, "com.taktik.ig1")
     proxy(resourceId="com.instagram.android:id/search_tab").click()
     # → internally: device(resourceId="com.taktik.ig1:id/search_tab").click()
 """
 
 from typing import Any, Optional
-from .package_map import OFFICIAL_PACKAGE
+
+from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
 
 # UiObject methods that return another UiObject — these must be wrapped
 # recursively so subsequent .child(resourceId=...) calls are also rewritten.
@@ -189,7 +190,7 @@ def rewrite_selector(
     """
     if target_package is None:
         # Local import to avoid circular dependency at module load.
-        from . import get_active_package
+        from taktik.core.clone import get_active_package
         target_package = get_active_package()
     if not target_package or target_package == official:
         return resource_id

@@ -18,10 +18,10 @@ Public API:
 
 from typing import Optional
 
-from .detector import scan_clones, CloneInfo
-from .package_map import OFFICIAL_PACKAGE
-from .selector_patcher import patch_selectors_for_package
-from .proxy import CloneAwareDeviceProxy, rewrite_selector
+from taktik.core.clone.detection.detector import CloneInfo, scan_clones
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy, rewrite_selector
+from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
+from taktik.core.clone.selectors.patcher import patch_selectors_for_package
 
 # ── Global active-package registry ──────────────────────────────────
 # Set once by InstagramBridgeBase._after_connect() before running a workflow

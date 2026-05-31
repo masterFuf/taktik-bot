@@ -72,6 +72,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant clarifie encore `taktik/core/device` : l'API statique legacy vit maintenant sous `device/compat/legacy_static.py`, tandis que `device.py` reste un shim temporaire pour les anciens imports directs.
 - un sous-lot suivant clarifie aussi `taktik/core/config` et `taktik/core/security` : les implementations runtime vivent maintenant sous `config/runtime/**` et `security/protection/**`, tandis que les chemins historiques restent stables via shims.
 - un sous-lot suivant reduit `taktik/core/recorder` a une facade package-level `__init__.py`; l'implementation reste sous `social_media/instagram/recorder/**` et il n'y a plus de module racine additionnel dans cette facade.
+- un sous-lot suivant restructure physiquement `taktik/core/clone` : `detection/` porte le scan ADB des packages, `packages/` porte les metadonnees package/prefix, `device/` porte le proxy clone-aware, `selectors/` porte le patch selectors, et la racine reste la facade publique.
 - un sous-lot suivant du lot 5 aligne aussi `core/agent` sur le manifest transversal : `io/manifest.py` lit `workflows.manifest.json` et expose les IDs canoniques `platform.family.workflow` utilises par les futurs `AgentPlan`.
 - un sous-lot suivant du lot 5 ajoute la boundary d'entree JSON du noyau agent : `io/plan.py` convertit un payload Front/CLI en `AgentPlan` et peut valider les `workflow_id` contre le manifest transversal.
 - un sous-lot suivant du lot 5 raccorde `TaktikAgentWorkflow` a cette boundary sans changer son comportement metier : un payload `agent_plan` / `agentPlan` est parse, valide contre le manifest et expose dans `AgentContext`, mais pas encore execute.
@@ -83,7 +84,7 @@ Etat 2026-05-30 :
 
 | Dossier | Role | Owner | Imports entrants | Imports sortants | Proposition |
 |---|---|---|---|---|---|
-| `taktik/core/clone` | Variantes d'app Android et packages clones. | Runtime clone/package. | Bridges Instagram/TikTok, CLI, workflows/actions Instagram, tests clone. | `compat/selectors/setup` uniquement pour patcher les catalogues selectors par package. | Garder au niveau `core` : c'est transverse aux plateformes. Ne pas y ajouter de logique metier plateforme. |
+| `taktik/core/clone` | Variantes d'app Android et packages clones. | Runtime clone/package. | Bridges Instagram/TikTok, CLI, workflows/actions Instagram, tests clone. | `compat/selectors/setup` uniquement pour patcher les catalogues selectors par package. | Garder au niveau `core` : c'est transverse aux plateformes. Structure interne : `detection/`, `packages/`, `device/`, `selectors/`. |
 | `taktik/core/compat/selectors` | Compatibilite selectors par version et tracing. | Framework compat selectors. | Bridges compat, desktop bridge, `clone/selector_patcher.py`, tests compat. | Catalogues selectors Instagram/TikTok publics. | Owner correct. Continuer a importer ce package direct depuis le code interne. |
 | `taktik/core/compat/*.py` | Shims legacy top-level. | Compat transitoire. | Tests legacy uniquement a ce stade. | Re-export vers `compat/selectors/**`. | Garder temporairement pour compat package-level ; ne pas les utiliser depuis du nouveau code interne. |
 

@@ -204,6 +204,10 @@ taktik/core/
   device/                # compat vers shared/device
     compat/
   clone/                 # runtime clone/package-aware
+    detection/
+    packages/
+    device/
+    selectors/
   compat/                # compat/versioning selectors
 ```
 

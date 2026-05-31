@@ -53,6 +53,7 @@ Regles macro :
 - Les dossiers `device`, `media`, `email`, `ai`, `agent`, `compat`, `clone` doivent rester auditables. Avant d'y deplacer du code, verifier si on clarifie vraiment l'ownership ou si on deplace seulement le foutoir.
 - Sous `taktik/core/compat`, le framework de compatibilite selectors/versioning doit vivre sous `compat/selectors/**`. Les fichiers top-level `compat/selector_registry.py`, `compat/selector_tracer.py` et `compat/setup.py` ne doivent servir qu'en shims de compatibilite tant que des imports legacy subsistent.
 - `taktik/core/clone/**` est l'owner transversal des variantes Android par package : detection de clones, package actif, proxy device clone-aware et patch de selectors par package. Ne pas y ajouter de logique metier Instagram/TikTok qui appartient a `social_media/<platform>`.
+- Dans `taktik/core/clone/**`, utiliser les owners internes directs : `detection/` pour le scan ADB des packages, `packages/` pour les metadonnees package/prefix, `device/` pour le proxy clone-aware, `selectors/` pour le patch des catalogues selectors. La racine du package expose seulement la facade publique.
 - `taktik/core/compat/selectors/**` est l'owner de la compatibilite selectors par version et du tracing. Le nouveau code interne doit importer cet owner direct plutot que les shims top-level `compat/*.py`.
 - Pas de nouveau dossier fourre-tout `utils`, `helpers`, `misc`, `common` au niveau `taktik/core`. Preferer un owner clair.
 

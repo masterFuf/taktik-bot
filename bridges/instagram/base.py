@@ -187,12 +187,12 @@ def setup_stats_callback():
 
 
 # ── Clone-aware device proxy ─────────────────────────────────────────
-# The proxy implementation lives in `taktik.core.clone.proxy` so that
+# The proxy implementation lives in `taktik.core.clone.device.proxy` so that
 # non-bridge code (workflows, CLI, recorder) can reuse the exact same
 # rewriting logic. We re-export the class here as `_CloneAwareDeviceProxy`
 # for backward compatibility with any external import.
 
-from taktik.core.clone.proxy import CloneAwareDeviceProxy as _CloneAwareDeviceProxy  # noqa: E402
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy as _CloneAwareDeviceProxy  # noqa: E402
 
 
 # ── Base class for Instagram bridges ─────────────────────────────────

@@ -28,7 +28,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import List, Optional
 from loguru import logger
-from .package_map import ORIGINAL_PACKAGES, CLONE_PREFIXES
+from taktik.core.clone.packages.package_map import CLONE_PREFIXES, ORIGINAL_PACKAGES
 
 
 @dataclass(frozen=True)

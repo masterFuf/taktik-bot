@@ -1,6 +1,6 @@
 from taktik.core.clone import OFFICIAL_PACKAGE
-from taktik.core.clone.detector import ORIGINAL_PACKAGES
-from taktik.core.clone.package_map import CLONE_PREFIXES, get_clone_prefix, get_original_package
+from taktik.core.clone.detection.detector import ORIGINAL_PACKAGES
+from taktik.core.clone.packages.package_map import CLONE_PREFIXES, get_clone_prefix, get_original_package
 
 
 def test_clone_package_map_is_shared_source_of_truth():

@@ -11,7 +11,7 @@ Example: ``com.instagram.android:id/row_feed_button_like``
        → ``com.instagram.androie:id/row_feed_button_like``
 
 Usage:
-    from taktik.core.clone.selector_patcher import patch_selectors_for_package
+    from taktik.core.clone.selectors.patcher import patch_selectors_for_package
 
     count = patch_selectors_for_package("instagram", "com.instagram.androie")
     # → all Instagram selector singletons now reference androie resource-ids
@@ -20,7 +20,7 @@ Usage:
 from dataclasses import fields as dc_fields
 from typing import Any, Dict, List
 from loguru import logger
-from .package_map import ORIGINAL_PACKAGES
+from taktik.core.clone.packages.package_map import ORIGINAL_PACKAGES
 
 
 def patch_selectors_for_package(platform: str, target_package: str) -> int:
