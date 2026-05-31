@@ -69,7 +69,7 @@ def main():
             success = run_dm_send_workflow(config)
             
         elif workflow_type == 'scraping':
-            from bridges.tiktok.scraping_bridge import run_scraping_workflow
+            from bridges.tiktok.scraping.scraping import run_scraping_workflow
             success = run_scraping_workflow(config)
             
         else:

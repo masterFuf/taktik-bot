@@ -55,7 +55,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B14 | Fait | Deplacer l'implementation Instagram desktop automation sous `bridges/instagram/automation/desktop.py`; garder `desktop_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B15 | Fait | Deplacer l'implementation TikTok account sous `bridges/tiktok/account/account.py`; garder `tiktok_account_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B16 | Fait | Deplacer l'implementation TikTok publish sous `bridges/tiktok/publish/publish.py`; garder `tiktok_publish_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B17 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B17 | Fait | Deplacer l'implementation TikTok scraping sous `bridges/tiktok/scraping/scraping.py`; garder `scraping_bridge.py` comme entrypoint public mince et migrer le dispatcher TikTok vers l'owner scope. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B18 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 
