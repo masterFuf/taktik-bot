@@ -5,3 +5,10 @@ def test_profile_extraction_visible_probes_live_in_profile_catalog():
     assert PROFILE_SELECTORS.website_text_probe == "http"
     assert PROFILE_SELECTORS.verified_description_probe == "Verified"
     assert PROFILE_SELECTORS.private_text_probe == "private"
+
+
+def test_profile_bio_button_fallback_is_catalog_owned():
+    assert PROFILE_SELECTORS.bio_button_fallback_selector == {
+        "className": "android.widget.Button",
+        "clickable": True,
+    }

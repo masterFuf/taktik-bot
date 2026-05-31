@@ -85,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok video author profile-picture cropping now uses the scoped creator selector catalog for package-specific avatar resource ids instead of hardcoding package names in the detector.
 - TikTok search profile navigation now uses the scoped search selector catalog for username result fallbacks instead of composing XPath strings in the action.
 - TikTok profile extraction now reads website/verified/private visible probes from the scoped profile selector catalog instead of hardcoding raw uiautomator2 query strings.
+- TikTok profile extraction now reads the bio button fallback selector from `PROFILE_SELECTORS` instead of hardcoding the uiautomator2 class selector.
 - TikTok popup slow fallback now reuses the scoped popup selector catalog for video option bottom sheets, matching the fast-path detector.
 - Instagram workflow watchdog UI dump signatures now live under the scoped selector support catalog instead of inline in `ui/watchdog.py`.
 - Instagram problematic-page detector now reads Android permission allow-button fallbacks from `PROBLEMATIC_PAGE_SELECTORS` instead of keeping selector dictionaries inline.

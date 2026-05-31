@@ -84,7 +84,7 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
 
         if not data['bio']:
             # Fallback: look for buttons with long text (bio area)
-            bio_buttons = raw_device(className="android.widget.Button", clickable=True)
+            bio_buttons = raw_device(**PROFILE_SELECTORS.bio_button_fallback_selector)
             for i in range(bio_buttons.count):
                 try:
                     text = bio_buttons[i].get_text() or ''

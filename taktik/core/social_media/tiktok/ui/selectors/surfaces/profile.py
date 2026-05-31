@@ -1,6 +1,6 @@
 """Sélecteurs UI pour les profils utilisateurs TikTok."""
 
-from typing import List
+from typing import Any, Dict, List
 from dataclasses import dataclass, field
 
 
@@ -225,6 +225,10 @@ class ProfileSelectors:
     website_text_probe: str = "http"
     verified_description_probe: str = "Verified"
     private_text_probe: str = "private"
+
+    @property
+    def bio_button_fallback_selector(self) -> Dict[str, Any]:
+        return {"className": "android.widget.Button", "clickable": True}
 
 
 PROFILE_SELECTORS = ProfileSelectors()

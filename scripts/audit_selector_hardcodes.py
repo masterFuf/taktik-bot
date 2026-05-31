@@ -122,12 +122,6 @@ KNOWN_SELECTOR_DEBT = (
         "Compatibility CLI smoke test describes a synthetic UI probe, not a workflow selector.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/tiktok/actions/business/workflows/_internal/profile_extractor.py",
-        "uiautomator-literal",
-        "android.widget.Button",
-        "TikTok profile bio button fallback needs a scoped profile selector builder.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/tiktok/actions/core/utils.py",
         "selector-string",
         '@resource-id="([^"]+)"',
