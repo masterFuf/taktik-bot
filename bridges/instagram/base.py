@@ -260,6 +260,21 @@ class InstagramBridgeBase(PlatformBridgeBase):
         self.restart()
 
 
+def _register_core_ipc_emitter() -> None:
+    """Expose bridge IPC helpers to core workflows without core importing bridges."""
+    try:
+        import sys
+
+        from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+
+        IPCEmitter.configure_bridge_adapter(sys.modules[__name__])
+    except Exception as exc:
+        logger.debug(f"Could not register core IPC emitter adapter: {exc}")
+
+
+_register_core_ipc_emitter()
+
+
 __all__ = [
     # IPC + helpers re-exported from bridges.common.bridge_base
     "_ipc",

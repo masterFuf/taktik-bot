@@ -8,6 +8,7 @@ from loguru import logger
 
 from ..common.likers_base import LikersWorkflowBase
 from ....core.stats import create_workflow_stats
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
@@ -109,13 +110,12 @@ class HashtagBusiness(
                 if post_metadata and post_metadata.get('author'):
                     # Envoyer les métadonnées du post au front pour affichage
                     try:
-                        from bridges.desktop_bridge import send_current_post
-                        send_current_post(
+                        IPCEmitter.emit_current_post(
                             author=post_metadata['author'],
                             likes_count=post_metadata.get('likes_count'),
                             comments_count=post_metadata.get('comments_count'),
                             caption=post_metadata.get('caption'),
-                            hashtag=hashtag
+                            hashtag=hashtag,
                         )
                         self.logger.debug(f"📤 Sent current_post to frontend: @{post_metadata['author']}")
                     except Exception as e:
@@ -132,11 +132,10 @@ class HashtagBusiness(
                         self.logger.info(f"⏭️ Post by @{post_metadata['author']} already processed, swiping to next post...")
                         # Notifier le frontend qu'on skip ce post
                         try:
-                            from bridges.desktop_bridge import send_post_skipped
-                            send_post_skipped(
+                            IPCEmitter.emit_post_skipped(
                                 author=post_metadata['author'],
                                 reason="already_processed",
-                                hashtag=hashtag
+                                hashtag=hashtag,
                             )
                         except Exception as e:
                             self.logger.debug(f"Failed to send post_skipped: {e}")

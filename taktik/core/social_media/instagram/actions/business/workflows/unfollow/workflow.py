@@ -13,6 +13,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 
 from .....ui.selectors import UNFOLLOW_SELECTORS
@@ -318,13 +319,9 @@ class UnfollowBusiness(
                     # Enregistrer l'action
                     self._record_action(username, 'UNFOLLOW', 1)
                     
-                    # Envoyer l'événement en temps réel au frontend (séparé pour éviter les erreurs I/O)
-                    try:
-                        from desktop_bridge import send_unfollow_event, send_stats
-                        send_unfollow_event(username, success=True)
-                        send_stats(unfollows=unfollows_done)
-                    except Exception:
-                        pass  # Ignorer toutes les erreurs d'envoi
+                    # Envoyer l'événement en temps réel au frontend si un bridge l'a injecté.
+                    IPCEmitter.emit_unfollow(username, success=True)
+                    IPCEmitter.emit_stats(unfollows=unfollows_done)
                     
                     # Petit délai entre les unfollows (plus court car on ne visite pas les profils)
                     delay = random.randint(2, 5)
