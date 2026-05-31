@@ -32,6 +32,7 @@ class PostCommentsSelectors:
     comments_view_indicators: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comments_view_indicators)
     )
+    comment_empty_state_view: str = '//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]'
     comment_sort_button: str = POST_SELECTORS.comment_sort_button
     expand_replies_selector: str = POST_SELECTORS.expand_replies_selector
     post_comments_count_selectors: List[str] = field(
@@ -40,4 +41,3 @@ class PostCommentsSelectors:
 
 
 POST_COMMENTS_SELECTORS = PostCommentsSelectors()
-

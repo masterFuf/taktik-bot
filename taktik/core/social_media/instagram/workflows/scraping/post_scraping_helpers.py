@@ -8,6 +8,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
+    POST_COMMENTS_SELECTORS,
     POST_DETAIL_SELECTORS,
     POST_GRID_SELECTORS,
     POST_LIKERS_SELECTORS,
@@ -206,7 +207,7 @@ class ScrapingPostHelpersMixin:
                 return scraped
 
             # Check for 'No comments yet' empty state — close popup and bail out
-            if self.device.xpath('//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]').exists:
+            if self.device.xpath(POST_COMMENTS_SELECTORS.comment_empty_state_view).exists:
                 self.logger.info("Post has no comments — closing popup and skipping commenters")
                 self.device.press("back")
                 time.sleep(0.5)
