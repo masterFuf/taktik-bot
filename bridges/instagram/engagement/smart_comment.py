@@ -51,12 +51,14 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.input.keyboard import KeyboardService
+from bridges.common.parsing.counts import parse_count
 from bridges.instagram.base import logger, InstagramBridgeBase, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment_models import (
     PostContext,
     ScrapedComment,
     TargetProfile,
 )
+from bridges.instagram.engagement.runtime.smart_comment_parsing import parse_litho_comments
 
 
 class SmartCommentBridge(InstagramBridgeBase):
@@ -384,7 +386,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                     text = btn.get_text() or ""
                     # Parse "18.5K", "424", etc.
                     if text and re.match(r'^[\d,.]+[KMkm]?$', text):
-                        count = self._parse_count(text)
+                        count = parse_count(text)
                         # Check what's before this button
                         info = btn.info
                         bounds = info.get('bounds', {})
@@ -399,12 +401,6 @@ class SmartCommentBridge(InstagramBridgeBase):
 
         except Exception as e:
             logger.warning(f"Error extracting post stats: {e}")
-
-    @staticmethod
-    def _parse_count(text: str) -> int:
-        """Parse count strings like '18.5K', '1.2M', '424'."""
-        from bridges.common.parsing.counts import parse_count
-        return parse_count(text)
 
     def extract_post_url(self) -> str:
         """Extract the current post's URL via Share → Copy Link.
@@ -807,7 +803,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                 return 0
 
             # Parse comment blocks from the Litho hierarchy
-            comments_data = self._parse_litho_comments(dumpsys)
+            comments_data = parse_litho_comments(dumpsys)
             logger.debug(f"Parsed {len(comments_data)} comments from dumpsys")
 
             # Filter to only comments whose username is actually visible on screen
@@ -876,113 +872,6 @@ class SmartCommentBridge(InstagramBridgeBase):
 
         new_count = len(self.comments) - count_before
         return new_count
-
-    def _parse_litho_comments(self, dumpsys_output: str) -> List[Dict[str, Any]]:
-        """Parse la sortie de dumpsys activity top pour extraire les commentaires.
-
-        La view hierarchy Litho d'Instagram contient ces éléments dans l'ordre :
-          username_synthetic → timestamp → comment_text → reply_button → like_count → like_button
-
-        On collecte tous ces événements, on les trie par position, puis on
-        reconstruit les blocs commentaire séquentiellement.
-
-        Détection des réponses :
-        - Un commentaire dont le texte commence par @username est une réponse
-        - Un commentaire qui apparaît entre un "View N more replies" et le
-          prochain commentaire principal est une réponse
-        """
-        comments = []
-
-        # Patterns pour chaque type d'élément Litho
-        patterns = {
-            'username': re.compile(
-                r'text="([\w][\w.]{0,29})"\s+props="\{"synthetic":true\}"'
-            ),
-            'comment': re.compile(
-                r'row_comment_textview_comment\s+text="([^"]+)"'
-            ),
-            'likes': re.compile(
-                r'row_comment_textview_like_count\s+text="(\d+)"'
-            ),
-            'like_button': re.compile(
-                r'row_comment_like_button'
-            ),
-            'view_replies': re.compile(
-                r'text="(?:View|Voir|Afficher)\s+\d+\s+(?:more\s+)?(?:repl|réponse)'
-            ),
-        }
-
-        # Collecter tous les événements avec leur position
-        events = []
-        for name, pattern in patterns.items():
-            for m in pattern.finditer(dumpsys_output):
-                value = m.group(1) if m.lastindex else ''
-                events.append((m.start(), name, value))
-
-        events.sort(key=lambda x: x[0])
-
-        # Compter les éléments utiles pour le log
-        n_usernames = sum(1 for _, t, _ in events if t == 'username')
-        n_comments = sum(1 for _, t, _ in events if t == 'comment')
-        logger.debug(f"Litho parse: {n_usernames} usernames, {n_comments} comment texts")
-
-        if n_comments == 0:
-            return comments
-
-        # Reconstruire les blocs commentaire séquentiellement
-        # Ordre observé dans le dumpsys Litho :
-        #   username → comment_text → like_button → likes_count
-        # Le likes_count apparaît APRÈS le like_button, donc on l'associe
-        # rétroactivement au dernier commentaire ajouté.
-        current_username = None
-
-        for pos, event_type, value in events:
-            if event_type == 'username':
-                current_username = value
-
-            elif event_type == 'likes':
-                # Associer rétroactivement au dernier commentaire
-                like_count = int(value) if value else 0
-                if comments and like_count > 0:
-                    comments[-1]['likes'] = like_count
-
-            elif event_type == 'view_replies':
-                pass
-
-            elif event_type == 'comment':
-                if not current_username:
-                    continue
-
-                comment_text = value.strip()
-                if not comment_text:
-                    continue
-
-                # Détecter si c'est une réponse
-                is_reply = False
-                parent_username = None
-                if comment_text.startswith('@'):
-                    is_reply = True
-                    # Extraire le parent username du @mention
-                    mention_match = re.match(r'@([\w][\w.]{0,29})', comment_text)
-                    if mention_match:
-                        parent_username = mention_match.group(1)
-
-                comments.append({
-                    'username': current_username,
-                    'text': comment_text,
-                    'likes': 0,
-                    'is_reply': is_reply,
-                    'parent_username': parent_username,
-                    'position_top': 0,
-                })
-                # Reset username after pairing — prevents ghost/cached comment texts
-                # (from RecyclerView recycled views) from being paired with the wrong user
-                current_username = None
-
-            elif event_type == 'like_button':
-                pass
-
-        return comments
 
     def _scroll_comments_down(self):
         """Scroll the comments list down — fast, like a human flicking."""
