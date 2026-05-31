@@ -319,7 +319,9 @@ class ProfileExtraction(BaseBusinessAction):
             from .....ui.extractors import parse_number_from_text
             
             # Méthode 1: Essayer avec l'ID de ressource spécifique
-            element = self.device.find(resourceId=f"{self.device.app_id}:id/profile_header_familiar_followers_value")
+            element = self.device.find(
+                resourceId=f"{self.device.app_id}:id/{self.profile_selectors.followers_count_value_resource_id}"
+            )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
@@ -330,7 +332,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             followers = self._get_count_from_element_robust(
                 element_type='id',
-                resource_id='row_profile_header_textview_followers_count'
+                resource_id=self.profile_selectors.followers_count_legacy_resource_id
             )
             
             if followers is not None:
@@ -339,7 +341,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             followers = self._get_count_from_element_robust(
                 element_type='text',
-                text='followers'
+                text=self.profile_selectors.followers_count_text_label
             )
             
             if followers is not None:
@@ -348,7 +350,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             followers = self._get_count_from_element_robust(
                 element_type='description',
-                description='followers'
+                description=self.profile_selectors.followers_count_description_label
             )
             
             if followers is not None:
@@ -374,7 +376,9 @@ class ProfileExtraction(BaseBusinessAction):
         try:
             from .....ui.extractors import parse_number_from_text
             
-            element = self.device.find(resourceId=f"{self.device.app_id}:id/profile_header_familiar_following_value")
+            element = self.device.find(
+                resourceId=f"{self.device.app_id}:id/{self.profile_selectors.following_count_value_resource_id}"
+            )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
@@ -384,7 +388,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             following = self._get_count_from_element_robust(
                 element_type='id',
-                resource_id='row_profile_header_textview_following_count'
+                resource_id=self.profile_selectors.following_count_legacy_resource_id
             )
             
             if following is not None:
@@ -393,7 +397,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             following = self._get_count_from_element_robust(
                 element_type='text',
-                text='following'
+                text=self.profile_selectors.following_count_text_label
             )
             
             if following is not None:
@@ -413,7 +417,9 @@ class ProfileExtraction(BaseBusinessAction):
         try:
             from .....ui.extractors import parse_number_from_text
             
-            element = self.device.find(resourceId=f"{self.device.app_id}:id/profile_header_familiar_post_count_value")
+            element = self.device.find(
+                resourceId=f"{self.device.app_id}:id/{self.profile_selectors.posts_count_value_resource_id}"
+            )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
@@ -423,7 +429,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             posts = self._get_count_from_element_robust(
                 element_type='id',
-                resource_id='profile_header_familiar_post_count_value'
+                resource_id=self.profile_selectors.posts_count_value_resource_id
             )
             
             if posts is not None:
@@ -432,7 +438,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             posts = self._get_count_from_element_robust(
                 element_type='id',
-                resource_id='row_profile_header_textview_post_count'
+                resource_id=self.profile_selectors.posts_count_legacy_resource_id
             )
             
             if posts is not None:
@@ -441,7 +447,7 @@ class ProfileExtraction(BaseBusinessAction):
             
             posts = self._get_count_from_element_robust(
                 element_type='text',
-                text='posts'
+                text=self.profile_selectors.posts_count_text_label
             )
             
             if posts is not None:

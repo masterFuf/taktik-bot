@@ -29,16 +29,26 @@ class ProfileSelectors:
         '//*[@resource-id="com.instagram.android:id/row_profile_header_posts_container"]',
         '//*[contains(@resource-id, "posts_container")]'
     ])
+    posts_count_value_resource_id: str = 'profile_header_familiar_post_count_value'
+    posts_count_legacy_resource_id: str = 'row_profile_header_textview_post_count'
+    posts_count_text_label: str = 'posts'
     
     followers_count: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_profile_header_followers_container"]',
         '//*[contains(@resource-id, "followers_container")]'
     ])
+    followers_count_value_resource_id: str = 'profile_header_familiar_followers_value'
+    followers_count_legacy_resource_id: str = 'row_profile_header_textview_followers_count'
+    followers_count_text_label: str = 'followers'
+    followers_count_description_label: str = 'followers'
     
     following_count: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_profile_header_following_container"]',
         '//*[contains(@resource-id, "following_container")]'
     ])
+    following_count_value_resource_id: str = 'profile_header_familiar_following_value'
+    following_count_legacy_resource_id: str = 'row_profile_header_textview_following_count'
+    following_count_text_label: str = 'following'
     
     # === Boutons d'action (listes pour fallbacks) ===
     follow_button: List[str] = field(default_factory=lambda: [
