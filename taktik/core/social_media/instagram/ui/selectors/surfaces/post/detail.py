@@ -165,6 +165,18 @@ class PostSelectors:
         '//*[contains(@content-desc, "Like")]',
         '//*[contains(@content-desc, "Comment")]'
     ])
+
+    ai_crop_header_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "row_feed_profile_header")]',
+        '//*[contains(@resource-id, "row_feed_photo_profile_name")]',
+        '//*[contains(@resource-id, "clips_author_info")]',
+    ])
+
+    ai_crop_button_row_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "row_feed_view_group_buttons")]',
+        '//*[contains(@resource-id, "row_feed_button_like")]',
+        '//*[contains(@resource-id, "row_feed_button_comment")]',
+    ])
     
     next_post_button_selectors: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[contains(@content-desc, "Next")]',

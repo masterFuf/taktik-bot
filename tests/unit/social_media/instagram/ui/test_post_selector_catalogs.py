@@ -17,6 +17,11 @@ def test_specialized_post_catalogs_remain_compatible_with_legacy_aggregate():
         POST_DETAIL_SELECTORS.caption_layout_selector
         == '//com.instagram.ui.widget.textview.IgTextLayoutView'
     )
+    assert POST_DETAIL_SELECTORS.ai_crop_header_selectors == POST_SELECTORS.ai_crop_header_selectors
+    assert (
+        POST_DETAIL_SELECTORS.ai_crop_button_row_selectors
+        == POST_SELECTORS.ai_crop_button_row_selectors
+    )
 
     assert POST_COMMENTS_SELECTORS.comment_button_selectors == POST_SELECTORS.comment_button_selectors
     assert POST_COMMENTS_SELECTORS.comments_list_resource_id == POST_SELECTORS.comments_list_resource_id

@@ -115,6 +115,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant branche les workflows Instagram scraping sur le noyau agent : `social_media/instagram/workflows/scraping/agent_handler.py` enregistre `instagram.scraping.target/hashtag/post_url`, avec config bridge-compatible, `device_manager` injecte et provider AI injecte.
 - un point d'arret documente les handlers restants non mecaniques : Instagram automation/engagement et Threads demandent une extraction de config/runtime avant d'etre branchables sans violer les frontieres Agent.
 - un sous-lot suivant demarre l'extraction Instagram automation sans brancher de handler premature : les mappings workflow config et payload structuree `session_config` quittent `desktop_bridge.py` pour `social_media/instagram/workflows/core/config_builder.py`, ce qui clarifie l'owner metier tout en preservant le startup bridge et stdout JSON.
+- un sous-lot suivant extrait aussi les hooks IA automation Instagram : `social_media/instagram/workflows/core/ai_hooks.py` installe les monkey-patches avec AI/device/log injectes, et les selectors de crop post passent par `ui/selectors/surfaces/post/detail.py`.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31
