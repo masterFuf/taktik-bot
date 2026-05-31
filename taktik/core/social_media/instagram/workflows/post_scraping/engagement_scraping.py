@@ -247,7 +247,9 @@ class PostEngagementScrapingMixin:
                 }
                 
                 target = sort_map.get(self.comment_sort, 'Most recent')
-                option = self.device.xpath(f'//*[@content-desc="{target}"]')
+                option = self.device.xpath(
+                    POST_COMMENTS_SELECTORS.sort_option_by_content_description(target)
+                )
                 if option.exists:
                     option.click()
                     time.sleep(1)

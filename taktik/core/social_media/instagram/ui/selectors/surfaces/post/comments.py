@@ -45,5 +45,9 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.post_comments_count_selectors)
     )
 
+    def sort_option_by_content_description(self, label: str) -> str:
+        """Return the context-menu option selector for a visible sort label."""
+        return f'//*[@content-desc="{label}"]'
+
 
 POST_COMMENTS_SELECTORS = PostCommentsSelectors()
