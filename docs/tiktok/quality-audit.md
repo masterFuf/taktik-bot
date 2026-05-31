@@ -186,7 +186,7 @@ Symptome technique :
 
 Remediation retenue :
 
-- extraction de `services/profile_username.py` ;
+- extraction de `services/profile/username.py` ;
 - ajout de `PROFILE_SELECTORS.username_content_description` ;
 - conservation du comportement `unknown` si aucun username n'est trouve ;
 - ajout de tests unitaires sur le selector principal et le fallback content-desc.

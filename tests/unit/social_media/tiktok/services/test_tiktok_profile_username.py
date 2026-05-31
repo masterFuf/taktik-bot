@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.profile_username import (
+from taktik.core.social_media.tiktok.services.profile.username import (
     UNKNOWN_USERNAME,
     clean_profile_username,
     get_current_profile_username,

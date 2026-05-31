@@ -10,7 +10,7 @@ class ProfileDataMixin:
     def _get_current_profile_username(self) -> str:
         """Extract the username from the current profile page."""
         try:
-            from taktik.core.social_media.tiktok.services.profile_username import (
+            from taktik.core.social_media.tiktok.services.profile.username import (
                 get_current_profile_username,
             )
 
