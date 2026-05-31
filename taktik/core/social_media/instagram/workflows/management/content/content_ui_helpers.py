@@ -12,6 +12,16 @@ from taktik.core.shared.device.media_store import push_media, trigger_media_scan
 class ContentUIHelpersMixin:
     """Mixin: open creation UI, select type, push image, gallery, popups, next, caption, location, publish."""
 
+    def _first_text_button(self, labels: List[str], timeout: float = 2):
+        """Return the first visible uiautomator2 text selector from a catalog list."""
+        fallback = None
+        for label in labels:
+            button = self.device(text=label)
+            fallback = button
+            if button.exists(timeout=timeout):
+                return button
+        return fallback
+
     def _open_content_creation(self) -> bool:
         """Ouvrir l'interface de création de contenu"""
         try:
@@ -38,7 +48,7 @@ class ContentUIHelpersMixin:
             self.logger.debug("Selecting POST type...")
             
             # Chercher le bouton "POST" en bas de l'écran
-            post_button = self.device(text="POST")
+            post_button = self._first_text_button(self.content_selectors.post_type_texts, timeout=5)
             if post_button.exists(timeout=5):
                 post_button.click()
                 time.sleep(1)
@@ -57,11 +67,7 @@ class ContentUIHelpersMixin:
         try:
             self.logger.debug("Selecting REEL type...")
 
-            reel_button = self.device(text="REEL")
-            if not reel_button.exists(timeout=3):
-                reel_button = self.device(text="Reels")
-            if not reel_button.exists(timeout=3):
-                reel_button = self.device(text="REELS")
+            reel_button = self._first_text_button(self.content_selectors.reel_type_texts, timeout=3)
 
             if reel_button.exists(timeout=5):
                 reel_button.click()
@@ -159,7 +165,7 @@ class ContentUIHelpersMixin:
             self.logger.debug("Selecting STORY type...")
             
             # Chercher le bouton "STORY" en bas de l'écran
-            story_button = self.device(text="STORY")
+            story_button = self._first_text_button(self.content_selectors.story_type_texts, timeout=5)
             if story_button.exists(timeout=5):
                 story_button.click()
                 time.sleep(1)

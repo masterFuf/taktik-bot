@@ -44,6 +44,20 @@ class ContentCreationSelectors:
         "Modifier la vidéo",
     ])
     
+    post_type_texts: List[str] = field(default_factory=lambda: [
+        "POST",
+    ])
+
+    reel_type_texts: List[str] = field(default_factory=lambda: [
+        "REEL",
+        "Reels",
+        "REELS",
+    ])
+
+    story_type_texts: List[str] = field(default_factory=lambda: [
+        "STORY",
+    ])
+
     reel_draft_headlines: List[str] = field(default_factory=lambda: [
         "Keep editing your draft?",
         "Continuer la modification de votre brouillon ?",
