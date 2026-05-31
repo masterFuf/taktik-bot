@@ -46,7 +46,7 @@ from taktik.core.social_media.instagram.workflows import (
 ```python
 from taktik.core.social_media.instagram.workflows.core import InstagramAutomation
 from taktik.core.social_media.instagram.workflows.management import SessionManager
-from taktik.core.social_media.instagram.workflows.helpers import WorkflowHelpers
+from taktik.core.social_media.instagram.workflows.support import WorkflowHelpers
 ```
 
 ## 🎯 Responsabilités

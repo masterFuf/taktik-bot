@@ -1,4 +1,4 @@
-"""Helper utilities for workflows."""
+"""Runtime support for Instagram automation workflows."""
 
 from .workflow_helpers import WorkflowHelpers
 from .ui_helpers import UIHelpers

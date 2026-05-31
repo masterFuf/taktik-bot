@@ -1,6 +1,6 @@
 from .core import InstagramAutomation, WorkflowRunner
 from .management import SessionManager, WorkflowConfigBuilder, ActionProbabilities, FilterCriteria, LoginWorkflow
-from .helpers import WorkflowHelpers, UIHelpers
+from .support import WorkflowHelpers, UIHelpers
 
 __all__ = [
     'InstagramAutomation',

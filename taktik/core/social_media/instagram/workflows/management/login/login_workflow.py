@@ -10,7 +10,7 @@ from loguru import logger
 
 from ....auth.login import InstagramLogin, LoginResult
 from ....auth.session import SessionManager
-from ...helpers.workflow_helpers import WorkflowHelpers
+from ...support.workflow_helpers import WorkflowHelpers
 
 
 class LoginWorkflow:

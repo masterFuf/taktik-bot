@@ -17,7 +17,7 @@ from ...actions.compatibility.modern_instagram_actions import ModernInstagramAct
 from ...ui.selectors import POST_SELECTORS, POPUP_SELECTORS
 from ..management.config import WorkflowConfigBuilder
 from .workflow_runner import WorkflowRunner
-from ..helpers.workflow_helpers import WorkflowHelpers
+from ..support.workflow_helpers import WorkflowHelpers
 
 
 class InstagramAutomation:
@@ -76,7 +76,7 @@ class InstagramAutomation:
         self.workflow_runner = WorkflowRunner(self)
         self.helpers = WorkflowHelpers(self)
         
-        from ..helpers.ui_helpers import UIHelpers
+        from ..support.ui_helpers import UIHelpers
         self.ui_helpers = UIHelpers(self)
         
         self.helpers.setup_signal_handlers()
@@ -325,4 +325,3 @@ class InstagramAutomation:
 
     def _setup_signal_handlers(self):
         self.helpers.setup_signal_handlers()
-

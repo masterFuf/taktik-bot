@@ -9,7 +9,7 @@ from typing import Dict, Any
 from loguru import logger
 
 from ....auth.logout import InstagramLogout
-from ...helpers.workflow_helpers import WorkflowHelpers
+from ...support.workflow_helpers import WorkflowHelpers
 
 
 class LogoutWorkflow:
