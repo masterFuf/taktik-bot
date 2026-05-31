@@ -10,7 +10,7 @@ import argparse
 from pathlib import Path
 
 from loguru import logger
-from taktik.core.device import DeviceManager
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
 
@@ -29,17 +29,23 @@ def test_story_count_detection(device_serial: str = None):
         # Connexion à l'appareil
         if device_serial:
             logger.info(f"Connexion à l'appareil: {device_serial}")
-            device = DeviceManager.connect_to_device(device_serial)
+            device_manager = DeviceManager(device_id=device_serial)
+            device = device_manager.device if device_manager.connect(verify_atx=False) else None
         else:
             logger.info("Connexion à l'appareil par défaut")
             # Récupérer le premier appareil disponible
-            devices = DeviceManager.get_connected_devices()
+            devices = [
+                entry["id"]
+                for entry in DeviceManager.list_devices()
+                if entry.get("status") == "device"
+            ]
             if not devices:
                 logger.error("❌ Aucun appareil connecté trouvé")
                 return False
             device_serial = devices[0]
             logger.info(f"Appareil détecté: {device_serial}")
-            device = DeviceManager.connect_to_device(device_serial)
+            device_manager = DeviceManager(device_id=device_serial)
+            device = device_manager.device if device_manager.connect(verify_atx=False) else None
         
         if device is None:
             logger.error("❌ Échec de connexion à l'appareil")

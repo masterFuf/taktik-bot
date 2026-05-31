@@ -36,7 +36,7 @@ def build_desktop_bridge():
         '--hidden-import=taktik.core',
         '--hidden-import=taktik.core.bot',
         '--hidden-import=taktik.core.session_manager',
-        '--hidden-import=taktik.core.device_manager',
+        '--hidden-import=taktik.core.shared.device.manager',
         '--hidden-import=taktik.actions',
         '--hidden-import=taktik.utils',
         '--hidden-import=adbutils',

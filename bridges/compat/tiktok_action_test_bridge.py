@@ -348,12 +348,12 @@ def main():
     # Connect to device
     logger.info(f"Connecting to device: {device_id}")
     try:
-        from taktik.core.device.device import DeviceManager
-        device_manager = DeviceManager()
-        raw_device = device_manager.connect_to_device(device_id)
-        if not raw_device:
+        from taktik.core.shared.device.manager import DeviceManager
+        device_manager = DeviceManager(device_id=device_id)
+        if not device_manager.connect(verify_atx=False):
             _emit({"type": "result", "success": False, "message": f"Could not connect to device {device_id}"})
             sys.exit(1)
+        raw_device = device_manager.device
         logger.info(f"Connected to {device_id}")
     except Exception as e:
         _emit({"type": "result", "success": False, "message": f"Device connection failed: {e}"})

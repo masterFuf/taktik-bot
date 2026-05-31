@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `taktik/core/agent` is now physically split into scoped owners: `kernel/`, `io/`, `decision/`, and `scenarios/`; the package root is kept as a public facade through `__init__.py`.
 - `taktik/core/ai` moved to `taktik/core/app/ai` without a root compatibility shim; bridge, CLI and agent imports now target the app AI owner directly.
 - The target taxonomy now documents the conservative physical state of `taktik/core`: root families stay stable for now, while runtime packages are cleaned internally before any future `app/` / `runtime/` move.
-- `taktik/core/device` now scopes its static legacy API under `device/compat/legacy_static.py`; `device.py` remains only as an import shim for older scripts and bridges.
+- The obsolete `taktik/core/device` static compatibility package was removed; remaining bridges, debug scripts and `taktik.core.DeviceManager` now use `taktik/core/shared/device/manager.py` directly.
 - `taktik/core/config` and `taktik/core/security` now scope their runtime implementation under `config/runtime/**` and `security/protection/**`, while keeping legacy import paths stable.
 - `taktik/core/recorder` is now reduced to a package-level compatibility facade; the Instagram recorder implementation remains under `social_media/instagram/recorder/**`.
 - `taktik/core/clone` is now split by ownership into `detection/`, `packages/`, `device/`, and `selectors/`, with the package root kept as the public facade.

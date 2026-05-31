@@ -52,7 +52,7 @@ class DebugBridge:
         try:
             send_log("debug", f"Starting debug command: mode={self.mode}, device={self.device_id}")
             
-            from taktik.core.device import DeviceManager
+            from taktik.core.shared.device.manager import DeviceManager
             send_log("debug", "DeviceManager imported successfully")
             
             if not self.device_id:
@@ -60,10 +60,11 @@ class DebugBridge:
                 return 1
             
             send_log("debug", f"Connecting to device {self.device_id}...")
-            device = DeviceManager.connect_to_device(self.device_id)
-            if not device:
+            device_manager = DeviceManager(device_id=self.device_id)
+            if not device_manager.connect(verify_atx=False):
                 send_error(f"Failed to connect to device {self.device_id}")
                 return 2
+            device = device_manager.device
             
             send_log("info", f"Connected to device {self.device_id}")
             

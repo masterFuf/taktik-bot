@@ -6,29 +6,44 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+
+
+def _connected_device_ids():
+    return [
+        entry["id"]
+        for entry in DeviceManager.list_devices()
+        if entry.get("status") == "device"
+    ]
+
+
+def _connect_raw_device(device_id):
+    device_manager = DeviceManager(device_id=device_id)
+    if not device_manager.connect(verify_atx=False):
+        return None
+    return device_manager.device
 
 
 def test_problematic_page_detector(device_id=None):
     logger.info("🧪 Testing problematic page detector")
     
     try:
-        from taktik.core.device import DeviceManager
         import uiautomator2 as u2
         
         if device_id:
             devices = [device_id]
             logger.info(f"Using specified device: {device_id}")
         else:
-            devices = DeviceManager.get_connected_devices()
+            devices = _connected_device_ids()
             if not devices:
                 logger.error("No Android device connected")
                 return False
             device_id = devices[0]
             logger.info(f"No device specified, using first available: {device_id}")
         
-        device = DeviceManager.connect_to_device(device_id)
+        device = _connect_raw_device(device_id)
         if not device:
             logger.error(f"Failed to connect to device {device_id}")
             return False
@@ -78,21 +93,20 @@ def test_continuous_monitoring(device_id=None):
     logger.info("🔄 Starting continuous monitoring (Ctrl+C to stop)")
     
     try:
-        from taktik.core.device import DeviceManager
         import uiautomator2 as u2
         
         if device_id:
             devices = [device_id]
             logger.info(f"Using specified device: {device_id}")
         else:
-            devices = DeviceManager.get_connected_devices()
+            devices = _connected_device_ids()
             if not devices:
                 logger.error("No Android device connected")
                 return False
             device_id = devices[0]
             logger.info(f"No device specified, using first available: {device_id}")
         
-        device = DeviceManager.connect_to_device(device_id)
+        device = _connect_raw_device(device_id)
         if not device:
             logger.error(f"Failed to connect to device {device_id}")
             return False
@@ -113,21 +127,20 @@ def analyze_current_screen(device_id=None):
     logger.info("🔍 Analyzing current screen...")
     
     try:
-        from taktik.core.device import DeviceManager
         import uiautomator2 as u2
         
         if device_id:
             devices = [device_id]
             logger.info(f"Using specified device: {device_id}")
         else:
-            devices = DeviceManager.get_connected_devices()
+            devices = _connected_device_ids()
             if not devices:
                 logger.error("No Android device connected")
                 return
             device_id = devices[0]
             logger.info(f"No device specified, using first available: {device_id}")
         
-        device = DeviceManager.connect_to_device(device_id)
+        device = _connect_raw_device(device_id)
         if not device:
             logger.error(f"Failed to connect to device {device_id}")
             return

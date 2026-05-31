@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from loguru import logger
 import uiautomator2 as u2
+from taktik.core.shared.device.manager import DeviceManager
 
 
 def test_close_popup(device_id=None):
@@ -17,22 +18,25 @@ def test_close_popup(device_id=None):
     logger.info("🧪 Testing TikTok popup closing")
     
     try:
-        from taktik.core.device import DeviceManager
-        
         if device_id:
             logger.info(f"Using specified device: {device_id}")
         else:
-            devices = DeviceManager.get_connected_devices()
+            devices = [
+                entry["id"]
+                for entry in DeviceManager.list_devices()
+                if entry.get("status") == "device"
+            ]
             if not devices:
                 logger.error("No Android device connected")
                 return False
             device_id = devices[0]
             logger.info(f"No device specified, using first available: {device_id}")
         
-        device = DeviceManager.connect_to_device(device_id)
-        if not device:
+        device_manager = DeviceManager(device_id=device_id)
+        if not device_manager.connect(verify_atx=False):
             logger.error(f"Failed to connect to device {device_id}")
             return False
+        device = device_manager.device
         
         logger.info(f"✅ Connected to device {device_id}")
         

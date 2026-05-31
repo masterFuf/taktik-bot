@@ -7,7 +7,7 @@ Aujourd'hui, `taktik/core` melange plusieurs natures de code au meme niveau :
 - metier plateforme : `social_media/`
 - technique partagee : `shared/`
 - persistence : `database/`
-- runtime/app services : `agent`, `ai`, `config`, `device`, `email`, `media`, `recorder`, `security`
+- runtime/app services : `agent`, `ai`, `config`, `email`, `security`
 - compat / legacy : `clone`, `compat`
 
 Le probleme n'est pas seulement le nombre de dossiers. Le probleme est qu'on ne lit
@@ -50,8 +50,6 @@ taktik/core/
     config/
     email/
     security/
-
-  device/                # compat device restante vers shared/device, a reduire
 
   clone/                 # variantes Android/package-aware transverses
 
@@ -122,12 +120,6 @@ Owner de l'orchestration IA transverse :
 Ne doit pas importer `bridges.common.*` directement. Les bridges injectent les
 notifiers, providers IA et handlers reels.
 
-### `device/`
-
-Il reste aujourd'hui comme boundary de compat vers `shared/device`. Tant que ses
-consommateurs historiques ne sont pas tous migres, il ne doit plus recevoir de
-nouvelle implementation autonome.
-
 ### `compat/`
 
 Regle :
@@ -152,7 +144,6 @@ taktik/core/
   database/
   agent/
   app/
-  device/
   clone/
   compat/
 ```
@@ -162,8 +153,7 @@ taktik/core/
 1. `social_media`, `shared`, `database` = familles coeur
 2. `agent` = orchestration IA transverse
 3. `app` = services runtime transverses (`ai`, `config`, `email`, `security`)
-4. `device` = compat device restante vers `shared/device`
-5. `clone`, `compat` = runtime clone/package-aware et compat selectors documentee
+4. `clone`, `compat` = runtime clone/package-aware et compat selectors documentee
 
 Cette variante bouge moins de chemins, mais elle ne corrige pas completement
 l'impression de "racine en vrac".
@@ -203,8 +193,6 @@ taktik/core/
         ui/
     security/
       protection/
-  device/                # compat vers shared/device
-    compat/
   clone/                 # runtime clone/package-aware
     detection/
     packages/
@@ -216,9 +204,8 @@ taktik/core/
 
 Regle pratique : `app/` existe maintenant pour les services runtime deja
 audites (`ai`, `config`, `email`, `security`). Ne pas y deplacer `agent/` par
-confort : il reste le noyau d'orchestration transverse. Ne pas introduire
-`runtime/` tant que `device/` n'a pas ete audite jusqu'aux derniers
-consommateurs bridges/scripts.
+confort : il reste le noyau d'orchestration transverse. Le package racine
+`device/` a ete supprime ; `shared/device/**` est l'owner unique.
 
 ## Recommandation pratique
 
@@ -234,7 +221,7 @@ Je recommande une migration en **2 etapes** :
 
 ### Etape B - plus tard, si on confirme l'arbitrage
 
-- reduire puis supprimer `device/` si tous les consommateurs peuvent viser `shared/device`
+- garder `shared/device/**` comme owner unique des primitives Android/ADB/ATX
 - re-auditer `clone/` et `compat/` sans les fusionner par reflexe
 - ne garder un re-export temporaire que si un consommateur externe non migrable est identifie et documente
 
@@ -250,10 +237,10 @@ Je recommande une migration en **2 etapes** :
 - auditer `agent`, `ai`, `email`, `media`, `recorder`, `security`, `config`
 - ecrire owner + role + entrants/sortants
 
-### Lot A3 - cible `device` / runtime
+### Lot A3 - runtime device
 
 - uniquement apres cartographie
-- decider si la compat `device/` peut etre supprimee ou si un owner runtime dedie est encore necessaire
+- verifier que les futurs besoins runtime device restent dans `shared/device/**` ou recoivent un owner explicite avant creation d'un nouveau package racine
 
 ## Regles de classement a retenir
 

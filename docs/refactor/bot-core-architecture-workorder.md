@@ -18,7 +18,7 @@ Etat 2026-05-30 :
 - la cartographie de reference vit dans [bot-core-cartography.md](bot-core-cartography.md) ;
 - la proposition de taxonomie cible racine vit dans [bot-core-target-taxonomy.md](bot-core-target-taxonomy.md) ;
 - la proposition de taxonomie cible pour `instagram/ui/selectors` vit dans [instagram-ui-selectors-target-taxonomy.md](instagram-ui-selectors-target-taxonomy.md) ;
-- le premier lot structurel cible `taktik/core/device` comme boundary de compat vers `taktik/core/shared/device/**`.
+- le premier lot structurel a converge `taktik/core/device` vers `taktik/core/shared/device/**`, puis le package legacy racine a ete supprime.
 - le deuxieme lot structurel sort le bookkeeping `already_processed` / `already_filtered` / `skip` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_workflow_state.py`, en gardant un shim de compatibilite cote plateforme.
 - un sous-lot suivant du lot 2 sort aussi le tracking `processed_hashtag_posts` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_hashtag_posts.py`.
 - un sous-lot suivant du lot 2 sort le bloc `unfollow sync` (`following_sync`, `followers_sync`, follow-history lookup) de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_follow_graph.py`.
@@ -77,7 +77,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis `tiktok_publish_bridge.py`.
 - un sous-lot suivant du lot 5 clarifie aussi l'IA : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/app/ai/providers/openrouter.py`, les bridges et le CLI importent cet owner canonique, et `bridges/common/ai_service.py` ne reste qu'un shim de compatibilite bridge.
 - un sous-lot suivant du lot 5 restructure physiquement `core/ai` : `providers/` porte les providers IA runtime comme OpenRouter, `comments/` porte l'IA commentaire/persona historique, et la racine du package reste une facade publique via `__init__.py`.
-- un sous-lot suivant clarifie encore `taktik/core/device` : l'API statique legacy vit maintenant sous `device/compat/legacy_static.py`, tandis que `device.py` reste un shim temporaire pour les anciens imports directs.
+- un sous-lot suivant supprime finalement `taktik/core/device` : les derniers bridges debug/action-test, scripts et tests internes importent maintenant `shared/device/manager.py` directement.
 - un sous-lot suivant de migration racine remplace ensuite ces chemins historiques : `taktik/core/config` et `taktik/core/security` sont supprimes, les implementations runtime vivent maintenant sous `app/config/**` et `app/security/**`, sans shims top-level.
 - un sous-lot suivant supprime finalement la facade package-level `taktik/core/recorder`; l'implementation reste sous `social_media/instagram/recorder/**` et les scripts importent l'owner direct.
 - un sous-lot suivant supprime finalement la facade package-level `taktik/core/media`; l'implementation reste sous `social_media/instagram/media/**` et les bridge/scripts importent l'owner direct.
@@ -143,7 +143,7 @@ Architecture cible a respecter :
 - `taktik/core/social_media/<platform>` : code metier propre a une plateforme ;
 - `taktik/core/shared` : primitives Android/ADB/input/actions partagees ;
 - `taktik/core/database` : schema, migrations, modeles, repositories ;
-- `taktik/core/app/<service>|device|email|agent` : modules runtime/app avec owner explicite ;
+- `taktik/core/app/<service>|agent` : modules runtime/app avec owner explicite ; `device` appartient a `taktik/core/shared/device/**` ;
 - `taktik/core/compat|clone` : compatibilite ou variantes legacy, jamais zone de depot par confort.
 
 Definition of done d'un lot :
@@ -188,7 +188,7 @@ Le chantier vise surtout :
 - `bot/taktik/core/social_media/**`
 - `bot/taktik/core/shared/**`
 - `bot/taktik/core/database/**`
-- `bot/taktik/core/device/**`
+- `bot/taktik/core/shared/device/**`
 - `bot/taktik/core/compat/**`
 - `bot/taktik/core/clone/**`
 - `bot/taktik/core/agent/**`
@@ -238,7 +238,7 @@ Verifier que :
 
 Verifier que :
 
-- `device`, `email`, `agent`, `app`, `clone`, `compat` ont chacun un owner clair ;
+- `shared/device`, `email`, `agent`, `app`, `clone`, `compat` ont chacun un owner clair ;
 - les dossiers legacy servent vraiment a la compat, pas a stocker le code qu'on ne sait pas classer.
 
 ### Lot 4 - Rationalisation finale

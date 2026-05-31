@@ -1,4 +1,4 @@
-"""Legacy top-level compatibility exports for ``taktik.core``."""
+"""Top-level compatibility exports for ``taktik.core``."""
 
 
 def get_device_facade():
@@ -16,8 +16,8 @@ def get_direction():
 
 
 def get_device_manager():
-    """Return the legacy-compatible ``DeviceManager`` lazily."""
-    from .device import DeviceManager
+    """Return the shared ``DeviceManager`` lazily."""
+    from .shared.device.manager import DeviceManager
 
     return DeviceManager
 
