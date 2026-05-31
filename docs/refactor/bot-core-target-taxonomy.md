@@ -209,6 +209,7 @@ taktik/core/
     device/
     selectors/
   compat/                # compat/versioning selectors
+    selectors/
 ```
 
 Regle pratique : avant d'introduire `app/` ou `runtime/` a la racine, on doit
