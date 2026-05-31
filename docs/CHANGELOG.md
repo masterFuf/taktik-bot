@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Instagram human behavior recorder now lives under `taktik/core/social_media/instagram/recorder/**`; `taktik/core/recorder` remains only as a compatibility facade for legacy script imports.
 - Runtime hygiene continued in `taktik/core/config` and `taktik/core/security`: `APIEndpointManager` now keeps the legacy `get_primary_endpoint()` alias expected by historical Instagram code, and dormant security helpers no longer print to stdout.
 - Instagram media capture now lives under `taktik/core/social_media/instagram/media/**`; `taktik/core/media/**` remains as a compatibility facade, and proxy asset resolution now targets the repo-level `scripts/` directory explicitly.
-- `taktik/core/email/gmail/gmail_workflow.py` no longer imports the bridge IPC directly; Gmail bridges and TikTok signup now inject a notifier, keeping `core` decoupled from `bridges.common.*`.
+- `taktik/core/app/email/gmail/workflows/account.py` no longer imports the bridge IPC directly; Gmail bridges and TikTok signup now inject a notifier, keeping `core` decoupled from `bridges.common.*`.
 - `taktik/core/agent` now has a documented target as a cross-platform runtime kernel: the Front remains the premium planner, while the Bot is the local plan executor; `TaktikAgentWorkflow` is now treated as a legacy Instagram-first scenario on that path.
 - `taktik/core/agent` now exposes first runtime-kernel contracts (`AgentPlan`, `PlanStep`, `WorkflowInvocation`, `AgentEvent`) and no longer imports `bridges.common.ai_service` directly; the Instagram bridge now injects the AI provider factory.
 - The Instagram scraping workflow no longer builds its own bridge IPC and AI provider inside `taktik/core`; the bridge and CLI now inject the runtime dependencies instead.
@@ -38,7 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `taktik/core/recorder` is now reduced to a package-level compatibility facade; the Instagram recorder implementation remains under `social_media/instagram/recorder/**`.
 - `taktik/core/clone` is now split by ownership into `detection/`, `packages/`, `device/`, and `selectors/`, with the package root kept as the public facade.
 - `taktik/core/compat` no longer keeps top-level selector shim modules; `compat/selectors/**` is the only internal owner and `compat/__init__.py` is the public facade.
-- `taktik/core/email/gmail` is now split into `workflows/` and `ui/` so Gmail workflow logic and selectors no longer share the provider package root.
+- `taktik/core/app/email/gmail` is split into `workflows/` and `ui/` so Gmail workflow logic and selectors no longer share the provider package root.
+- `taktik/core/email` moved to `taktik/core/app/email` without a root compatibility shim; Gmail, YouTube and TikTok signup imports now target the app email owner directly.
 - Sent DM duplicate-prevention SQL moved out of `bridges/common/database.py` into `taktik/core/database/repositories/messaging/SentDMRepository`; the bridge module now remains a compatibility facade for existing Instagram/TikTok imports.
 - `taktik/core/media` is now reduced to package-level compatibility facades; the Instagram media capture/proxy implementation remains under `social_media/instagram/media/**`.
 - Database model compatibility objects now live in `taktik/core/database/models/instagram_profile.py` instead of the historical duplicate path `models/models.py`.

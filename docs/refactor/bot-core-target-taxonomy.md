@@ -16,8 +16,9 @@ integration technique, ou compat.
 
 ## Recommandation
 
-Je recommande une cible en **5 familles lisibles**, avec migration par lots et
-re-exports temporaires quand necessaire.
+Je recommande une cible en **6 familles lisibles**, avec migration par lots et
+sans recreer de shims racine quand les consommateurs internes peuvent etre
+migres directement.
 
 ```text
 taktik/core/
@@ -38,19 +39,24 @@ taktik/core/
     repositories/
     ...
 
+  agent/                 # orchestration IA transverse, pilote par le Front premium
+    kernel/
+    io/
+    decision/
+    scenarios/
+
   app/                   # services runtime/app transverses a owner explicite
-    agent/
     ai/
     config/
     email/
     security/
 
-  runtime/               # runtime Android / device orchestration transverses
-    device/
+  device/                # compat device restante vers shared/device, a reduire
 
-  compat/                # compatibilite et legacy documentes
-    clone/
-    legacy/
+  clone/                 # variantes Android/package-aware transverses
+
+  compat/                # compatibilite selectors/versioning documentee
+    selectors/
 ```
 
 ## Pourquoi cette cible
@@ -96,46 +102,43 @@ Owner unique de :
 Cette famille rend visible tout ce qui est "service applicatif transverse" sans
 le melanger a la technique Android pure :
 
-- `agent/`
 - `ai/`
 - `config/`
 - `email/`
 - `security/`
 
-Aujourd'hui ces dossiers sont deja presents, mais leur mise a plat a la racine
-les fait lire comme des pairs de `database/` ou `shared/`, alors qu'ils sont
-d'une autre nature.
+`agent/` reste separe : il est le noyau d'orchestration transverse appele par le
+Front premium, pas un simple provider applicatif.
 
-### `runtime/`
+### `agent/`
 
-Je separe ici le runtime Android transverse qui n'est ni metier plateforme,
-ni persistence, ni service applicatif.
+Owner de l'orchestration IA transverse :
 
-Cas principal aujourd'hui :
+- contrats et runtime d'execution de plans
+- registry workflows injectee
+- parsing/serialization manifest et plan
+- scenarios historiques, dont l'autopilot Instagram-first
 
-- `device/`
+Ne doit pas importer `bridges.common.*` directement. Les bridges injectent les
+notifiers, providers IA et handlers reels.
 
-Ce point est le seul qui demande un vrai arbitrage : si on veut respecter
-strictement la taxonomie actuelle sans introduire `app/` et `runtime/`,
-alors on peut garder `device/`, `agent/`, `ai/`, `config/`, etc. a la racine.
-Mais la lisibilite restera moins bonne.
+### `device/`
+
+Il reste aujourd'hui comme boundary de compat vers `shared/device`. Tant que ses
+consommateurs historiques ne sont pas tous migres, il ne doit plus recevoir de
+nouvelle implementation autonome.
 
 ### `compat/`
-
-Je recommande de ne plus avoir `clone/` et `compat/` comme voisins separables
-au meme niveau que tout le reste.
-
-Cible :
-
-```text
-compat/
-  clone/
-  legacy/
-```
 
 Regle :
 
 - tout ce qui vit ici doit documenter son consommateur et sa strategie de sortie
+- ne pas recreer de modules top-level pour cacher des selectors ou bridges legacy
+
+### `clone/`
+
+Owner transverse des variantes Android par package. Il reste lisible a la racine
+parce qu'il est utilise par plusieurs plateformes et n'est pas une compat passive.
 
 ## Variante conservative si on ne veut pas renommer la racine tout de suite
 
@@ -147,21 +150,20 @@ taktik/core/
   social_media/
   shared/
   database/
-  compat/
-  clone/
   agent/
-  ai/
-  config/
+  app/
   device/
-  email/
-  security/
+  clone/
+  compat/
 ```
 
 ...mais avec des **regles de lecture et d'ordre** explicites :
 
 1. `social_media`, `shared`, `database` = familles coeur
-2. `agent`, `ai`, `config`, `device`, `email`, `media`, `recorder`, `security` = runtime/app owners
-3. `compat`, `clone` = legacy/compat seulement
+2. `agent` = orchestration IA transverse
+3. `app` = services runtime transverses (`ai`, `config`, `email`, `security`)
+4. `device` = compat device restante vers `shared/device`
+5. `clone`, `compat` = runtime clone/package-aware et compat selectors documentee
 
 Cette variante bouge moins de chemins, mais elle ne corrige pas completement
 l'impression de "racine en vrac".
@@ -195,12 +197,12 @@ taktik/core/
       comments/
     config/
       runtime/
+    email/
+      gmail/
+        workflows/
+        ui/
     security/
       protection/
-  email/                 # integration Gmail
-    gmail/
-      workflows/
-      ui/
   device/                # compat vers shared/device
     compat/
   clone/                 # runtime clone/package-aware
@@ -212,9 +214,11 @@ taktik/core/
     selectors/
 ```
 
-Regle pratique : avant d'introduire `app/` ou `runtime/` a la racine, on doit
-avoir termine l'audit de chaque famille et verifier les imports bridges/scripts.
-Sinon on ne ferait que deplacer le desordre dans un nouveau dossier.
+Regle pratique : `app/` existe maintenant pour les services runtime deja
+audites (`ai`, `config`, `email`, `security`). Ne pas y deplacer `agent/` par
+confort : il reste le noyau d'orchestration transverse. Ne pas introduire
+`runtime/` tant que `device/` n'a pas ete audite jusqu'aux derniers
+consommateurs bridges/scripts.
 
 ## Recommandation pratique
 
@@ -226,13 +230,13 @@ Je recommande une migration en **2 etapes** :
 - continuer a nettoyer les imports et l'ownership
 - ne pas renommer toute la racine
 - privilegier les sous-packages internes quand une famille runtime est trop plate. Exemple applique : `taktik/core/agent` est maintenant classe en `kernel/`, `io/`, `decision/`, `scenarios/` sans deplacer toute la racine `core`.
+- deplacer les services app deja clarifies sous `taktik/core/app/**` sans facade racine legacy.
 
 ### Etape B - plus tard, si on confirme l'arbitrage
 
-- introduire `app/`
-- introduire `runtime/`
-- faire migrer `clone/` sous `compat/`
-- garder des re-exports temporaires
+- reduire puis supprimer `device/` si tous les consommateurs peuvent viser `shared/device`
+- re-auditer `clone/` et `compat/` sans les fusionner par reflexe
+- ne garder un re-export temporaire que si un consommateur externe non migrable est identifie et documente
 
 ## Lots de migration proposes
 
@@ -246,10 +250,10 @@ Je recommande une migration en **2 etapes** :
 - auditer `agent`, `ai`, `email`, `media`, `recorder`, `security`, `config`
 - ecrire owner + role + entrants/sortants
 
-### Lot A3 - cible `app/` / `runtime/`
+### Lot A3 - cible `device` / runtime
 
 - uniquement apres cartographie
-- introduire dossiers aggregateurs et re-exports si on valide l'arbitrage
+- decider si la compat `device/` peut etre supprimee ou si un owner runtime dedie est encore necessaire
 
 ## Regles de classement a retenir
 

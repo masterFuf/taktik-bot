@@ -28,7 +28,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Le human recorder Instagram vit maintenant sous `social_media/instagram/recorder/**` ; `taktik/core/recorder` ne garde qu'une facade de compatibilite.
 - [x] Hygiene runtime `config/security` : alias legacy `get_primary_endpoint()` retabli pour `APIEndpointManager` et suppression des `print(...)` dans `core/security`.
 - [x] La capture media Instagram vit maintenant sous `social_media/instagram/media/**` ; `taktik/core/media` ne garde qu'une facade de compatibilite et `ProxyManager` resolve ses assets via `scripts/`.
-- [x] `core/email/gmail` n'importe plus directement l'IPC bridge ; le workflow Gmail recoit maintenant un notifier injecte depuis ses appelants.
+- [x] `core/app/email/gmail/workflows/account.py` n'importe plus directement l'IPC bridge ; le workflow Gmail recoit maintenant un notifier injecte depuis ses appelants.
 - [x] Cible `core/agent` documentee comme runtime kernel transverse, separe du planner premium cote Front.
 - [x] `core/agent` n'importe plus directement `bridges.common.ai_service` ; le provider AI est maintenant injecte par le bridge appelant.
 - [x] Le scraping Instagram ne construit plus directement `IPC` + `AIService` dans `core`; bridge et CLI injectent maintenant le provider AI.

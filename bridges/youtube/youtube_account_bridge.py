@@ -122,7 +122,7 @@ class YouTubeAccountBridge:
         if password:
             send_log("info", "🔑 Password provided — will add account to Gmail if missing")
             try:
-                from taktik.core.email.gmail.workflows.account import GmailWorkflow
+                from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
                 gw = GmailWorkflow(device, self.device_id, notifier=_ipc)
                 result = gw.ensure_account_added(email, password)
                 if not result.get('success'):

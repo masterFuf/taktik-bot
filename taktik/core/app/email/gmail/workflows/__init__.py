@@ -1,0 +1,5 @@
+"""Gmail workflow owners."""
+
+from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+
+__all__ = ["GmailWorkflow"]
