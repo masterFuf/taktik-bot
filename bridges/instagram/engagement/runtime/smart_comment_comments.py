@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment_models import ScrapedComment
 from bridges.instagram.engagement.runtime.smart_comment_parsing import parse_litho_comments
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
 class SmartCommentCommentsMixin:
@@ -20,7 +21,7 @@ class SmartCommentCommentsMixin:
         """Open the comments section of the current post."""
         logger.info("Opening comments...")
 
-        comment_btn = self.device(resourceId="com.instagram.android:id/row_feed_button_comment")
+        comment_btn = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_button_resource_id)
         if comment_btn.exists:
             parent = comment_btn.up(className="android.view.ViewGroup", clickable=True)
             if parent and parent.exists:
@@ -29,8 +30,8 @@ class SmartCommentCommentsMixin:
                 comment_btn.click()
             time.sleep(2)
 
-            title = self.device(resourceId="com.instagram.android:id/title_text_view")
-            if title.exists and title.get_text() == "Comments":
+            title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
+            if title.exists and title.get_text() in POST_COMMENTS_SELECTORS.comment_title_texts:
                 logger.info("Comments page opened successfully")
                 return True
 
@@ -46,8 +47,8 @@ class SmartCommentCommentsMixin:
                     if 300 < left < 500:
                         btn.click()
                         time.sleep(2)
-                        title = self.device(resourceId="com.instagram.android:id/title_text_view")
-                        if title.exists and title.get_text() == "Comments":
+                        title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
+                        if title.exists and title.get_text() in POST_COMMENTS_SELECTORS.comment_title_texts:
                             logger.info("Comments page opened via count button")
                             return True
             except Exception:
@@ -60,11 +61,11 @@ class SmartCommentCommentsMixin:
         """Change comment sorting. Options: 'for_you', 'most_recent', 'meta_verified'."""
         logger.info(f"Changing comment sort to: {sort_type}")
 
-        sort_btn = self.device(text="For you", className="android.widget.Button")
+        sort_btn = self.device(text=POST_COMMENTS_SELECTORS.default_sort_label, className="android.widget.Button")
         if not sort_btn.exists:
-            sort_btn = self.device(description="For you")
+            sort_btn = self.device(description=POST_COMMENTS_SELECTORS.default_sort_label)
         if not sort_btn.exists:
-            for label in ["Most recent", "Les plus récents", "Meta Verified"]:
+            for label in POST_COMMENTS_SELECTORS.sort_button_labels:
                 sort_btn = self.device(text=label, className="android.widget.Button")
                 if sort_btn.exists:
                     break
@@ -76,13 +77,10 @@ class SmartCommentCommentsMixin:
         sort_btn.click()
         time.sleep(1)
 
-        sort_map = {
-            "for_you": ["For you", "Pour vous"],
-            "most_recent": ["Most recent", "Les plus récents"],
-            "meta_verified": ["Meta Verified", "Meta vérifié"],
-        }
-
-        targets = sort_map.get(sort_type, sort_map["most_recent"])
+        targets = POST_COMMENTS_SELECTORS.sort_options.get(
+            sort_type,
+            POST_COMMENTS_SELECTORS.sort_options["most_recent"],
+        )
         for target in targets:
             option = self.device(text=target)
             if not option.exists:
@@ -163,7 +161,7 @@ class SmartCommentCommentsMixin:
             recycler = None
             for elem in root.iter():
                 rid = elem.get("resource-id", "") or ""
-                if "sticky_header_list" in rid:
+                if POST_COMMENTS_SELECTORS.comments_list_resource_key in rid:
                     recycler = elem
                     break
 
@@ -178,18 +176,11 @@ class SmartCommentCommentsMixin:
 
                 if tag_class == "android.widget.Button" and text:
                     if re.match(r"^[\w][\w.]{0,29}$", text) and text.lower() not in (
-                        "reply", "like", "send", "comments", "share", "post",
-                        "répondre", "publier", "partager", "envoyer",
-                        "for", "you", "most", "recent", "meta", "verified",
+                        POST_COMMENTS_SELECTORS.ignored_username_tokens
                     ):
                         visible.add(text.lower())
 
-                for pattern in [
-                    r"View ([\w][\w.]{0,29})'s story",
-                    r"Go to ([\w][\w.]{0,29})'s profile",
-                    r"Voir le story de ([\w][\w.]{0,29})",
-                    r"Aller au profil de ([\w][\w.]{0,29})",
-                ]:
+                for pattern in POST_COMMENTS_SELECTORS.profile_content_description_patterns:
                     match = re.search(pattern, content_desc)
                     if match:
                         visible.add(match.group(1).lower())
@@ -302,7 +293,7 @@ class SmartCommentCommentsMixin:
         """Scroll the comments list down quickly."""
         try:
             if not self._comment_list_bounds:
-                comment_list = self.device(resourceId="com.instagram.android:id/sticky_header_list")
+                comment_list = self.device(resourceId=POST_COMMENTS_SELECTORS.comments_list_resource_id)
                 if comment_list.exists:
                     self._comment_list_bounds = comment_list.info.get("bounds", {})
                     logger.debug(f"Cached comment list bounds: {self._comment_list_bounds}")
@@ -327,7 +318,7 @@ class SmartCommentCommentsMixin:
         """Click 'View X more replies' buttons to expand reply threads."""
         expanded = False
         try:
-            for pattern in ["View", "Voir", "Afficher"]:
+            for pattern in POST_COMMENTS_SELECTORS.expand_replies_text_contains:
                 view_replies = self.device(textContains=pattern, clickable=True)
                 if not view_replies.exists:
                     continue
@@ -338,8 +329,8 @@ class SmartCommentCommentsMixin:
                         elem_desc = (elem.info.get("contentDescription", "") or "").lower()
                         combined = elem_text + " " + elem_desc
 
-                        if "repl" in combined or "réponse" in combined:
-                            if "hide" in combined or "masquer" in combined:
+                        if any(token in combined for token in POST_COMMENTS_SELECTORS.expand_replies_positive_tokens):
+                            if any(token in combined for token in POST_COMMENTS_SELECTORS.expand_replies_hidden_tokens):
                                 continue
                             logger.info(f"Expanding thread: {elem.info.get('text', '')}")
                             elem.click()
@@ -349,13 +340,13 @@ class SmartCommentCommentsMixin:
                         continue
 
             if not expanded:
-                for desc_kw in ["more repl", "more reply", "réponse"]:
+                for desc_kw in POST_COMMENTS_SELECTORS.expand_replies_description_contains:
                     elems = self.device(descriptionContains=desc_kw, clickable=True)
                     if elems.exists:
                         for i in range(elems.count):
                             try:
                                 elem_desc = (elems[i].info.get("contentDescription", "") or "").lower()
-                                if "hide" in elem_desc or "masquer" in elem_desc:
+                                if any(token in elem_desc for token in POST_COMMENTS_SELECTORS.expand_replies_hidden_tokens):
                                     continue
                                 logger.info(f"Expanding thread (desc): {elems[i].info.get('contentDescription', '')}")
                                 elems[i].click()

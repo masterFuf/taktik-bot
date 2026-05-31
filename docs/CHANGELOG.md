@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram bridge internals now import runtime capabilities from their direct owners; `base.py` is retained as a stable compatibility facade for external/smoke imports.
 - Threads dispatcher runners moved under `bridges/threads/workflows/runtime/**`; `workflows/dispatcher.py` now focuses on config loading, workflow routing and cleanup.
 - Bridge app package/activity metadata moved under `bridges/common/device/apps.py`; `AppService` now owns lifecycle behavior while the catalog has its own device owner.
+- Instagram Smart Comment comments runtime now consumes `POST_COMMENTS_SELECTORS` for comment UI signatures instead of hardcoding comment button/title/sort/list/reply-expand selectors inline.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

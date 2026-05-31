@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict, List, Tuple
 
 from .detail import POST_SELECTORS
 
@@ -25,7 +25,11 @@ class PostCommentsSelectors:
     post_comment_button_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.post_comment_button_selectors)
     )
+    comment_button_resource_id: str = "com.instagram.android:id/row_feed_button_comment"
+    comment_title_resource_id: str = "com.instagram.android:id/title_text_view"
+    comment_title_texts: Tuple[str, ...] = ("Comments", "Commentaires")
     comments_list_resource_id: str = POST_SELECTORS.comments_list_resource_id
+    comments_list_resource_key: str = "sticky_header_list"
     comment_username_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comment_username_selectors)
     )
@@ -45,6 +49,28 @@ class PostCommentsSelectors:
     comment_drag_handle_frame: str = '//*[contains(@resource-id, "bottom_sheet_drag_handle_frame")]'
     ime_nav_back_button: str = '//*[@resource-id="android:id/input_method_nav_back"]'
     comment_sort_button: str = POST_SELECTORS.comment_sort_button
+    default_sort_label: str = "For you"
+    sort_button_labels: Tuple[str, ...] = ("Most recent", "Les plus récents", "Meta Verified")
+    sort_options: Dict[str, Tuple[str, ...]] = field(default_factory=lambda: {
+        "for_you": ("For you", "Pour vous"),
+        "most_recent": ("Most recent", "Les plus récents"),
+        "meta_verified": ("Meta Verified", "Meta vérifié"),
+    })
+    ignored_username_tokens: Tuple[str, ...] = (
+        "reply", "like", "send", "comments", "share", "post",
+        "répondre", "publier", "partager", "envoyer",
+        "for", "you", "most", "recent", "meta", "verified",
+    )
+    profile_content_description_patterns: Tuple[str, ...] = (
+        r"View ([\w][\w.]{0,29})'s story",
+        r"Go to ([\w][\w.]{0,29})'s profile",
+        r"Voir le story de ([\w][\w.]{0,29})",
+        r"Aller au profil de ([\w][\w.]{0,29})",
+    )
+    expand_replies_text_contains: Tuple[str, ...] = ("View", "Voir", "Afficher")
+    expand_replies_positive_tokens: Tuple[str, ...] = ("repl", "réponse")
+    expand_replies_hidden_tokens: Tuple[str, ...] = ("hide", "masquer")
+    expand_replies_description_contains: Tuple[str, ...] = ("more repl", "more reply", "réponse")
     expand_replies_selector: str = POST_SELECTORS.expand_replies_selector
     post_comments_count_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.post_comments_count_selectors)

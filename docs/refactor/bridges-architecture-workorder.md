@@ -105,6 +105,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B56 | Fait | Migrer les consumers internes Instagram vers les owners runtime directs (`runtime/ipc.py`, `runtime/bridge.py`) au lieu de passer par la facade `base.py`; seul le smoke de compat clone garde la facade. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B57 | Fait | Extraire les runners Threads feed/search sous `bridges/threads/workflows/runtime/**`; `workflows/dispatcher.py` redevient lecture config, routing et cleanup. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B58 | Fait | Extraire le catalogue package/activity/wait times et variantes connues de `AppService` sous `bridges/common/device/apps.py`. | Import smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B59 | Fait | Sortir les signatures UI inline du runtime Instagram Smart Comment comments vers `POST_COMMENTS_SELECTORS` (bouton commentaires, titre, tri, liste, expand replies). | `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
