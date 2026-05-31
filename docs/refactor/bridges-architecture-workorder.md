@@ -19,7 +19,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | `bridges/youtube` | Entry points compte/upload/action test + `base.py`. | Plateforme YouTube bridge. | Front dev path, launcher, manifest. | `taktik/core/social_media/youtube/**`, Gmail/app email pour compte. | Implementations sous `account/`, `publish/`, `diagnostics/` ou `workflows/`; wrappers publics racine stables. |
 | `bridges/gmail` | Entry point compte Gmail + `base.py`. | Provider Gmail bridge. | Front dev path, launcher, manifest. | `taktik/core/app/email/gmail/**`. | Implementation account sous `account/`; wrapper public racine stable. |
 | `bridges/threads` | Entry point Threads + `base.py`. | Plateforme Threads bridge. | Front dev path, launcher, manifest. | `taktik/core/social_media/threads/**`, Instagram runtime selon dependances historiques. | Dispatcher sous `workflows/dispatcher.py`; wrapper public racine stable. |
-| `bridges/compat` | Bridges diagnostics compat/selectors/workflow/action tests. | Diagnostics/compat bridge. | Front debug/compat handlers, launcher, manifest. | `taktik/core/compat`, `taktik/core/clone`, plateformes. | Classer par diagnostic si le dossier grossit, mais ne pas melanger avec runtime produit. |
+| `bridges/compat` | Bridges diagnostics compat/selectors/workflow/action tests. | Diagnostics/compat bridge. | Front debug/compat handlers, launcher, manifest. | `taktik/core/compat`, `taktik/core/clone`, plateformes. | Implementations sous `diagnostics/`; wrappers publics racine stables. |
 
 ## Regles cible
 
@@ -62,6 +62,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B21 | Fait | Deplacer les implementations YouTube sous `account/`, `publish/`, `diagnostics/` et `workflows/`; garder les entrypoints publics racine. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B22 | Fait | Deplacer l'implementation Gmail account sous `bridges/gmail/account/account.py`; garder `gmail_account_bridge.py` comme entrypoint public mince. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B23 | Fait | Deplacer l'implementation dispatcher Threads sous `bridges/threads/workflows/dispatcher.py`; garder `threads_bridge.py` comme entrypoint public mince. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B24 | Fait | Deplacer les implementations compat/action/selector/workflow diagnostics sous `bridges/compat/diagnostics/**`; garder les entrypoints publics racine. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 
 ## Notes de compatibilite
 

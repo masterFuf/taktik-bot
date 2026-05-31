@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YouTube bridge implementations moved under scoped owners: `account/account.py`, `publish/upload.py`, `diagnostics/action_test.py`, and `workflows/dispatcher.py`; root bridge files remain public entrypoint wrappers.
 - Gmail account bridge implementation moved under `bridges/gmail/account/account.py`; `gmail_account_bridge.py` remains the public Electron entrypoint wrapper.
 - Threads workflow dispatcher implementation moved under `bridges/threads/workflows/dispatcher.py`; `threads_bridge.py` remains the public Electron entrypoint wrapper.
+- Compatibility diagnostic bridge implementations moved under `bridges/compat/diagnostics/**`; root compat bridge files remain public Electron entrypoint wrappers.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
