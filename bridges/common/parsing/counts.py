@@ -1,8 +1,8 @@
 """
-Shared utility functions for bridge scripts.
+Count parsing helpers for bridge scripts.
 
 Usage:
-    from bridges.common.utils import parse_count
+    from bridges.common.parsing.counts import parse_count
 
     parse_count("18.5K")  # -> 18500
     parse_count("1.2M")   # -> 1200000

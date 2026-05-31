@@ -50,7 +50,7 @@ sys.path.insert(0, bot_dir)
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.keyboard import KeyboardService
+from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.base import logger, InstagramBridgeBase, send_message as send_event
 
 
@@ -444,7 +444,7 @@ class SmartCommentBridge(InstagramBridgeBase):
     @staticmethod
     def _parse_count(text: str) -> int:
         """Parse count strings like '18.5K', '1.2M', '424'."""
-        from bridges.common.utils import parse_count
+        from bridges.common.parsing.counts import parse_count
         return parse_count(text)
 
     def extract_post_url(self) -> str:

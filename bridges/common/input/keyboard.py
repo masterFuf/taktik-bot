@@ -5,7 +5,7 @@ Centralizes the keyboard typing logic that was copy-pasted in cold_dm_bridge,
 dm_bridge, and smart_comment_bridge.
 
 Usage:
-    from bridges.common.keyboard import KeyboardService
+    from bridges.common.input.keyboard import KeyboardService
 
     kb = KeyboardService("DEVICE_SERIAL")
     kb.type_text("Hello world! 🚀")

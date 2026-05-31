@@ -21,7 +21,7 @@ sys.path.insert(0, bot_dir)
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.keyboard import KeyboardService
+from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.base import logger, InstagramBridgeBase
 from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
 

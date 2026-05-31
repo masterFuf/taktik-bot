@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from bridges.common.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
-from bridges.common.keyboard import KeyboardService
+from bridges.common.input.keyboard import KeyboardService
 from bridges.common.database import SentDMService
 from bridges.instagram.base import logger, InstagramBridgeBase
 
