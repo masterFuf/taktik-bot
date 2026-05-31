@@ -4,10 +4,6 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import (
-    PROFILE_SELECTORS, DETECTION_SELECTORS, BUTTON_SELECTORS,
-    POST_SELECTORS, NAVIGATION_SELECTORS
-)
 
 
 class PostInteractionMixin(BaseAction):

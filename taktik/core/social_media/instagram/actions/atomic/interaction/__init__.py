@@ -3,10 +3,12 @@
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import (
-    PROFILE_SELECTORS, DETECTION_SELECTORS, BUTTON_SELECTORS,
-    POST_SELECTORS, NAVIGATION_SELECTORS, STORY_SELECTORS, POPUP_SELECTORS
-)
+from ....ui.selectors.shell.navigation import BUTTON_SELECTORS, NAVIGATION_SELECTORS
+from ....ui.selectors.shell.popups import POPUP_SELECTORS
+from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ....ui.selectors.surfaces.post import POST_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 from .post_interaction import PostInteractionMixin
 from .profile_interaction import ProfileInteractionMixin

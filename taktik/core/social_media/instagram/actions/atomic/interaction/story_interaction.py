@@ -3,7 +3,7 @@
 from typing import Optional
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import STORY_SELECTORS
+from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 
 class StoryInteractionMixin(BaseAction):

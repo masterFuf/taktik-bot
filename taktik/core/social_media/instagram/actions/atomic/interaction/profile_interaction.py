@@ -4,10 +4,7 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import (
-    PROFILE_SELECTORS, DETECTION_SELECTORS, BUTTON_SELECTORS,
-    POPUP_SELECTORS
-)
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class ProfileInteractionMixin(BaseAction):
