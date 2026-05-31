@@ -136,7 +136,7 @@ class GmailAccountBridge:
         send_log("info", f"📧 Gmail login workflow — {email}")
 
         try:
-            from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
+            from taktik.core.email.gmail.workflows.account import GmailWorkflow
             workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.ensure_account_added(email, password)
             outcome = "success" if result.get('success') else "error"
@@ -173,7 +173,7 @@ class GmailAccountBridge:
         send_log("info", f"🚪 Gmail logout workflow — {email}")
 
         try:
-            from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
+            from taktik.core.email.gmail.workflows.account import GmailWorkflow
             workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             # Logout flow not yet implemented in GmailWorkflow — fall back to
             # opening Android Settings → Accounts so the user can confirm
@@ -218,7 +218,7 @@ class GmailAccountBridge:
         send_log("info", f"📬 Gmail OTP workflow — {email} (sender={sender_filter})")
 
         try:
-            from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
+            from taktik.core.email.gmail.workflows.account import GmailWorkflow
             workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.get_latest_verification_code(
                 email=email,
@@ -251,7 +251,7 @@ class GmailAccountBridge:
         send_log("info", "🔍 Gmail scan_accounts workflow")
 
         try:
-            from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
+            from taktik.core.email.gmail.workflows.account import GmailWorkflow
             workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.scan_accounts()
             outcome = "success" if result.get('success') else "error"

@@ -33,7 +33,7 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
     COUNTRY_PICKER_SELECTORS,
     TIKTOK_PACKAGE,
 )
-from taktik.core.email.gmail.gmail_workflow import GmailWorkflow
+from taktik.core.email.gmail.workflows.account import GmailWorkflow
 
 
 class _NullNotifier:

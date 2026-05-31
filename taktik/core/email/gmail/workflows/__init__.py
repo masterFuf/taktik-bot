@@ -1,4 +1,4 @@
-"""Gmail integration facade."""
+"""Gmail workflow owners."""
 
 from taktik.core.email.gmail.workflows.account import GmailWorkflow
 

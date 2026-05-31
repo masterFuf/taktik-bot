@@ -40,7 +40,7 @@ from functools import wraps
 from typing import Optional, Protocol
 
 from loguru import logger
-from taktik.core.email.gmail.selectors import (
+from taktik.core.email.gmail.ui.selectors import (
     GMAIL_SWITCHER_SELECTORS,
     GMAIL_SETUP_SELECTORS,
     GOOGLE_SIGNIN_SELECTORS,

@@ -199,6 +199,9 @@ taktik/core/
   security/              # securite runtime
     protection/
   email/                 # integration Gmail
+    gmail/
+      workflows/
+      ui/
   media/                 # facade media legacy + sous-domaines techniques
   recorder/              # facade recorder legacy
   device/                # compat vers shared/device
