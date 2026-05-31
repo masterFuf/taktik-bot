@@ -435,6 +435,11 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_comment_text"]',
         '//*[contains(@resource-id, "caption")]'
     ])
+
+    persona_caption_selectors: List[str] = field(default_factory=lambda: [
+        '//com.instagram.ui.widget.textview.IgTextLayoutView',
+        '//*[@resource-id="com.instagram.android:id/media_viewer_caption_text_view"]',
+    ])
     
     # === Likes count selectors (for opening likers list) ===
     likes_count_click_selectors: List[str] = field(default_factory=lambda: [

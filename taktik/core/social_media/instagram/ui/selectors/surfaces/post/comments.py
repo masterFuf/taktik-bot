@@ -33,6 +33,10 @@ class PostCommentsSelectors:
     comments_view_indicators: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comments_view_indicators)
     )
+    comment_text_nodes_selector: str = (
+        '//android.widget.TextView[contains(@resource-id, "row_comment_textview_comment") or '
+        'contains(@resource-id, "comment_text")]'
+    )
     comment_empty_state_view: str = '//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]'
     comment_title_defocus: str = (
         '//*[contains(@resource-id, "title_text_view")]'

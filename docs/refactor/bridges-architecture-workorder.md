@@ -26,7 +26,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/<bridge_name>.py` = entrypoint public seulement si declare dans `bridges.manifest.json` ou lance par le Front en dev.
 - `bridges/<platform>/base.py` = runtime bridge local de la plateforme : IPC, helpers stdout, startup commun. Il ne doit pas devenir un workflow.
 - `bridges/<platform>/workflows/**` = runners internes appeles par un entrypoint dispatcher, classes par famille de flow (`automation`, `engagement`, `scraping`, etc.).
-- `bridges/<platform>/account|publish|diagnostics/**` = implementations extractibles des entrypoints dedies, uniquement si l'entrypoint racine reste mince ou si le resolver Front est migre.
+- `bridges/<platform>/account|publish|analysis|diagnostics/**` = implementations extractibles des entrypoints dedies, uniquement si l'entrypoint racine reste mince ou si le resolver Front est migre.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
@@ -49,7 +49,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B9 | Fait | Deplacer les implementations Instagram DM et Cold DM sous `bridges/instagram/engagement/{dm,cold_dm}.py`; garder `dm_bridge.py` et `cold_dm_bridge.py` comme entrypoints publics minces. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B10 | Fait | Deplacer l'implementation Instagram account sous `bridges/instagram/account/account.py`; garder `account_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B11 | Fait | Deplacer l'implementation Instagram scraping sous `bridges/instagram/scraping/scraping.py`; garder `scraping_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B12 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B12 | Fait | Deplacer l'implementation Instagram Persona Analysis sous `bridges/instagram/analysis/persona.py`; garder `persona_analysis_bridge.py` comme entrypoint public mince et sortir ses selectors inline vers les catalogues post. | Import graph + selector audit + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B13 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 
