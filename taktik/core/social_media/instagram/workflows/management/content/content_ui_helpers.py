@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from ....utils.input.keyboard import type_with_taktik_keyboard
+from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
 from taktik.core.shared.device.media_store import push_media, trigger_media_scan, scan_wait_for
 
 

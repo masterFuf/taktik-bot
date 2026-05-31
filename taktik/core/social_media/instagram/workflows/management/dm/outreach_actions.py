@@ -3,7 +3,7 @@
 import time
 from typing import Optional
 
-from ....utils.input.keyboard import type_with_taktik_keyboard
+from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
 
 
 class OutreachActionsMixin:

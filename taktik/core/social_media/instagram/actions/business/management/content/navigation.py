@@ -2,7 +2,7 @@
 
 import re
 from loguru import logger
-from .....utils.input.keyboard import run_adb_shell
+from taktik.core.shared.input.taktik_keyboard import run_adb_shell
 from taktik.core.clone import get_active_package
 
 

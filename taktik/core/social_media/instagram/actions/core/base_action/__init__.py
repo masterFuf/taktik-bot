@@ -22,7 +22,12 @@ from loguru import logger
 from taktik.core.shared.actions.base_action import SharedBaseAction
 from ..device.facade import DeviceFacade
 from ..utils import ActionUtils
-from ....utils.input.keyboard import run_adb_shell, TAKTIK_KEYBOARD_IME, IME_MESSAGE_B64, IME_CLEAR_TEXT
+from taktik.core.shared.input.taktik_keyboard import (
+    IME_CLEAR_TEXT,
+    IME_MESSAGE_B64,
+    TAKTIK_KEYBOARD_IME,
+    run_adb_shell,
+)
 from ..behavior import HumanBehavior
 
 from .delays import DelaysMixin

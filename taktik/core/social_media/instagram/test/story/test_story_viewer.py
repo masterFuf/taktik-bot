@@ -24,7 +24,7 @@ from taktik.core.social_media.instagram.core.automation import InstagramAutomati
 from taktik.core.social_media.instagram.actions.navigation.navigation_manager import NavigationManager
 from taktik.core.social_media.instagram.actions.story.story_manager import StoryManager
 from taktik.core.shared.device.manager import DeviceManager
-from taktik.core.social_media.instagram.utils.log_config import instagram_logger as logger
+from taktik.core.social_media.instagram.observability import instagram_logger as logger
 
 
 class StoryTestRunner:
