@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The unused Instagram `utils` package was removed; the remaining logger setup moved to `taktik/core/social_media/instagram/observability/logging.py`.
 - Instagram automation workflow helpers moved from `workflows/helpers` to `workflows/support`, leaving the old generic helper package removed.
 - The obsolete `DatabaseHelpers` Instagram business shim was removed; runtime code must import the canonical `taktik.core.database` services directly.
+- TikTok publish services moved from flat `services/publish_*.py` modules into the scoped `services/publish/**` package.
 - `taktik/core/config` and `taktik/core/security` now scope their runtime implementation under `config/runtime/**` and `security/protection/**`, while keeping legacy import paths stable.
 - `taktik/core/recorder` is now reduced to a package-level compatibility facade; the Instagram recorder implementation remains under `social_media/instagram/recorder/**`.
 - `taktik/core/clone` is now split by ownership into `detection/`, `packages/`, `device/`, and `selectors/`, with the package root kept as the public facade.

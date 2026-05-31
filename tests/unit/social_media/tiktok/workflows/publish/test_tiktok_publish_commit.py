@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_commit import (
+from taktik.core.social_media.tiktok.services.publish.commit import (
     PublishCommitCallbacks,
     wait_for_publish_commit,
 )

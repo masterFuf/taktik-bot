@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_progress import (
+from taktik.core.social_media.tiktok.services.publish.progress import (
     extract_percent_value,
     get_publish_progress_percent,
 )

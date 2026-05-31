@@ -1,5 +1,5 @@
-from taktik.core.social_media.tiktok.services import publish_dialogs
-from taktik.core.social_media.tiktok.services.publish_dialogs import (
+from taktik.core.social_media.tiktok.services.publish import dialogs as publish_dialogs
+from taktik.core.social_media.tiktok.services.publish.dialogs import (
     dismiss_post_popups,
     handle_permission_dialog,
     handle_publish_confirmation_dialog,
@@ -69,8 +69,8 @@ def test_handle_publish_confirmation_dialog_clicks_confirm_button():
     dialog = FakeElement(True)
     button = FakeElement(True)
     device = FakeDevice({
-        publish_dialogs.PUBLISH_SELECTORS.publish_confirm_dialog[0]: dialog,
-        publish_dialogs.PUBLISH_SELECTORS.publish_confirm_btn[0]: button,
+        publish_dialogs.PUBLISH_COMPOSER_SELECTORS.publish_confirm_dialog[0]: dialog,
+        publish_dialogs.PUBLISH_COMPOSER_SELECTORS.publish_confirm_btn[0]: button,
     })
 
     assert handle_publish_confirmation_dialog(device)

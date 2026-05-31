@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import (
+from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import (
     tap_caption_focus_fallback,
     tap_create_button_fallback,
     tap_first_gallery_item_fallback,

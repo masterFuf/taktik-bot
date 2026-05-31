@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_screen_detector import (
+from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     is_camera_creation_screen,
     is_gallery_picker_open,
     is_post_screen,

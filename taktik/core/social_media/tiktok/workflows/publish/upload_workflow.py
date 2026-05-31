@@ -37,41 +37,41 @@ from taktik.core.social_media.tiktok.services.app_control import (
     launch_app_non_blocking,
 )
 from taktik.core.social_media.tiktok.services.package_resolver import resolve_tiktok_package
-from taktik.core.social_media.tiktok.services.publish_dialogs import (
+from taktik.core.social_media.tiktok.services.publish.dialogs import (
     dismiss_post_popups,
     handle_permission_dialog,
     handle_publish_confirmation_dialog,
 )
-from taktik.core.social_media.tiktok.services.publish_caption import (
+from taktik.core.social_media.tiktok.services.publish.caption import (
     MAX_TIKTOK_HASHTAGS,
     build_caption,
     sanitize_caption_and_hashtags,
 )
-from taktik.core.social_media.tiktok.services.publish_commit import (
+from taktik.core.social_media.tiktok.services.publish.commit import (
     PublishCommitCallbacks,
     wait_for_publish_commit,
 )
-from taktik.core.social_media.tiktok.services.publish_hashtag_suggestions import (
+from taktik.core.social_media.tiktok.services.publish.hashtag_suggestions import (
     tap_hashtag_suggestion_from_dump,
 )
-from taktik.core.social_media.tiktok.services.publish_navigation import (
+from taktik.core.social_media.tiktok.services.publish.navigation import (
     advance_to_post_screen,
     ensure_gallery_picker_open,
     select_first_gallery_item,
     tap_create_button,
     tap_upload_button,
 )
-from taktik.core.social_media.tiktok.services.publish_progress import get_publish_progress_percent
-from taktik.core.social_media.tiktok.services.publish_screen_detector import (
+from taktik.core.social_media.tiktok.services.publish.progress import get_publish_progress_percent
+from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     is_post_screen,
     is_video_edit_screen,
     wait_for_tiktok_home,
 )
-from taktik.core.social_media.tiktok.services.publish_text_input import (
+from taktik.core.social_media.tiktok.services.publish.text_input import (
     clear_caption_text,
     type_caption_text,
 )
-from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import tap_caption_focus_fallback
+from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import tap_caption_focus_fallback
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import PUBLISH_SELECTORS
 from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element

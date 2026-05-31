@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_upload_picker import (
+from taktik.core.social_media.tiktok.services.publish.upload_picker import (
     tap_upload_button_from_dump,
 )
 

@@ -5,19 +5,19 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from taktik.core.social_media.tiktok.services.publish_dialogs import handle_permission_dialog
-from taktik.core.social_media.tiktok.services.publish_screen_detector import (
+from taktik.core.social_media.tiktok.services.publish.dialogs import handle_permission_dialog
+from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     is_camera_creation_screen,
     is_gallery_picker_open,
     is_post_screen,
 )
-from taktik.core.social_media.tiktok.services.publish_touch_fallbacks import (
+from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import (
     tap_create_button_fallback,
     tap_first_gallery_item_fallback,
     tap_upload_bottom_left_fallback,
     tap_upload_right_strip_fallback,
 )
-from taktik.core.social_media.tiktok.services.publish_upload_picker import tap_upload_button_from_dump
+from taktik.core.social_media.tiktok.services.publish.upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_CREATION_ENTRY_SELECTORS,
     PUBLISH_MEDIA_PICKER_SELECTORS,

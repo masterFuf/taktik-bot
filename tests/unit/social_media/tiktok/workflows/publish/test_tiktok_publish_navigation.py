@@ -1,5 +1,5 @@
-from taktik.core.social_media.tiktok.services import publish_navigation
-from taktik.core.social_media.tiktok.services.publish_navigation import (
+from taktik.core.social_media.tiktok.services.publish import navigation as publish_navigation
+from taktik.core.social_media.tiktok.services.publish.navigation import (
     advance_to_post_screen,
     ensure_gallery_picker_open,
     select_first_gallery_item,
@@ -28,7 +28,7 @@ def test_tap_create_button_uses_selector_before_fallback(monkeypatch):
 
     device = FakeDevice()
     assert tap_create_button(device)
-    assert calls == [(device, publish_navigation.PUBLISH_SELECTORS.create_btn, 3.0)]
+    assert calls == [(device, publish_navigation.PUBLISH_CREATION_ENTRY_SELECTORS.create_btn, 3.0)]
 
 
 def test_tap_create_button_uses_fallback_after_selector_failure(monkeypatch):

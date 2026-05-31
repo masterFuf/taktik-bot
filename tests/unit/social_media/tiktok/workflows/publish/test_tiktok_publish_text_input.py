@@ -1,6 +1,6 @@
 import subprocess
 
-from taktik.core.social_media.tiktok.services.publish_text_input import (
+from taktik.core.social_media.tiktok.services.publish.text_input import (
     clear_caption_text,
     escape_adb_input_text,
     type_ascii_text_with_adb,

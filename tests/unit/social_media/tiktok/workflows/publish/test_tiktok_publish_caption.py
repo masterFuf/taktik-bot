@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_caption import (
+from taktik.core.social_media.tiktok.services.publish.caption import (
     build_caption,
     sanitize_caption_and_hashtags,
 )

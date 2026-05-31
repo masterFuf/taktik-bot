@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.publish_hashtag_suggestions import (
+from taktik.core.social_media.tiktok.services.publish.hashtag_suggestions import (
     tap_hashtag_suggestion_from_dump,
 )
 
