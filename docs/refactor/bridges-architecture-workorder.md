@@ -27,6 +27,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/base.py` = runtime bridge local de la plateforme : IPC, helpers stdout, startup commun. Il ne doit pas devenir un workflow.
 - `bridges/<platform>/runtime/**` = capacites runtime partagees par plusieurs flows d'une plateforme : IPC specifique plateforme, startup app/profil, callbacks video. `base.py` peut rester une facade mince, pas l'owner durable.
 - `bridges/<platform>/workflows/**` = runners internes appeles par un entrypoint dispatcher, classes par famille de flow (`automation`, `engagement`, `scraping`, etc.).
+- `bridges/<platform>/workflows/<family>/runtime/**` = support local d'un runner workflow interne : planning payload, aggregation stats, callbacks stdout. Ce support reste bridge tant qu'il depend du contrat stdout.
 - `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations d'entrypoints dedies routees directement par le launcher et le manifest.
 - `bridges/<platform>/automation/runtime/**` = support local d'un bridge automation volumineux : parsing payload, lifecycle device/app, media capture, setup IA, runner. Ne pas laisser ces modules plats a cote de l'entrypoint automation.
 - `bridges/<platform>/engagement/runtime/**` = support local des bridges engagement : commandes CLI, parsing payload, navigation partagee, emitters JSON. Ne pas laisser ces modules gonfler l'entrypoint `engagement/<flow>.py`.
@@ -97,6 +98,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B51 | Fait | Extraire le support local TikTok Account sous `account/runtime/**` : commandes CLI/config, preparation DB/device/app/clone selectors et dispatch login/logout/register. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B52 | Fait | Extraire les capacites de `bridges/tiktok/base.py` sous `bridges/tiktok/runtime/{ipc,startup,video_callbacks}.py`; `base.py` devient une facade stable. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B53 | Fait | Migrer les consumers internes TikTok vers les owners runtime directs (`runtime/ipc.py`, `runtime/startup.py`, `runtime/video_callbacks.py`) au lieu de passer par la facade `base.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B54 | Fait | Extraire le support local du runner TikTok Followers sous `workflows/automation/runtime/**` : targets/distribution/config, stats aggregation et callbacks live. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 

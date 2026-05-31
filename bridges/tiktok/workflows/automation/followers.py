@@ -7,10 +7,22 @@ import time
 from typing import Dict, Any
 
 from bridges.tiktok.runtime.ipc import (
-    logger, send_status, send_message, send_action, 
-    send_pause, send_error, set_workflow
+    logger, send_status, send_message, send_error, set_workflow
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.workflows.automation.runtime.followers_planning import (
+    build_followers_config,
+    build_target_list,
+    calculate_target_distribution,
+    has_empty_target_candidates,
+    max_profiles_for_target,
+    should_stop_after_target,
+)
+from bridges.tiktok.workflows.automation.runtime.followers_stats import (
+    create_total_stats,
+    record_target_stats,
+    wire_followers_callbacks,
+)
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 
 
@@ -22,28 +34,18 @@ def run_followers_workflow(config: Dict[str, Any]):
     Falls back to single 'searchQuery' for backwards compatibility.
     """
     device_id = config.get('deviceId')
-    search_query = config.get('searchQuery')
-    targets = config.get('targets', [])  # Multi-target support
-    target_accounts = config.get('targetAccounts', [])  # From TikTokTarget page
     bot_username = config.get('botUsername')  # TikTok account username for database tracking
     
     if not device_id:
         send_error("No device ID provided")
         return False
     
-    # Build targets list - use 'targets' or 'targetAccounts' array if provided, otherwise fall back to single searchQuery
-    if target_accounts and len(target_accounts) > 0:
-        target_list = [t.strip().replace('@', '') for t in target_accounts if t.strip()]
-    elif targets and len(targets) > 0:
-        target_list = [t.strip().replace('@', '') for t in targets if t.strip()]
-    elif search_query:
-        target_list = [search_query.strip().replace('@', '')]
-    else:
-        send_error("No target provided")
-        return False
-    
-    if len(target_list) == 0:
-        send_error("No valid targets provided")
+    target_list = build_target_list(config)
+    if not target_list:
+        if has_empty_target_candidates(config):
+            send_error("No valid targets provided")
+        else:
+            send_error("No target provided")
         return False
     
     logger.info(f"👥 Starting TikTok Followers workflow on device: {device_id}")
@@ -52,12 +54,10 @@ def run_followers_workflow(config: Dict[str, Any]):
     logger.info(f"🔍 Targets ({len(target_list)}): {', '.join(['@' + t for t in target_list])}")
     send_status("starting", f"Initializing TikTok Followers workflow on {device_id}")
     
-    # Calculate profiles per target for equitable distribution
-    # Support both 'maxFollowers' (from TikTokFollowers page) and 'maxVideos' (from TikTokTarget page)
-    max_followers_total = config.get('maxFollowers') or config.get('maxVideos', 20)
-    profiles_per_target = max(1, max_followers_total // len(target_list))
-    # Give remaining profiles to first targets
-    extra_profiles = max_followers_total % len(target_list)
+    max_followers_total, profiles_per_target, extra_profiles = calculate_target_distribution(
+        config,
+        len(target_list),
+    )
     
     logger.info(f"📊 Distribution: {profiles_per_target} profiles per target (total: {max_followers_total})")
     
@@ -72,35 +72,22 @@ def run_followers_workflow(config: Dict[str, Any]):
         # Use fetched username if available, otherwise fall back to config
         effective_bot_username = fetched_bot_username or bot_username
         
-        # Aggregate stats across all targets
-        total_stats = {
-            'followers_seen': 0,
-            'profiles_visited': 0,
-            'posts_watched': 0,
-            'likes': 0,
-            'favorites': 0,
-            'follows': 0,
-            'already_friends': 0,
-            'skipped': 0,
-            'known_usernames_seen': 0,
-            'new_usernames_seen': 0,
-            'consecutive_known_usernames': 0,
-            'errors': 0
-        }
+        total_stats = create_total_stats()
         
         # Remaining session limits (shared across targets)
         remaining_likes = config.get('maxLikesPerSession', 50)
         remaining_follows = config.get('maxFollowsPerSession', 20)
         
-        # Workflow instance (will be created for each target)
-        workflow = None
         completion_reason = 'completed'
         
         # Process each target sequentially
         for target_idx, current_target in enumerate(target_list):
                 
-            # Calculate profiles for this target
-            target_max_followers = profiles_per_target + (1 if target_idx < extra_profiles else 0)
+            target_max_followers = max_profiles_for_target(
+                target_idx,
+                profiles_per_target,
+                extra_profiles,
+            )
             
             # Skip if we've hit session limits
             if remaining_likes <= 0 and remaining_follows <= 0:
@@ -119,26 +106,13 @@ def run_followers_workflow(config: Dict[str, Any]):
                         total_targets=len(target_list),
                         next_target=target_list[target_idx + 1] if target_idx + 1 < len(target_list) else None)
             
-            # Create workflow config for this target
-            workflow_config = FollowersConfig(
-                search_query=current_target,
-                max_followers=target_max_followers,
-                posts_per_profile=config.get('postsPerProfile', 2),
-                min_watch_time=config.get('minWatchTime', 5.0),
-                max_watch_time=config.get('maxWatchTime', 15.0),
-                like_probability=config.get('likeProbability', 70) / 100.0,
-                favorite_probability=config.get('favoriteProbability', 30) / 100.0,
-                follow_probability=config.get('followProbability', 50) / 100.0,
-                story_like_probability=config.get('storyLikeProbability', 50) / 100.0,
-                max_likes_per_session=remaining_likes,
-                max_follows_per_session=remaining_follows,
-                min_delay=config.get('minDelay', 1.0),
-                max_delay=config.get('maxDelay', 3.0),
-                pause_after_actions=config.get('pauseAfterActions', 10),
-                pause_duration_min=config.get('pauseDurationMin', 30.0),
-                pause_duration_max=config.get('pauseDurationMax', 60.0),
-                include_friends=config.get('includeFriends', False),
-                max_consecutive_known_usernames=config.get('maxConsecutiveKnownUsernames', 150),
+            workflow_config = build_followers_config(
+                FollowersConfig,
+                config,
+                current_target,
+                target_max_followers,
+                remaining_likes,
+                remaining_follows,
             )
             
             # Create workflow for this target
@@ -153,63 +127,19 @@ def run_followers_workflow(config: Dict[str, Any]):
                         targets=target_list,
                         current_target_index=target_idx)
             
-            # Set callbacks for real-time updates
-            def on_action(action_info):
-                send_action(action_info.get('action', 'unknown'), action_info.get('target', ''))
-                logger.info(f"🎯 Action: {action_info.get('action')} on @{action_info.get('target', '')}")
-            
-            def on_stats(stats_dict):
-                # Merge with total stats for display
-                merged = {
-                    "followers_seen": total_stats['followers_seen'] + stats_dict.get('followers_seen', 0),
-                    "profiles_visited": total_stats['profiles_visited'] + stats_dict.get('profiles_visited', 0),
-                    "posts_watched": total_stats['posts_watched'] + stats_dict.get('posts_watched', 0),
-                    "likes": total_stats['likes'] + stats_dict.get('likes', 0),
-                    "favorites": total_stats['favorites'] + stats_dict.get('favorites', 0),
-                    "follows": total_stats['follows'] + stats_dict.get('follows', 0),
-                    "already_friends": total_stats['already_friends'] + stats_dict.get('already_friends', 0),
-                    "skipped": total_stats['skipped'] + stats_dict.get('skipped', 0),
-                    "known_usernames_seen": (
-                        total_stats['known_usernames_seen']
-                        + stats_dict.get('known_usernames_seen', 0)
-                    ),
-                    "new_usernames_seen": (
-                        total_stats['new_usernames_seen']
-                        + stats_dict.get('new_usernames_seen', 0)
-                    ),
-                    "consecutive_known_usernames": stats_dict.get('consecutive_known_usernames', 0),
-                    "errors": total_stats['errors'] + stats_dict.get('errors', 0),
-                    "current_target": current_target,
-                    "target_index": target_idx,
-                    "total_targets": len(target_list)
-                }
-                send_message("followers_stats", stats=merged)
-            
-            def on_pause(duration: int):
-                send_pause(duration)
-                logger.info(f"⏸️ Taking a break for {duration}s")
-            
-            workflow.set_on_action_callback(on_action)
-            workflow.set_on_stats_callback(on_stats)
-            workflow.set_on_pause_callback(on_pause)
+            wire_followers_callbacks(
+                workflow,
+                total_stats,
+                current_target,
+                target_idx,
+                len(target_list),
+            )
             
             # Run workflow for this target
             logger.info(f"▶️ Running followers workflow for @{current_target}...")
             stats = workflow.run(bot_username=effective_bot_username)
             
-            # Aggregate stats
-            total_stats['followers_seen'] += stats.followers_seen
-            total_stats['profiles_visited'] += stats.profiles_visited
-            total_stats['posts_watched'] += stats.posts_watched
-            total_stats['likes'] += stats.likes
-            total_stats['favorites'] += stats.favorites
-            total_stats['follows'] += stats.follows
-            total_stats['already_friends'] += stats.already_friends
-            total_stats['skipped'] += stats.skipped
-            total_stats['known_usernames_seen'] += stats.known_usernames_seen
-            total_stats['new_usernames_seen'] += stats.new_usernames_seen
-            total_stats['consecutive_known_usernames'] = stats.consecutive_known_usernames
-            total_stats['errors'] += stats.errors
+            record_target_stats(total_stats, stats)
             
             # Update remaining limits
             remaining_likes -= stats.likes
@@ -224,7 +154,7 @@ def run_followers_workflow(config: Dict[str, Any]):
                 break
             
             # If navigation failed, stop the workflow - don't try next target
-            if completion_reason in ['navigation_failed', 'ERROR']:
+            if should_stop_after_target(completion_reason):
                 logger.warning(f"⚠️ Target @{current_target} failed with error ({completion_reason}), stopping workflow")
                 break
             
@@ -236,7 +166,7 @@ def run_followers_workflow(config: Dict[str, Any]):
                     logger.warning("Could not navigate to home, trying next target anyway...")
         
         # Send final aggregated stats
-        total_stats['completion_reason'] = completion_reason if 'completion_reason' in dir() else 'completed'
+        total_stats['completion_reason'] = completion_reason
         send_message("followers_stats", stats=total_stats)
         
         logger.success(f"✅ Multi-target workflow completed: {total_stats}")
