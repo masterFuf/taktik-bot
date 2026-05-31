@@ -22,51 +22,12 @@ import subprocess
 from typing import Optional
 from loguru import logger
 
-
-# ── App constants ────────────────────────────────────────────────────
-APPS = {
-    "instagram": {
-        "package": "com.instagram.android",
-        "activity": "com.instagram.mainactivity.InstagramMainActivity",
-        "launch_wait": 4,   # seconds to wait after launch
-        "stop_wait": 1,     # seconds to wait after force-stop
-    },
-    "tiktok": {
-        "package": "com.zhiliaoapp.musically",
-        "activity": "com.ss.android.ugc.aweme.splash.SplashActivity",
-        "launch_wait": 4,
-        "stop_wait": 1.5,
-    },
-    "threads": {
-        "package": "com.instagram.barcelona",
-        "activity": "com.instagram.barcelona.mainactivity.BarcelonaMainActivity",
-        "launch_wait": 4,
-        "stop_wait": 1,
-    },
-    "gmail": {
-        "package": "com.google.android.gm",
-        "activity": "com.google.android.gm.ui.MailActivityGmail",
-        "launch_wait": 3,
-        "stop_wait": 1,
-    },
-    "youtube": {
-        "package": "com.google.android.youtube",
-        "activity": "com.google.android.youtube.app.honeycomb.Shell$HomeActivity",
-        "launch_wait": 4,
-        "stop_wait": 1,
-    },
-}
-
-
-# Alternative package names for the same platform
-# (same app shipped under different package IDs in different regions)
-PLATFORM_ALTERNATIVES = {
-    "tiktok": [
-        "com.zhiliaoapp.musically",   # TikTok musical.ly (default)
-        "com.ss.android.ugc.trill",   # TikTok global
-        "com.ss.android.ugc.aweme",   # TikTok (China / Douyin)
-    ],
-}
+from bridges.common.device.apps import (
+    alternatives_for_platform,
+    get_app_config,
+    known_platforms,
+    packages_for_platform,
+)
 
 
 def force_stop_app(device_id: str, platform: str) -> bool:
@@ -85,18 +46,12 @@ def force_stop_app(device_id: str, platform: str) -> bool:
     Returns:
         True if at least one force-stop command succeeded, False otherwise.
     """
-    config = APPS.get(platform)
+    config = get_app_config(platform)
     if not config:
         logger.warning(f"[AppService] Unknown platform '{platform}' for force-stop")
         return False
 
-    packages_to_try = [config["package"]]
-    if platform in PLATFORM_ALTERNATIVES:
-        # Include all known alternatives so we hit the right package regardless
-        # of which variant is installed on this device.
-        for alt in PLATFORM_ALTERNATIVES[platform]:
-            if alt not in packages_to_try:
-                packages_to_try.append(alt)
+    packages_to_try = packages_for_platform(platform)
 
     success = False
     for pkg in packages_to_try:
@@ -132,13 +87,13 @@ class AppService:
             package_override: If set, use this package name instead of the
                               default (for cloned apps like NomixCloner).
         """
-        if platform not in APPS:
-            raise ValueError(f"Unknown platform '{platform}'. Must be one of: {list(APPS.keys())}")
+        app_config = get_app_config(platform)
+        if not app_config:
+            raise ValueError(f"Unknown platform '{platform}'. Must be one of: {known_platforms()}")
 
         self._conn = connection
         self._platform = platform
-        # Copy config so we don't mutate the shared APPS dict
-        self._config = dict(APPS[platform])
+        self._config = app_config
 
         if package_override and package_override != self._config["package"]:
             logger.info(f"[AppService] Using clone package: {package_override}")
@@ -148,12 +103,12 @@ class AppService:
             # NomixCloner preserves the original activity class, so it's fine.
             if package_override.startswith("com.taktik."):
                 self._config["activity"] = None
-        elif not package_override and platform in PLATFORM_ALTERNATIVES:
+        elif not package_override:
             # Auto-detect: if the default package is not installed, try alternatives
             # (e.g. com.ss.android.ugc.trill when com.zhiliaoapp.musically is absent)
             dm = connection.device_manager
-            if dm is not None:
-                alternatives = PLATFORM_ALTERNATIVES[platform]
+            alternatives = alternatives_for_platform(platform)
+            if dm is not None and alternatives:
                 for alt_pkg in alternatives:
                     if dm.is_app_installed(alt_pkg):
                         if alt_pkg != self._config["package"]:

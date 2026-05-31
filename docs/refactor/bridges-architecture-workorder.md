@@ -35,6 +35,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/analysis/runtime/**` = support local des bridges analyse : commandes CLI, parsing config, capture/consolidation de donnees. Ne pas laisser ces modules gonfler l'entrypoint `analysis/<flow>.py`.
 - `bridges/<platform>/account/runtime/**` = support local des bridges compte : commandes CLI, preparation DB/device/app et dispatch login/logout/register. Ne pas laisser ces modules gonfler l'entrypoint `account/<flow>.py`.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
+- `bridges/common/device/apps.py` = catalogue package/activity/wait times et variantes package connues pour `AppService`.
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
@@ -103,6 +104,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B55 | Fait | Extraire les capacites de `bridges/instagram/base.py` sous `bridges/instagram/runtime/{ipc,bridge}.py`; `base.py` devient une facade stable et conserve l'enregistrement IPC core. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B56 | Fait | Migrer les consumers internes Instagram vers les owners runtime directs (`runtime/ipc.py`, `runtime/bridge.py`) au lieu de passer par la facade `base.py`; seul le smoke de compat clone garde la facade. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B57 | Fait | Extraire les runners Threads feed/search sous `bridges/threads/workflows/runtime/**`; `workflows/dispatcher.py` redevient lecture config, routing et cleanup. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B58 | Fait | Extraire le catalogue package/activity/wait times et variantes connues de `AppService` sous `bridges/common/device/apps.py`. | Import smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
