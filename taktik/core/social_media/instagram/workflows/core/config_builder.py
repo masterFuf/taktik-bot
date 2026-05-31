@@ -284,3 +284,64 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
             )
         ],
     }
+
+
+def build_instagram_session_config_event(
+    raw_config: Dict[str, Any],
+    *,
+    ai_enabled: bool = False,
+) -> Dict[str, Any]:
+    """Build the structured session_config event payload emitted by the bridge."""
+    limits = raw_config.get("limits", {})
+    probabilities = raw_config.get("probabilities", {})
+    filters = raw_config.get("filters", {})
+    session_config = raw_config.get("session", {})
+    ai_config = raw_config.get("ai", {})
+
+    session_payload: Dict[str, Any] = {
+        "durationMinutes": session_config.get("durationMinutes", 60),
+        "minDelay": session_config.get("minDelay", 5),
+        "maxDelay": session_config.get("maxDelay", 15),
+    }
+    if session_config.get("maxConsecutiveKnownUsernames") is not None:
+        session_payload["maxConsecutiveKnownUsernames"] = session_config.get(
+            "maxConsecutiveKnownUsernames"
+        )
+    if session_config.get("maxNoNewUsernamesScrolls") is not None:
+        session_payload["maxNoNewUsernamesScrolls"] = session_config.get(
+            "maxNoNewUsernamesScrolls"
+        )
+
+    payload: Dict[str, Any] = {
+        "deviceId": raw_config.get("deviceId"),
+        "workflowType": raw_config.get("workflowType"),
+        "target": raw_config.get("target"),
+        "limits": {
+            "maxProfiles": limits.get("maxProfiles", 20),
+            "maxLikesPerProfile": limits.get("maxLikesPerProfile", 2),
+        },
+        "probabilities": {
+            "like": probabilities.get("like", 80),
+            "follow": probabilities.get("follow", 20),
+            "comment": probabilities.get("comment", 5),
+            "watchStories": probabilities.get("watchStories", 15),
+            "likeStories": probabilities.get("likeStories", 10),
+        },
+        "filters": {
+            "minFollowers": filters.get("minFollowers", 50),
+            "maxFollowers": filters.get("maxFollowers", 50000),
+            "minPosts": filters.get("minPosts", 5),
+            "maxFollowing": filters.get("maxFollowing", 7500),
+        },
+        "session": session_payload,
+    }
+
+    if ai_enabled:
+        payload["ai"] = {
+            "enabled": True,
+            "smartComments": ai_config.get("smartComments", False),
+            "profileAnalysis": ai_config.get("profileAnalysis", False),
+            "postAnalysis": ai_config.get("postAnalysis", False),
+        }
+
+    return payload

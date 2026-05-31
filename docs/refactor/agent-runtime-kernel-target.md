@@ -204,6 +204,6 @@ Donc :
 Au 2026-05-31, les IDs manifest encore sans handler concernent des zones qui demandent une extraction avant branchement :
 
 - Instagram automation : `DesktopBridge` porte encore le builder de config, le lifecycle media/network et des hooks IA ; brancher directement `InstagramAutomation` masquerait trop de contrat bridge dans un handler.
-- Avancement : le builder de config automation Instagram a ete extrait vers `social_media/instagram/workflows/core/config_builder.py`. Le lifecycle device/media/network et les hooks IA restent encore bridge-owned, donc le handler Agent automation n'est pas encore mecanique.
+- Avancement : les builders de config automation Instagram et de payload structuree `session_config` ont ete extraits vers `social_media/instagram/workflows/core/config_builder.py`. Le lifecycle device/media/network et les hooks IA restent encore bridge-owned, donc le handler Agent automation n'est pas encore mecanique.
 - Instagram engagement/DM : `dm_bridge.py`, `cold_dm_bridge.py`, `smart_comment_bridge.py` et `taktik_agent_bridge.py` n'ont pas encore une frontiere core homogene par workflow.
 - Threads automation : les workflows appellent encore `threads_startup()` et creent leur connexion device ; il faut d'abord injecter le runtime device.

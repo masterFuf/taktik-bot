@@ -1,5 +1,6 @@
 from taktik.core.social_media.instagram.workflows.core.config_builder import (
     build_instagram_automation_config,
+    build_instagram_session_config_event,
 )
 
 
@@ -108,3 +109,77 @@ def test_builds_sync_followers_following_config_with_mode():
             "mode": "full",
         }
     ]
+
+
+def test_builds_session_config_event_with_optional_ai_payload():
+    payload = build_instagram_session_config_event(
+        {
+            "deviceId": "device-1",
+            "workflowType": "target_followers",
+            "target": "alpha",
+            "limits": {
+                "maxProfiles": 9,
+                "maxLikesPerProfile": 3,
+            },
+            "probabilities": {
+                "like": 70,
+                "follow": 40,
+                "comment": 20,
+                "watchStories": 10,
+                "likeStories": 5,
+            },
+            "filters": {
+                "minFollowers": 20,
+                "maxFollowers": 2000,
+                "minPosts": 2,
+                "maxFollowing": 700,
+            },
+            "session": {
+                "durationMinutes": 30,
+                "minDelay": 4,
+                "maxDelay": 8,
+                "maxNoNewUsernamesScrolls": 6,
+            },
+            "ai": {
+                "smartComments": True,
+                "profileAnalysis": False,
+                "postAnalysis": True,
+            },
+        },
+        ai_enabled=True,
+    )
+
+    assert payload == {
+        "deviceId": "device-1",
+        "workflowType": "target_followers",
+        "target": "alpha",
+        "limits": {
+            "maxProfiles": 9,
+            "maxLikesPerProfile": 3,
+        },
+        "probabilities": {
+            "like": 70,
+            "follow": 40,
+            "comment": 20,
+            "watchStories": 10,
+            "likeStories": 5,
+        },
+        "filters": {
+            "minFollowers": 20,
+            "maxFollowers": 2000,
+            "minPosts": 2,
+            "maxFollowing": 700,
+        },
+        "session": {
+            "durationMinutes": 30,
+            "minDelay": 4,
+            "maxDelay": 8,
+            "maxNoNewUsernamesScrolls": 6,
+        },
+        "ai": {
+            "enabled": True,
+            "smartComments": True,
+            "profileAnalysis": False,
+            "postAnalysis": True,
+        },
+    }

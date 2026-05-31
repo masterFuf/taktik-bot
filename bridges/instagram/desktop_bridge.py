@@ -349,47 +349,18 @@ class DesktopBridge:
             targets_display = ', @'.join([t.strip() for t in self.target.split(',') if t.strip()])
             send_status("starting", f"Starting {self.workflow_type} workflow for @{targets_display}")
             send_log("info", f"Configuration: {json.dumps(workflow_config, indent=2)}")
-            
-            # Send structured session config for WorkflowAnalyzer
-            session_payload = {
-                "durationMinutes": self.session_config.get('durationMinutes', 60),
-                "minDelay": self.session_config.get('minDelay', 5),
-                "maxDelay": self.session_config.get('maxDelay', 15)
-            }
-            if self.session_config.get('maxConsecutiveKnownUsernames') is not None:
-                session_payload["maxConsecutiveKnownUsernames"] = self.session_config.get('maxConsecutiveKnownUsernames')
-            if self.session_config.get('maxNoNewUsernamesScrolls') is not None:
-                session_payload["maxNoNewUsernamesScrolls"] = self.session_config.get('maxNoNewUsernamesScrolls')
 
-            send_message("session_config", config={
-                "deviceId": self.device_id,
-                "workflowType": self.workflow_type,
-                "target": self.target,
-                "limits": {
-                    "maxProfiles": self.limits.get('maxProfiles', 20),
-                    "maxLikesPerProfile": self.limits.get('maxLikesPerProfile', 2)
-                },
-                "probabilities": {
-                    "like": self.probabilities.get('like', 80),
-                    "follow": self.probabilities.get('follow', 20),
-                    "comment": self.probabilities.get('comment', 5),
-                    "watchStories": self.probabilities.get('watchStories', 15),
-                    "likeStories": self.probabilities.get('likeStories', 10)
-                },
-                "filters": {
-                    "minFollowers": self.filters.get('minFollowers', 50),
-                    "maxFollowers": self.filters.get('maxFollowers', 50000),
-                    "minPosts": self.filters.get('minPosts', 5),
-                    "maxFollowing": self.filters.get('maxFollowing', 7500)
-                },
-                "session": session_payload,
-                **({"ai": {
-                    "enabled": True,
-                    "smartComments": self.ai_config.get('smartComments', False),
-                    "profileAnalysis": self.ai_config.get('profileAnalysis', False),
-                    "postAnalysis": self.ai_config.get('postAnalysis', False),
-                }} if self.ai_enabled else {})
-            })
+            from taktik.core.social_media.instagram.workflows.core.config_builder import (
+                build_instagram_session_config_event,
+            )
+
+            send_message(
+                "session_config",
+                config=build_instagram_session_config_event(
+                    self.config,
+                    ai_enabled=self.ai_enabled,
+                ),
+            )
             
             # Create automation instance (matching CLI usage)
             send_status("initializing", "Initializing automation...")
