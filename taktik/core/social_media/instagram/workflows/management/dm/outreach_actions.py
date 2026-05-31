@@ -125,17 +125,12 @@ class OutreachActionsMixin:
                     return True
             
             # Fallback: chercher par texte
-            message_btn = self.device(text="Message")
-            if message_btn.exists(timeout=3):
-                message_btn.click()
-                time.sleep(2)
-                return True
-            
-            message_btn = self.device(text="Envoyer un message")
-            if message_btn.exists(timeout=3):
-                message_btn.click()
-                time.sleep(2)
-                return True
+            for label in self.profile_selectors.message_button_text_labels:
+                message_btn = self.device(text=label)
+                if message_btn.exists(timeout=3):
+                    message_btn.click()
+                    time.sleep(2)
+                    return True
             
             self.logger.error("Message button not found on profile")
             return False
@@ -192,14 +187,12 @@ class OutreachActionsMixin:
                     return True
             
             # Fallback: chercher par content-desc
-            send_btn = self.device(contentDescription="Send")
-            if not send_btn.exists(timeout=3):
-                send_btn = self.device(contentDescription="Envoyer")
-            
-            if send_btn.exists(timeout=3):
-                send_btn.click()
-                time.sleep(1)
-                return True
+            for description in self.dm_selectors.send_button_content_descriptions:
+                send_btn = self.device(contentDescription=description)
+                if send_btn.exists(timeout=3):
+                    send_btn.click()
+                    time.sleep(1)
+                    return True
             
             self.logger.error("Send button not found")
             return False

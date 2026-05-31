@@ -34,13 +34,14 @@ class DMNavigationMixin:
                     return True
             
             # Méthode 3: Fallback avec uiautomator
-            dm_button = self.device(contentDescription="Envoyer un message")
-            if not dm_button.exists(timeout=3):
-                dm_button = self.device(contentDescription="Direct")
-            if not dm_button.exists(timeout=3):
-                dm_button = self.device(contentDescription="Messages")
-            
-            if dm_button.exists(timeout=5):
+            dm_button = None
+            for description in self.dm_selectors.direct_tab_content_descriptions:
+                candidate = self.device(contentDescription=description)
+                if candidate.exists(timeout=3):
+                    dm_button = candidate
+                    break
+
+            if dm_button and dm_button.exists(timeout=5):
                 dm_button.click()
                 time.sleep(2)
                 self.logger.debug("✅ Navigated to DM inbox via fallback")
@@ -178,20 +179,22 @@ class DMNavigationMixin:
                 return True
             
             # Méthode 2: Bouton avec content-desc "Back"
-            back_btn = self.device(description="Back")
-            if back_btn.exists(timeout=2):
-                back_btn.click()
-                time.sleep(1)
-                self.logger.debug("✅ Retour via description Back")
-                return True
+            for description in DM_SELECTORS.conversation_back_descriptions:
+                back_btn = self.device(description=description)
+                if back_btn.exists(timeout=2):
+                    back_btn.click()
+                    time.sleep(1)
+                    self.logger.debug("✅ Retour via description Back")
+                    return True
             
             # Méthode 3: Bouton avec content-desc "Retour"
-            back_btn = self.device(descriptionContains="Retour")
-            if back_btn.exists(timeout=2):
-                back_btn.click()
-                time.sleep(1)
-                self.logger.debug("✅ Retour via description Retour")
-                return True
+            for description in DM_SELECTORS.conversation_back_description_contains:
+                back_btn = self.device(descriptionContains=description)
+                if back_btn.exists(timeout=2):
+                    back_btn.click()
+                    time.sleep(1)
+                    self.logger.debug("✅ Retour via description Retour")
+                    return True
             
             # Fallback: utiliser press back si aucun bouton trouvé
             self.logger.warning("Aucun bouton back UI trouvé, utilisation de press back en fallback")

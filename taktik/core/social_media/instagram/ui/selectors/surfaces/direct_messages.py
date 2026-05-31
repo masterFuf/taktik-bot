@@ -15,6 +15,12 @@ class DirectMessageSelectors:
         '//*[@content-desc="Messages"]',
         '//*[@content-desc="Messenger"]'
     ])
+
+    direct_tab_content_descriptions: List[str] = field(default_factory=lambda: [
+        "Envoyer un message",
+        "Direct",
+        "Messages",
+    ])
     
     # Badge de notification sur l'onglet DM
     dm_notification_badge: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]//*[@resource-id="com.instagram.android:id/notification"]'
@@ -70,6 +76,12 @@ class DirectMessageSelectors:
     
     # === Navigation dans une conversation ===
     conversation_back_button_resource_id: str = 'com.instagram.android:id/header_left_button'
+    conversation_back_descriptions: List[str] = field(default_factory=lambda: [
+        "Back",
+    ])
+    conversation_back_description_contains: List[str] = field(default_factory=lambda: [
+        "Retour",
+    ])
     
     # === Dans une conversation ===
     message_input: List[str] = field(default_factory=lambda: [
@@ -85,6 +97,10 @@ class DirectMessageSelectors:
         '//*[contains(@content-desc, "Send")]',
         '//android.widget.ImageButton[contains(@content-desc, "Envoyer")]',
         '//android.widget.ImageButton[contains(@content-desc, "Send")]'
+    ])
+    send_button_content_descriptions: List[str] = field(default_factory=lambda: [
+        "Send",
+        "Envoyer",
     ])
     
     # Liste des messages dans une conversation

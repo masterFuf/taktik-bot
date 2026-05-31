@@ -83,6 +83,10 @@ class ProfileSelectors:
         '//*[contains(@text, "Envoyer un message")]',
         '//*[@resource-id="com.instagram.android:id/profile_header_message_button"]'
     ])
+    message_button_text_labels: List[str] = field(default_factory=lambda: [
+        'Message',
+        'Envoyer un message',
+    ])
     
     # === Onglets du profil ===
     posts_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Publications") or contains(@content-desc, "Posts")]'
