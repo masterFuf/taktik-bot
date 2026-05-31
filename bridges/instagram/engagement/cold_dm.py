@@ -20,19 +20,11 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.common.persistence.database import SentDMService
 from bridges.instagram.base import logger, InstagramBridgeBase
-
-
-
-def check_dm_already_sent(account_id: int, recipient_username: str) -> bool:
-    """Check if a DM was already sent to this recipient (Instagram)."""
-    return SentDMService.check_already_sent(account_id, recipient_username, platform='instagram')
-
-
-def record_sent_dm(account_id: int, recipient_username: str, message: str, success: bool, error_message: str = None, session_id: str = None):
-    """Record a sent DM in the database (Instagram)."""
-    SentDMService.record(account_id, recipient_username, message, success, error_message, session_id, platform='instagram')
+from bridges.instagram.engagement.runtime.cold_dm_persistence import (
+    check_dm_already_sent,
+    record_sent_dm,
+)
 
 
 class ColdDMWorkflow(InstagramBridgeBase):
