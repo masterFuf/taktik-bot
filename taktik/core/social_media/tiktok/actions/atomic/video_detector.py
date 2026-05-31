@@ -186,8 +186,8 @@ class VideoDetector(BaseAction):
             tree = etree.fromstring(xml.encode('utf-8'))
 
             bounds = None
-            for pkg in ("com.zhiliaoapp.musically", "com.ss.android.ugc.trill", "com.ss.android.ugc.aweme"):
-                elems = tree.xpath(f'//*[@resource-id="{pkg}:id/yx4"]')
+            for selector in self.video_selectors.creator_profile_image_resource_id_selectors:
+                elems = tree.xpath(selector)
                 if elems:
                     bounds_str = elems[0].get('bounds', '')
                     if bounds_str:

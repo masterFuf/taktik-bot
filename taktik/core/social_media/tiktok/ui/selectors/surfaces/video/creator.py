@@ -10,6 +10,10 @@ from ._shared import resource_ids
 class VideoCreatorSelectors:
     """Selectors tied to the video author surface."""
 
+    creator_profile_image_resource_id_selectors: List[str] = field(
+        default_factory=lambda: [*resource_ids("yx4")]
+    )
+
     creator_profile_image: List[str] = field(default_factory=lambda: [
         *resource_ids("yx4"),
         '//android.widget.ImageView[contains(@content-desc, "profile")]',

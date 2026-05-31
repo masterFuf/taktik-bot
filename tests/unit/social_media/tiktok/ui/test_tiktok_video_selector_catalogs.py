@@ -8,6 +8,10 @@ from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
 
 
 def test_video_aggregate_delegates_to_creator_catalog():
+    assert (
+        VIDEO_SELECTORS.creator_profile_image_resource_id_selectors
+        == VIDEO_CREATOR_SELECTORS.creator_profile_image_resource_id_selectors
+    )
     assert VIDEO_SELECTORS.creator_profile_image == VIDEO_CREATOR_SELECTORS.creator_profile_image
     assert VIDEO_SELECTORS.follow_button == VIDEO_CREATOR_SELECTORS.follow_button
 
