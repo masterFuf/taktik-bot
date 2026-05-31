@@ -13,7 +13,8 @@ import time
 from typing import Optional, Tuple
 from loguru import logger
 
-from ...ui.selectors import AUTH_SELECTORS, POPUP_SELECTORS
+from ...ui.selectors.shell.auth import AUTH_SELECTORS
+from ...ui.selectors.shell.popups import POPUP_SELECTORS
 from ...actions.atomic.text import TextActions
 from ...actions.atomic.interaction import ClickActions
 from ...actions.atomic.detection import DetectionActions

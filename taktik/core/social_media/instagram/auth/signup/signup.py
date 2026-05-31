@@ -15,7 +15,7 @@ import time
 from typing import Optional
 from loguru import logger
 
-from ...ui.selectors import AUTH_SELECTORS
+from ...ui.selectors.shell.auth import AUTH_SELECTORS
 from ...actions.atomic.text import TextActions
 from ...actions.core.utils import ActionUtils
 

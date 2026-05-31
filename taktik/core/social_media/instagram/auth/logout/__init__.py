@@ -13,7 +13,7 @@ import time
 from typing import Optional
 from loguru import logger
 
-from ...ui.selectors import AUTH_SELECTORS
+from ...ui.selectors.shell.auth import AUTH_SELECTORS
 from ...actions.atomic.interaction import ClickActions
 from ...actions.atomic.detection import DetectionActions
 
