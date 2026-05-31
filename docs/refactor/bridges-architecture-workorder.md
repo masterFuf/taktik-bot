@@ -82,6 +82,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B39 | Fait | Extraire les modeles `ScrapedComment`, `TargetProfile` et `PostContext` du bridge Instagram Smart Comment sous `engagement/runtime/smart_comment_models.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B40 | Fait | Extraire le parsing Litho dumpsys des commentaires Smart Comment sous `engagement/runtime/smart_comment_parsing.py` et utiliser le parseur de compte commun. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B41 | Fait | Extraire la capture screenshot post Smart Comment sous `engagement/runtime/smart_comment_media.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B42 | Fait | Extraire la navigation profil cible, le scraping profile et l'ouverture du premier post Smart Comment sous `engagement/runtime/smart_comment_target.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
