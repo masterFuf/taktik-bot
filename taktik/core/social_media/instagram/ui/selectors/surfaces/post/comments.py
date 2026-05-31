@@ -45,6 +45,10 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.post_comments_count_selectors)
     )
 
+    def comments_list_selector(self) -> str:
+        """Return the comments list selector from the catalog-owned resource id."""
+        return f'//*[@resource-id="{self.comments_list_resource_id}"]'
+
     def sort_option_by_content_description(self, label: str) -> str:
         """Return the context-menu option selector for a visible sort label."""
         return f'//*[@content-desc="{label}"]'

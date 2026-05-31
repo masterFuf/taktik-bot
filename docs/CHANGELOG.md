@@ -81,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram post-scraping comment sort options now use the scoped post-comments selector catalog instead of building a `content-desc` XPath inline in the workflow.
 - TikTok DM atomic actions now use scoped inbox selector builders for notification section titles and conversation username fallbacks instead of composing XPath strings in the action.
 - Instagram search navigation now uses scoped navigation selector builders for profile result rows and hashtag result/confirmation selectors instead of composing XPath strings inside the action.
+- Instagram comment scrolling now uses a scoped post-comments selector builder for the comments list instead of composing a `resource-id` XPath in the scroll action.
 - Instagram core automation, base business actions and recorder now import their selector catalogs from scoped shell/surface owners instead of the top-level selector aggregate.
 - Instagram business actions and workflows now import like/comment/messaging/feed/hashtag/followers/notification/unfollow selectors from scoped owners instead of the top-level selector aggregate.
 - Instagram human behavior recorder no longer keeps screen/content XPath catalogs inline; missing recorder probes now consume scoped selector owners for feed, reels, stories, profile, DM, comments and notifications.

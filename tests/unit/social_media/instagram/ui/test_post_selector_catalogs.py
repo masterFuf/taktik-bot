@@ -14,6 +14,9 @@ def test_specialized_post_catalogs_remain_compatible_with_legacy_aggregate():
 
     assert POST_COMMENTS_SELECTORS.comment_button_selectors == POST_SELECTORS.comment_button_selectors
     assert POST_COMMENTS_SELECTORS.comments_list_resource_id == POST_SELECTORS.comments_list_resource_id
+    assert POST_COMMENTS_SELECTORS.comments_list_selector() == (
+        f'//*[@resource-id="{POST_SELECTORS.comments_list_resource_id}"]'
+    )
 
     assert POST_LIKERS_SELECTORS.liked_by_selectors == POST_SELECTORS.liked_by_selectors
     assert POST_LIKERS_SELECTORS.like_count_selectors == POST_SELECTORS.like_count_selectors
