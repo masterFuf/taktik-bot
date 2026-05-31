@@ -183,6 +183,10 @@ taktik/core/
   social_media/          # metier plateforme
   shared/                # primitives techniques partagees
   database/              # persistence
+    local/
+      paths.py           # resolution chemin DB pour bridges standalone
+    repositories/
+      messaging/         # sent_dms / faits messaging multi-plateformes
 
   agent/                 # runtime kernel d'orchestration
     kernel/

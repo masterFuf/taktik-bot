@@ -38,6 +38,7 @@ database/
 │   ├── __init__.py          ← Re-exports
 │   ├── service.py           ← Moteur SQLite (LocalDatabaseService)
 │   │                          Gère la connexion, le WAL et initialise les repos
+│   ├── paths.py             ← Résolution du chemin DB pour bridges standalone
 │   ├── schema.py            ← Orchestrateur create_schema()
 │   ├── schemas/             ← DDL classé par domaine
 │   │   ├── instagram.py
@@ -59,6 +60,7 @@ database/
     ├── _base/                ← BaseRepository
     ├── gmail/                ← Comptes Google persistés dans gmail_accounts
     ├── instagram/            ← Repositories Instagram par domaine
+    ├── messaging/            ← Dedup DM multi-plateformes (`sent_dms`)
     └── tiktok/               ← Repositories TikTok par domaine
 ```
 
@@ -74,6 +76,7 @@ database/
 - `repositories/instagram/stats/` porte les requêtes liées à `daily_stats` et aux agrégats analytics Instagram.
 - `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
 - `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
+- `repositories/messaging/` porte les requêtes liées aux faits de messagerie multi-plateformes comme `sent_dms`; les bridges gardent seulement des façades de compatibilité.
 - Une façade explicite sous `database/*.py` peut exister temporairement pour absorber des call sites legacy de workflow, mais elle doit seulement orchestrer le client/repositories DB. Elle ne doit pas redevenir un second dossier fourre-tout.
 - Les états Instagram de social graph legacy (`following_sync`, `followers_sync`, flags mutual/non-follower, lookup "followed by bot") doivent transiter par `instagram_follow_graph.py` tant que les repositories dédiés n'existent pas.
 - Une table ou méthode partagée entre plateformes doit avoir un ownership explicite dans le nom, la doc et le test.

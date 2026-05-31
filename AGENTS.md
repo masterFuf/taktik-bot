@@ -99,6 +99,7 @@ Definition simple :
 - Les ecritures DB doivent passer par un repository ou par un service legacy clairement identifie. Ne pas ajouter de nouveau SQL direct dans un workflow si un repository existe.
 - Les repositories SQLite vivent dans `taktik/core/database/repositories/<domaine>/`. Ne pas creer de repository DB dans `taktik/core/social_media/**/services`, `workflows` ou un package parallele.
 - Le nom du package repository doit refleter le vrai domaine de donnee : `instagram`, `tiktok`, `gmail`, etc. Exemple : la table `gmail_accounts` appartient a `repositories/gmail/`, meme si YouTube la consomme aussi.
+- Les faits de messagerie multi-plateformes comme `sent_dms` appartiennent a `repositories/messaging/`. Les bridges peuvent garder une facade de compatibilite, mais pas de SQL direct.
 - Une table analytique partagee comme `daily_stats` doit avoir son repository explicite. Ne pas la laisser comme SQL cache dans `LocalDatabaseService`.
 - Si un workflow legacy a encore besoin d'une decision DB composee (`already_processed`, `already_filtered`, bookkeeping d'interactions, etc.), creer ou etendre une facade nommee sous `taktik/core/database/*.py` avant de laisser cette logique dans `social_media/**/common/database_helpers.py`.
 - Si un shim legacy comme `social_media/**/common/database_helpers.py` n'a plus de consommateur runtime interne, ne pas le rebrancher dans un nouveau workflow ou module UI. Le garder seulement comme surface de compatibilite package-level tant qu'un usage externe n'a pas ete explicitement retire.

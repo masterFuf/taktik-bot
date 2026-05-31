@@ -178,6 +178,7 @@ class TestRunMigrations:
             assert col in cols, f"Missing column: {col}"
 
     def test_legacy_tiktok_scraped_profiles_are_migrated(self, base_conn):
+        base_conn.execute("DROP TABLE IF EXISTS tiktok_scraped_profiles")
         base_conn.execute("""
             CREATE TABLE tiktok_scraped_profiles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

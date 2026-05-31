@@ -39,9 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `taktik/core/clone` is now split by ownership into `detection/`, `packages/`, `device/`, and `selectors/`, with the package root kept as the public facade.
 - `taktik/core/compat` no longer keeps top-level selector shim modules; `compat/selectors/**` is the only internal owner and `compat/__init__.py` is the public facade.
 - `taktik/core/email/gmail` is now split into `workflows/` and `ui/` so Gmail workflow logic and selectors no longer share the provider package root.
+- Sent DM duplicate-prevention SQL moved out of `bridges/common/database.py` into `taktik/core/database/repositories/messaging/SentDMRepository`; the bridge module now remains a compatibility facade for existing Instagram/TikTok imports.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.
+- The `sent_dms` table keeps its historical Python-side `(account_id, recipient_username, platform)` dedup behavior for bridge workflows; no shared Electron schema migration was introduced in this lot.
 
 ### Fixed
 - TikTok local schema now creates the `tiktok_scraped_profiles` junction table directly, matching the repository that links scraped TikTok profiles to scraping sessions.
