@@ -39,8 +39,8 @@
 - [x] `core/agent` expose maintenant un premier `WorkflowRegistry` et un `AgentPlanExecutor` minimaux, sans brancher encore les workflows historiques.
 - [x] Les workflows TikTok `login/logout/signup` n'instancient plus `IPC()` dans `core`; le notifier live est injecte par le bridge compte.
 - [x] Le workflow `tiktok publish` n'instancie plus le notifier bridge dans `core`; `tiktok_publish_bridge.py` le lui injecte maintenant.
+- [x] `core/ai` possede maintenant le provider OpenRouter ; `bridges/common/ai_service.py` est seulement un shim de compatibilite.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
-- [ ] Rationaliser l'owner provider dans `core/ai` pour les workflows qui importent encore `bridges.common.ai_service`.
 - [ ] Faire emerger `registry.py` / `executor.py` pour sortir `TaktikAgentWorkflow` du role de pseudo-noyau global.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
 - [ ] Decision finale sur la deprecation ou non des agregateurs publics legacy.

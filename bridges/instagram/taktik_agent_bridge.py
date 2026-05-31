@@ -34,8 +34,8 @@ from bridges.common.signal_handler import setup_signal_handlers
 from taktik.core.database import configure_db_service
 from loguru import logger
 
-from bridges.common.ai_service import AIService
 from bridges.instagram.base import InstagramBridgeBase, _ipc
+from taktik.core.ai.openrouter import AIService
 
 # Graceful shutdown on SIGINT / SIGTERM
 setup_signal_handlers()
