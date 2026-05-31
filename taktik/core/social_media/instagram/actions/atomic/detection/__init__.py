@@ -3,7 +3,9 @@
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS, POST_SELECTORS
+from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ....ui.selectors.surfaces.post import POST_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 from .screen_detection import ScreenDetectionMixin
 from .profile_extraction import ProfileExtractionMixin

@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS, POST_SELECTORS, STORY_SELECTORS
+from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 
 class ScreenDetectionMixin(BaseAction):
