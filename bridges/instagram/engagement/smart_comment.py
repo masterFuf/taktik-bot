@@ -128,7 +128,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def navigate_to_target_profile(self, username: str) -> bool:
         """Navigate to a target user's profile using the framework's NavigationActions.
-        
+
         Uses deep link (90%) or search (10%) — same as all other workflows.
         """
         logger.info(f"Navigating to @{username} profile...")
@@ -142,7 +142,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def scrape_target_profile(self) -> TargetProfile:
         """Scrape profile information using the framework's ProfileBusiness.get_complete_profile_info().
-        
+
         This is the same robust method used by Target, Hashtag, and other workflows.
         """
         logger.info("Scraping target profile info via ProfileBusiness...")
@@ -183,7 +183,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def open_first_post(self) -> bool:
         """Open the first post in the profile grid using the framework's ClickActions.
-        
+
         Uses the proven image_button selector that works across all workflows.
         """
         logger.info("Opening first post via ClickActions...")
@@ -241,7 +241,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _expand_caption(self):
         """Click the 'more' button to expand the full caption text.
-        
+
         Instagram truncates captions and shows a 'more' button. We need to
         click it to get the full text including hashtags.
         """
@@ -251,13 +251,13 @@ class SmartCommentBridge(InstagramBridgeBase):
             caption_view = self.device(className="com.instagram.ui.widget.textview.IgTextLayoutView")
             if not caption_view.exists:
                 return
-            
+
             # Check if caption text ends with "more" or "plus" (truncated)
             caption_text = caption_view.get_text() or ""
             if not (caption_text.rstrip().endswith('more') or caption_text.rstrip().endswith('plus')):
                 logger.debug("Caption does not appear truncated — no 'more' button to click")
                 return
-            
+
             # Find the "more" button by content-desc
             more_btn = self.device(description="more")
             if not more_btn.exists:
@@ -267,7 +267,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                 more_btn = self.device(description="plus")
             if not more_btn.exists:
                 more_btn = self.device(text="plus", className="android.widget.Button")
-            
+
             if more_btn.exists:
                 more_btn.click()
                 time.sleep(1)
@@ -450,10 +450,10 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def extract_post_url(self) -> str:
         """Extract the current post's URL via Share → Copy Link.
-        
+
         This is critical for the reply phase: we need to navigate back to the
         exact same post, not just the first post on a profile.
-        
+
         Returns the post URL (e.g. https://www.instagram.com/p/ABC123/) or empty string.
         """
         logger.info("Extracting post URL via Share → Copy Link...")
@@ -466,10 +466,10 @@ class SmartCommentBridge(InstagramBridgeBase):
             if not share_btn.exists:
                 logger.warning("Share button not found")
                 return ""
-            
+
             share_btn.click()
             time.sleep(1.5)
-            
+
             # Look for "Copy link" / "Copier le lien" button in the share sheet
             copy_link = None
             for label in ["Copy link", "Copier le lien", "Copy Link"]:
@@ -477,7 +477,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                 if elem.exists:
                     copy_link = elem
                     break
-            
+
             if not copy_link:
                 # Try by content-desc
                 for label in ["Copy link", "Copier le lien"]:
@@ -485,16 +485,16 @@ class SmartCommentBridge(InstagramBridgeBase):
                     if elem.exists:
                         copy_link = elem
                         break
-            
+
             if not copy_link:
                 logger.warning("Copy link button not found in share sheet")
                 self.device.press("back")
                 time.sleep(0.5)
                 return ""
-            
+
             copy_link.click()
             time.sleep(1)
-            
+
             # Read clipboard via adb
             try:
                 result = subprocess.run(
@@ -512,7 +512,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                     return post_url
             except Exception as e:
                 logger.debug(f"Clipboard broadcast failed: {e}")
-            
+
             # Fallback: try dumpsys clipboard
             try:
                 result = subprocess.run(
@@ -527,11 +527,11 @@ class SmartCommentBridge(InstagramBridgeBase):
                     return post_url
             except Exception as e:
                 logger.debug(f"Dumpsys clipboard failed: {e}")
-            
+
             # Fallback: try service call clipboard
             try:
                 result = subprocess.run(
-                    ['adb', '-s', self.device_id, 'shell', 
+                    ['adb', '-s', self.device_id, 'shell',
                      'content', 'query', '--uri', 'content://clipboard/clip'],
                     capture_output=True, text=True, timeout=5, encoding='utf-8', errors='replace'
                 )
@@ -543,12 +543,12 @@ class SmartCommentBridge(InstagramBridgeBase):
                     return post_url
             except Exception as e:
                 logger.debug(f"Content provider clipboard failed: {e}")
-            
-            # Last resort: Instagram usually shows a toast "Link copied" — 
+
+            # Last resort: Instagram usually shows a toast "Link copied" —
             # the URL format is predictable if we have the shortcode
             logger.warning("Could not read clipboard — post URL not captured")
             return ""
-            
+
         except Exception as e:
             logger.error(f"Error extracting post URL: {e}")
             # Make sure we dismiss any share sheet
@@ -675,7 +675,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def scrape_all_comments(self, max_comments: int = 500) -> List[ScrapedComment]:
         """Scrape all comments from the currently open comments page.
-        
+
         Optimized for speed: minimal sleeps, batch UI hierarchy reads,
         real-time event emission per comment found.
         """
@@ -734,10 +734,10 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _get_visible_usernames(self) -> set:
         """Get the set of usernames currently visible in the comments RecyclerView.
-        
+
         uiautomator XML only contains ACTUALLY VISIBLE elements, unlike dumpsys
         which includes cached/recycled Litho views. We use this as a whitelist.
-        
+
         In Instagram's comments view, each comment has this XML structure:
           <ViewGroup>  (comment row)
             <ImageView content-desc="View username's story" or "Go to username's profile" />
@@ -748,7 +748,7 @@ class SmartCommentBridge(InstagramBridgeBase):
               <Button text="Reply" />
             </ViewGroup>
           </ViewGroup>
-        
+
         We specifically look for Button elements inside the sticky_header_list
         RecyclerView whose text matches a username pattern.
         """
@@ -757,9 +757,9 @@ class SmartCommentBridge(InstagramBridgeBase):
             xml = self.device.dump_hierarchy()
             if not xml:
                 return visible
-            
+
             root = ET.fromstring(xml)
-            
+
             # Find the RecyclerView (sticky_header_list)
             recycler = None
             for elem in root.iter():
@@ -767,19 +767,19 @@ class SmartCommentBridge(InstagramBridgeBase):
                 if 'sticky_header_list' in rid:
                     recycler = elem
                     break
-            
+
             if recycler is None:
                 logger.debug("RecyclerView not found in XML, falling back to full scan")
                 # Fallback: scan all elements
                 recycler = root
-            
+
             # Extract usernames from Button elements inside the RecyclerView
             # Also check content-desc patterns like "View X's story" or "Go to X's profile"
             for elem in recycler.iter():
                 tag_class = elem.get('class', '') or ''
                 text = (elem.get('text', '') or '').strip()
                 content_desc = (elem.get('content-description', '') or '').strip()
-                
+
                 # Method 1: Button with username text (most reliable)
                 if tag_class == 'android.widget.Button' and text:
                     if re.match(r'^[\w][\w.]{0,29}$', text) and text.lower() not in (
@@ -787,7 +787,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                         'répondre', 'publier', 'partager', 'envoyer',
                         'for', 'you', 'most', 'recent', 'meta', 'verified'):
                         visible.add(text.lower())
-                
+
                 # Method 2: content-desc "View X's story" or "Go to X's profile"
                 for pattern in [r"View ([\w][\w.]{0,29})'s story",
                                 r"Go to ([\w][\w.]{0,29})'s profile",
@@ -796,16 +796,16 @@ class SmartCommentBridge(InstagramBridgeBase):
                     m = re.search(pattern, content_desc)
                     if m:
                         visible.add(m.group(1).lower())
-            
+
             logger.debug(f"Visible comment usernames from XML ({len(visible)}): {visible}")
         except Exception as e:
             logger.warning(f"Failed to get visible usernames from XML: {e}")
-        
+
         return visible
 
     def _get_dumpsys_comments(self) -> str:
         """Get the Litho view hierarchy via adb shell dumpsys activity top.
-        
+
         This is the ONLY reliable way to get Instagram comment text.
         The XML dump (uiautomator) does NOT contain comment text because
         Instagram uses a custom IgTextLayoutView that renders directly
@@ -824,11 +824,11 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _extract_visible_comments_fast(self, seen_keys: set, max_comments: int) -> int:
         """Extraire les commentaires visibles via dumpsys activity top.
-        
+
         Instagram utilise Litho (framework UI de Facebook) pour rendre les
         commentaires. Le texte n'apparaît PAS dans le XML dump de uiautomator,
         mais il est exposé dans la view hierarchy interne via dumpsys.
-        
+
         Litho resource-ids clés :
         - row_comment_textview_comment : texte du commentaire
         - row_comment_textview_time_ago : timestamp (1w, 12w, etc.)
@@ -921,13 +921,13 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _parse_litho_comments(self, dumpsys_output: str) -> List[Dict[str, Any]]:
         """Parse la sortie de dumpsys activity top pour extraire les commentaires.
-        
+
         La view hierarchy Litho d'Instagram contient ces éléments dans l'ordre :
           username_synthetic → timestamp → comment_text → reply_button → like_count → like_button
-        
+
         On collecte tous ces événements, on les trie par position, puis on
         reconstruit les blocs commentaire séquentiellement.
-        
+
         Détection des réponses :
         - Un commentaire dont le texte commence par @username est une réponse
         - Un commentaire qui apparaît entre un "View N more replies" et le
@@ -1056,13 +1056,13 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _expand_reply_threads(self) -> bool:
         """Click 'View X more replies' buttons to expand reply threads.
-        
+
         IMPORTANT: These are ViewGroup elements (NOT Buttons!) with:
         - text="View 7 more replies"
         - content-desc="View 7 more replies"
         - class="android.view.ViewGroup"
         - clickable="true"
-        
+
         Returns True if any threads were expanded.
         """
         expanded = False
@@ -1135,7 +1135,7 @@ class SmartCommentBridge(InstagramBridgeBase):
     def reply_to_comment(self, username: str, comment_content_prefix: str, reply_text: str) -> bool:
         """
         Reply to a specific comment.
-        
+
         Strategy:
         1. Scroll through comments to find the target comment
         2. Click "Reply" on that comment
@@ -1259,12 +1259,12 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _find_and_click_reply(self, username: str, content_prefix: str) -> bool:
         """Scroll through comments to find a specific one and click its Reply button.
-        
+
         Strategy: Use XML dump to find comment rows. Each comment row is a ViewGroup
         that contains both a ViewGroup with content-desc="username " AND a Button
         with text="Reply"/"Répondre". We scan all ViewGroups in the RecyclerView,
         find the one matching our target username, then click its Reply button.
-        
+
         Instagram comment row structure (from XML dump):
           <ViewGroup>  (inner comment row)
             <ViewGroup content-desc="username ">
@@ -1286,9 +1286,9 @@ class SmartCommentBridge(InstagramBridgeBase):
                     self._scroll_comments_down()
                     time.sleep(0.8)
                     continue
-                    
+
                 root = ET.fromstring(xml)
-                
+
                 # Find the RecyclerView (comments list)
                 recycler = root
                 for elem in root.iter():
@@ -1296,36 +1296,36 @@ class SmartCommentBridge(InstagramBridgeBase):
                     if 'sticky_header_list' in rid:
                         recycler = elem
                         break
-                
+
                 # Scan all ViewGroups looking for comment rows that contain our target username
                 # A comment row's inner ViewGroup has direct children:
                 #   - ViewGroup with content-desc="username " (with trailing space)
                 #   - Button with text="Reply"
                 reply_bounds = None
                 found_username = False
-                
+
                 for vg in recycler.iter():
                     if vg.get('class', '') != 'android.view.ViewGroup':
                         continue
-                    
+
                     # Check direct children of this ViewGroup
                     has_target_user = False
                     reply_btn = None
-                    
+
                     for child in vg:
                         child_class = child.get('class', '') or ''
                         child_text = (child.get('text', '') or '').strip().lower()
                         child_desc = (child.get('content-desc', '') or '').strip().lower()
-                        
+
                         # Check if this child is the username ViewGroup or Button
                         if child_text == username_lower or child_desc == username_lower or \
                            child_text == username_lower + ' ' or child_desc == username_lower + ' ':
                             has_target_user = True
-                        
+
                         # Check if this child is a Reply button
                         if child_class == 'android.widget.Button' and child_text in ('reply', 'répondre'):
                             reply_btn = child
-                    
+
                     if has_target_user and reply_btn is not None:
                         reply_bounds = reply_btn.get('bounds', '')
                         found_username = True
@@ -1340,7 +1340,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                             cb = c.get('bounds', '')
                             children_info.append(f"{cc}('{ct}' {cb})")
                         logger.debug(f"Scroll {scroll}: found @{username} but no Reply sibling. Children: {children_info}")
-                
+
                 if reply_bounds:
                     # Parse bounds "[x1,y1][x2,y2]"
                     match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', reply_bounds)
@@ -1353,7 +1353,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                         return True
                     else:
                         logger.warning(f"Could not parse Reply bounds: {reply_bounds}")
-                
+
                 if found_username:
                     logger.debug(f"Scroll {scroll}: @{username} visible but Reply button not found yet, scrolling...")
                 else:
@@ -1365,7 +1365,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                            cd.strip().lower() not in ('like', 'reply', 'répondre'):
                             visible.append(cd.strip())
                     logger.debug(f"Scroll {scroll}: visible usernames = {visible}")
-                
+
             except Exception as e:
                 logger.warning(f"Error finding reply button (scroll {scroll}): {e}")
 
@@ -1410,7 +1410,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def run_scrape(self) -> Dict[str, Any]:
         """Run the scraping phase: extract post context + scrape all comments.
-        
+
         If targetUsername is provided in config, navigates to the target profile first,
         scrapes profile info, then opens the first post before scraping comments.
         Otherwise, scrapes from whatever post is currently visible on screen.
@@ -1507,17 +1507,17 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def verify_post_fingerprint(self) -> bool:
         """Verify we're on the correct post by checking date and caption prefix.
-        
+
         Uses post_date and caption prefix from config (saved during scrape) to
         confirm we navigated to the right post. This is a safety check.
         """
         expected_date = self.config.get('postDate', '').strip()
         expected_caption = self.config.get('captionPrefix', '').strip()
-        
+
         if not expected_date and not expected_caption:
             logger.debug("No post fingerprint in config — skipping verification")
             return True  # Nothing to verify against
-        
+
         try:
             # Check date from header content-desc
             actual_date = ""
@@ -1529,7 +1529,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                 )
                 if date_match:
                     actual_date = date_match.group(1)
-            
+
             # Check caption prefix
             actual_caption = ""
             caption_elem = self.device(className="com.instagram.ui.widget.textview.IgTextLayoutView")
@@ -1543,14 +1543,14 @@ class SmartCommentBridge(InstagramBridgeBase):
                     actual_caption = actual_caption[len(author):].strip()
                 # Also strip trailing "more"/"plus"/"less"/"moins"
                 actual_caption = re.sub(r'\s+(more|plus|less|moins)\s*$', '', actual_caption)
-            
+
             # Verify date match
             if expected_date and actual_date:
                 if expected_date.lower() != actual_date.lower():
                     logger.warning(f"Post date mismatch! Expected: '{expected_date}', Got: '{actual_date}'")
                     return False
                 logger.info(f"Post date verified: {actual_date}")
-            
+
             # Verify caption prefix match (first 80 chars)
             if expected_caption and actual_caption:
                 # Compare first N chars (caption may be truncated on screen)
@@ -1561,16 +1561,16 @@ class SmartCommentBridge(InstagramBridgeBase):
                     logger.warning(f"Caption prefix mismatch! Expected: '{expected_prefix[:60]}...', Got: '{actual_prefix[:60]}...'")
                     return False
                 logger.info(f"Caption prefix verified ({prefix_len} chars match)")
-            
+
             return True
-            
+
         except Exception as e:
             logger.warning(f"Error verifying post fingerprint: {e}")
             return True  # Don't block on verification errors
 
     def navigate_to_post_url(self, post_url: str) -> bool:
         """Navigate directly to a specific post via its URL using Android deep link.
-        
+
         This is much more reliable than profile → first post, because it opens
         the exact post regardless of which post was scraped.
         """
@@ -1619,7 +1619,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _navigate_to_comments(self) -> bool:
         """Navigate to the comments of the target post.
-        
+
         Strategy (in order of preference):
         1. If we have a post_url → deep link directly to the post
         2. If we have a targetUsername → navigate to profile → open first post (legacy fallback)
@@ -1673,7 +1673,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _navigate_via_profile(self, target_username: str) -> bool:
         """Navigate to profile → open first post → scroll through posts to find the right one.
-        
+
         After opening the first post, Instagram shows a scrollable feed of all
         the profile's posts. We scroll down through them, checking the fingerprint
         (date + caption prefix) on each one until we find a match.
@@ -1706,7 +1706,7 @@ class SmartCommentBridge(InstagramBridgeBase):
         max_posts_to_check = 12  # Don't scroll forever — check up to ~12 posts
         for i in range(max_posts_to_check):
             logger.info(f"Post {i+2}/{max_posts_to_check+1}: scrolling to next post...")
-            
+
             # Scroll down to the next post in the feed
             # Instagram's post feed scrolls vertically when viewing from a profile grid
             self.device.swipe(
@@ -1728,7 +1728,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                 if self.device(resourceId=indicator).exists:
                     on_post = True
                     break
-            
+
             if not on_post:
                 logger.warning("Scrolled past all visible posts — target post not found")
                 break
@@ -1737,7 +1737,7 @@ class SmartCommentBridge(InstagramBridgeBase):
             if self.verify_post_fingerprint():
                 logger.info(f"Found matching post after scrolling through {i+2} posts!")
                 return True
-            
+
             logger.debug(f"Post {i+2} does not match fingerprint, continuing...")
 
         logger.error(f"Could not find matching post after checking {max_posts_to_check+1} posts on @{target_username}'s profile")
@@ -1745,7 +1745,7 @@ class SmartCommentBridge(InstagramBridgeBase):
 
     def _dismiss_keyboard_and_scroll_top(self):
         """After sending a reply, dismiss the keyboard and scroll comments back to top.
-        
+
         This avoids a full Instagram restart between replies.
         """
         try:
@@ -1758,7 +1758,7 @@ class SmartCommentBridge(InstagramBridgeBase):
                 # Fallback: press back to dismiss keyboard
                 self.device.press("back")
                 time.sleep(0.5)
-                
+
                 # Verify we're still on the comments page
                 title = self.device(resourceId="com.instagram.android:id/title_text_view")
                 if not title.exists:
@@ -1767,10 +1767,10 @@ class SmartCommentBridge(InstagramBridgeBase):
                     if not self.open_comments():
                         return False
                     time.sleep(1)
-            
+
             # Reset cached bounds (scroll position changed)
             self._comment_list_bounds = None
-            
+
             # Scroll comments back to top
             logger.debug("Scrolling comments back to top...")
             self._scroll_comments_to_top()
@@ -1783,7 +1783,7 @@ class SmartCommentBridge(InstagramBridgeBase):
     def run_reply(self, qualified_comments: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Run the reply phase: reply to pre-qualified comments with AI-generated replies.
-        
+
         Args:
             qualified_comments: List of dicts with 'username', 'content', 'reply' keys
         """
