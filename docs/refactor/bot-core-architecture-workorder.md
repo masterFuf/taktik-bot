@@ -106,6 +106,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant branche TikTok DM read/send sur le noyau agent : `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` enregistre `tiktok.automation.dm_read` et `tiktok.automation.dm_send`, sans reprendre le startup bridge ni la logique outreach DB.
 - un sous-lot suivant sort la logique metier TikTok cold DM outreach de `bridges/tiktok/dm_outreach_bridge.py` vers `social_media/tiktok/actions/business/workflows/dm/outreach.py`; le bridge injecte seulement stdout JSON et la dedup SQLite.
 - un sous-lot suivant branche TikTok cold DM outreach sur le noyau agent : `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` enregistre `tiktok.standalone.tiktok_dm_outreach` avec les memes injections notifier/dedup.
+- un sous-lot suivant branche les workflows TikTok account sur le noyau agent : `social_media/tiktok/workflows/management/agent_handler.py` enregistre `tiktok.account.login/logout/register` sans reprendre la connexion device ni le lancement app du bridge.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31

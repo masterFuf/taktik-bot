@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok DM Read/Send now expose injectable Agent handlers for `tiktok.automation.dm_read` and `tiktok.automation.dm_send`, while startup, live IPC and outreach DB dedup remain outside those handlers.
 - TikTok cold DM outreach business logic moved from `bridges/tiktok/dm_outreach_bridge.py` into `social_media/tiktok/actions/business/workflows/dm/outreach.py`; the bridge now injects stdout IPC and sent-DM duplicate persistence.
 - TikTok cold DM outreach now exposes an injectable Agent handler for `tiktok.standalone.tiktok_dm_outreach`, reusing the same notifier and sent-DM dedup injection points.
+- TikTok account workflows now expose injectable Agent handlers for `tiktok.account.login`, `tiktok.account.logout`, and `tiktok.account.register`; bridge/device launch and package patching remain external startup concerns.
 - `AGENTS.md` now documents where real Agent `WorkflowRegistry` handlers belong: next to their platform workflow owner, with injected device/notifier dependencies and no bridge ownership.
 - The Instagram human behavior recorder now lives under `taktik/core/social_media/instagram/recorder/**`; `taktik/core/recorder` remains only as a compatibility facade for legacy script imports.
 - Runtime hygiene continued in `taktik/core/config` and `taktik/core/security`: `APIEndpointManager` now keeps the legacy `get_primary_endpoint()` alias expected by historical Instagram code, and dormant security helpers no longer print to stdout.

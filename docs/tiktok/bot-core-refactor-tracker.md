@@ -57,6 +57,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] TikTok DM read/send peuvent maintenant etre enregistres comme handlers Agent `tiktok.automation.dm_read` / `tiktok.automation.dm_send`, sans melanger la logique `dm_outreach_bridge.py` encore bridge-owned.
 - [x] TikTok cold DM outreach n'est plus une classe metier dans le bridge : `dm/outreach.py` porte le workflow et le bridge injecte notifier + dedup SQLite.
 - [x] TikTok cold DM outreach peut maintenant etre enregistre comme handler Agent `tiktok.standalone.tiktok_dm_outreach`, avec notifier et dedup injectes.
+- [x] TikTok account login/logout/register peuvent maintenant etre enregistres comme handlers Agent `tiktok.account.login/logout/register`, sans reprendre le startup bridge.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement les autres handlers reels de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
