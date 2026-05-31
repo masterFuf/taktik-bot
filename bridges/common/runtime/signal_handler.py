@@ -2,7 +2,7 @@
 Signal handling for graceful shutdown of bridge scripts.
 
 Usage:
-    from bridges.common.signal_handler import setup_signal_handlers
+    from bridges.common.runtime.signal_handler import setup_signal_handlers
 
     # Simple: just exit cleanly on SIGINT/SIGTERM
     setup_signal_handlers()

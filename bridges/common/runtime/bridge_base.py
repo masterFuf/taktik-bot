@@ -26,12 +26,12 @@ from typing import Any, Callable, Optional, Type
 
 # Bootstrap must happen before importing the rest of bridges.common
 # (importing this module from a bridge entrypoint guarantees setup).
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.common.ipc import IPC
-from bridges.common import signal_handler as _sig_mod
+from bridges.common.runtime.ipc import IPC
+from bridges.common.runtime import signal_handler as _sig_mod
 from loguru import logger
 
 
@@ -89,7 +89,7 @@ def set_workflow(workflow: Any) -> None:
 
 
 def signal_handler(signum, frame) -> None:
-    """Delegate to the shared signal handler in `bridges.common.signal_handler`."""
+    """Delegate to the shared signal handler in `bridges.common.runtime.signal_handler`."""
     _sig_mod._handle_signal(signum, frame)
 
 

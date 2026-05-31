@@ -3,7 +3,7 @@
 Instagram Bridge Base — Instagram-specific helpers + clone-aware bridge base.
 
 Common scaffolding (bootstrap, IPC singleton, send_message/status/error/log,
-signal handling, PlatformBridgeBase) lives in `bridges.common.bridge_base`.
+signal handling, PlatformBridgeBase) lives in `bridges.common.runtime.bridge_base`.
 This module only adds:
   - Instagram-specific IPC helpers (instagram_stats, follow_event, ...)
   - `_CloneAwareDeviceProxy` for resourceId rewriting on cloned packages
@@ -21,7 +21,7 @@ Usage:
     )
 """
 
-from bridges.common.bridge_base import (
+from bridges.common.runtime.bridge_base import (
     _ipc,
     logger,
     send_message,
@@ -276,7 +276,7 @@ _register_core_ipc_emitter()
 
 
 __all__ = [
-    # IPC + helpers re-exported from bridges.common.bridge_base
+    # IPC + helpers re-exported from bridges.common.runtime.bridge_base
     "_ipc",
     "logger",
     "send_message",

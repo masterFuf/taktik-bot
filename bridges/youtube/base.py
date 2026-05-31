@@ -4,10 +4,10 @@ YouTube Bridge Base — re-exports the shared bridge infrastructure.
 
 Kept as a thin compatibility shim so existing imports like
 ``from bridges.youtube.base import send_status`` continue to work.
-All actual logic lives in `bridges.common.bridge_base`.
+All actual logic lives in `bridges.common.runtime.bridge_base`.
 """
 
-from bridges.common.bridge_base import (
+from bridges.common.runtime.bridge_base import (
     _ipc,
     logger,
     send_message,

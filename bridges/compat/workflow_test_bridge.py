@@ -40,10 +40,10 @@ bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.ipc import IPC
+from bridges.common.runtime.ipc import IPC
 from bridges.common.device.connection import ConnectionService
 from bridges.common.device.app_manager import AppService
 from loguru import logger

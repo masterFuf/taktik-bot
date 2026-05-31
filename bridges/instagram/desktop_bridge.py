@@ -225,7 +225,7 @@ class DesktopBridge:
         self.media_capture_service = None
         
         # Setup signal handlers for graceful shutdown
-        from bridges.common.signal_handler import setup_signal_handlers
+        from bridges.common.runtime.signal_handler import setup_signal_handlers
         setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._handle_shutdown)
         signal.signal(signal.SIGINT, self._handle_shutdown)

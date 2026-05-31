@@ -2,7 +2,7 @@
 """Threads bridge base — re-exports shared infrastructure + Threads-specific helpers.
 
 Common scaffolding (bootstrap, IPC singleton, status/error/log wrappers,
-signal handling, PlatformBridgeBase) lives in `bridges.common.bridge_base`.
+signal handling, PlatformBridgeBase) lives in `bridges.common.runtime.bridge_base`.
 This module adds only the Threads-specific IPC events and the
 `ThreadsBridgeBase` subclass.
 
@@ -17,7 +17,7 @@ Usage:
     )
 """
 
-from bridges.common.bridge_base import (
+from bridges.common.runtime.bridge_base import (
     _ipc,
     logger,
     send_message,

@@ -27,10 +27,10 @@ import threading
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.signal_handler import setup_signal_handlers
+from bridges.common.runtime.signal_handler import setup_signal_handlers
 from taktik.core.database import configure_db_service
 from loguru import logger
 
@@ -72,7 +72,7 @@ class TaktikAgentBridge(InstagramBridgeBase):
             ai_service_factory=_build_agent_ai_service,
         )
         # Expose workflow to signal handler so Ctrl+C triggers graceful stop
-        from bridges.common import signal_handler as _sig
+        from bridges.common.runtime import signal_handler as _sig
         _sig.update_workflow(workflow)
 
         result = workflow.run()
@@ -91,7 +91,7 @@ class TaktikAgentBridge(InstagramBridgeBase):
                         msg = json.loads(line)
                         if msg.get("command") == "stop":
                             logger.info("[TaktikAgentBridge] Stop command received via stdin")
-                            from bridges.common import signal_handler as _sig
+                            from bridges.common.runtime import signal_handler as _sig
                             if _sig._workflow and hasattr(_sig._workflow, "stop"):
                                 _sig._workflow.stop()
                             break

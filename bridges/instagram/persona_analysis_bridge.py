@@ -31,10 +31,10 @@ import time
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.signal_handler import setup_signal_handlers
+from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.instagram.base import InstagramBridgeBase, _ipc, logger
 
 setup_signal_handlers()

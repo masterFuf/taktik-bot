@@ -16,7 +16,7 @@ import urllib.error
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
 from bridges.common.input.keyboard import KeyboardService

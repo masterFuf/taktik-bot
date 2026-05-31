@@ -31,6 +31,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
+- `bridges/common/runtime/**` = bootstrap process, stdout JSON IPC, base bridge commune et signal handling.
 - Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, build PyInstaller et resolver Front.
 
 ## Lots
@@ -43,8 +44,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B4 | Fait | Deplacer la facade DB bridge sous `bridges/common/persistence/database.py` et migrer Instagram/TikTok consumers. | Import graph + `compileall` + `git diff --check`. |
 | B5 | Fait | Supprimer le shim IA inutilise `bridges/common/ai_service.py`; l'owner IA reste `taktik/core/app/ai/**`. | Import graph + `compileall` + `git diff --check`. |
 | B6 | Fait | Deplacer `ConnectionService`, `AppService` et `force_stop_app` sous `bridges/common/device/**`; supprimer les modules plats `connection.py` et `app_manager.py`. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B7 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
-| B8 | A faire | Continuer `bridges/common` par capacite (`runtime/ipc`, `runtime/bootstrap`, `runtime/signal_handler`) si les imports peuvent etre migres sans shim. | Import graph + checks bridge. |
+| B7 | Fait | Deplacer `bootstrap`, `ipc`, `bridge_base` et `signal_handler` sous `bridges/common/runtime/**`; la racine `common` devient une facade package. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B8 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
 | B9 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite

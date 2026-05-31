@@ -18,7 +18,7 @@ import re
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, bot_dir)
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.input.keyboard import KeyboardService

@@ -3,7 +3,7 @@ Bootstrap utilities for bridge scripts.
 Handles UTF-8 encoding, loguru configuration, and Python path setup.
 
 Usage:
-    from bridges.common.bootstrap import setup_environment
+    from bridges.common.runtime.bootstrap import setup_environment
     setup_environment()  # Call at the top of every bridge script
 """
 
@@ -70,7 +70,7 @@ def _setup_python_path():
         └── taktik/
             └── core/
     """
-    # common/ -> bridges/ -> bot/
-    bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # runtime/ -> common/ -> bridges/ -> bot/
+    bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     if bot_dir not in sys.path:
         sys.path.insert(0, bot_dir)

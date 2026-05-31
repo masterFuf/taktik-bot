@@ -3,14 +3,14 @@
 TikTok Bridge Base — TikTok-specific helpers (no BridgeBase, uses TikTokManager).
 
 Common scaffolding (bootstrap, IPC singleton, send_message/status/error/log,
-signal handling) lives in `bridges.common.bridge_base`.
+signal handling) lives in `bridges.common.runtime.bridge_base`.
 This module adds only TikTok-specific IPC helpers, the `tiktok_startup`
 helper and video-workflow callback wiring.
 """
 
 from typing import Dict, Any
 
-from bridges.common.bridge_base import (
+from bridges.common.runtime.bridge_base import (
     _ipc,
     logger,
     send_message,

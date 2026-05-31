@@ -18,12 +18,12 @@ bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
 from bridges.common.device.connection import ConnectionService
-from bridges.common.signal_handler import setup_signal_handlers
+from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
 from taktik.core.social_media.youtube.workflows.account import YouTubeAccountWorkflow
 

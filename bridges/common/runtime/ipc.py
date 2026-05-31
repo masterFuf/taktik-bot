@@ -6,7 +6,7 @@ Messages are sent via stdout (file descriptor 1) as JSON lines.
 Logs go to stderr via loguru — they never interfere with IPC messages.
 
 Usage:
-    from bridges.common.ipc import IPC
+    from bridges.common.runtime.ipc import IPC
 
     ipc = IPC()
     ipc.status("connecting", "Connecting to device...")

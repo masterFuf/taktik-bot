@@ -39,7 +39,7 @@ import signal
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
-from bridges.common.bootstrap import setup_environment
+from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.instagram.base import (
@@ -48,7 +48,7 @@ from bridges.instagram.base import (
 )
 from bridges.common.device.connection import ConnectionService
 from bridges.common.device.app_manager import AppService
-from bridges.common.signal_handler import setup_signal_handlers
+from bridges.common.runtime.signal_handler import setup_signal_handlers
 
 
 class AccountBridge:
