@@ -30,6 +30,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/device/**` = helpers techniques de bridge lies au device ou a la connectivite, par exemple le reset reseau pre-session.
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
+- `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
 - Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, build PyInstaller et resolver Front.
 
 ## Lots
@@ -39,9 +40,10 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B1 | Fait | Deplacer les runners TikTok internes `for_you`, `search`, `followers`, `dm_read`, `dm_send` sous `bridges/tiktok/workflows/{automation,engagement}/`. | `pytest` ciblé, `check_bridge_manifest`, `compileall`, `git diff --check`. |
 | B2 | Fait | Deplacer le reset reseau commun sous `bridges/common/device/network.py` et migrer les deux consommateurs Instagram/TikTok. | `check_bridge_manifest`, `compileall`, `git diff --check`. |
 | B3 | Fait | Deplacer la saisie clavier sous `bridges/common/input/keyboard.py` et le parseur de compte sous `bridges/common/parsing/counts.py`; supprimer les modules plats `keyboard.py` et `utils.py`. | Import graph + `compileall` + `git diff --check`. |
-| B4 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
-| B5 | A faire | Continuer `bridges/common` par capacite (`persistence/database`, `runtime/ipc`) si les imports peuvent etre migres sans shim. | Import graph + checks bridge. |
-| B6 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B4 | Fait | Deplacer la facade DB bridge sous `bridges/common/persistence/database.py` et migrer Instagram/TikTok consumers. | Import graph + `compileall` + `git diff --check`. |
+| B5 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
+| B6 | A faire | Continuer `bridges/common` par capacite (`runtime/ipc`, `runtime/bootstrap`, `device/app_manager`) si les imports peuvent etre migres sans shim. | Import graph + checks bridge. |
+| B7 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 

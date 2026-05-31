@@ -103,7 +103,7 @@ Definition simple :
 - Sous `bridges/<platform>/`, garder la racine pour les entrypoints contractuels declares dans `bridges.manifest.json`, le `base.py` de runtime stdout/IPC et la facade package. Les runners internes appeles par un dispatcher doivent vivre sous un owner explicite (`workflows/automation`, `workflows/engagement`, `account`, `publish`, etc.), pas comme une liste plate de `*_bridge.py`.
 - Tant que `front/electron/utils/paths.ts` lance en dev `bridges/<platform>/<bridge_name>.py`, ne pas deplacer un entrypoint public sans migrer aussi le resolver Front et le manifest. Si l'implementation doit etre rangee, garder un entrypoint mince et documente plutot qu'un faux fichier legacy cache.
 - Les sous-modules `bridges/**/workflows/**` restent des adaptateurs de bridge : ils peuvent normaliser un payload et brancher les callbacks stdout, mais la logique durable doit continuer a vivre dans `taktik/core/social_media/**`.
-- Sous `bridges/common/**`, classer par capacite de bridge (`device`, `input`, `parsing`, `runtime`, `persistence`, etc.) au lieu d'ajouter de nouveaux modules plats. Exemples : le reset reseau bridge vit sous `bridges/common/device/network.py`, la saisie clavier sous `bridges/common/input/keyboard.py`, et les parseurs de payload/texte sous `bridges/common/parsing/**`.
+- Sous `bridges/common/**`, classer par capacite de bridge (`device`, `input`, `parsing`, `runtime`, `persistence`, etc.) au lieu d'ajouter de nouveaux modules plats. Exemples : le reset reseau bridge vit sous `bridges/common/device/network.py`, la saisie clavier sous `bridges/common/input/keyboard.py`, les parseurs de payload/texte sous `bridges/common/parsing/**`, et les facades DB de bridge sous `bridges/common/persistence/**`.
 
 ### SQLite Bot
 

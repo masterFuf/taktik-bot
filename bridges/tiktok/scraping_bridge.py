@@ -13,7 +13,7 @@ from datetime import datetime
 from bridges.tiktok.base import (
     logger, send_status, send_message, send_error, set_workflow, get_workflow
 )
-from bridges.common.database import get_repository
+from bridges.common.persistence.database import get_repository
 from taktik.core.database.repositories.tiktok.tiktok_repository import TikTokRepository
 from taktik.core.database.repositories.instagram.session.session_repository import SessionRepository
 

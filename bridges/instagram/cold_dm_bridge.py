@@ -20,7 +20,7 @@ from bridges.common.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.common.database import SentDMService
+from bridges.common.persistence.database import SentDMService
 from bridges.instagram.base import logger, InstagramBridgeBase
 
 

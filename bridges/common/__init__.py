@@ -8,4 +8,4 @@ from .ipc import IPC
 from .connection import ConnectionService
 from .app_manager import AppService
 from .input.keyboard import KeyboardService
-from .database import get_db_path, SentDMService
+from .persistence.database import get_db_path, SentDMService

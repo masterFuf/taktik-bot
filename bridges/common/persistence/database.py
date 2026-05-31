@@ -1,7 +1,7 @@
-"""Compatibility database helpers shared across bridge scripts.
+"""Database facade helpers shared across bridge scripts.
 
-Bridge modules keep importing this file, but SQLite ownership lives in
-``taktik.core.database``.
+SQLite ownership lives in ``taktik.core.database``; bridges import this facade
+only to adapt legacy payloads and stdout workflows.
 """
 
 from taktik.core.database.local.paths import get_default_database_path
