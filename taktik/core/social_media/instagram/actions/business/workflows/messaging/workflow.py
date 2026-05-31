@@ -8,7 +8,12 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ....core.base_action import BaseAction
-from .....ui.selectors import PROFILE_SELECTORS, BUTTON_SELECTORS, NAVIGATION_SELECTORS, DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
+    BUTTON_SELECTORS,
+    NAVIGATION_SELECTORS,
+)
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class MessagingBusiness(BaseAction):

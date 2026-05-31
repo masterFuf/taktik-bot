@@ -50,6 +50,9 @@ class FollowerBusiness(
         self.current_index = 0
         
         # Sélecteurs centralisés (depuis selectors.py)
-        from .....ui.selectors import NAVIGATION_SELECTORS, FOLLOWERS_LIST_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.followers_following import (
+            FOLLOWERS_LIST_SELECTORS,
+        )
         self._back_button_selectors = NAVIGATION_SELECTORS.back_buttons
         self._followers_list_selectors = FOLLOWERS_LIST_SELECTORS

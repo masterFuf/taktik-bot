@@ -16,7 +16,7 @@ from ....core.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 
-from .....ui.selectors import UNFOLLOW_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from .mixins.decision import UnfollowDecisionMixin
 from .mixins.actions import UnfollowActionsMixin
 from .mixins.sync_following import SyncFollowingMixin
@@ -36,7 +36,6 @@ class UnfollowBusiness(
         super().__init__(device, session_manager, automation, "unfollow", init_business_modules=False)
         
         from ...common.workflow_defaults import UNFOLLOW_DEFAULTS
-        from .....ui.selectors import UNFOLLOW_SELECTORS
         self.default_config = {**UNFOLLOW_DEFAULTS}
         
         # Sélecteurs centralisés (depuis selectors.py)

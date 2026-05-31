@@ -8,16 +8,16 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from ...management.profile import ProfileBusiness
 from .post_navigation import PostNavigationMixin
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "like")
-        
-        from .....ui.selectors import (
-            PROFILE_SELECTORS, NAVIGATION_SELECTORS, DEBUG_SELECTORS, POST_SELECTORS
-        )
         self.profile_selectors = PROFILE_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
         self.debug_selectors = DEBUG_SELECTORS

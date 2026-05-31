@@ -26,7 +26,7 @@ class HashtagBusiness(
         super().__init__(device, session_manager, automation, "hashtag", init_business_modules=True)
         
         from ...common.workflow_defaults import HASHTAG_DEFAULTS
-        from .....ui.selectors import HASHTAG_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.hashtag import HASHTAG_SELECTORS
         self.default_config = {**HASHTAG_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS
     

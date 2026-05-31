@@ -176,7 +176,8 @@ class ProfileExtraction(BaseBusinessAction):
         Must be called when already on a profile screen.
         Returns to the profile screen after extraction.
         """
-        from .....ui.selectors import PROFILE_SELECTORS, NAVIGATION_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
         
         try:
             # Click on username container in action bar to open "About this account"

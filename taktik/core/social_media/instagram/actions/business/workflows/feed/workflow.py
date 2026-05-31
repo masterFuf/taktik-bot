@@ -23,7 +23,7 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
         super().__init__(device, session_manager, automation, "feed", init_business_modules=True)
         
         from ...common.workflow_defaults import FEED_DEFAULTS
-        from .....ui.selectors import FEED_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SELECTORS
         self.default_config = {**FEED_DEFAULTS}
         
         # Sélecteurs centralisés (depuis selectors.py)

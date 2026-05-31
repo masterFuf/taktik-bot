@@ -24,7 +24,9 @@ class NotificationsBusiness(NotificationExtractionMixin, NotificationInteraction
         super().__init__(device, session_manager, automation, "notifications", init_business_modules=True)
         
         from ...common.workflow_defaults import NOTIFICATIONS_DEFAULTS
-        from .....ui.selectors import NOTIFICATION_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.notifications import (
+            NOTIFICATION_SELECTORS,
+        )
         self.default_config = {**NOTIFICATIONS_DEFAULTS}
         
         # Sélecteurs centralisés (depuis selectors.py)

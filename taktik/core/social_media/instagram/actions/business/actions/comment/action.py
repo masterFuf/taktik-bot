@@ -6,6 +6,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
 from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
 
 
@@ -13,8 +14,6 @@ class CommentAction(BaseBusinessAction):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "comment")
-        
-        from .....ui.selectors import POST_SELECTORS
         self.post_selectors = POST_SELECTORS
         
         self.default_config = {
