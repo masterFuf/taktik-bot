@@ -1,3 +1,5 @@
-from .protection import protected_call, SecurityManager
+"""Core security runtime exports."""
 
-__all__ = ['protected_call', 'SecurityManager']
+from taktik.core.security.protection.runtime import SecurityManager, protected_call
+
+__all__ = ["protected_call", "SecurityManager"]

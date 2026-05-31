@@ -195,7 +195,9 @@ taktik/core/
     comments/
 
   config/                # configuration runtime
+    runtime/
   security/              # securite runtime
+    protection/
   email/                 # integration Gmail
   media/                 # facade media legacy + sous-domaines techniques
   recorder/              # facade recorder legacy

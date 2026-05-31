@@ -1,4 +1,4 @@
-"""Core configuration - API endpoints and settings."""
+"""Runtime configuration owners."""
 
 from taktik.core.config.runtime.api_endpoints import APIEndpointManager
 
