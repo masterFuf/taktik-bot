@@ -19,13 +19,6 @@ from __future__ import annotations
 import os
 import time
 
-from loguru import logger
-
-# Splash activity used by all TikTok package variants.
-# Using this with app_start() makes the launch non-blocking (am start -n pkg/activity)
-# and is the same mechanism used by TikTokManager.restart() in the automation workflows.
-_TIKTOK_SPLASH_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
-
 from taktik.core.shared.device.media_store import (
     push_media,
     trigger_media_scan,
@@ -33,7 +26,7 @@ from taktik.core.shared.device.media_store import (
 )
 from taktik.core.social_media.tiktok.services.runtime.app_control import (
     force_stop_app_package,
-    launch_app_non_blocking,
+    restart_tiktok_package,
 )
 from taktik.core.social_media.tiktok.services.runtime.package_resolver import resolve_tiktok_package
 from taktik.core.social_media.tiktok.services.publish.dialogs import (
@@ -169,13 +162,7 @@ class TikTokUploadWorkflow:
             tiktok_pkg = package_name or resolve_tiktok_package(self.device_id)
             _ipc.log("info", "🔄 Restarting TikTok (force stop + fresh launch)...")
             _ipc.status("navigating", "Restarting TikTok...")
-            try:
-                self.device.app_start(tiktok_pkg, _TIKTOK_SPLASH_ACTIVITY, stop=True)
-            except Exception as e:
-                logger.debug(f"[launch] app_start failed ({e}), falling back to ADB monkey")
-                force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
-                time.sleep(0.5)
-                launch_app_non_blocking(self.device_id, tiktok_pkg, log=_ipc.log)
+            restart_tiktok_package(self.device, self.device_id, tiktok_pkg, log=_ipc.log)
             # Wait for TikTok to fully load — 4s matches the automation bridge delay.
             # For very slow devices, also poll for the Create button before proceeding.
             time.sleep(4)

@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from typing import Callable
 
 
 LogFn = Callable[[str, str], None]
 RunFn = Callable[..., subprocess.CompletedProcess]
+SleepFn = Callable[[float], None]
+
+TIKTOK_SPLASH_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
 
 
 def launch_app_non_blocking(
@@ -60,6 +64,25 @@ def force_stop_app_package(
     except Exception as exc:
         _debug(log, f"[force-stop] non-fatal error: {exc}")
         return False
+
+
+def restart_tiktok_package(
+    device,
+    device_id: str,
+    package_name: str,
+    *,
+    sleep: SleepFn = time.sleep,
+    log: LogFn | None = None,
+) -> bool:
+    """Force-stop and relaunch a TikTok package through the shared runtime path."""
+    try:
+        device.app_start(package_name, TIKTOK_SPLASH_ACTIVITY, stop=True)
+        return True
+    except Exception as exc:
+        _debug(log, f"[launch] app_start failed ({exc}), falling back to ADB monkey")
+        force_stop_app_package(device_id, package_name, log=log)
+        sleep(0.5)
+        return launch_app_non_blocking(device_id, package_name, log=log)
 
 
 def _launch_app_with_am_start(

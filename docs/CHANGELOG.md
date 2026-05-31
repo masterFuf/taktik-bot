@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
 - `taktik/core/clone` now centralizes official package names and clone prefixes in `clone/package_map.py` so detector, proxy, and selector patching share the same source of truth.
 - TikTok runtime package resolution now also consumes shared clone package variants from `clone/package_map.py`, removing the publish-runtime dependency on `tiktok/core/manager.py`.
+- TikTok publish now delegates package restart/lifecycle to `services/runtime/app_control.py` instead of keeping app-start fallback logic inside the upload workflow.
 - The Instagram human behavior recorder now lives under `taktik/core/social_media/instagram/recorder/**`; `taktik/core/recorder` remains only as a compatibility facade for legacy script imports.
 - Runtime hygiene continued in `taktik/core/config` and `taktik/core/security`: `APIEndpointManager` now keeps the legacy `get_primary_endpoint()` alias expected by historical Instagram code, and dormant security helpers no longer print to stdout.
 - Instagram media capture now lives under `taktik/core/social_media/instagram/media/**`; `taktik/core/media/**` remains as a compatibility facade, and proxy asset resolution now targets the repo-level `scripts/` directory explicitly.
