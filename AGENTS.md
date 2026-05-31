@@ -106,6 +106,7 @@ Definition simple :
 - Le launcher doit bootstraper `bot/` dans `sys.path` afin de rester lancable en standalone depuis `bot/` sans dependance Front.
 - Les bridges d'automation plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/automation/**`.
 - Les implementations d'entrypoints publics doivent choisir un owner metier nomme (`automation`, `engagement`, `scraping`, `account`, `publish`, etc.) au lieu de rester a plat par confort.
+- Quand une plateforme bridge partage des capacites runtime entre plusieurs flows (IPC specifique plateforme, startup app/profil, callbacks video), les ranger sous `bridges/<platform>/runtime/**`. `bridges/<platform>/base.py` peut rester une facade publique mince, pas l'owner durable de ces capacites.
 - Quand un bridge d'automation a besoin de support local (parsing payload, lifecycle device/app, media capture, setup IA, runner), le ranger sous un sous-owner `bridges/<platform>/automation/runtime/**` plutot que de laisser ces modules au meme niveau que l'entrypoint produit.
 - Quand un bridge d'engagement a besoin de support local (commandes CLI, parsing payload, navigation partagee, emitters JSON), le ranger sous `bridges/<platform>/engagement/runtime/**` plutot que de gonfler l'entrypoint `engagement/<flow>.py`.
 - Quand un bridge d'analyse a besoin de support local (commandes CLI, parsing config, capture/consolidation de donnees), le ranger sous `bridges/<platform>/analysis/runtime/**` plutot que de gonfler l'entrypoint `analysis/<flow>.py`.

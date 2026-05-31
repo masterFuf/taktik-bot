@@ -1,257 +1,35 @@
 #!/usr/bin/env python3
 """
-TikTok Bridge Base — TikTok-specific helpers (no BridgeBase, uses TikTokManager).
+TikTok Bridge Base facade.
 
-Common scaffolding (bootstrap, IPC singleton, send_message/status/error/log,
-signal handling) lives in `bridges.common.runtime.bridge_base`.
-This module adds only TikTok-specific IPC helpers, the `tiktok_startup`
-helper and video-workflow callback wiring.
+Common scaffolding lives in `bridges.common.runtime.bridge_base`.
+TikTok-specific runtime capabilities live under `bridges.tiktok.runtime`.
 """
 
-from typing import Dict, Any
-
-from bridges.common.runtime.bridge_base import (
+from bridges.tiktok.runtime.ipc import (
     _ipc,
+    get_workflow,
     logger,
-    send_message,
-    send_status,
+    send_action,
+    send_dm_conversation,
+    send_dm_progress,
+    send_dm_sent,
+    send_dm_stats,
     send_error,
     send_log,
+    send_message,
+    send_pause,
     send_progress,
-    get_workflow,
+    send_stats,
+    send_status,
+    send_video_info,
     set_workflow,
     signal_handler,
 )
-
-
-# ── TikTok-specific IPC helpers ──────────────────────────────────────
-
-def send_stats(videos_watched: int = 0, videos_liked: int = 0, users_followed: int = 0,
-               videos_favorited: int = 0, videos_skipped: int = 0, errors: int = 0):
-    """Send TikTok stats update to desktop app."""
-    _ipc.tiktok_stats(
-        videos_watched=videos_watched, videos_liked=videos_liked,
-        users_followed=users_followed, videos_favorited=videos_favorited,
-        videos_skipped=videos_skipped, errors=errors,
-    )
-
-
-def send_video_info(author: str, description: str = None, like_count: str = None,
-                    is_liked: bool = False, is_followed: bool = False, is_ad: bool = False,
-                    hashtags: list = None, sound: str = None, author_pic: str = None):
-    """Send current video info to desktop app."""
-    _ipc.video_info(author, description, like_count, is_liked, is_followed, is_ad,
-                    hashtags=hashtags, sound=sound, author_pic=author_pic)
-
-
-def send_action(action: str, target: str = ""):
-    """Send action event to desktop app."""
-    _ipc.action(action, target)
-
-
-def send_pause(duration: int):
-    """Send pause event to desktop app."""
-    _ipc.pause(duration)
-
-
-def send_dm_conversation(conversation: Dict[str, Any]):
-    """Send a conversation data to desktop app."""
-    _ipc.dm_conversation(conversation)
-
-
-def send_dm_progress(current: int, total: int, name: str):
-    """Send DM reading progress to desktop app."""
-    _ipc.dm_progress(current, total, name)
-
-
-def send_dm_stats(stats: Dict[str, Any]):
-    """Send DM workflow stats to desktop app."""
-    _ipc.dm_stats(stats)
-
-
-def send_dm_sent(conversation: str, success: bool, error: str = None):
-    """Send DM sent result to desktop app."""
-    _ipc.dm_sent(conversation, success, error)
-
-
-# ── TikTok startup helper ────────────────────────────────────────────
-
-def tiktok_startup(device_id: str, fetch_profile: bool = True):
-    """
-    Common TikTok startup sequence used by most workflow bridges.
-
-    1. Create TikTokManager and restart app
-    2. Navigate to Home (For You feed)
-    3. Optionally fetch own profile info and send bot_profile IPC message
-
-    Args:
-        device_id: The Android device serial.
-        fetch_profile: If True, navigate to profile tab, fetch info, and return it.
-
-    Returns:
-        (manager, bot_username) — manager is the TikTokManager instance,
-        bot_username is the fetched username (or None if fetch_profile=False or failed).
-    """
-    import time
-    from taktik.core.social_media.tiktok import TikTokManager
-
-    # Connect + restart
-    logger.info("📱 Connecting to device...")
-    send_status("connecting", "Connecting to device")
-
-    manager = TikTokManager(device_id=device_id)
-
-    logger.info("📱 Restarting TikTok (clean state)...")
-    send_status("launching", "Restarting TikTok app")
-
-    if not manager.restart():
-        raise RuntimeError("Failed to restart TikTok app")
-
-    time.sleep(4)  # Wait for app to fully load
-
-    # Navigate to Home
-    try:
-        from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-        nav_actions = NavigationActions(manager.device_manager.device)
-        nav_actions._press_back()
-        time.sleep(0.5)
-        nav_actions.navigate_to_home()
-        time.sleep(1)
-        logger.info("✅ Navigated to For You feed")
-    except Exception as e:
-        logger.warning(f"Could not navigate to Home: {e}")
-
-    # Detect app language and prune wrong-language selectors in-place.
-    # Home/For-You screen is ideal: bottom-nav exposes Home/Profile/Inbox content-desc.
-    # Non-fatal: if detection fails or returns 'unknown', all selectors are kept.
-    try:
-        from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
-        detected_lang = detect_and_optimize(manager.device_manager.device)
-        logger.info(f"🌐 TikTok language detected: {detected_lang.upper()}")
-        send_log("info", f"App language detected: {detected_lang.upper()}")
-    except Exception as e:
-        logger.warning(f"Language detection failed (non-fatal): {e}")
-
-    # Fetch own profile
-    bot_username = None
-    if fetch_profile:
-        try:
-            from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import ProfileActions
-
-            logger.info("📊 Fetching own profile info...")
-            send_status("fetching_profile", "Fetching your TikTok profile info")
-
-            profile_actions = ProfileActions(manager.device_manager.device)
-            profile_info = profile_actions.fetch_own_profile()
-
-            if profile_info:
-                bot_username = profile_info.username
-                logger.info(f"✅ Bot account: @{profile_info.username} ({profile_info.display_name})")
-                logger.info(f"   Followers: {profile_info.followers_count}, Following: {profile_info.following_count}")
-
-                send_message("bot_profile", profile={
-                    "username": profile_info.username,
-                    "display_name": profile_info.display_name,
-                    "followers_count": profile_info.followers_count,
-                    "following_count": profile_info.following_count,
-                })
-                logger.info("📤 Bot profile message sent to frontend")
-            else:
-                logger.warning("❌ Could not fetch profile info - profile_info is None")
-        except Exception as e:
-            logger.error(f"❌ Error fetching profile info: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-
-    return manager, bot_username
-
-
-# ── Video workflow helpers ────────────────────────────────────────────
-
-def setup_video_workflow_callbacks(workflow):
-    """
-    Wire up standard IPC callbacks for video-based workflows
-    (For You, Search, etc.). Avoids duplicating the same 5 callbacks
-    in every bridge.
-    """
-    # Track authors whose profile pic was already sent (per workflow run)
-    _sent_pics: set = set()
-
-    def on_video(video_info):
-        author = video_info.get('author', 'unknown')
-
-        # Capture profile pic once per unique author
-        author_pic = None
-        if author and author not in _sent_pics:
-            try:
-                # Access the detector through the workflow if available
-                detector = getattr(workflow, 'detection', None)
-                if detector is None:
-                    detector = getattr(workflow, 'detector', None)
-                if detector and hasattr(detector, 'get_author_profile_pic'):
-                    author_pic = detector.get_author_profile_pic()
-                    if author_pic:
-                        _sent_pics.add(author)
-            except Exception as e:
-                logger.debug(f"Could not capture profile pic for @{author}: {e}")
-
-        send_video_info(
-            author=author,
-            description=video_info.get('description'),
-            like_count=video_info.get('like_count'),
-            is_liked=video_info.get('is_liked', False),
-            is_followed=video_info.get('is_followed', False),
-            is_ad=video_info.get('is_ad', False),
-            hashtags=video_info.get('hashtags') or [],
-            sound=video_info.get('sound'),
-            author_pic=author_pic,
-        )
-
-    def on_like(video_info):
-        send_action("like", video_info.get('author', 'unknown'))
-        logger.info(f"❤️ Liked video by @{video_info.get('author', 'unknown')}")
-
-    def on_follow(video_info):
-        send_action("follow", video_info.get('author', 'unknown'))
-        logger.info(f"👤 Followed @{video_info.get('author', 'unknown')}")
-
-    def on_stats(stats_dict):
-        send_stats(
-            videos_watched=stats_dict.get('videos_watched', 0),
-            videos_liked=stats_dict.get('videos_liked', 0),
-            users_followed=stats_dict.get('users_followed', 0),
-            videos_favorited=stats_dict.get('videos_favorited', 0),
-            videos_skipped=stats_dict.get('videos_skipped', 0),
-            errors=stats_dict.get('errors', 0)
-        )
-
-    def on_pause(duration: int):
-        send_pause(duration)
-        logger.info(f"⏸️ Taking a break for {duration}s")
-
-    workflow.set_on_video_callback(on_video)
-    workflow.set_on_like_callback(on_like)
-    workflow.set_on_follow_callback(on_follow)
-    workflow.set_on_stats_callback(on_stats)
-    workflow.set_on_pause_callback(on_pause)
-
-
-def send_final_video_stats(stats, workflow_name: str = "Workflow"):
-    """Send final stats and completion status for a video-based workflow."""
-    send_stats(
-        videos_watched=stats.videos_watched,
-        videos_liked=stats.videos_liked,
-        users_followed=stats.users_followed,
-        videos_favorited=stats.videos_favorited,
-        videos_skipped=stats.videos_skipped,
-        errors=stats.errors
-    )
-    logger.success(f"✅ {workflow_name} completed: {stats.to_dict()}")
-    send_status("completed", f"{workflow_name} completed: {stats.videos_watched} videos, {stats.videos_liked} likes, {stats.users_followed} follows")
-
+from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.runtime.video_callbacks import setup_video_workflow_callbacks, send_final_video_stats
 
 __all__ = [
-    # Re-exported common helpers
     "_ipc",
     "logger",
     "send_message",
@@ -262,7 +40,6 @@ __all__ = [
     "get_workflow",
     "set_workflow",
     "signal_handler",
-    # TikTok-specific helpers
     "send_stats",
     "send_video_info",
     "send_action",

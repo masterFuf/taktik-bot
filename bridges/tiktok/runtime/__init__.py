@@ -1,0 +1,1 @@
+"""TikTok bridge runtime capabilities."""
