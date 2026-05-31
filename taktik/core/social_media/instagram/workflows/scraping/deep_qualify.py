@@ -23,6 +23,8 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
 try:
     from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter as _IPCEmitter
 except ImportError:
@@ -108,9 +110,7 @@ class DeepQualifyMixin:
         # Diagnostic: verify we're on the profile page before attempting
         device = getattr(self, 'device', None)
         if device is not None:
-            on_profile = device.xpath(
-                '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
-            ).exists
+            on_profile = device.xpath(PROFILE_SELECTORS.profile_header_container).exists
             if not on_profile:
                 self.logger.warning(
                     "[deep_qualify] Not on profile screen when trying to open following list — skipping"

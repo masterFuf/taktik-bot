@@ -17,6 +17,7 @@ class ProfileSelectors:
     
     # === Username from content-desc ===
     username_content_desc: str = '//*[contains(@content-desc, "@")]'
+    profile_header_container: str = '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
     
     bio: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[@class="android.widget.TextView"]',
