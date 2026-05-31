@@ -55,7 +55,7 @@ Remediation retenue :
 
 - extraction de `publish_upload_picker.py` pour selectionner le bouton Upload/Gallery depuis les bounds XML ;
 - extraction de `publish_hashtag_suggestions.py` pour selectionner une suggestion hashtag depuis les bounds XML ;
-- conservation des selectors dans `ui/selectors/publish.py` ;
+- conservation des selectors publish sous `ui/selectors/flows/publish/**` ;
 - ajout de tests unitaires sur faux dumps XML pour eviter les regressions.
 
 ## Cas corrige le 2026-05-28 - Publish screen/dialog helpers
@@ -164,7 +164,7 @@ Symptome technique :
 - `search_bridge.py` et `followers_bridge.py` redefinissaient chacun une remise
   a Home TikTok entre deux queries/targets ;
 - les bridges portaient des XPath Home en dur alors que les selectors de
-  navigation existent deja dans `ui/selectors/navigation.py` ;
+  navigation existent deja dans `ui/selectors/shell/navigation.py` ;
 - chaque correction future du Home tab aurait pu diverger entre workflows.
 
 Remediation retenue :

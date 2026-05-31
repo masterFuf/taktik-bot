@@ -93,7 +93,7 @@ _NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context(
 # Sélecteurs
 # ---------------------------------------------------------------------------
 # Tous les sélecteurs sont centralisés dans
-#   taktik/core/social_media/tiktok/ui/selectors/publish.py
+#   taktik/core/social_media/tiktok/ui/selectors/flows/publish/
 # Voir ce fichier pour l'historique des resource-ids par version d'app TikTok.
 #
 # Les sélecteurs des popups système Android (autorisations) sont gérés par
