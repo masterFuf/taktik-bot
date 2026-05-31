@@ -6,13 +6,10 @@ All functions take `device` and `logger` as parameters — no class dependency.
 import time
 from typing import Optional
 
-from ...ui.selectors import (
-    DETECTION_SELECTORS,
-    POPUP_SELECTORS,
-    POST_GRID_SELECTORS,
-    POST_LIKERS_SELECTORS,
-    POST_SHARE_SHEET_SELECTORS,
-)
+from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ...ui.selectors.surfaces.post.grid import POST_GRID_SELECTORS
+from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
+from ...ui.selectors.surfaces.post.share_sheet import POST_SHARE_SHEET_SELECTORS
 from .detection import is_in_post_view, is_likers_popup_open
 
 

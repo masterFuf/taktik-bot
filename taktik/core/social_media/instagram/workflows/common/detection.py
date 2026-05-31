@@ -3,12 +3,8 @@
 All functions take `device` and `logger` as parameters — no class dependency.
 """
 
-from ...ui.selectors import (
-    DETECTION_SELECTORS,
-    POPUP_SELECTORS,
-    POST_DETAIL_SELECTORS,
-    POST_REELS_SELECTORS,
-)
+from ...ui.selectors.shell.popups import POPUP_SELECTORS
+from ...ui.selectors.surfaces.post import POST_DETAIL_SELECTORS, POST_REELS_SELECTORS
 
 
 def is_reel_post(device, logger=None) -> bool:
