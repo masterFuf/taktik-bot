@@ -6,7 +6,7 @@ import random
 import time
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 
 
 class ColdDMSenderMixin:

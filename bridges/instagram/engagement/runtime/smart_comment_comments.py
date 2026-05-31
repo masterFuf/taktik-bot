@@ -8,7 +8,7 @@ import time
 import traceback
 import xml.etree.ElementTree as ET
 
-from bridges.instagram.base import logger, send_message as send_event
+from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment_models import ScrapedComment
 from bridges.instagram.engagement.runtime.smart_comment_parsing import parse_litho_comments
 

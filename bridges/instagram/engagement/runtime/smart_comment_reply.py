@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from typing import Any
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.base import logger, send_message as send_event
+from bridges.instagram.runtime.ipc import logger, send_message as send_event
 
 
 class SmartCommentReplyMixin:

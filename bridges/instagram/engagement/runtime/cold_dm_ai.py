@@ -6,7 +6,7 @@ import json
 import urllib.error
 import urllib.request
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"

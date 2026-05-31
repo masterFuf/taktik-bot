@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 
 
 def parse_litho_comments(dumpsys_output: str) -> list[dict[str, Any]]:

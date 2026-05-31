@@ -6,7 +6,7 @@ import json
 import re
 import time
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
 
 

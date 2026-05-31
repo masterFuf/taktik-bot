@@ -34,7 +34,8 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from bridges.instagram.base import InstagramBridgeBase, _ipc, logger
+from bridges.instagram.runtime.bridge import InstagramBridgeBase
+from bridges.instagram.runtime.ipc import _ipc, logger
 from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
 from bridges.instagram.analysis.runtime.persona_media import PersonaMediaMixin
 

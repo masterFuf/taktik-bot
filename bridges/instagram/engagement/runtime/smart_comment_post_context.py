@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict
 
 from bridges.common.parsing.counts import parse_count
-from bridges.instagram.base import logger, send_message as send_event
+from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment_models import PostContext
 
 

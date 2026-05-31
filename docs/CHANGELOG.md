@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok bridge internals now import runtime capabilities from their direct owners instead of depending on the `bridges/tiktok/base.py` facade.
 - TikTok Followers bridge runner support moved under `bridges/tiktok/workflows/automation/runtime/**`: target planning, FollowersConfig mapping, stats aggregation and live callbacks are no longer embedded in `followers.py`.
 - Instagram bridge base runtime capabilities moved under `bridges/instagram/runtime/**`: Instagram IPC helpers and the clone-aware bridge base now have explicit owners while `base.py` remains the stable facade registered with core IPC emitter.
+- Instagram bridge internals now import runtime capabilities from their direct owners; `base.py` is retained as a stable compatibility facade for external/smoke imports.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

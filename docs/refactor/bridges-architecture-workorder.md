@@ -100,6 +100,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B53 | Fait | Migrer les consumers internes TikTok vers les owners runtime directs (`runtime/ipc.py`, `runtime/startup.py`, `runtime/video_callbacks.py`) au lieu de passer par la facade `base.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B54 | Fait | Extraire le support local du runner TikTok Followers sous `workflows/automation/runtime/**` : targets/distribution/config, stats aggregation et callbacks live. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B55 | Fait | Extraire les capacites de `bridges/instagram/base.py` sous `bridges/instagram/runtime/{ipc,bridge}.py`; `base.py` devient une facade stable et conserve l'enregistrement IPC core. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B56 | Fait | Migrer les consumers internes Instagram vers les owners runtime directs (`runtime/ipc.py`, `runtime/bridge.py`) au lieu de passer par la facade `base.py`; seul le smoke de compat clone garde la facade. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 

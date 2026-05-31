@@ -6,7 +6,7 @@ import re
 import subprocess
 import time
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 
 
 class SmartCommentNavigationMixin:

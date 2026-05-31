@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.cold_dm import ColdDMWorkflow
 
 

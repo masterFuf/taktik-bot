@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from bridges.instagram.base import (
+from bridges.instagram.runtime.ipc import (
     logger,
     send_error,
     send_log,

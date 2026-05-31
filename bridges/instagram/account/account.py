@@ -42,7 +42,7 @@ if bot_dir not in sys.path:
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.instagram.base import (
+from bridges.instagram.runtime.ipc import (
     logger, _ipc,
     send_message, send_status, send_error, send_log,
 )

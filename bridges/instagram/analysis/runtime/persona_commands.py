@@ -6,7 +6,7 @@ import json
 import sys
 import traceback
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 
 
 def run_persona_analysis_cli(args: list[str]) -> None:

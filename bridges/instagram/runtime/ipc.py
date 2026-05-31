@@ -1,5 +1,7 @@
 """Instagram-specific stdout IPC helpers for bridge runtime code."""
 
+import sys
+
 from bridges.common.runtime.bridge_base import (
     _ipc,
     get_workflow,
@@ -167,6 +169,19 @@ def setup_stats_callback():
         logger.info("✅ Stats IPC callback configured for BaseStatsManager")
     except Exception as e:
         logger.warning(f"Could not setup stats callback: {e}")
+
+
+def _register_core_ipc_emitter() -> None:
+    """Expose Instagram IPC helpers to core workflows without core importing bridges."""
+    try:
+        from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+
+        IPCEmitter.configure_bridge_adapter(sys.modules[__name__])
+    except Exception as exc:
+        logger.debug(f"Could not register core IPC emitter adapter: {exc}")
+
+
+_register_core_ipc_emitter()
 
 
 __all__ = [

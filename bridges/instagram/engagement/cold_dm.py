@@ -16,7 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment(log_level="INFO")
 
-from bridges.instagram.base import logger, InstagramBridgeBase
+from bridges.instagram.runtime.bridge import InstagramBridgeBase
+from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.cold_dm_ai import generate_ai_message
 from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNavigationMixin
 from bridges.instagram.engagement.runtime.cold_dm_persistence import (

@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import io
 
-from bridges.instagram.base import _ipc, logger
+from bridges.instagram.runtime.ipc import _ipc, logger
 
 
 class PersonaMediaMixin:

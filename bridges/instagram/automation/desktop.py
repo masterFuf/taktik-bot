@@ -21,7 +21,7 @@ from bridges.instagram.automation.runtime.input import load_desktop_config
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
 from bridges.instagram.automation.runtime.workflow import InstagramAutomationRunner
-from bridges.instagram.base import (
+from bridges.instagram.runtime.ipc import (
     logger, _ipc,
     send_status, send_error, send_log,
     setup_stats_callback,

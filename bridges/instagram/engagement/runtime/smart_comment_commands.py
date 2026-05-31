@@ -6,7 +6,7 @@ import json
 import sys
 import time
 
-from bridges.instagram.base import logger, send_message as send_event
+from bridges.instagram.runtime.ipc import logger, send_message as send_event
 
 
 def run_smart_comment_cli(args: list[str]) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from bridges.instagram.base import _ipc, logger
+from bridges.instagram.runtime.ipc import _ipc, logger
 
 
 class PersonaCommentsMixin:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridges.instagram.base import logger, send_error, send_log, send_message
+from bridges.instagram.runtime.ipc import logger, send_error, send_log, send_message
 
 
 class DebugBridge:

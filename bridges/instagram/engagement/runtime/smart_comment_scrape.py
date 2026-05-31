@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict
 from typing import Any
 
-from bridges.instagram.base import logger, send_message as send_event
+from bridges.instagram.runtime.ipc import logger, send_message as send_event
 
 
 class SmartCommentScrapeMixin:

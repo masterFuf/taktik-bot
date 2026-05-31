@@ -43,7 +43,8 @@ sys.path.insert(0, bot_dir)
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.instagram.base import logger, InstagramBridgeBase
+from bridges.instagram.runtime.bridge import InstagramBridgeBase
+from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.smart_comment_comments import SmartCommentCommentsMixin
 from bridges.instagram.engagement.runtime.smart_comment_media import SmartCommentMediaMixin
 from bridges.instagram.engagement.runtime.smart_comment_models import (

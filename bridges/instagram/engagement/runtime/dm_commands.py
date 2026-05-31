@@ -6,7 +6,7 @@ import json
 import sys
 import time
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.dm import DMBridge
 
 

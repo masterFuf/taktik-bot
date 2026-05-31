@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from bridges.instagram.base import logger
+from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.smart_comment_models import TargetProfile
 
 

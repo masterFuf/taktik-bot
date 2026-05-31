@@ -18,7 +18,7 @@ setup_environment()
 
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from bridges.instagram.base import _ipc
+from bridges.instagram.runtime.ipc import _ipc
 from taktik.core.app.ai.providers.openrouter import AIService
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from taktik.core.database import configure_db_service

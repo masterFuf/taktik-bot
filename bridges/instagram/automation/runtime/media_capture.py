@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.instagram.base import send_log, send_message, send_status
+from bridges.instagram.runtime.ipc import send_log, send_message, send_status
 
 
 class InstagramMediaCaptureRuntime:

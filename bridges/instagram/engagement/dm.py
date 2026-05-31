@@ -20,7 +20,8 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.base import logger, InstagramBridgeBase
+from bridges.instagram.runtime.bridge import InstagramBridgeBase
+from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.dm_navigation import DMInboxNavigationMixin
 from bridges.instagram.engagement.runtime.dm_reader import DMConversationReaderMixin
 
