@@ -100,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stale TikTok publish/navigation documentation and workflow comments now point at scoped selector owners instead of removed top-level selector files.
 - Instagram workflow UI helpers now read Follow/Suivre button labels from the scoped profile selector catalog instead of hardcoding UI text in workflow support code.
 - Instagram post scraping helpers now read the comments empty-state selector from `POST_COMMENTS_SELECTORS` instead of keeping the resource id inline.
+- Instagram post scraping stats/engagement extraction now reads generic button/view-group scan selectors and caption layout selector from `POST_DETAIL_SELECTORS` instead of keeping raw XPath in workflow code.
 - Instagram comment actions now use `POST_COMMENTS_SELECTORS` directly, including popup defocus and IME-back selectors that were previously inline in the action.
 - Instagram deep-qualify scraping now reads the profile header container selector from `PROFILE_SELECTORS` instead of keeping the resource id inline.
 - Instagram login screen/result/popup helpers now read profile-tile, use-another-profile, save-info and Not-now selectors from `AUTH_SELECTORS` instead of keeping inline XPath lists.

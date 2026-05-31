@@ -7,6 +7,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_DETAIL_SELECTORS
 from .post_scraping_models import ScrapedProfile, CommentData
 
 console = Console()
@@ -22,7 +23,7 @@ class PostEngagementScrapingMixin:
         try:
             # Find and click like count button
             like_count_clicked = False
-            buttons = self.device.xpath('//android.widget.Button').all()
+            buttons = self.device.xpath(POST_DETAIL_SELECTORS.all_button_nodes_selector).all()
             
             for i, btn in enumerate(buttons):
                 if i > 0:
@@ -58,7 +59,7 @@ class PostEngagementScrapingMixin:
                     found_new = False
                     
                     # Look for profile buttons/usernames in the list
-                    elements = self.device.xpath('//android.widget.Button').all()
+                    elements = self.device.xpath(POST_DETAIL_SELECTORS.all_button_nodes_selector).all()
                     for elem in elements:
                         text = elem.get_text() if hasattr(elem, 'get_text') else ''
                         desc = elem.info.get('contentDescription', '')
@@ -115,7 +116,7 @@ class PostEngagementScrapingMixin:
                 time.sleep(2)
             else:
                 # Try clicking comment count
-                buttons = self.device.xpath('//android.widget.Button').all()
+                buttons = self.device.xpath(POST_DETAIL_SELECTORS.all_button_nodes_selector).all()
                 for i, btn in enumerate(buttons):
                     if i > 0:
                         prev_info = buttons[i-1].info
@@ -153,7 +154,9 @@ class PostEngagementScrapingMixin:
                     found_new = False
                     
                     # Find comment containers
-                    view_groups = self.device.xpath('//android.view.ViewGroup').all()
+                    view_groups = self.device.xpath(
+                        POST_DETAIL_SELECTORS.all_view_group_nodes_selector
+                    ).all()
                     
                     for vg in view_groups:
                         try:

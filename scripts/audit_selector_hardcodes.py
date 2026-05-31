@@ -86,24 +86,6 @@ KNOWN_SELECTOR_DEBT = (
         "Comment-list username fast path still uses a raw class XPath.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/post_scraping/engagement_scraping.py",
-        "selector-string",
-        "//android.widget.Button",
-        "Post engagement scraping still scans raw button nodes.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/post_scraping/engagement_scraping.py",
-        "selector-string",
-        "//android.view.ViewGroup",
-        "Post engagement scraping still scans raw view groups.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/workflows/post_scraping/post_scraping_workflow.py",
-        "selector-string",
-        "//android.widget.Button",
-        "Post scraping navigation still scans raw button nodes.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/instagram/actions/compatibility/cli_adapter.py",
         "uiautomator-literal",
         "Instagram Bot - New Modular Architecture",

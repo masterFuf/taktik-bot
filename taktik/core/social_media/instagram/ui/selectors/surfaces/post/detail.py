@@ -9,9 +9,12 @@ class PostSelectors:
     post_container: str = '//androidx.recyclerview.widget.RecyclerView/android.widget.FrameLayout'
     post_image: str = '//android.widget.ImageView[contains(@resource-id, "image_view")]'
     post_video: str = '//android.widget.VideoView'
+    all_button_nodes_selector: str = '//android.widget.Button'
+    all_view_group_nodes_selector: str = '//android.view.ViewGroup'
     
     username: str = '//android.widget.TextView[contains(@resource-id, "row_feed_photo_profile_name")]'
     caption: str = '//android.widget.TextView[contains(@resource-id, "row_feed_comment_textview_comment")]'
+    caption_layout_selector: str = '//com.instagram.ui.widget.textview.IgTextLayoutView'
     like_count: str = '//android.widget.TextView[contains(@resource-id, "row_feed_textview_likes")]'
     comment_count: str = '//android.widget.TextView[contains(@resource-id, "row_feed_textview_comment_count")]'
     

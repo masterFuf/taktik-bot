@@ -11,6 +11,12 @@ from taktik.core.social_media.instagram.ui.selectors import (
 
 def test_specialized_post_catalogs_remain_compatible_with_legacy_aggregate():
     assert POST_DETAIL_SELECTORS is POST_SELECTORS
+    assert POST_DETAIL_SELECTORS.all_button_nodes_selector == '//android.widget.Button'
+    assert POST_DETAIL_SELECTORS.all_view_group_nodes_selector == '//android.view.ViewGroup'
+    assert (
+        POST_DETAIL_SELECTORS.caption_layout_selector
+        == '//com.instagram.ui.widget.textview.IgTextLayoutView'
+    )
 
     assert POST_COMMENTS_SELECTORS.comment_button_selectors == POST_SELECTORS.comment_button_selectors
     assert POST_COMMENTS_SELECTORS.comments_list_resource_id == POST_SELECTORS.comments_list_resource_id

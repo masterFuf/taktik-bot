@@ -202,7 +202,7 @@ class PostScrapingWorkflow(
                     comments = int(match.group(2))
             
             # Get individual counts from buttons
-            buttons = self.device.xpath('//android.widget.Button').all()
+            buttons = self.device.xpath(POST_DETAIL_SELECTORS.all_button_nodes_selector).all()
             for i, btn in enumerate(buttons):
                 text = btn.get_text() if hasattr(btn, 'get_text') else ''
                 if text and text.isdigit():
@@ -220,7 +220,7 @@ class PostScrapingWorkflow(
                             saves = count
             
             # Get caption
-            caption_elem = self.device.xpath('//com.instagram.ui.widget.textview.IgTextLayoutView')
+            caption_elem = self.device.xpath(POST_DETAIL_SELECTORS.caption_layout_selector)
             if caption_elem.exists:
                 caption = caption_elem.get_text() or ""
             
