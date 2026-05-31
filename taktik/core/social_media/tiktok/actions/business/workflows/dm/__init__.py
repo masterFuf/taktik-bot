@@ -7,6 +7,7 @@ from .agent_handler import (
     build_tiktok_dm_handler,
     register_tiktok_dm_handlers,
 )
+from .outreach import TikTokDMOutreachWorkflow
 from .workflow import DMWorkflow, DMConfig, DMStats, ConversationData
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "DMConfig",
     "DMStats",
     "ConversationData",
+    "TikTokDMOutreachWorkflow",
     "build_tiktok_dm_handler",
     "register_tiktok_dm_handlers",
 ]

@@ -225,10 +225,15 @@ class ProfileSelectors:
     website_text_probe: str = "http"
     verified_description_probe: str = "Verified"
     private_text_probe: str = "private"
+    message_button_text_probe: str = "Message"
 
     @property
     def bio_button_fallback_selector(self) -> Dict[str, Any]:
         return {"className": "android.widget.Button", "clickable": True}
+
+    @property
+    def message_button_text_selector(self) -> Dict[str, Any]:
+        return {"text": self.message_button_text_probe}
 
 
 PROFILE_SELECTORS = ProfileSelectors()

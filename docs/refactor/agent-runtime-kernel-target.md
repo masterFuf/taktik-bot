@@ -181,7 +181,8 @@ Etat courant :
 - Les primitives communes de ces adapters TikTok vivent sous `social_media/tiktok/actions/business/workflows/_internal/agent_runtime.py`. Elles restent plateforme/workflow-locales : merge payload, coercition de parametres et forwarding notifier, sans import bridge ni logique de planning.
 - `social_media/tiktok/actions/business/workflows/unfollow/agent_handler.py` applique le pattern a `tiktok.standalone.tiktok_unfollow`, avec mapping explicite `skipFriends` -> `include_friends` pour conserver le sens historique du bridge.
 - `social_media/tiktok/actions/business/workflows/scraping/agent_handler.py` applique le pattern a `tiktok.automation.scraping` et `tiktok.standalone.tiktok_scraping`. La persistence DB du bridge n'est pas reprise dans le handler ; un appelant peut injecter un `profile_sink` s'il veut enregistrer les profils.
-- `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` applique le pattern a `tiktok.automation.dm_read` et `tiktok.automation.dm_send`. Le cold outreach TikTok reste volontairement hors de ce lot, car sa logique metier et sa dedup DB vivent encore dans `dm_outreach_bridge.py`.
+- `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` applique le pattern a `tiktok.automation.dm_read` et `tiktok.automation.dm_send`.
+- `social_media/tiktok/actions/business/workflows/dm/outreach.py` porte maintenant la logique metier cold outreach ; `dm_outreach_bridge.py` injecte seulement le notifier stdout JSON et la dedup SQLite. Le handler Agent outreach pourra etre ajoute dans un lot separe avec ces memes injections.
 
 ## Point d'attention
 
