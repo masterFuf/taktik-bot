@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The obsolete `taktik/core/recorder` facade was removed; scripts and tests now import the Instagram recorder owner directly from `social_media/instagram/recorder`.
 - The obsolete `taktik/core/media` facade was removed; desktop media capture and setup scripts now import the Instagram media owner directly from `social_media/instagram/media`.
 - TikTok session lifecycle SQL moved from the monolithic `repositories/tiktok/tiktok_repository.py` body into `repositories/tiktok/session/session_repository.py`, while `TikTokRepository` remains the public facade.
+- TikTok daily stats SQL moved from the monolithic `repositories/tiktok/tiktok_repository.py` body into `repositories/tiktok/stats/stats_repository.py`.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.
