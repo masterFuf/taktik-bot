@@ -4,7 +4,6 @@ import time
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
 
 
 class TabNavigationMixin(BaseAction):

@@ -3,7 +3,9 @@
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from ....ui.detectors.problematic_page import ProblematicPageDetector
 
 from .tab_navigation import TabNavigationMixin

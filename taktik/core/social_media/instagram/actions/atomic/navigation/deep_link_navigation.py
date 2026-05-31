@@ -6,7 +6,6 @@ from typing import Optional
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
 from taktik.core.clone import get_active_package
 
 
