@@ -18,6 +18,14 @@ def test_video_aggregate_delegates_to_creator_catalog():
 
 def test_video_aggregate_delegates_to_engagement_catalog():
     assert VIDEO_SELECTORS.like_button == VIDEO_ENGAGEMENT_SELECTORS.like_button
+    assert (
+        VIDEO_SELECTORS.like_button_content_desc_fallbacks
+        == VIDEO_ENGAGEMENT_SELECTORS.like_button_content_desc_fallbacks
+    )
+    assert all(
+        selector in VIDEO_SELECTORS.like_button_for_count
+        for selector in VIDEO_ENGAGEMENT_SELECTORS.like_button_content_desc_fallbacks
+    )
     assert VIDEO_SELECTORS.share_button == VIDEO_ENGAGEMENT_SELECTORS.share_button
 
 

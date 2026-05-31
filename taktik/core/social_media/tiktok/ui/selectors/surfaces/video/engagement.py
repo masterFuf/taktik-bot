@@ -20,10 +20,17 @@ class VideoEngagementSelectors:
         '//*[contains(@content-desc, "Attribuer un")]',
     ])
 
+    like_button_content_desc_fallbacks: List[str] = field(default_factory=lambda: [
+        '//*[contains(@content-desc, "Like video")]',
+        '//*[contains(@content-desc, "Attribuer un")]',
+    ])
+
     like_button_for_count: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "f4u"),
         *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Like video")]'),
         *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Attribuer un")]'),
+        '//*[contains(@content-desc, "Like video")]',
+        '//*[contains(@content-desc, "Attribuer un")]',
     ])
 
     like_count: List[str] = field(default_factory=lambda: [*resource_ids("f4z")])

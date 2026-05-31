@@ -238,11 +238,7 @@ class VideoDetector(BaseAction):
             return count
 
         desc = self._get_element_content_desc(
-            self.video_selectors.like_button_for_count
-            + [
-                '//*[contains(@content-desc, "Like video")]',
-                '//*[contains(@content-desc, "Attribuer un")]',
-            ],
+            self.video_selectors.like_button_for_count,
             timeout=1,
         )
         if desc:

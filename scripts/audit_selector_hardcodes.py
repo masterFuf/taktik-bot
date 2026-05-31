@@ -104,18 +104,6 @@ KNOWN_SELECTOR_DEBT = (
         "Post scraping navigation still scans raw button nodes.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/tiktok/actions/atomic/video_detector.py",
-        "selector-string",
-        "Like video",
-        "Video like detector fallback still owns two inline content-desc probes.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/tiktok/actions/atomic/video_detector.py",
-        "selector-string",
-        "Attribuer un",
-        "Video like detector fallback still owns two inline content-desc probes.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/instagram/actions/compatibility/cli_adapter.py",
         "uiautomator-literal",
         "Instagram Bot - New Modular Architecture",

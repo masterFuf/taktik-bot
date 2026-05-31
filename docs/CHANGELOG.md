@@ -83,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram search navigation now uses scoped navigation selector builders for profile result rows and hashtag result/confirmation selectors instead of composing XPath strings inside the action.
 - Instagram comment scrolling now uses a scoped post-comments selector builder for the comments list instead of composing a `resource-id` XPath in the scroll action.
 - TikTok video author profile-picture cropping now uses the scoped creator selector catalog for package-specific avatar resource ids instead of hardcoding package names in the detector.
+- TikTok video like-count detection now gets generic Like-video content-description fallbacks from `VIDEO_ENGAGEMENT_SELECTORS` instead of composing them inline in `video_detector.py`.
 - TikTok search profile navigation now uses the scoped search selector catalog for username result fallbacks instead of composing XPath strings in the action.
 - TikTok profile extraction now reads website/verified/private visible probes from the scoped profile selector catalog instead of hardcoding raw uiautomator2 query strings.
 - TikTok profile extraction now reads the bio button fallback selector from `PROFILE_SELECTORS` instead of hardcoding the uiautomator2 class selector.
