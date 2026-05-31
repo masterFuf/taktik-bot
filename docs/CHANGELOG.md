@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Smart Comment Litho dumpsys comment parsing moved under `bridges/instagram/engagement/runtime/smart_comment_parsing.py`; count parsing now uses `bridges/common/parsing/counts.py` directly from the workflow.
 - Instagram Smart Comment post screenshot capture moved under `bridges/instagram/engagement/runtime/smart_comment_media.py`, keeping temporary media file ownership out of the workflow bridge file.
 - Instagram Smart Comment target profile navigation, profile scraping and first-post opening moved under `bridges/instagram/engagement/runtime/smart_comment_target.py`, leaving the main bridge focused on post/comment/reply phases.
+- Instagram Smart Comment comment opening, sorting, visible-comment extraction, dumpsys scraping, comment scrolling and reply-thread expansion moved under `bridges/instagram/engagement/runtime/smart_comment_comments.py`.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
