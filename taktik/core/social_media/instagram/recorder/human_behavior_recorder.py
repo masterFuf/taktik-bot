@@ -16,13 +16,11 @@ import uiautomator2 as u2
 from loguru import logger
 
 from taktik.core.clone import rid as _rid
-from taktik.core.social_media.instagram.ui.selectors import (
-    DETECTION_SELECTORS,
-    DM_SELECTORS,
-    FEED_SELECTORS,
-    POST_SELECTORS,
-    STORY_SELECTORS,
-)
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 SCREEN_FEED = "feed"
 SCREEN_REEL_VIEWER = "reel_viewer"

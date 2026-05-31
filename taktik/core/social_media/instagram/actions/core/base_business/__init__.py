@@ -21,10 +21,11 @@ from ...atomic.detection import DetectionActions
 from ...atomic.interaction import ClickActions
 from ...atomic.scroll import ScrollActions
 from ..stats import BaseStatsManager
-from ....ui.selectors import (
-    POPUP_SELECTORS, POST_SELECTORS, DETECTION_SELECTORS, 
-    NAVIGATION_SELECTORS, PROFILE_SELECTORS, BUTTON_SELECTORS
-)
+from ....ui.selectors.shell.navigation import BUTTON_SELECTORS, NAVIGATION_SELECTORS
+from ....ui.selectors.shell.popups import POPUP_SELECTORS
+from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ....ui.selectors.surfaces.post import POST_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from ....ui.extractors import InstagramUIExtractors
 
 from .profile_processing import ProfileProcessingMixin, ProfileProcessingResult

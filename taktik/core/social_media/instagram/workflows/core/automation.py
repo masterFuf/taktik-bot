@@ -14,7 +14,8 @@ from ..management.session import SessionManager
 from ...actions.core.base_action import BaseAction
 from ...actions.compatibility.modern_instagram_actions import ModernInstagramActions
 
-from ...ui.selectors import POST_SELECTORS, POPUP_SELECTORS
+from ...ui.selectors.shell.popups import POPUP_SELECTORS
+from ...ui.selectors.surfaces.post import POST_SELECTORS
 from ..management.config import WorkflowConfigBuilder
 from .workflow_runner import WorkflowRunner
 from ..support.workflow_helpers import WorkflowHelpers
