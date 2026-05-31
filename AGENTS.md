@@ -99,7 +99,7 @@ Definition simple :
 - Chaque event ajoute doit etre documente cote Electron et teste avec le handler qui le consomme.
 - Ne pas renommer un champ d'event sans compatibilite ou migration du handler.
 - Un bridge doit rester un adaptateur : lecture payload, appel workflow, emission events. La logique metier durable doit rester dans le workflow/service/repository.
-- Toute modification de bridge doit verifier `bridges/bridges.manifest.json`, `bridges/launcher.py`, `scripts/build_exe.py`, `front/electron/utils/paths.ts` et `front/scripts/build/build-all.ps1` si le nom ou le chemin change.
+- Toute modification de bridge doit verifier `bridges/bridges.manifest.json`, `bridges/launcher.py`, `scripts/build_exe.py`, `taktik_launcher.spec`, `front/electron/utils/paths.ts` et `front/scripts/build/build-all.ps1` si le nom ou le chemin change.
 - En dev comme en production, Electron lance les bridges via un launcher unique : `python bridges/launcher.py <bridge_name>` ou `taktik_launcher.exe <bridge_name>`. Ne pas recreer de wrappers racine `bridges/<platform>/<bridge_name>.py`.
 - `bridges/bridges.manifest.json` et `bridges/launcher.py` doivent pointer vers les implementations scopees reelles (`automation`, `engagement`, `scraping`, `account`, `publish`, `diagnostics`, etc.), pas vers des shims delegants.
 - Sous `bridges/<platform>/`, la racine doit rester limitee au runtime local (`base.py`), a la facade package et aux owners nommes. Les runners internes appeles par un dispatcher doivent vivre sous un owner explicite (`workflows/automation`, `workflows/engagement`, `account`, `publish`, etc.), pas comme une liste plate de `*_bridge.py`.

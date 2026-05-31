@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threads workflow dispatcher implementation moved under `bridges/threads/workflows/dispatcher.py`; `threads_bridge.py` remains the public Electron entrypoint wrapper.
 - Compatibility diagnostic bridge implementations moved under `bridges/compat/diagnostics/**`; root compat bridge files remain public Electron entrypoint wrappers.
 - Bridge entrypoints v2 removed the root wrapper layer: dev and packaged launches now both route through `bridge_name + launcher` (`python bridges/launcher.py <bridge_name>` or `taktik_launcher.exe <bridge_name>`), while `bridges.manifest.json`, PyInstaller build scripts and Electron path resolution point directly to scoped implementation modules.
+- `taktik_launcher.spec` now derives bridge hidden imports from `bridges.manifest.json` and repo-local paths instead of hardcoded wrapper modules and machine-specific paths.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
