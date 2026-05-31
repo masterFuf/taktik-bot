@@ -206,7 +206,7 @@ taktik/core/
     gmail/
       workflows/
       ui/
-  media/                 # facade media legacy + sous-domaines techniques
+  media/                 # facade media legacy package-level
   recorder/              # facade recorder legacy
   device/                # compat vers shared/device
     compat/
