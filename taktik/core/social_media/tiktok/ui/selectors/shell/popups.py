@@ -31,6 +31,8 @@ class PopupSelectors:
         '//*[contains(@resource-id, ":id/dga")]',
         '//android.widget.ImageView[@content-desc="Close"][@clickable="true"]',
     ])
+
+    follow_friends_close_description: str = "Close"
     
     dismiss_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ny9")]',

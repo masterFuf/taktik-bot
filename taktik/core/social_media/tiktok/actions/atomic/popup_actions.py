@@ -101,7 +101,7 @@ class PopupActions(BaseAction):
         
         # Try direct uiautomator2 selector (more reliable)
         try:
-            close_elem = self.device(description='Close')
+            close_elem = self.device(description=self.popup_selectors.follow_friends_close_description)
             if close_elem.exists:
                 close_elem.click()
                 self._human_like_delay('click')
