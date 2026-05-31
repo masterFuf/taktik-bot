@@ -33,7 +33,6 @@ Config JSON:
 """
 
 import sys
-import json
 import os
 import time
 import random
@@ -1848,99 +1847,9 @@ class SmartCommentBridge(InstagramBridgeBase):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "No config file provided"}))
-        sys.exit(1)
+    from bridges.instagram.engagement.runtime.smart_comment_commands import run_smart_comment_cli
 
-    config_path = sys.argv[1]
-
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except Exception as e:
-        print(json.dumps({"success": False, "error": f"Failed to load config: {e}"}))
-        sys.exit(1)
-
-    device_id = config.get('deviceId')
-    if not device_id:
-        print(json.dumps({"success": False, "error": "No deviceId provided"}))
-        sys.exit(1)
-
-    mode = config.get('mode', 'scrape')
-
-    package_name = config.get('packageName')  # Clone package (e.g. com.taktik.ig1)
-    bridge = SmartCommentBridge(device_id, config, package_name=package_name)
-
-    if not bridge.connect():
-        print(json.dumps({"success": False, "error": "Failed to connect to device"}))
-        sys.exit(1)
-
-    if mode == 'scrape':
-        # Scrape post context + all comments
-        result = bridge.run_scrape()
-        print(json.dumps(result, ensure_ascii=False))
-
-    elif mode == 'reply_all':
-        # Reply to pre-qualified comments (passed in config)
-        qualified = config.get('qualifiedComments', [])
-        if not qualified:
-            print(json.dumps({"success": False, "error": "No qualified comments provided"}))
-            sys.exit(1)
-
-        post_url = config.get('postUrl', '').strip()
-        target_username = config.get('targetUsername', '').strip().lstrip('@')
-
-        if not post_url and not target_username:
-            print(json.dumps({"success": False, "error": "No postUrl or targetUsername provided for reply mode"}))
-            sys.exit(1)
-
-        # Navigate to the correct post
-        send_event("reply_progress", current=0, total=len(qualified), username="", status="Navigating to post...")
-        logger.info(f"Reply mode: navigating to post (url={post_url or 'none'}, target=@{target_username or 'none'})...")
-
-        bridge.restart_instagram()
-
-        navigated = False
-        if post_url:
-            # PREFERRED: Navigate directly to the exact post via deep link
-            logger.info(f"Using post URL for precise navigation: {post_url}")
-            if bridge.navigate_to_post_url(post_url):
-                navigated = True
-            else:
-                logger.warning("Post URL navigation failed, trying profile fallback...")
-
-        if not navigated and target_username:
-            # Navigate via profile → scroll through posts to find the matching one
-            if not bridge._navigate_via_profile(target_username):
-                print(json.dumps({"success": False, "error": f"Could not find the target post on @{target_username}'s profile"}))
-                sys.exit(1)
-            navigated = True
-
-        if not navigated:
-            print(json.dumps({"success": False, "error": "Could not navigate to the target post"}))
-            sys.exit(1)
-
-        if not bridge.open_comments():
-            print(json.dumps({"success": False, "error": "Could not open comments"}))
-            sys.exit(1)
-
-        # Dismiss keyboard if visible
-        try:
-            title = bridge.device(resourceId="com.instagram.android:id/title_text_view")
-            if title.exists:
-                title.click()
-                time.sleep(1)
-        except Exception:
-            pass
-
-        time.sleep(1)
-
-        result = bridge.run_reply(qualified)
-        print(json.dumps(result, ensure_ascii=False))
-
-    else:
-        print(json.dumps({"success": False, "error": f"Unknown mode: {mode}"}))
-        sys.exit(1)
+    run_smart_comment_cli(sys.argv[1:])
 
 
 if __name__ == '__main__':

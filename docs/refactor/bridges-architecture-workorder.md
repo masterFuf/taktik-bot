@@ -78,6 +78,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B35 | Fait | Extraire l'adapter OpenRouter du bridge Instagram Cold DM sous `engagement/runtime/cold_dm_ai.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B36 | Fait | Extraire la navigation search/profile/home du bridge Instagram Cold DM sous `engagement/runtime/cold_dm_navigation.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B37 | Fait | Extraire le composer/send-button/invite-state du bridge Instagram Cold DM sous `engagement/runtime/cold_dm_sender.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B38 | Fait | Extraire le parsing config et le routing `scrape`/`reply_all` du bridge Instagram Smart Comment sous `engagement/runtime/smart_comment_commands.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
