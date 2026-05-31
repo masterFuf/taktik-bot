@@ -87,6 +87,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B44 | Fait | Extraire la phase reply Smart Comment (`reply_to_comment`, recherche Reply, saisie clavier, batching et events reply) sous `engagement/runtime/smart_comment_reply.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B45 | Fait | Extraire le contexte post Smart Comment (caption, auteur, date, stats, URL post) sous `engagement/runtime/smart_comment_post_context.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B46 | Fait | Extraire la navigation post exacte Smart Comment (deep link, fingerprint, fallback profil) sous `engagement/runtime/smart_comment_navigation.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B47 | Fait | Extraire l'orchestration scrape/resultats Smart Comment sous `engagement/runtime/smart_comment_scrape.py`; `engagement/smart_comment.py` devient composition de runtimes + entrypoint. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
