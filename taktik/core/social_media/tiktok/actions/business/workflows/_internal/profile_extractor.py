@@ -95,7 +95,7 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
                     pass
 
         # --- Website ---
-        link_elems = raw_device(textContains="http")
+        link_elems = raw_device(textContains=PROFILE_SELECTORS.website_text_probe)
         if link_elems.exists:
             try:
                 data['website'] = link_elems[0].get_text()
@@ -103,12 +103,12 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
                 pass
 
         # --- Verified ---
-        verified_elems = raw_device(descriptionContains="Verified")
+        verified_elems = raw_device(descriptionContains=PROFILE_SELECTORS.verified_description_probe)
         if verified_elems.exists:
             data['is_verified'] = True
 
         # --- Private ---
-        private_elems = raw_device(textContains="private")
+        private_elems = raw_device(textContains=PROFILE_SELECTORS.private_text_probe)
         if private_elems.exists:
             data['is_private'] = True
 

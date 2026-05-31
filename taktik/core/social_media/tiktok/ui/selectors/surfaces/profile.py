@@ -222,5 +222,9 @@ class ProfileSelectors:
         '//*[contains(@text, "Cannot send message")]',
     ])
 
+    website_text_probe: str = "http"
+    verified_description_probe: str = "Verified"
+    private_text_probe: str = "private"
+
 
 PROFILE_SELECTORS = ProfileSelectors()
