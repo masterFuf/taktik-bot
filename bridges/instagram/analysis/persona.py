@@ -36,11 +36,12 @@ setup_environment()
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.instagram.base import InstagramBridgeBase, _ipc, logger
 from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+from bridges.instagram.analysis.runtime.persona_media import PersonaMediaMixin
 
 setup_signal_handlers()
 
 
-class PersonaAnalysisBridge(PersonaCommentsMixin, InstagramBridgeBase):
+class PersonaAnalysisBridge(PersonaMediaMixin, PersonaCommentsMixin, InstagramBridgeBase):
     """Bridge that scrapes own Instagram profile to build persona data."""
 
     def __init__(self, device_id: str, config: dict, package_name: str = None):
@@ -121,22 +122,7 @@ class PersonaAnalysisBridge(PersonaCommentsMixin, InstagramBridgeBase):
                     collected["following_count"] = profile_info.get("following_count")
                     collected["posts_count"]     = profile_info.get("posts_count")
 
-            # ── Step 3b: Full-page profile screenshot for AI vision ────
-            try:
-                import io as _io
-                import base64 as _b64
-                pil_img = nav.device.screenshot_pil()
-                if pil_img:
-                    buf = _io.BytesIO()
-                    pil_img.convert('RGB').save(buf, format='JPEG', quality=75)
-                    collected["profile_screenshot"] = (
-                        "data:image/jpeg;base64,"
-                        + _b64.b64encode(buf.getvalue()).decode()
-                    )
-                    _ipc.status("screenshot_taken", "Screenshot du profil capturé")
-                    logger.info("[PersonaAnalysis] Profile screenshot captured")
-            except Exception as _e:
-                logger.warning(f"[PersonaAnalysis] Screenshot failed: {_e}")
+            self.capture_profile_screenshot(nav, collected)
 
             if self.profile_screenshot_only:
                 _ipc.status("completed", "Screenshot du profil capturé")

@@ -91,6 +91,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B47 | Fait | Extraire l'orchestration scrape/resultats Smart Comment sous `engagement/runtime/smart_comment_scrape.py`; `engagement/smart_comment.py` devient composition de runtimes + entrypoint. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B48 | Fait | Extraire le parsing config/CLI du bridge Instagram Persona Analysis sous `analysis/runtime/persona_commands.py` et documenter l'owner `analysis/runtime`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B49 | Fait | Extraire la collecte commentaires des posts Persona Analysis sous `analysis/runtime/persona_comments.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B50 | Fait | Extraire la capture screenshot profil Persona Analysis sous `analysis/runtime/persona_media.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
