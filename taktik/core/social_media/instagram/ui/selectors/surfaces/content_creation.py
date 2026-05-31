@@ -124,4 +124,10 @@ class ContentCreationSelectors:
     def keyboard_window_selector(self) -> Dict[str, str]:
         return {"className": self.soft_input_window_class_name}
 
+    def hashtag_result_selectors(self, hashtag: str) -> List[str]:
+        return [
+            f'//*[contains(@text, "#{hashtag}")]',
+            '//*[contains(@resource-id, "hashtag")]',
+        ]
+
 CONTENT_CREATION_SELECTORS = ContentCreationSelectors()

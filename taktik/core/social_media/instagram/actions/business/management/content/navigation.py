@@ -1,9 +1,11 @@
 """Content navigation helpers (navigate to post URL, hashtag)."""
 
 import re
-from loguru import logger
 from taktik.core.shared.input.taktik_keyboard import run_adb_shell
 from taktik.core.clone import get_active_package
+from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import (
+    CONTENT_CREATION_SELECTORS,
+)
 
 
 def navigate_to_post_via_url(business_action, post_url: str) -> bool:
@@ -58,10 +60,9 @@ def navigate_to_hashtag(business_action, hashtag: str) -> bool:
             business_action.device.send_keys(search_term)
         business_action._human_like_delay('typing')
         
-        hashtag_result_selectors = [
-            f'//*[contains(@text, "#{hashtag}")]',
-            '//*[contains(@resource-id, "hashtag")]'
-        ]
+        hashtag_result_selectors = CONTENT_CREATION_SELECTORS.hashtag_result_selectors(
+            hashtag
+        )
         
         if business_action._find_and_click(hashtag_result_selectors, timeout=5):
             business_action._human_like_delay('navigation')

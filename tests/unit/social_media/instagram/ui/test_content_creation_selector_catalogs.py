@@ -18,3 +18,10 @@ def test_content_creation_uiautomator_fallbacks_are_catalog_owned():
     assert CONTENT_CREATION_SELECTORS.keyboard_window_selector == {
         "className": "android.inputmethodservice.SoftInputWindow"
     }
+
+
+def test_content_creation_hashtag_navigation_selectors_are_catalog_owned():
+    assert CONTENT_CREATION_SELECTORS.hashtag_result_selectors("growth") == [
+        '//*[contains(@text, "#growth")]',
+        '//*[contains(@resource-id, "hashtag")]',
+    ]

@@ -122,18 +122,6 @@ KNOWN_SELECTOR_DEBT = (
         "Video like detector fallback still owns two inline content-desc probes.",
     ),
     AllowlistEntry(
-        "taktik/core/social_media/instagram/actions/business/management/content/navigation.py",
-        "selector-string",
-        "contains(@text",
-        "Hashtag selection fallback still composes raw XPath around the target hashtag.",
-    ),
-    AllowlistEntry(
-        "taktik/core/social_media/instagram/actions/business/management/content/navigation.py",
-        "selector-string",
-        "contains(@resource-id",
-        "Hashtag selection fallback still uses a raw resource-id probe.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/instagram/actions/compatibility/cli_adapter.py",
         "uiautomator-literal",
         "Instagram Bot - New Modular Architecture",
