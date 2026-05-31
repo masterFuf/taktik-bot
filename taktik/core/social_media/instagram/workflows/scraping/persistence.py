@@ -10,7 +10,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from rich.table import Table
 
 from taktik.core.database.local.service import get_local_database
-from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 console = Console()
 

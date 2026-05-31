@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.ui.selectors import POST_COMMENTS_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
 from .post_scraping_models import ScrapedProfile, CommentData
 
 console = Console()

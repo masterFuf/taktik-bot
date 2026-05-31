@@ -27,7 +27,10 @@ from taktik.core.social_media.instagram.actions.atomic.navigation import Navigat
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.database.local.service import get_local_database
-from taktik.core.social_media.instagram.ui.selectors import POST_DETAIL_SELECTORS, POST_GRID_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
+    POST_DETAIL_SELECTORS,
+    POST_GRID_SELECTORS,
+)
 
 # Re-export models for backward compatibility
 from .post_scraping_models import PostStats, CommentData, ScrapedProfile

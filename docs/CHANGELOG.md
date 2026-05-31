@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram atomic interaction actions now import button, navigation, popup, post, profile and story selectors from scoped owners instead of the top-level selector aggregate.
 - Instagram shared workflow common helpers now import popup and post selectors from scoped owners instead of the top-level selector aggregate.
 - Instagram workflow UI support helpers now use scoped popup, screen-state and likers selector owners directly, without lazy imports from the top-level aggregate.
+- Instagram scraping and post-scraping workflows now import post/profile/comment selector catalogs from scoped surface owners instead of the top-level selector aggregate.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation; internal publish workflow code now uses the specialized publish catalogs directly.

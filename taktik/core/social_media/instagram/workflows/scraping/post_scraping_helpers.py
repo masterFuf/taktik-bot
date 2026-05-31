@@ -6,9 +6,8 @@ from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
-from taktik.core.social_media.instagram.ui.selectors import (
-    BUTTON_SELECTORS,
-    DETECTION_SELECTORS,
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
     POST_GRID_SELECTORS,
     POST_LIKERS_SELECTORS,
