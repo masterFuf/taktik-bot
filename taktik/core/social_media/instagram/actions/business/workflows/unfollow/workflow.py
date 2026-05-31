@@ -239,10 +239,13 @@ class UnfollowBusiness(
             d = self.device.device
             
             # Vérifier qu'on est sur la liste following (onglet "following" sélectionné)
-            following_tab = d(resourceId=UNFOLLOW_SELECTORS.following_tab_title_resource_id, textContains="following")
+            following_tab = d(
+                resourceId=UNFOLLOW_SELECTORS.following_tab_title_resource_id,
+                textContains=UNFOLLOW_SELECTORS.following_tab_text_probe,
+            )
             if not following_tab.exists:
                 # Essayer de trouver n'importe quel onglet "following"
-                following_tab = d(textContains="following")
+                following_tab = d(textContains=UNFOLLOW_SELECTORS.following_tab_text_probe)
             
             # Sélecteurs pour le bouton "Following" dans la liste
             following_button_resource_id = UNFOLLOW_SELECTORS.following_list_button_resource_id
@@ -257,7 +260,7 @@ class UnfollowBusiness(
                 # Chercher tous les boutons "Following" visibles
                 following_buttons = d(
                     resourceId=following_button_resource_id,
-                    text="Following"
+                    text=UNFOLLOW_SELECTORS.following_button_text
                 )
                 
                 if not following_buttons.exists:
@@ -305,7 +308,10 @@ class UnfollowBusiness(
                     time.sleep(1)
                     
                     # Vérifier si une modal de confirmation apparaît (compte privé)
-                    confirm_button = d(resourceId=unfollow_confirm_resource_id, text="Unfollow")
+                    confirm_button = d(
+                        resourceId=unfollow_confirm_resource_id,
+                        text=UNFOLLOW_SELECTORS.unfollow_confirm_text,
+                    )
                     if confirm_button.exists(timeout=2):
                         self.logger.debug("Modal detected, clicking 'Unfollow' to confirm")
                         confirm_button.click()

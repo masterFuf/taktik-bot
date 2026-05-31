@@ -19,6 +19,9 @@ class UnfollowSelectors:
     following_list_username_resource_id: str = 'com.instagram.android:id/follow_list_username'
     following_tab_title_resource_id: str = 'com.instagram.android:id/title'
     unfollow_confirm_resource_id: str = 'com.instagram.android:id/primary_button'
+    following_tab_text_probe: str = 'following'
+    following_button_text: str = 'Following'
+    unfollow_confirm_text: str = 'Unfollow'
     
     # === Confirmation d'unfollow dans la popup ===
     unfollow_confirm: List[str] = field(default_factory=lambda: [
