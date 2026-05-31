@@ -188,6 +188,7 @@ Etat courant :
 - `app/email/gmail/workflows/agent_handler.py` expose `gmail.account.login`, `gmail.account.read_otp` et `gmail.account.scan_accounts`, avec persistence account optionnelle injectee. `gmail.account.logout` reste hors registre tant que le core n'a pas de vrai workflow logout Gmail.
 - `social_media/youtube/workflows/account/` porte maintenant le workflow account YouTube extrait du bridge et expose `youtube.account.login` / `youtube.account.logout` comme handlers injectables. La connexion device, le bootstrap DB, le `force_stop` et les messages stdout JSON restent dans `youtube_account_bridge.py`.
 - `social_media/instagram/workflows/management/agent_handler.py` expose `instagram.account.login`, `instagram.account.logout` et `instagram.account.register`. Ces handlers adaptent les params vers les workflows account existants, sans reprendre la connexion device ni le lancement Instagram du bridge.
+- `social_media/instagram/workflows/scraping/agent_handler.py` expose `instagram.scraping.target`, `instagram.scraping.hashtag` et `instagram.scraping.post_url`. Le handler reconstruit la config bridge-compatible et depend d'un `device_manager` deja connecte ; il ne possede pas le startup device ni le provider AI.
 
 ## Point d'attention
 

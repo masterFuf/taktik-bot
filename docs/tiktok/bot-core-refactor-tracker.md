@@ -62,6 +62,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] YouTube account login/logout vivent maintenant sous `social_media/youtube/workflows/account/**`; le bridge ne garde que connexion device, DB bootstrap, `force_stop` et stdout JSON.
 - [x] YouTube account peut maintenant etre enregistre comme handler Agent `youtube.account.login/logout`, avec notifier et persistence injectables.
 - [x] Instagram account login/logout/register peuvent maintenant etre enregistres comme handlers Agent `instagram.account.login/logout/register`, sans reprendre le startup bridge.
+- [x] Instagram scraping target/hashtag/post_url peuvent maintenant etre enregistres comme handlers Agent `instagram.scraping.target/hashtag/post_url`, avec `device_manager` et provider AI injectes.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement les autres handlers reels de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
