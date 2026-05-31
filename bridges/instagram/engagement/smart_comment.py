@@ -39,8 +39,7 @@ import random
 import re
 import subprocess
 from dataclasses import asdict
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import List, Dict, Any
 import xml.etree.ElementTree as ET
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call. This implementation is
@@ -53,6 +52,7 @@ setup_environment()
 from bridges.common.input.keyboard import KeyboardService
 from bridges.common.parsing.counts import parse_count
 from bridges.instagram.base import logger, InstagramBridgeBase, send_message as send_event
+from bridges.instagram.engagement.runtime.smart_comment_media import SmartCommentMediaMixin
 from bridges.instagram.engagement.runtime.smart_comment_models import (
     PostContext,
     ScrapedComment,
@@ -61,7 +61,7 @@ from bridges.instagram.engagement.runtime.smart_comment_models import (
 from bridges.instagram.engagement.runtime.smart_comment_parsing import parse_litho_comments
 
 
-class SmartCommentBridge(InstagramBridgeBase):
+class SmartCommentBridge(SmartCommentMediaMixin, InstagramBridgeBase):
     """Bridge for AI-powered comment reply marketing."""
 
     def __init__(self, device_id: str, config: Dict[str, Any], package_name: str = None):
@@ -512,25 +512,6 @@ class SmartCommentBridge(InstagramBridgeBase):
             except Exception:
                 pass
             return ""
-
-    def take_post_screenshot(self) -> Optional[str]:
-        """Take a screenshot of the current post for vision AI analysis."""
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            folder = os.path.join(os.environ.get('TEMP', '/tmp'), 'taktik_smart_comment')
-            os.makedirs(folder, exist_ok=True)
-            filepath = os.path.join(folder, f"post_{timestamp}.png")
-
-            screenshot = self.device.screenshot()
-            # uiautomator2 screenshot() returns a PIL Image, not bytes
-            screenshot.save(filepath, format='PNG')
-
-            logger.info(f"Post screenshot saved: {filepath}")
-            send_event("screenshot", path=filepath)
-            return filepath
-        except Exception as e:
-            logger.error(f"Error taking screenshot: {e}")
-            return None
 
     # =========================================================================
     # PHASE 2: COMMENT SCRAPING
