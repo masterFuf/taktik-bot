@@ -58,7 +58,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B17 | Fait | Deplacer l'implementation TikTok scraping sous `bridges/tiktok/scraping/scraping.py`; garder `scraping_bridge.py` comme entrypoint public mince et migrer le dispatcher TikTok vers l'owner scope. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B18 | Fait | Deplacer l'implementation TikTok DM outreach sous `bridges/tiktok/engagement/dm_outreach.py`; garder `dm_outreach_bridge.py` comme entrypoint public mince. | Import graph + direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B19 | Fait | Deplacer l'implementation TikTok unfollow sous `bridges/tiktok/automation/unfollow.py`; garder `tiktok_unfollow_bridge.py` comme entrypoint public mince. | Import graph + direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B20 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B20 | Fait | Deplacer l'implementation du dispatcher TikTok sous `bridges/tiktok/workflows/dispatcher.py`; garder `tiktok_bridge.py` comme entrypoint public mince. | Import graph + direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B21 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 

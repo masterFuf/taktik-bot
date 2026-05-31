@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok scraping bridge implementation moved under `bridges/tiktok/scraping/scraping.py`; `scraping_bridge.py` remains the public Electron entrypoint wrapper and the TikTok dispatcher imports the scoped owner directly.
 - TikTok DM outreach bridge implementation moved under `bridges/tiktok/engagement/dm_outreach.py`; `dm_outreach_bridge.py` remains the public Electron entrypoint wrapper.
 - TikTok unfollow bridge implementation moved under `bridges/tiktok/automation/unfollow.py`; `tiktok_unfollow_bridge.py` remains the public Electron entrypoint wrapper.
+- TikTok workflow dispatcher implementation moved under `bridges/tiktok/workflows/dispatcher.py`; `tiktok_bridge.py` remains the public Electron entrypoint wrapper.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
