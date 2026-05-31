@@ -36,6 +36,7 @@
       "unfollow",
       "sync",
       "coldDm",
+      "smartComment",
       "taktik_agent",
       "other"
     ]

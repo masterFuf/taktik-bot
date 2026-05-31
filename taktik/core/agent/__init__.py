@@ -12,6 +12,7 @@ from taktik.core.agent.contracts import (
 from taktik.core.agent.executor import AgentPlanExecutor
 from taktik.core.agent.registry import WorkflowRegistry
 from taktik.core.agent.taktik_agent_workflow import TaktikAgentWorkflow
+from taktik.core.agent.workflow_manifest import WorkflowManifest, canonical_workflow_id, load_workflow_manifest
 
 __all__ = [
     "AgentAI",
@@ -23,6 +24,9 @@ __all__ = [
     "AgentPlanExecutor",
     "PlanStep",
     "TaktikAgentWorkflow",
+    "WorkflowManifest",
     "WorkflowRegistry",
     "WorkflowInvocation",
+    "canonical_workflow_id",
+    "load_workflow_manifest",
 ]
