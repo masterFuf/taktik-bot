@@ -41,9 +41,10 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B2 | Fait | Deplacer le reset reseau commun sous `bridges/common/device/network.py` et migrer les deux consommateurs Instagram/TikTok. | `check_bridge_manifest`, `compileall`, `git diff --check`. |
 | B3 | Fait | Deplacer la saisie clavier sous `bridges/common/input/keyboard.py` et le parseur de compte sous `bridges/common/parsing/counts.py`; supprimer les modules plats `keyboard.py` et `utils.py`. | Import graph + `compileall` + `git diff --check`. |
 | B4 | Fait | Deplacer la facade DB bridge sous `bridges/common/persistence/database.py` et migrer Instagram/TikTok consumers. | Import graph + `compileall` + `git diff --check`. |
-| B5 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
-| B6 | A faire | Continuer `bridges/common` par capacite (`runtime/ipc`, `runtime/bootstrap`, `device/app_manager`) si les imports peuvent etre migres sans shim. | Import graph + checks bridge. |
-| B7 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B5 | Fait | Supprimer le shim IA inutilise `bridges/common/ai_service.py`; l'owner IA reste `taktik/core/app/ai/**`. | Import graph + `compileall` + `git diff --check`. |
+| B6 | A faire | Extraire les implementations Instagram engagement (`dm`, `cold_dm`, `smart_comment`) derriere des entrypoints publics minces ou deplacer seulement les helpers internes sans casser les chemins dev. | Tests/imports bridge + manifest + audit stdout. |
+| B7 | A faire | Continuer `bridges/common` par capacite (`runtime/ipc`, `runtime/bootstrap`, `device/app_manager`) si les imports peuvent etre migres sans shim. | Import graph + checks bridge. |
+| B8 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 

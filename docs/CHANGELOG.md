@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `bridges/common` started the same capability-based cleanup: bridge network reset helpers now live under `bridges/common/device/network.py` instead of the flat common root.
 - Bridge keyboard typing and count parsing helpers are now scoped under `bridges/common/input/keyboard.py` and `bridges/common/parsing/counts.py`; the flat `keyboard.py` and `utils.py` common modules were removed.
 - Bridge DB facade helpers now live under `bridges/common/persistence/database.py`, leaving SQLite ownership in `taktik/core/database/**` while removing another flat common module.
+- The unused `bridges/common/ai_service.py` compatibility shim was removed; bridge code imports AI providers from `taktik/core/app/ai/**` directly.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.
@@ -56,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing agent workflow handlers now raise a structured `MissingWorkflowHandlersError` with a JSON-safe payload for future bridge integration.
 - TikTok management workflows (`login`, `logout`, `signup`) no longer instantiate the bridge IPC inside `taktik/core`; the TikTok account bridge now injects the notifier instead.
 - The TikTok publish workflow now follows the same runtime rule: it keeps a standalone fallback notifier, but `tiktok_publish_bridge.py` injects the live bridge notifier instead of letting `taktik/core` create it directly.
-- The OpenRouter `AIService` provider now lives under `taktik/core/app/ai/providers/openrouter.py`; bridge imports use the app owner while `bridges/common/ai_service.py` remains as a compatibility shim.
+- The OpenRouter `AIService` provider now lives under `taktik/core/app/ai/providers/openrouter.py`; bridge imports use the app owner directly and the old `bridges/common/ai_service.py` shim has since been removed.
 - The agent runtime can now read `workflows.manifest.json` through `taktik/core/agent/io/manifest.py` and expose canonical `platform.family.workflow` ids for future `AgentPlan` execution.
 - The agent runtime now exposes JSON-safe `AgentPlan` parsing and serialization through `taktik/core/agent/io/plan.py`, with optional manifest validation for workflow ids.
 - `TaktikAgentWorkflow` now accepts optional `agent_plan` / `agentPlan` payloads and exposes the parsed plan in `AgentContext` without changing the existing Instagram-first scenario execution or adding a new stdout event.
