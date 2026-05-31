@@ -23,88 +23,9 @@ import time
 from typing import Optional, Dict, Any, List, Callable
 from loguru import logger
 
+from .selectors.support.watchdog import WATCHDOG_SELECTORS
+
 log = logger.bind(module="workflow-watchdog")
-
-
-# ──────────────────────────────────────────────────────────────
-# Known overlay / popup signatures in UI XML
-# ──────────────────────────────────────────────────────────────
-
-_OVERLAY_SIGNATURES = [
-    {
-        "name": "comments_popup",
-        "label": "Comments popup",
-        "indicators": [
-            'id/sticky_header_list"',
-            'text="Comments"',
-            'content-desc="Add a comment"',
-        ],
-        "min_matches": 1,
-        "recovery": ["back"],
-    },
-    {
-        "name": "follow_options_bottom_sheet",
-        "label": "Follow options bottom sheet",
-        "indicators": [
-            'id/bottom_sheet_container"',
-            'id/background_dimmer"',
-        ],
-        "min_matches": 2,
-        "recovery": ["back", "tap_outside"],
-    },
-    {
-        "name": "share_bottom_sheet",
-        "label": "Share bottom sheet",
-        "indicators": [
-            'id/bottom_sheet_container"',
-            'text="Share"',
-        ],
-        "min_matches": 2,
-        "recovery": ["back"],
-    },
-    {
-        "name": "dialog_popup",
-        "label": "Dialog / alert popup",
-        "indicators": [
-            'resource-id="android:id/alertTitle"',
-            'resource-id="android:id/button1"',
-        ],
-        "min_matches": 1,
-        "recovery": ["back"],
-    },
-    {
-        "name": "rate_limit_popup",
-        "label": "Rate limit warning",
-        "indicators": [
-            'text="Try Again Later"',
-            'text="Réessayer plus tard"',
-            'text="Action Blocked"',
-        ],
-        "min_matches": 1,
-        "recovery": ["ok_button", "back"],
-    },
-    {
-        "name": "login_required",
-        "label": "Login screen detected",
-        "indicators": [
-            'text="Log in"',
-            'text="Se connecter"',
-            'content-desc="Instagram from Meta"',
-        ],
-        "min_matches": 2,
-        "recovery": [],  # Can't auto-recover from this
-    },
-    {
-        "name": "generic_bottom_sheet",
-        "label": "Bottom sheet overlay",
-        "indicators": [
-            'id/bottom_sheet_container"',
-        ],
-        "min_matches": 1,
-        "recovery": ["back", "swipe_down"],
-    },
-]
-
 
 class WorkflowWatchdog:
     """
@@ -243,7 +164,7 @@ class WorkflowWatchdog:
             }
 
             # ── Check for known overlays ──
-            for sig in _OVERLAY_SIGNATURES:
+            for sig in WATCHDOG_SELECTORS.overlay_signatures:
                 matches = sum(1 for ind in sig["indicators"] if ind in xml)
                 if matches >= sig["min_matches"]:
                     result["overlay"] = sig["name"]
@@ -254,7 +175,7 @@ class WorkflowWatchdog:
                     break
 
             # ── Extract visible text elements for context ──
-            texts = re.findall(r'text="([^"]{2,80})"', xml)
+            texts = re.findall(WATCHDOG_SELECTORS.visible_text_regex, xml)
             # Deduplicate and limit
             seen = set()
             for t in texts:
@@ -263,14 +184,9 @@ class WorkflowWatchdog:
             result["visible_texts"] = list(seen)
 
             # ── Extract clickable buttons ──
-            buttons = re.findall(
-                r'<[^>]*(?:Button|button)[^>]*text="([^"]+)"[^>]*clickable="true"',
-                xml
-            )
-            buttons += re.findall(
-                r'<[^>]*clickable="true"[^>]*(?:Button|button)[^>]*text="([^"]+)"',
-                xml
-            )
+            buttons = []
+            for regex in WATCHDOG_SELECTORS.clickable_button_regexes:
+                buttons += re.findall(regex, xml)
             result["clickable_buttons"] = list(set(buttons))[:10]
 
             # ── Build summary ──
@@ -278,16 +194,11 @@ class WorkflowWatchdog:
                 result["screen_summary"] = f"Overlay: {result['overlay_label']}"
             else:
                 # Try to identify the current page
-                if 'text="Comments"' in xml or 'text="Commentaires"' in xml:
-                    result["screen_summary"] = "Comments page"
-                elif 'text="Followers"' in xml or 'text="Abonnés"' in xml:
-                    result["screen_summary"] = "Followers list"
-                elif 'text="Following"' in xml or 'text="Abonnements"' in xml:
-                    result["screen_summary"] = "Following list"
-                elif 'content-desc="Home"' in xml or 'content-desc="Accueil"' in xml:
-                    result["screen_summary"] = "Home feed"
-                else:
-                    result["screen_summary"] = "Unknown page"
+                result["screen_summary"] = "Unknown page"
+                for label, indicators in WATCHDOG_SELECTORS.screen_summary_signatures.items():
+                    if any(indicator in xml for indicator in indicators):
+                        result["screen_summary"] = label
+                        break
 
             log.info(f"🐕 Screen analysis: {result['screen_summary']} | "
                      f"texts={len(result['visible_texts'])} | "
@@ -349,9 +260,9 @@ class WorkflowWatchdog:
                 elif action == "ok_button":
                     log.info("🐕 Recovery: clicking OK/dismiss button")
                     ok_found = False
-                    for text in ["OK", "Ok", "Dismiss", "Fermer", "Got it"]:
+                    for text in WATCHDOG_SELECTORS.ok_button_texts:
                         try:
-                            el = self.device.xpath(f'//*[@text="{text}" and @clickable="true"]')
+                            el = self.device.xpath(WATCHDOG_SELECTORS.clickable_text_selector(text))
                             if hasattr(el, 'exists') and el.exists:
                                 el.click()
                                 ok_found = True
@@ -372,7 +283,7 @@ class WorkflowWatchdog:
 
                 if post_xml:
                     # Check if the overlay is gone
-                    sig = next((s for s in _OVERLAY_SIGNATURES if s["name"] == overlay_name), None)
+                    sig = next((s for s in WATCHDOG_SELECTORS.overlay_signatures if s["name"] == overlay_name), None)
                     if sig:
                         matches = sum(1 for ind in sig["indicators"] if ind in post_xml)
                         if matches < sig["min_matches"]:
