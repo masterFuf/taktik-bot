@@ -109,9 +109,7 @@ class ProfileExtraction(BaseBusinessAction):
                 # Safety: verify we're back on the profile page after About navigation.
                 # get_about_account_info navigates away and the back press may overshoot
                 # (e.g. returns to the followers list instead of the profile).
-                if not self.device.xpath(
-                    '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
-                ).exists:
+                if not self.device.xpath(self.profile_selectors.profile_header_container).exists:
                     self.logger.warning("⚠️ Profile page lost after 'About this account' navigation, pressing back")
                     self.device.press("back")
                     self._random_sleep(1.0, 1.5)
