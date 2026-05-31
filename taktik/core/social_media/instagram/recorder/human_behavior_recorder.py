@@ -16,10 +16,13 @@ import uiautomator2 as u2
 from loguru import logger
 
 from taktik.core.clone import rid as _rid
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SELECTORS
-from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_REELS_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 SCREEN_FEED = "feed"
@@ -97,32 +100,17 @@ class ScreenDetector:
 
     _STORY_PROGRESS = STORY_SELECTORS.story_progress_bar
     _STORY_HEADER = STORY_SELECTORS.story_viewer_header
-    _REEL_PLAYER = (
-        '//*[@content-desc="Couper le son"]',
-        '//*[@content-desc="Activer le son"]',
-        '//*[contains(@content-desc, "Turn sound off")]',
-        '//*[contains(@content-desc, "Turn sound on")]',
-        '//*[@content-desc="Audio"]',
-    )
-    _FEED = '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]'
-    _COMMENTS = (
-        '//*[contains(@resource-id, "comments_header")]',
-        '//*[contains(@resource-id, "layout_comment_thread")]',
-    )
+    _REEL_PLAYER = POST_REELS_SELECTORS.reel_player_indicators
+    _FEED = FEED_SELECTORS.post_author_username[0]
+    _COMMENTS = POPUP_SELECTORS.comments_view_indicators
     _DM = (
         DM_SELECTORS.inbox_thread_list,
         DM_SELECTORS.thread_container,
-        '//*[@resource-id="com.instagram.android:id/message_list"]',
+        DM_SELECTORS.message_list,
     )
-    _PROFILE = (
-        '//*[contains(@resource-id, "profile_header_full_name")]',
-        '//*[contains(@resource-id, "profile_header")]',
-    )
-    _NOTIF = '//*[contains(@resource-id, "notification_inbox")]'
-    _SEARCH = (
-        '//*[contains(@content-desc, "Rechercher") and @selected="true"]',
-        '//*[contains(@content-desc, "Search") and @selected="true"]',
-    )
+    _PROFILE = DETECTION_SELECTORS.profile_screen_indicators
+    _NOTIF = NOTIFICATION_SELECTORS.activity_screen_indicators
+    _SEARCH = DETECTION_SELECTORS.search_screen_indicators
 
     def __init__(self, device):
         self._device = device
@@ -144,8 +132,9 @@ class ScreenDetector:
         for selector in self._PROFILE:
             if _exists(self._device, selector):
                 return SCREEN_PROFILE
-        if _exists(self._device, self._NOTIF):
-            return SCREEN_NOTIFICATIONS
+        for selector in self._NOTIF:
+            if _exists(self._device, selector):
+                return SCREEN_NOTIFICATIONS
         for selector in self._SEARCH:
             if _exists(self._device, selector):
                 return SCREEN_SEARCH
@@ -155,28 +144,10 @@ class ScreenDetector:
 class ContentSampler:
     """Extract author and lightweight state for the current Instagram surface."""
 
-    _FEED_AUTHOR = [
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]',
-    ]
-    _REEL_AUTHOR = [
-        '//*[@resource-id="com.instagram.android:id/clips_author_info"]//android.widget.TextView',
-        '//*[@resource-id="com.instagram.android:id/clips_author_username"]',
-        '//*[@resource-id="com.instagram.android:id/username"]',
-        '//android.widget.TextView[starts-with(@text, "@")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
-    ]
-    _STORY_AUTHOR = [
-        STORY_SELECTORS.story_viewer_title,
-        '//*[contains(@resource-id, "reel_viewer_title")]',
-        '//*[contains(@resource-id, "story_username")]',
-        '//*[contains(@resource-id, "reel_viewer_username")]',
-        '//*[contains(@resource-id, "username")]',
-    ]
-    _PROFILE_USERNAME = [
-        '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
-        '//*[contains(@resource-id, "username")]',
-    ]
+    _FEED_AUTHOR = FEED_SELECTORS.post_author_username
+    _REEL_AUTHOR = POST_REELS_SELECTORS.reel_author_username_selectors
+    _STORY_AUTHOR = STORY_SELECTORS.story_author_selectors
+    _PROFILE_USERNAME = PROFILE_SELECTORS.username
     _LIKED = FEED_SELECTORS.already_liked_indicators[:3]
 
     def __init__(self, device):

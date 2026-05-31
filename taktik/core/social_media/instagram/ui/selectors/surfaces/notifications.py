@@ -44,7 +44,8 @@ class NotificationSelectors:
         '//*[contains(@text, "Activité")]',
         '//*[contains(@text, "Activity")]',
         '//*[contains(@resource-id, "news")]',
-        '//*[contains(@resource-id, "activity")]'
+        '//*[contains(@resource-id, "activity")]',
+        '//*[contains(@resource-id, "notification_inbox")]'
     ])
 
 NOTIFICATION_SELECTORS = NotificationSelectors()

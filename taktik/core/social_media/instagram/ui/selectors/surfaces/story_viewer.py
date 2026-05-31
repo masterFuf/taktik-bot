@@ -35,6 +35,12 @@ class StorySelectors:
     story_viewer_header: str = '//*[contains(@resource-id, "reel_viewer_header")]'
     story_viewer_title: str = '//*[contains(@resource-id, "reel_viewer_title")]'
     story_viewer_timestamp: str = '//*[contains(@resource-id, "reel_viewer_timestamp")]'
+    story_author_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "reel_viewer_title")]',
+        '//*[contains(@resource-id, "story_username")]',
+        '//*[contains(@resource-id, "reel_viewer_username")]',
+        '//*[contains(@resource-id, "username")]',
+    ])
     
     # Barre de progression des stories
     story_progress_bar: str = '//*[contains(@resource-id, "reel_viewer_progress_bar")]'
