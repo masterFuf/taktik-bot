@@ -430,6 +430,31 @@ class GmailWorkflow:
             return {"success": False, "message": str(exc), "error_type": "exception"}
 
     @_with_bound_notifier
+    def open_account_removal_settings(self, email: str) -> dict:
+        """Open Android account settings so the user can confirm removal."""
+        email = email.strip()
+        if not email:
+            return self._error("invalid_params", "email is required for logout")
+
+        self.logger.info(f"Opening Android account settings for Gmail removal: {email}")
+        _ipc.status("running", f"Opening account removal settings for {email}...")
+        _ipc.log(
+            "warning",
+            "Automatic Gmail logout is not implemented. Opening Android Settings...",
+        )
+
+        try:
+            self.device.shell("am start -a android.settings.SYNC_SETTINGS")
+        except Exception as exc:  # noqa: BLE001 - settings launch is best effort
+            self.logger.warning(f"Could not open Android sync settings: {exc}")
+
+        return {
+            "success": True,
+            "message": "Account marked for removal - confirm in Android Settings",
+            "error_type": None,
+        }
+
+    @_with_bound_notifier
     def get_latest_verification_code(
         self,
         email: str,

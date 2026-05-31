@@ -3,6 +3,7 @@ import pytest
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.app.email.gmail.workflows import (
     GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
+    GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
     register_gmail_account_handlers,
@@ -17,12 +18,17 @@ class FakeGmailWorkflow:
         self.device_id = device_id
         self.notifier = notifier
         self.ensure_kwargs = None
+        self.logout_kwargs = None
         self.read_kwargs = None
         self.instances.append(self)
 
     def ensure_account_added(self, **kwargs):
         self.ensure_kwargs = kwargs
         return {"success": True, "message": "added", "error_type": None}
+
+    def open_account_removal_settings(self, **kwargs):
+        self.logout_kwargs = kwargs
+        return {"success": True, "message": "settings opened", "error_type": None}
 
     def get_latest_verification_code(self, **kwargs):
         self.read_kwargs = kwargs
@@ -122,6 +128,42 @@ def test_gmail_read_otp_handler_executes_with_filters():
     }
 
 
+def test_gmail_logout_handler_executes_workflow_and_unpersists_on_success():
+    FakeGmailWorkflow.instances = []
+    unpersisted = []
+    registry = WorkflowRegistry()
+    register_gmail_account_handlers(
+        registry,
+        device=object(),
+        device_id="device-1",
+        account_unpersister=unpersisted.append,
+        workflow_factory=FakeGmailWorkflow,
+    )
+    executor = AgentPlanExecutor(registry)
+
+    events = executor.execute(
+        AgentPlan(
+            plan_id="plan-1",
+            steps=[
+                PlanStep(
+                    step_id="step-1",
+                    workflow=WorkflowInvocation(
+                        platform="gmail",
+                        workflow_id=GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
+                        params={"email": " creator@example.com "},
+                    ),
+                )
+            ],
+        )
+    )
+
+    assert FakeGmailWorkflow.instances[0].logout_kwargs == {
+        "email": "creator@example.com"
+    }
+    assert unpersisted == ["creator@example.com"]
+    assert events[-1].payload["success"] is True
+
+
 def test_gmail_scan_accounts_persists_discovered_accounts():
     FakeGmailWorkflow.instances = []
     persisted = []
@@ -175,6 +217,37 @@ def test_gmail_login_rejects_missing_email_before_workflow_creation():
                             platform="gmail",
                             workflow_id=GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
                             params={"password": "secret"},
+                        ),
+                    )
+                ],
+            )
+        )
+
+    assert FakeGmailWorkflow.instances == []
+
+
+def test_gmail_logout_rejects_missing_email_before_workflow_creation():
+    FakeGmailWorkflow.instances = []
+    registry = WorkflowRegistry()
+    register_gmail_account_handlers(
+        registry,
+        device=object(),
+        device_id="device-1",
+        workflow_factory=FakeGmailWorkflow,
+    )
+    executor = AgentPlanExecutor(registry)
+
+    with pytest.raises(ValueError, match="Gmail logout requires email"):
+        executor.execute(
+            AgentPlan(
+                plan_id="plan-1",
+                steps=[
+                    PlanStep(
+                        step_id="step-1",
+                        workflow=WorkflowInvocation(
+                            platform="gmail",
+                            workflow_id=GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
+                            params={},
                         ),
                     )
                 ],

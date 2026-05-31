@@ -15,10 +15,12 @@ from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
 
 
 GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID = "gmail.account.login"
+GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID = "gmail.account.logout"
 GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID = "gmail.account.read_otp"
 GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID = "gmail.account.scan_accounts"
 GMAIL_ACCOUNT_WORKFLOW_IDS = (
     GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
+    GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
 )
@@ -32,6 +34,7 @@ def build_gmail_account_handler(
     device_id: str,
     notifier=None,
     account_persister: AccountPersister | None = None,
+    account_unpersister: AccountPersister | None = None,
     workflow_factory: GmailWorkflowFactory = GmailWorkflow,
 ) -> WorkflowHandler:
     """Build an injectable Gmail account handler without bridge DB ownership."""
@@ -45,6 +48,14 @@ def build_gmail_account_handler(
             result = workflow.ensure_account_added(**params)
             if result.get("success") and account_persister is not None:
                 account_persister(params["email"])
+            return result
+
+        if invocation.workflow_id == GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID:
+            params = _logout_params(merged)
+            workflow = workflow_factory(device, device_id, notifier=notifier)
+            result = workflow.open_account_removal_settings(**params)
+            if result.get("success") and account_unpersister is not None:
+                account_unpersister(params["email"])
             return result
 
         if invocation.workflow_id == GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID:
@@ -74,6 +85,7 @@ def register_gmail_account_handlers(
     device_id: str,
     notifier=None,
     account_persister: AccountPersister | None = None,
+    account_unpersister: AccountPersister | None = None,
     workflow_factory: GmailWorkflowFactory = GmailWorkflow,
 ) -> WorkflowRegistry:
     """Register Gmail account handlers into an injected Agent registry."""
@@ -82,6 +94,7 @@ def register_gmail_account_handlers(
         device_id=device_id,
         notifier=notifier,
         account_persister=account_persister,
+        account_unpersister=account_unpersister,
         workflow_factory=workflow_factory,
     )
     for workflow_id in GMAIL_ACCOUNT_WORKFLOW_IDS:
@@ -93,6 +106,12 @@ def _login_params(payload: Mapping[str, Any]) -> dict[str, str]:
     return {
         "email": _required_string(payload, "email", message="Gmail login requires email"),
         "password": _required_string(payload, "password", message="Gmail login requires password"),
+    }
+
+
+def _logout_params(payload: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        "email": _required_string(payload, "email", message="Gmail logout requires email"),
     }
 
 

@@ -2,6 +2,7 @@
 
 from taktik.core.app.email.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
+    GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
     GMAIL_ACCOUNT_WORKFLOW_IDS,
@@ -12,6 +13,7 @@ from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
 
 __all__ = [
     "GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID",
+    "GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID",
     "GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID",
     "GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID",
     "GMAIL_ACCOUNT_WORKFLOW_IDS",
