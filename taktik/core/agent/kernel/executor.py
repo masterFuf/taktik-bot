@@ -21,6 +21,10 @@ class AgentPlanExecutor:
 
     def execute(self, plan: AgentPlan) -> List[AgentEvent]:
         events: List[AgentEvent] = []
+        missing_handlers = self.registry.missing_for_plan(plan)
+        if missing_handlers:
+            joined = ", ".join(missing_handlers)
+            raise ValueError(f"No workflow handler registered for: {joined}")
 
         for step in plan.steps:
             if step.kind != "workflow" or step.workflow is None:

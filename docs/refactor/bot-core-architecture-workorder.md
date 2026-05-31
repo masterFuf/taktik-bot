@@ -90,6 +90,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 ajoute `core/agent/io/events.py` pour serialiser les `AgentEvent` en payloads JSON-safe avant tout branchement bridge, afin d'eviter des conversions ad hoc cote stdout.
 - un sous-lot suivant du lot 5 restructure physiquement `core/agent` : `kernel/` porte contrats/contexte/registry/executor/runtime, `io/` porte manifest/plan/events, `decision/` porte `AgentAI`, `scenarios/` porte l'autopilot Instagram legacy, et la racine du package reste une facade publique via `__init__.py`.
 - un sous-lot suivant ajoute `scripts/audit_selector_hardcodes.py` comme garde-fou read-only : le runtime Instagram/TikTok ne peut plus ajouter de nouvelles signatures UI inline hors catalogues selectors/langage sans echec explicite, tandis que la dette legacy restante est allowlistee et visible.
+- un sous-lot suivant renforce le noyau `core/agent` avant le branchement de vrais workflows Android : le registre/runtime peuvent pre-valider les handlers manquants d'un `AgentPlan`, et l'executor refuse un plan incomplet avant tout event ou effet de bord.
 
 ## Audit `clone` / `compat` au 2026-05-31
 

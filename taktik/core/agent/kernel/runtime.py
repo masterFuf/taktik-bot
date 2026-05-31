@@ -35,6 +35,10 @@ class AgentRuntime:
         """Parse a JSON-like payload into an AgentPlan."""
         return agent_plan_from_payload(payload, manifest=self.manifest)
 
+    def missing_workflow_handlers(self, plan: AgentPlan) -> tuple[str, ...]:
+        """Return workflow ids that are valid but not registered for execution."""
+        return self.registry.missing_for_plan(plan)
+
     def execute_plan(self, plan: AgentPlan) -> List[AgentEvent]:
         """Execute an already parsed plan through the injected registry."""
         executor = AgentPlanExecutor(self.registry, event_sink=self.event_sink)

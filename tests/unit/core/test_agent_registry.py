@@ -26,6 +26,40 @@ def test_workflow_registry_rejects_duplicate_workflow_ids():
         raise AssertionError("Expected duplicate workflow registration to fail")
 
 
+def test_workflow_registry_reports_missing_plan_handlers_once():
+    registry = WorkflowRegistry()
+    registry.register("instagram.automation.feed", lambda invocation, payload: {})
+
+    plan = AgentPlan(
+        plan_id="plan-1",
+        steps=[
+            PlanStep(
+                step_id="step-1",
+                workflow=WorkflowInvocation(
+                    platform="instagram",
+                    workflow_id="instagram.automation.feed",
+                ),
+            ),
+            PlanStep(
+                step_id="step-2",
+                workflow=WorkflowInvocation(
+                    platform="tiktok",
+                    workflow_id="tiktok.automation.for_you",
+                ),
+            ),
+            PlanStep(
+                step_id="step-3",
+                workflow=WorkflowInvocation(
+                    platform="tiktok",
+                    workflow_id="tiktok.automation.for_you",
+                ),
+            ),
+        ],
+    )
+
+    assert registry.missing_for_plan(plan) == ("tiktok.automation.for_you",)
+
+
 def test_agent_plan_executor_runs_registered_steps_and_emits_events():
     registry = WorkflowRegistry()
     events = []
@@ -61,3 +95,46 @@ def test_agent_plan_executor_runs_registered_steps_and_emits_events():
         "workflow": "instagram.feed.browse",
         "account": "bot_account",
     }
+
+
+def test_agent_plan_executor_rejects_missing_handlers_before_partial_execution():
+    registry = WorkflowRegistry()
+    events = []
+    calls = []
+
+    def handler(invocation, payload):
+        calls.append(invocation.workflow_id)
+        return {}
+
+    registry.register("instagram.automation.feed", handler)
+    executor = AgentPlanExecutor(registry, event_sink=events.append)
+
+    plan = AgentPlan(
+        plan_id="plan-1",
+        steps=[
+            PlanStep(
+                step_id="step-1",
+                workflow=WorkflowInvocation(
+                    platform="instagram",
+                    workflow_id="instagram.automation.feed",
+                ),
+            ),
+            PlanStep(
+                step_id="step-2",
+                workflow=WorkflowInvocation(
+                    platform="tiktok",
+                    workflow_id="tiktok.automation.for_you",
+                ),
+            ),
+        ],
+    )
+
+    try:
+        executor.execute(plan)
+    except ValueError as exc:
+        assert "No workflow handler registered for: tiktok.automation.for_you" in str(exc)
+    else:
+        raise AssertionError("Expected missing workflow handler preflight to fail")
+
+    assert events == []
+    assert calls == []

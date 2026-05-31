@@ -63,3 +63,34 @@ def test_agent_runtime_rejects_unknown_manifest_workflow_before_registry_resolut
                 ],
             }
         )
+
+
+def test_agent_runtime_exposes_missing_handler_preflight_for_valid_plans():
+    registry = WorkflowRegistry()
+    runtime = AgentRuntime(registry=registry)
+    plan = runtime.plan_from_payload(
+        {
+            "plan_id": "plan-1",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "workflow": {
+                        "platform": "instagram",
+                        "workflow_id": "instagram.automation.feed",
+                    },
+                },
+                {
+                    "step_id": "step-2",
+                    "workflow": {
+                        "platform": "tiktok",
+                        "workflow_id": "tiktok.automation.for_you",
+                    },
+                },
+            ],
+        }
+    )
+
+    assert runtime.missing_workflow_handlers(plan) == (
+        "instagram.automation.feed",
+        "tiktok.automation.for_you",
+    )

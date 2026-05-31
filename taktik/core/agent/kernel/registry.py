@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
+from taktik.core.agent.kernel.contracts import AgentPlan, WorkflowInvocation
 
 WorkflowHandler = Callable[[WorkflowInvocation, Dict[str, Any]], Dict[str, Any]]
 
@@ -25,6 +25,26 @@ class WorkflowRegistry:
             return self._handlers[workflow_id]
         except KeyError as exc:
             raise KeyError(f"Unknown workflow '{workflow_id}'") from exc
+
+    def missing_workflow_ids(self, workflow_ids: Iterable[str]) -> tuple[str, ...]:
+        """Return unregistered workflow ids while preserving first-seen order."""
+        missing: list[str] = []
+        seen: set[str] = set()
+        for workflow_id in workflow_ids:
+            if workflow_id in seen:
+                continue
+            seen.add(workflow_id)
+            if workflow_id not in self._handlers:
+                missing.append(workflow_id)
+        return tuple(missing)
+
+    def missing_for_plan(self, plan: AgentPlan) -> tuple[str, ...]:
+        """Return workflow ids that would fail registry resolution for this plan."""
+        return self.missing_workflow_ids(
+            step.workflow.workflow_id
+            for step in plan.steps
+            if step.kind == "workflow" and step.workflow is not None
+        )
 
     def contains(self, workflow_id: str) -> bool:
         return workflow_id in self._handlers

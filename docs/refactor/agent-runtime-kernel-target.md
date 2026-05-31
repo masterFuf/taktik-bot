@@ -152,6 +152,8 @@ Etat courant :
 - `io/plan.py` convertit un payload JSON-safe en `AgentPlan` ;
 - `io/events.py` convertit les `AgentEvent` en payloads JSON-safe pour les futurs bridges ;
 - `kernel/runtime.py` fournit une facade parse/execute qui depend d'un `WorkflowRegistry` injecte ;
+- `WorkflowRegistry` et `AgentRuntime` exposent une prevalidation des handlers manquants pour un `AgentPlan` valide, afin qu'un appelant Front/CLI puisse detecter les workflows non branches avant execution ;
+- `AgentPlanExecutor` refuse maintenant un plan dont au moins un workflow n'a pas de handler enregistre avant d'emettre le premier event, pour eviter les demi-executions ;
 - `TaktikAgentWorkflow` accepte deja `agent_plan` / `agentPlan`, le valide et l'expose dans `AgentContext` sans l'executer ni ajouter de nouvel event stdout.
 - l'arborescence physique est maintenant scopee : `kernel/`, `io/`, `decision/`, `scenarios/`. La racine du package expose seulement la facade publique `__init__.py`.
 
@@ -159,6 +161,7 @@ Etat courant :
 
 - brancher TikTok et les autres workflows sur le meme registre ;
 - garder le Front comme planner premium.
+- avant de brancher un workflow Android reel, ajouter son handler explicite dans le registre de l'appelant et verifier la couverture avec `missing_workflow_handlers()`.
 
 ## Point d'attention
 
