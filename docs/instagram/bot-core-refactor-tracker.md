@@ -46,7 +46,8 @@
 - [x] `core/agent/runtime.py` fournit maintenant une facade parse/execute autour d'un `WorkflowRegistry` injecte, sans brancher les workflows Android par defaut.
 - [x] `core/agent/event_io.py` expose une serialisation JSON-safe des `AgentEvent` pour les futurs bridges.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
-- [ ] Faire emerger `registry.py` / `executor.py` pour sortir `TaktikAgentWorkflow` du role de pseudo-noyau global.
+- [ ] Brancher progressivement de vrais handlers de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
+- [ ] Replier `TaktikAgentWorkflow` en scenario/autopilot historique quand le noyau `AgentRuntime` aura au moins un flow reel valide.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
 - [ ] Decision finale sur la deprecation ou non des agregateurs publics legacy.
 
