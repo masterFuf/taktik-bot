@@ -2,15 +2,12 @@ from typing import Optional
 
 from loguru import logger
 
+from taktik.core.clone.packages.package_map import get_package_variants
 from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.shared.platform.social_media_base import SocialMediaBase
 
 # All known TikTok package names, in order of preference.
-TIKTOK_PACKAGES = [
-    "com.zhiliaoapp.musically",   # TikTok international
-    "com.ss.android.ugc.trill",   # TikTok Trill (some regions / older installs)
-    "com.ss.android.ugc.aweme",   # Douyin (China)
-]
+TIKTOK_PACKAGES = list(get_package_variants("tiktok"))
 
 TIKTOK_MAIN_ACTIVITY = "com.ss.android.ugc.aweme.splash.SplashActivity"
 

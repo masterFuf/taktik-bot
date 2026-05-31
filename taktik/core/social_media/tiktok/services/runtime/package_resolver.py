@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import subprocess
 
-from taktik.core.social_media.tiktok.core.manager import TIKTOK_PACKAGES
+from taktik.core.clone.packages.package_map import get_original_package, get_package_variants
 
 
-DEFAULT_TIKTOK_PACKAGE = "com.zhiliaoapp.musically"
-KNOWN_TIKTOK_PACKAGES = [*TIKTOK_PACKAGES, "com.bytedance.trill"]
+DEFAULT_TIKTOK_PACKAGE = get_original_package("tiktok")
+KNOWN_TIKTOK_PACKAGES = list(get_package_variants("tiktok"))
 
 
 def resolve_tiktok_package(device_id: str, default: str = DEFAULT_TIKTOK_PACKAGE) -> str:

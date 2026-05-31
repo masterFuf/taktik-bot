@@ -24,7 +24,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] `publish` TikTok splitte par etape.
 - [x] Fichiers legacy top-level `ui/selectors/*.py` retires pour Instagram et TikTok apres migration des imports internes.
 - [x] `compat/selectors/**` est maintenant l'owner interne du framework selectors/versioning ; `compat/*.py` ne restent plus qu'en shims de compatibilite.
-- [x] `clone/package_map.py` centralise les package names officiels et prefixes de clone.
+- [x] `clone/package_map.py` centralise les package names officiels, variantes installables TikTok et prefixes de clone.
 - [x] Le human recorder Instagram vit maintenant sous `social_media/instagram/recorder/**` ; `taktik/core/recorder` ne garde qu'une facade de compatibilite.
 - [x] Hygiene runtime `config/security` : alias legacy `get_primary_endpoint()` retabli pour `APIEndpointManager` et suppression des `print(...)` dans `core/security`.
 - [x] La capture media Instagram vit maintenant sous `social_media/instagram/media/**` ; `taktik/core/media` ne garde qu'une facade de compatibilite et `ProxyManager` resolve ses assets via `scripts/`.
@@ -43,6 +43,8 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] `core/agent/kernel/runtime.py` fournit maintenant une facade parse/execute autour d'un `WorkflowRegistry` injecte, sans brancher les workflows Android par defaut.
 - [x] `core/agent/io/events.py` expose une serialisation JSON-safe des `AgentEvent` pour les futurs bridges.
 - [x] `core/agent` est maintenant classe par owners internes : `kernel/`, `io/`, `decision/`, `scenarios/`, avec une racine limitee a la facade publique `__init__.py`.
+- [x] `core/agent/kernel` separe les dataclasses de plan/event, les ports injectes et les erreurs runtime structurees.
+- [x] Le runtime TikTok publish resolve les packages TikTok via la source de verite `clone/package_map.py`, plus via `tiktok/core/manager.py`.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement de vrais handlers de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
