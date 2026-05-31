@@ -53,7 +53,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B13 | Fait | Deplacer l'implementation Instagram Taktik Agent sous `bridges/instagram/agent/taktik_agent.py`; garder `taktik_agent_bridge.py` comme entrypoint public mince sans deplacer le noyau `taktik/core/agent`. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B14 | Fait | Deplacer l'implementation Instagram desktop automation sous `bridges/instagram/automation/desktop.py`; garder `desktop_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B15 | Fait | Deplacer l'implementation TikTok account sous `bridges/tiktok/account/account.py`; garder `tiktok_account_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B16 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B16 | Fait | Deplacer l'implementation TikTok publish sous `bridges/tiktok/publish/publish.py`; garder `tiktok_publish_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B17 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 
