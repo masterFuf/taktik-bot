@@ -18,12 +18,13 @@ if bot_dir not in sys.path:
 
 from bridges.common.device.connection import ConnectionService
 from bridges.common.device.app_manager import AppService
+from bridges.instagram.automation.ai_runtime import create_instagram_ai_service
 from bridges.instagram.automation.input import load_desktop_config
 from bridges.instagram.automation.media_capture import InstagramMediaCaptureRuntime
+from bridges.instagram.automation.workflow_runner import InstagramAutomationRunner
 from bridges.instagram.base import (
     logger, _ipc,
-    send_message, send_status, send_stats,
-    send_error, send_log,
+    send_status, send_error, send_log,
     setup_stats_callback,
 )
 from bridges.instagram.diagnostics.debug import DebugBridge
@@ -61,23 +62,16 @@ class DesktopBridge:
 
         # AI mode configuration
         self.ai_config = config.get('ai', {})
-        self.ai_enabled = self.ai_config.get('enabled', False)
-        self.ai_service = None
+        self.ai_enabled, self.ai_service = create_instagram_ai_service(
+            ai_config=self.ai_config,
+            ipc=_ipc,
+            log=send_log,
+        )
 
         # Network reset configuration
         self.network_reset_config = config.get('networkReset', {})
         self.network_reset_enabled = self.network_reset_config.get('enabled', False)
         self.network_reset_method = self.network_reset_config.get('method', 'data')  # 'data' or 'airplane'
-        if self.ai_enabled:
-            api_key = self.ai_config.get('openrouterApiKey', '')
-            if api_key and len(api_key) > 5:
-                from taktik.core.app.ai.providers.openrouter import AIService
-                vision_model = self.ai_config.get('visionModel') or None
-                self.ai_service = AIService(api_key=api_key, ipc=_ipc, vision_model=vision_model)
-                send_log("info", "ðŸ¤– AI mode enabled â€” Smart Comments / Profile Analysis / Post Analysis")
-            else:
-                send_log("warning", "AI mode requested but no OpenRouter API key provided")
-                self.ai_enabled = False
 
         # Media capture service
         self.media_capture = InstagramMediaCaptureRuntime(
@@ -191,97 +185,21 @@ class DesktopBridge:
             logger.exception("Instagram launch failed")
             return False
 
-    def build_workflow_config(self) -> dict:
-        """Build the workflow configuration matching CLI format."""
-        from taktik.core.social_media.instagram.workflows.core.config_builder import (
-            build_instagram_automation_config,
-        )
-
-        return build_instagram_automation_config(self.config)
-
     def run_workflow(self) -> bool:
         """Run the configured workflow."""
-        try:
-            from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-
-            workflow_config = self.build_workflow_config()
-
-            # Parse targets for display
-            targets_display = ', @'.join([t.strip() for t in self.target.split(',') if t.strip()])
-            send_status("starting", f"Starting {self.workflow_type} workflow for @{targets_display}")
-            send_log("info", f"Configuration: {json.dumps(workflow_config, indent=2)}")
-
-            from taktik.core.social_media.instagram.workflows.core.config_builder import (
-                build_instagram_session_config_event,
-            )
-
-            send_message(
-                "session_config",
-                config=build_instagram_session_config_event(
-                    self.config,
-                    ai_enabled=self.ai_enabled,
-                ),
-            )
-
-            # Create automation instance (matching CLI usage)
-            send_status("initializing", "Initializing automation...")
-            self.automation = InstagramAutomation(self.device_manager)
-
-            from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
-                prepare_instagram_automation_runtime,
-            )
-
-            prepare_instagram_automation_runtime(
-                automation=self.automation,
-                workflow_config=workflow_config,
-                package_name=self.package_name,
-                installed_version_provider=(
-                    self._app.get_installed_version if self._app else None
-                ),
-                log=send_log,
-            )
-
-            # â”€â”€ AI hooks (monkey-patch interaction engine if AI mode is ON) â”€â”€
-            if self.ai_enabled and self.ai_service:
-                from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
-                    install_instagram_ai_hooks,
-                )
-
-                install_instagram_ai_hooks(
-                    ai=self.ai_service,
-                    ai_config=self.ai_config,
-                    device=self.device_manager.device if self.device_manager else None,
-                    language=self.language,
-                    log=send_log,
-                )
-
-            # Run the workflow
-            send_status("running", "Running workflow...")
-            self.automation.run_workflow()
-
-            # Get final stats
-            stats = self.automation.stats
-            send_stats(
-                likes=stats.get('likes', 0),
-                follows=stats.get('follows', 0),
-                comments=stats.get('comments', 0),
-                profiles=stats.get('interactions', 0),
-                unfollows=stats.get('unfollows', 0)
-            )
-
-            send_status("completed", "Workflow completed successfully")
-            return True
-
-        except Exception as e:
-            error_msg = str(e)
-            if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
-                send_error(f"UIAutomator2 crashed during workflow: {error_msg}", error_code="ATX_AGENT_CRASHED")
-            elif "timeout" in error_msg.lower():
-                send_error(f"Workflow timed out: {error_msg}", error_code="WORKFLOW_TIMEOUT")
-            else:
-                send_error(f"Workflow error: {error_msg}", error_code="WORKFLOW_ERROR")
-            logger.exception("Workflow error")
-            return False
+        runner = InstagramAutomationRunner(
+            config=self.config,
+            device_manager=self.device_manager,
+            app_service=self._app,
+            package_name=self.package_name,
+            ai_enabled=self.ai_enabled,
+            ai_service=self.ai_service,
+            ai_config=self.ai_config,
+            language=self.language,
+        )
+        result = runner.run()
+        self.automation = runner.automation
+        return result
 
     def run(self) -> int:
         """Main entry point."""
