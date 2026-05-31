@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, POST_COMMENTS_SELECTORS
+from ....ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
 
 
 class ContextScrollMixin(BaseAction):

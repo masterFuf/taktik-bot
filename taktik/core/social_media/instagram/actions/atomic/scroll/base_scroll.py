@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS
 
 
 class BaseScrollMixin(BaseAction):

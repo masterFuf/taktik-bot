@@ -3,7 +3,7 @@
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import DETECTION_SELECTORS, POST_SELECTORS
+from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
 
 from .base_scroll import BaseScrollMixin
 from .context_scroll import ContextScrollMixin
