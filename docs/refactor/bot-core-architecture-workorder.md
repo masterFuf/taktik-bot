@@ -96,6 +96,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant clarifie encore `core/agent/kernel` : `contracts.py` porte seulement les dataclasses de plan/event, tandis que les ports d'injection IA vivent dans `kernel/ports.py`.
 - un sous-lot suivant ajoute `kernel/errors.py` pour les erreurs structurees du noyau agent, en commencant par les handlers workflow manquants avec payload JSON-safe.
 - un sous-lot suivant branche le premier workflow reel sur le noyau agent sans modifier les bridges : `social_media/tiktok/workflows/publish/agent_handler.py` enregistre `tiktok.standalone.upload_post` via dependencies injectees.
+- un sous-lot suivant applique le meme pattern au publish YouTube : `social_media/youtube/workflows/publish/agent_handler.py` enregistre `youtube.publish.upload_post` sans prendre en charge la connexion device ni modifier le bridge.
 
 ## Audit `clone` / `compat` au 2026-05-31
 

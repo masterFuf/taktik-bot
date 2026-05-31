@@ -47,6 +47,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Le runtime TikTok publish resolve les packages TikTok via la source de verite `clone/package_map.py`, plus via `tiktok/core/manager.py`.
 - [x] Le workflow TikTok publish delegue le restart package a `services/runtime/app_control.py`, pour garder le workflow centre sur le publish.
 - [x] Premier handler reel Agent brancheable : `tiktok.standalone.upload_post` peut etre enregistre dans `WorkflowRegistry` avec device/notifier injectes.
+- [x] Deuxieme handler publish Agent brancheable : `youtube.publish.upload_post` suit le meme pattern injectable sans modifier son bridge.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement les autres handlers reels de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
