@@ -10,7 +10,6 @@ import os
 import json
 import signal
 import logging
-from typing import Dict, Any
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -19,161 +18,21 @@ if bot_dir not in sys.path:
 
 from bridges.common.device.connection import ConnectionService
 from bridges.common.device.app_manager import AppService
+from bridges.instagram.automation.input import load_desktop_config
+from bridges.instagram.automation.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.base import (
     logger, _ipc,
-    send_message, send_status, send_progress, send_stats,
-    send_instagram_stats, send_instagram_action, send_instagram_profile_visit,
+    send_message, send_status, send_stats,
     send_error, send_log,
-    send_unfollow_event, send_follow_event, send_like_event,
-    send_post_skipped, send_current_post,
-    send_profile_captured, send_profile_skipped,
-    send_scraping_profile_visit, send_scraping_dq_progress,
     setup_stats_callback,
 )
+from bridges.instagram.diagnostics.debug import DebugBridge
 
 # Configure logging for desktop integration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-
-
-class DebugBridge:
-    """Bridge for debug commands (analyze, detect)."""
-
-    def __init__(self, config: dict):
-        self.config = config
-        self.device_id = config.get('deviceId')
-        self.mode = config.get('mode', 'analyze')  # analyze, detect
-
-    def run(self) -> int:
-        """Run debug command."""
-        try:
-            send_log("debug", f"Starting debug command: mode={self.mode}, device={self.device_id}")
-
-            from taktik.core.shared.device.manager import DeviceManager
-            send_log("debug", "DeviceManager imported successfully")
-
-            if not self.device_id:
-                send_error("Device ID is required")
-                return 1
-
-            send_log("debug", f"Connecting to device {self.device_id}...")
-            device_manager = DeviceManager(device_id=self.device_id)
-            if not device_manager.connect(verify_atx=False):
-                send_error(f"Failed to connect to device {self.device_id}")
-                return 2
-            device = device_manager.device
-
-            send_log("info", f"Connected to device {self.device_id}")
-
-            if self.mode == 'analyze':
-                return self._analyze(device)
-            elif self.mode == 'detect':
-                return self._detect(device)
-            else:
-                send_error(f"Unknown debug mode: {self.mode}")
-                return 3
-
-        except ImportError as e:
-            send_error(f"Import error: {str(e)}")
-            logger.exception("Import error in DebugBridge")
-            return 1
-        except Exception as e:
-            import traceback
-            send_error(f"Debug error: {str(e)}")
-            send_log("error", f"Traceback: {traceback.format_exc()}")
-            logger.exception("Debug error")
-            return 1
-
-    def _analyze(self, device) -> int:
-        """Analyze current screen - capture screenshot and UI dump."""
-        try:
-            from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
-            import tempfile
-            import os
-
-            # Use temp directory for output
-            output_dir = os.path.join(tempfile.gettempdir(), 'taktik_debug')
-            os.makedirs(output_dir, exist_ok=True)
-            send_log("debug", f"Output directory: {output_dir}")
-
-            send_log("debug", "Capturing screenshot...")
-            screenshot_path = capture_screenshot(device, output_dir)
-
-            send_log("debug", "Dumping UI hierarchy...")
-            dump_path = dump_ui_hierarchy(device, output_dir)
-
-            result = {
-                'success': True,
-                'screenshotPath': screenshot_path,
-                'dumpPath': dump_path
-            }
-
-            # Output result as JSON for the desktop app to parse
-            if screenshot_path:
-                send_log("info", f"Screenshot saved: {screenshot_path}")
-            else:
-                send_log("warning", "Screenshot capture failed")
-
-            if dump_path:
-                send_log("info", f"UI dump: {dump_path}")
-            else:
-                send_log("warning", "UI dump failed")
-
-            send_message("debug_result", **result)
-            return 0
-
-        except Exception as e:
-            import traceback
-            send_error(f"Analyze error: {str(e)}")
-            send_log("error", f"Traceback: {traceback.format_exc()}")
-            return 1
-
-    def _detect(self, device) -> int:
-        """Detect and handle problematic pages (Instagram or TikTok)."""
-        # Detect which app is in foreground
-        try:
-            current_app = device.app_current()
-            package = current_app.get('package', '')
-            send_log("info", f"Current app: {package}")
-        except Exception as e:
-            send_log("warning", f"Could not detect current app: {e}")
-            package = ''
-
-        # Use appropriate detector based on app
-        if 'musically' in package or 'tiktok' in package.lower():
-            # TikTok popup handling is done by popup_handler.py in workflows
-            send_log("info", "TikTok detected â€” popup handling is managed by workflow popup_handler")
-            detected = False
-            handled = False
-        else:
-            # Default to Instagram
-            send_log("info", "Using Instagram problematic page detector")
-            from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
-            detector = ProblematicPageDetector(device, debug_mode=True)
-            result_data = detector.detect_and_handle_problematic_pages()
-            # Instagram detector returns dict or bool
-            if isinstance(result_data, dict):
-                detected = result_data.get('detected', False)
-                handled = result_data.get('closed', False)
-            else:
-                detected = bool(result_data)
-                handled = detected
-
-        result = {
-            'success': True,
-            'detected': detected,
-            'handled': handled
-        }
-
-        if detected:
-            send_log("info", "Problematic page detected and handled")
-        else:
-            send_log("info", "No problematic pages detected")
-
-        send_message("debug_result", **result)
-        return 0
 
 
 class DesktopBridge:
@@ -221,8 +80,10 @@ class DesktopBridge:
                 self.ai_enabled = False
 
         # Media capture service
-        self.media_capture_enabled = config.get('mediaCaptureEnabled', False)
-        self.media_capture_service = None
+        self.media_capture = InstagramMediaCaptureRuntime(
+            device_id=self.device_id,
+            enabled=config.get('mediaCaptureEnabled', False),
+        )
 
         # Setup signal handlers for graceful shutdown
         from bridges.common.runtime.signal_handler import setup_signal_handlers
@@ -422,84 +283,6 @@ class DesktopBridge:
             logger.exception("Workflow error")
             return False
 
-    def start_media_capture(self) -> bool:
-        """Start the media capture service for intercepting Instagram images."""
-        if not self.media_capture_enabled:
-            send_log("info", "Media capture disabled in config")
-            return True
-
-        try:
-            from taktik.core.social_media.instagram.media import MediaCaptureService
-
-            send_status("initializing", "Starting media capture service...")
-
-            # Create callback to forward media events to desktop
-            def on_media_event(event_type: str, data: Dict[str, Any]):
-                send_message(event_type, **data)
-
-            self.media_capture_service = MediaCaptureService(
-                device_id=self.device_id,
-                proxy_port=8888,
-                desktop_bridge_callback=on_media_event
-            )
-
-            # Set up callbacks for logging
-            def on_profile(profile):
-                send_log("info", f"ðŸ“¸ Captured profile: @{profile.username} ({profile.follower_count} followers)")
-                send_message("profile_captured",
-                    username=profile.username,
-                    full_name=profile.full_name,
-                    profile_pic_url=profile.profile_pic_url,
-                    profile_pic_url_hd=profile.profile_pic_url_hd,
-                    follower_count=profile.follower_count,
-                    following_count=profile.following_count,
-                    media_count=profile.media_count,
-                    is_private=profile.is_private,
-                    is_verified=profile.is_verified,
-                    biography=profile.biography
-                )
-
-            def on_media(media):
-                send_log("debug", f"ðŸ–¼ï¸ Captured media: {media.media_id} ({media.like_count} likes)")
-                send_message("media_captured",
-                    media_id=media.media_id,
-                    media_type=media.media_type,
-                    image_url=media.image_url,
-                    like_count=media.like_count,
-                    comment_count=media.comment_count,
-                    caption=media.caption[:100] if media.caption else "",
-                    username=media.username
-                )
-
-            self.media_capture_service.on_profile_captured = on_profile
-            self.media_capture_service.on_media_captured = on_media
-
-            if not self.media_capture_service.start():
-                send_log("warning", "Media capture service failed to start (continuing without it)")
-                self.media_capture_service = None
-                return True  # Non-blocking failure
-
-            send_status("media_capture_ready", "Media capture service started")
-            return True
-
-        except ImportError as e:
-            send_log("warning", f"Media capture not available: {e}")
-            return True  # Non-blocking
-        except Exception as e:
-            send_log("warning", f"Media capture failed: {e}")
-            return True  # Non-blocking
-
-    def stop_media_capture(self):
-        """Stop the media capture service."""
-        if self.media_capture_service:
-            try:
-                stats = self.media_capture_service.get_stats()
-                send_log("info", f"Media capture stats: {stats['profiles_captured']} profiles, {stats['media_captured']} media")
-                self.media_capture_service.stop()
-            except Exception as e:
-                send_log("warning", f"Error stopping media capture: {e}")
-            self.media_capture_service = None
-
     def run(self) -> int:
         """Main entry point."""
         send_status("starting", "TAKTIK Desktop Bridge starting...")
@@ -526,21 +309,21 @@ class DesktopBridge:
             perform_network_reset(self.device_id, method=self.network_reset_method, ipc=_ipc)
 
         # Start media capture (non-blocking if fails)
-        self.start_media_capture()
+        self.media_capture.start()
 
         # Launch Instagram
         if not self.launch_instagram():
-            self.stop_media_capture()
+            self.media_capture.stop()
             return 4
 
         # Run workflow
         try:
             if not self.run_workflow():
-                self.stop_media_capture()
+                self.media_capture.stop()
                 return 5
         finally:
             # Always stop media capture and close Instagram app
-            self.stop_media_capture()
+            self.media_capture.stop()
             if self._app:
                 try:
                     self._app.stop()
@@ -556,56 +339,10 @@ def main():
     try:
         # Setup stats IPC callback before any workflow runs
         setup_stats_callback()
-
-        config = None
-
-        # Check for --debug flag first (for debug commands)
-        if len(sys.argv) >= 2 and sys.argv[1] == '--debug':
-            # Debug mode: --debug --mode analyze/detect --device <device_id>
-            import argparse
-            parser = argparse.ArgumentParser()
-            parser.add_argument('--debug', action='store_true')
-            parser.add_argument('--mode', choices=['analyze', 'detect'], default='analyze')
-            parser.add_argument('--device', type=str, required=True)
-            args = parser.parse_args()
-
-            config = {
-                'debugMode': True,
-                'mode': args.mode,
-                'deviceId': args.device
-            }
-
-            bridge = DebugBridge(config)
-            exit_code = bridge.run()
-            sys.exit(exit_code)
-
-        # Method 1: Config file path as argument
-        if len(sys.argv) >= 2:
-            arg = sys.argv[1]
-
-            # Check if it's a file path
-            if os.path.isfile(arg):
-                with open(arg, 'r', encoding='utf-8-sig') as f:
-                    config = json.load(f)
-                send_log("debug", f"Loaded config from file: {arg}")
-            else:
-                # Try to parse as JSON directly
-                try:
-                    config = json.loads(arg)
-                    send_log("debug", "Parsed config from argument")
-                except json.JSONDecodeError:
-                    pass
-
-        # Method 2: Read from stdin if no valid config yet
-        if config is None:
-            send_log("debug", "Reading config from stdin...")
-            stdin_data = sys.stdin.read()
-            if stdin_data.strip():
-                config = json.loads(stdin_data)
-                send_log("debug", "Parsed config from stdin")
+        config = load_desktop_config(send_log)
 
         if config is None:
-            send_error("No configuration provided. Use: python desktop_bridge.py <config.json> or pipe JSON to stdin")
+            send_error("No configuration provided. Use: desktop_bridge <config.json> or pipe JSON to stdin")
             sys.exit(1)
 
         # Check if this is a debug command via JSON config
