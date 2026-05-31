@@ -467,7 +467,7 @@ class ContentUIHelpersMixin:
             return (
                 any(indicator.lower() in xml for indicator in self.content_selectors.edit_video_indicators)
                 or self.content_selectors.clips_right_action_button in xml
-                or re.search(r'content-desc="next".{0,400}clips_right_action_button', xml, re.DOTALL) is not None
+                or re.search(self.content_selectors.edit_video_next_to_clips_pattern, xml, re.DOTALL) is not None
             )
         except Exception:
             return False

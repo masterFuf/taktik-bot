@@ -65,6 +65,8 @@ class ContentCreationSelectors:
         "Modifier la vidéo",
     ])
     
+    edit_video_next_to_clips_pattern: str = r'content-desc="next".{0,400}clips_right_action_button'
+
     post_type_texts: List[str] = field(default_factory=lambda: [
         "POST",
     ])

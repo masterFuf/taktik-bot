@@ -96,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram content publishing helpers now read POST/REEL/STORY type labels from `CONTENT_CREATION_SELECTORS` instead of hardcoding them in the workflow helper.
 - Instagram content publishing helpers no longer keep the dead first `_handle_reel_draft_modal` definition that was overwritten by the later catalog-driven implementation.
 - Instagram content publishing helpers now read popup, caption, location, publish and story button labels from `CONTENT_CREATION_SELECTORS`.
+- Instagram content publishing helpers now read the edit-video detection regex from `CONTENT_CREATION_SELECTORS` instead of keeping the UI signature inline.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation; internal publish workflow code now uses the specialized publish catalogs directly.
