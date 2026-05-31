@@ -34,6 +34,27 @@ class ContentCreationSelectors:
         "Publier",
     ])
 
+    story_publish_texts: List[str] = field(default_factory=lambda: [
+        "Share",
+        "Your story",
+    ])
+
+    popup_button_texts: List[str] = field(default_factory=lambda: [
+        "OK",
+        "Got it",
+        "Continue",
+        "Not now",
+        "Skip",
+    ])
+
+    caption_placeholder_texts: List[str] = field(default_factory=lambda: [
+        "Write a caption...",
+    ])
+
+    location_button_texts: List[str] = field(default_factory=lambda: [
+        "Add location",
+    ])
+
     next_descriptions: List[str] = field(default_factory=lambda: [
         "Next",
         "Suivant",

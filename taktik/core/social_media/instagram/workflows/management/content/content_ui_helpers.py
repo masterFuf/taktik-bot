@@ -233,7 +233,7 @@ class ContentUIHelpersMixin:
                 self.logger.debug("✅ Popup closed")
                 return True
             
-            for button_text in ["OK", "Got it", "Continue", "Not now", "Skip"]:
+            for button_text in self.content_selectors.popup_button_texts:
                 button = self.device(text=button_text)
                 if button.exists(timeout=2):
                     self.logger.debug(f"Found popup button (text: {button_text})")
@@ -330,7 +330,7 @@ class ContentUIHelpersMixin:
             if not caption_field.exists(timeout=5):
                 caption_field = self.device(resourceId=self.content_selectors.caption_input_text_view)
             if not caption_field.exists(timeout=5):
-                caption_field = self.device(text="Write a caption...")
+                caption_field = self._first_text_button(self.content_selectors.caption_placeholder_texts, timeout=5)
             
             if caption_field.exists(timeout=5):
                 caption_field.click()
@@ -357,8 +357,7 @@ class ContentUIHelpersMixin:
         try:
             self.logger.debug(f"Adding location: {location}")
             
-            # Chercher le bouton "Add location"
-            location_button = self.device(text="Add location")
+            location_button = self._first_text_button(self.content_selectors.location_button_texts, timeout=3)
             if location_button.exists(timeout=3):
                 location_button.click()
                 time.sleep(1)
@@ -412,11 +411,7 @@ class ContentUIHelpersMixin:
                     time.sleep(1.2)
                     continue
 
-                share_button = self.device(text="Share")
-                if not share_button.exists(timeout=2):
-                    share_button = self.device(text="Partager")
-                if not share_button.exists(timeout=2):
-                    share_button = self.device(text="Publier")
+                share_button = self._first_text_button(self.content_selectors.publish_texts, timeout=2)
 
                 if share_button.exists(timeout=3):
                     share_button.click()
@@ -482,10 +477,7 @@ class ContentUIHelpersMixin:
         try:
             self.logger.debug("Publishing story...")
             
-            # Pour une story, chercher "Your story" ou "Share"
-            share_button = self.device(text="Share")
-            if not share_button.exists(timeout=3):
-                share_button = self.device(text="Your story")
+            share_button = self._first_text_button(self.content_selectors.story_publish_texts, timeout=3)
             
             if share_button.exists(timeout=5):
                 share_button.click()
