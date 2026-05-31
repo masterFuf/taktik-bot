@@ -167,16 +167,15 @@ Modules de base partagÃ©s entre Instagram et TikTok :
 core/shared/
 â”œâ”€â”€ __init__.py                  # Re-exports publics
 â”œâ”€â”€ actions/
-â”‚   â””â”€â”€ base_action.py           # SharedBaseAction (delays, clicks, keyboard input)
+â”‚   â”œâ”€â”€ base_action.py           # SharedBaseAction (delays, clicks, keyboard input)
+â”‚   â””â”€â”€ utils.py                 # ActionUtils + parse_count (common parsers)
 â”œâ”€â”€ device/
 â”‚   â”œâ”€â”€ facade.py                # BaseDeviceFacade + Direction enum (ADB/uiautomator2)
 â”‚   â””â”€â”€ manager.py               # DeviceManager (device listing, connection)
 â”œâ”€â”€ input/
 â”‚   â””â”€â”€ taktik_keyboard.py       # ADB Keyboard utilities (type, clear, activate)
-â”œâ”€â”€ platform/
-â”‚   â””â”€â”€ social_media_base.py     # SocialMediaBase (abstract platform interface)
-â””â”€â”€ utils/
-    â””â”€â”€ action_utils.py          # ActionUtils + parse_count (common parsers)
+â””â”€â”€ platform/
+    â””â”€â”€ social_media_base.py     # SocialMediaBase (abstract platform interface)
 ```
 
 ### **HÃ©ritage Instagram/TikTok â†’ shared**

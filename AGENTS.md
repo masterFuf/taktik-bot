@@ -38,6 +38,7 @@ Regles macro :
 - Ne pas creer un nouveau dossier racine sous `taktik/core` sans documenter son owner, son role et pourquoi il ne rentre ni dans `social_media`, ni dans `shared`, ni dans `database`.
 - Un module `shared` ne doit pas importer `social_media/<platform>` sauf exception de compat documentee.
 - Un module specifique a une plateforme ne doit pas finir dans `shared` juste parce qu'il est reutilise par deux workflows de cette meme plateforme.
+- Ne pas creer de dossier `shared/utils/**` generique. Les helpers partages doivent vivre sous un owner de capacite explicite, par exemple `shared/actions/**`, `shared/device/**` ou `shared/input/**`.
 - Si un module ecrit en SQLite, il doit passer par `taktik/core/database/**` ou un repository/service de cette couche. Pas de persistence metier dispersee dans `shared`, `bridges` ou `social_media/**/services`.
 - `taktik/core/shared/device/**` est l'owner canonique des primitives device/ADB/ATX partagees. Ne pas recreer `taktik/core/device/**` : les anciens imports internes ont ete migres vers `shared/device/manager.py`.
 - Une facade plateforme sous `taktik/core/social_media/<platform>/**/device/` est acceptable seulement si elle ajoute un comportement plateforme explicite. Un `DeviceManager` place a cet endroit doit etre un shim ou une specialisation documentee, pas une duplication generique de `shared/device/manager.py`.

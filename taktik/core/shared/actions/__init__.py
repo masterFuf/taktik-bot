@@ -1,5 +1,6 @@
-"""Shared actions — base action class for all platform actions."""
+"""Shared actions package."""
 
 from .base_action import SharedBaseAction
+from .utils import ActionUtils, parse_count
 
-__all__ = ['SharedBaseAction']
+__all__ = ["SharedBaseAction", "ActionUtils", "parse_count"]

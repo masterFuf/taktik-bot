@@ -8,7 +8,7 @@ TikTok usernames: 2-24 characters.
 import re as _re
 from typing import List as _List
 
-from taktik.core.shared.utils.action_utils import ActionUtils as _SharedActionUtils, parse_count
+from taktik.core.shared.actions.utils import ActionUtils as _SharedActionUtils, parse_count
 
 
 def extract_resource_id(selectors: _List[str]) -> str:

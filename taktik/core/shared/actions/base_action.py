@@ -15,7 +15,7 @@ from typing import Optional, Dict, Any, List, Union
 from loguru import logger
 
 from taktik.core.shared.device.facade import BaseDeviceFacade
-from taktik.core.shared.utils.action_utils import ActionUtils
+from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.input.taktik_keyboard import (
     run_adb_shell,
     TAKTIK_KEYBOARD_IME,
