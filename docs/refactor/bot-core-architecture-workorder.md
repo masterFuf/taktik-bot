@@ -19,14 +19,14 @@ Etat 2026-05-30 :
 - la proposition de taxonomie cible racine vit dans [bot-core-target-taxonomy.md](bot-core-target-taxonomy.md) ;
 - la proposition de taxonomie cible pour `instagram/ui/selectors` vit dans [instagram-ui-selectors-target-taxonomy.md](instagram-ui-selectors-target-taxonomy.md) ;
 - le premier lot structurel a converge `taktik/core/device` vers `taktik/core/shared/device/**`, puis le package legacy racine a ete supprime.
-- le deuxieme lot structurel sort le bookkeeping `already_processed` / `already_filtered` / `skip` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_workflow_state.py`, en gardant un shim de compatibilite cote plateforme.
+- le deuxieme lot structurel sort le bookkeeping `already_processed` / `already_filtered` / `skip` de l'ancien `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_workflow_state.py`.
 - un sous-lot suivant du lot 2 sort aussi le tracking `processed_hashtag_posts` de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_hashtag_posts.py`.
 - un sous-lot suivant du lot 2 sort le bloc `unfollow sync` (`following_sync`, `followers_sync`, follow-history lookup) de `social_media/instagram/.../database_helpers.py` vers `taktik/core/database/instagram_follow_graph.py`.
 - un sous-lot suivant du lot 2 promeut ensuite ce social graph legacy vers `taktik/core/database/repositories/instagram/social_graph/`, en laissant `instagram_follow_graph.py` comme facade de compatibilite.
 - un sous-lot suivant reduit les call sites `unfollow` pour appeler `InstagramFollowGraphService` directement, afin d'eviter de garder `DatabaseHelpers` comme delegant pur sur cette famille.
 - un sous-lot suivant reduit les call sites `hashtag` pour appeler `InstagramHashtagPostService` directement, afin de continuer a vider `DatabaseHelpers` famille par famille.
 - un sous-lot suivant reduit les call sites `workflow_state` (`notifications`, `followers`, `likers`, `feed`, `stats_recording`) pour appeler `InstagramWorkflowStateService` directement, et supprime un faux enregistrement `feed` qui ne correspondait a aucun owner DB et doublonnait la source de verite action-level.
-- un sous-lot suivant retire aussi les deux derniers call sites coeur (`profile_processing`, `interaction_engine`) de `DatabaseHelpers`. Le shim reste seulement comme surface de compatibilite package-level en attendant un audit d'usage externe.
+- un sous-lot suivant retire aussi les deux derniers call sites coeur (`profile_processing`, `interaction_engine`) de `DatabaseHelpers`.
 - un sous-lot suivant retire enfin le call site cache de `instagram/ui/extractors.py`, puis supprime le shim `DatabaseHelpers` apres audit des imports internes.
 - un sous-lot suivant retire aussi le SQL inline de `instagram/workflows/post_scraping/post_persistence.py` au profit de la facade DB existante, pour eviter une ecriture `instagram_profiles` cachee dans le workflow.
 - un sous-lot suivant rend aussi la dependency DB explicite dans le scraping Instagram : `scraping_workflow` partage maintenant un `local_db` unique avec `persistence`, `list_scraping` et `deep_qualify`, au lieu de re-resoudre `get_local_database()` dans plusieurs branches runtime.
