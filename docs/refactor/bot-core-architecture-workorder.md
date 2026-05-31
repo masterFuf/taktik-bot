@@ -99,6 +99,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant applique le meme pattern au publish YouTube : `social_media/youtube/workflows/publish/agent_handler.py` enregistre `youtube.publish.upload_post` sans prendre en charge la connexion device ni modifier le bridge.
 - un sous-lot suivant branche aussi TikTok Followers sur le noyau agent : `social_media/tiktok/actions/business/workflows/followers/agent_handler.py` enregistre `tiktok.automation.followers` comme handler single-target, avec le multi-target laisse a la composition de `PlanStep`.
 - un sous-lot suivant branche TikTok For You sur le noyau agent : `social_media/tiktok/actions/business/workflows/for_you/agent_handler.py` enregistre `tiktok.automation.for_you` avec un adapter video-feed injectable, sans reprendre le startup bridge.
+- un sous-lot suivant branche les variantes TikTok Search/Hashtag/Target sur le noyau agent : `social_media/tiktok/actions/business/workflows/search/agent_handler.py` enregistre les IDs `tiktok.automation.search`, `tiktok.automation.hashtag` et `tiktok.automation.target` comme invocations single-query.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31

@@ -177,6 +177,7 @@ Etat courant :
 - `social_media/youtube/workflows/publish/agent_handler.py` applique le meme pattern pour `youtube.publish.upload_post`, avec normalisation des parametres bridge-compatible.
 - `social_media/tiktok/actions/business/workflows/followers/agent_handler.py` applique le pattern aux followers TikTok via `tiktok.automation.followers`. Ce handler reste single-target : un plan multi-cibles doit composer plusieurs `PlanStep`, plutot que cacher une boucle bridge dans le handler.
 - `social_media/tiktok/actions/business/workflows/for_you/agent_handler.py` applique le pattern au feed For You via `tiktok.automation.for_you`, en normalisant les parametres video et en forwardant les callbacks sans reprendre le startup bridge.
+- `social_media/tiktok/actions/business/workflows/search/agent_handler.py` applique le pattern aux variantes Search/Hashtag/Target (`tiktok.automation.search`, `tiktok.automation.hashtag`, `tiktok.automation.target`). Chaque invocation reste single-query ; les lots multi-query historiques du bridge deviennent une composition explicite de steps.
 
 ## Point d'attention
 
