@@ -2,10 +2,12 @@ import pytest
 
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows.dm import (
+    TIKTOK_DM_OUTREACH_WORKFLOW_ID,
     TIKTOK_DM_READ_WORKFLOW_ID,
     TIKTOK_DM_SEND_WORKFLOW_ID,
     ConversationData,
     DMStats,
+    register_tiktok_dm_outreach_handlers,
     register_tiktok_dm_handlers,
 )
 
@@ -64,6 +66,25 @@ class FakeNotifier:
 
     def send(self, event_type, **payload):
         self.calls.append((event_type, payload))
+
+
+class FakeOutreachWorkflow:
+    instances = []
+
+    def __init__(self, device_id, **kwargs):
+        self.device_id = device_id
+        self.kwargs = kwargs
+        self.connected = False
+        self.run_kwargs = None
+        self.instances.append(self)
+
+    def connect(self):
+        self.connected = True
+        return True
+
+    def run(self, **kwargs):
+        self.run_kwargs = kwargs
+        return {"success": True, "dms_success": 1, "dms_failed": 0}
 
 
 def test_tiktok_dm_read_handler_executes_workflow_with_normalized_config():
@@ -195,3 +216,91 @@ def test_tiktok_dm_send_handler_rejects_empty_messages_before_workflow_creation(
         )
 
     assert FakeDMWorkflow.instances == []
+
+
+def test_tiktok_dm_outreach_handler_executes_workflow_with_injected_services():
+    FakeOutreachWorkflow.instances = []
+    registry = WorkflowRegistry()
+    notifier = FakeNotifier()
+    duplicate_checker = object()
+    sent_dm_recorder = object()
+    register_tiktok_dm_outreach_handlers(
+        registry,
+        device_id="device-1",
+        notifier=notifier,
+        duplicate_checker=duplicate_checker,
+        sent_dm_recorder=sent_dm_recorder,
+        workflow_factory=FakeOutreachWorkflow,
+    )
+    executor = AgentPlanExecutor(registry)
+
+    events = executor.execute(
+        AgentPlan(
+            plan_id="plan-1",
+            steps=[
+                PlanStep(
+                    step_id="step-1",
+                    workflow=WorkflowInvocation(
+                        platform="tiktok",
+                        workflow_id=TIKTOK_DM_OUTREACH_WORKFLOW_ID,
+                        params={
+                            "recipients": ["@creator"],
+                            "messages": ["hello"],
+                            "delayMin": 5,
+                            "delayMax": 9,
+                            "maxDms": 3,
+                            "accountId": 7,
+                            "sessionId": "session-1",
+                        },
+                    ),
+                )
+            ],
+        )
+    )
+
+    workflow = FakeOutreachWorkflow.instances[0]
+    assert workflow.device_id == "device-1"
+    assert workflow.kwargs["notifier"] is notifier
+    assert workflow.kwargs["duplicate_checker"] is duplicate_checker
+    assert workflow.kwargs["sent_dm_recorder"] is sent_dm_recorder
+    assert workflow.connected is True
+    assert workflow.run_kwargs == {
+        "recipients": ["@creator"],
+        "messages": ["hello"],
+        "delay_min": 5,
+        "delay_max": 9,
+        "max_dms": 3,
+        "account_id": 7,
+        "session_id": "session-1",
+    }
+    assert events[-1].payload["success"] is True
+
+
+def test_tiktok_dm_outreach_handler_rejects_empty_recipients_before_workflow_creation():
+    FakeOutreachWorkflow.instances = []
+    registry = WorkflowRegistry()
+    register_tiktok_dm_outreach_handlers(
+        registry,
+        device_id="device-1",
+        workflow_factory=FakeOutreachWorkflow,
+    )
+    executor = AgentPlanExecutor(registry)
+
+    with pytest.raises(ValueError, match="requires at least one recipient"):
+        executor.execute(
+            AgentPlan(
+                plan_id="plan-1",
+                steps=[
+                    PlanStep(
+                        step_id="step-1",
+                        workflow=WorkflowInvocation(
+                            platform="tiktok",
+                            workflow_id=TIKTOK_DM_OUTREACH_WORKFLOW_ID,
+                            params={"messages": ["hello"]},
+                        ),
+                    )
+                ],
+            )
+        )
+
+    assert FakeOutreachWorkflow.instances == []

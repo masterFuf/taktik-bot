@@ -183,6 +183,7 @@ Etat courant :
 - `social_media/tiktok/actions/business/workflows/scraping/agent_handler.py` applique le pattern a `tiktok.automation.scraping` et `tiktok.standalone.tiktok_scraping`. La persistence DB du bridge n'est pas reprise dans le handler ; un appelant peut injecter un `profile_sink` s'il veut enregistrer les profils.
 - `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` applique le pattern a `tiktok.automation.dm_read` et `tiktok.automation.dm_send`.
 - `social_media/tiktok/actions/business/workflows/dm/outreach.py` porte maintenant la logique metier cold outreach ; `dm_outreach_bridge.py` injecte seulement le notifier stdout JSON et la dedup SQLite. Le handler Agent outreach pourra etre ajoute dans un lot separe avec ces memes injections.
+- `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` expose aussi `tiktok.standalone.tiktok_dm_outreach`, en reutilisant les injections notifier/dedup du workflow extrait.
 
 ## Point d'attention
 
