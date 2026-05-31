@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from loguru import logger
 
-from ....ui.selectors import CONTENT_CREATION_SELECTORS
+from ....ui.selectors.surfaces.content_creation import CONTENT_CREATION_SELECTORS
 from .content_ui_helpers import ContentUIHelpersMixin
 
 

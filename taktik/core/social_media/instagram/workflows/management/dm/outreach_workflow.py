@@ -12,7 +12,9 @@ from typing import Dict, List, Any
 from datetime import datetime
 from loguru import logger
 
-from ....ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 # Re-export models for backward compatibility
 from .outreach_models import DMOutreachConfig, DMOutreachResult

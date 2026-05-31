@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
-from ....ui.selectors import DM_SELECTORS
+from ....ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from .auto_reply_models import ConversationMessage
 
 

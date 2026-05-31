@@ -4,7 +4,7 @@ import time
 from typing import List, Optional
 from datetime import datetime
 
-from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS, NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from .auto_reply_models import Conversation
 
 
