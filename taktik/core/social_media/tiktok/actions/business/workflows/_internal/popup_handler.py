@@ -195,6 +195,7 @@ class PopupHandler:
 
     def _close_all_slow(self) -> bool:
         """Original sequential-polling implementation used as fallback."""
+        from .....ui.selectors.shell.popups import POPUP_SELECTORS
 
         # Android system popups (input method selection, etc.)
         if self.click.close_system_popup():
@@ -243,9 +244,7 @@ class PopupHandler:
                 return True
 
         # Video options bottom sheet (longpress menu)
-        if self.detection._element_exists(
-            ['//*[@content-desc="Bottom sheet"]'], timeout=1
-        ):
+        if self.detection._element_exists(POPUP_SELECTORS.video_options_sheet, timeout=1):
             self.detection.device.press('back')
             self.logger.info("✅ Video options bottom sheet dismissed (back button)")
             time.sleep(0.5)
