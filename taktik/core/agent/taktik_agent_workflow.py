@@ -24,7 +24,9 @@ from taktik.core.database import get_db_service
 from taktik.core.ai.comment_ai import UserProfile
 from taktik.core.agent.agent_ai import AgentAI
 from taktik.core.agent.agent_context import AgentContext
-from taktik.core.agent.contracts import AgentAIService, AgentAIServiceFactory
+from taktik.core.agent.contracts import AgentAIService, AgentAIServiceFactory, AgentPlan
+from taktik.core.agent.plan_io import agent_plan_from_payload
+from taktik.core.agent.workflow_manifest import load_workflow_manifest
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +102,8 @@ class TaktikAgentWorkflow:
         # Premium orchestration is prepared by the desktop app and passed in
         # through config. The open-source bot only consumes this runtime context.
         self._desktop_orchestration_context = config.get("desktop_orchestration_context") or {}
+        self._agent_plan = self._load_agent_plan(config)
+        self._apply_agent_plan_context()
 
         # Strategy switching
         self._consecutive_skips: int = 0      # consecutive AI-analyzed SKIPs in feed
@@ -245,6 +249,12 @@ class TaktikAgentWorkflow:
                 },
             )
 
+        if self._agent_plan is not None:
+            logger.info(
+                "[TaktikAgent] Agent plan loaded in runtime context: "
+                f"{self._agent_plan.plan_id} ({len(self._agent_plan.steps)} step(s))"
+            )
+
     def _announce_desktop_step(self, tool: str, fallback_message: str) -> None:
         """Emit the desktop-planned next step when available."""
         context = self._desktop_orchestration_context
@@ -259,6 +269,28 @@ class TaktikAgentWorkflow:
                     )
                     return
         self._send_status("planning", fallback_message, stats={"tool": tool})
+
+    def _load_agent_plan(self, config: Dict[str, Any]) -> Optional[AgentPlan]:
+        """Parse an optional frontend/CLI AgentPlan payload."""
+        payload = config.get("agent_plan") or config.get("agentPlan")
+        if not payload:
+            return None
+
+        try:
+            return agent_plan_from_payload(payload, manifest=load_workflow_manifest())
+        except Exception as exc:
+            logger.warning(f"[TaktikAgent] Ignoring invalid agent plan: {exc}")
+            return None
+
+    def _apply_agent_plan_context(self) -> None:
+        """Expose the parsed plan in the runtime context without executing it yet."""
+        if self._agent_plan is None:
+            return
+
+        self._context.agent_plan = self._agent_plan
+        self._context.agent_plan_id = self._agent_plan.plan_id
+        self._context.agent_plan_source = self._agent_plan.source
+        self._context.agent_plan_step_count = len(self._agent_plan.steps)
 
     def _initialize_ai(self) -> bool:
         """Set up the AI service and AgentAI decision engine."""

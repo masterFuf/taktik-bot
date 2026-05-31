@@ -42,6 +42,7 @@
 - [x] `core/ai` possede maintenant le provider OpenRouter ; `bridges/common/ai_service.py` est seulement un shim de compatibilite.
 - [x] `core/agent` lit maintenant le manifest transversal pour exposer des IDs canoniques `platform.family.workflow`.
 - [x] `core/agent` sait parser/serialiser un payload JSON en `AgentPlan` avec validation optionnelle du manifest.
+- [x] `TaktikAgentWorkflow` charge maintenant un payload `agent_plan` / `agentPlan` dans son contexte runtime sans changer le scenario historique.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
 - [ ] Faire emerger `registry.py` / `executor.py` pour sortir `TaktikAgentWorkflow` du role de pseudo-noyau global.
 - [ ] Validation manuelle des workflows et bridges sur device reel.

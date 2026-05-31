@@ -141,6 +141,12 @@ taktik/core/agent/
 - introduire `executor.py` ;
 - faire consommer au Bot un `AgentPlan` explicite.
 
+Etat courant :
+
+- `workflow_manifest.py` lit le manifest transversal et valide les IDs de workflows ;
+- `plan_io.py` convertit un payload JSON-safe en `AgentPlan` ;
+- `TaktikAgentWorkflow` accepte deja `agent_plan` / `agentPlan`, le valide et l'expose dans `AgentContext` sans l'executer ni ajouter de nouvel event stdout.
+
 ### Lot D - Extension multi-plateforme
 
 - brancher TikTok et les autres workflows sur le meme registre ;

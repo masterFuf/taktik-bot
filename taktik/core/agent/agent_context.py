@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from taktik.core.agent.contracts import AgentPlan
+
 
 @dataclass
 class AgentContext:
@@ -17,6 +19,10 @@ class AgentContext:
     recent_timeline: List[Dict[str, Any]] = field(default_factory=list)
     pattern_warnings: List[str] = field(default_factory=list)
     available_targets: List[Dict[str, Any]] = field(default_factory=list)
+    agent_plan: Optional[AgentPlan] = None
+    agent_plan_id: Optional[str] = None
+    agent_plan_source: Optional[str] = None
+    agent_plan_step_count: int = 0
     last_tool: Optional[str] = None
     last_error: Optional[str] = None
 

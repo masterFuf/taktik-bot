@@ -96,6 +96,42 @@ def test_taktik_agent_workflow_requires_injected_ai_provider():
     assert workflow._initialize_ai() is False
 
 
+def test_taktik_agent_workflow_loads_optional_agent_plan_context():
+    workflow = TaktikAgentWorkflow(
+        device_manager=_DummyDeviceManager(),
+        config={
+            "agentPlan": {
+                "plan_id": "plan-1",
+                "source": "desktop",
+                "steps": [
+                    {
+                        "step_id": "step-1",
+                        "workflow": {
+                            "platform": "instagram",
+                            "workflow_id": "instagram.automation.feed",
+                        },
+                    }
+                ],
+            }
+        },
+    )
+
+    assert workflow._context.agent_plan_id == "plan-1"
+    assert workflow._context.agent_plan_source == "desktop"
+    assert workflow._context.agent_plan_step_count == 1
+
+
+def test_taktik_agent_workflow_ignores_invalid_agent_plan_context():
+    workflow = TaktikAgentWorkflow(
+        device_manager=_DummyDeviceManager(),
+        config={"agentPlan": {"steps": []}},
+    )
+
+    assert workflow._agent_plan is None
+    assert workflow._context.agent_plan is None
+    assert workflow._context.agent_plan_id is None
+
+
 def test_agent_ai_prefers_public_thumbnail_builder_for_ipc_previews():
     ipc = _FakeIPC()
     agent_ai = AgentAI(ai_service=_PublicPreviewAIService(), ipc=ipc)
