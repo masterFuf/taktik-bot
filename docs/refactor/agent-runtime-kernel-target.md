@@ -186,6 +186,7 @@ Etat courant :
 - `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` expose aussi `tiktok.standalone.tiktok_dm_outreach`, en reutilisant les injections notifier/dedup du workflow extrait.
 - `social_media/tiktok/workflows/management/agent_handler.py` expose `tiktok.account.login`, `tiktok.account.logout` et `tiktok.account.register`. Ces handlers adaptent les params vers les workflows account existants, mais ne lancent pas TikTok, ne connectent pas le device et ne patchent pas les packages clones.
 - `app/email/gmail/workflows/agent_handler.py` expose `gmail.account.login`, `gmail.account.read_otp` et `gmail.account.scan_accounts`, avec persistence account optionnelle injectee. `gmail.account.logout` reste hors registre tant que le core n'a pas de vrai workflow logout Gmail.
+- `social_media/youtube/workflows/account/` porte maintenant le workflow account YouTube extrait du bridge et expose `youtube.account.login` / `youtube.account.logout` comme handlers injectables. La connexion device, le bootstrap DB, le `force_stop` et les messages stdout JSON restent dans `youtube_account_bridge.py`.
 
 ## Point d'attention
 

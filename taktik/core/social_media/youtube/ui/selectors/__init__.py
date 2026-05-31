@@ -1,12 +1,13 @@
-"""Sélecteurs UI pour YouTube — organisés par domaine.
+"""YouTube UI selector catalogs organized by workflow surface."""
 
-    from taktik.core.social_media.youtube.ui.selectors import UPLOAD_SELECTORS, YOUTUBE_PACKAGE
-"""
-
+from .account import AccountSelectors, ACCOUNT_SELECTORS, YOUTUBE_HOME_ACTIVITY
 from .upload import UploadSelectors, UPLOAD_SELECTORS, YOUTUBE_PACKAGE
 
 __all__ = [
-    'YOUTUBE_PACKAGE',
-    'UploadSelectors',
-    'UPLOAD_SELECTORS',
+    "ACCOUNT_SELECTORS",
+    "YOUTUBE_HOME_ACTIVITY",
+    "YOUTUBE_PACKAGE",
+    "AccountSelectors",
+    "UPLOAD_SELECTORS",
+    "UploadSelectors",
 ]
