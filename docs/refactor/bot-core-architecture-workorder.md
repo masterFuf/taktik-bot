@@ -89,6 +89,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 ajoute `core/agent/kernel/runtime.py` comme facade parse/execute : le plan vient d'un payload JSON, les handlers reels restent injectes via `WorkflowRegistry`, et aucun workflow Android historique n'est branche par defaut.
 - un sous-lot suivant du lot 5 ajoute `core/agent/io/events.py` pour serialiser les `AgentEvent` en payloads JSON-safe avant tout branchement bridge, afin d'eviter des conversions ad hoc cote stdout.
 - un sous-lot suivant du lot 5 restructure physiquement `core/agent` : `kernel/` porte contrats/contexte/registry/executor/runtime, `io/` porte manifest/plan/events, `decision/` porte `AgentAI`, `scenarios/` porte l'autopilot Instagram legacy, et la racine du package reste une facade publique via `__init__.py`.
+- un sous-lot suivant ajoute `scripts/audit_selector_hardcodes.py` comme garde-fou read-only : le runtime Instagram/TikTok ne peut plus ajouter de nouvelles signatures UI inline hors catalogues selectors/langage sans echec explicite, tandis que la dette legacy restante est allowlistee et visible.
 
 ## Audit `clone` / `compat` au 2026-05-31
 
@@ -258,6 +259,7 @@ Seulement apres les lots precedents :
 | Bridge impacte | `python scripts/check_bridge_manifest.py` + verification import/bridge cible |
 | Workflow impacte | `pytest` cible + `python scripts/audit_workflow_registry.py` si registre touche |
 | DB impactee | `pytest tests/unit/test_db_schema.py` + audit doc schema si necessaire |
+| Selectors/runtime Instagram ou TikTok | `python scripts/audit_selector_hardcodes.py` + tests cibles si logique modifiee |
 
 ## Ce qu'on veut eviter
 

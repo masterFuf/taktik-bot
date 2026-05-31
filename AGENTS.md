@@ -159,6 +159,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Ne jamais hardcoder directement dans un workflow/action un `resource-id`, XPath, `text`, `content-desc`, `hint` ou libelle visible Instagram/TikTok.
 - Toute signature UI doit etre centralisee dans les modules `taktik/core/social_media/**/ui/selectors/**` ou `ui/language.py`, avec un commentaire d'historique si elle vient d'un dump reel.
 - Quand un fichier est touche pendant un refactor, le relire comme une surface complete avant de valider le lot : chercher les violations evidentes aux regles courantes (selectors hardcodes, imports bridge depuis `core`, SQL hors `database`, helper fourre-tout, stdout risque). Ne pas se limiter aux lignes modifiees.
+- Lancer `python scripts/audit_selector_hardcodes.py` apres un lot qui touche Instagram/TikTok runtime ou selectors. Le script doit rester vert : les nouvelles signatures UI inline doivent bloquer, les dettes legacy restantes doivent etre allowlistees avec un owner et un plan de sortie.
 - Sous `social_media/<platform>/ui/selectors`, classer d'abord par perimetre UI reel (`shell`, `surfaces`, `flows`, `support`) plutot que par fourre-tout technique. Un dev doit pouvoir deviner l'emplacement d'un selector a partir de l'ecran ou du flow Instagram/TikTok concerne.
 - Un fichier historique top-level sous `ui/selectors/` n'est acceptable que comme shim de transition court. Des que les imports internes du monorepo sont migres et que la rupture de compatibilite est acceptee, supprimer le shim au lieu de le laisser vivre indefiniment.
 - Quand une surface devient trop large pour un seul catalogue public, exposer plusieurs catalogues specialises (`*_DETAIL_SELECTORS`, `*_COMMENTS_SELECTORS`, etc.) avant d'ajouter de nouvelles clefs au catalogue legacy global. Le gros catalogue historique peut rester comme facade de compat, pas comme point d'extension par defaut.
@@ -184,6 +185,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Pour bridge : tester le bridge ou le script d'audit associe quand disponible (`scripts/check_bridge_manifest.py`, `scripts/audit_bridge_handler_usage.py`, etc.).
 - Pour workflow/registry : lancer `python scripts/audit_workflow_registry.py` si la declaration, le manifest ou la famille de workflow change.
 - Pour documentation schema partagee : lancer `python scripts/audit_sqlite_schema_docs.py` quand une table/colonne SQLite est ajoutee ou renommee.
+- Pour selectors Instagram/TikTok : lancer `python scripts/audit_selector_hardcodes.py` apres les lots runtime/selectors, et `python scripts/audit_selector_hardcodes.py --show-allowed` si on veut afficher la dette legacy restante.
 - Si un test ne peut pas etre lance, l'expliquer dans le recap.
 
 ## Definition de done Bot

@@ -48,6 +48,7 @@
 - [x] `core/agent/io/events.py` expose une serialisation JSON-safe des `AgentEvent` pour les futurs bridges.
 - [x] `core/agent` est maintenant classe par owners internes : `kernel/`, `io/`, `decision/`, `scenarios/`, avec une racine limitee a la facade publique `__init__.py`.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
+- [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement de vrais handlers de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
 - [ ] Replier `TaktikAgentWorkflow` en scenario/autopilot historique quand le noyau `AgentRuntime` aura au moins un flow reel valide.
 - [ ] Validation manuelle des workflows et bridges sur device reel.
