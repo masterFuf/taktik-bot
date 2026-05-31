@@ -3,11 +3,9 @@
 TikTok For You Bridge - For You page workflow
 """
 
-import sys
-import time
 from typing import Dict, Any
 
-from .base import (
+from bridges.tiktok.base import (
     logger, send_status, send_error, set_workflow, tiktok_startup,
     setup_video_workflow_callbacks, send_final_video_stats
 )

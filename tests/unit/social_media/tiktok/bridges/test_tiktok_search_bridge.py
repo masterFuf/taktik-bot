@@ -1,4 +1,4 @@
-from bridges.tiktok.search_bridge import _normalize_search_queries
+from bridges.tiktok.workflows.automation.search import _normalize_search_queries
 
 
 def test_normalize_search_queries_uses_hashtags_array_for_hashtag_workflow():

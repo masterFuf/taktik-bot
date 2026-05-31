@@ -100,6 +100,9 @@ Definition simple :
 - Ne pas renommer un champ d'event sans compatibilite ou migration du handler.
 - Un bridge doit rester un adaptateur : lecture payload, appel workflow, emission events. La logique metier durable doit rester dans le workflow/service/repository.
 - Toute modification de bridge doit verifier `bridges/bridges.manifest.json`, `bridges/launcher.py` et `front/electron/utils/paths.ts` via le script d'audit si le nom ou le chemin change.
+- Sous `bridges/<platform>/`, garder la racine pour les entrypoints contractuels declares dans `bridges.manifest.json`, le `base.py` de runtime stdout/IPC et la facade package. Les runners internes appeles par un dispatcher doivent vivre sous un owner explicite (`workflows/automation`, `workflows/engagement`, `account`, `publish`, etc.), pas comme une liste plate de `*_bridge.py`.
+- Tant que `front/electron/utils/paths.ts` lance en dev `bridges/<platform>/<bridge_name>.py`, ne pas deplacer un entrypoint public sans migrer aussi le resolver Front et le manifest. Si l'implementation doit etre rangee, garder un entrypoint mince et documente plutot qu'un faux fichier legacy cache.
+- Les sous-modules `bridges/**/workflows/**` restent des adaptateurs de bridge : ils peuvent normaliser un payload et brancher les callbacks stdout, mais la logique durable doit continuer a vivre dans `taktik/core/social_media/**`.
 
 ### SQLite Bot
 

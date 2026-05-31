@@ -47,25 +47,25 @@ def main():
     
     try:
         if workflow_type == 'for_you':
-            from bridges.tiktok.for_you_bridge import run_for_you_workflow
+            from bridges.tiktok.workflows.automation.for_you import run_for_you_workflow
             success = run_for_you_workflow(config)
             
         elif workflow_type == 'search' or workflow_type == 'hashtag':
             # Search and Hashtag workflows use search_bridge (Videos tab)
-            from bridges.tiktok.search_bridge import run_search_workflow
+            from bridges.tiktok.workflows.automation.search import run_search_workflow
             success = run_search_workflow(config)
             
         elif workflow_type == 'target' or workflow_type == 'followers':
             # Target workflow uses followers bridge (targets = accounts to scrape followers from)
-            from bridges.tiktok.followers_bridge import run_followers_workflow
+            from bridges.tiktok.workflows.automation.followers import run_followers_workflow
             success = run_followers_workflow(config)
             
         elif workflow_type == 'dm_read':
-            from bridges.tiktok.dm_read_bridge import run_dm_read_workflow
+            from bridges.tiktok.workflows.engagement.dm_read import run_dm_read_workflow
             success = run_dm_read_workflow(config)
             
         elif workflow_type == 'dm_send':
-            from bridges.tiktok.dm_send_bridge import run_dm_send_workflow
+            from bridges.tiktok.workflows.engagement.dm_send import run_dm_send_workflow
             success = run_dm_send_workflow(config)
             
         elif workflow_type == 'scraping':

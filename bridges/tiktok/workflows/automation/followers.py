@@ -3,11 +3,10 @@
 TikTok Followers Bridge - Followers workflow
 """
 
-import sys
 import time
 from typing import Dict, Any
 
-from .base import (
+from bridges.tiktok.base import (
     logger, send_status, send_message, send_action, 
     send_pause, send_error, set_workflow, tiktok_startup
 )

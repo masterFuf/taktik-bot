@@ -3,11 +3,9 @@
 TikTok DM Read Bridge - DM reading workflow
 """
 
-import sys
-import time
 from typing import Dict, Any
 
-from .base import (
+from bridges.tiktok.base import (
     logger, send_status, send_dm_conversation, send_dm_progress, 
     send_dm_stats, send_error, set_workflow, tiktok_startup
 )

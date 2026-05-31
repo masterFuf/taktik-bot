@@ -5,7 +5,7 @@ TikTok Search Bridge - Search/Hashtag workflow
 
 from typing import Any, Dict, List
 
-from .base import (
+from bridges.tiktok.base import (
     logger,
     send_status,
     send_error,
