@@ -47,7 +47,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B7 | Fait | Deplacer `bootstrap`, `ipc`, `bridge_base` et `signal_handler` sous `bridges/common/runtime/**`; la racine `common` devient une facade package. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B8 | Fait | Deplacer l'implementation Smart Comment sous `bridges/instagram/engagement/smart_comment.py` et garder `smart_comment_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B9 | Fait | Deplacer les implementations Instagram DM et Cold DM sous `bridges/instagram/engagement/{dm,cold_dm}.py`; garder `dm_bridge.py` et `cold_dm_bridge.py` comme entrypoints publics minces. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
-| B10 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
+| B10 | Fait | Deplacer l'implementation Instagram account sous `bridges/instagram/account/account.py`; garder `account_bridge.py` comme entrypoint public mince. | Import graph + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B11 | A faire | Examiner YouTube/Gmail/Threads pour ne pas sur-organiser les petits dossiers. | Manifest + compileall. |
 
 ## Notes de compatibilite
 
