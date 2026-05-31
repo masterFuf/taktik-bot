@@ -170,5 +170,13 @@ class SearchSelectors:
         '(//androidx.recyclerview.widget.RecyclerView//android.view.ViewGroup)[1]',
     ])
 
+    def user_result_selectors_for_username(self, username: str) -> List[str]:
+        """Build user-result selectors for an exact or partial username match."""
+        return [
+            f'//android.widget.TextView[@text="@{username}"]',
+            f'//android.widget.TextView[contains(@text, "{username}")]',
+            *self.first_search_result,
+        ]
+
 
 SEARCH_SELECTORS = SearchSelectors()

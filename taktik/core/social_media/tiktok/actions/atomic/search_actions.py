@@ -218,10 +218,7 @@ class SearchActions(BaseAction):
                 self._human_like_delay('click')
             
             # Click on first result (should be exact match)
-            first_result_selectors = [
-                f'//android.widget.TextView[@text="@{username}"]',
-                f'//android.widget.TextView[contains(@text, "{username}")]',
-            ] + self.search_selectors.first_search_result
+            first_result_selectors = self.search_selectors.user_result_selectors_for_username(username)
             
             if self._find_and_click(first_result_selectors, timeout=5):
                 self._human_like_delay('navigation')
