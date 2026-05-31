@@ -7,6 +7,8 @@ then navigates to the profile.
 import time
 import random
 
+from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
 
 class StoryHandlingMixin:
     """Methods for handling TikTok story views during the followers workflow."""
@@ -38,8 +40,6 @@ class StoryHandlingMixin:
                         self._send_stats_update()
             
             # Now click on the username to go to the profile
-            from .....ui.selectors import PROFILE_SELECTORS
-            
             for selector in PROFILE_SELECTORS.story_username:
                 elem = self.device.xpath(selector)
                 if elem.exists:

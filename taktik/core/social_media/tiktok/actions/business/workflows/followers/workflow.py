@@ -43,7 +43,9 @@ from .story_handling import StoryHandlingMixin
 from .interaction import VideoInteractionMixin
 from .profile_data import ProfileDataMixin
 from .navigation import NavigationMixin
-from .....ui.selectors import FOLLOWERS_SELECTORS, SEARCH_SELECTORS, VIDEO_SELECTORS
+from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
+from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 class FollowersWorkflow(

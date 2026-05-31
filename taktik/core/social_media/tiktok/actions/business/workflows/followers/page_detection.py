@@ -4,6 +4,8 @@ Detects which page the UI is currently on:
 video playback, user profile, story view, or followers list.
 """
 
+from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
 
 class PageDetectionMixin:
     """Methods to detect the current page state in TikTok."""
@@ -32,7 +34,6 @@ class PageDetectionMixin:
         - Username (@), stats labels, video grid, "No videos yet"
         """
         try:
-            from .....ui.selectors import PROFILE_SELECTORS
             for selector in PROFILE_SELECTORS.profile_page_indicator:
                 if self.device.xpath(selector).exists:
                     return True
@@ -47,7 +48,6 @@ class PageDetectionMixin:
         Needs at least 2 indicator matches to confirm (timestamp, close, follow, message input).
         """
         try:
-            from .....ui.selectors import PROFILE_SELECTORS
             # Need at least 2 matches to confirm it's a story page
             matches = 0
             for selector in PROFILE_SELECTORS.story_page_indicator:
@@ -66,7 +66,6 @@ class PageDetectionMixin:
         Key differentiator: profile pages have qh5 (@username) which followers list doesn't.
         """
         try:
-            from .....ui.selectors import PROFILE_SELECTORS
             # First, make sure we're NOT on a profile page
             if any(self.device.xpath(sel).exists for sel in PROFILE_SELECTORS.username):
                 return False

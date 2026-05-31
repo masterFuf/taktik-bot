@@ -7,6 +7,8 @@ when navigation fails.
 
 import time
 
+from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
 
 class NavigationMixin:
     """Methods for navigating to/from the followers list."""
@@ -200,7 +202,6 @@ class NavigationMixin:
             if self._is_on_story_page():
                 # We're on a story page, close it first
                 self.logger.debug("📖 On story page, closing story...")
-                from .....ui.selectors import PROFILE_SELECTORS
                 close_btn = self.device.xpath(PROFILE_SELECTORS.story_close_button[0])
                 if close_btn.exists:
                     close_btn.click()
