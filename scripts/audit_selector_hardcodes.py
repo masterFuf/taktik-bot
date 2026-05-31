@@ -80,12 +80,6 @@ class AllowlistEntry:
 
 KNOWN_SELECTOR_DEBT = (
     AllowlistEntry(
-        "taktik/core/social_media/instagram/ui/detectors/problematic_page.py",
-        "selector-string",
-        "com.android.packageinstaller:id/permission_allow_button",
-        "Android permission popup detector; move to a support selector catalog in a focused lot.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/instagram/workflows/scraping/list_strategy.py",
         "selector-string",
         "//android.widget.Button",

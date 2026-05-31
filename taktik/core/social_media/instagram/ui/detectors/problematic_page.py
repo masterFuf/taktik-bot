@@ -347,14 +347,10 @@ class ProblematicPageDetector:
                 
                 elif method == 'allow_permission_button':
                     # Click the Android permission "Allow" button
-                    allow_selectors = [
-                        {'resourceId': 'com.android.packageinstaller:id/permission_allow_button'},
-                        {'text': 'AUTORISER'},
-                        {'text': 'ALLOW'},
-                        {'text': 'Autoriser'},
-                        {'text': 'Allow'},
-                    ]
-                    if not self._click_button_from_selectors(allow_selectors, "Allow permission"):
+                    if not self._click_button_from_selectors(
+                        PROBLEMATIC_PAGE_SELECTORS.allow_permission_button_selectors,
+                        "Allow permission",
+                    ):
                         continue
                 
                 elif method == 'ad_consent_flow':

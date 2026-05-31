@@ -87,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok profile extraction now reads website/verified/private visible probes from the scoped profile selector catalog instead of hardcoding raw uiautomator2 query strings.
 - TikTok popup slow fallback now reuses the scoped popup selector catalog for video option bottom sheets, matching the fast-path detector.
 - Instagram workflow watchdog UI dump signatures now live under the scoped selector support catalog instead of inline in `ui/watchdog.py`.
+- Instagram problematic-page detector now reads Android permission allow-button fallbacks from `PROBLEMATIC_PAGE_SELECTORS` instead of keeping selector dictionaries inline.
 - Instagram simple unfollow workflow now reads following-tab, following-button and confirm-button visible probes from the scoped unfollow flow selector catalog.
 - Instagram unfollow following/follower sync mixins now use scoped unfollow selector builders for active-package follow-list resource ids and non-follower category XPath probes.
 - Instagram core automation, base business actions and recorder now import their selector catalogs from scoped shell/surface owners instead of the top-level selector aggregate.

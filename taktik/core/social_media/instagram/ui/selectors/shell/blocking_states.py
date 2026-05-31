@@ -49,6 +49,14 @@ class ProblematicPageSelectors:
         {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'},
         {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_frame'}
     ])
+
+    allow_permission_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
+        {'resourceId': 'com.android.packageinstaller:id/permission_allow_button'},
+        {'text': 'AUTORISER'},
+        {'text': 'ALLOW'},
+        {'text': 'Autoriser'},
+        {'text': 'Allow'},
+    ])
     
     # === Patterns de détection des pages problématiques ===
     # Chaque pattern contient: indicators (textes à chercher), close_methods, et flags optionnels
