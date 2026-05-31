@@ -212,7 +212,7 @@ class DesktopBridge:
         if self.ai_enabled:
             api_key = self.ai_config.get('openrouterApiKey', '')
             if api_key and len(api_key) > 5:
-                from taktik.core.ai.openrouter import AIService
+                from taktik.core.ai.providers.openrouter import AIService
                 vision_model = self.ai_config.get('visionModel') or None
                 self.ai_service = AIService(api_key=api_key, ipc=_ipc, vision_model=vision_model)
                 send_log("info", "🤖 AI mode enabled — Smart Comments / Profile Analysis / Post Analysis")

@@ -40,6 +40,7 @@
 - [x] Les workflows TikTok `login/logout/signup` n'instancient plus `IPC()` dans `core`; le notifier live est injecte par le bridge compte.
 - [x] Le workflow `tiktok publish` n'instancie plus le notifier bridge dans `core`; `tiktok_publish_bridge.py` le lui injecte maintenant.
 - [x] `core/ai` possede maintenant le provider OpenRouter ; `bridges/common/ai_service.py` est seulement un shim de compatibilite.
+- [x] `core/ai` est maintenant classe par owners internes : `providers/` pour OpenRouter et `comments/` pour l'IA commentaire/persona.
 - [x] `core/agent` lit maintenant le manifest transversal pour exposer des IDs canoniques `platform.family.workflow`.
 - [x] `core/agent` sait parser/serialiser un payload JSON en `AgentPlan` avec validation optionnelle du manifest.
 - [x] `TaktikAgentWorkflow` charge maintenant un payload `agent_plan` / `agentPlan` dans son contexte runtime sans changer le scenario historique.

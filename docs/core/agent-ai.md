@@ -22,7 +22,7 @@ flowchart LR
     Bridge[Bridge / workflow launcher] --> Agent[TaktikAgentWorkflow]
     Agent --> Persona[SQLite account persona]
     Agent --> AI[AgentAI]
-    AI --> Service[taktik.core.ai.openrouter.AIService]
+    AI --> Service[taktik.core.ai.providers.openrouter.AIService]
     Service --> OpenRouter[OpenRouter vision/text]
     Agent --> IG[Instagram actions]
     Agent --> IPC[IPC agent_* / ai_* events]
@@ -139,7 +139,7 @@ stateDiagram-v2
 |---|---|
 | Persona | Va sur le profil du compte bot via actions Instagram, extrait username/bio, charge le contexte SQLite. |
 | `UserProfile` | Construit un bloc prompt avec niche, objectif, service, audience, ton, contexte. |
-| IA | Initialise un provider injecte depuis le bridge, actuellement `taktik.core.ai.openrouter.AIService`, avec `openrouter_api_key` ou `OPENROUTER_API_KEY`. |
+| IA | Initialise un provider injecte depuis le bridge, actuellement `taktik.core.ai.providers.openrouter.AIService`, avec `openrouter_api_key` ou `OPENROUTER_API_KEY`. |
 | Hashtags | Génère un pool de hashtags exploratoires après initialisation IA. |
 | Feed | Navigue vers le home feed Instagram. |
 
@@ -174,9 +174,9 @@ Statistiques :
 | `HASHTAG_POSTS_PER_BURST` | `5`, nombre de posts hashtag par burst. |
 | Délais actions | Like `1.5-3.5s`, comment `3-6s`, follow `2-4s`, scroll `1-2.5s`. |
 
-## `comment_ai.py`
+## `comments/comment_ai.py`
 
-Fichier : `ai/comment_ai.py`.
+Fichier : `ai/comments/comment_ai.py`.
 
 Module IA context-aware pour qualification de commentaires et génération de réponses.
 
