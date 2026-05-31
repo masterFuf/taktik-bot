@@ -79,17 +79,20 @@ class AllowlistEntry:
 
 
 KNOWN_SELECTOR_DEBT = (
+)
+
+NON_RUNTIME_SIGNATURES = (
     AllowlistEntry(
         "taktik/core/social_media/instagram/actions/compatibility/cli_adapter.py",
         "uiautomator-literal",
         "Instagram Bot - New Modular Architecture",
-        "Compatibility CLI smoke test describes a synthetic UI probe, not a workflow selector.",
+        "Synthetic CLI compatibility probe, not a runtime Android UI selector.",
     ),
     AllowlistEntry(
         "taktik/core/social_media/tiktok/actions/core/utils.py",
         "selector-string",
         '@resource-id="([^"]+)"',
-        "Selector parser utility intentionally reads resource-id from catalog-provided XPath.",
+        "Regex parser for catalog-provided XPath, not a selector used against the UI.",
     ),
 )
 
@@ -185,6 +188,10 @@ def is_allowlisted(finding: Finding) -> bool:
     return any(entry.matches(finding) for entry in KNOWN_SELECTOR_DEBT)
 
 
+def is_non_runtime_signature(finding: Finding) -> bool:
+    return any(entry.matches(finding) for entry in NON_RUNTIME_SIGNATURES)
+
+
 def format_finding(finding: Finding) -> str:
     value = finding.value.replace("\n", "\\n")
     if len(value) > 140:
@@ -202,8 +209,12 @@ def main() -> int:
     args = parser.parse_args()
 
     findings = collect_findings()
-    blocking = [finding for finding in findings if not is_allowlisted(finding)]
+    runtime_findings = [
+        finding for finding in findings if not is_non_runtime_signature(finding)
+    ]
+    blocking = [finding for finding in runtime_findings if not is_allowlisted(finding)]
     allowed = [finding for finding in findings if is_allowlisted(finding)]
+    ignored = [finding for finding in findings if is_non_runtime_signature(finding)]
 
     if blocking:
         print("Selector hardcode audit failed:")
@@ -215,10 +226,15 @@ def main() -> int:
 
     print(
         "Selector hardcode audit OK "
-        f"(0 new findings, {len(allowed)} allowlisted legacy finding(s))"
+        f"(0 new findings, {len(allowed)} allowlisted legacy finding(s), "
+        f"{len(ignored)} non-runtime exception(s))"
     )
     if args.show_allowed and allowed:
         for finding in allowed:
+            print(f" - {format_finding(finding)}")
+    if args.show_allowed and ignored:
+        print("\nIgnored non-runtime signatures:")
+        for finding in ignored:
             print(f" - {format_finding(finding)}")
     return 0
 

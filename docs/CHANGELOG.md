@@ -97,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram business actions and workflows now import like/comment/messaging/feed/hashtag/followers/notification/unfollow selectors from scoped owners instead of the top-level selector aggregate.
 - Instagram human behavior recorder no longer keeps screen/content XPath catalogs inline; missing recorder probes now consume scoped selector owners for feed, reels, stories, profile, DM, comments and notifications.
 - `scripts/audit_selector_hardcodes.py` now blocks new inline Android UI selectors in Instagram/TikTok runtime code while making the remaining legacy selector debt explicit through an allowlist.
+- The selector hardcode audit now distinguishes exact non-runtime signatures, such as parser regexes and synthetic compatibility probes, from real runtime selector debt.
 - `AGENTS.md` now requires a full-file re-read whenever a file is touched during refactor, so obvious architecture-rule violations are caught beyond the edited lines.
 - Stale TikTok publish/navigation documentation and workflow comments now point at scoped selector owners instead of removed top-level selector files.
 - Instagram workflow UI helpers now read Follow/Suivre button labels from the scoped profile selector catalog instead of hardcoding UI text in workflow support code.
