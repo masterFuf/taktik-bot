@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok interaction-history SQL moved from the monolithic `repositories/tiktok/tiktok_repository.py` body into `repositories/tiktok/interaction/interaction_repository.py`.
 - TikTok filtered-profile SQL moved from the monolithic `repositories/tiktok/tiktok_repository.py` body into `repositories/tiktok/filtering/filtered_profile_repository.py`.
 - TikTok account/profile SQL moved into `repositories/tiktok/account/**` and `repositories/tiktok/profile/**`; `tiktok_repository.py` is now only the public facade.
+- The TikTok Followers workflow repository adapter moved from flat `repositories/tiktok/followers_repository.py` into `repositories/tiktok/followers/followers_repository.py` and now uses the explicit `TikTokFollowersRepository` name.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.

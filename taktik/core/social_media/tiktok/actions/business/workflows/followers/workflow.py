@@ -34,7 +34,7 @@ from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
     calculate_legacy_followers_scroll_attempts,
     get_visited_ratio,
 )
-from taktik.core.database.repositories.tiktok.followers_repository import FollowersRepository
+from taktik.core.database.repositories.tiktok.followers import TikTokFollowersRepository
 
 from .._internal import BaseTikTokWorkflow
 from .models import FollowersConfig, FollowersStats
@@ -90,7 +90,7 @@ class FollowersWorkflow(
         self._known_stop_requested = False
         
         # Database
-        self._followers_repository = FollowersRepository()
+        self._followers_repository = TikTokFollowersRepository()
         self._account_id: Optional[int] = None
         self._session_id: Optional[int] = None
         

@@ -241,7 +241,7 @@ Symptome technique :
 
 Remediation retenue :
 
-- extraction de `taktik/core/database/repositories/tiktok/followers_repository.py` ;
+- extraction de `taktik/core/database/repositories/tiktok/followers/followers_repository.py` ;
 - le workflow conserve seulement `account_id` et `session_id` comme contexte ;
 - les mixins passent par le repository pour les lectures/ecritures ;
 - ajout de tests unitaires avec fake DB pour verrouiller les no-op sans compte,

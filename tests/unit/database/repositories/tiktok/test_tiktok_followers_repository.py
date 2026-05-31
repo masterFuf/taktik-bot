@@ -1,4 +1,4 @@
-from taktik.core.database.repositories.tiktok.followers_repository import FollowersRepository
+from taktik.core.database.repositories.tiktok.followers import TikTokFollowersRepository
 
 
 class _FakeDb:
@@ -37,7 +37,7 @@ class _FakeDb:
 
 def test_create_session_wraps_account_and_session_creation():
     db = _FakeDb()
-    repository = FollowersRepository(db=db)
+    repository = TikTokFollowersRepository(db=db)
 
     session_ref = repository.create_session(
         bot_username="bot",
@@ -54,7 +54,7 @@ def test_create_session_wraps_account_and_session_creation():
 
 def test_repository_noops_without_account_context():
     db = _FakeDb()
-    repository = FollowersRepository(db=db)
+    repository = TikTokFollowersRepository(db=db)
 
     assert not repository.has_recent_interaction(account_id=None, username="known_recent")
     assert not repository.has_interaction(account_id=None, username="known_any")
@@ -79,7 +79,7 @@ def test_repository_noops_without_account_context():
 
 def test_repository_wraps_interaction_queries_and_writes():
     db = _FakeDb()
-    repository = FollowersRepository(db=db)
+    repository = TikTokFollowersRepository(db=db)
 
     assert repository.has_recent_interaction(account_id=1, username="known_recent")
     assert repository.has_interaction(account_id=1, username="known_any")

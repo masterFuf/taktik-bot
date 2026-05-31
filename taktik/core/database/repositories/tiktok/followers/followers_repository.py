@@ -5,20 +5,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from taktik.core.database.local.service import get_local_database
-
 
 @dataclass(frozen=True)
-class FollowersSessionRef:
+class TikTokFollowersSessionRef:
     account_id: Optional[int]
     session_id: Optional[int]
 
 
-class FollowersRepository:
+class TikTokFollowersRepository:
     """Encapsulate SQLite operations used by the TikTok Followers workflow."""
 
     def __init__(self, db: Any = None):
-        self._db = db or get_local_database()
+        if db is None:
+            from taktik.core.database.local.service import get_local_database
+
+            db = get_local_database()
+        self._db = db
 
     def create_session(
         self,
@@ -26,9 +28,9 @@ class FollowersRepository:
         bot_username: Optional[str],
         target: str,
         config_used: Optional[Dict[str, Any]],
-    ) -> FollowersSessionRef:
+    ) -> TikTokFollowersSessionRef:
         if not bot_username:
-            return FollowersSessionRef(account_id=None, session_id=None)
+            return TikTokFollowersSessionRef(account_id=None, session_id=None)
 
         account_id, _ = self._db.get_or_create_tiktok_account(bot_username)
         session_id = self._db.create_tiktok_session(
@@ -38,7 +40,7 @@ class FollowersRepository:
             target=target,
             config_used=config_used,
         )
-        return FollowersSessionRef(account_id=account_id, session_id=session_id)
+        return TikTokFollowersSessionRef(account_id=account_id, session_id=session_id)
 
     def end_session(
         self,
