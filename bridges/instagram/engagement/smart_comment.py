@@ -38,8 +38,8 @@ import time
 import random
 import re
 import subprocess
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional, Tuple
+from dataclasses import asdict
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
@@ -52,52 +52,11 @@ setup_environment()
 
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.base import logger, InstagramBridgeBase, send_message as send_event
-
-
-@dataclass
-class ScrapedComment:
-    """A scraped comment from a post."""
-    username: str
-    content: str
-    likes: int = 0
-    is_author: bool = False
-    is_reply: bool = False
-    parent_username: Optional[str] = None
-    position_top: int = 0  # Y position for re-finding the comment
-    # AI qualification fields
-    is_qualified: bool = False
-    qualification_reason: str = ""
-    # AI reply fields
-    generated_reply: str = ""
-    reply_sent: bool = False
-
-
-@dataclass
-class TargetProfile:
-    """Scraped profile information of the target account."""
-    username: str = ""
-    full_name: str = ""
-    bio: str = ""
-    followers: int = 0
-    following: int = 0
-    posts_count: int = 0
-    account_type: str = ""  # e.g. "Social media agency", "Digital creator", etc.
-    is_private: bool = False
-    is_verified: bool = False
-
-
-@dataclass
-class PostContext:
-    """Context about the target post for AI generation."""
-    author_username: str = ""
-    caption: str = ""
-    image_description: str = ""  # From vision AI
-    likes_count: int = 0
-    comments_count: int = 0
-    post_date: str = ""
-    target_bio: str = ""  # Bio of the account that posted
-    target_profile: Optional[dict] = None  # Full TargetProfile as dict
-    post_url: str = ""  # Instagram post URL (e.g. https://www.instagram.com/p/ABC123/)
+from bridges.instagram.engagement.runtime.smart_comment_models import (
+    PostContext,
+    ScrapedComment,
+    TargetProfile,
+)
 
 
 class SmartCommentBridge(InstagramBridgeBase):
