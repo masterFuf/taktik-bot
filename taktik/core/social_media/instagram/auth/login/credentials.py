@@ -2,21 +2,17 @@
 
 import time
 
-# Resource-id du dropdown autofill inline (Android system)
-_AUTOFILL_DATASET_PICKER = '//*[@resource-id="android:id/autofill_dataset_picker"]'
-
-
 class CredentialsMixin:
     """Mixin: saisie username/password + clic bouton de connexion."""
 
     def _dismiss_autofill_dropdown(self) -> None:
         """
-        Détecte et ferme le dropdown inline autofill (android:id/autofill_dataset_picker)
+        Détecte et ferme le dropdown inline autofill via le catalogue auth
         qui pop sur les champs de saisie Instagram.
         Utilise BACK pour le fermer sans sélectionner de suggestion.
         """
         try:
-            if self.device.xpath(_AUTOFILL_DATASET_PICKER).exists:
+            if self.device.xpath(self.auth_selectors.autofill_dataset_picker).exists:
                 self.logger.debug("📋 Autofill dataset dropdown detected — dismissing with BACK")
                 self.device.press("back")
                 time.sleep(0.4)
@@ -302,12 +298,7 @@ class CredentialsMixin:
             # CRITIQUE : vérifier que c'est bien le bon compte affiché avant de remplir le mot de passe.
             self.logger.info(f"📱 No username EditText — checking which account is shown on password-only screen...")
             account_confirmed = False
-            for sel in [
-                f'//*[@content-desc="{username}"]',
-                f'//*[contains(@content-desc, "{username}")]',
-                f'//*[@text="{username}"]',
-                f'//*[contains(@text, "{username}")]',
-            ]:
+            for sel in self.auth_selectors.password_only_account_selectors(username):
                 try:
                     if self.device.xpath(sel).exists:
                         account_confirmed = True

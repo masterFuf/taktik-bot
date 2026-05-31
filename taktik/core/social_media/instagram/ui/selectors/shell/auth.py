@@ -124,6 +124,14 @@ class AuthSelectors:
             f'//*[contains(@content-desc, "{clean_username}") and @clickable="true"]'
         ]
 
+    def password_only_account_selectors(self, username: str) -> List[str]:
+        return [
+            f'//*[@content-desc="{username}"]',
+            f'//*[contains(@content-desc, "{username}")]',
+            f'//*[@text="{username}"]',
+            f'//*[contains(@text, "{username}")]',
+        ]
+
     # === Messages d'erreur et états ===
     error_message_selectors: List[str] = field(default_factory=lambda: [
         # Messages d'erreur génériques
@@ -377,6 +385,8 @@ class AuthSelectors:
     # =========================================================
 
     # Détection du popup autofill (android:id/autofill_dialog_picker)
+    autofill_dataset_picker: str = '//*[@resource-id="android:id/autofill_dataset_picker"]'
+
     google_autofill_popup_indicators: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="android:id/autofill_dialog_picker"]',
         '//*[@resource-id="android:id/autofill_dialog_list"]',
