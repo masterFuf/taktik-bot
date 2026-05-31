@@ -4,7 +4,7 @@ from taktik.core.social_media.tiktok.services.followers.listing import (
     tap_follower_username,
     vertical_bounds_overlap,
 )
-from taktik.core.social_media.tiktok.ui.selectors import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 
 
 class _FakeElement:

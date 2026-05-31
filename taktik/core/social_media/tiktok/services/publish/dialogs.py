@@ -6,7 +6,7 @@ import time
 from typing import Callable
 
 from taktik.core.shared.device.permissions import PermissionHandler
-from taktik.core.social_media.tiktok.ui.selectors import POPUP_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
     PUBLISH_EDITOR_SELECTORS,

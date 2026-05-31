@@ -1,5 +1,5 @@
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
-from taktik.core.social_media.tiktok.ui.selectors import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 class _FakeXPath:

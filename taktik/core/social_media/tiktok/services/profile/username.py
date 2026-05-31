@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from taktik.core.social_media.tiktok.ui.selectors import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 UNKNOWN_USERNAME = "unknown"
 

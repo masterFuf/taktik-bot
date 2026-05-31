@@ -97,7 +97,7 @@ social_media/tiktok/ui/
 - les anciens fichiers top-level de compatibilite ont ete retires apres migration des imports internes du monorepo.
 - `video/detail.py` est maintenant une facade d'agregation legacy au-dessus de catalogues specialises (`creator`, `engagement`, `media`, `state`).
 - `publish/` n'est plus un monolithe : `PUBLISH_SELECTORS` est maintenant une facade d'agregation au-dessus de catalogues specialises par etape.
-- les services/runtime TikTok `publish` et `upload_workflow.py` pointent maintenant vers `ui/selectors/flows/publish/*` directement.
+- les services/runtime TikTok `publish`, `upload_workflow.py`, et les services `followers/navigation/profile` pointent maintenant vers leurs owners `ui/selectors/{flows,shell,surfaces}/*` directement.
 
 ## Strategie de migration
 

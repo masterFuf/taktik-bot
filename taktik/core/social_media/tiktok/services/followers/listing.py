@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from taktik.core.social_media.tiktok.ui.selectors import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 
 FOLLOWER_USERNAME_TAP_X = 280
 PROFILE_LOAD_SETTLE_SECONDS = 1.5

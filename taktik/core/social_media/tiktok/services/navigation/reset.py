@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from taktik.core.social_media.tiktok.ui.selectors import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 def return_to_tiktok_home(

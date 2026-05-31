@@ -4,7 +4,7 @@ from taktik.core.social_media.tiktok.services.profile.username import (
     get_current_profile_username,
     username_from_content_description,
 )
-from taktik.core.social_media.tiktok.ui.selectors import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class _FakeElement:
