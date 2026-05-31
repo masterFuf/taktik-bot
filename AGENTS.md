@@ -30,7 +30,7 @@ Traduction cote Bot :
 | Plateforme | `taktik/core/social_media/<platform>/` | Workflows, actions, selectors, services metier propres a Instagram/TikTok/YouTube/Threads. | Helpers transverses Android, repositories DB, compat generique, utilitaires "globaux". |
 | Shared technique | `taktik/core/shared/` | Primitives Android/ADB/input/actions/platform reutilisables. | Logique metier d'une seule plateforme, selectors Instagram/TikTok, ecritures SQLite directes. |
 | Persistence | `taktik/core/database/` | Schema, migrations, modeles, repositories, facade legacy transitoire. | Workflows Android, selectors UI, branches clone/compat, logique de bridge. |
-| Runtime/app services | `taktik/core/config`, `security`, `device`, `media`, `email`, `ai`, `agent` | Services applicatifs ou integrations transverses avec owner explicite. | Code place "la par confort" sans owner nomme ni frontiere documentee. |
+| Runtime/app services | `taktik/core/app/*`, `device`, `media`, `email`, `ai`, `agent` | Services applicatifs ou integrations transverses avec owner explicite. | Code place "la par confort" sans owner nomme ni frontiere documentee. |
 | Compat/legacy | `taktik/core/compat`, `clone` | Adaptation legacy, variantes d'app/package, transitions temporaires. | Nouvelle logique metier par defaut si une place plus claire existe. |
 
 Regles macro :
@@ -50,7 +50,7 @@ Regles macro :
 - Quand un workflow `core/social_media/**` a besoin d'emettre des events live, il doit recevoir un notifier injecte ou optionnel. Ne pas instancier `bridges.common.ipc.IPC()` directement dans le workflow.
 - Les emitters `core/social_media/**` ne doivent pas importer un bridge pour envoyer stdout. Le bridge doit enregistrer un adapter/callback, et le core doit rester no-op en standalone si aucun adapter n'est injecte.
 - `taktik/core/ai/**` est l'owner des integrations IA reutilisables par le Bot. Utiliser `ai/providers/**` pour les providers runtime comme OpenRouter et `ai/comments/**` pour l'IA commentaire/persona. `bridges/common/ai_service.py` ne doit rester qu'un shim de compatibilite vers `taktik.core.ai.providers.openrouter`.
-- `taktik/core/config/**` et `taktik/core/security/**` doivent rester de petites surfaces runtime explicites. Utiliser `config/runtime/**` pour la configuration runtime et `security/protection/**` pour la protection runtime ; les anciens modules top-level ne doivent rester que des shims.
+- Les petites surfaces runtime applicatives migrees vivent sous `taktik/core/app/**`. `app/config/**` porte la configuration runtime et `app/security/**` porte la protection runtime. Ne pas recreer `taktik/core/config/**` ou `taktik/core/security/**`.
 - Dans `taktik/core/email/**`, classer les integrations par provider puis par responsabilite. Pour Gmail, `gmail/workflows/**` porte les workflows runtime et `gmail/ui/**` porte les selectors/textes UI.
 - Les dossiers `device`, `media`, `email`, `ai`, `agent`, `compat`, `clone` doivent rester auditables. Avant d'y deplacer du code, verifier si on clarifie vraiment l'ownership ou si on deplace seulement le foutoir.
 - Sous `taktik/core/compat`, le framework de compatibilite selectors/versioning doit vivre sous `compat/selectors/**`. Ne pas recreer de modules top-level `compat/selector_registry.py`, `compat/selector_tracer.py` ou `compat/setup.py` ; la racine du package est seulement une facade publique via `__init__.py`.

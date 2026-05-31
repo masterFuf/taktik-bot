@@ -174,9 +174,8 @@ l'impression de "racine en vrac".
 
 ## Etat physique conserve au 2026-05-31
 
-On applique pour l'instant la variante conservative : la racine `core/` garde
-ses familles historiques, mais chaque famille runtime doit etre lisible de
-l'interieur.
+La migration racine a commence le 2026-05-31 : les petites surfaces runtime
+sont deplacees par lots vers `app/` sans shims legacy caches.
 
 ```text
 taktik/core/
@@ -200,10 +199,11 @@ taktik/core/
     providers/
     comments/
 
-  config/                # configuration runtime
-    runtime/
-  security/              # securite runtime
-    protection/
+  app/                   # services applicatifs runtime
+    config/
+      runtime/
+    security/
+      protection/
   email/                 # integration Gmail
     gmail/
       workflows/

@@ -82,3 +82,12 @@ _security_mgr = SecurityManager()
 
 def protected_call(encoded_func: str, *args, **kwargs) -> Any:
     return _security_mgr.obfuscated_api_call(encoded_func, *args, **kwargs)
+
+
+__all__ = [
+    "SecurityManager",
+    "decoy_database_init",
+    "fake_local_check",
+    "misleading_api_bypass",
+    "protected_call",
+]

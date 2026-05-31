@@ -33,6 +33,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant sort le SQL `sent_dms` de `bridges/common/database.py` vers `taktik/core/database/repositories/messaging/SentDMRepository`, en gardant le bridge comme facade de compatibilite et sans modifier le schema partage Electron/Python.
 - un sous-lot suivant clarifie `taktik/core/database/models` en remplacant le doublon historique `models/models.py` par l'owner explicite `models/instagram_profile.py`, tout en gardant l'import public `taktik.core.database.models`.
 - un sous-lot suivant retire les imports desktop bridge restants de `taktik/core/social_media/instagram/**` : `IPCEmitter` recoit maintenant un adapter injecte par `bridges/instagram/base.py`, et les workflows hashtag/unfollow emettent via cet emitter.
+- un sous-lot suivant lance la migration racine runtime sans shims : `taktik/core/config` et `taktik/core/security` sont supprimes et leurs owners deviennent `taktik/core/app/config` et `taktik/core/app/security`.
 - un sous-lot suivant commence le lot 3 en branchant `instagram/core/manager.py` et `tiktok/core/manager.py` directement sur `shared/platform/social_media_base.py` et `shared/device/manager.py`, comme `threads/core/manager.py`.
 - un sous-lot suivant etend ce lot 3 aux workflows Instagram qui ne demandent aucune facade plateforme (`scraping`, `post_scraping`, `cold_dm`) afin de reduire les imports runtime qui traversent encore les shims `actions/core/device`.
 - un sous-lot suivant corrige aussi la compat top-level `taktik/core/__init__.py`, qui pointait vers un chemin `DeviceFacade` obsolete et n'exposait pas vraiment les symbols annonces dans `__all__`.
@@ -61,7 +62,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 4 clarifie aussi `taktik/core/compat` : le framework selectors/versioning et tracing compat vit maintenant sous `taktik/core/compat/selectors/**`, les bridges internes et `clone/selectors/patcher.py` importent ces owners directs, et les anciens shims top-level `compat/selector_registry.py`, `compat/selector_tracer.py`, `compat/setup.py` ont ete retires.
 - un sous-lot suivant du lot 4 clarifie aussi `taktik/core/clone` : `clone/package_map.py` devient la source de verite des package names officiels et prefixes de clone, remplace les duplications dans `detector.py`, `proxy.py` et `selector_patcher.py`, et verrouille cette frontiere par un test unitaire cible.
 - un sous-lot suivant du lot 5 clarifie `taktik/core/recorder` : le human recorder Instagram n'est plus owner au niveau racine et vit maintenant sous `taktik/core/social_media/instagram/recorder/**`, tandis que `taktik/core/recorder/recorder.py` reste une facade de compatibilite pour les scripts et imports legacy.
-- un sous-lot suivant du lot 5 assainit aussi `config/security` sans big-bang : `APIEndpointManager` re-expose l'alias legacy `get_primary_endpoint()` attendu par `instagram/actions/business/system/config.py`, et `security/protection.py` n'utilise plus `print(...)` pour eviter tout risque de pollution stdout si ce chemin dormant est reveille.
+- un sous-lot suivant du lot 5 assainit aussi l'ancien duo `config/security` sans big-bang : `APIEndpointManager` re-expose l'alias `get_primary_endpoint()` attendu par `instagram/actions/business/system/config.py`, et la protection runtime n'utilise plus `print(...)` pour eviter tout risque de pollution stdout si ce chemin dormant est reveille.
 - un sous-lot suivant du lot 5 clarifie aussi `taktik/core/media` : la capture media Instagram vit maintenant sous `taktik/core/social_media/instagram/media/**`, `taktik/core/media/**` reste une facade de compatibilite pour les imports legacy, et `ProxyManager` resolve desormais ses assets runtime via le dossier repo `scripts/` au lieu de dependre de la profondeur du package Python.
 - un sous-lot suivant du lot 5 clarifie `taktik/core/email/gmail` : `gmail_workflow.py` ne depend plus directement de `bridges.common.ipc`, expose un notifier injecte optionnel, et les bridges/workflows appelants (`bridges/gmail`, `bridges/youtube`, TikTok signup) lui passent maintenant leur IPC existant depuis l'exterieur.
 - un sous-lot suivant du lot 5 pose aussi la cible de `taktik/core/agent` comme runtime kernel transverse : `agent-runtime-kernel-target.md` documente la separation Front planner / Bot executor, les contrats cibles (`AgentPlan`, `PlanStep`, `WorkflowInvocation`, `AgentEvent`) et la trajectoire de `TaktikAgentWorkflow` vers un scenario historique branche sur un noyau d'execution plus generic.
@@ -73,7 +74,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 clarifie aussi `taktik/core/ai` : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/ai/providers/openrouter.py`, les bridges et le CLI importent cet owner canonique, et `bridges/common/ai_service.py` ne reste qu'un shim de compatibilite.
 - un sous-lot suivant du lot 5 restructure physiquement `core/ai` : `providers/` porte les providers IA runtime comme OpenRouter, `comments/` porte l'IA commentaire/persona historique, et la racine du package reste une facade publique via `__init__.py`.
 - un sous-lot suivant clarifie encore `taktik/core/device` : l'API statique legacy vit maintenant sous `device/compat/legacy_static.py`, tandis que `device.py` reste un shim temporaire pour les anciens imports directs.
-- un sous-lot suivant clarifie aussi `taktik/core/config` et `taktik/core/security` : les implementations runtime vivent maintenant sous `config/runtime/**` et `security/protection/**`, tandis que les chemins historiques restent stables via shims.
+- un sous-lot suivant de migration racine remplace ensuite ces chemins historiques : `taktik/core/config` et `taktik/core/security` sont supprimes, les implementations runtime vivent maintenant sous `app/config/**` et `app/security/**`, sans shims top-level.
 - un sous-lot suivant reduit `taktik/core/recorder` a une facade package-level `__init__.py`; l'implementation reste sous `social_media/instagram/recorder/**` et il n'y a plus de module racine additionnel dans cette facade.
 - un sous-lot suivant reduit aussi `taktik/core/media` a des facades package-level `__init__.py`; l'implementation reste sous `social_media/instagram/media/**` et les anciens sous-modules shims profonds ne sont plus recrees sans consommateur interne.
 - un sous-lot suivant restructure physiquement `taktik/core/clone` : `detection/` porte le scan ADB des packages, `packages/` porte les metadonnees package/prefix, `device/` porte le proxy clone-aware, `selectors/` porte le patch selectors, et la racine reste la facade publique.
@@ -138,7 +139,7 @@ Architecture cible a respecter :
 - `taktik/core/social_media/<platform>` : code metier propre a une plateforme ;
 - `taktik/core/shared` : primitives Android/ADB/input/actions partagees ;
 - `taktik/core/database` : schema, migrations, modeles, repositories ;
-- `taktik/core/config|security|device|media|email|ai|agent` : modules runtime/app avec owner explicite ;
+- `taktik/core/app/<service>|device|media|email|ai|agent` : modules runtime/app avec owner explicite ;
 - `taktik/core/compat|clone` : compatibilite ou variantes legacy, jamais zone de depot par confort.
 
 Definition of done d'un lot :
@@ -190,8 +191,7 @@ Le chantier vise surtout :
 - `bot/taktik/core/agent/**`
 - `bot/taktik/core/ai/**`
 - `bot/taktik/core/email/**`
-- `bot/taktik/core/config/**`
-- `bot/taktik/core/security/**`
+- `bot/taktik/core/app/**`
 
 Le chantier n'autorise pas par defaut :
 
@@ -235,7 +235,7 @@ Verifier que :
 
 Verifier que :
 
-- `device`, `media`, `email`, `ai`, `agent`, `config`, `security`, `clone`, `compat` ont chacun un owner clair ;
+- `device`, `media`, `email`, `ai`, `agent`, `app`, `clone`, `compat` ont chacun un owner clair ;
 - les dossiers legacy servent vraiment a la compat, pas a stocker le code qu'on ne sait pas classer.
 
 ### Lot 4 - Rationalisation finale

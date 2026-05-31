@@ -1,14 +1,14 @@
-from taktik.core.config.api_endpoints import APIEndpointManager
-from taktik.core.config.runtime.api_endpoints import APIEndpointManager as ScopedAPIEndpointManager
-from taktik.core.security.protection import (
+from taktik.core.app.config import APIEndpointManager
+from taktik.core.app.config.runtime.api_endpoints import APIEndpointManager as ScopedAPIEndpointManager
+from taktik.core.app.security.protection import (
     decoy_database_init,
     misleading_api_bypass,
     protected_call,
 )
-from taktik.core.security.protection.runtime import protected_call as scoped_protected_call
+from taktik.core.app.security.protection.runtime import protected_call as scoped_protected_call
 
 
-def test_config_and_security_legacy_paths_point_to_scoped_owners():
+def test_app_config_and_security_exports_point_to_scoped_owners():
     assert APIEndpointManager is ScopedAPIEndpointManager
     assert protected_call is scoped_protected_call
 

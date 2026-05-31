@@ -1,6 +1,6 @@
 """Security protection runtime owners."""
 
-from taktik.core.security.protection.runtime import (
+from taktik.core.app.security.protection.runtime import (
     SecurityManager,
     decoy_database_init,
     fake_local_check,
