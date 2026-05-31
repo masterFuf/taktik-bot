@@ -109,6 +109,7 @@ taktik/core/agent/
   plan_io.py
   registry.py
   executor.py
+  runtime.py
   scenarios/
     instagram_feed_autopilot.py
 ```
@@ -145,6 +146,7 @@ Etat courant :
 
 - `workflow_manifest.py` lit le manifest transversal et valide les IDs de workflows ;
 - `plan_io.py` convertit un payload JSON-safe en `AgentPlan` ;
+- `runtime.py` fournit une facade parse/execute qui depend d'un `WorkflowRegistry` injecte ;
 - `TaktikAgentWorkflow` accepte deja `agent_plan` / `agentPlan`, le valide et l'expose dans `AgentContext` sans l'executer ni ajouter de nouvel event stdout.
 
 ### Lot D - Extension multi-plateforme

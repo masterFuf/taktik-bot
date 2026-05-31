@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The agent runtime can now read `workflows.manifest.json` through `taktik/core/agent/workflow_manifest.py` and expose canonical `platform.family.workflow` ids for future `AgentPlan` execution.
 - The agent runtime now exposes JSON-safe `AgentPlan` parsing and serialization through `taktik/core/agent/plan_io.py`, with optional manifest validation for workflow ids.
 - `TaktikAgentWorkflow` now accepts optional `agent_plan` / `agentPlan` payloads and exposes the parsed plan in `AgentContext` without changing the existing Instagram-first scenario execution or adding a new stdout event.
+- `taktik/core/agent/runtime.py` now provides the first parse-and-execute facade for injected workflow registries, keeping real Android workflow binding outside the kernel for now.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.
