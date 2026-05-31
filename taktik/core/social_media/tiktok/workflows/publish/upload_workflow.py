@@ -73,7 +73,11 @@ from taktik.core.social_media.tiktok.services.publish.text_input import (
 )
 from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import tap_caption_focus_fallback
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
-from taktik.core.social_media.tiktok.ui.selectors.flows.publish import PUBLISH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
+    PUBLISH_COMPOSER_SELECTORS,
+    PUBLISH_EDITOR_SELECTORS,
+    PUBLISH_PROGRESS_SELECTORS,
+)
 from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element
 
 
@@ -242,9 +246,9 @@ class TikTokUploadWorkflow:
             # 10. Taper "Post"
             _ipc.status("publishing", "Publishing...")
             self._recover_from_video_edit_screen()
-            if not tap_element(self.device, PUBLISH_SELECTORS.post_btn, timeout=5.0):
+            if not tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=5.0):
                 self._recover_from_video_edit_screen()
-                if tap_element(self.device, PUBLISH_SELECTORS.post_btn, timeout=3.0):
+                if tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=3.0):
                     time.sleep(3.0)
                     dismiss_post_popups(self.device, log=_ipc.log)
                     _ipc.status("success", "Post published successfully!")
@@ -291,7 +295,7 @@ class TikTokUploadWorkflow:
             get_progress_percent=lambda: get_publish_progress_percent(self.device, log=_ipc.log),
             is_on_post_screen=lambda: is_post_screen(self.device),
             has_success_indicator=lambda: find_element(
-                self.device, PUBLISH_SELECTORS.success_indicator, timeout=1.0
+                self.device, PUBLISH_PROGRESS_SELECTORS.success_indicator, timeout=1.0
             ) is not None,
         )
         return wait_for_publish_commit(callbacks, timeout=timeout, log=_ipc.log)
@@ -302,7 +306,7 @@ class TikTokUploadWorkflow:
             return False
 
         _ipc.log("warning", "[publish] video editor opened; tapping cancel selector to return to post screen")
-        if tap_element(self.device, PUBLISH_SELECTORS.video_edit_cancel_btn, timeout=2.0):
+        if tap_element(self.device, PUBLISH_EDITOR_SELECTORS.video_edit_cancel_btn, timeout=2.0):
             time.sleep(1.2)
             return True
         return False
@@ -314,7 +318,7 @@ class TikTokUploadWorkflow:
     def _fill_caption(self, caption: str, hashtags: list[str]) -> bool:
         """Fill caption and validate TikTok hashtag suggestions one by one."""
         # ── Focus the EditText ───────────────────────────────────────────────
-        el = find_element(self.device, PUBLISH_SELECTORS.caption_input, timeout=5.0)
+        el = find_element(self.device, PUBLISH_COMPOSER_SELECTORS.caption_input, timeout=5.0)
         try:
             if el:
                 el.click()
@@ -365,7 +369,7 @@ class TikTokUploadWorkflow:
         if tap_hashtag_suggestion_from_dump(self.device, expected_tag, log=_ipc.log):
             return True
 
-        tapped = tap_element(self.device, PUBLISH_SELECTORS.hashtag_suggestion_rows, timeout=2.0)
+        tapped = tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.hashtag_suggestion_rows, timeout=2.0)
         if tapped:
             _ipc.log("debug", "[hashtag] suggestion tapped ✅")
             time.sleep(0.3)

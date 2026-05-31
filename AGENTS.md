@@ -161,6 +161,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Un fichier historique top-level sous `ui/selectors/` n'est acceptable que comme shim de transition court. Des que les imports internes du monorepo sont migres et que la rupture de compatibilite est acceptee, supprimer le shim au lieu de le laisser vivre indefiniment.
 - Quand une surface devient trop large pour un seul catalogue public, exposer plusieurs catalogues specialises (`*_DETAIL_SELECTORS`, `*_COMMENTS_SELECTORS`, etc.) avant d'ajouter de nouvelles clefs au catalogue legacy global. Le gros catalogue historique peut rester comme facade de compat, pas comme point d'extension par defaut.
 - Ne pas ajouter de nouveau test, workflow ou service interne qui importe un module top-level legacy `ui/selectors/<name>.py` une fois qu'un owner scope existe sous `shell/`, `surfaces/`, `flows/` ou `support/`.
+- Les workflows/services internes TikTok publish doivent importer les catalogues specialises `PUBLISH_*_SELECTORS` (`composer`, `editor`, `progress`, etc.). `PUBLISH_SELECTORS` reste seulement une facade publique de compatibilite.
 - Si un workflow a besoin d'un fast-path sur un dump XML, exposer une fonction/propriete depuis le catalogue selectors au lieu de mettre les strings dans le workflow.
 - Eviter les sleeps fixes quand un wait conditionnel ou une detection UI est possible.
 - Les selectors reutilisables doivent vivre dans des modules dedies ou partages, pas etre recopies dans plusieurs workflows.
