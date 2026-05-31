@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
-from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
 
 
@@ -14,7 +14,7 @@ class CommentAction(BaseBusinessAction):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "comment")
-        self.post_selectors = POST_SELECTORS
+        self.post_selectors = POST_COMMENTS_SELECTORS
         
         self.default_config = {
             'comment_delay_range': (3, 7),
@@ -218,10 +218,7 @@ class CommentAction(BaseBusinessAction):
             # Click the "Comments" title or the drag handle frame to remove focus
             # from the edittext so that subsequent KEYCODE_BACK targets the sheet.
             try:
-                title = self.device.xpath(
-                    '//*[contains(@resource-id, "title_text_view")]'
-                    '[@text="Comments" or @text="Commentaires"]'
-                )
+                title = self.device.xpath(self.post_selectors.comment_title_defocus)
                 if title.exists:
                     title.click()
                     self.logger.debug("Clicked Comments title to defocus edittext")
@@ -231,9 +228,7 @@ class CommentAction(BaseBusinessAction):
                         return True
                 else:
                     # Fallback defocus: click drag handle frame area (safe tap zone)
-                    drag_frame = self.device.xpath(
-                        '//*[contains(@resource-id, "bottom_sheet_drag_handle_frame")]'
-                    )
+                    drag_frame = self.device.xpath(self.post_selectors.comment_drag_handle_frame)
                     if drag_frame.exists:
                         drag_frame.click()
                         self.logger.debug("Clicked drag handle frame to defocus edittext")
@@ -290,10 +285,10 @@ class CommentAction(BaseBusinessAction):
                 return True
 
             # ── Strategy 5: click IME nav-bar Back button ─────────────────────
-            # The Taktik IME exposes android:id/input_method_nav_back which is
-            # clickable — tapping it sends a back event through the IME layer.
+            # The Taktik IME exposes a clickable nav-back control; the selector
+            # lives in the comments catalog with the rest of this close strategy.
             try:
-                ime_back = self.device.xpath('//*[@resource-id="android:id/input_method_nav_back"]')
+                ime_back = self.device.xpath(self.post_selectors.ime_nav_back_button)
                 if ime_back.exists:
                     ime_back.click()
                     self.logger.debug("Clicked IME nav back button")

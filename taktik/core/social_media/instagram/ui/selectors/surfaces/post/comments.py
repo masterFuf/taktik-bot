@@ -33,6 +33,12 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.comments_view_indicators)
     )
     comment_empty_state_view: str = '//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]'
+    comment_title_defocus: str = (
+        '//*[contains(@resource-id, "title_text_view")]'
+        '[@text="Comments" or @text="Commentaires"]'
+    )
+    comment_drag_handle_frame: str = '//*[contains(@resource-id, "bottom_sheet_drag_handle_frame")]'
+    ime_nav_back_button: str = '//*[@resource-id="android:id/input_method_nav_back"]'
     comment_sort_button: str = POST_SELECTORS.comment_sort_button
     expand_replies_selector: str = POST_SELECTORS.expand_replies_selector
     post_comments_count_selectors: List[str] = field(
