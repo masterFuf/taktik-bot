@@ -40,6 +40,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] `core/agent` sait parser/serialiser un payload JSON en `AgentPlan` avec validation optionnelle du manifest.
 - [x] `TaktikAgentWorkflow` charge maintenant un payload `agent_plan` / `agentPlan` dans son contexte runtime sans changer le scenario historique.
 - [x] `core/agent/runtime.py` fournit maintenant une facade parse/execute autour d'un `WorkflowRegistry` injecte, sans brancher les workflows Android par defaut.
+- [x] `core/agent/event_io.py` expose une serialisation JSON-safe des `AgentEvent` pour les futurs bridges.
 - [ ] Audit structurel de `clone/**` et `compat/**` encore a faire.
 - [ ] Faire emerger `registry.py` / `executor.py` pour sortir `TaktikAgentWorkflow` du role de pseudo-noyau global.
 - [ ] Validation manuelle des workflows et bridges sur device reel.

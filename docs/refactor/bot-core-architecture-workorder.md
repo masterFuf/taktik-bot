@@ -72,6 +72,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 ajoute la boundary d'entree JSON du noyau agent : `plan_io.py` convertit un payload Front/CLI en `AgentPlan` et peut valider les `workflow_id` contre le manifest transversal.
 - un sous-lot suivant du lot 5 raccorde `TaktikAgentWorkflow` a cette boundary sans changer son comportement metier : un payload `agent_plan` / `agentPlan` est parse, valide contre le manifest et expose dans `AgentContext`, mais pas encore execute.
 - un sous-lot suivant du lot 5 ajoute `core/agent/runtime.py` comme facade parse/execute : le plan vient d'un payload JSON, les handlers reels restent injectes via `WorkflowRegistry`, et aucun workflow Android historique n'est branche par defaut.
+- un sous-lot suivant du lot 5 ajoute `core/agent/event_io.py` pour serialiser les `AgentEvent` en payloads JSON-safe avant tout branchement bridge, afin d'eviter des conversions ad hoc cote stdout.
 
 ## Prompt pret a coller
 

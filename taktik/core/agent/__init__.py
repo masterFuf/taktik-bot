@@ -9,6 +9,7 @@ from taktik.core.agent.contracts import (
     PlanStep,
     WorkflowInvocation,
 )
+from taktik.core.agent.event_io import agent_event_to_payload, agent_events_to_payload
 from taktik.core.agent.executor import AgentPlanExecutor
 from taktik.core.agent.plan_io import agent_plan_from_payload, agent_plan_to_payload
 from taktik.core.agent.registry import WorkflowRegistry
@@ -30,6 +31,8 @@ __all__ = [
     "WorkflowManifest",
     "WorkflowRegistry",
     "WorkflowInvocation",
+    "agent_event_to_payload",
+    "agent_events_to_payload",
     "agent_plan_from_payload",
     "agent_plan_to_payload",
     "canonical_workflow_id",

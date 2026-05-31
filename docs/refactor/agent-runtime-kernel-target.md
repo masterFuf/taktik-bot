@@ -107,6 +107,7 @@ taktik/core/agent/
   agent_ai.py
   workflow_manifest.py
   plan_io.py
+  event_io.py
   registry.py
   executor.py
   runtime.py
@@ -146,6 +147,7 @@ Etat courant :
 
 - `workflow_manifest.py` lit le manifest transversal et valide les IDs de workflows ;
 - `plan_io.py` convertit un payload JSON-safe en `AgentPlan` ;
+- `event_io.py` convertit les `AgentEvent` en payloads JSON-safe pour les futurs bridges ;
 - `runtime.py` fournit une facade parse/execute qui depend d'un `WorkflowRegistry` injecte ;
 - `TaktikAgentWorkflow` accepte deja `agent_plan` / `agentPlan`, le valide et l'expose dans `AgentContext` sans l'executer ni ajouter de nouvel event stdout.
 
