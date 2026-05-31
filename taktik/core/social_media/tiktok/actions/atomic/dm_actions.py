@@ -108,8 +108,7 @@ class DMActions(BaseAction):
         
         for title, notif_type in notification_types:
             try:
-                # Use centralized section_title resource-id with dynamic text
-                selector = f'{self.inbox_selectors.section_title[0]}[@text="{title}"]'
+                selector = self.inbox_selectors.section_title_by_text(title)
                 if self._element_exists([selector], timeout=1):
                     notifications.append({
                         'type': 'notification',
@@ -214,7 +213,7 @@ class DMActions(BaseAction):
                         continue
             
             # Fallback: try XPath with exact match
-            selector = f'{self.inbox_selectors.conversation_username[0]}[@text="{name}"]'
+            selector = self.inbox_selectors.conversation_username_by_text(name)
             if self._find_and_click([selector], timeout=2):
                 time.sleep(1)
                 return self.is_in_conversation()

@@ -119,5 +119,13 @@ class InboxSelectors:
         '//*[contains(@resource-id, ":id/ujj")]',
     ])
 
+    def section_title_by_text(self, title: str) -> str:
+        """Build the notification section title selector for a visible title."""
+        return f'{self.section_title[0]}[@text="{title}"]'
+
+    def conversation_username_by_text(self, name: str) -> str:
+        """Build the conversation username selector for an exact visible name."""
+        return f'{self.conversation_username[0]}[@text="{name}"]'
+
 
 INBOX_SELECTORS = InboxSelectors()
