@@ -44,7 +44,6 @@ taktik/core/
     config/
     email/
     media/
-    recorder/
     security/
 
   runtime/               # runtime Android / device orchestration transverses
@@ -103,7 +102,6 @@ le melanger a la technique Android pure :
 - `config/`
 - `email/`
 - `media/`
-- `recorder/`
 - `security/`
 
 Aujourd'hui ces dossiers sont deja presents, mais leur mise a plat a la racine
@@ -159,7 +157,6 @@ taktik/core/
   device/
   email/
   media/
-  recorder/
   security/
 ```
 
@@ -209,7 +206,6 @@ taktik/core/
       workflows/
       ui/
   media/                 # facade media legacy package-level
-  recorder/              # facade recorder legacy
   device/                # compat vers shared/device
     compat/
   clone/                 # runtime clone/package-aware

@@ -48,7 +48,7 @@ logger.add(
     format="<green>{time:HH:mm:ss.SSS}</green> | <level>{level:<8}</level> | {message}",
 )
 
-from taktik.core.recorder import HumanBehaviorRecorder
+from taktik.core.social_media.instagram.recorder import HumanBehaviorRecorder
 
 
 def _list_adb_devices() -> list:
