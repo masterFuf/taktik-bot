@@ -14,26 +14,26 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | Dossier | Role actuel | Owner | Imports entrants | Imports sortants | Proposition |
 |---|---|---|---|---|---|
 | `bridges/common` | Runtime bridge partage : IPC stdout, bootstrap, DB facade, reset reseau, keyboard, app manager. | Bridge runtime. | Instagram, TikTok, compat et entrypoints divers. | `taktik/core/**`, stdlib, uiautomator/ADB selon module. | Scoper progressivement par capacite (`device`, `input`, `parsing`, `runtime`, `persistence`) si le dossier grossit. Ne pas y mettre de metier plateforme. |
-| `bridges/instagram` | Entry points Electron Instagram et beaucoup d'adaptation metier encore a plat. | Plateforme Instagram bridge. | Front dev path, launcher, manifest, scripts build, tests possibles. | `bridges.common`, `taktik/core/social_media/instagram/**`, DB/services. | Garder la racine pour les entrypoints publics + `base.py`. Extraire les implementations par famille (`automation`, `engagement`, `scraping`, `account`, `agent`) lot par lot. |
-| `bridges/tiktok` | Entry points TikTok + runners dispatcher internes a plat. | Plateforme TikTok bridge. | Front dev path pour les entrypoints, `tiktok_bridge.py` pour les runners internes, tests unitaires. | `bridges.common`, `bridges.tiktok.base`, `taktik/core/social_media/tiktok/**`. | Runners internes sous `workflows/**`; implementations d'entrypoints publics sous `account`, `publish`, `scraping`, `engagement` ou `automation` avec wrappers racine tant que le resolver Front utilise `bridges/<platform>/<name>.py`. |
-| `bridges/youtube` | Entry points compte/upload/action test + `base.py`. | Plateforme YouTube bridge. | Front dev path, launcher, manifest. | `taktik/core/social_media/youtube/**`, Gmail/app email pour compte. | Implementations sous `account/`, `publish/`, `diagnostics/` ou `workflows/`; wrappers publics racine stables. |
-| `bridges/gmail` | Entry point compte Gmail + `base.py`. | Provider Gmail bridge. | Front dev path, launcher, manifest. | `taktik/core/app/email/gmail/**`. | Implementation account sous `account/`; wrapper public racine stable. |
-| `bridges/threads` | Entry point Threads + `base.py`. | Plateforme Threads bridge. | Front dev path, launcher, manifest. | `taktik/core/social_media/threads/**`, Instagram runtime selon dependances historiques. | Dispatcher sous `workflows/dispatcher.py`; wrapper public racine stable. |
-| `bridges/compat` | Bridges diagnostics compat/selectors/workflow/action tests. | Diagnostics/compat bridge. | Front debug/compat handlers, launcher, manifest. | `taktik/core/compat`, `taktik/core/clone`, plateformes. | Implementations sous `diagnostics/`; wrappers publics racine stables. |
+| `bridges/instagram` | Implementations bridge Instagram rangees par owner + `base.py`. | Plateforme Instagram bridge. | Launcher, manifest, scripts build, handlers Front via `bridge_name`. | `bridges.common`, `taktik/core/social_media/instagram/**`, DB/services. | Garder la racine sans wrappers publics ; `launcher.py` route directement vers `automation`, `engagement`, `scraping`, `account`, `agent`, `analysis`. |
+| `bridges/tiktok` | Dispatcher TikTok, runners internes et implementations dediees par owner. | Plateforme TikTok bridge. | Launcher, manifest, scripts build, handlers Front via `bridge_name`. | `bridges.common`, `bridges.tiktok.base`, `taktik/core/social_media/tiktok/**`. | Continuer a classer par flow/owner (`workflows/**`, `account`, `publish`, `scraping`, `engagement`, `automation`) ; pas de nouveau `*_bridge.py` racine. |
+| `bridges/youtube` | Implementations compte/upload/action test + `base.py`. | Plateforme YouTube bridge. | Launcher, manifest. | `taktik/core/social_media/youtube/**`, Gmail/app email pour compte. | Implementations sous `account/`, `publish/`, `diagnostics/` ou `workflows/`; pas de wrapper public racine. |
+| `bridges/gmail` | Bridge provider Gmail + `base.py`. | Provider Gmail bridge. | Launcher, manifest. | `taktik/core/app/email/gmail/**`. | Implementation account sous `account/`; pas de wrapper public racine. |
+| `bridges/threads` | Bridge Threads + `base.py`. | Plateforme Threads bridge. | Launcher, manifest. | `taktik/core/social_media/threads/**`, Instagram runtime selon dependances historiques. | Dispatcher sous `workflows/dispatcher.py`; pas de wrapper public racine. |
+| `bridges/compat` | Bridges diagnostics compat/selectors/workflow/action tests. | Diagnostics/compat bridge. | Front debug/compat handlers, launcher, manifest. | `taktik/core/compat`, `taktik/core/clone`, plateformes. | Implementations sous `diagnostics/`; pas de wrapper public racine. |
 
 ## Regles cible
 
-- `bridges/<platform>/<bridge_name>.py` = entrypoint public seulement si declare dans `bridges.manifest.json` ou lance par le Front en dev.
+- `bridges/launcher.py <bridge_name>` = entrypoint public unique en dev ; `taktik_launcher.exe <bridge_name>` = entrypoint public unique en production.
 - `bridges/<platform>/base.py` = runtime bridge local de la plateforme : IPC, helpers stdout, startup commun. Il ne doit pas devenir un workflow.
 - `bridges/<platform>/workflows/**` = runners internes appeles par un entrypoint dispatcher, classes par famille de flow (`automation`, `engagement`, `scraping`, etc.).
-- `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations extractibles des entrypoints dedies, uniquement si l'entrypoint racine reste mince ou si le resolver Front est migre.
+- `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations d'entrypoints dedies routees directement par le launcher et le manifest.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
 - `bridges/common/runtime/**` = bootstrap process, stdout JSON IPC, base bridge commune et signal handling.
-- Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, build PyInstaller et resolver Front.
-- Chaque wrapper public racine doit ajouter `bot/` a `sys.path` avant son import delegue, sinon `python bridges/<platform>/<bridge_name>.py` peut echouer hors lancement module.
+- Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, `scripts/build_exe.py`, `front/scripts/build/build-all.ps1` et resolver Front.
+- Ne pas recreer de wrapper public racine. Le launcher doit ajouter `bot/` a `sys.path`, puis importer l'implementation scopee.
 
 ## Lots
 
@@ -63,7 +63,8 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B22 | Fait | Deplacer l'implementation Gmail account sous `bridges/gmail/account/account.py`; garder `gmail_account_bridge.py` comme entrypoint public mince. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B23 | Fait | Deplacer l'implementation dispatcher Threads sous `bridges/threads/workflows/dispatcher.py`; garder `threads_bridge.py` comme entrypoint public mince. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B24 | Fait | Deplacer les implementations compat/action/selector/workflow diagnostics sous `bridges/compat/diagnostics/**`; garder les entrypoints publics racine. | Direct-launch smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
+| B25 | Fait | Migrer dev/prod vers le launcher unique, pointer manifest/launcher/build sur les modules scopees, supprimer les wrappers racine. | Launcher smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 
 ## Notes de compatibilite
 
-Le Front lance en dev `python bridges/<platform>/<bridge_name>.py` via `front/electron/utils/paths.ts`. Cette contrainte explique pourquoi les entrypoints publics restent a la racine plateforme pour l'instant. Ce ne sont pas des fichiers legacy a oublier : ce sont les portes d'entree contractuelles. Le code durable doit, lui, continuer a migrer vers un owner clair.
+Depuis le lot B25, le Front lance en dev `python bridges/launcher.py <bridge_name>` via `front/electron/utils/paths.ts`, comme la production lance `taktik_launcher.exe <bridge_name>`. Les fichiers `bridges/<platform>/<bridge_name>.py` racine ont ete supprimes pour eviter une couche legacy oubliee. Le contrat public devient `bridge_name + manifest + launcher`, et le code durable reste sous un owner clair.

@@ -7,8 +7,10 @@ before replacing the hardcoded registries used by packaging/runtime code.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -16,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = ROOT / "bot" / "bridges" / "bridges.manifest.json"
 LAUNCHER_PATH = ROOT / "bot" / "bridges" / "launcher.py"
 FRONT_PATHS_PATH = ROOT / "front" / "electron" / "utils" / "paths.ts"
+BOT_PATH = ROOT / "bot"
+
+if str(BOT_PATH) not in sys.path:
+    sys.path.insert(0, str(BOT_PATH))
 
 
 def load_manifest() -> dict[str, str]:
@@ -74,6 +80,14 @@ def main() -> int:
             errors.append(f"Missing in front paths.ts: {missing_in_front}")
         if extra_in_front:
             errors.append(f"Extra in front paths.ts: {extra_in_front}")
+
+    missing_modules = sorted(
+        module_path
+        for module_path in set(manifest.values())
+        if importlib.util.find_spec(module_path) is None
+    )
+    if missing_modules:
+        errors.append(f"Bridge modules not importable: {missing_modules}")
 
     if errors:
         print("Bridge manifest check failed:")

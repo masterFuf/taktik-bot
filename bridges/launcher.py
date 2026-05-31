@@ -17,40 +17,46 @@ Example:
 
 import sys
 import json
+from pathlib import Path
+
+
+BOT_ROOT = Path(__file__).resolve().parents[1]
+if str(BOT_ROOT) not in sys.path:
+    sys.path.insert(0, str(BOT_ROOT))
 
 
 # Bridge name → module path mapping
 BRIDGE_MODULES = {
     # Instagram
-    "desktop_bridge":       "bridges.instagram.desktop_bridge",
-    "dm_bridge":            "bridges.instagram.dm_bridge",
-    "scraping_bridge":      "bridges.instagram.scraping_bridge",
-    "cold_dm_bridge":       "bridges.instagram.cold_dm_bridge",
-    "smart_comment_bridge": "bridges.instagram.smart_comment_bridge",
-    "account_bridge":       "bridges.instagram.account_bridge",
-    "taktik_agent_bridge":  "bridges.instagram.taktik_agent_bridge",
-    "persona_analysis_bridge": "bridges.instagram.persona_analysis_bridge",
+    "desktop_bridge":       "bridges.instagram.automation.desktop",
+    "dm_bridge":            "bridges.instagram.engagement.dm",
+    "scraping_bridge":      "bridges.instagram.scraping.scraping",
+    "cold_dm_bridge":       "bridges.instagram.engagement.cold_dm",
+    "smart_comment_bridge": "bridges.instagram.engagement.smart_comment",
+    "account_bridge":       "bridges.instagram.account.account",
+    "taktik_agent_bridge":  "bridges.instagram.agent.taktik_agent",
+    "persona_analysis_bridge": "bridges.instagram.analysis.persona",
     # TikTok
-    "tiktok_bridge":          "bridges.tiktok.tiktok_bridge",
-    "tiktok_unfollow_bridge": "bridges.tiktok.tiktok_unfollow_bridge",
-    "dm_outreach_bridge":     "bridges.tiktok.dm_outreach_bridge",
-    "tiktok_scraping_bridge": "bridges.tiktok.scraping_bridge",
-    "tiktok_account_bridge":  "bridges.tiktok.tiktok_account_bridge",
-    "tiktok_publish_bridge":  "bridges.tiktok.tiktok_publish_bridge",
+    "tiktok_bridge":          "bridges.tiktok.workflows.dispatcher",
+    "tiktok_unfollow_bridge": "bridges.tiktok.automation.unfollow",
+    "dm_outreach_bridge":     "bridges.tiktok.engagement.dm_outreach",
+    "tiktok_scraping_bridge": "bridges.tiktok.scraping.scraping",
+    "tiktok_account_bridge":  "bridges.tiktok.account.account",
+    "tiktok_publish_bridge":  "bridges.tiktok.publish.publish",
     # Threads
-    "threads_bridge": "bridges.threads.threads_bridge",
+    "threads_bridge": "bridges.threads.workflows.dispatcher",
     # Gmail
-    "gmail_account_bridge": "bridges.gmail.gmail_account_bridge",
+    "gmail_account_bridge": "bridges.gmail.account.account",
     # YouTube
-    "youtube_account_bridge":     "bridges.youtube.youtube_account_bridge",
-    "youtube_upload_bridge":      "bridges.youtube.youtube_upload_bridge",
-    "youtube_action_test_bridge": "bridges.youtube.youtube_action_test_bridge",
+    "youtube_account_bridge":     "bridges.youtube.account.account",
+    "youtube_upload_bridge":      "bridges.youtube.publish.upload",
+    "youtube_action_test_bridge": "bridges.youtube.diagnostics.action_test",
     # Compat
-    "compat_bridge":            "bridges.compat.compat_bridge",
-    "selector_test_bridge":     "bridges.compat.selector_test_bridge",
-    "workflow_test_bridge":     "bridges.compat.workflow_test_bridge",
-    "action_test_bridge":       "bridges.compat.action_test_bridge",
-    "tiktok_action_test_bridge":"bridges.compat.tiktok_action_test_bridge",
+    "compat_bridge":            "bridges.compat.diagnostics.compat",
+    "selector_test_bridge":     "bridges.compat.diagnostics.selector_test",
+    "workflow_test_bridge":     "bridges.compat.diagnostics.workflow_test",
+    "action_test_bridge":       "bridges.compat.diagnostics.action_test",
+    "tiktok_action_test_bridge":"bridges.compat.diagnostics.tiktok_action_test",
 }
 
 

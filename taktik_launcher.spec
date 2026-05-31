@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('C:\\Users\\kevin\\Documents\\taktik-desktop\\bot\\taktik', 'taktik'), ('C:\\Users\\kevin\\Documents\\taktik-desktop\\bot\\bridges', 'bridges'), ('C:\\Users\\kevin\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\uiautomator2\\assets', 'uiautomator2/assets')]
 binaries = []
-hiddenimports = ['taktik', 'taktik.core', 'taktik.core.database', 'taktik.core.license', 'taktik.core.database.api_client', 'taktik.core.license.unified_license_manager', 'taktik.core.social_media.tiktok', 'taktik.core.email', 'bridges.common', 'bridges.instagram.desktop_bridge', 'bridges.instagram.dm_bridge', 'bridges.instagram.scraping_bridge', 'bridges.instagram.cold_dm_bridge', 'bridges.instagram.smart_comment_bridge', 'bridges.instagram.account_bridge', 'bridges.instagram.taktik_agent_bridge', 'bridges.tiktok.tiktok_bridge', 'bridges.tiktok.tiktok_unfollow_bridge', 'bridges.tiktok.dm_outreach_bridge', 'bridges.tiktok.scraping_bridge', 'bridges.tiktok.tiktok_account_bridge', 'bridges.tiktok.tiktok_publish_bridge', 'bridges.threads.threads_bridge', 'bridges.gmail.gmail_account_bridge', 'bridges.youtube.youtube_account_bridge', 'bridges.youtube.youtube_upload_bridge', 'bridges.youtube.youtube_action_test_bridge', 'bridges.compat.compat_bridge', 'bridges.compat.selector_test_bridge', 'bridges.compat.workflow_test_bridge', 'bridges.compat.action_test_bridge', 'bridges.compat.tiktok_action_test_bridge', 'adbutils', 'uiautomator2', 'loguru', 'requests', 'httpx', 'yaml', 'rich', 'typer', 'pydantic']
+hiddenimports = ['taktik', 'taktik.core', 'taktik.core.database', 'taktik.core.license', 'taktik.core.database.api_client', 'taktik.core.license.unified_license_manager', 'taktik.core.social_media.tiktok', 'bridges.common', 'bridges.instagram.automation.desktop', 'bridges.instagram.engagement.dm', 'bridges.instagram.scraping.scraping', 'bridges.instagram.engagement.cold_dm', 'bridges.instagram.engagement.smart_comment', 'bridges.instagram.account.account', 'bridges.instagram.agent.taktik_agent', 'bridges.instagram.analysis.persona', 'bridges.tiktok.workflows.dispatcher', 'bridges.tiktok.automation.unfollow', 'bridges.tiktok.engagement.dm_outreach', 'bridges.tiktok.scraping.scraping', 'bridges.tiktok.account.account', 'bridges.tiktok.publish.publish', 'bridges.threads.workflows.dispatcher', 'bridges.gmail.account.account', 'bridges.youtube.account.account', 'bridges.youtube.publish.upload', 'bridges.youtube.diagnostics.action_test', 'bridges.compat.diagnostics.compat', 'bridges.compat.diagnostics.selector_test', 'bridges.compat.diagnostics.workflow_test', 'bridges.compat.diagnostics.action_test', 'bridges.compat.diagnostics.tiktok_action_test', 'adbutils', 'uiautomator2', 'loguru', 'requests', 'httpx', 'yaml', 'rich', 'typer', 'pydantic']
 hiddenimports += collect_submodules('bridges.tiktok')
 tmp_ret = collect_all('taktik')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
@@ -15,7 +15,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['..\\bridges\\launcher.py'],
+    ['bridges\\launcher.py'],
     pathex=['C:\\Users\\kevin\\Documents\\taktik-desktop\\bot'],
     binaries=binaries,
     datas=datas,

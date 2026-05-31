@@ -2,7 +2,7 @@
 
 These factor out the duplicated `_wait_for_any` / `_try_tap` helpers from:
   - `taktik/core/social_media/youtube/workflows/publish/upload_workflow.py`
-  - `bridges/youtube/youtube_action_test_bridge.py`
+  - `bridges/youtube/diagnostics/action_test.py`
 
 Both implementations were byte-identical (deadline + scan loop). Centralizing
 them avoids drift and makes it easier to reuse in future YouTube/Threads/Gmail
