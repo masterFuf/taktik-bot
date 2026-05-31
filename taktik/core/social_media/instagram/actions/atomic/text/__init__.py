@@ -3,7 +3,8 @@
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import TEXT_INPUT_SELECTORS, DETECTION_SELECTORS
+from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ....ui.selectors.shell.text_input import TEXT_INPUT_SELECTORS
 
 from .text_input import TextInputMixin
 from .content_input import ContentInputMixin

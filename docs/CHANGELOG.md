@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok shared workflow internals, scraping and unfollow workflows now import selector catalogs from scoped owners instead of the top-level selector aggregate.
 - TikTok workflow notifier context handling is now centralized under `social_media/tiktok/workflows/runtime/notifier.py`; management and publish workflows keep injected bridge notifiers while standalone fallbacks remain local to Bot core.
 - Instagram auth workflows now import auth and popup selectors from scoped `ui/selectors/shell/**` owners instead of the top-level selector aggregate.
+- Instagram atomic text actions now get text-input and detection selectors from scoped `ui/selectors/shell/**` owners; unused aggregate imports were removed from the text mixins.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation; internal publish workflow code now uses the specialized publish catalogs directly.

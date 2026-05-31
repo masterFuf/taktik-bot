@@ -4,7 +4,6 @@ from typing import Optional
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from ....ui.selectors import TEXT_INPUT_SELECTORS, DETECTION_SELECTORS
 
 
 class ContentInputMixin(BaseAction):
