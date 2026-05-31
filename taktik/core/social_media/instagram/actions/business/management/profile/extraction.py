@@ -466,11 +466,13 @@ class ProfileExtraction(BaseBusinessAction):
             from .....ui.extractors import parse_number_from_text
             
             if element_type == 'id' and resource_id:
-                element = self.device.xpath(f'//*[@resource-id="{self.device.app_id}:id/{resource_id}"]')
+                element = self.device.xpath(
+                    self.profile_selectors.profile_count_resource_selector(self.device.app_id, resource_id)
+                )
             elif element_type == 'text' and text:
-                element = self.device.xpath(f'//*[contains(@text, "{text}")]')
+                element = self.device.xpath(self.profile_selectors.profile_count_text_selector(text))
             elif element_type == 'description' and description:
-                element = self.device.xpath(f'//*[contains(@content-desc, "{description}")]')
+                element = self.device.xpath(self.profile_selectors.profile_count_description_selector(description))
             else:
                 return None
                 

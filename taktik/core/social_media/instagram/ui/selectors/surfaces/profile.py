@@ -49,6 +49,15 @@ class ProfileSelectors:
     following_count_value_resource_id: str = 'profile_header_familiar_following_value'
     following_count_legacy_resource_id: str = 'row_profile_header_textview_following_count'
     following_count_text_label: str = 'following'
+
+    def profile_count_resource_selector(self, app_id: str, resource_id: str) -> str:
+        return f'//*[@resource-id="{app_id}:id/{resource_id}"]'
+
+    def profile_count_text_selector(self, text: str) -> str:
+        return f'//*[contains(@text, "{text}")]'
+
+    def profile_count_description_selector(self, description: str) -> str:
+        return f'//*[contains(@content-desc, "{description}")]'
     
     # === Boutons d'action (listes pour fallbacks) ===
     follow_button: List[str] = field(default_factory=lambda: [

@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok popup actions now read the follow-friends close description from `POPUP_SELECTORS` instead of hardcoding the uiautomator2 description fallback.
 - Instagram profile extraction now reuses `PROFILE_SELECTORS.profile_header_container` for About-account recovery instead of keeping the profile header XPath inline.
 - Instagram profile count extraction now reads followers/following/posts resource ids and text probes from `PROFILE_SELECTORS` instead of passing raw UI labels from the extractor.
+- Instagram profile count extraction now builds resource-id/text/content-desc fallback XPath through `PROFILE_SELECTORS`, keeping selector patterns out of the extractor.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation; internal publish workflow code now uses the specialized publish catalogs directly.
