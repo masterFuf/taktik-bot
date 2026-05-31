@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.followers_scroll_policy import (
+from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
     calculate_legacy_followers_scroll_attempts,
     get_visited_ratio,
 )

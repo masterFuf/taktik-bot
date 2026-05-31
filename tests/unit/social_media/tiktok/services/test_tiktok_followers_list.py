@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.followers_list import (
+from taktik.core.social_media.tiktok.services.followers.listing import (
     find_follower_rows,
     follower_username_tap_point,
     tap_follower_username,
@@ -68,7 +68,7 @@ def test_follower_username_tap_point_uses_username_area_x_and_row_center_y():
 
 def test_tap_follower_username_clicks_calculated_point(monkeypatch):
     monkeypatch.setattr(
-        "taktik.core.social_media.tiktok.services.followers_list.time.sleep",
+        "taktik.core.social_media.tiktok.services.followers.listing.time.sleep",
         lambda _seconds: None,
     )
     device = _FakeDevice()

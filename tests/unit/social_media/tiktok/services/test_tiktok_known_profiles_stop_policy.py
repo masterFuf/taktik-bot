@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.services.known_profiles_stop_policy import (
+from taktik.core.social_media.tiktok.services.followers.stop_policy import (
     DEFAULT_MAX_CONSECUTIVE_KNOWN_USERNAMES,
     KnownProfilesStopPolicy,
     normalize_username,

@@ -148,7 +148,7 @@ Symptome produit :
 
 Remediation retenue :
 
-- extraction de `known_profiles_stop_policy.py`, service commun base sur usernames
+- extraction de `services/followers/stop_policy.py`, service commun base sur usernames
   normalises distincts, nouveaux usernames, usernames connus et consecutifs connus ;
 - branchement initial dans `FollowersWorkflow` avec le champ bridge
   `maxConsecutiveKnownUsernames` et le fallback `150` ;
@@ -204,7 +204,7 @@ Symptome technique :
 
 Remediation retenue :
 
-- extraction de `services/followers_list.py` ;
+- extraction de `services/followers/listing.py` ;
 - conservation du fallback coordonne comme constante centralisee et testee ;
 - `FollowersWorkflow` garde la verification story apres tap, car elle fait partie
   du scenario followers ;
@@ -222,7 +222,7 @@ Symptome technique :
 
 Remediation retenue :
 
-- extraction de `services/followers_scroll_policy.py` ;
+- extraction de `services/followers/scroll_policy.py` ;
 - conservation exacte des seuils legacy : ratio connu et fallback par total visite ;
 - `FollowersWorkflow` ne fait plus que logger la decision et utiliser le nombre
   de tentatives ;
@@ -268,7 +268,7 @@ Constat general :
 
 Priorite de refactor proposee :
 
-1. Propager le service commun `known_profiles_stop_policy` aux workflows
+1. Propager le service commun `services/followers/stop_policy.py` aux workflows
    hashtag/scraping/search/post likers, sans recreer de variante locale.
 2. Sortir les ecritures et lectures TikTok DB de `FollowersWorkflow` vers un service
    repository metier injecte.

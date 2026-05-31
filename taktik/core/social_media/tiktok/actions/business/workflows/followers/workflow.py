@@ -21,16 +21,16 @@ from typing import Optional, Dict, Any, List, Callable, Set
 import time
 import random
 
-from taktik.core.social_media.tiktok.services.known_profiles_stop_policy import (
+from taktik.core.social_media.tiktok.services.followers.stop_policy import (
     KnownProfileDecision,
     KnownProfilesStopPolicy,
     normalize_username,
 )
-from taktik.core.social_media.tiktok.services.followers_list import (
+from taktik.core.social_media.tiktok.services.followers.listing import (
     find_follower_rows,
     tap_follower_username,
 )
-from taktik.core.social_media.tiktok.services.followers_scroll_policy import (
+from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
     calculate_legacy_followers_scroll_attempts,
     get_visited_ratio,
 )
