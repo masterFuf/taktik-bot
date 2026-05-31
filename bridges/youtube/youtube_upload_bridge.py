@@ -28,7 +28,7 @@ from bridges.common.bootstrap import setup_environment
 setup_environment()
 
 from bridges.youtube.base import logger, _ipc, send_message, send_status, send_error, send_log
-from bridges.common.connection import ConnectionService
+from bridges.common.device.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 
 
@@ -129,7 +129,7 @@ class YouTubeUploadBridge:
             send_log("error", traceback.format_exc())
             return 1
         finally:
-            from bridges.common.app_manager import force_stop_app
+            from bridges.common.device.app_manager import force_stop_app
             force_stop_app(self.device_id, "youtube")
 
 

@@ -61,7 +61,7 @@ def main():
         logger.exception(f"Unhandled exception in YouTube Bridge: {e}")
         sys.exit(1)
     finally:
-        from bridges.common.app_manager import force_stop_app
+        from bridges.common.device.app_manager import force_stop_app
         force_stop_app(device_id, "youtube")
 
 

@@ -5,8 +5,8 @@ Centralizes app management for Instagram and TikTok so that package names,
 activity names, and timing constants live in ONE place.
 
 Usage:
-    from bridges.common.connection import ConnectionService
-    from bridges.common.app_manager import AppService
+    from bridges.common.device.connection import ConnectionService
+    from bridges.common.device.app_manager import AppService
 
     conn = ConnectionService("DEVICE_SERIAL")
     conn.connect()

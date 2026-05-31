@@ -32,7 +32,7 @@ from bridges.common.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.ipc import IPC
-from bridges.common.connection import ConnectionService
+from bridges.common.device.connection import ConnectionService
 from loguru import logger
 from taktik.core.compat.selectors import create_registry
 

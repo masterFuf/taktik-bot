@@ -16,7 +16,7 @@ if bot_dir not in sys.path:
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.connection import ConnectionService
+from bridges.common.device.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.base import _ipc
 from taktik.core.app.ai.providers.openrouter import AIService

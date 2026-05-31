@@ -17,8 +17,8 @@ bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
-from bridges.common.connection import ConnectionService
-from bridges.common.app_manager import AppService
+from bridges.common.device.connection import ConnectionService
+from bridges.common.device.app_manager import AppService
 from bridges.instagram.base import (
     logger, _ipc,
     send_message, send_status, send_progress, send_stats,

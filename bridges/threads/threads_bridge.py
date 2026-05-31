@@ -259,7 +259,7 @@ def main() -> None:
         logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
         sys.exit(1)
     finally:
-        from bridges.common.app_manager import force_stop_app
+        from bridges.common.device.app_manager import force_stop_app
         force_stop_app(device_id, "threads")
 
 

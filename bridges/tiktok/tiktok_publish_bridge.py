@@ -28,7 +28,7 @@ from bridges.common.bootstrap import setup_environment
 setup_environment()
 
 from bridges.tiktok.base import logger, _ipc, send_message, send_status, send_error, send_log
-from bridges.common.connection import ConnectionService
+from bridges.common.device.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 
 

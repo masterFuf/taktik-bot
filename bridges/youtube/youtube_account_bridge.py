@@ -22,7 +22,7 @@ from bridges.common.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.common.connection import ConnectionService
+from bridges.common.device.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
 from taktik.core.social_media.youtube.workflows.account import YouTubeAccountWorkflow
@@ -76,7 +76,7 @@ class YouTubeAccountBridge:
             send_error(f"Unknown workflowType: {self.workflow_type}")
             return 1
         finally:
-            from bridges.common.app_manager import force_stop_app
+            from bridges.common.device.app_manager import force_stop_app
 
             force_stop_app(self.device_id, "youtube")
 

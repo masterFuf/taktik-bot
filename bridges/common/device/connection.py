@@ -5,7 +5,7 @@ Wraps DeviceManager to provide a clean, reusable interface for all bridges.
 Handles: connect, disconnect, screen info, ATX health checks.
 
 Usage:
-    from bridges.common.connection import ConnectionService
+    from bridges.common.device.connection import ConnectionService
 
     conn = ConnectionService("DEVICE_SERIAL")
     if not conn.connect():
