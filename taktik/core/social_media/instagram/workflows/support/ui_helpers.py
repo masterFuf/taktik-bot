@@ -4,6 +4,9 @@ from typing import Optional
 from loguru import logger
 
 from ..common.detection import is_reel_post, is_likers_popup_open
+from ...ui.selectors.shell.popups import POPUP_SELECTORS
+from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
 
 
 class UIHelpers:        
@@ -17,16 +20,9 @@ class UIHelpers:
         self.automation = automation
         self.device = automation.device
         self.logger = automation.logger
-        self.POST_LIKERS_SELECTORS = None
-        self.POPUP_SELECTORS = None
-        
-        # Import selectors
-        try:
-            from ...ui.selectors import POPUP_SELECTORS, POST_LIKERS_SELECTORS
-            self.POST_LIKERS_SELECTORS = POST_LIKERS_SELECTORS
-            self.POPUP_SELECTORS = POPUP_SELECTORS
-        except ImportError:
-            self.logger.warning("Could not import UI selectors")
+        self.POST_LIKERS_SELECTORS = POST_LIKERS_SELECTORS
+        self.POPUP_SELECTORS = POPUP_SELECTORS
+        self.DETECTION_SELECTORS = DETECTION_SELECTORS
     
     def _random_delay(self, min_delay: float = 0.5, max_delay: float = 1.0) -> None:
         """Add a random delay to simulate human behavior."""
@@ -214,10 +210,6 @@ class UIHelpers:
     def _extract_usernames_from_popup(self) -> list:
         usernames = []
         try:
-            if not hasattr(self, 'DETECTION_SELECTORS') or not self.DETECTION_SELECTORS:
-                from ...ui.selectors import DETECTION_SELECTORS
-                self.DETECTION_SELECTORS = DETECTION_SELECTORS
-            
             for selector in self.DETECTION_SELECTORS.likers_list_username_selectors:
                 elements = self.device.xpath(selector).all()
                 for elem in elements:
