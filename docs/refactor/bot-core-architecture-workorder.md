@@ -113,6 +113,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant branche aussi YouTube account sur le noyau agent : `social_media/youtube/workflows/account/agent_handler.py` enregistre `youtube.account.login/logout` avec device, notifier et persistence injectables.
 - un sous-lot suivant branche les workflows Instagram account sur le noyau agent : `social_media/instagram/workflows/management/agent_handler.py` enregistre `instagram.account.login/logout/register` sans reprendre la connexion device ni le lancement app du bridge.
 - un sous-lot suivant branche les workflows Instagram scraping sur le noyau agent : `social_media/instagram/workflows/scraping/agent_handler.py` enregistre `instagram.scraping.target/hashtag/post_url`, avec config bridge-compatible, `device_manager` injecte et provider AI injecte.
+- un point d'arret documente les handlers restants non mecaniques : Instagram automation/engagement et Threads demandent une extraction de config/runtime avant d'etre branchables sans violer les frontieres Agent.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31

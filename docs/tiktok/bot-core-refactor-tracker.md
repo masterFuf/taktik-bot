@@ -80,6 +80,14 @@ Pourquoi :
 - mais on n'a pas encore rejoue un panel suffisant de workflows manuels et bridges pour fermer le doute de regression ;
 - les supprimer maintenant serait une decision de compatibilite, pas un simple refactor mecanique.
 
+## Reste handlers Agent au 2026-05-31
+
+Les IDs manifest sans handler reel ne sont plus des petits adapters evidents :
+
+- Instagram automation (`target_followers`, `target_following`, `hashtags`, `post_url`, `notifications`, `unfollow`, `feed`, `sync_following`, `sync_followers_following`) passe encore par `DesktopBridge`, qui construit une config riche, gere AI/media/network et certains events stdout de sync. Prochain lot recommande : extraire un builder de config core testable avant de brancher `WorkflowRegistry`.
+- Instagram engagement (`dm_read`, `dm_send`, `coldDm`, `smart_comment`, `taktik_agent`) reste heterogene : DM read/send contient encore du metier dans `dm_bridge.py`, `coldDm` a une logique bridge historique, et `taktik_agent` doit rester orchestrateur transverse avec planner Front. Prochain lot recommande : traiter chaque bridge/workflow separement, pas un handler global.
+- Threads (`follow`, `target`, `feed`) a des workflows core, mais ils appellent encore `threads_startup()` et ouvrent eux-memes la connexion device via `ThreadsManager`. Prochain lot recommande : separer startup runtime et execution workflow avant tout handler Agent, pour respecter la regle "handler injectable sans connexion device".
+
 ## Lire ensuite
 
 - Pour le contexte TikTok et les risques historiques : [Audit qualite et refactor TikTok](quality-audit.md)

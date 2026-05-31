@@ -198,3 +198,11 @@ Donc :
 
 - un bridge peut injecter notifier, provider AI, plan et contexte premium ;
 - mais le noyau `core/agent` doit rester appelable depuis Python seul avec les memes contrats.
+
+### Handlers restants non mecaniques
+
+Au 2026-05-31, les IDs manifest encore sans handler concernent des zones qui demandent une extraction avant branchement :
+
+- Instagram automation : `DesktopBridge` porte encore le builder de config, le lifecycle media/network et des hooks IA ; brancher directement `InstagramAutomation` masquerait trop de contrat bridge dans un handler.
+- Instagram engagement/DM : `dm_bridge.py`, `cold_dm_bridge.py`, `smart_comment_bridge.py` et `taktik_agent_bridge.py` n'ont pas encore une frontiere core homogene par workflow.
+- Threads automation : les workflows appellent encore `threads_startup()` et creent leur connexion device ; il faut d'abord injecter le runtime device.
