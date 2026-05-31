@@ -49,6 +49,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Premier handler reel Agent brancheable : `tiktok.standalone.upload_post` peut etre enregistre dans `WorkflowRegistry` avec device/notifier injectes.
 - [x] Deuxieme handler publish Agent brancheable : `youtube.publish.upload_post` suit le meme pattern injectable sans modifier son bridge.
 - [x] TikTok Followers peut maintenant etre enregistre comme handler Agent `tiktok.automation.followers`, avec un contrat single-target et des parametres normalises vers `FollowersConfig`.
+- [x] TikTok For You peut maintenant etre enregistre comme handler Agent `tiktok.automation.for_you`, avec un contrat video-feed injectable et sans dependance au bridge startup.
 - [x] Audit structurel de `clone/**` et `compat/**` documente : owners confirmes, shims top-level limites, pas de deplacement mecanique recommande.
 - [x] Garde-fou selectors ajoute : `python scripts/audit_selector_hardcodes.py` bloque les nouveaux hardcodes UI Android dans le runtime Instagram/TikTok et affiche la dette legacy allowlistee.
 - [ ] Brancher progressivement les autres handlers reels de workflows dans `WorkflowRegistry`, apres validation du contrat bridge/payload de chaque workflow.
