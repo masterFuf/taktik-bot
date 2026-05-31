@@ -24,7 +24,6 @@ Config JSON (from sys.argv[1]):
 
 import sys
 import os
-import json
 import time
 
 # Bootstrap: UTF-8 + loguru + sys.path
@@ -302,46 +301,9 @@ class PersonaAnalysisBridge(InstagramBridgeBase):
 # =============================================================================
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "Usage: persona_analysis_bridge.py <config.json>"}))
-        sys.exit(1)
+    from bridges.instagram.analysis.runtime.persona_commands import run_persona_analysis_cli
 
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as e:
-        print(json.dumps({"success": False, "error": f"Failed to read config: {e}"}))
-        sys.exit(1)
-
-    device_id   = config.get("deviceId")
-    package_name = config.get("packageName")
-
-    if not device_id:
-        print(json.dumps({"success": False, "error": "deviceId is required"}))
-        sys.exit(1)
-
-    # Configure local SQLite database service
-    try:
-        from taktik.core.database import configure_db_service
-        configure_db_service()
-        logger.info("[PersonaAnalysis] Database service configured")
-    except Exception as exc:
-        logger.warning(f"[PersonaAnalysis] Could not configure DB service: {exc}")
-
-    bridge = PersonaAnalysisBridge(device_id, config, package_name=package_name)
-
-    if not bridge.connect():
-        print(json.dumps({"success": False, "error": f"Failed to connect to device {device_id}"}), flush=True)
-        sys.exit(1)
-
-    try:
-        result = bridge.run()
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        result = {"success": False, "error": f"Bridge crashed: {e}"}
-    print(json.dumps(result), flush=True)
+    run_persona_analysis_cli(sys.argv[1:])
 
 
 if __name__ == "__main__":

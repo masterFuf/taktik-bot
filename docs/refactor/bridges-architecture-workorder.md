@@ -29,6 +29,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/automation|engagement|scraping|account|publish|analysis|agent|diagnostics/**` = implementations d'entrypoints dedies routees directement par le launcher et le manifest.
 - `bridges/<platform>/automation/runtime/**` = support local d'un bridge automation volumineux : parsing payload, lifecycle device/app, media capture, setup IA, runner. Ne pas laisser ces modules plats a cote de l'entrypoint automation.
 - `bridges/<platform>/engagement/runtime/**` = support local des bridges engagement : commandes CLI, parsing payload, navigation partagee, emitters JSON. Ne pas laisser ces modules gonfler l'entrypoint `engagement/<flow>.py`.
+- `bridges/<platform>/analysis/runtime/**` = support local des bridges analyse : commandes CLI, parsing config, capture/consolidation de donnees. Ne pas laisser ces modules gonfler l'entrypoint `analysis/<flow>.py`.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
@@ -88,6 +89,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B45 | Fait | Extraire le contexte post Smart Comment (caption, auteur, date, stats, URL post) sous `engagement/runtime/smart_comment_post_context.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B46 | Fait | Extraire la navigation post exacte Smart Comment (deep link, fingerprint, fallback profil) sous `engagement/runtime/smart_comment_navigation.py`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B47 | Fait | Extraire l'orchestration scrape/resultats Smart Comment sous `engagement/runtime/smart_comment_scrape.py`; `engagement/smart_comment.py` devient composition de runtimes + entrypoint. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B48 | Fait | Extraire le parsing config/CLI du bridge Instagram Persona Analysis sous `analysis/runtime/persona_commands.py` et documenter l'owner `analysis/runtime`. | Import smoke + launcher JSON smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 

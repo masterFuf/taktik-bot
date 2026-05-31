@@ -108,6 +108,7 @@ Definition simple :
 - Les implementations d'entrypoints publics doivent choisir un owner metier nomme (`automation`, `engagement`, `scraping`, `account`, `publish`, etc.) au lieu de rester a plat par confort.
 - Quand un bridge d'automation a besoin de support local (parsing payload, lifecycle device/app, media capture, setup IA, runner), le ranger sous un sous-owner `bridges/<platform>/automation/runtime/**` plutot que de laisser ces modules au meme niveau que l'entrypoint produit.
 - Quand un bridge d'engagement a besoin de support local (commandes CLI, parsing payload, navigation partagee, emitters JSON), le ranger sous `bridges/<platform>/engagement/runtime/**` plutot que de gonfler l'entrypoint `engagement/<flow>.py`.
+- Quand un bridge d'analyse a besoin de support local (commandes CLI, parsing config, capture/consolidation de donnees), le ranger sous `bridges/<platform>/analysis/runtime/**` plutot que de gonfler l'entrypoint `analysis/<flow>.py`.
 - Les bridges de compatibilite et debug doivent vivre sous `bridges/compat/diagnostics/**` ; ne pas les melanger avec les bridges produit.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Les bridges Agent plateforme peuvent vivre sous `bridges/<platform>/agent/**`, mais le noyau d'orchestration durable reste sous `taktik/core/agent/**` et doit recevoir ses dependances par injection.
