@@ -10,31 +10,14 @@ Observed flow (English app, dumps 2026-05-02):
 """
 
 import time
-from contextvars import ContextVar
 
 from loguru import logger
 
 from taktik.core.social_media.tiktok.ui.selectors.shell.auth import LOGOUT_SELECTORS
+from taktik.core.social_media.tiktok.workflows.runtime.notifier import create_workflow_notifier_context
 
 
-class _NullNotifier:
-    def status(self, *args, **kwargs):
-        return None
-
-    def log(self, *args, **kwargs):
-        return None
-
-
-_NULL_NOTIFIER = _NullNotifier()
-_CURRENT_NOTIFIER: ContextVar = ContextVar("tiktok_logout_notifier", default=_NULL_NOTIFIER)
-
-
-class _NotifierProxy:
-    def __getattr__(self, name):
-        return getattr(_CURRENT_NOTIFIER.get(), name)
-
-
-_ipc = _NotifierProxy()
+_NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context("tiktok_logout_notifier")
 
 
 class TikTokLogoutWorkflow:

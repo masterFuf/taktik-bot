@@ -247,6 +247,27 @@ Remediation retenue :
 - ajout de tests unitaires avec fake DB pour verrouiller les no-op sans compte,
   la creation de session et les ecritures d'interaction/profil.
 
+## Cas corrige le 2026-05-31 - Workflow notifier runtime
+
+Symptome technique :
+
+- les workflows TikTok `login`, `logout`, `signup` et `publish` portaient chacun
+  leur propre `ContextVar`, proxy et fallback notifier ;
+- cette duplication rendait la regle "bridge injecte, core standalone" plus
+  difficile a verifier ;
+- le publish avait une variante de fallback logguee alors que management avait
+  des fallbacks no-op, sans owner commun.
+
+Remediation retenue :
+
+- extraction de `social_media/tiktok/workflows/runtime/notifier.py` ;
+- conservation des noms de contextes par workflow pour eviter les fuites entre
+  executions concurrentes ;
+- conservation du fallback loggue pour publish et du fallback no-op pour
+  management ;
+- aucun import `bridges.common.*` ajoute dans `core` et aucune modification du
+  contrat stdout JSON des bridges.
+
 ## Audit ouvert le 2026-05-29 - Workflows business TikTok
 
 Constat general :

@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import os
 import time
-from contextvars import ContextVar
 
 from loguru import logger
 
@@ -78,27 +77,17 @@ from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_EDITOR_SELECTORS,
     PUBLISH_PROGRESS_SELECTORS,
 )
+from taktik.core.social_media.tiktok.workflows.runtime.notifier import (
+    LoggingWorkflowNotifier,
+    create_workflow_notifier_context,
+)
 from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element
 
 
-class _FallbackIPC:
-    def log(self, level, msg):
-        logger.info(msg)
-
-    def status(self, s, m=""):
-        logger.info(f"[{s}] {m}")
-
-
-_NULL_NOTIFIER = _FallbackIPC()
-_CURRENT_NOTIFIER: ContextVar = ContextVar("tiktok_publish_notifier", default=_NULL_NOTIFIER)
-
-
-class _NotifierProxy:
-    def __getattr__(self, name):
-        return getattr(_CURRENT_NOTIFIER.get(), name)
-
-
-_ipc = _NotifierProxy()
+_NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context(
+    "tiktok_publish_notifier",
+    default=LoggingWorkflowNotifier(),
+)
 
 # ---------------------------------------------------------------------------
 # Sélecteurs

@@ -24,7 +24,6 @@ Known screens and transitions :
                     → next: OTP / password  (TODO with next dumps)
 """
 import time
-from contextvars import ContextVar
 from typing import Optional
 
 from loguru import logger
@@ -34,26 +33,10 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
     TIKTOK_PACKAGE,
 )
 from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.social_media.tiktok.workflows.runtime.notifier import create_workflow_notifier_context
 
 
-class _NullNotifier:
-    def status(self, *args, **kwargs):
-        return None
-
-    def log(self, *args, **kwargs):
-        return None
-
-
-_NULL_NOTIFIER = _NullNotifier()
-_CURRENT_NOTIFIER: ContextVar = ContextVar("tiktok_signup_notifier", default=_NULL_NOTIFIER)
-
-
-class _NotifierProxy:
-    def __getattr__(self, name):
-        return getattr(_CURRENT_NOTIFIER.get(), name)
-
-
-_ipc = _NotifierProxy()
+_NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context("tiktok_signup_notifier")
 
 # ── State machine constants ─────────────────────────────────────────────────
 

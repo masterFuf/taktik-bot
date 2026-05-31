@@ -5,28 +5,12 @@ Handles the full login flow on a TikTok device session.
 TODO: Implement using uiautomator2 selectors once UI dumps are collected.
 """
 
-from contextvars import ContextVar
 from loguru import logger
 
-
-class _NullNotifier:
-    def status(self, *args, **kwargs):
-        return None
-
-    def log(self, *args, **kwargs):
-        return None
+from taktik.core.social_media.tiktok.workflows.runtime.notifier import create_workflow_notifier_context
 
 
-_NULL_NOTIFIER = _NullNotifier()
-_CURRENT_NOTIFIER: ContextVar = ContextVar("tiktok_login_notifier", default=_NULL_NOTIFIER)
-
-
-class _NotifierProxy:
-    def __getattr__(self, name):
-        return getattr(_CURRENT_NOTIFIER.get(), name)
-
-
-_ipc = _NotifierProxy()
+_NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context("tiktok_login_notifier")
 
 
 class TikTokLoginWorkflow:
