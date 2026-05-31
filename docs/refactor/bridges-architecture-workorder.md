@@ -71,6 +71,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B28 | Fait | Extraire le runtime bridge Instagram desktop sous `automation/runtime/session.py` : SQLite, device connection, app launch, network reset et cleanup app. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B29 | Fait | Harmoniser l'arborescence Instagram automation avec le pattern TikTok : entrypoint `automation/desktop.py`, support sous `automation/runtime/**`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B30 | Fait | Extraire les commandes CLI/read/send du bridge Instagram DM sous `engagement/runtime/dm_commands.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B31 | Fait | Extraire la navigation inbox/conversation du bridge Instagram DM sous `engagement/runtime/dm_navigation.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
