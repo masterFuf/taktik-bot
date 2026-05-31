@@ -112,21 +112,7 @@ class SearchNavigationMixin(BaseAction):
         self._human_like_delay('typing')
         time.sleep(1.5)  # Extra time for Instagram to fetch results
         
-        # Step 4: Find and click on the search result
-        # The clickable element is the container (row_search_user_container), not the TextView
-        # We need to find the container that has the matching username inside
-        _container_id = NAVIGATION_SELECTORS.search_result_container_resource_id
-        _username_id = NAVIGATION_SELECTORS.search_result_username_resource_id
-        search_result_selectors = [
-            # BEST: Click on the user container that contains the exact username (contains() handles any package prefix)
-            f'//*[contains(@resource-id, "{_container_id}")][.//*[contains(@resource-id, "{_username_id}") and @text="{username}"]]',
-            # Alternative: Container with any descendant matching the username
-            f'//*[contains(@resource-id, "{_container_id}")][.//*[@text="{username}"]]',
-            # Fallback: Click directly on the username TextView
-            f'//android.widget.TextView[contains(@resource-id, "{_username_id}") and @text="{username}"]',
-            # Last resort: Any clickable element with the username (avoid avatar buttons)
-            f'//*[@clickable="true"][.//*[contains(@resource-id, "{_username_id}") and @text="{username}"]]'
-        ]
+        search_result_selectors = NAVIGATION_SELECTORS.search_result_selectors_for_username(username)
         
         # Wait for results to appear
         if self._wait_for_element(search_result_selectors, timeout=5):
@@ -169,13 +155,7 @@ class SearchNavigationMixin(BaseAction):
                 self.device.send_keys(hashtag_query)
             self._human_like_delay('typing')
             time.sleep(2)
-            hashtag_result_selectors = [
-                f'//android.widget.TextView[@text="#{hashtag}"]',
-                f'//*[contains(@text, "#{hashtag}")]',
-                f'//*[contains(@content-desc, "#{hashtag}")]',
-                '//android.widget.TextView[contains(@text, "publications")]/../..',
-                '//android.widget.TextView[contains(@text, "posts")]/../..'
-            ]
+            hashtag_result_selectors = NAVIGATION_SELECTORS.hashtag_result_selectors(hashtag)
             
             hashtag_clicked = False
             for selector in hashtag_result_selectors:
@@ -191,7 +171,7 @@ class SearchNavigationMixin(BaseAction):
             self._human_like_delay('navigation')
             time.sleep(2)
             
-            hashtag_specific = f'//*[contains(@text, "#{hashtag}")]'
+            hashtag_specific = NAVIGATION_SELECTORS.hashtag_text_contains(hashtag)
             if self.device.xpath(hashtag_specific).exists:
                 self.logger.debug(f"✅ Hashtag page #{hashtag} loaded successfully")
                 return True

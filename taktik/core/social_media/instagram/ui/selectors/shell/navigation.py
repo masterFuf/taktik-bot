@@ -110,6 +110,32 @@ class NavigationSelectors:
     search_result_container_resource_id: str = 'com.instagram.android:id/row_search_user_container'
     search_result_username_resource_id: str = 'com.instagram.android:id/row_search_user_username'
 
+    def search_result_selectors_for_username(self, username: str) -> List[str]:
+        """Build selectors for a search result row matching an exact username."""
+        container_id = self.search_result_container_resource_id
+        username_id = self.search_result_username_resource_id
+        return [
+            f'//*[contains(@resource-id, "{container_id}")][.//*[contains(@resource-id, "{username_id}") and @text="{username}"]]',
+            f'//*[contains(@resource-id, "{container_id}")][.//*[@text="{username}"]]',
+            f'//android.widget.TextView[contains(@resource-id, "{username_id}") and @text="{username}"]',
+            f'//*[@clickable="true"][.//*[contains(@resource-id, "{username_id}") and @text="{username}"]]',
+        ]
+
+    def hashtag_result_selectors(self, hashtag: str) -> List[str]:
+        """Build selectors for a hashtag result entry."""
+        hashtag_text = f"#{hashtag}"
+        return [
+            f'//android.widget.TextView[@text="{hashtag_text}"]',
+            f'//*[contains(@text, "{hashtag_text}")]',
+            f'//*[contains(@content-desc, "{hashtag_text}")]',
+            '//android.widget.TextView[contains(@text, "publications")]/../..',
+            '//android.widget.TextView[contains(@text, "posts")]/../..',
+        ]
+
+    def hashtag_text_contains(self, hashtag: str) -> str:
+        """Build the confirmation selector for a loaded hashtag page."""
+        return f'//*[contains(@text, "#{hashtag}")]'
+
 @dataclass
 class ButtonSelectors:
     """Sélecteurs pour les boutons d'interaction courants."""
