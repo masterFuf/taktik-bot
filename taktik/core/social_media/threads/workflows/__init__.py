@@ -15,6 +15,13 @@ from .search_and_interact import (
     SearchInteractConfig,
     run_search_and_interact,
 )
+from .agent_handler import (
+    THREADS_AUTOMATION_WORKFLOW_IDS,
+    THREADS_FEED_WORKFLOW_ID,
+    THREADS_FOLLOW_WORKFLOW_ID,
+    THREADS_TARGET_WORKFLOW_ID,
+    register_threads_automation_handlers,
+)
 
 __all__ = [
     "ActionProbabilities",
@@ -22,6 +29,11 @@ __all__ = [
     "InteractStats",
     "ProfileFilters",
     "SearchInteractConfig",
+    "THREADS_AUTOMATION_WORKFLOW_IDS",
+    "THREADS_FEED_WORKFLOW_ID",
+    "THREADS_FOLLOW_WORKFLOW_ID",
+    "THREADS_TARGET_WORKFLOW_ID",
+    "register_threads_automation_handlers",
     "run_feed_and_interact",
     "run_search_and_interact",
 ]

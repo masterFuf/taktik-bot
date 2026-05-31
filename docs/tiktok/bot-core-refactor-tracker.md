@@ -86,7 +86,7 @@ Les IDs manifest sans handler reel ne sont plus des petits adapters evidents :
 
 - Instagram automation est maintenant branche sur `WorkflowRegistry` via `social_media/instagram/workflows/core/agent_handler.py` apres extraction des builders config/session, hooks IA et setup runtime. Attention residuelle : connexion device, lancement app, reset network et media capture restent volontairement chez le caller/bridge.
 - Instagram engagement (`dm_read`, `dm_send`, `coldDm`, `smart_comment`, `taktik_agent`) reste heterogene : DM read/send contient encore du metier dans `dm_bridge.py`, `coldDm` a une logique bridge historique, et `taktik_agent` doit rester orchestrateur transverse avec planner Front. Prochain lot recommande : traiter chaque bridge/workflow separement, pas un handler global.
-- Threads (`follow`, `target`, `feed`) a maintenant des workflows search/feed capables de recevoir un `startup` injecte, mais les handlers Agent ne sont pas encore branches. Prochain lot recommande : enregistrer `threads.automation.*` avec startup fourni par le caller, sans recreer de connexion device dans le handler.
+- Threads (`follow`, `target`, `feed`) est maintenant branche sur `WorkflowRegistry` via `social_media/threads/workflows/agent_handler.py`; le caller doit fournir le `startup` afin que le handler n'ouvre pas de connexion device.
 
 ## Lire ensuite
 

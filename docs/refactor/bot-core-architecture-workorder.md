@@ -119,6 +119,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant extrait le setup runtime automation Instagram : `social_media/instagram/workflows/core/runtime_setup.py` applique config, package clone, overrides selectors/version et detection langue avec provider version/log injectes, sans reprendre connexion device ni lancement app.
 - un sous-lot suivant branche les workflows Instagram automation sur le noyau agent : `social_media/instagram/workflows/core/agent_handler.py` enregistre les IDs `instagram.automation.*` avec `device_manager`, runtime setup et provider IA injectables, sans reprendre connexion device, lancement app, reset network ni media capture.
 - un sous-lot suivant prepare Threads pour les handlers Agent : `run_search_and_interact` et `run_feed_and_interact` acceptent maintenant un `startup` injecte, tout en conservant `threads_startup()` comme comportement par defaut des bridges.
+- un sous-lot suivant branche Threads sur le noyau agent : `social_media/threads/workflows/agent_handler.py` enregistre `threads.automation.follow/target/feed` avec startup injecte obligatoire, sans connexion device dans le handler.
 - une regle structurelle est ajoutee : les handlers reels `WorkflowRegistry` vivent chez l'owner plateforme du workflow et restent des adapters injectables, pas des bridges bis ni des planners.
 
 ## Audit `clone` / `compat` au 2026-05-31
