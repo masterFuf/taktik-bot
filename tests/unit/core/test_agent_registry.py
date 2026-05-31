@@ -1,4 +1,11 @@
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.agent import (
+    AgentPlan,
+    AgentPlanExecutor,
+    MissingWorkflowHandlersError,
+    PlanStep,
+    WorkflowInvocation,
+    WorkflowRegistry,
+)
 
 
 def test_workflow_registry_registers_and_resolves_handlers():
@@ -131,8 +138,13 @@ def test_agent_plan_executor_rejects_missing_handlers_before_partial_execution()
 
     try:
         executor.execute(plan)
-    except ValueError as exc:
-        assert "No workflow handler registered for: tiktok.automation.for_you" in str(exc)
+    except MissingWorkflowHandlersError as exc:
+        assert exc.workflow_ids == ("tiktok.automation.for_you",)
+        assert exc.to_payload() == {
+            "error_type": "missing_workflow_handlers",
+            "message": "No workflow handler registered for: tiktok.automation.for_you",
+            "workflow_ids": ["tiktok.automation.for_you"],
+        }
     else:
         raise AssertionError("Expected missing workflow handler preflight to fail")
 

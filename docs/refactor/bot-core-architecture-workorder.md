@@ -92,6 +92,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant ajoute `scripts/audit_selector_hardcodes.py` comme garde-fou read-only : le runtime Instagram/TikTok ne peut plus ajouter de nouvelles signatures UI inline hors catalogues selectors/langage sans echec explicite, tandis que la dette legacy restante est allowlistee et visible.
 - un sous-lot suivant renforce le noyau `core/agent` avant le branchement de vrais workflows Android : le registre/runtime peuvent pre-valider les handlers manquants d'un `AgentPlan`, et l'executor refuse un plan incomplet avant tout event ou effet de bord.
 - un sous-lot suivant clarifie encore `core/agent/kernel` : `contracts.py` porte seulement les dataclasses de plan/event, tandis que les ports d'injection IA vivent dans `kernel/ports.py`.
+- un sous-lot suivant ajoute `kernel/errors.py` pour les erreurs structurees du noyau agent, en commencant par les handlers workflow manquants avec payload JSON-safe.
 
 ## Audit `clone` / `compat` au 2026-05-31
 

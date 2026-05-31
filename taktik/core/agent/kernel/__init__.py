@@ -7,6 +7,7 @@ from taktik.core.agent.kernel.contracts import (
     PlanStep,
     WorkflowInvocation,
 )
+from taktik.core.agent.kernel.errors import MissingWorkflowHandlersError
 from taktik.core.agent.kernel.executor import AgentPlanExecutor
 from taktik.core.agent.kernel.ports import AgentAIService, AgentAIServiceFactory
 from taktik.core.agent.kernel.registry import WorkflowRegistry
@@ -20,6 +21,7 @@ __all__ = [
     "AgentPlan",
     "AgentPlanExecutor",
     "AgentRuntime",
+    "MissingWorkflowHandlersError",
     "PlanStep",
     "WorkflowInvocation",
     "WorkflowRegistry",

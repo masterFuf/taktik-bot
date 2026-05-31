@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Optional
 
 from taktik.core.agent.kernel.contracts import AgentEvent, AgentPlan, PlanStep
+from taktik.core.agent.kernel.errors import MissingWorkflowHandlersError
 from taktik.core.agent.kernel.registry import WorkflowRegistry
 
 
@@ -23,8 +24,7 @@ class AgentPlanExecutor:
         events: List[AgentEvent] = []
         missing_handlers = self.registry.missing_for_plan(plan)
         if missing_handlers:
-            joined = ", ".join(missing_handlers)
-            raise ValueError(f"No workflow handler registered for: {joined}")
+            raise MissingWorkflowHandlersError(missing_handlers)
 
         for step in plan.steps:
             if step.kind != "workflow" or step.workflow is None:
