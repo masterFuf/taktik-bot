@@ -66,6 +66,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B25 | Fait | Migrer dev/prod vers le launcher unique, pointer manifest/launcher/build sur les modules scopees, supprimer les wrappers racine. | Launcher smoke + `compileall` + `check_bridge_manifest` + `git diff --check`. |
 | B26 | Fait | Decouper le bridge Instagram desktop automation : diagnostics debug sous `instagram/diagnostics/`, parsing CLI/stdin sous `automation/input.py`, media capture sous `automation/media_capture.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B27 | Fait | Extraire le runner workflow Instagram desktop sous `automation/workflow_runner.py` et le setup IA sous `automation/ai_runtime.py`. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
+| B28 | Fait | Extraire le runtime bridge Instagram desktop sous `automation/runtime.py` : SQLite, device connection, app launch, network reset et cleanup app. | Import smoke + launcher smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 
 ## Notes de compatibilite
 
