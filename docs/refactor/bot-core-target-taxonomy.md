@@ -172,6 +172,42 @@ taktik/core/
 Cette variante bouge moins de chemins, mais elle ne corrige pas completement
 l'impression de "racine en vrac".
 
+## Etat physique conserve au 2026-05-31
+
+On applique pour l'instant la variante conservative : la racine `core/` garde
+ses familles historiques, mais chaque famille runtime doit etre lisible de
+l'interieur.
+
+```text
+taktik/core/
+  social_media/          # metier plateforme
+  shared/                # primitives techniques partagees
+  database/              # persistence
+
+  agent/                 # runtime kernel d'orchestration
+    kernel/
+    io/
+    decision/
+    scenarios/
+
+  ai/                    # integrations IA
+    providers/
+    comments/
+
+  config/                # configuration runtime
+  security/              # securite runtime
+  email/                 # integration Gmail
+  media/                 # facade media legacy + sous-domaines techniques
+  recorder/              # facade recorder legacy
+  device/                # compat vers shared/device
+  clone/                 # runtime clone/package-aware
+  compat/                # compat/versioning selectors
+```
+
+Regle pratique : avant d'introduire `app/` ou `runtime/` a la racine, on doit
+avoir termine l'audit de chaque famille et verifier les imports bridges/scripts.
+Sinon on ne ferait que deplacer le desordre dans un nouveau dossier.
+
 ## Recommandation pratique
 
 Je recommande une migration en **2 etapes** :

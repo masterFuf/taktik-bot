@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `clone/**` and `compat/**` now have an explicit structural audit: `clone` owns package/clone runtime, `compat/selectors` owns selector versioning/tracing, and top-level compat modules remain legacy shims only.
 - `taktik/core/agent` is now physically split into scoped owners: `kernel/`, `io/`, `decision/`, and `scenarios/`; the package root is kept as a public facade through `__init__.py`.
 - `taktik/core/ai` is now physically split into `providers/` and `comments/`, keeping the package root as a public facade through `__init__.py`.
+- The target taxonomy now documents the conservative physical state of `taktik/core`: root families stay stable for now, while runtime packages are cleaned internally before any future `app/` / `runtime/` move.
 
 ### Notes
 - Public compatibility aggregates such as `POST_SELECTORS`, `VIDEO_SELECTORS`, and `PUBLISH_SELECTORS` are intentionally kept for now pending broader manual workflow validation.
