@@ -84,31 +84,6 @@ class ContentUIHelpersMixin:
             return False
 
     def _handle_reel_draft_modal(self) -> bool:
-        """Gérer la modale 'Keep editing your draft?' en cliquant sur 'Start new video'."""
-        try:
-            # Detect via headline text or auxiliary_button resource-id
-            draft_headline = self.device(resourceId=self.content_selectors.draft_headline,
-                                         text="Keep editing your draft?")
-            if not draft_headline.exists(timeout=3):
-                # Try French variant
-                draft_headline = self.device(resourceId=self.content_selectors.draft_headline)
-
-            aux_button = self.device(resourceId=self.content_selectors.auxiliary_button)
-            if aux_button.exists(timeout=3):
-                self.logger.debug("Found reel draft modal — clicking 'Start new video'")
-                aux_button.click()
-                time.sleep(2)
-                self.logger.debug("✅ Reel draft modal dismissed (Start new video)")
-                return True
-
-            self.logger.debug("No reel draft modal detected")
-            return False
-
-        except Exception as e:
-            self.logger.warning(f"Error handling reel draft modal: {e}")
-            return False
-
-    def _handle_reel_draft_modal(self) -> bool:
         """Detect the reel draft modal and immediately reset it with 'Start new video'."""
         try:
             headline_detected = False
