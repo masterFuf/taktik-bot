@@ -123,6 +123,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B74 | Fait | Extraire la recherche/ouverture d'une conversation Instagram DM sous `engagement/runtime/dm_conversation_navigation.py`; `dm_navigation.py` garde seulement l'entree vers l'inbox. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B75 | Fait | Extraire la recuperation d'URL post Smart Comment sous `engagement/runtime/smart_comment_post_url.py`; `smart_comment_post_context.py` garde caption/date/stats et l'event `post_context`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B76 | Fait | Extraire l'extraction des stats post Smart Comment sous `engagement/runtime/smart_comment_post_stats.py`; `smart_comment_post_context.py` garde caption/date/auteur et l'event `post_context`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B77 | Fait | Extraire la verification fingerprint date/caption Smart Comment sous `engagement/runtime/smart_comment_post_fingerprint.py`; `smart_comment_navigation.py` garde la navigation post/commentaires. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

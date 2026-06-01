@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import re
 import subprocess
 import time
 
+from bridges.instagram.engagement.runtime.smart_comment_post_fingerprint import SmartCommentPostFingerprintMixin
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_COMMENTS_SELECTORS,
@@ -13,59 +13,8 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
 )
 
 
-class SmartCommentNavigationMixin:
+class SmartCommentNavigationMixin(SmartCommentPostFingerprintMixin):
     """Navigate to the exact post used by Smart Comment reply mode."""
-
-    def verify_post_fingerprint(self) -> bool:
-        """Verify we're on the correct post by checking date and caption prefix."""
-        expected_date = self.config.get("postDate", "").strip()
-        expected_caption = self.config.get("captionPrefix", "").strip()
-
-        if not expected_date and not expected_caption:
-            logger.debug("No post fingerprint in config — skipping verification")
-            return True
-
-        try:
-            actual_date = ""
-            header = self.device(resourceId=POST_DETAIL_SELECTORS.post_profile_header_resource_id)
-            if header.exists:
-                desc = header.info.get("contentDescription", "") or ""
-                date_match = re.search(
-                    r"((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})",
-                    desc,
-                )
-                if date_match:
-                    actual_date = date_match.group(1)
-
-            actual_caption = ""
-            caption_elem = self.device(className=POST_DETAIL_SELECTORS.caption_layout_class_name)
-            if caption_elem.exists:
-                actual_caption = (caption_elem.get_text() or "").strip()
-                author = self.config.get("targetUsername", "").strip().lstrip("@")
-                if author and actual_caption.lower().startswith(author.lower()):
-                    actual_caption = actual_caption[len(author):].strip()
-                actual_caption = re.sub(r"\s+(more|plus|less|moins)\s*$", "", actual_caption)
-
-            if expected_date and actual_date:
-                if expected_date.lower() != actual_date.lower():
-                    logger.warning(f"Post date mismatch! Expected: '{expected_date}', Got: '{actual_date}'")
-                    return False
-                logger.info(f"Post date verified: {actual_date}")
-
-            if expected_caption and actual_caption:
-                prefix_len = min(len(expected_caption), 80)
-                expected_prefix = expected_caption[:prefix_len].lower()
-                actual_prefix = actual_caption[:prefix_len].lower()
-                if expected_prefix != actual_prefix:
-                    logger.warning(f"Caption prefix mismatch! Expected: '{expected_prefix[:60]}...', Got: '{actual_prefix[:60]}...'")
-                    return False
-                logger.info(f"Caption prefix verified ({prefix_len} chars match)")
-
-            return True
-
-        except Exception as e:
-            logger.warning(f"Error verifying post fingerprint: {e}")
-            return True
 
     def navigate_to_post_url(self, post_url: str) -> bool:
         """Navigate directly to a specific post via its URL using Android deep link."""
