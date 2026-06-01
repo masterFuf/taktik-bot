@@ -151,6 +151,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B102 | Fait | Extraire le setup DB et la connexion device du bridge Instagram Taktik Agent sous `agent/runtime/session.py`, en preservant l'erreur JSON de connexion. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B103 | Fait | Extraire le listener stdin `stop` du bridge Instagram Taktik Agent sous `agent/runtime/stop_listener.py`; le bridge garde lancement app et orchestration workflow. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B104 | Fait | Extraire le lancement Instagram + runner workflow du bridge Taktik Agent sous `agent/runtime/workflow.py`, sans deplacer le noyau `taktik/core/agent`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B105 | Fait | Extraire la navigation recherche Cold DM (`navigate_to_search`, `search_user`) sous `engagement/runtime/cold_dm_search.py`; `cold_dm_navigation.py` garde profil/home/back. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

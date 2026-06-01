@@ -20,11 +20,18 @@ from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNaviga
 from bridges.instagram.engagement.runtime.cold_dm_progress import emit_cold_dm_progress
 from bridges.instagram.engagement.runtime.cold_dm_recipients import ColdDMRecipientMixin
 from bridges.instagram.engagement.runtime.cold_dm_results import apply_cold_dm_send_result
+from bridges.instagram.engagement.runtime.cold_dm_search import ColdDMSearchMixin
 from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
 from bridges.instagram.engagement.runtime.cold_dm_timing import wait_before_next_cold_dm
 
 
-class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMixin, InstagramBridgeBase):
+class ColdDMWorkflow(
+    ColdDMRecipientMixin,
+    ColdDMSearchMixin,
+    ColdDMSenderMixin,
+    ColdDMNavigationMixin,
+    InstagramBridgeBase,
+):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
 
     def __init__(self, device_id: str, package_name: str = None):
