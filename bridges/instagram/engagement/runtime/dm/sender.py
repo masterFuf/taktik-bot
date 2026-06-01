@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 import time
 
+from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
@@ -18,13 +19,8 @@ class DMSenderMixin:
         This avoids issues with emojis and special characters while still
         appearing natural (not instant).
         """
-        # Calculate realistic typing time: ~40-80ms per character for a fast typer.
-        char_count = len(text)
-        base_time = char_count * random.uniform(0.03, 0.05)
-        thinking_time = random.uniform(0.5, 1.5)
-        total_time = min(base_time + thinking_time, 5.0)
-
-        logger.info(f"Simulating typing for {total_time:.1f}s ({char_count} chars)...")
+        total_time = calculate_dm_typing_delay(text)
+        logger.info(f"Simulating typing for {total_time:.1f}s ({len(text)} chars)...")
         time.sleep(total_time)
 
     def _find_message_input(self):

@@ -260,6 +260,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B198 | Fait | Extraire les emitters stdout JSON du bridge Instagram DM sous `engagement/runtime/dm/events.py`; commandes et reader conservent les memes payloads. | Emitter smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke dm-bridge + `compileall` + `git diff --check`. |
 | B199 | Fait | Extraire les helpers de resultat Cold DM (`validation`, `all recipients processed`, `summary`) sous `engagement/runtime/cold_dm/results.py`; la boucle Android reste dans `workflow.py`. | Result helpers smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher smoke cold-dm + `compileall` + `git diff --check`. |
 | B200 | Fait | Extraire les helpers data-only du reader Instagram DM (`thread sorting`, username normalization/dedup, payload conversation) sous `engagement/runtime/dm/conversation_payload.py`; la navigation UI reste dans `reader.py`. | Payload helpers smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke dm-bridge + `compileall` + `git diff --check`. |
+| B201 | Fait | Extraire le calcul de delai de frappe Instagram DM sous `engagement/runtime/dm/timing.py`; `sender.py` garde uniquement input device et bouton d'envoi. | Timing helper smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke dm-bridge + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
