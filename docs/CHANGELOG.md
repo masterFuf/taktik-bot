@@ -137,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Common bridge config-file entrypoint helpers (`load_bridge_config`, `run_bridge_main`) moved under `bridges/common/runtime/entrypoint.py`; `bridge_base.py` keeps compatibility re-exports.
 - Common bridge standalone app control now lives under `bridges/common/device/app_control.py`; `app_manager.py` keeps `AppService` lifecycle behavior and re-exports `force_stop_app` for compatibility.
 - Gmail account bridge now uses the common config-file entrypoint helper, keeping `account.py` focused on bridge workflow orchestration.
+- Gmail account bridge persistence adapters moved under `bridges/gmail/account/runtime/persistence.py`, keeping repository calls out of the bridge orchestration class.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

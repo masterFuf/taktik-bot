@@ -24,6 +24,10 @@ setup_environment()
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
+from bridges.gmail.account.runtime.persistence import (
+    persist_gmail_account,
+    unpersist_gmail_account,
+)
 from bridges.gmail.base import _ipc, send_error, send_log, send_message, send_status
 from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
 
@@ -101,7 +105,7 @@ class GmailAccountBridge:
             workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.ensure_account_added(email, password)
             if result.get("success"):
-                self._persist_account(email)
+                persist_gmail_account(email, self.device_id, send_log)
             return self._finish_account_result(result, workflow_type="login", email=email)
         except Exception as exc:  # noqa: BLE001
             import traceback
@@ -123,7 +127,7 @@ class GmailAccountBridge:
             workflow = GmailWorkflow(device, self.device_id, notifier=_ipc)
             result = workflow.open_account_removal_settings(email=email)
             if result.get("success"):
-                self._unpersist_account(email)
+                unpersist_gmail_account(email, send_log)
             return self._finish_account_result(result, workflow_type="logout", email=email)
         except Exception as exc:  # noqa: BLE001
             import traceback
@@ -176,7 +180,7 @@ class GmailAccountBridge:
                 for account in result.get("accounts", []):
                     email = account.get("email") if isinstance(account, dict) else None
                     if email:
-                        self._persist_account(email)
+                        persist_gmail_account(email, self.device_id, send_log)
             success = bool(result.get("success"))
             send_status("success" if success else "error", result.get("message", ""))
             send_message(
@@ -216,19 +220,6 @@ class GmailAccountBridge:
             payload.update(extra)
         send_message("account_result", **payload)
         return 0 if success else 1
-
-    def _persist_account(self, email: str) -> None:
-        from taktik.core.database.repositories.gmail import GmailAccountRepository
-
-        if not GmailAccountRepository().upsert(email, self.device_id):
-            send_log("warning", f"Could not persist Gmail account {email}")
-
-    def _unpersist_account(self, email: str) -> None:
-        from taktik.core.database.repositories.gmail import GmailAccountRepository
-
-        if not GmailAccountRepository().delete(email):
-            send_log("warning", f"Could not unpersist Gmail account {email}")
-
 
 def main() -> None:
     run_bridge_main(GmailAccountBridge, usage="gmail_account_bridge.py <config_path>")
