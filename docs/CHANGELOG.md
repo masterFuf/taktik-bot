@@ -125,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok runtime IPC video/action/stats events and DM events moved under `runtime/ipc_video_events.py` and `runtime/ipc_dm_events.py`, while `runtime/ipc.py` keeps the same public exports.
 - TikTok DM read/send bridge callback wiring moved under `workflows/engagement/runtime/dm_callbacks.py`, preserving `dm_conversation`, `dm_progress`, `dm_stats` and `dm_sent` events.
 - TikTok For You bridge payload-to-config mapping moved under `workflows/automation/runtime/for_you_config.py`.
+- TikTok Followers bridge target-switch, workflow-start and final stats/status events moved under `workflows/automation/runtime/followers_events.py`.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

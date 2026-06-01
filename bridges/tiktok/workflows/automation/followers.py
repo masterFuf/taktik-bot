@@ -7,9 +7,14 @@ import time
 from typing import Dict, Any
 
 from bridges.tiktok.runtime.ipc import (
-    logger, send_status, send_message, send_error, set_workflow
+    logger, send_status, send_error, set_workflow
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.workflows.automation.runtime.followers_events import (
+    send_final_followers_stats,
+    send_followers_workflow_start,
+    send_target_switch,
+)
 from bridges.tiktok.workflows.automation.runtime.followers_planning import (
     build_followers_config,
     build_target_list,
@@ -99,12 +104,7 @@ def run_followers_workflow(config: Dict[str, Any]):
             logger.info(f"📊 Max profiles for this target: {target_max_followers}")
             logger.info(f"{'='*50}")
             
-            # Send target switch event to frontend
-            send_message("target_switch", 
-                        current_target=current_target,
-                        target_index=target_idx,
-                        total_targets=len(target_list),
-                        next_target=target_list[target_idx + 1] if target_idx + 1 < len(target_list) else None)
+            send_target_switch(current_target, target_idx, target_list)
             
             workflow_config = build_followers_config(
                 FollowersConfig,
@@ -121,11 +121,7 @@ def run_followers_workflow(config: Dict[str, Any]):
             workflow = FollowersWorkflow(manager.device_manager.device, workflow_config)
             set_workflow(workflow)
             
-            # Send workflow start event with target info
-            send_message("workflow_start", 
-                        target=current_target,
-                        targets=target_list,
-                        current_target_index=target_idx)
+            send_followers_workflow_start(current_target, target_list, target_idx)
             
             wire_followers_callbacks(
                 workflow,
@@ -165,16 +161,10 @@ def run_followers_workflow(config: Dict[str, Any]):
                 if not return_to_tiktok_home(manager.device_manager.device, logger=logger):
                     logger.warning("Could not navigate to home, trying next target anyway...")
         
-        # Send final aggregated stats
         total_stats['completion_reason'] = completion_reason
-        send_message("followers_stats", stats=total_stats)
         
         logger.success(f"✅ Multi-target workflow completed: {total_stats}")
-        
-        # Send completion status
-        send_message("status", status="completed", 
-                     message=f"Visited {total_stats['profiles_visited']} profiles across {len(target_list)} targets",
-                     completion_reason=total_stats.get('completion_reason', 'completed'))
+        send_final_followers_stats(total_stats, len(target_list))
         
         return True
         
