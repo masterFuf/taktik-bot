@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Smart Comment post navigation now uses scoped post/comment selector catalogs for landing verification and comment-title probes instead of hardcoded post action resource ids.
 - Instagram Smart Comment post-context extraction now uses scoped post selectors for caption expansion, author/media probes and share/copy-link UI while preserving the `post_context` event payload.
 - Instagram Account bridge session lifecycle now lives under `account/runtime/session.py`, leaving `account/account.py` focused on validation and workflow dispatch while preserving JSON stdout messages.
+- Instagram Account bridge CLI/config loading moved under `account/runtime/commands.py`, keeping the public launcher behavior and usage JSON unchanged.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

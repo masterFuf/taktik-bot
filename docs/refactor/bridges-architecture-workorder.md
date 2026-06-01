@@ -128,6 +128,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B79 | Fait | Extraire le positionnement session du bridge Instagram DM (`ensure_dm_inbox`, `return_to_inbox`) sous `engagement/runtime/dm_session.py`; `dm_commands.py` garde le parsing CLI et les reponses JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B80 | Fait | Extraire les runners login/logout/register du bridge Instagram Account sous `account/runtime/workflows.py`; `account/account.py` garde config, DB, device/app launch et dispatch. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B81 | Fait | Extraire le lifecycle session du bridge Instagram Account sous `account/runtime/session.py` : setup DB, connexion device, lancement Instagram et attente startup. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B82 | Fait | Extraire le parsing CLI/config du bridge Instagram Account sous `account/runtime/commands.py`; l'entrypoint garde bootstrap, signaux, classe bridge et `main()`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

@@ -32,7 +32,6 @@ Config JSON fields:
 
 import sys
 import os
-import json
 import signal
 
 # Bootstrap: UTF-8 + loguru + sys.path
@@ -48,6 +47,7 @@ from bridges.instagram.runtime.ipc import (
 )
 from bridges.instagram.account.runtime.session import AccountSessionLifecycleMixin
 from bridges.instagram.account.runtime.workflows import AccountWorkflowRunnerMixin
+from bridges.instagram.account.runtime.commands import run_account_bridge
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 
 
@@ -96,20 +96,7 @@ class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
             return 1
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"type": "error", "message": "Usage: account_bridge.py <config_path>"}))
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except Exception as e:
-        send_error(f"Failed to load config: {e}")
-        sys.exit(1)
-
-    bridge = AccountBridge(config)
-    sys.exit(bridge.run())
+    sys.exit(run_account_bridge(AccountBridge))
 
 
 if __name__ == '__main__':
