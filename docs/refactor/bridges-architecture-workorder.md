@@ -167,6 +167,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B117 | Fait | Extraire la classe runtime `TikTokAccountBridge` sous `account/runtime/bridge.py`; `account/account.py` reste l'entrypoint public reference par le manifest. | Import smoke TikTok Account + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B118 | Fait | Extraire la classe runtime `TikTokPublishBridge` et le parsing CLI sous `publish/runtime/**`; `publish/publish.py` reste l'entrypoint public reference par le manifest. | Import smoke TikTok Publish + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B119 | Fait | Extraire le notifier, l'adapter persistence sent-DM et le runner workflow TikTok DM Outreach sous `engagement/runtime/dm_outreach.py`; `engagement/dm_outreach.py` reste l'entrypoint stdin public reference par le manifest. | Import smoke DM Outreach + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher stdin smoke + `compileall` + `git diff --check`. |
+| B120 | Fait | Extraire le runner workflow et les callbacks stdout TikTok Unfollow sous `automation/runtime/unfollow.py`; `automation/unfollow.py` reste l'entrypoint stdin public reference par le manifest. | Import smoke Unfollow + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher stdin smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

@@ -117,6 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok account bridge runtime class moved under `account/runtime/bridge.py`; `account/account.py` remains the public manifest entrypoint.
 - TikTok publish bridge CLI and runtime class moved under `publish/runtime/**`; `publish/publish.py` remains the public manifest entrypoint.
 - TikTok DM Outreach bridge notifier, sent-DM persistence adapter and workflow runner moved under `engagement/runtime/dm_outreach.py`; `engagement/dm_outreach.py` remains the public stdin entrypoint.
+- TikTok Unfollow bridge workflow runner and stdout callbacks moved under `automation/runtime/unfollow.py`; `automation/unfollow.py` remains the public stdin entrypoint.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

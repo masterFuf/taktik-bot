@@ -1,99 +1,19 @@
-﻿#!/usr/bin/env python3
-"""
-TikTok Unfollow Bridge - Unfollow workflow for TikTok
-Runs as standalone script, reads config from stdin
-"""
+#!/usr/bin/env python3
+"""TikTok Unfollow bridge entrypoint."""
 
-import sys
-import os
+from __future__ import annotations
+
 import json
-from typing import Dict, Any
+import os
+import sys
 
-# Bootstrap sys.path so absolute imports work when run as standalone script
+
 _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.tiktok.runtime.ipc import (
-    logger, send_status, send_message,
-    send_error, set_workflow
-)
-from bridges.tiktok.runtime.startup import tiktok_startup
-
-
-def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
-    """Run the TikTok Unfollow workflow."""
-    device_id = config.get('deviceId')
-    # Support both camelCase and snake_case from frontend
-    max_unfollows = config.get('maxUnfollows') or config.get('max_unfollows', 20)
-    bot_username = config.get('botUsername')
-    include_friends = not (config.get('skipFriends') or config.get('skip_friends', True))
-
-    if not device_id:
-        send_error("No device ID provided")
-        return False
-
-    logger.info(f"ðŸ‘‹ Starting TikTok Unfollow workflow on device: {device_id}")
-    if bot_username:
-        logger.info(f"ðŸ“Š Bot account: @{bot_username}")
-    logger.info(f"ðŸŽ¯ Max unfollows: {max_unfollows}")
-    send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
-
-    try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import (
-            UnfollowWorkflow, UnfollowConfig
-        )
-
-        # Common startup: connect, restart, navigate home
-        manager, _ = tiktok_startup(device_id, fetch_profile=True)
-
-        # Create workflow config
-        wf_config = UnfollowConfig(
-            max_unfollows=max_unfollows,
-            include_friends=include_friends,
-            min_delay=config.get('minDelay', 1.0),
-            max_delay=config.get('maxDelay', 3.0),
-        )
-
-        workflow = UnfollowWorkflow(manager.device_manager.device, wf_config)
-        set_workflow(workflow)
-
-        # Wire IPC callbacks
-        def on_unfollow(username, count):
-            send_message("unfollow_event", event="unfollowed", username=username, count=count)
-
-        def on_skip(username):
-            send_message("unfollow_event", event="skipped", reason="friends", username=username)
-
-        def on_stats(stats_dict):
-            stats_dict["target"] = max_unfollows
-            send_message("unfollow_stats", stats=stats_dict)
-
-        workflow.set_on_unfollow_callback(on_unfollow)
-        workflow.set_on_skip_callback(on_skip)
-        workflow.set_on_stats_callback(on_stats)
-
-        # Run
-        send_status("running", f"Unfollowing users (0/{max_unfollows})")
-        stats = workflow.run()
-
-        # Final stats + completion
-        send_message("unfollow_stats", stats={"unfollowed": stats.unfollowed, "target": max_unfollows})
-        logger.success(f"âœ… Unfollow workflow completed: {stats.unfollowed} users unfollowed")
-        send_status("completed", f"Unfollowed {stats.unfollowed} users")
-
-        return True
-
-    except ImportError as e:
-        error_msg = f"Import error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
-        return False
-    except Exception as e:
-        error_msg = f"Unfollow workflow error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
-        return False
+from bridges.tiktok.automation.runtime.unfollow import run_unfollow_workflow
+from bridges.tiktok.runtime.ipc import logger, send_error
 
 
 def main():
@@ -101,7 +21,6 @@ def main():
     logger.info("ðŸŽµ TikTok Unfollow Bridge starting...")
 
     try:
-        # Read config from stdin
         config_line = sys.stdin.readline()
         if not config_line:
             send_error("No config received from stdin")
@@ -109,23 +28,20 @@ def main():
             sys.exit(1)
 
         config_data = json.loads(config_line)
-        device_id = config_data.get('device_id')
-        config = config_data.get('config', {})
-
-        # Merge device_id into config
-        config['deviceId'] = device_id
+        device_id = config_data.get("device_id")
+        config = config_data.get("config", {})
+        config["deviceId"] = device_id
 
         logger.info(f"ðŸ“‹ Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
 
-        # Run workflow
         success = run_unfollow_workflow(config)
 
         if success:
             logger.success("âœ… TikTok Unfollow workflow completed successfully")
             sys.exit(0)
-        else:
-            logger.error("âŒ TikTok Unfollow workflow failed")
-            sys.exit(1)
+
+        logger.error("âŒ TikTok Unfollow workflow failed")
+        sys.exit(1)
 
     except json.JSONDecodeError as e:
         send_error(f"Invalid JSON config: {e}")
