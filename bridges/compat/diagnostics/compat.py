@@ -33,6 +33,12 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.runtime.ipc import IPC
+from bridges.compat.diagnostics.runtime.registry_commands import (
+    handle_check_selectors,
+    handle_get_registry,
+    handle_get_selector,
+    handle_list_actions,
+)
 from loguru import logger
 
 
@@ -82,77 +88,6 @@ def main():
     else:
         ipc.send("error", error=f"Unknown command: {command}", error_code="UNKNOWN_COMMAND")
         sys.exit(1)
-
-
-def handle_get_registry(ipc: IPC, registry, app_name: str, version: str):
-    """Return the full selector registry as JSON."""
-    try:
-        data = registry.to_dict(app_name, version)
-        ipc.send("registry_data", **data)
-    except Exception as e:
-        ipc.send("error", error=str(e), error_code="REGISTRY_ERROR")
-
-
-def handle_list_actions(ipc: IPC, registry, app_name: str):
-    """List all known action names for an app."""
-    try:
-        actions = registry.list_actions(app_name)
-        ipc.send("actions_list", app=app_name, actions=actions, count=len(actions))
-    except Exception as e:
-        ipc.send("error", error=str(e), error_code="LIST_ERROR")
-
-
-def handle_get_selector(ipc: IPC, registry, app_name: str, version: str, action: str):
-    """Get a specific selector."""
-    from taktik.core.compat.selectors import SelectorNotFound
-
-    try:
-        entry = registry.get(app_name, version, action)
-        ipc.send(
-            "selector",
-            app=app_name,
-            version=version,
-            action=action,
-            xpaths=entry.xpaths,
-            source=entry.source,
-        )
-    except SelectorNotFound as e:
-        ipc.send(
-            "selector_not_found",
-            app=e.app,
-            version=e.version,
-            action=e.action,
-        )
-    except Exception as e:
-        ipc.send("error", error=str(e), error_code="SELECTOR_ERROR")
-
-
-def handle_check_selectors(ipc: IPC, registry, app_name: str, version: str):
-    """Validate all selectors exist for a version, report any missing."""
-    try:
-        all_selectors = registry.get_all(app_name, version)
-        current_version = registry.get_current_version(app_name)
-        override_versions = registry.get_override_versions(app_name)
-
-        # Count sources
-        python_count = sum(1 for e in all_selectors.values() if e.source == "python")
-        yaml_count = sum(1 for e in all_selectors.values() if e.source == "yaml")
-
-        ipc.send(
-            "check_result",
-            app=app_name,
-            version=version,
-            current_version=current_version,
-            override_versions=override_versions,
-            total_selectors=len(all_selectors),
-            python_selectors=python_count,
-            yaml_selectors=yaml_count,
-            is_current_version=(version == current_version),
-            status="OK",
-        )
-    except Exception as e:
-        ipc.send("error", error=str(e), error_code="CHECK_ERROR")
-
 
 if __name__ == "__main__":
     main()

@@ -227,6 +227,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B165 | Fait | Extraire l'observabilite workflow-test compat (log sink IPC, IPCEmitter hooks, heartbeat watchdog, snapshot stats) vers `runtime/workflow_observability.py`. | Import smoke workflow observability + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B166 | Fait | Extraire les runners reels Instagram/TikTok du workflow-test compat vers `runtime/workflow_runners.py`; l'entrypoint garde lifecycle, dispatch et reporting. | Import smoke workflow runners + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B167 | Fait | Extraire le build config Instagram automation et l'instrumentation `WorkflowRunner` du workflow-test compat vers `runtime/instagram_automation.py`. | Import smoke instagram automation runtime + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B168 | Fait | Extraire les handlers de commandes registry du bridge compat vers `runtime/registry_commands.py`; `compat.py` garde parsing config, init registry et dispatch. | Import smoke registry commands + launcher JSON smoke compat + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
