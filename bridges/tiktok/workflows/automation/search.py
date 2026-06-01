@@ -18,6 +18,7 @@ from bridges.tiktok.workflows.automation.runtime.search_callbacks import (
     return_to_tiktok_home,
     setup_search_workflow_callbacks,
 )
+from bridges.tiktok.workflows.automation.runtime.search_config import build_search_config
 from bridges.tiktok.workflows.automation.runtime.search_planning import (
     format_query_label,
     normalize_search_queries,
@@ -93,23 +94,13 @@ def run_search_workflow(config: Dict[str, Any]):
                     workflow_type=workflow_type,
                 )
 
-            workflow_config = SearchConfig(
-                search_query=search_query,
-                max_videos=query_max_videos,
-                min_watch_time=config.get("minWatchTime", 2.0),
-                max_watch_time=config.get("maxWatchTime", 8.0),
-                like_probability=config.get("likeProbability", 30) / 100.0,
-                follow_probability=config.get("followProbability", 10) / 100.0,
-                favorite_probability=config.get("favoriteProbability", 5) / 100.0,
-                min_likes=config.get("minLikes"),
-                max_likes=config.get("maxLikes"),
-                max_likes_per_session=remaining_likes,
-                max_follows_per_session=remaining_follows,
-                skip_already_liked=config.get("skipAlreadyLiked", True),
-                skip_ads=config.get("skipAds", True),
-                pause_after_actions=config.get("pauseAfterActions", 10),
-                pause_duration_min=config.get("pauseDurationMin", 30.0),
-                pause_duration_max=config.get("pauseDurationMax", 60.0),
+            workflow_config = build_search_config(
+                SearchConfig,
+                config,
+                search_query,
+                query_max_videos,
+                remaining_likes,
+                remaining_follows,
             )
 
             send_status("running", f"Searching for: {display_query}")
