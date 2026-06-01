@@ -7,11 +7,13 @@ from typing import Any
 
 from bridges.instagram.runtime.ipc import (
     logger,
-    send_error,
     send_log,
     send_message,
-    send_stats,
     send_status,
+)
+from bridges.instagram.automation.runtime.events import (
+    send_instagram_workflow_error,
+    send_instagram_workflow_final_stats,
 )
 
 
@@ -72,13 +74,13 @@ class InstagramAutomationRunner:
 
             send_status("running", "Running workflow...")
             self.automation.run_workflow()
-            self._send_final_stats()
+            send_instagram_workflow_final_stats(self.automation.stats)
 
             send_status("completed", "Workflow completed successfully")
             return True
 
         except Exception as e:
-            self._send_workflow_error(e)
+            send_instagram_workflow_error(e)
             logger.exception("Workflow error")
             return False
 
@@ -125,26 +127,3 @@ class InstagramAutomationRunner:
             language=self.language,
             log=send_log,
         )
-
-    def _send_final_stats(self) -> None:
-        stats = self.automation.stats
-        send_stats(
-            likes=stats.get("likes", 0),
-            follows=stats.get("follows", 0),
-            comments=stats.get("comments", 0),
-            profiles=stats.get("interactions", 0),
-            unfollows=stats.get("unfollows", 0),
-        )
-
-    @staticmethod
-    def _send_workflow_error(error: Exception) -> None:
-        error_msg = str(error)
-        if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
-            send_error(
-                f"UIAutomator2 crashed during workflow: {error_msg}",
-                error_code="ATX_AGENT_CRASHED",
-            )
-        elif "timeout" in error_msg.lower():
-            send_error(f"Workflow timed out: {error_msg}", error_code="WORKFLOW_TIMEOUT")
-        else:
-            send_error(f"Workflow error: {error_msg}", error_code="WORKFLOW_ERROR")
