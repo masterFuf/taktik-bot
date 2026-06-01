@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YouTube account bridge login/logout adapters now live under `bridges/youtube/account/runtime/workflows.py`; `account.py` keeps config loading, session lifecycle and dispatch.
 - Instagram debug bridge device connection, screen analysis and problematic-page detection now live under `bridges/instagram/diagnostics/runtime/debug_actions.py`; `debug.py` keeps config/mode dispatch.
 - Common bridge IPC Agent events now live under `bridges/common/runtime/ipc_agent.py`; `ipc_ai.py` keeps AI-only events and `IPC` preserves the same public methods.
+- TikTok compatibility workflow-test runners are now split by family under `bridges/compat/diagnostics/runtime/tiktok_workflows/**`; `workflow_runners_tiktok.py` remains the stable public facade.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
