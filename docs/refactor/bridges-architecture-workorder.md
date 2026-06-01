@@ -157,6 +157,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B108 | Fait | Extraire les events IPC scraping/discovery Instagram (`profile_captured`, `profile_skipped`, `scraping_*`, `post_*`, `current_post`) sous `runtime/ipc_scraping_events.py`; `runtime/ipc.py` devient une facade publique mince. | Import smoke + tests IPC emitter + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B109 | Fait | Extraire la classe `PersonaAnalysisBridge` sous `analysis/runtime/persona_bridge.py`; `analysis/persona.py` reste l'entrypoint public reference par le manifest. | Import smoke persona + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B110 | Fait | Extraire l'orchestration locale du bridge scraping Instagram sous `scraping/runtime/runner.py`; `scraping/scraping.py` reste l'entrypoint public reference par le manifest. | Import smoke scraping + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B111 | Fait | Extraire la classe runtime `AccountBridge` sous `account/runtime/bridge.py`; `account/account.py` reste l'entrypoint public reference par le manifest. | Import smoke account + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
