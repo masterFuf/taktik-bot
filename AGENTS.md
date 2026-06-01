@@ -120,6 +120,7 @@ Definition simple :
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Quand un bridge diagnostics plateforme a besoin de support local (stdout JSON, registry d'actions, tracing selectors), le ranger sous `bridges/<platform>/diagnostics/runtime/**` plutot que de gonfler l'entrypoint diagnostics.
 - Quand un bridge diagnostics plateforme expose plusieurs familles d'actions manuelles, classer les definitions sous `bridges/<platform>/diagnostics/actions/**`; l'entrypoint charge ces familles et execute le registry.
+- Quand un bridge compat diagnostics expose des actions manuelles par plateforme, classer les catalogues sous `bridges/compat/diagnostics/actions/<platform>/**`; l'entrypoint compat doit seulement charger le registre et appeler le runner.
 - Les bridges Agent plateforme peuvent vivre sous `bridges/<platform>/agent/**`, mais le noyau d'orchestration durable reste sous `taktik/core/agent/**` et doit recevoir ses dependances par injection.
 - Les sous-modules `bridges/**/workflows/**` restent des adaptateurs de bridge : ils peuvent normaliser un payload et brancher les callbacks stdout, mais la logique durable doit continuer a vivre dans `taktik/core/social_media/**`.
 - Quand un runner sous `bridges/<platform>/workflows/<family>/` a besoin de support local (planning payload, aggregation stats, callbacks stdout), le ranger sous `bridges/<platform>/workflows/<family>/runtime/**`. Ne pas deplacer ce support dans `core` tant qu'il depend du contrat bridge stdout.
