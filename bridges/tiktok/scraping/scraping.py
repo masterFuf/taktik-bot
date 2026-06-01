@@ -7,78 +7,22 @@ Runs as standalone script, reads config from stdin
 import sys
 import time
 import json
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Dict, Any
 
 from bridges.tiktok.runtime.ipc import (
     logger, send_status, send_message, send_error, set_workflow, get_workflow
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
-from bridges.common.persistence.database import get_repository
-from taktik.core.database.repositories.tiktok.tiktok_repository import TikTokRepository
-from taktik.core.database.repositories.instagram.session.session_repository import SessionRepository
-
-
-def send_scraping_progress(scraped: int, total: int, current: str):
-    """Send scraping progress to frontend."""
-    send_message("scraping_progress", scraped=scraped, total=total, current=current)
-
-
-def send_scraped_profile(profile: Dict[str, Any]):
-    """Send a scraped profile to frontend."""
-    send_message("scraping_profile",
-                 username=profile.get('username', ''),
-                 followersCount=profile.get('followers_count', 0),
-                 followingCount=profile.get('following_count', 0),
-                 scrapedAt=datetime.now().isoformat())
-
-
-def send_scraping_completed(total_scraped: int):
-    """Send scraping completed event."""
-    send_message("scraping_completed", totalScraped=total_scraped)
-
-
-def save_scraping_session(source_type: str, source_name: str, total_scraped: int,
-                          status: str, duration_seconds: int, platform: str = 'tiktok') -> Optional[int]:
-    """Save scraping session to database and return session ID."""
-    try:
-        session_repo = get_repository(SessionRepository)
-        session_id = session_repo.create_scraping(
-            scraping_type=source_type,
-            source_type=source_type,
-            source_name=source_name,
-            platform=platform
-        )
-        logger.info(f"Saved scraping session {session_id} to database")
-        return session_id
-    except Exception as e:
-        logger.warning(f"Error saving scraping session: {e}")
-        return None
-
-
-def save_scraped_profile(session_id: int, profile: Dict[str, Any], platform: str = 'tiktok'):
-    """Save a scraped profile to database via TikTokRepository."""
-    try:
-        tiktok_repo = get_repository(TikTokRepository)
-        tiktok_repo.save_scraped_profile(session_id, profile)
-        logger.debug(f"Saved TikTok profile @{profile.get('username', '?')} to session {session_id}")
-    except Exception as e:
-        logger.warning(f"Error saving scraped profile: {e}")
-
-
-def update_scraping_session(session_id: int, total_scraped: int, status: str, duration_seconds: int):
-    """Update scraping session in database."""
-    try:
-        session_repo = get_repository(SessionRepository)
-        session_repo.update_scraping(
-            scraping_id=session_id,
-            total_scraped=total_scraped,
-            status=status,
-            duration_seconds=duration_seconds,
-            end_time=datetime.now().isoformat()
-        )
-    except Exception as e:
-        logger.warning(f"Error updating scraping session: {e}")
+from bridges.tiktok.scraping.runtime.events import (
+    send_scraped_profile,
+    send_scraping_completed,
+    send_scraping_progress,
+)
+from bridges.tiktok.scraping.runtime.persistence import (
+    save_scraped_profile,
+    save_scraping_session,
+    update_scraping_session,
+)
 
 
 def run_scraping_workflow(config: Dict[str, Any]) -> bool:
