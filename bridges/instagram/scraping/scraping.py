@@ -15,12 +15,16 @@ if bot_dir not in sys.path:
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from taktik.core.database import configure_db_service
 from loguru import logger
 from bridges.instagram.scraping.runtime.commands import load_scraping_bridge_config
 from bridges.instagram.scraping.runtime.config import build_scraping_config
+from bridges.instagram.scraping.runtime.session import (
+    configure_scraping_database,
+    connect_scraping_device,
+    create_scraping_connection,
+    disconnect_scraping_connection,
+)
 from bridges.instagram.scraping.runtime.workflow import run_scraping_workflow
 
 # Signal handlers for graceful shutdown
@@ -33,19 +37,12 @@ def main():
         sys.exit(1)
 
     device_id = config.get('deviceId')
+    configure_scraping_database()
+    connection = create_scraping_connection(device_id)
     try:
-        configure_db_service()
-        logger.info("Database service configured (local SQLite)")
-    except Exception as e:
-        logger.warning(f"Could not configure database service: {e}")
-
-    connection = ConnectionService(device_id)
-    try:
-        # Connect via ConnectionService
-        if not connection.connect():
-            print(json.dumps({"success": False, "error": "Failed to connect to device"}))
+        device_manager = connect_scraping_device(connection)
+        if device_manager is None:
             sys.exit(1)
-        device_manager = connection.device_manager
 
         scraping_config = build_scraping_config(config)
 
@@ -57,10 +54,7 @@ def main():
         print(json.dumps({"success": False, "error": str(e)}))
         sys.exit(1)
     finally:
-        try:
-            connection.disconnect()
-        except Exception:
-            pass
+        disconnect_scraping_connection(connection)
 
 if __name__ == '__main__':
     main()
