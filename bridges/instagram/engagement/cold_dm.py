@@ -18,7 +18,7 @@ setup_environment(log_level="INFO")
 
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import logger
-from bridges.instagram.engagement.runtime.cold_dm_ai import generate_ai_message
+from bridges.instagram.engagement.runtime.cold_dm_messages import choose_cold_dm_message
 from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNavigationMixin
 from bridges.instagram.engagement.runtime.cold_dm_persistence import (
     record_sent_dm,
@@ -106,16 +106,17 @@ class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMi
                     self.go_home()  # Reset to home
                     continue
 
-                # Pick a message (AI-generated or random from list)
-                if use_ai:
-                    message = generate_ai_message(recipient, ai_prompt, openrouter_api_key)
-                    if not message:
-                        logger.warning(f"AI generation failed for @{recipient}, skipping")
-                        self.dms_failed += 1
-                        self.go_home()
-                        continue
-                else:
-                    message = random.choice(messages)
+                message = choose_cold_dm_message(
+                    recipient=recipient,
+                    messages=messages,
+                    use_ai=use_ai,
+                    ai_prompt=ai_prompt,
+                    openrouter_api_key=openrouter_api_key,
+                )
+                if not message:
+                    self.dms_failed += 1
+                    self.go_home()
+                    continue
 
                 # Send message
                 send_result = self.send_message(message)
