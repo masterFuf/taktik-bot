@@ -243,6 +243,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B181 | Fait | Regrouper le runtime Instagram Cold DM sous `bridges/instagram/engagement/runtime/cold_dm/**`; l'entrypoint public `engagement/cold_dm.py` garde le contrat manifest/CLI. | Import smoke ColdDMWorkflow + launcher JSON smoke cold-dm-bridge + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B182 | Fait | Regrouper le runtime Instagram Smart Comment sous `bridges/instagram/engagement/runtime/smart_comment/**`; l'entrypoint public `engagement/smart_comment.py` garde le contrat manifest/CLI. | Import smoke SmartCommentBridge + launcher JSON smoke smart-comment-bridge + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B183 | Fait | Scinder les adapters workflow TikTok account par operation sous `account_login.py`, `account_logout.py`, `account_register.py`; `account_workflows.py` reste la facade mixin publique. | Import smoke TikTok account workflow facade + launcher JSON smoke tiktok-account + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B184 | Fait | Extraire les callbacks IPC communs Threads feed/search sous `bridges/threads/workflows/runtime/events.py`; les runners gardent le mapping config et l'appel workflow core. | Import smoke Threads runtime events + launcher JSON smoke threads + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
