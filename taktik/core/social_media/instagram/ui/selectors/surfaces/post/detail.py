@@ -15,6 +15,7 @@ class PostSelectors:
     username: str = '//android.widget.TextView[contains(@resource-id, "row_feed_photo_profile_name")]'
     caption: str = '//android.widget.TextView[contains(@resource-id, "row_feed_comment_textview_comment")]'
     caption_layout_selector: str = '//com.instagram.ui.widget.textview.IgTextLayoutView'
+    caption_layout_class_name: str = 'com.instagram.ui.widget.textview.IgTextLayoutView'
     like_count: str = '//android.widget.TextView[contains(@resource-id, "row_feed_textview_likes")]'
     comment_count: str = '//android.widget.TextView[contains(@resource-id, "row_feed_textview_comment_count")]'
     
@@ -33,6 +34,12 @@ class PostSelectors:
     
     header_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
+    ])
+    post_profile_header_resource_id: str = "com.instagram.android:id/row_feed_profile_header"
+    post_landing_indicator_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/row_feed_button_comment",
+        "com.instagram.android:id/row_feed_button_like",
+        "com.instagram.android:id/like_button",
     ])
     
     username_extraction_selectors: List[str] = field(default_factory=lambda: [

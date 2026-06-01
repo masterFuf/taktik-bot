@@ -7,6 +7,10 @@ import subprocess
 import time
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
+    POST_COMMENTS_SELECTORS,
+    POST_DETAIL_SELECTORS,
+)
 
 
 class SmartCommentNavigationMixin:
@@ -23,7 +27,7 @@ class SmartCommentNavigationMixin:
 
         try:
             actual_date = ""
-            header = self.device(resourceId="com.instagram.android:id/row_feed_profile_header")
+            header = self.device(resourceId=POST_DETAIL_SELECTORS.post_profile_header_resource_id)
             if header.exists:
                 desc = header.info.get("contentDescription", "") or ""
                 date_match = re.search(
@@ -34,7 +38,7 @@ class SmartCommentNavigationMixin:
                     actual_date = date_match.group(1)
 
             actual_caption = ""
-            caption_elem = self.device(className="com.instagram.ui.widget.textview.IgTextLayoutView")
+            caption_elem = self.device(className=POST_DETAIL_SELECTORS.caption_layout_class_name)
             if caption_elem.exists:
                 actual_caption = (caption_elem.get_text() or "").strip()
                 author = self.config.get("targetUsername", "").strip().lstrip("@")
@@ -94,21 +98,13 @@ class SmartCommentNavigationMixin:
             logger.debug(f"am start result: {result.stdout.strip()}")
             time.sleep(4)
 
-            for indicator in [
-                "com.instagram.android:id/row_feed_button_comment",
-                "com.instagram.android:id/row_feed_button_like",
-                "com.instagram.android:id/like_button",
-            ]:
+            for indicator in POST_DETAIL_SELECTORS.post_landing_indicator_resource_ids:
                 if self.device(resourceId=indicator).exists:
                     logger.info("Successfully navigated to post via URL")
                     return True
 
             time.sleep(3)
-            for indicator in [
-                "com.instagram.android:id/row_feed_button_comment",
-                "com.instagram.android:id/row_feed_button_like",
-                "com.instagram.android:id/like_button",
-            ]:
+            for indicator in POST_DETAIL_SELECTORS.post_landing_indicator_resource_ids:
                 if self.device(resourceId=indicator).exists:
                     logger.info("Successfully navigated to post via URL (after extra wait)")
                     return True
@@ -154,7 +150,7 @@ class SmartCommentNavigationMixin:
             return False
 
         try:
-            title = self.device(resourceId="com.instagram.android:id/title_text_view")
+            title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
             if title.exists:
                 title.click()
                 time.sleep(1)
@@ -202,11 +198,7 @@ class SmartCommentNavigationMixin:
             time.sleep(2)
 
             on_post = False
-            for indicator in [
-                "com.instagram.android:id/row_feed_button_comment",
-                "com.instagram.android:id/row_feed_button_like",
-                "com.instagram.android:id/like_button",
-            ]:
+            for indicator in POST_DETAIL_SELECTORS.post_landing_indicator_resource_ids:
                 if self.device(resourceId=indicator).exists:
                     on_post = True
                     break

@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram DM message sending moved under `engagement/runtime/dm_sender.py`; the bridge entrypoint now composes sender/reader/navigation mixins and the composer/send probes live in `DM_SELECTORS`.
 - Instagram DM command orchestration now reuses `DM_SELECTORS` for inbox presence, Instagram-open probes and conversation back navigation instead of embedding resource ids in the bridge command layer.
 - Instagram DM conversation reading now consumes scoped direct-message selectors for headers, composer presence, text/reel messages and group-detection probes while preserving the existing `conversation` JSON payload.
+- Instagram Smart Comment post navigation now uses scoped post/comment selector catalogs for landing verification and comment-title probes instead of hardcoded post action resource ids.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

@@ -113,6 +113,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B64 | Fait | Extraire la saisie/envoi du bridge Instagram DM sous `engagement/runtime/dm_sender.py`; `engagement/dm.py` reste une composition de mixins et les selectors composer/send vivent dans `DM_SELECTORS`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B65 | Fait | Sortir les probes inbox/app ouverte/back de `dm_commands.py` vers `DM_SELECTORS`, sans changer les messages JSON read/send du bridge. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B66 | Fait | Sortir les selectors de lecture Instagram DM (`header`, `composer`, messages texte/reels, detection groupe) de `dm_reader.py` vers `DM_SELECTORS`, sans changer le payload `conversation`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B67 | Fait | Sortir les indicateurs de landing post/comment-title de `smart_comment_navigation.py` vers `POST_DETAIL_SELECTORS` et `POST_COMMENTS_SELECTORS`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
