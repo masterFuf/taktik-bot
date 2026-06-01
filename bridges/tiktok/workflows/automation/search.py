@@ -3,128 +3,32 @@
 TikTok Search Bridge - Search/Hashtag workflow
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from bridges.tiktok.runtime.ipc import (
     logger,
-    send_action,
     send_error,
     send_message,
-    send_pause,
-    send_stats,
     send_status,
-    send_video_info,
     set_workflow,
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
 from bridges.tiktok.runtime.video_callbacks import send_final_video_stats
-from taktik.core.social_media.tiktok.services.navigation.reset import (
-    return_to_tiktok_home as return_device_to_tiktok_home,
+from bridges.tiktok.workflows.automation.runtime.search_callbacks import (
+    return_to_tiktok_home,
+    setup_search_workflow_callbacks,
 )
-
-
-def _normalize_search_queries(config: Dict[str, Any]) -> List[str]:
-    """Return a deduplicated list of queries.
-
-    Hashtag workflows support the new `hashtags` array and fall back to the
-    legacy `searchQuery` field for backward compatibility.
-    """
-    workflow_type = str(config.get("workflowType") or "").strip().lower()
-    raw_queries = config.get("hashtags") or config.get("searchQueries") or []
-
-    if isinstance(raw_queries, str):
-        raw_queries = [raw_queries]
-
-    queries: List[str] = []
-    for raw_query in raw_queries:
-        query = str(raw_query or "").strip()
-        if workflow_type == "hashtag":
-            query = query.lstrip("#")
-        if query and query not in queries:
-            queries.append(query)
-
-    if queries:
-        return queries
-
-    single_query = str(config.get("searchQuery") or "").strip()
-    if workflow_type == "hashtag":
-        single_query = single_query.lstrip("#")
-
-    return [single_query] if single_query else []
-
-
-def _format_query_label(query: str, workflow_type: str) -> str:
-    return f"#{query}" if workflow_type == "hashtag" else query
-
-
-def _setup_search_workflow_callbacks(workflow, aggregate_stats: Dict[str, int], sent_pics: set):
-    """Wire IPC callbacks while keeping session stats aggregated across queries."""
-
-    def on_video(video_info):
-        author = video_info.get("author", "unknown")
-
-        author_pic = None
-        if author and author not in sent_pics:
-            try:
-                detector = getattr(workflow, "detection", None) or getattr(workflow, "detector", None)
-                if detector and hasattr(detector, "get_author_profile_pic"):
-                    author_pic = detector.get_author_profile_pic()
-                    if author_pic:
-                        sent_pics.add(author)
-            except Exception as exc:
-                logger.debug(f"Could not capture profile pic for @{author}: {exc}")
-
-        send_video_info(
-            author=author,
-            description=video_info.get("description"),
-            like_count=video_info.get("like_count"),
-            is_liked=video_info.get("is_liked", False),
-            is_followed=video_info.get("is_followed", False),
-            is_ad=video_info.get("is_ad", False),
-            hashtags=video_info.get("hashtags") or [],
-            sound=video_info.get("sound"),
-            author_pic=author_pic,
-        )
-
-    def on_like(video_info):
-        send_action("like", video_info.get("author", "unknown"))
-        logger.info(f"Liked video by @{video_info.get('author', 'unknown')}")
-
-    def on_follow(video_info):
-        send_action("follow", video_info.get("author", "unknown"))
-        logger.info(f"Followed @{video_info.get('author', 'unknown')}")
-
-    def on_stats(stats_dict):
-        send_stats(
-            videos_watched=aggregate_stats["videos_watched"] + stats_dict.get("videos_watched", 0),
-            videos_liked=aggregate_stats["videos_liked"] + stats_dict.get("videos_liked", 0),
-            users_followed=aggregate_stats["users_followed"] + stats_dict.get("users_followed", 0),
-            videos_favorited=aggregate_stats["videos_favorited"] + stats_dict.get("videos_favorited", 0),
-            videos_skipped=aggregate_stats["videos_skipped"] + stats_dict.get("videos_skipped", 0),
-            errors=aggregate_stats["errors"] + stats_dict.get("errors", 0),
-        )
-
-    def on_pause(duration: int):
-        send_pause(duration)
-        logger.info(f"Taking a break for {duration}s")
-
-    workflow.set_on_video_callback(on_video)
-    workflow.set_on_like_callback(on_like)
-    workflow.set_on_follow_callback(on_follow)
-    workflow.set_on_stats_callback(on_stats)
-    workflow.set_on_pause_callback(on_pause)
-
-
-def _return_to_tiktok_home(manager) -> None:
-    """Best-effort reset to the TikTok home feed before the next query."""
-    return_device_to_tiktok_home(manager.device_manager.device, logger=logger)
+from bridges.tiktok.workflows.automation.runtime.search_planning import (
+    format_query_label,
+    normalize_search_queries,
+)
 
 
 def run_search_workflow(config: Dict[str, Any]):
     """Run the TikTok Search/Hashtag workflow."""
     device_id = config.get("deviceId")
     workflow_type = str(config.get("workflowType") or "search").strip().lower()
-    search_queries = _normalize_search_queries(config)
+    search_queries = normalize_search_queries(config)
 
     if not device_id:
         send_error("No device ID provided")
@@ -137,7 +41,7 @@ def run_search_workflow(config: Dict[str, Any]):
     logger.info(f"Starting TikTok Search workflow on device: {device_id}")
     logger.info(
         f"Search queries ({len(search_queries)}): "
-        f"{', '.join(_format_query_label(query, workflow_type) for query in search_queries)}"
+        f"{', '.join(format_query_label(query, workflow_type) for query in search_queries)}"
     )
     send_status("starting", f"Initializing TikTok Search workflow on {device_id}")
 
@@ -167,7 +71,7 @@ def run_search_workflow(config: Dict[str, Any]):
             if query_max_videos <= 0:
                 logger.info("No remaining video budget for this query, skipping it")
                 continue
-            display_query = _format_query_label(search_query, workflow_type)
+            display_query = format_query_label(search_query, workflow_type)
 
             logger.info(f"Processing query {query_index + 1}/{len(search_queries)}: {display_query}")
             logger.info(f"Max videos for this query: {query_max_videos}")
@@ -211,7 +115,7 @@ def run_search_workflow(config: Dict[str, Any]):
             send_status("running", f"Searching for: {display_query}")
             workflow = SearchWorkflow(manager.device_manager.device, workflow_config)
             set_workflow(workflow)
-            _setup_search_workflow_callbacks(
+            setup_search_workflow_callbacks(
                 workflow,
                 {
                     "videos_watched": total_stats.videos_watched,
@@ -246,7 +150,7 @@ def run_search_workflow(config: Dict[str, Any]):
             )
 
             if query_index < len(search_queries) - 1:
-                _return_to_tiktok_home(manager)
+                return_to_tiktok_home(manager)
 
         send_final_video_stats(total_stats, "Search workflow")
         return True
