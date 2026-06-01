@@ -7,7 +7,7 @@ import re
 import time
 
 from bridges.instagram.runtime.ipc import logger
-from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 class DMConversationReaderMixin:
@@ -61,7 +61,7 @@ class DMConversationReaderMixin:
                     thread.click()
                     time.sleep(2)
 
-                    header_title = self.device(resourceId="com.instagram.android:id/header_title")
+                    header_title = self.device(resourceId=DM_SELECTORS.conversation_header_title_resource_id)
                     if not header_title.exists(timeout=3):
                         logger.warning(f"Could not open conversation with {username}")
                         self._return_to_inbox_if_needed()
@@ -140,7 +140,7 @@ class DMConversationReaderMixin:
     def _resolve_thread_username(self, thread_info: dict, fallback: str) -> str:
         username = fallback
         try:
-            username_elem = self.device(resourceId="com.instagram.android:id/row_inbox_username")
+            username_elem = self.device(resourceId=DM_SELECTORS.thread_username_resource_id)
             if username_elem.exists:
                 for idx in range(username_elem.count):
                     elem = username_elem[idx]
@@ -160,22 +160,22 @@ class DMConversationReaderMixin:
     def _detect_conversation_reply_state(self, real_username: str) -> tuple[bool, bool]:
         is_group = False
         can_reply = True
-        header_subtitle = self.device(resourceId="com.instagram.android:id/header_subtitle")
+        header_subtitle = self.device(resourceId=DM_SELECTORS.conversation_header_subtitle_resource_id)
         if header_subtitle.exists:
             try:
                 subtitle_text = header_subtitle.get_text() or ""
                 subtitle_info = header_subtitle.info
                 subtitle_desc = subtitle_info.get("contentDescription", "") or ""
                 combined = (subtitle_text + " " + subtitle_desc).lower()
-                is_group_pattern = bool(re.search(r"\d+\.?\d*k?\s*(membres|members)", combined))
+                is_group_pattern = bool(re.search(DM_SELECTORS.conversation_group_member_pattern, combined))
 
-                if is_group_pattern or "membres" in combined or "members" in combined:
+                if is_group_pattern or any(keyword in combined for keyword in DM_SELECTORS.conversation_group_member_keywords):
                     is_group = True
                     logger.info(f"Groupe détecté via subtitle: {combined[:50]}")
             except Exception as e:
                 logger.debug(f"Erreur détection groupe via subtitle: {e}")
 
-        composer = self.device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
+        composer = self.device(resourceId=DM_SELECTORS.composer_edittext_resource_id)
         if not composer.exists:
             can_reply = False
             if not is_group:
@@ -185,12 +185,12 @@ class DMConversationReaderMixin:
         return is_group, can_reply
 
     def _return_to_inbox_if_needed(self) -> None:
-        inbox_list = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+        inbox_list = self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
         if not inbox_list.exists:
             self._go_back_from_conversation(delay=1)
 
     def _go_back_from_conversation(self, delay: float = 1) -> None:
-        back_btn = self.device(resourceId="com.instagram.android:id/header_left_button")
+        back_btn = self.device(resourceId=DM_SELECTORS.conversation_back_button_resource_id)
         if back_btn.exists:
             back_btn.click()
         else:
@@ -215,7 +215,7 @@ class DMConversationReaderMixin:
 
     def _collect_text_messages(self) -> list[dict]:
         items = []
-        msg_elements = self.device(resourceId="com.instagram.android:id/direct_text_message_text_view")
+        msg_elements = self.device(resourceId=DM_SELECTORS.message_item_resource_id)
         for j in range(msg_elements.count):
             try:
                 msg_elem = msg_elements[j]
@@ -238,7 +238,7 @@ class DMConversationReaderMixin:
 
     def _collect_reel_messages(self) -> list[dict]:
         items = []
-        reel_shares = self.device(resourceId="com.instagram.android:id/reel_share_item_view")
+        reel_shares = self.device(resourceId=DM_SELECTORS.reel_share_item_resource_id)
         for j in range(reel_shares.count):
             try:
                 reel = reel_shares[j]
@@ -259,7 +259,7 @@ class DMConversationReaderMixin:
         return items
 
     def _extract_reel_author(self, reel_bounds: dict) -> str:
-        title_elem = self.device(resourceId="com.instagram.android:id/title_text")
+        title_elem = self.device(resourceId=DM_SELECTORS.reel_author_title_resource_id)
         for k in range(title_elem.count):
             try:
                 title = title_elem[k]

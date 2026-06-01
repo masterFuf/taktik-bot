@@ -134,9 +134,17 @@ class DirectMessageSelectors:
     conversation_back_description_contains: List[str] = field(default_factory=lambda: [
         "Retour",
     ])
+    conversation_header_title_resource_id: str = "com.instagram.android:id/header_title"
+    conversation_header_subtitle_resource_id: str = "com.instagram.android:id/header_subtitle"
+    conversation_group_member_pattern: str = r"\d+\.?\d*k?\s*(membres|members)"
+    conversation_group_member_keywords: List[str] = field(default_factory=lambda: [
+        "membres",
+        "members",
+    ])
     
     # === Dans une conversation ===
     edit_text_class_name: str = "android.widget.EditText"
+    composer_edittext_resource_id: str = "com.instagram.android:id/row_thread_composer_edittext"
     message_input_resource_ids: List[str] = field(default_factory=lambda: [
         "com.instagram.android:id/row_thread_composer_edittext",
         "com.instagram.android:id/message_content",
@@ -177,6 +185,8 @@ class DirectMessageSelectors:
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
+    reel_share_item_resource_id: str = "com.instagram.android:id/reel_share_item_view"
+    reel_author_title_resource_id: str = "com.instagram.android:id/title_text"
     
     # === Notes (Stories circulaires en haut des DM) ===
     notes_recycler: str = '//*[@resource-id="com.instagram.android:id/cf_hub_recycler_view"]'
