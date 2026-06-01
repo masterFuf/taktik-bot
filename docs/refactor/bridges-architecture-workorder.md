@@ -138,6 +138,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B89 | Fait | Extraire le lifecycle DB/device du bridge Instagram Scraping sous `scraping/runtime/session.py` : configuration DB, creation/connexion device et disconnect cleanup. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B90 | Fait | Extraire la filtration des destinataires Cold DM deja traites sous `engagement/runtime/cold_dm_recipients.py`; la boucle d'envoi garde progress JSON et decision send. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B91 | Fait | Extraire le choix de message Cold DM (AI OpenRouter ou random local) sous `engagement/runtime/cold_dm_messages.py`; la boucle garde compteur echec et reset home. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B92 | Fait | Extraire l'emission progress JSON Cold DM sous `engagement/runtime/cold_dm_progress.py`, pour garder le contrat stdout bridge hors de la boucle metier. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

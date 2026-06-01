@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Scraping DB/device lifecycle moved under `scraping/runtime/session.py`, leaving the entrypoint to compose config, session, workflow and JSON output.
 - Instagram Cold DM recipient filtering moved under `engagement/runtime/cold_dm_recipients.py`, keeping already-sent checks out of the send-loop entrypoint.
 - Instagram Cold DM message selection moved under `engagement/runtime/cold_dm_messages.py`, isolating AI-vs-random choice from the send loop while preserving retry/reset behavior.
+- Instagram Cold DM progress JSON emission moved under `engagement/runtime/cold_dm_progress.py`, keeping stdout event formatting out of the send-loop logic.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

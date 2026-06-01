@@ -6,7 +6,6 @@ Supports AI-generated personalized messages via OpenRouter.
 """
 
 import sys
-import json
 import time
 import random
 
@@ -23,6 +22,7 @@ from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNaviga
 from bridges.instagram.engagement.runtime.cold_dm_persistence import (
     record_sent_dm,
 )
+from bridges.instagram.engagement.runtime.cold_dm_progress import emit_cold_dm_progress
 from bridges.instagram.engagement.runtime.cold_dm_recipients import ColdDMRecipientMixin
 from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
 
@@ -65,13 +65,11 @@ class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMi
 
             logger.info(f"[{i+1}/{min(len(filtered_recipients), max_dms)}] Sending DM to: {recipient}")
 
-            # Emit progress to Electron
-            print(json.dumps({
-                "type": "progress",
-                "current": i + 1,
-                "total": min(len(filtered_recipients), max_dms),
-                "username": recipient
-            }), flush=True)
+            emit_cold_dm_progress(
+                current=i + 1,
+                total=min(len(filtered_recipients), max_dms),
+                username=recipient,
+            )
 
             try:
                 # Navigate to search
