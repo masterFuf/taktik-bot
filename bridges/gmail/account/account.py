@@ -8,7 +8,6 @@ connection, cleanup and stdout JSON events. Gmail account operations live in
 
 from __future__ import annotations
 
-import json
 import os
 import signal
 import sys
@@ -23,6 +22,7 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.device.connection import ConnectionService
+from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.gmail.base import _ipc, send_error, send_log, send_message, send_status
 from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
@@ -231,20 +231,7 @@ class GmailAccountBridge:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print(json.dumps({"type": "error", "message": "Usage: gmail_account_bridge.py <config_path>"}))
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as file:
-            config = json.load(file)
-    except Exception as exc:  # noqa: BLE001
-        send_error(f"Failed to load config: {exc}")
-        sys.exit(1)
-
-    bridge = GmailAccountBridge(config)
-    sys.exit(bridge.run())
+    run_bridge_main(GmailAccountBridge, usage="gmail_account_bridge.py <config_path>")
 
 
 if __name__ == "__main__":

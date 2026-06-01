@@ -190,6 +190,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B136 | Fait | Extraire les helpers IPC Instagram communs sous `bridges/common/runtime/ipc_instagram.py`; `ipc.py` garde le writer stdout JSON, les helpers generiques et expose la meme facade `IPC`. | Import smoke IPC Instagram + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B137 | Fait | Extraire les helpers d'entrypoint config-file (`load_bridge_config`, `run_bridge_main`) sous `bridges/common/runtime/entrypoint.py`; `bridge_base.py` reste facade/base class et re-exporte pour compatibilite. | Import smoke entrypoint + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B138 | Fait | Extraire la commande ADB standalone `force_stop_app` sous `bridges/common/device/app_control.py`; `app_manager.py` garde la classe lifecycle connectee et re-exporte pour compatibilite. | Import smoke app control + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B139 | Fait | Migrer l'entrypoint Gmail account vers `bridges/common/runtime/entrypoint.py`; `account.py` garde la classe bridge et les workflows Gmail. | Import smoke Gmail entrypoint + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
