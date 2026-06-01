@@ -4,7 +4,7 @@ import json
 import sys
 from typing import Sequence
 
-from bridges.tiktok.account.account import TikTokAccountBridge
+from bridges.tiktok.account.runtime.bridge import TikTokAccountBridge
 from bridges.tiktok.runtime.ipc import send_error
 
 

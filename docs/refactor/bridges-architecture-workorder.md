@@ -163,6 +163,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B114 | Fait | Extraire la classe runtime `ColdDMWorkflow` sous `engagement/runtime/cold_dm_workflow.py`; `engagement/cold_dm.py` reste l'entrypoint public reference par le manifest. | Import smoke Cold DM + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B115 | Fait | Extraire la classe runtime `TaktikAgentBridge` sous `agent/runtime/bridge.py`; `agent/taktik_agent.py` reste l'entrypoint public reference par le manifest. | Import smoke Agent + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B116 | Fait | Extraire la classe runtime `DesktopBridge` sous `automation/runtime/bridge.py`; `automation/desktop.py` reste l'entrypoint public reference par le manifest. | Import smoke desktop + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B117 | Fait | Extraire la classe runtime `TikTokAccountBridge` sous `account/runtime/bridge.py`; `account/account.py` reste l'entrypoint public reference par le manifest. | Import smoke TikTok Account + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

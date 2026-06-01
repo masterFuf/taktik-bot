@@ -114,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Cold DM bridge workflow class moved under `engagement/runtime/cold_dm_workflow.py`; `engagement/cold_dm.py` remains the public manifest entrypoint.
 - Instagram Taktik Agent bridge runtime class moved under `agent/runtime/bridge.py`; the core Agent orchestration remains under `taktik/core/agent` and still receives IPC/AI by injection.
 - Instagram desktop automation bridge runtime class moved under `automation/runtime/bridge.py`; `automation/desktop.py` remains the public manifest entrypoint.
+- TikTok account bridge runtime class moved under `account/runtime/bridge.py`; `account/account.py` remains the public manifest entrypoint.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.
