@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from taktik.core.shared.input.taktik_keyboard import run_adb_shell
+from taktik.core.shared.device.adb import run_adb_shell
 
 
 def get_device_external_ip(device_id: str) -> str:

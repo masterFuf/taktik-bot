@@ -1,7 +1,7 @@
 """Content navigation helpers (navigate to post URL, hashtag)."""
 
 import re
-from taktik.core.shared.input.taktik_keyboard import run_adb_shell
+from taktik.core.shared.device.adb import run_adb_shell
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import (
     CONTENT_CREATION_SELECTORS,

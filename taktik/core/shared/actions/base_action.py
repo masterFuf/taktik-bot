@@ -14,10 +14,10 @@ import base64
 from typing import Optional, Dict, Any, List, Union
 from loguru import logger
 
+from taktik.core.shared.device.adb import run_adb_shell
 from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.input.taktik_keyboard import (
-    run_adb_shell,
     TAKTIK_KEYBOARD_IME,
     IME_MESSAGE_B64,
     IME_CLEAR_TEXT,

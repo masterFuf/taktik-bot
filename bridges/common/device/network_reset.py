@@ -4,7 +4,7 @@ import time
 
 from loguru import logger
 
-from taktik.core.shared.input.taktik_keyboard import run_adb_shell
+from taktik.core.shared.device.adb import run_adb_shell
 
 
 def reset_mobile_data(device_id: str, wait_seconds: float = 5.0) -> bool:
