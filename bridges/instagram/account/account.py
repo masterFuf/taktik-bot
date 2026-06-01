@@ -46,13 +46,12 @@ from bridges.instagram.runtime.ipc import (
     _ipc,
     send_status, send_error,
 )
+from bridges.instagram.account.runtime.session import AccountSessionLifecycleMixin
 from bridges.instagram.account.runtime.workflows import AccountWorkflowRunnerMixin
-from bridges.common.device.connection import ConnectionService
-from bridges.common.device.app_manager import AppService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 
 
-class AccountBridge(AccountWorkflowRunnerMixin):
+class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
     """Bridge for Instagram account management (login / register)."""
 
     def __init__(self, config: dict):
@@ -81,34 +80,9 @@ class AccountBridge(AccountWorkflowRunnerMixin):
             send_error("workflowType is required ('login' or 'register')")
             return 1
 
-        # Setup DB
-        try:
-            from taktik.core.database import configure_db_service
-            configure_db_service()
-        except Exception as e:
-            send_error(f"Database setup failed: {e}")
+        device = self._prepare_runtime_session()
+        if device is None:
             return 1
-
-        # Connect
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
-            return 1
-
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
-            return 1
-
-        # Boot Instagram
-        send_status("initializing", "Launching Instagram...")
-        app_service = AppService(self._connection, platform="instagram",
-                                  package_override=self.package_name)
-        app_service.launch()
-
-        import time
-        time.sleep(2)
 
         # Dispatch
         if self.workflow_type == "login":
