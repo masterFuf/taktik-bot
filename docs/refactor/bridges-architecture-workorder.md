@@ -42,6 +42,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
 - `bridges/common/runtime/**` = bootstrap process, stdout JSON IPC, base bridge commune et signal handling.
+- `bridges/common/runtime/ipc.py` = writer stdout JSON et facade `IPC`; les familles d'events volumineuses doivent etre extraites en mixins `ipc_<family>.py` sans changer les noms de methodes publiques ni les payloads JSON.
 - Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, `scripts/build_exe.py`, `taktik_launcher.spec`, `front/scripts/build/build-all.ps1` et resolver Front.
 - Ne pas recreer de wrapper public racine. Le launcher doit ajouter `bot/` a `sys.path`, puis importer l'implementation scopee.
 
@@ -180,6 +181,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B129 | Fait | Extraire le mapping payload -> `SearchConfig` sous `workflows/automation/runtime/search_config.py`; `search.py` garde startup, boucle multi-query, callbacks et execution. | Import smoke Search config + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 | B130 | Fait | Extraire l'execution d'une cible TikTok Followers sous `workflows/automation/runtime/followers_target.py`; `followers.py` garde distribution, limites multi-target, navigation inter-cible et statut final. | Import smoke Followers target + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 | B131 | Fait | Extraire l'execution d'une query TikTok Search/Hashtag sous `workflows/automation/runtime/search_query.py`; `search.py` garde budget multi-query, startup, navigation inter-query et statut final. | Import smoke Search query + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
+| B132 | Fait | Extraire les helpers IPC AI/Agent communs sous `bridges/common/runtime/ipc_ai.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC AI + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
