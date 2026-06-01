@@ -23,13 +23,8 @@ setup_environment()
 
 from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
+from bridges.gmail.account.runtime.dispatcher import dispatch_gmail_account_workflow
 from bridges.gmail.account.runtime.session import cleanup_gmail_app, prepare_gmail_session
-from bridges.gmail.account.runtime.workflows import (
-    run_gmail_login,
-    run_gmail_logout,
-    run_gmail_read_otp,
-    run_gmail_scan_accounts,
-)
 from bridges.gmail.base import _ipc, send_error, send_log, send_message, send_status
 
 
@@ -63,51 +58,17 @@ class GmailAccountBridge:
         self._connection = session.connection
 
         try:
-            if self.workflow_type == "login":
-                return run_gmail_login(
-                    config=self.config,
-                    device=session.device,
-                    device_id=self.device_id,
-                    notifier=_ipc,
-                    send_status=send_status,
-                    send_log=send_log,
-                    send_error=send_error,
-                    send_message=send_message,
-                )
-            if self.workflow_type == "logout":
-                return run_gmail_logout(
-                    config=self.config,
-                    device=session.device,
-                    device_id=self.device_id,
-                    notifier=_ipc,
-                    send_status=send_status,
-                    send_log=send_log,
-                    send_error=send_error,
-                    send_message=send_message,
-                )
-            if self.workflow_type == "read_otp":
-                return run_gmail_read_otp(
-                    config=self.config,
-                    device=session.device,
-                    device_id=self.device_id,
-                    notifier=_ipc,
-                    send_status=send_status,
-                    send_log=send_log,
-                    send_error=send_error,
-                    send_message=send_message,
-                )
-            if self.workflow_type == "scan_accounts":
-                return run_gmail_scan_accounts(
-                    device=session.device,
-                    device_id=self.device_id,
-                    notifier=_ipc,
-                    send_status=send_status,
-                    send_log=send_log,
-                    send_error=send_error,
-                    send_message=send_message,
-                )
-            send_error(f"Unknown workflowType: {self.workflow_type}")
-            return 1
+            return dispatch_gmail_account_workflow(
+                workflow_type=self.workflow_type,
+                config=self.config,
+                session=session,
+                device_id=self.device_id,
+                notifier=_ipc,
+                send_status=send_status,
+                send_log=send_log,
+                send_error=send_error,
+                send_message=send_message,
+            )
         finally:
             cleanup_gmail_app(self.device_id)
 
