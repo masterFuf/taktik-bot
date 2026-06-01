@@ -107,6 +107,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B58 | Fait | Extraire le catalogue package/activity/wait times et variantes connues de `AppService` sous `bridges/common/device/apps.py`. | Import smoke + `compileall` + `check_bridge_manifest` + `audit_selector_hardcodes` + `git diff --check`. |
 | B59 | Fait | Sortir les signatures UI inline du runtime Instagram Smart Comment comments vers `POST_COMMENTS_SELECTORS` (bouton commentaires, titre, tri, liste, expand replies). | `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B60 | Fait | Decouper le runtime Smart Comment comments : extraction XML/dumpsys sous `smart_comment_comment_extraction.py` et scroll/expand sous `smart_comment_comment_navigation.py`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B61 | Fait | Sortir les signatures UI inline du runtime Instagram Smart Comment reply vers `POST_COMMENTS_SELECTORS` (input commentaire, boutons Post, labels Reply, liste/titre commentaires). | `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

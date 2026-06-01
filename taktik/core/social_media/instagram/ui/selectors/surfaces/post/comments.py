@@ -19,9 +19,17 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.comment_button_selectors)
     )
     comment_field_selector: str = POST_SELECTORS.comment_field_selector
+    comment_field_resource_id: str = "com.instagram.android:id/layout_comment_thread_edittext"
     comment_field_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comment_field_selectors)
     )
+    post_comment_button_resource_ids: Tuple[str, ...] = (
+        "com.instagram.android:id/layout_comment_thread_post_button_icon",
+        "com.instagram.android:id/layout_comment_thread_post_button_click_area",
+        "com.instagram.android:id/layout_comment_thread_post_button_container",
+    )
+    post_comment_button_descriptions: Tuple[str, ...] = ("Post", "Publier")
+    post_comment_debug_tokens: Tuple[str, ...] = ("post_button", "post", "publier", "send")
     post_comment_button_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.post_comment_button_selectors)
     )
@@ -71,6 +79,8 @@ class PostCommentsSelectors:
     expand_replies_positive_tokens: Tuple[str, ...] = ("repl", "réponse")
     expand_replies_hidden_tokens: Tuple[str, ...] = ("hide", "masquer")
     expand_replies_description_contains: Tuple[str, ...] = ("more repl", "more reply", "réponse")
+    reply_button_labels: Tuple[str, ...] = ("reply", "répondre")
+    reply_search_ignored_usernames: Tuple[str, ...] = ("like", "reply", "répondre")
     expand_replies_selector: str = POST_SELECTORS.expand_replies_selector
     post_comments_count_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.post_comments_count_selectors)

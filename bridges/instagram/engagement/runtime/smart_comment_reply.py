@@ -10,6 +10,7 @@ from typing import Any
 
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
 class SmartCommentReplyMixin:
@@ -36,7 +37,7 @@ class SmartCommentReplyMixin:
 
         time.sleep(random.uniform(0.5, 1.0))
 
-        input_field = self.device(resourceId="com.instagram.android:id/layout_comment_thread_edittext")
+        input_field = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_field_resource_id)
         if not input_field.exists:
             logger.error("Comment input field not found after clicking Reply")
             return False
@@ -98,15 +99,16 @@ class SmartCommentReplyMixin:
 
         time.sleep(random.uniform(0.5, 1.0))
 
-        send_btn = self.device(resourceId="com.instagram.android:id/layout_comment_thread_post_button_icon")
-        if not send_btn.exists:
-            send_btn = self.device(resourceId="com.instagram.android:id/layout_comment_thread_post_button_click_area")
-        if not send_btn.exists:
-            send_btn = self.device(description="Post")
-        if not send_btn.exists:
-            send_btn = self.device(description="Publier")
-        if not send_btn.exists:
-            send_btn = self.device(resourceId="com.instagram.android:id/layout_comment_thread_post_button_container")
+        send_btn = None
+        for resource_id in POST_COMMENTS_SELECTORS.post_comment_button_resource_ids:
+            send_btn = self.device(resourceId=resource_id)
+            if send_btn.exists:
+                break
+        if send_btn is None or not send_btn.exists:
+            for description in POST_COMMENTS_SELECTORS.post_comment_button_descriptions:
+                send_btn = self.device(description=description)
+                if send_btn.exists:
+                    break
 
         if send_btn.exists:
             send_btn.click()
@@ -123,7 +125,8 @@ class SmartCommentReplyMixin:
                 rid = elem.get("resource-id", "") or ""
                 desc = elem.get("content-desc", "") or ""
                 text = elem.get("text", "") or ""
-                if "post_button" in rid or "post" in desc.lower() or "publier" in desc.lower() or "send" in desc.lower():
+                desc_lower = desc.lower()
+                if any(token in rid or token in desc_lower for token in POST_COMMENTS_SELECTORS.post_comment_debug_tokens):
                     logger.debug(f"Potential send button: rid={rid} desc={desc} text={text} bounds={elem.get('bounds', '')}")
         except Exception as e:
             logger.debug(f"UI dump failed: {e}")
@@ -149,7 +152,7 @@ class SmartCommentReplyMixin:
                 recycler = root
                 for elem in root.iter():
                     rid = elem.get("resource-id", "") or ""
-                    if "sticky_header_list" in rid:
+                    if POST_COMMENTS_SELECTORS.comments_list_resource_key in rid:
                         recycler = elem
                         break
 
@@ -176,7 +179,7 @@ class SmartCommentReplyMixin:
                         ):
                             has_target_user = True
 
-                        if child_class == "android.widget.Button" and child_text in ("reply", "répondre"):
+                        if child_class == "android.widget.Button" and child_text in POST_COMMENTS_SELECTORS.reply_button_labels:
                             reply_btn = child
 
                     if has_target_user and reply_btn is not None:
@@ -210,7 +213,11 @@ class SmartCommentReplyMixin:
                     visible = []
                     for elem in recycler.iter():
                         cd = (elem.get("content-desc", "") or "").strip()
-                        if cd and re.match(r"^[\w][\w.]{0,29}\s*$", cd) and cd.strip().lower() not in ("like", "reply", "répondre"):
+                        if (
+                            cd
+                            and re.match(r"^[\w][\w.]{0,29}\s*$", cd)
+                            and cd.strip().lower() not in POST_COMMENTS_SELECTORS.reply_search_ignored_usernames
+                        ):
                             visible.append(cd.strip())
                     logger.debug(f"Scroll {scroll}: visible usernames = {visible}")
 
@@ -226,7 +233,7 @@ class SmartCommentReplyMixin:
     def _scroll_comments_to_top(self):
         """Scroll the comments list to the top with fast flick gestures."""
         try:
-            comment_list = self.device(resourceId="com.instagram.android:id/sticky_header_list")
+            comment_list = self.device(resourceId=POST_COMMENTS_SELECTORS.comments_list_resource_id)
             if not comment_list.exists:
                 return
             bounds = comment_list.info.get("bounds", {})
@@ -254,7 +261,7 @@ class SmartCommentReplyMixin:
     def _dismiss_keyboard_and_scroll_top(self):
         """After sending a reply, dismiss the keyboard and scroll comments back to top."""
         try:
-            title = self.device(resourceId="com.instagram.android:id/title_text_view")
+            title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
             if title.exists:
                 title.click()
                 time.sleep(0.5)
@@ -262,7 +269,7 @@ class SmartCommentReplyMixin:
                 self.device.press("back")
                 time.sleep(0.5)
 
-                title = self.device(resourceId="com.instagram.android:id/title_text_view")
+                title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
                 if not title.exists:
                     logger.warning("Comments page lost after back press, reopening...")
                     if not self.open_comments():
