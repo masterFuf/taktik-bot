@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import time
 
 from bridges.instagram.engagement.runtime.dm.conversation_state import DMConversationStateMixin
+from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
 from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
@@ -103,12 +103,15 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     conversations_read += 1
                     new_conversations_in_scroll += 1
 
-                    print(json.dumps({
-                        "type": "conversation",
-                        "current": conversations_read,
-                        "total": limit,
-                        "conversation": conv,
-                    }), flush=True)
+                    emit_dm_json(
+                        {
+                            "type": "conversation",
+                            "current": conversations_read,
+                            "total": limit,
+                            "conversation": conv,
+                        },
+                        flush=True,
+                    )
 
                     self._go_back_from_conversation(delay=1.5)
 
