@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Smart Comment visible username parsing now lives under `bridges/instagram/engagement/runtime/smart_comment/visible_usernames.py`; the extraction mixin keeps device dumpsys/XML orchestration.
 - Instagram Smart Comment comment-scraping events now live under `bridges/instagram/engagement/runtime/smart_comment/events.py`; `comments.py` and `comment_extraction.py` keep the same event names and payloads.
 - Instagram Smart Comment post context parsing now delegates author/caption derivation and XML date extraction to `bridges/instagram/engagement/runtime/smart_comment/post_context_extractors.py`.
+- Compatibility workflow-test device/app setup now lives under `bridges/compat/diagnostics/runtime/workflow_session.py`; the entrypoint keeps request loading, dispatch, report emission and JSON stdout contract.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
