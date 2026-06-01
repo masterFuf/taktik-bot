@@ -14,6 +14,7 @@ class ProfileSelectors:
         '//*[contains(@resource-id, "row_profile_header_username")]',
         '//android.widget.TextView[contains(@text, "@")]'
     ])
+    action_bar_title_resource_id: str = "com.instagram.android:id/action_bar_title"
     
     # === Username from content-desc ===
     username_content_desc: str = '//*[contains(@content-desc, "@")]'

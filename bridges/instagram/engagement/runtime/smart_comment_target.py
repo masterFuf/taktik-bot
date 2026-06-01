@@ -6,6 +6,8 @@ import time
 
 from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.smart_comment_models import TargetProfile
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class SmartCommentTargetMixin:
@@ -54,7 +56,7 @@ class SmartCommentTargetMixin:
                 )
             else:
                 logger.warning("ProfileBusiness returned None, falling back to basic extraction")
-                title_elem = self.device(resourceId="com.instagram.android:id/action_bar_title")
+                title_elem = self.device(resourceId=PROFILE_SELECTORS.action_bar_title_resource_id)
                 if title_elem.exists:
                     profile.username = (title_elem.get_text() or "").strip()
 
@@ -74,15 +76,10 @@ class SmartCommentTargetMixin:
 
             if click.click_first_post_in_grid():
                 time.sleep(2)
-                comment_btn = self.device(resourceId="com.instagram.android:id/row_feed_button_comment")
-                like_btn = self.device(resourceId="com.instagram.android:id/row_feed_button_like")
-                if comment_btn.exists or like_btn.exists:
+                if any(self.device(resourceId=indicator).exists for indicator in POST_DETAIL_SELECTORS.post_landing_indicator_resource_ids[:2]):
                     logger.info("Successfully opened first post")
                     return True
-                for indicator in [
-                    "com.instagram.android:id/clips_single_media_component",
-                    "com.instagram.android:id/like_button",
-                ]:
+                for indicator in POST_DETAIL_SELECTORS.post_reel_landing_indicator_resource_ids:
                     if self.device(resourceId=indicator).exists:
                         logger.info("Successfully opened first post (reel)")
                         return True

@@ -46,6 +46,10 @@ class PostSelectors:
         "com.instagram.android:id/row_feed_button_like",
         "com.instagram.android:id/like_button",
     ])
+    post_reel_landing_indicator_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/clips_single_media_component",
+        "com.instagram.android:id/like_button",
+    ])
     post_media_description_resource_ids: List[str] = field(default_factory=lambda: [
         "com.instagram.android:id/carousel_image",
         "com.instagram.android:id/row_feed_photo_imageview",
