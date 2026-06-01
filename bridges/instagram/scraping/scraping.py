@@ -17,13 +17,11 @@ setup_environment()
 
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from bridges.instagram.runtime.ipc import _ipc
-from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from taktik.core.database import configure_db_service
 from loguru import logger
-from bridges.instagram.scraping.runtime.ai import build_scraping_ai_service
 from bridges.instagram.scraping.runtime.commands import load_scraping_bridge_config
 from bridges.instagram.scraping.runtime.config import build_scraping_config
+from bridges.instagram.scraping.runtime.workflow import run_scraping_workflow
 
 # Signal handlers for graceful shutdown
 setup_signal_handlers()
@@ -51,28 +49,8 @@ def main():
 
         scraping_config = build_scraping_config(config)
 
-        # Run scraping workflow
-        logger.info(f"Starting scraping workflow: {scraping_config['type']}")
-        if scraping_config.get('enrich_profiles', False):
-            logger.info("Enriched scraping enabled - will visit each profile for details")
-        if scraping_config.get('deep_qualify', False):
-            logger.info(f"🔬 Deep qualify enabled — max_following={scraping_config.get('deep_qualify_max_following', 30)}")
-        else:
-            logger.info(f"🔬 Deep qualify OFF — config received deepQualify={config.get('deepQualify')!r}, enrichProfiles={config.get('enrichProfiles')!r}")
-        workflow = ScrapingWorkflow(
-            device_manager,
-            scraping_config,
-            ai_notifier=_ipc,
-            ai_service_factory=build_scraping_ai_service,
-        )
-        result = workflow.run()
-
-        # Output result as JSON for Electron to parse
-        print(json.dumps({
-            "success": result.get('success', False),
-            "totalScraped": result.get('total_scraped', 0),
-            "error": result.get('error')
-        }))
+        result = run_scraping_workflow(device_manager, scraping_config, config)
+        print(json.dumps(result))
 
     except Exception as e:
         logger.error(f"Scraping error: {e}")

@@ -85,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Scraping bridge workflow config mapping moved under `scraping/runtime/config.py`, keeping the entrypoint focused on CLI, DB/device setup, workflow execution and JSON output.
 - Instagram Scraping bridge CLI/config loading moved under `scraping/runtime/commands.py`, preserving the existing JSON errors for missing config, invalid config and missing `deviceId`.
 - Instagram Scraping bridge OpenRouter factory moved under `scraping/runtime/ai.py`, keeping AI provider creation as an injected bridge runtime concern.
+- Instagram Scraping workflow execution moved under `scraping/runtime/workflow.py`, keeping runtime logging, IPC/AI injection and result normalization outside the entrypoint.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

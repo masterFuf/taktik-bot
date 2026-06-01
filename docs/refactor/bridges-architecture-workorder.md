@@ -134,6 +134,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B85 | Fait | Extraire le mapping payload Front -> config workflow du bridge Instagram Scraping sous `scraping/runtime/config.py`; `scraping/scraping.py` garde CLI, DB/device, workflow et JSON final. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B86 | Fait | Extraire le chargement CLI/config du bridge Instagram Scraping sous `scraping/runtime/commands.py`, en preservant les JSON d'erreur d'entree. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B87 | Fait | Extraire la factory OpenRouter du bridge Instagram Scraping sous `scraping/runtime/ai.py`; le workflow recoit toujours le provider par injection. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B88 | Fait | Extraire le runner du workflow Instagram Scraping sous `scraping/runtime/workflow.py` : logs runtime, injection IPC/AI et normalisation du resultat JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
