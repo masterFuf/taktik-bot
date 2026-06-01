@@ -192,6 +192,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B138 | Fait | Extraire la commande ADB standalone `force_stop_app` sous `bridges/common/device/app_control.py`; `app_manager.py` garde la classe lifecycle connectee et re-exporte pour compatibilite. | Import smoke app control + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B139 | Fait | Migrer l'entrypoint Gmail account vers `bridges/common/runtime/entrypoint.py`; `account.py` garde la classe bridge et les workflows Gmail. | Import smoke Gmail entrypoint + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B140 | Fait | Extraire l'adapter persistence Gmail account sous `bridges/gmail/account/runtime/persistence.py`; `account.py` garde orchestration workflows et stdout JSON. | Import smoke Gmail persistence + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B141 | Fait | Extraire le lifecycle DB/device/cleanup Gmail account sous `bridges/gmail/account/runtime/session.py`; `account.py` garde validation payload, dispatch workflow et resultats JSON. | Import smoke Gmail session + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

@@ -21,13 +21,13 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.gmail.account.runtime.persistence import (
     persist_gmail_account,
     unpersist_gmail_account,
 )
+from bridges.gmail.account.runtime.session import cleanup_gmail_app, prepare_gmail_session
 from bridges.gmail.base import _ipc, send_error, send_log, send_message, send_status
 from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
 
@@ -56,40 +56,24 @@ class GmailAccountBridge:
             send_error("workflowType is required ('login', 'logout', 'read_otp', or 'scan_accounts')")
             return 1
 
-        try:
-            from taktik.core.database import configure_db_service
-
-            configure_db_service()
-        except Exception as exc:  # noqa: BLE001 - bridge must emit JSON errors
-            send_error(f"Database setup failed: {exc}")
+        session = prepare_gmail_session(self.device_id, send_status, send_error)
+        if not session:
             return 1
-
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
-            return 1
-
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
-            return 1
+        self._connection = session.connection
 
         try:
             if self.workflow_type == "login":
-                return self._run_login(device)
+                return self._run_login(session.device)
             if self.workflow_type == "logout":
-                return self._run_logout(device)
+                return self._run_logout(session.device)
             if self.workflow_type == "read_otp":
-                return self._run_read_otp(device)
+                return self._run_read_otp(session.device)
             if self.workflow_type == "scan_accounts":
-                return self._run_scan_accounts(device)
+                return self._run_scan_accounts(session.device)
             send_error(f"Unknown workflowType: {self.workflow_type}")
             return 1
         finally:
-            from bridges.common.device.app_manager import force_stop_app
-
-            force_stop_app(self.device_id, "gmail")
+            cleanup_gmail_app(self.device_id)
 
     def _run_login(self, device) -> int:
         email = (self.config.get("email") or "").strip()
