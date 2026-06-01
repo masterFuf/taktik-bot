@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import time
 
+from bridges.instagram.engagement.runtime.dm.conversation_payload import (
+    build_conversation_payload,
+    extract_inbox_username,
+    is_already_processed,
+    normalize_inbox_username,
+    sort_threads_by_top,
+)
 from bridges.instagram.engagement.runtime.dm.conversation_state import DMConversationStateMixin
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
 from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
@@ -30,15 +37,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                 logger.warning("No threads found")
                 break
 
-            threads_with_pos = []
-            for thread in threads:
-                try:
-                    bounds = thread.info.get("bounds", {})
-                    top = bounds.get("top", 0)
-                    threads_with_pos.append((top, thread))
-                except Exception:
-                    continue
-            threads_with_pos.sort(key=lambda x: x[0])
+            threads_with_pos = sort_threads_by_top(threads)
 
             new_conversations_in_scroll = 0
 
@@ -49,12 +48,11 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                 try:
                     thread_info = thread.info
                     content_desc = thread_info.get("contentDescription", "")
-                    username = _extract_inbox_username(content_desc)
+                    username = extract_inbox_username(content_desc)
                     username = self._resolve_thread_username(thread_info, username)
 
-                    username_lower = username.lower().strip()
-                    username_base = username_lower.rstrip(".").strip()
-                    if _is_already_processed(username_base, processed_usernames):
+                    username_lower, username_base = normalize_inbox_username(username)
+                    if is_already_processed(username_base, processed_usernames):
                         logger.debug(f"Skipping already processed: {username}")
                         continue
 
@@ -81,24 +79,16 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     is_group, can_reply = self._detect_conversation_reply_state(real_username)
                     messages = self._collect_messages()
 
-                    last_message_is_ours = False
-                    if messages:
-                        last_msg = messages[-1]
-                        if last_msg.get("is_sent", False):
-                            last_message_is_ours = True
-                            logger.info(f"Dernier message de @{real_username} est de NOUS -> can_reply=False")
+                    conv = build_conversation_payload(
+                        real_username=real_username,
+                        inbox_username=username,
+                        messages=messages,
+                        is_group=is_group,
+                        can_reply=can_reply,
+                    )
+                    if conv["last_message_is_ours"]:
+                        logger.info(f"Dernier message de @{real_username} est de NOUS -> can_reply=False")
 
-                    if last_message_is_ours:
-                        can_reply = False
-
-                    conv = {
-                        "username": real_username,
-                        "inbox_username": username,
-                        "messages": messages,
-                        "is_group": is_group,
-                        "can_reply": can_reply,
-                        "last_message_is_ours": last_message_is_ours,
-                    }
                     conversations.append(conv)
                     conversations_read += 1
                     new_conversations_in_scroll += 1
@@ -140,23 +130,3 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             time.sleep(1.5)
 
         return conversations
-
-
-def _extract_inbox_username(content_desc: str) -> str:
-    if content_desc:
-        parts = content_desc.split(",")
-        if parts:
-            return parts[0].strip()
-    return "Unknown"
-
-
-def _is_already_processed(username_base: str, processed_usernames: set[str]) -> bool:
-    for processed in processed_usernames:
-        processed_base = processed.rstrip(".").strip()
-        if (
-            username_base == processed_base
-            or username_base.startswith(processed_base)
-            or processed_base.startswith(username_base)
-        ):
-            return True
-    return False
