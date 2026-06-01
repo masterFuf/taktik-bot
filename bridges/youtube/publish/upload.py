@@ -31,7 +31,8 @@ setup_environment()
 
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.youtube.publish.runtime.request import build_upload_request
-from bridges.youtube.base import _ipc, logger, send_error, send_log, send_message, send_status
+from bridges.youtube.publish.runtime.workflow import run_youtube_upload_workflow
+from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
 from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
 
 
@@ -66,43 +67,16 @@ class YouTubeUploadBridge:
             return 1
         self._connection = session.connection
 
-        send_status("running", "Starting YouTube upload workflow...")
         try:
-            from taktik.core.social_media.youtube.workflows.publish.upload_workflow import (
-                YouTubeUploadWorkflow,
-                set_callbacks as set_upload_callbacks,
+            return run_youtube_upload_workflow(
+                device=session.device,
+                device_id=request.device_id,
+                request=request,
+                send_status=send_status,
+                send_message=send_message,
+                send_error=send_error,
+                send_log=send_log,
             )
-
-            # Keep core workflow bridge-agnostic by injecting stdout callbacks here.
-            set_upload_callbacks(log=send_log, status=send_status)
-
-            workflow = YouTubeUploadWorkflow(session.device, request.device_id)
-            result = workflow.execute(
-                local_path=request.local_path,
-                title=request.title,
-                description=request.description,
-                upload_type=request.upload_type,
-                visibility=request.visibility,
-            )
-
-            success = bool(result.get("success", False))
-            send_status("success" if success else "error", result.get("message", ""))
-            send_message(
-                "upload_result",
-                success=success,
-                workflow="upload_post",
-                upload_type=request.upload_type,
-                message=result.get("message", ""),
-                error_type=result.get("error_type"),
-            )
-            return 0 if success else 1
-
-        except Exception as exc:
-            import traceback
-
-            send_error(f"Upload workflow error: {exc}")
-            send_log("error", traceback.format_exc())
-            return 1
         finally:
             cleanup_youtube_app(request.device_id)
 
