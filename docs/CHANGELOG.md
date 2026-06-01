@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Smart Comment bridge ADB calls now use the shared `taktik/core/shared/device/adb.py` process helper instead of local `subprocess.run`, while preserving UTF-8 replacement decoding for dumpsys/clipboard output.
 - Clone package detection now uses the shared ADB process helper with custom `adb_command` support instead of direct subprocess calls in `taktik/core/clone/detection`.
 - Gmail account bridge workflow routing now lives under `bridges/gmail/account/runtime/dispatcher.py`; `account.py` keeps config validation, signal handling and session lifecycle.
+- YouTube action-test config loading and validation now live under `bridges/youtube/diagnostics/runtime/request.py`; `action_runner.py` keeps device connection, tracing and action execution.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.

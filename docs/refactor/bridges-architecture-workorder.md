@@ -256,6 +256,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B194 | Fait | Scinder l'observabilite Instagram du workflow-test compat entre inference d'ecran et hooks action/stats ; `workflow_observability_instagram.py` reste la facade publique stable. | Import smoke facade + screen inference smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
 | B195 | Fait | Rebrancher les appels ADB Smart Comment (`am start`, `dumpsys`, clipboard) sur l'owner partage `taktik/core/shared/device/adb.py`, avec support `encoding/errors` dans `run_adb_shell_process()`. | Import smoke helper + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke smart-comment + `compileall` + `git diff --check`. |
 | B196 | Fait | Extraire le routing des operations Gmail account sous `bridges/gmail/account/runtime/dispatcher.py`; `account.py` garde validation config, signaux et session lifecycle. | Import smoke dispatcher + `py_compile` + `check_bridge_manifest` + launcher JSON smoke gmail-account + `compileall` + `git diff --check`. |
+| B197 | Fait | Extraire le chargement/validation de requete YouTube action-test sous `bridges/youtube/diagnostics/runtime/request.py`; `action_runner.py` garde connexion device, tracing et execution. | Request smoke + `py_compile` + `check_bridge_manifest` + launcher JSON smoke youtube-action-test + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

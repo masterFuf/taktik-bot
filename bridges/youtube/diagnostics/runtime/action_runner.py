@@ -1,10 +1,13 @@
 """Runtime runner for the YouTube action-test diagnostic bridge."""
 
-import json
 import sys
 import traceback
 
 from bridges.youtube.diagnostics.runtime.events import emit, log
+from bridges.youtube.diagnostics.runtime.request import (
+    load_youtube_action_test_config,
+    validate_youtube_action_test_config,
+)
 from bridges.youtube.diagnostics.runtime.registry import ACTION_REGISTRY
 from bridges.youtube.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
 
@@ -17,19 +20,17 @@ def run_youtube_action_test(argv: list[str]) -> None:
         sys.exit(1)
 
     try:
-        config = _load_config(argv[1])
+        config = load_youtube_action_test_config(argv[1])
     except Exception as exc:
         emit({"type": "result", "success": False, "message": f"Failed to read config: {exc}"})
         sys.exit(1)
 
-    validated = _validate_config(config)
-    if validated is None:
+    request = validate_youtube_action_test_config(config)
+    if request is None:
         sys.exit(1)
 
-    device_id, action_id, params = validated
-
     try:
-        raw_device = _connect_device(device_id)
+        raw_device = _connect_device(request.device_id)
     except Exception as exc:
         emit({"type": "result", "success": False, "message": f"Device connection failed: {exc}"})
         sys.exit(1)
@@ -41,7 +42,7 @@ def run_youtube_action_test(argv: list[str]) -> None:
         sys.exit(1)
 
     tracer = _install_selector_tracer(raw_device)
-    _run_action(raw_device, selectors, action_id, params, tracer)
+    _run_action(raw_device, selectors, request.action_id, request.params, tracer)
 
 
 def _bootstrap_bot_path() -> None:
@@ -53,11 +54,6 @@ def _bootstrap_bot_path() -> None:
     )
     if bot_dir not in sys.path:
         sys.path.insert(0, bot_dir)
-
-
-def _load_config(config_path: str) -> dict:
-    with open(config_path, "r", encoding="utf-8-sig") as file_obj:
-        return json.load(file_obj)
 
 
 def _connect_device(device_id: str):
@@ -88,36 +84,6 @@ def _install_selector_tracer(raw_device):
 
     raw_device.xpath = traced_xpath
     return tracer
-
-
-def _emit_unknown_action(action_id: str) -> None:
-    emit(
-        {
-            "type": "result",
-            "success": False,
-            "message": f"Unknown action: '{action_id}'. Available: {sorted(ACTION_REGISTRY.keys())}",
-        }
-    )
-
-
-def _validate_config(config: dict) -> tuple[str, str, dict] | None:
-    device_id = config.get("device_id", "")
-    action_id = config.get("action_id", "")
-    params = config.get("params", {})
-
-    if not device_id:
-        emit({"type": "result", "success": False, "message": "Missing device_id"})
-        return None
-
-    if not action_id:
-        emit({"type": "result", "success": False, "message": "Missing action_id"})
-        return None
-
-    if action_id not in ACTION_REGISTRY:
-        _emit_unknown_action(action_id)
-        return None
-
-    return device_id, action_id, params
 
 
 def _run_action(raw_device, selectors, action_id: str, params: dict, tracer: SelectorTracer) -> None:
