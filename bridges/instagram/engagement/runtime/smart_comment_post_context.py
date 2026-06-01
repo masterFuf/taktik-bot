@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import subprocess
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import asdict
@@ -11,10 +10,11 @@ from dataclasses import asdict
 from bridges.common.parsing.counts import parse_count
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment_models import PostContext
+from bridges.instagram.engagement.runtime.smart_comment_post_url import SmartCommentPostUrlMixin
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
 
 
-class SmartCommentPostContextMixin:
+class SmartCommentPostContextMixin(SmartCommentPostUrlMixin):
     """Caption, date, stats and post URL extraction for Smart Comment."""
 
     def _expand_caption(self):
@@ -186,78 +186,3 @@ class SmartCommentPostContextMixin:
 
         except Exception as e:
             logger.warning(f"Error extracting post stats: {e}")
-
-    def extract_post_url(self) -> str:
-        """Extract the current post's URL via Share → Copy Link."""
-        logger.info("Extracting post URL via Share → Copy Link...")
-        try:
-            share_btn = None
-            for resource_id in POST_DETAIL_SELECTORS.share_button_resource_ids:
-                share_btn = self.device(resourceId=resource_id)
-                if share_btn.exists:
-                    break
-            if not share_btn or not share_btn.exists:
-                logger.warning("Share button not found")
-                return ""
-
-            share_btn.click()
-            time.sleep(1.5)
-
-            copy_link = None
-            for label in POST_DETAIL_SELECTORS.copy_link_labels:
-                elem = self.device(text=label)
-                if elem.exists:
-                    copy_link = elem
-                    break
-
-            if not copy_link:
-                for label in POST_DETAIL_SELECTORS.copy_link_description_labels:
-                    elem = self.device(description=label)
-                    if elem.exists:
-                        copy_link = elem
-                        break
-
-            if not copy_link:
-                logger.warning("Copy link button not found in share sheet")
-                self.device.press("back")
-                time.sleep(0.5)
-                return ""
-
-            copy_link.click()
-            time.sleep(1)
-
-            for command, label in [
-                (["adb", "-s", self.device_id, "shell", "am", "broadcast", "-a", "clipper.get"], "clipboard broadcast"),
-                (["adb", "-s", self.device_id, "shell", "dumpsys", "clipboard"], "dumpsys clipboard"),
-                (["adb", "-s", self.device_id, "shell", "content", "query", "--uri", "content://clipboard/clip"], "content provider"),
-            ]:
-                try:
-                    result = subprocess.run(
-                        command,
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                        encoding="utf-8",
-                        errors="replace",
-                    )
-                    output = result.stdout.strip() if label == "clipboard broadcast" else result.stdout
-                    url_match = re.search(r"(https?://(?:www\.)?instagram\.com/(?:p|reel)/[\w-]+/?)", output)
-                    if url_match:
-                        post_url = url_match.group(1)
-                        logger.info(f"Post URL from {label}: {post_url}")
-                        self.post_context.post_url = post_url
-                        return post_url
-                except Exception as e:
-                    logger.debug(f"{label.capitalize()} failed: {e}")
-
-            logger.warning("Could not read clipboard — post URL not captured")
-            return ""
-
-        except Exception as e:
-            logger.error(f"Error extracting post URL: {e}")
-            try:
-                self.device.press("back")
-                time.sleep(0.5)
-            except Exception:
-                pass
-            return ""
