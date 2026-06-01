@@ -30,6 +30,7 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.runtime.signal_handler import setup_signal_handlers
+from bridges.youtube.publish.runtime.request import build_upload_request
 from bridges.youtube.base import _ipc, logger, send_error, send_log, send_message, send_status
 from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
 
@@ -41,12 +42,6 @@ class YouTubeUploadBridge:
 
     def __init__(self, config: dict):
         self.config = config
-        self.device_id = config.get("deviceId")
-        self.local_path = config.get("localPath", "")
-        self.title = config.get("title", "")
-        self.description = config.get("description", "")
-        self.upload_type = config.get("uploadType", "short").lower()
-        self.visibility = config.get("visibility", "public").lower()
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
@@ -57,26 +52,16 @@ class YouTubeUploadBridge:
         send_status("stopping", "Received shutdown signal")
 
     def run(self) -> int:
-        if not self.device_id:
-            send_error("deviceId is required")
-            return 1
-        if not self.local_path:
-            send_error("localPath is required")
-            return 1
-        if not os.path.isfile(self.local_path):
-            send_error(f"File not found: {self.local_path}")
+        request = build_upload_request(
+            self.config,
+            self.SHORT_TITLE_MAX_LENGTH,
+            send_error,
+            send_log,
+        )
+        if not request:
             return 1
 
-        if self.upload_type == "short" and self.title:
-            chars = list(self.title.strip())
-            if len(chars) > self.SHORT_TITLE_MAX_LENGTH:
-                self.title = "".join(chars[:self.SHORT_TITLE_MAX_LENGTH]).strip()
-                send_log(
-                    "warning",
-                    f"YouTube Shorts title trimmed to {self.SHORT_TITLE_MAX_LENGTH} characters",
-                )
-
-        session = prepare_youtube_session(self.device_id, send_status, send_error)
+        session = prepare_youtube_session(request.device_id, send_status, send_error)
         if not session:
             return 1
         self._connection = session.connection
@@ -91,13 +76,13 @@ class YouTubeUploadBridge:
             # Keep core workflow bridge-agnostic by injecting stdout callbacks here.
             set_upload_callbacks(log=send_log, status=send_status)
 
-            workflow = YouTubeUploadWorkflow(session.device, self.device_id)
+            workflow = YouTubeUploadWorkflow(session.device, request.device_id)
             result = workflow.execute(
-                local_path=self.local_path,
-                title=self.title,
-                description=self.description,
-                upload_type=self.upload_type,
-                visibility=self.visibility,
+                local_path=request.local_path,
+                title=request.title,
+                description=request.description,
+                upload_type=request.upload_type,
+                visibility=request.visibility,
             )
 
             success = bool(result.get("success", False))
@@ -106,7 +91,7 @@ class YouTubeUploadBridge:
                 "upload_result",
                 success=success,
                 workflow="upload_post",
-                upload_type=self.upload_type,
+                upload_type=request.upload_type,
                 message=result.get("message", ""),
                 error_type=result.get("error_type"),
             )
@@ -119,7 +104,7 @@ class YouTubeUploadBridge:
             send_log("error", traceback.format_exc())
             return 1
         finally:
-            cleanup_youtube_app(self.device_id)
+            cleanup_youtube_app(request.device_id)
 
 
 def main() -> None:

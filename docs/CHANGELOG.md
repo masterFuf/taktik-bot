@@ -143,6 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YouTube account bridge now uses the common config-file entrypoint helper, keeping `account.py` focused on bridge workflow orchestration.
 - Shared YouTube DB/device setup and app cleanup now live under `bridges/youtube/runtime/session.py`; `youtube/account/account.py` already consumes that shared runtime owner.
 - YouTube upload bridge now reuses the shared YouTube session runtime for DB/device setup and app cleanup, while keeping its custom config parsing and `upload_result` payload.
+- YouTube upload request validation and Shorts title normalization now live under `bridges/youtube/publish/runtime/request.py`, keeping payload checks out of the bridge entrypoint.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.
