@@ -122,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok scraping bridge workflow runner and signal handling moved under `scraping/runtime/workflow.py` and `scraping/runtime/signals.py`; `scraping/scraping.py` remains the public stdin entrypoint.
 - TikTok Search/Hashtag bridge planning helpers and IPC callback wiring moved under `workflows/automation/runtime/search_planning.py` and `search_callbacks.py`.
 - TikTok workflow dispatcher config loading, routing, network reset and cleanup moved under `workflows/runtime/dispatcher.py`; `workflows/dispatcher.py` remains the public launcher entrypoint.
+- TikTok runtime IPC video/action/stats events and DM events moved under `runtime/ipc_video_events.py` and `runtime/ipc_dm_events.py`, while `runtime/ipc.py` keeps the same public exports.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.
