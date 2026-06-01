@@ -19,6 +19,7 @@ import os
 import json
 from typing import Any
 
+from bridges.common.runtime.ipc_agent import AgentIpcMixin
 from bridges.common.runtime.ipc_ai import AIIpcMixin
 from bridges.common.runtime.ipc_dm import DMIpcMixin
 from bridges.common.runtime.ipc_instagram import InstagramIpcMixin
@@ -26,7 +27,7 @@ from bridges.common.runtime.ipc_threads import ThreadsIpcMixin
 from bridges.common.runtime.ipc_tiktok import TikTokIpcMixin
 
 
-class IPC(InstagramIpcMixin, ThreadsIpcMixin, TikTokIpcMixin, DMIpcMixin, AIIpcMixin):
+class IPC(InstagramIpcMixin, ThreadsIpcMixin, TikTokIpcMixin, DMIpcMixin, AIIpcMixin, AgentIpcMixin):
     """
     Structured IPC channel to the Electron desktop app.
     
