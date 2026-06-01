@@ -189,6 +189,11 @@ class DirectMessageSelectors:
     inbox_action_bar_resource_id: str = "com.instagram.android:id/action_bar_container"
     inbox_action_bar: str = '//*[@resource-id="com.instagram.android:id/action_bar_container"]'
     inbox_title: str = '//*[@resource-id="com.instagram.android:id/igds_action_bar_title"]'
+    instagram_open_probe_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/action_bar_container",
+        "com.instagram.android:id/tab_bar",
+        "com.instagram.android:id/bottom_navigation",
+    ])
     
     # === Legacy selectors (compatibilité) ===
     search_recipient: str = '//android.widget.EditText[contains(@text, "Rechercher") or contains(@text, "Search")]'

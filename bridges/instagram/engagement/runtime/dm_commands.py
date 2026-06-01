@@ -8,6 +8,7 @@ import time
 
 from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.dm import DMBridge
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 def cmd_read(device_id: str, limit: int, package_name: str = None):
@@ -49,16 +50,15 @@ def _ensure_dm_inbox(bridge: DMBridge) -> bool:
     Handles the case where the user left Instagram or navigated away.
     Returns True if we're in the inbox, False if navigation failed.
     """
-    inbox = bridge.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+    inbox = bridge.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
     if inbox.exists(timeout=2):
         logger.info("Already in DM inbox")
         bridge._ensure_primary_tab()
         return True
 
     ig_elements = [
-        bridge.device(resourceId="com.instagram.android:id/action_bar_container"),
-        bridge.device(resourceId="com.instagram.android:id/tab_bar"),
-        bridge.device(resourceId="com.instagram.android:id/bottom_navigation"),
+        bridge.device(resourceId=resource_id)
+        for resource_id in DM_SELECTORS.instagram_open_probe_resource_ids
     ]
     ig_is_open = any(e.exists(timeout=1) for e in ig_elements)
 
@@ -121,19 +121,20 @@ def cmd_send(device_id: str, username: str, message: str, package_name: str = No
 
 def _return_to_inbox(bridge: DMBridge) -> None:
     time.sleep(0.5)
-    back_btn = bridge.device(resourceId="com.instagram.android:id/header_left_button")
+    back_btn = bridge.device(resourceId=DM_SELECTORS.conversation_back_button_resource_id)
     if back_btn.exists(timeout=2):
         back_btn.click()
         logger.info("Retour a l'inbox via header_left_button")
         time.sleep(1)
         return
 
-    back_btn = bridge.device(description="Back")
-    if back_btn.exists(timeout=2):
-        back_btn.click()
-        logger.info("Retour a l'inbox via description Back")
-        time.sleep(1)
-        return
+    for description in DM_SELECTORS.conversation_back_descriptions:
+        back_btn = bridge.device(description=description)
+        if back_btn.exists(timeout=2):
+            back_btn.click()
+            logger.info(f"Retour a l'inbox via description {description}")
+            time.sleep(1)
+            return
 
     logger.warning("Bouton back non trouve, tentative press back")
     bridge.device.press("back")
