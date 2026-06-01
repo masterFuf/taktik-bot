@@ -8,7 +8,7 @@ import time
 
 from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.dm import DMBridge
-from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from bridges.instagram.engagement.runtime.dm_session import ensure_dm_inbox, return_to_inbox
 
 
 def cmd_read(device_id: str, limit: int, package_name: str = None):
@@ -44,46 +44,6 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
     }))
 
 
-def _ensure_dm_inbox(bridge: DMBridge) -> bool:
-    """
-    Ensure Instagram is open and we're in the DM inbox.
-    Handles the case where the user left Instagram or navigated away.
-    Returns True if we're in the inbox, False if navigation failed.
-    """
-    inbox = bridge.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
-    if inbox.exists(timeout=2):
-        logger.info("Already in DM inbox")
-        bridge._ensure_primary_tab()
-        return True
-
-    ig_elements = [
-        bridge.device(resourceId=resource_id)
-        for resource_id in DM_SELECTORS.instagram_open_probe_resource_ids
-    ]
-    ig_is_open = any(e.exists(timeout=1) for e in ig_elements)
-
-    if ig_is_open:
-        logger.info("Instagram is open but not in DM inbox, navigating...")
-        if bridge.navigate_to_dm_inbox():
-            time.sleep(2)
-            bridge._ensure_primary_tab()
-            bridge._scroll_to_top_of_inbox()
-            return True
-
-    logger.info("Instagram not in DM inbox, restarting app...")
-    bridge.restart_instagram()
-    time.sleep(3)
-
-    if not bridge.navigate_to_dm_inbox():
-        logger.error("Failed to navigate to DM inbox after restart")
-        return False
-
-    time.sleep(2)
-    bridge._ensure_primary_tab()
-    bridge._scroll_to_top_of_inbox()
-    return True
-
-
 def cmd_send(device_id: str, username: str, message: str, package_name: str = None):
     """Send a DM message. Ensures Instagram is open and we're in DM inbox before sending."""
     bridge = DMBridge(device_id, package_name=package_name)
@@ -92,7 +52,7 @@ def cmd_send(device_id: str, username: str, message: str, package_name: str = No
         print(json.dumps({"success": False, "error": "Failed to connect to device"}))
         sys.exit(1)
 
-    if not _ensure_dm_inbox(bridge):
+    if not ensure_dm_inbox(bridge):
         print(json.dumps({"success": False, "error": "Cannot navigate to DM inbox"}))
         sys.exit(1)
 
@@ -108,7 +68,7 @@ def cmd_send(device_id: str, username: str, message: str, package_name: str = No
             sys.exit(1)
 
     if bridge.send_message(message):
-        _return_to_inbox(bridge)
+        return_to_inbox(bridge)
         print(json.dumps({
             "success": True,
             "username": username,
@@ -117,28 +77,6 @@ def cmd_send(device_id: str, username: str, message: str, package_name: str = No
     else:
         print(json.dumps({"success": False, "error": "Failed to send message"}))
         sys.exit(1)
-
-
-def _return_to_inbox(bridge: DMBridge) -> None:
-    time.sleep(0.5)
-    back_btn = bridge.device(resourceId=DM_SELECTORS.conversation_back_button_resource_id)
-    if back_btn.exists(timeout=2):
-        back_btn.click()
-        logger.info("Retour a l'inbox via header_left_button")
-        time.sleep(1)
-        return
-
-    for description in DM_SELECTORS.conversation_back_descriptions:
-        back_btn = bridge.device(description=description)
-        if back_btn.exists(timeout=2):
-            back_btn.click()
-            logger.info(f"Retour a l'inbox via description {description}")
-            time.sleep(1)
-            return
-
-    logger.warning("Bouton back non trouve, tentative press back")
-    bridge.device.press("back")
-    time.sleep(1)
 
 
 def run_dm_cli(args: list[str]) -> None:
