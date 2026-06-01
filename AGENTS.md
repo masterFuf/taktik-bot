@@ -125,6 +125,7 @@ Definition simple :
 - Sous `bridges/common/input/**`, garder `keyboard.py` comme facade bridge mince. La logique IME/ADB durable doit rester dans `taktik/core/shared/input/taktik_keyboard.py` et `taktik/core/shared/device/adb.py`, pas etre dupliquee dans le bridge.
 - Sous `bridges/common/device/**`, garder les commandes ADB standalone d'app dans `app_control.py`, le catalogue package/activity dans `apps.py`, et la classe lifecycle connectee dans `app_manager.py`. `app_manager.py` peut re-exporter pour compatibilite, mais ne doit pas redevenir le depot de toutes les commandes device.
 - Sous `bridges/common/device/**`, garder les probes de foreground/version applicative dans `app_inspection.py` plutot que de les remelanger dans `app_manager.py` ou `apps.py`.
+- Sous `bridges/common/device/**`, garder la lecture des dimensions ecran dans `screen.py`; `connection.py` garde le lifecycle de connexion et expose seulement le cache public.
 - Sous `bridges/common/device/**`, garder la resolution dynamique package/activity (clone override, auto-detection de package alternatif) dans `app_resolution.py`; `apps.py` reste un catalogue de donnees, pas un owner de logique runtime.
 - Sous `bridges/common/device/**`, garder les checks/reparations ATX dans `atx_health.py`; `connection.py` orchestre la connexion et delegue les probes/reparations specialisees.
 - Sous `bridges/common/device/**`, importer `DeviceManager` depuis `taktik.core.shared.device.manager`, jamais via le shim Instagram `social_media/instagram/actions/core/device`.

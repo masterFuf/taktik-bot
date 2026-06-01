@@ -42,6 +42,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/device/app_inspection.py` = probes non-destructives sur une app ou un package (foreground, version installee, etc.).
 - `bridges/common/device/app_resolution.py` = resolution runtime de la config app effective (override clone, auto-detection de package alternatif).
 - `bridges/common/device/atx_health.py` = checks et reparations du uiautomator2/ATX agent pour une connexion deja ouverte.
+- `bridges/common/device/screen.py` = lecture des dimensions ecran d'une connexion device ; `connection.py` garde le cache public.
 - `bridges/common/device/network_probe.py` = probes reseau non destructives (IP externe courante) ; `bridges/common/device/network_reset.py` = strategies de reset reseau ; `network.py` reste la facade/orchestrateur de compatibilite.
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
@@ -212,6 +213,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B153 | Fait | Extraire les probes IP reseau de `bridges/common/device/network.py` vers `network_probe.py` et les strategies de reset vers `network_reset.py`; `network.py` reste la facade publique avec `perform_network_reset`. | Import smoke network facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B154 | Fait | Rebrancher `bridges/common/input/keyboard.py` sur l'owner core `shared/input/taktik_keyboard.py` au lieu de dupliquer la gestion ADB/IME ; l'API `KeyboardService` reste identique. | Import smoke keyboard facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B155 | Fait | Ajouter `run_adb_shell_process()` sous `taktik/core/shared/device/adb.py` et migrer `app_control.py` / `app_inspection.py` dessus pour retirer les derniers subprocess ADB locaux de `bridges/common/device`. | Import smoke ADB process helper + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B156 | Fait | Extraire la lecture des dimensions ecran de `ConnectionService` vers `bridges/common/device/screen.py`; les proprietes publiques `screen_size`, `screen_width`, `screen_height` restent identiques. | Import smoke screen helper + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

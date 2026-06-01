@@ -20,6 +20,7 @@ from typing import Tuple
 from loguru import logger
 
 from bridges.common.device.atx_health import check_atx_health as perform_atx_health_check
+from bridges.common.device.screen import DEFAULT_SCREEN_SIZE, read_screen_size
 from taktik.core.shared.device.manager import DeviceManager
 
 
@@ -36,8 +37,8 @@ class ConnectionService:
         self.device_id = device_id
         self._device_manager = None
         self._device = None
-        self._screen_width: int = 1080
-        self._screen_height: int = 2340
+        self._screen_width: int = DEFAULT_SCREEN_SIZE[0]
+        self._screen_height: int = DEFAULT_SCREEN_SIZE[1]
         self._connected: bool = False
 
     # ------------------------------------------------------------------
@@ -68,13 +69,7 @@ class ConnectionService:
                 logger.error("Device is None after connect()")
                 return False
 
-            # Cache screen dimensions
-            try:
-                screen_info = self._device.info
-                self._screen_width = screen_info.get('displayWidth', 1080)
-                self._screen_height = screen_info.get('displayHeight', 2340)
-            except Exception as e:
-                logger.warning(f"Could not read screen dimensions: {e}")
+            self._screen_width, self._screen_height = read_screen_size(self._device)
 
             self._connected = True
             logger.info(f"Connected to {self.device_id} ({self._screen_width}x{self._screen_height})")
