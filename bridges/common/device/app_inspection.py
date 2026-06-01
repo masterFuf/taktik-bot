@@ -1,9 +1,9 @@
 """Inspection helpers for bridge-managed mobile apps."""
 
-import subprocess
 from typing import Any, Optional
 
 from loguru import logger
+from taktik.core.shared.device.adb import run_adb_shell_process
 
 
 def is_app_running(device: Any, package_name: str, platform: str) -> bool:
@@ -21,9 +21,9 @@ def is_app_running(device: Any, package_name: str, platform: str) -> bool:
 def get_installed_app_version(device_id: str, package_name: str, platform: str) -> Optional[str]:
     """Detect the installed app version via ADB dumpsys."""
     try:
-        result = subprocess.run(
-            ["adb", "-s", device_id, "shell", "dumpsys", "package", package_name],
-            capture_output=True,
+        result = run_adb_shell_process(
+            device_id,
+            ["dumpsys", "package", package_name],
             text=True,
             timeout=10,
         )

@@ -211,6 +211,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B152 | Fait | Realigner `bridges/common/device/connection.py` sur l'owner canonique `taktik.core.shared.device.manager` au lieu du shim Instagram legacy ; l'API publique de `ConnectionService` reste identique. | Import smoke shared DeviceManager + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B153 | Fait | Extraire les probes IP reseau de `bridges/common/device/network.py` vers `network_probe.py` et les strategies de reset vers `network_reset.py`; `network.py` reste la facade publique avec `perform_network_reset`. | Import smoke network facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B154 | Fait | Rebrancher `bridges/common/input/keyboard.py` sur l'owner core `shared/input/taktik_keyboard.py` au lieu de dupliquer la gestion ADB/IME ; l'API `KeyboardService` reste identique. | Import smoke keyboard facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B155 | Fait | Ajouter `run_adb_shell_process()` sous `taktik/core/shared/device/adb.py` et migrer `app_control.py` / `app_inspection.py` dessus pour retirer les derniers subprocess ADB locaux de `bridges/common/device`. | Import smoke ADB process helper + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

@@ -1,6 +1,6 @@
 """Shared device primitives for ADB, ATX, media and permissions."""
 
-from .adb import run_adb_shell
+from .adb import run_adb_shell, run_adb_shell_process
 from .facade import BaseDeviceFacade, Direction
 from .manager import DeviceManager
 from .media_store import (
@@ -23,6 +23,7 @@ from .permissions import (
 
 __all__ = [
     "run_adb_shell",
+    "run_adb_shell_process",
     "BaseDeviceFacade",
     "Direction",
     "DeviceManager",

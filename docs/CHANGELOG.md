@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bridge network helpers are now split by responsibility: `network_probe.py` owns external IP inspection, `network_reset.py` owns reset strategies, and `network.py` remains the public facade/orchestrator for `perform_network_reset`.
 - Shared ADB shell execution now lives under `taktik/core/shared/device/adb.py`; keyboard, bridge network helpers and Instagram deep-link navigation now import the device owner directly while `taktik_keyboard.py` keeps the compatibility re-export.
 - `bridges/common/input/keyboard.py` is now a thin bridge facade over the shared core Taktik Keyboard owner instead of carrying its own duplicated ADB/IME implementation.
+- Shared ADB now exposes `run_adb_shell_process()` for callers that need subprocess return codes; bridge app control and app inspection use that owner instead of local subprocess calls.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.

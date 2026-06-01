@@ -1,10 +1,9 @@
 """Standalone app control helpers for bridge device services."""
 
-import subprocess
-
 from loguru import logger
 
 from bridges.common.device.apps import get_app_config, packages_for_platform
+from taktik.core.shared.device.adb import run_adb_shell_process
 
 
 def force_stop_app(device_id: str, platform: str) -> bool:
@@ -22,9 +21,10 @@ def force_stop_app(device_id: str, platform: str) -> bool:
     success = False
     for package_name in packages_for_platform(platform):
         try:
-            result = subprocess.run(
-                ["adb", "-s", device_id, "shell", "am", "force-stop", package_name],
-                capture_output=True,
+            result = run_adb_shell_process(
+                device_id,
+                ["am", "force-stop", package_name],
+                text=False,
                 timeout=5,
             )
             if result.returncode == 0:

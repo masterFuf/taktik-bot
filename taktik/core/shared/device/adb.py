@@ -1,8 +1,30 @@
 """Shared ADB shell helpers for device/runtime owners."""
 
 import subprocess
+from typing import Sequence
 
 from loguru import logger
+
+
+def run_adb_shell_process(
+    device_id: str,
+    command_args: Sequence[str],
+    *,
+    text: bool = True,
+    timeout: int = 10,
+) -> subprocess.CompletedProcess:
+    """
+    Execute an ADB shell command and return the subprocess result.
+
+    Use this when callers need return code or stderr, for example app lifecycle
+    cleanup and package inspection.
+    """
+    return subprocess.run(
+        ["adb", "-s", device_id, "shell", *command_args],
+        capture_output=True,
+        text=text,
+        timeout=timeout,
+    )
 
 
 def run_adb_shell(device_id: str, command: str) -> str:
@@ -38,4 +60,4 @@ def run_adb_shell(device_id: str, command: str) -> str:
         return ""
 
 
-__all__ = ["run_adb_shell"]
+__all__ = ["run_adb_shell", "run_adb_shell_process"]
