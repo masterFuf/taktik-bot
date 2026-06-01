@@ -24,7 +24,7 @@ class SmartCommentCommentsMixin(SmartCommentCommentExtractionMixin, SmartComment
 
         comment_btn = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_button_resource_id)
         if comment_btn.exists:
-            parent = comment_btn.up(className="android.view.ViewGroup", clickable=True)
+            parent = comment_btn.up(className=POST_COMMENTS_SELECTORS.parent_view_group_class_name, clickable=True)
             if parent and parent.exists:
                 parent.click()
             else:
@@ -36,7 +36,7 @@ class SmartCommentCommentsMixin(SmartCommentCommentExtractionMixin, SmartComment
                 logger.info("Comments page opened successfully")
                 return True
 
-        buttons = self.device(className="android.widget.Button")
+        buttons = self.device(className=POST_COMMENTS_SELECTORS.button_class_name)
         for i in range(buttons.count):
             try:
                 btn = buttons[i]
@@ -62,12 +62,12 @@ class SmartCommentCommentsMixin(SmartCommentCommentExtractionMixin, SmartComment
         """Change comment sorting. Options: 'for_you', 'most_recent', 'meta_verified'."""
         logger.info(f"Changing comment sort to: {sort_type}")
 
-        sort_btn = self.device(text=POST_COMMENTS_SELECTORS.default_sort_label, className="android.widget.Button")
+        sort_btn = self.device(text=POST_COMMENTS_SELECTORS.default_sort_label, className=POST_COMMENTS_SELECTORS.button_class_name)
         if not sort_btn.exists:
             sort_btn = self.device(description=POST_COMMENTS_SELECTORS.default_sort_label)
         if not sort_btn.exists:
             for label in POST_COMMENTS_SELECTORS.sort_button_labels:
-                sort_btn = self.device(text=label, className="android.widget.Button")
+                sort_btn = self.device(text=label, className=POST_COMMENTS_SELECTORS.button_class_name)
                 if sort_btn.exists:
                     break
 

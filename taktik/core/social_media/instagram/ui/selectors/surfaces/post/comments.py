@@ -34,6 +34,8 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.post_comment_button_selectors)
     )
     comment_button_resource_id: str = "com.instagram.android:id/row_feed_button_comment"
+    button_class_name: str = POST_SELECTORS.button_class_name
+    parent_view_group_class_name: str = "android.view.ViewGroup"
     comment_title_resource_id: str = "com.instagram.android:id/title_text_view"
     comment_title_texts: Tuple[str, ...] = ("Comments", "Commentaires")
     comments_list_resource_id: str = POST_SELECTORS.comments_list_resource_id

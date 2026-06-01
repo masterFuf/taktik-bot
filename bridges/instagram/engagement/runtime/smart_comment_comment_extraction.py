@@ -42,7 +42,7 @@ class SmartCommentCommentExtractionMixin:
                 text = (elem.get("text", "") or "").strip()
                 content_desc = (elem.get("content-description", "") or "").strip()
 
-                if tag_class == "android.widget.Button" and text:
+                if tag_class == POST_COMMENTS_SELECTORS.button_class_name and text:
                     if (
                         re.match(r"^[\w][\w.]{0,29}$", text)
                         and text.lower() not in POST_COMMENTS_SELECTORS.ignored_username_tokens
