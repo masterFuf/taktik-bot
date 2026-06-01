@@ -7,8 +7,8 @@ import sys
 import time
 
 from bridges.instagram.runtime.ipc import logger
-from bridges.instagram.engagement.runtime.dm_bridge import DMBridge
-from bridges.instagram.engagement.runtime.dm_session import ensure_dm_inbox, return_to_inbox
+from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
+from bridges.instagram.engagement.runtime.dm.session import ensure_dm_inbox, return_to_inbox
 
 
 def cmd_read(device_id: str, limit: int, package_name: str = None):

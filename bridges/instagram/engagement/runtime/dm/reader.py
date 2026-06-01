@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import time
 
-from bridges.instagram.engagement.runtime.dm_conversation_state import DMConversationStateMixin
-from bridges.instagram.engagement.runtime.dm_message_extraction import DMMessageExtractionMixin
+from bridges.instagram.engagement.runtime.dm.conversation_state import DMConversationStateMixin
+from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import time
 
-from bridges.instagram.engagement.runtime.dm_conversation_navigation import DMConversationNavigationMixin
-from bridges.instagram.engagement.runtime.dm_inbox_reset import DMInboxResetMixin
+from bridges.instagram.engagement.runtime.dm.conversation_navigation import DMConversationNavigationMixin
+from bridges.instagram.engagement.runtime.dm.inbox_reset import DMInboxResetMixin
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 

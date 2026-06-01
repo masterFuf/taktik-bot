@@ -12,11 +12,11 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.instagram.engagement.runtime.dm_bridge import DMBridge
+from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
 
 
 def main():
-    from bridges.instagram.engagement.runtime.dm_commands import run_dm_cli
+    from bridges.instagram.engagement.runtime.dm.commands import run_dm_cli
 
     run_dm_cli(sys.argv[1:])
 

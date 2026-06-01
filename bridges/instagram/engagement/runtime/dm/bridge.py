@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.engagement.runtime.dm_navigation import DMInboxNavigationMixin
-from bridges.instagram.engagement.runtime.dm_reader import DMConversationReaderMixin
-from bridges.instagram.engagement.runtime.dm_sender import DMSenderMixin
+from bridges.instagram.engagement.runtime.dm.navigation import DMInboxNavigationMixin
+from bridges.instagram.engagement.runtime.dm.reader import DMConversationReaderMixin
+from bridges.instagram.engagement.runtime.dm.sender import DMSenderMixin
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 
 

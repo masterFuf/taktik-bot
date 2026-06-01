@@ -239,6 +239,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B177 | Fait | Extraire le lifecycle workflow-test compat (init automation, overrides selectors, detection langue, cleanup watchdog) sous `workflow_lifecycle.py`; l'entrypoint garde orchestration et rapport. | Import smoke workflow lifecycle + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B178 | Fait | Scinder les runners workflow Gmail account par operation sous `workflow_login.py`, `workflow_logout.py`, `workflow_otp.py`, `workflow_scan.py`; `workflows.py` reste la facade publique. | Import smoke Gmail workflow facade + launcher JSON smoke gmail-account + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B179 | Fait | Extraire le runner YouTube action-test diagnostics (config, connexion device, selectors, tracing, execution) sous `bridges/youtube/diagnostics/runtime/action_runner.py`; `action_test.py` garde setup stdout et registry. | Import smoke YouTube action runner + launcher JSON smoke youtube-action-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B180 | Fait | Regrouper le runtime Instagram DM sous `bridges/instagram/engagement/runtime/dm/**`; l'entrypoint public `engagement/dm.py` garde le contrat manifest/CLI. | Import smoke DMBridge + launcher JSON smoke dm-bridge + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
