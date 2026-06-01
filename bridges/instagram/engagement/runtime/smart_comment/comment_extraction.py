@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import re
 import traceback
-import xml.etree.ElementTree as ET
 
 from bridges.instagram.engagement.runtime.smart_comment.models import ScrapedComment
 from bridges.instagram.engagement.runtime.smart_comment.parsing import parse_litho_comments
+from bridges.instagram.engagement.runtime.smart_comment.visible_usernames import extract_visible_comment_usernames
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from taktik.core.shared.device.adb import run_adb_shell_process
-from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
 class SmartCommentCommentExtractionMixin:
@@ -24,36 +22,7 @@ class SmartCommentCommentExtractionMixin:
             if not xml:
                 return visible
 
-            root = ET.fromstring(xml)
-
-            recycler = None
-            for elem in root.iter():
-                rid = elem.get("resource-id", "") or ""
-                if POST_COMMENTS_SELECTORS.comments_list_resource_key in rid:
-                    recycler = elem
-                    break
-
-            if recycler is None:
-                logger.debug("RecyclerView not found in XML, falling back to full scan")
-                recycler = root
-
-            for elem in recycler.iter():
-                tag_class = elem.get("class", "") or ""
-                text = (elem.get("text", "") or "").strip()
-                content_desc = (elem.get("content-description", "") or "").strip()
-
-                if tag_class == POST_COMMENTS_SELECTORS.button_class_name and text:
-                    if (
-                        re.match(r"^[\w][\w.]{0,29}$", text)
-                        and text.lower() not in POST_COMMENTS_SELECTORS.ignored_username_tokens
-                    ):
-                        visible.add(text.lower())
-
-                for pattern in POST_COMMENTS_SELECTORS.profile_content_description_patterns:
-                    match = re.search(pattern, content_desc)
-                    if match:
-                        visible.add(match.group(1).lower())
-
+            visible = extract_visible_comment_usernames(xml)
             logger.debug(f"Visible comment usernames from XML ({len(visible)}): {visible}")
         except Exception as e:
             logger.warning(f"Failed to get visible usernames from XML: {e}")

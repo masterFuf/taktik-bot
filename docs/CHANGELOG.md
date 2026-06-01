@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram DM conversation reader now delegates pure inbox sorting, username normalization/deduplication and conversation payload assembly to `bridges/instagram/engagement/runtime/dm/conversation_payload.py`.
 - Instagram DM typing delay calculation now lives under `bridges/instagram/engagement/runtime/dm/timing.py`; the sender keeps device input and button handling only.
 - Instagram Cold DM bridge result helpers now own input validation, all-recipients-processed payloads and final counter summaries, keeping the Android send loop focused on navigation and send decisions.
+- Instagram Smart Comment visible username parsing now lives under `bridges/instagram/engagement/runtime/smart_comment/visible_usernames.py`; the extraction mixin keeps device dumpsys/XML orchestration.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
