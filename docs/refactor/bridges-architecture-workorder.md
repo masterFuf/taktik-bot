@@ -178,6 +178,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B127 | Fait | Extraire le mapping payload -> `ForYouConfig` sous `workflows/automation/runtime/for_you_config.py`; `for_you.py` garde startup, callbacks et execution. | Import smoke For You + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 | B128 | Fait | Extraire les events `target_switch`, `workflow_start`, `followers_stats` et status final du runner TikTok Followers sous `workflows/automation/runtime/followers_events.py`; la boucle multi-target reste dans `followers.py`. | Import smoke Followers events + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 | B129 | Fait | Extraire le mapping payload -> `SearchConfig` sous `workflows/automation/runtime/search_config.py`; `search.py` garde startup, boucle multi-query, callbacks et execution. | Import smoke Search config + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
+| B130 | Fait | Extraire l'execution d'une cible TikTok Followers sous `workflows/automation/runtime/followers_target.py`; `followers.py` garde distribution, limites multi-target, navigation inter-cible et statut final. | Import smoke Followers target + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
