@@ -106,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram runtime IPC stats helpers moved under `runtime/ipc_stats.py`, while `runtime/ipc.py` keeps the same public exports and stdout JSON event names.
 - Instagram runtime IPC live interaction events moved under `runtime/ipc_interaction_events.py`, while `runtime/ipc.py` remains the injected public adapter for core workflows.
 - Instagram runtime IPC scraping/discovery events moved under `runtime/ipc_scraping_events.py`, leaving `runtime/ipc.py` as a thin public adapter facade.
+- Instagram Persona Analysis bridge runtime class moved under `analysis/runtime/persona_bridge.py`; `analysis/persona.py` remains the public manifest entrypoint.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

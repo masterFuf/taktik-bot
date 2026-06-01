@@ -38,7 +38,7 @@ def run_persona_analysis_cli(args: list[str]) -> None:
     except Exception as exc:
         logger.warning(f"[PersonaAnalysis] Could not configure DB service: {exc}")
 
-    from bridges.instagram.analysis.persona import PersonaAnalysisBridge
+    from bridges.instagram.analysis.runtime.persona_bridge import PersonaAnalysisBridge
 
     bridge = PersonaAnalysisBridge(device_id, config, package_name=package_name)
 
