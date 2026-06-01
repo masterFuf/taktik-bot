@@ -128,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok Followers bridge target-switch, workflow-start and final stats/status events moved under `workflows/automation/runtime/followers_events.py`.
 - TikTok Search/Hashtag bridge payload-to-config mapping moved under `workflows/automation/runtime/search_config.py`, keeping `search.py` focused on multi-query orchestration.
 - TikTok Followers per-target execution moved under `workflows/automation/runtime/followers_target.py`, leaving `followers.py` responsible for multi-target sequencing and inter-target navigation.
+- TikTok Search/Hashtag per-query execution moved under `workflows/automation/runtime/search_query.py`, leaving `search.py` responsible for query budget distribution and inter-query navigation.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

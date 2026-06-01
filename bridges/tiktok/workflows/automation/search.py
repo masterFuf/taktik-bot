@@ -8,21 +8,18 @@ from typing import Any, Dict
 from bridges.tiktok.runtime.ipc import (
     logger,
     send_error,
-    send_message,
     send_status,
-    set_workflow,
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
 from bridges.tiktok.runtime.video_callbacks import send_final_video_stats
 from bridges.tiktok.workflows.automation.runtime.search_callbacks import (
     return_to_tiktok_home,
-    setup_search_workflow_callbacks,
 )
-from bridges.tiktok.workflows.automation.runtime.search_config import build_search_config
 from bridges.tiktok.workflows.automation.runtime.search_planning import (
     format_query_label,
     normalize_search_queries,
 )
+from bridges.tiktok.workflows.automation.runtime.search_query import run_search_query
 
 
 def run_search_workflow(config: Dict[str, Any]):
@@ -72,73 +69,23 @@ def run_search_workflow(config: Dict[str, Any]):
             if query_max_videos <= 0:
                 logger.info("No remaining video budget for this query, skipping it")
                 continue
-            display_query = format_query_label(search_query, workflow_type)
-
-            logger.info(f"Processing query {query_index + 1}/{len(search_queries)}: {display_query}")
-            logger.info(f"Max videos for this query: {query_max_videos}")
-
-            if query_index == 0:
-                send_message(
-                    "search_workflow_start",
-                    current_target=search_query,
-                    targets=search_queries,
-                    current_target_index=query_index,
-                    workflow_type=workflow_type,
-                )
-            else:
-                send_message(
-                    "search_target_switch",
-                    current_target=search_query,
-                    target_index=query_index,
-                    total_targets=len(search_queries),
-                    workflow_type=workflow_type,
-                )
-
-            workflow_config = build_search_config(
+            query_result = run_search_query(
+                SearchWorkflow,
                 SearchConfig,
+                manager,
                 config,
+                search_queries,
+                query_index,
                 search_query,
+                workflow_type,
                 query_max_videos,
                 remaining_likes,
                 remaining_follows,
-            )
-
-            send_status("running", f"Searching for: {display_query}")
-            workflow = SearchWorkflow(manager.device_manager.device, workflow_config)
-            set_workflow(workflow)
-            setup_search_workflow_callbacks(
-                workflow,
-                {
-                    "videos_watched": total_stats.videos_watched,
-                    "videos_liked": total_stats.videos_liked,
-                    "users_followed": total_stats.users_followed,
-                    "videos_favorited": total_stats.videos_favorited,
-                    "videos_skipped": total_stats.videos_skipped,
-                    "errors": total_stats.errors,
-                },
+                total_stats,
                 sent_pics,
             )
-
-            logger.info("Running search workflow...")
-            stats = workflow.run()
-
-            total_stats.videos_watched += stats.videos_watched
-            total_stats.videos_liked += stats.videos_liked
-            total_stats.users_followed += stats.users_followed
-            total_stats.videos_favorited += stats.videos_favorited
-            total_stats.videos_skipped += stats.videos_skipped
-            total_stats.ads_skipped += stats.ads_skipped
-            total_stats.popups_closed += stats.popups_closed
-            total_stats.suggestions_handled += stats.suggestions_handled
-            total_stats.errors += stats.errors
-
-            remaining_likes = max(0, remaining_likes - stats.videos_liked)
-            remaining_follows = max(0, remaining_follows - stats.users_followed)
-
-            logger.info(
-                f"Query {display_query} completed: "
-                f"{stats.videos_watched} videos, {stats.videos_liked} likes, {stats.users_followed} follows"
-            )
+            remaining_likes = query_result.remaining_likes
+            remaining_follows = query_result.remaining_follows
 
             if query_index < len(search_queries) - 1:
                 return_to_tiktok_home(manager)
