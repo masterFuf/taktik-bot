@@ -20,7 +20,6 @@ Output: IPC messages with per-selector pass/fail results.
 
 import sys
 import os
-import json
 import time
 
 # Bootstrap: ensure bot root is in sys.path
@@ -33,33 +32,18 @@ setup_environment()
 
 from bridges.common.runtime.ipc import IPC
 from bridges.common.device.connection import ConnectionService
+from bridges.compat.diagnostics.runtime.selector_request import load_selector_test_request
 from loguru import logger
 
 
 def main():
     ipc = IPC()
 
-    # Parse config from temp file (argv[1])
-    if len(sys.argv) < 2:
-        ipc.send("error", error="No config file provided", error_code="MISSING_CONFIG")
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as e:
-        ipc.send("error", error=f"Failed to read config: {e}", error_code="CONFIG_ERROR")
-        sys.exit(1)
-
-    device_id = config.get("device_id", "")
-    app_name = config.get("app", "instagram")
-    version = config.get("version", "")
-    domain_filter = config.get("domains", [])  # empty = test all
-
-    if not device_id:
-        ipc.send("error", error="No device_id provided", error_code="MISSING_DEVICE")
-        sys.exit(1)
+    request = load_selector_test_request(ipc, sys.argv)
+    device_id = request.device_id
+    app_name = request.app_name
+    version = request.version
+    domain_filter = request.domain_filter
 
     logger.info(f"[SelectorTest] device={device_id} app={app_name} version={version} domains={domain_filter}")
     ipc.send("status", status="initializing", message="Loading selector registry...")
