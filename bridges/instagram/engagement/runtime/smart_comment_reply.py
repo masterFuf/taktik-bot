@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import random
-import re
 import time
-import xml.etree.ElementTree as ET
 from typing import Any
 
 from bridges.common.input.keyboard import KeyboardService
+from bridges.instagram.engagement.runtime.smart_comment_reply_finder import SmartCommentReplyFinderMixin
+from bridges.instagram.engagement.runtime.smart_comment_reply_sender import SmartCommentReplySenderMixin
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
-class SmartCommentReplyMixin:
+class SmartCommentReplyMixin(SmartCommentReplySenderMixin, SmartCommentReplyFinderMixin):
     """Reply finding, typing and batching for Smart Comment."""
 
     def _init_smart_comment_reply(self, device_id: str) -> None:
@@ -50,67 +50,15 @@ class SmartCommentReplyMixin:
 
         time.sleep(random.uniform(0.3, 0.6))
 
-        typed = False
-
-        if self._type_with_taktik_keyboard(reply_text):
-            time.sleep(0.5)
-            after_text = input_field.get_text() or ""
-            if len(after_text) > len(current_text):
-                logger.info(f"Taktik Keyboard success: '{after_text[:40]}...'")
-                typed = True
-            else:
-                logger.warning(f"Taktik Keyboard broadcast OK but text not inserted (field: '{after_text[:40]}')")
-        else:
-            logger.warning("Taktik Keyboard broadcast failed")
-
-        if not typed:
-            logger.info("Trying set_text fallback...")
-            try:
-                input_field.set_text(current_text + reply_text)
-                time.sleep(0.5)
-                after_text = input_field.get_text() or ""
-                if len(after_text) > len(current_text):
-                    logger.info(f"set_text success: '{after_text[:40]}...'")
-                    typed = True
-                else:
-                    logger.warning("set_text did not insert text")
-            except Exception as e:
-                logger.warning(f"set_text failed: {e}")
-
-        if not typed:
-            logger.info("Trying send_keys fallback...")
-            try:
-                input_field.click()
-                time.sleep(0.3)
-                input_field.send_keys(reply_text)
-                time.sleep(0.5)
-                after_text = input_field.get_text() or ""
-                if len(after_text) > len(current_text):
-                    logger.info(f"send_keys success: '{after_text[:40]}...'")
-                    typed = True
-                else:
-                    logger.warning("send_keys did not insert text")
-            except Exception as e:
-                logger.warning(f"send_keys failed: {e}")
-
-        if not typed:
+        if not self._type_reply_text(input_field, current_text, reply_text):
             logger.error("All typing methods failed — could not insert reply text")
             return False
 
         time.sleep(random.uniform(0.5, 1.0))
 
-        send_btn = None
-        for resource_id in POST_COMMENTS_SELECTORS.post_comment_button_resource_ids:
-            send_btn = self.device(resourceId=resource_id)
-            if send_btn.exists:
-                break
-        if send_btn is None or not send_btn.exists:
-            for description in POST_COMMENTS_SELECTORS.post_comment_button_descriptions:
-                send_btn = self.device(description=description)
-                if send_btn.exists:
-                    break
+        send_btn = self._find_reply_send_button()
 
-        if send_btn.exists:
+        if send_btn and send_btn.exists:
             send_btn.click()
             time.sleep(1.5)
             logger.info(f"Reply sent to @{username}")
@@ -118,173 +66,8 @@ class SmartCommentReplyMixin:
             return True
 
         logger.error("Send/Post button not found — dumping UI for debug")
-        try:
-            xml = self.device.dump_hierarchy()
-            root = ET.fromstring(xml)
-            for elem in root.iter():
-                rid = elem.get("resource-id", "") or ""
-                desc = elem.get("content-desc", "") or ""
-                text = elem.get("text", "") or ""
-                desc_lower = desc.lower()
-                if any(token in rid or token in desc_lower for token in POST_COMMENTS_SELECTORS.post_comment_debug_tokens):
-                    logger.debug(f"Potential send button: rid={rid} desc={desc} text={text} bounds={elem.get('bounds', '')}")
-        except Exception as e:
-            logger.debug(f"UI dump failed: {e}")
+        self._log_potential_send_buttons()
         return False
-
-    def _find_and_click_reply(self, username: str, content_prefix: str) -> bool:
-        """Scroll through comments to find a specific one and click its Reply button."""
-        max_scrolls = 30
-        username_lower = username.lower()
-        logger.info(f"Searching for @{username} in comments (max {max_scrolls} scrolls)...")
-
-        for scroll in range(max_scrolls):
-            try:
-                xml = self.device.dump_hierarchy()
-                if not xml:
-                    logger.warning(f"Scroll {scroll}: empty XML dump")
-                    self._scroll_comments_down()
-                    time.sleep(0.8)
-                    continue
-
-                root = ET.fromstring(xml)
-
-                recycler = root
-                for elem in root.iter():
-                    rid = elem.get("resource-id", "") or ""
-                    if POST_COMMENTS_SELECTORS.comments_list_resource_key in rid:
-                        recycler = elem
-                        break
-
-                reply_bounds = None
-                found_username = False
-
-                for vg in recycler.iter():
-                    if vg.get("class", "") != "android.view.ViewGroup":
-                        continue
-
-                    has_target_user = False
-                    reply_btn = None
-
-                    for child in vg:
-                        child_class = child.get("class", "") or ""
-                        child_text = (child.get("text", "") or "").strip().lower()
-                        child_desc = (child.get("content-desc", "") or "").strip().lower()
-
-                        if (
-                            child_text == username_lower
-                            or child_desc == username_lower
-                            or child_text == username_lower + " "
-                            or child_desc == username_lower + " "
-                        ):
-                            has_target_user = True
-
-                        if child_class == "android.widget.Button" and child_text in POST_COMMENTS_SELECTORS.reply_button_labels:
-                            reply_btn = child
-
-                    if has_target_user and reply_btn is not None:
-                        reply_bounds = reply_btn.get("bounds", "")
-                        found_username = True
-                        break
-                    elif has_target_user:
-                        found_username = True
-                        children_info = []
-                        for c in vg:
-                            ct = (c.get("text", "") or "").strip()
-                            cc = (c.get("class", "") or "").split(".")[-1]
-                            cb = c.get("bounds", "")
-                            children_info.append(f"{cc}('{ct}' {cb})")
-                        logger.debug(f"Scroll {scroll}: found @{username} but no Reply sibling. Children: {children_info}")
-
-                if reply_bounds:
-                    match = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", reply_bounds)
-                    if match:
-                        x1, y1, x2, y2 = int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4))
-                        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-                        logger.info(f"Clicking Reply for @{username} at ({cx}, {cy}) bounds={reply_bounds}")
-                        self.device.click(cx, cy)
-                        time.sleep(1)
-                        return True
-                    logger.warning(f"Could not parse Reply bounds: {reply_bounds}")
-
-                if found_username:
-                    logger.debug(f"Scroll {scroll}: @{username} visible but Reply button not found yet, scrolling...")
-                else:
-                    visible = []
-                    for elem in recycler.iter():
-                        cd = (elem.get("content-desc", "") or "").strip()
-                        if (
-                            cd
-                            and re.match(r"^[\w][\w.]{0,29}\s*$", cd)
-                            and cd.strip().lower() not in POST_COMMENTS_SELECTORS.reply_search_ignored_usernames
-                        ):
-                            visible.append(cd.strip())
-                    logger.debug(f"Scroll {scroll}: visible usernames = {visible}")
-
-            except Exception as e:
-                logger.warning(f"Error finding reply button (scroll {scroll}): {e}")
-
-            self._scroll_comments_down()
-            time.sleep(0.8)
-
-        logger.error(f"Could not find @{username} after {max_scrolls} scrolls")
-        return False
-
-    def _scroll_comments_to_top(self):
-        """Scroll the comments list to the top with fast flick gestures."""
-        try:
-            comment_list = self.device(resourceId=POST_COMMENTS_SELECTORS.comments_list_resource_id)
-            if not comment_list.exists:
-                return
-            bounds = comment_list.info.get("bounds", {})
-            top = bounds.get("top", 234)
-            bottom = bounds.get("bottom", 738)
-            center_x = self.screen_width // 2
-            start_y = top + int((bottom - top) * 0.2)
-            end_y = top + int((bottom - top) * 0.9)
-        except Exception:
-            center_x = self.screen_width // 2
-            start_y = 200
-            end_y = 600
-
-        for _ in range(15):
-            try:
-                self.device.swipe(center_x, start_y, center_x, end_y, duration=0.1)
-                time.sleep(0.15)
-            except Exception:
-                break
-
-    def _type_with_taktik_keyboard(self, text: str) -> bool:
-        """Type text using Taktik Keyboard via shared KeyboardService."""
-        return self._keyboard.type_text(text)
-
-    def _dismiss_keyboard_and_scroll_top(self):
-        """After sending a reply, dismiss the keyboard and scroll comments back to top."""
-        try:
-            title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
-            if title.exists:
-                title.click()
-                time.sleep(0.5)
-            else:
-                self.device.press("back")
-                time.sleep(0.5)
-
-                title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
-                if not title.exists:
-                    logger.warning("Comments page lost after back press, reopening...")
-                    if not self.open_comments():
-                        return False
-                    time.sleep(1)
-
-            self._comment_list_bounds = None
-
-            logger.debug("Scrolling comments back to top...")
-            self._scroll_comments_to_top()
-            time.sleep(0.5)
-            return True
-        except Exception as e:
-            logger.warning(f"Error dismissing keyboard / scrolling to top: {e}")
-            return True
 
     def run_reply(self, qualified_comments: list[dict[str, Any]]) -> dict[str, Any]:
         """Run the reply phase against pre-qualified comments."""
