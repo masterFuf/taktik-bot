@@ -184,6 +184,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B132 | Fait | Extraire les helpers IPC AI/Agent communs sous `bridges/common/runtime/ipc_ai.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC AI + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B133 | Fait | Extraire les helpers IPC DM communs sous `bridges/common/runtime/ipc_dm.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC DM + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B134 | Fait | Extraire les helpers IPC TikTok communs sous `bridges/common/runtime/ipc_tiktok.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC TikTok + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B135 | Fait | Extraire les helpers IPC Threads communs sous `bridges/common/runtime/ipc_threads.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC Threads + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
