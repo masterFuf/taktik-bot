@@ -12,6 +12,8 @@ def run_adb_shell_process(
     *,
     text: bool = True,
     timeout: int = 10,
+    encoding: str | None = None,
+    errors: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Execute an ADB shell command and return the subprocess result.
@@ -19,12 +21,17 @@ def run_adb_shell_process(
     Use this when callers need return code or stderr, for example app lifecycle
     cleanup and package inspection.
     """
-    return subprocess.run(
-        ["adb", "-s", device_id, "shell", *command_args],
-        capture_output=True,
-        text=text,
-        timeout=timeout,
-    )
+    kwargs = {
+        "capture_output": True,
+        "text": text,
+        "timeout": timeout,
+    }
+    if encoding is not None:
+        kwargs["encoding"] = encoding
+    if errors is not None:
+        kwargs["errors"] = errors
+
+    return subprocess.run(["adb", "-s", device_id, "shell", *command_args], **kwargs)
 
 
 def run_adb_shell(device_id: str, command: str) -> str:

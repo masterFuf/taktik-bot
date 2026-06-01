@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import re
-import subprocess
 import traceback
 import xml.etree.ElementTree as ET
 
 from bridges.instagram.engagement.runtime.smart_comment.models import ScrapedComment
 from bridges.instagram.engagement.runtime.smart_comment.parsing import parse_litho_comments
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
+from taktik.core.shared.device.adb import run_adb_shell_process
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
@@ -63,10 +63,9 @@ class SmartCommentCommentExtractionMixin:
     def _get_dumpsys_comments(self) -> str:
         """Get the Litho view hierarchy via adb shell dumpsys activity top."""
         try:
-            result = subprocess.run(
-                ["adb", "-s", self.device_id, "shell", "dumpsys", "activity", "top"],
-                capture_output=True,
-                text=True,
+            result = run_adb_shell_process(
+                self.device_id,
+                ["dumpsys", "activity", "top"],
                 timeout=10,
                 encoding="utf-8",
                 errors="replace",

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-import subprocess
 import time
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.device.adb import run_adb_shell_process
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
 
 
@@ -52,16 +52,15 @@ class SmartCommentPostUrlMixin:
             copy_link.click()
             time.sleep(1)
 
-            for command, label in [
-                (["adb", "-s", self.device_id, "shell", "am", "broadcast", "-a", "clipper.get"], "clipboard broadcast"),
-                (["adb", "-s", self.device_id, "shell", "dumpsys", "clipboard"], "dumpsys clipboard"),
-                (["adb", "-s", self.device_id, "shell", "content", "query", "--uri", "content://clipboard/clip"], "content provider"),
+            for command_args, label in [
+                (["am", "broadcast", "-a", "clipper.get"], "clipboard broadcast"),
+                (["dumpsys", "clipboard"], "dumpsys clipboard"),
+                (["content", "query", "--uri", "content://clipboard/clip"], "content provider"),
             ]:
                 try:
-                    result = subprocess.run(
-                        command,
-                        capture_output=True,
-                        text=True,
+                    result = run_adb_shell_process(
+                        self.device_id,
+                        command_args,
                         timeout=5,
                         encoding="utf-8",
                         errors="replace",

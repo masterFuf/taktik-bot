@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import subprocess
 import time
 
 from bridges.instagram.engagement.runtime.smart_comment.post_fingerprint import SmartCommentPostFingerprintMixin
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.device.adb import run_adb_shell_process
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_COMMENTS_SELECTORS,
     POST_DETAIL_SELECTORS,
@@ -23,23 +23,9 @@ class SmartCommentNavigationMixin(SmartCommentPostFingerprintMixin):
             from taktik.core.clone import get_active_package
 
             pkg = get_active_package()
-            result = subprocess.run(
-                [
-                    "adb",
-                    "-s",
-                    self.device_id,
-                    "shell",
-                    "am",
-                    "start",
-                    "-a",
-                    "android.intent.action.VIEW",
-                    "-d",
-                    post_url,
-                    "-p",
-                    pkg,
-                ],
-                capture_output=True,
-                text=True,
+            result = run_adb_shell_process(
+                self.device_id,
+                ["am", "start", "-a", "android.intent.action.VIEW", "-d", post_url, "-p", pkg],
                 timeout=10,
                 encoding="utf-8",
                 errors="replace",

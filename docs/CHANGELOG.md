@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compatibility workflow-test dispatch is now split by platform under `workflow_dispatcher_instagram.py` and `workflow_dispatcher_tiktok.py`; `workflow_dispatcher.py` keeps the stable public router and JSON error handling.
 - Instagram automation helpers for compatibility workflow-test now split config building and runner instrumentation into `instagram_automation_config.py` and `instagram_automation_instrumentation.py`, with `instagram_automation.py` kept as the stable facade.
 - Instagram workflow-test observability now splits screen inference and action/stat monkey-patches into `workflow_observability_instagram_screens.py` and `workflow_observability_instagram_hooks.py`; the public observability facade remains stable.
+- Instagram Smart Comment bridge ADB calls now use the shared `taktik/core/shared/device/adb.py` process helper instead of local `subprocess.run`, while preserving UTF-8 replacement decoding for dumpsys/clipboard output.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
