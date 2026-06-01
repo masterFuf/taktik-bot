@@ -223,6 +223,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B161 | Fait | Extraire les factories de facade device et bundles plateforme des bridges compat action-test vers `runtime/bundles.py`; les entrypoints ne gardent plus que catalogues d'actions et appel runner. | Import smoke action registries + launcher JSON smoke action/tiktok action + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B162 | Fait | Extraire le catalogue workflow-test compat (`DEFAULT_CONFIGS`, familles Instagram/TikTok, workflows avec target obligatoire) vers `runtime/workflow_catalog.py`; le runner garde seulement l'orchestration. | Import smoke workflow catalog + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B163 | Fait | Extraire l'assemblage du rapport final workflow-test compat vers `runtime/workflow_report.py`; l'entrypoint garde le detach tracer, les events IPC et le cleanup. | Import smoke workflow report + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B164 | Fait | Extraire le chargement config, validation et merge defaults workflow-test compat vers `runtime/workflow_request.py`, sans changer les codes d'erreur IPC. | Import smoke workflow request + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

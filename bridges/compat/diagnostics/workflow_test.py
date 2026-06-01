@@ -31,7 +31,6 @@ Output: IPC messages with step-by-step progress and a final compatibility report
 
 import sys
 import os
-import json
 import time
 import traceback
 
@@ -47,16 +46,15 @@ from bridges.common.runtime.ipc import IPC
 from bridges.common.device.connection import ConnectionService
 from bridges.common.device.app_manager import AppService
 from bridges.compat.diagnostics.runtime.workflow_catalog import (
-    DEFAULT_CONFIGS,
     INSTAGRAM_AUTOMATION_WF,
     INSTAGRAM_DM_WF,
     INSTAGRAM_PUBLISH_WF,
     INSTAGRAM_SCRAPING_WF,
-    NEEDS_TARGET,
     TIKTOK_AUTOMATION_WF,
     TIKTOK_DM_WF,
     TIKTOK_SCRAPING_WF,
 )
+from bridges.compat.diagnostics.runtime.workflow_request import load_workflow_test_request
 from bridges.compat.diagnostics.runtime.workflow_report import build_workflow_report
 from loguru import logger
 
@@ -542,41 +540,16 @@ def _run_tiktok_scraping(conn, device, ipc, workflow_type, target, limits):
 def main():
     ipc = IPC()
 
-    # Parse config
-    if len(sys.argv) < 2:
-        ipc.send("error", error="No config file provided", error_code="MISSING_CONFIG")
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as e:
-        ipc.send("error", error=f"Failed to read config: {e}", error_code="CONFIG_ERROR")
-        sys.exit(1)
-
-    device_id = config.get("device_id", "")
-    app_name = config.get("app", "instagram")
-    version = config.get("version", "")
-    workflow_type = config.get("workflow", "target_followers")
-    target = config.get("target", "")
-    user_limits = config.get("limits", {})
-    user_probs = config.get("probabilities", {})
-    session_duration = config.get("session_duration", 30)
-    delays = config.get("delays", {"min": 3, "max": 8})
-
-    if not device_id:
-        ipc.send("error", error="No device_id provided", error_code="MISSING_DEVICE")
-        sys.exit(1)
-
-    if not target and workflow_type in NEEDS_TARGET:
-        ipc.send("error", error="No target provided for this workflow", error_code="MISSING_TARGET")
-        sys.exit(1)
-
-    # Merge with defaults
-    defaults = DEFAULT_CONFIGS.get(workflow_type, DEFAULT_CONFIGS.get("target_followers", {"limits": {}, "probabilities": {}}))
-    limits = {**defaults.get("limits", {}), **user_limits}
-    probs = {**defaults.get("probabilities", {}), **user_probs}
+    request = load_workflow_test_request(ipc, sys.argv)
+    device_id = request.device_id
+    app_name = request.app_name
+    version = request.version
+    workflow_type = request.workflow_type
+    target = request.target
+    limits = request.limits
+    probs = request.probabilities
+    session_duration = request.session_duration
+    delays = request.delays
 
     # Start streaming logs + action events via IPC
     _setup_log_sink(ipc)
