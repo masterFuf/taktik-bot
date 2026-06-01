@@ -207,6 +207,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B149 | Fait | Extraire la resolution runtime package/activity de `bridges/common/device/app_manager.py` vers `bridges/common/device/app_resolution.py`; `AppService` garde la meme API publique et `apps.py` reste un catalogue. | Import smoke app resolution + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B150 | Fait | Extraire le check/reparation ATX de `bridges/common/device/connection.py` vers `bridges/common/device/atx_health.py`; `ConnectionService` garde la meme API publique. | Import smoke ATX health + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B151 | Fait | Extraire `PlatformBridgeBase` de `bridges/common/runtime/bridge_base.py` vers `bridges/common/runtime/platform_bridge.py`; `bridge_base.py` reste une facade publique de compatibilite et les consommateurs internes migrent vers l'owner direct. | Import smoke platform bridge + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B152 | Fait | Realigner `bridges/common/device/connection.py` sur l'owner canonique `taktik.core.shared.device.manager` au lieu du shim Instagram legacy ; l'API publique de `ConnectionService` reste identique. | Import smoke shared DeviceManager + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

@@ -16,11 +16,11 @@ Usage:
     w, h = conn.screen_size           # (1080, 2340)
 """
 
-import time
-from typing import Optional, Tuple
+from typing import Tuple
 from loguru import logger
 
 from bridges.common.device.atx_health import check_atx_health as perform_atx_health_check
+from taktik.core.shared.device.manager import DeviceManager
 
 
 class ConnectionService:
@@ -57,8 +57,6 @@ class ConnectionService:
 
         logger.info(f"Connecting to device: {self.device_id}")
         try:
-            from taktik.core.social_media.instagram.actions.core.device import DeviceManager
-
             self._device_manager = DeviceManager(device_id=self.device_id)
 
             if not self._device_manager.connect():

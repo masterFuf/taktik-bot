@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bridge device connection and app lifecycle helpers now live under `bridges/common/device/{connection,app_manager}.py`; the flat `connection.py` and `app_manager.py` common modules were removed.
 - Bridge runtime helpers now live under `bridges/common/runtime/{bootstrap,ipc,bridge_base,signal_handler}.py`, leaving `bridges/common` as a package facade instead of a flat module bucket.
 - `PlatformBridgeBase` now lives under `bridges/common/runtime/platform_bridge.py`; `bridge_base.py` stays as the public compatibility facade for IPC wrappers, signal helpers and historical re-exports.
+- `bridges/common/device/connection.py` now imports `DeviceManager` from the canonical shared owner `taktik.core.shared.device.manager` instead of the Instagram compatibility shim.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
