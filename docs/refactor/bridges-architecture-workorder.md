@@ -40,6 +40,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/device/apps.py` = catalogue package/activity/wait times et variantes package connues pour `AppService`.
 - `bridges/common/device/app_control.py` = commandes ADB standalone pour controler une app sans connexion uiautomator active, par exemple `force_stop_app`.
 - `bridges/common/device/app_inspection.py` = probes non-destructives sur une app ou un package (foreground, version installee, etc.).
+- `bridges/common/device/app_resolution.py` = resolution runtime de la config app effective (override clone, auto-detection de package alternatif).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
@@ -201,6 +202,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B146 | Fait | Extraire la validation/normalisation de requete YouTube upload sous `bridges/youtube/publish/runtime/request.py`; `upload.py` garde session bridge, workflow et payload `upload_result`. | Import smoke YouTube upload request + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B147 | Fait | Extraire l'execution du workflow YouTube upload et l'emission `upload_result` sous `bridges/youtube/publish/runtime/workflow.py`; `upload.py` garde request, session et cleanup. | Import smoke YouTube upload workflow + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B148 | Fait | Extraire les probes app foreground/version de `bridges/common/device/app_manager.py` vers `bridges/common/device/app_inspection.py`; `AppService` garde la meme API publique. | Import smoke app inspection + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B149 | Fait | Extraire la resolution runtime package/activity de `bridges/common/device/app_manager.py` vers `bridges/common/device/app_resolution.py`; `AppService` garde la meme API publique et `apps.py` reste un catalogue. | Import smoke app resolution + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
