@@ -57,6 +57,7 @@ from bridges.compat.diagnostics.runtime.workflow_catalog import (
     TIKTOK_DM_WF,
     TIKTOK_SCRAPING_WF,
 )
+from bridges.compat.diagnostics.runtime.workflow_report import build_workflow_report
 from loguru import logger
 
 
@@ -808,86 +809,28 @@ def main():
     ipc.send("step", step="report", status="running", message="Generating compatibility report...")
 
     tracer.detach()
-    report = tracer.report()
-
-    # Compute expected results from config
-    import math
-    max_profiles = limits.get("maxProfiles", limits.get("maxInteractions", limits.get("maxUnfollows", 0)))
-    max_likes_pp = limits.get("maxLikesPerProfile", 0)
-    like_pct = probs.get("like", 0)
-    follow_pct = probs.get("follow", 0)
-    comment_pct = probs.get("comment", 0)
-    story_pct = probs.get("watchStories", 0)
-
-    expected_results = {
-        "profiles": max_profiles,
-        "likes": math.ceil(max_profiles * max_likes_pp * like_pct / 100) if like_pct and max_likes_pp else 0,
-        "follows": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
-        "comments": math.ceil(max_profiles * comment_pct / 100) if comment_pct else 0,
-        "stories": math.ceil(max_profiles * story_pct / 100) if story_pct else 0,
-    }
-
-    # Capture actual results from stats manager
-    actual_results = {
-        "profiles_visited": 0,
-        "profiles_interacted": 0,
-        "likes": 0,
-        "follows": 0,
-        "comments": 0,
-        "stories_watched": 0,
-        "errors": 0,
-    }
-    if _last_stats:
-        actual_results = {
-            "profiles_visited": _last_stats.get("profiles_visited", 0),
-            "profiles_interacted": _last_stats.get("profiles_interacted", 0),
-            "likes": _last_stats.get("likes", 0),
-            "follows": _last_stats.get("follows", 0),
-            "comments": _last_stats.get("comments", 0),
-            "stories_watched": _last_stats.get("stories_watched", 0),
-            "errors": _last_stats.get("errors", 0),
-        }
-
-    # Determine functional success: did the bot achieve what was asked?
-    functional_success = workflow_success
-    functional_notes = []
-    if expected_results["profiles"] > 0 and actual_results["profiles_interacted"] == 0:
-        functional_success = False
-        functional_notes.append("No profiles interacted")
-    if expected_results["likes"] > 0 and actual_results["likes"] == 0:
-        functional_success = False
-        functional_notes.append("No likes performed")
-
-    # Enrich report with workflow metadata
-    report["workflow"] = {
-        "type": workflow_type,
-        "target": target,
-        "success": workflow_success,
-        "error": workflow_error,
-        "elapsed_seconds": elapsed_s,
-        "limits": limits,
-        "probabilities": probs,
-        "session_duration": session_duration,
-        "delays": delays,
-    }
-    report["expected_results"] = expected_results
-    report["actual_results"] = actual_results
-    report["functional"] = {
-        "success": functional_success,
-        "notes": functional_notes,
-    }
-    report["app"] = app_name
-    report["version"] = version
-    report["device_id"] = device_id
+    report, score, status, status_message = build_workflow_report(
+        tracer,
+        workflow_type=workflow_type,
+        target=target,
+        workflow_success=workflow_success,
+        workflow_error=workflow_error,
+        elapsed_s=elapsed_s,
+        limits=limits,
+        probs=probs,
+        session_duration=session_duration,
+        delays=delays,
+        app_name=app_name,
+        version=version,
+        device_id=device_id,
+        last_stats=_last_stats,
+    )
 
     # Send final report
     ipc.send("test_report", **report)
 
     # Summary status
-    score = report.get("compatibility_score", 0)
-    status = "passed" if score >= 80 and workflow_success else "failed"
-    ipc.send("status", status=status,
-             message=f"Score: {score}% | {report['unique_xpaths_found']}/{report['unique_xpaths']} selectors | {elapsed_s}s")
+    ipc.send("status", status=status, message=status_message)
 
     conn.disconnect()
     logger.info(f"[WorkflowTest] Done: score={score}%, workflow_success={workflow_success}")
