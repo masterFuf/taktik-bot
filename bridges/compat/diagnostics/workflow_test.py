@@ -54,181 +54,17 @@ from bridges.compat.diagnostics.runtime.workflow_catalog import (
     TIKTOK_DM_WF,
     TIKTOK_SCRAPING_WF,
 )
+from bridges.compat.diagnostics.runtime.workflow_observability import (
+    clear_active_watchdog,
+    get_last_stats,
+    set_active_tracer,
+    set_active_watchdog,
+    setup_action_hooks,
+    setup_log_sink,
+)
 from bridges.compat.diagnostics.runtime.workflow_request import load_workflow_test_request
 from bridges.compat.diagnostics.runtime.workflow_report import build_workflow_report
 from loguru import logger
-
-
-# Module-level watchdog reference â€” set before workflow run so hooks can feed heartbeats
-_active_watchdog = None
-# Module-level tracer reference â€” used by log sink for screen context detection
-_active_tracer = None
-# Module-level last stats snapshot â€” captured from BaseStatsManager callback
-_last_stats: dict | None = None
-
-
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# Screen context inference from log messages (zero-overhead)
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-# Ordered list of (pattern, screen_name). First match wins.
-_SCREEN_PATTERNS = [
-    # Followers / Following list
-    ("Recovered to followers list", "followers_list"),
-    ("Followers list opened", "followers_list"),
-    ("followers list", "followers_list"),
-    ("Following list opened", "following_list"),
-    ("following list", "following_list"),
-    ("clickable followers found", "followers_list"),
-    ("Detecting Followers list", "followers_list"),
-    # Post / Reel view
-    ("Post view detected", "post_view"),
-    ("First post opened", "post_view"),
-    ("post opened", "post_view"),
-    ("Reel post", "post_view"),
-    ("Post liked", "post_view"),
-    ("Navigating to next post", "post_view"),
-    ("Clicking Like button", "post_view"),
-    ("Detecting Liked button", "post_view"),
-    ("Detecting Post screen", "post_view"),
-    # Story viewer
-    ("Story viewer", "story_viewer"),
-    ("story viewer", "story_viewer"),
-    # Profile (target)
-    ("Profile screen detected", "target_profile"),
-    ("Profile extracted", "target_profile"),
-    ("Batch profile flags", "target_profile"),
-    ("Batch text:", "target_profile"),
-    ("Complete profile data", "target_profile"),
-    ("Profile image extracted", "target_profile"),
-    ("Clicking on @", "navigating_to_profile"),
-    # Own profile
-    ("Confirmed: on own profile", "own_profile"),
-    ("own profile", "own_profile"),
-    # Home / Search
-    ("Home screen", "home"),
-    ("Search screen", "search"),
-    # Navigation back
-    ("Recovery - clicking back", "navigating_back"),
-    # Comment
-    ("Comment button clicked", "comment_input"),
-    ("Comment field", "comment_input"),
-    ("Attempting to comment", "post_view"),
-]
-
-
-def _infer_screen_from_log(text: str) -> str | None:
-    """Return the screen name inferred from a log message, or None if no match."""
-    for pattern, screen in _SCREEN_PATTERNS:
-        if pattern in text:
-            return screen
-    return None
-
-
-def _setup_log_sink(ipc: IPC):
-    """Add a loguru sink that streams every log line to the renderer via IPC."""
-    def _ipc_sink(message):
-        record = message.record
-        msg_text = str(message).rstrip()
-        ipc.send("log",
-                 level=record["level"].name.lower(),
-                 text=msg_text,
-                 module=record.get("name", ""),
-                 function=record.get("function", ""),
-                 ts=record["time"].strftime("%H:%M:%S.%f")[:-3])
-        # Feed watchdog heartbeat on meaningful logs (not debug noise)
-        if _active_watchdog and record["level"].name.upper() in ("INFO", "SUCCESS", "WARNING"):
-            _active_watchdog.heartbeat(msg_text[:80])
-        # Infer screen context from log messages (zero-overhead: string matching only)
-        if _active_tracer:
-            screen = _infer_screen_from_log(msg_text)
-            if screen:
-                _active_tracer.set_screen(screen)
-    logger.add(_ipc_sink, level="DEBUG", format="{message}")
-
-
-def _setup_action_hooks(ipc: IPC):
-    """Monkey-patch IPCEmitter + stats callback to route action events via compat IPC."""
-    try:
-        from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
-
-        # Replace IPCEmitter static methods to send via compat IPC
-        @staticmethod
-        def _emit_follow(username, success=True, profile_data=None):
-            ipc.send("action_event", action="follow", username=username,
-                     success=success, data={"followers": (profile_data or {}).get("followers_count")})
-            if _active_watchdog:
-                _active_watchdog.heartbeat(f"follow @{username}")
-
-        @staticmethod
-        def _emit_like(username, likes_count=1, profile_data=None):
-            ipc.send("action_event", action="like", username=username,
-                     success=True, data={"count": likes_count})
-            if _active_watchdog:
-                _active_watchdog.heartbeat(f"like {likes_count}x @{username}")
-
-        @staticmethod
-        def _emit_profile_visit(username):
-            ipc.send("action_event", action="profile_visit", username=username, success=True, data={})
-            if _active_watchdog:
-                _active_watchdog.heartbeat(f"visit @{username}")
-
-        @staticmethod
-        def _emit_action(action_type, username, data=None):
-            ipc.send("action_event", action=action_type, username=username, success=True, data=data or {})
-            if _active_watchdog:
-                _active_watchdog.heartbeat(f"{action_type} @{username}")
-
-        @staticmethod
-        def _emit_profile_captured(username, profile_data=None, profile_pic_base64=None):
-            ipc.send("action_event", action="profile_captured", username=username, success=True,
-                     data={"full_name": (profile_data or {}).get("full_name")})
-            if _active_watchdog:
-                _active_watchdog.heartbeat(f"profile @{username}")
-
-        IPCEmitter.emit_follow = _emit_follow
-        IPCEmitter.emit_like = _emit_like
-        IPCEmitter.emit_profile_visit = _emit_profile_visit
-        IPCEmitter.emit_action = _emit_action
-        IPCEmitter.emit_profile_captured = _emit_profile_captured
-
-        logger.info("[WorkflowTest] IPCEmitter patched for compat action events")
-    except Exception as e:
-        logger.warning(f"[WorkflowTest] Could not patch IPCEmitter: {e}")
-
-    # Stats callback â†’ sends cumulative stats via IPC
-    try:
-        from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
-
-        original_init = BaseStatsManager.__init__
-
-        def patched_init(self, *args, **kwargs):
-            original_init(self, *args, **kwargs)
-            def _on_stats(stats_dict):
-                ipc.send("instagram_stats", stats=stats_dict)
-            self.set_on_stats_callback(_on_stats)
-
-        BaseStatsManager.__init__ = patched_init
-        logger.info("[WorkflowTest] BaseStatsManager patched for compat stats")
-    except Exception as e:
-        logger.warning(f"[WorkflowTest] Could not patch BaseStatsManager: {e}")
-
-    # Also capture latest stats snapshot for final report
-    try:
-        from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager as BSM
-        original_send = BSM._send_stats_update
-
-        def patched_send(self):
-            original_send(self)
-            global _last_stats
-            try:
-                _last_stats = self.get_summary()
-            except Exception:
-                pass
-
-        BSM._send_stats_update = patched_send
-    except Exception:
-        pass
 
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -552,8 +388,8 @@ def main():
     delays = request.delays
 
     # Start streaming logs + action events via IPC
-    _setup_log_sink(ipc)
-    _setup_action_hooks(ipc)
+    setup_log_sink(ipc)
+    setup_action_hooks(ipc)
 
     logger.info(f"[WorkflowTest] device={device_id} app={app_name} v={version} workflow={workflow_type} target={target}")
     ipc.send("status", status="initializing", message="Initializing workflow test...")
@@ -600,8 +436,6 @@ def main():
     from taktik.core.compat.selectors.tracer import SelectorTracer
 
     tracer = SelectorTracer(on_xpath_call=_on_xpath)
-    global _active_tracer
-
     automation = None
     device = None
 
@@ -620,7 +454,7 @@ def main():
             device = conn.device_manager
 
         tracer.attach(device)
-        _active_tracer = tracer
+        set_active_tracer(tracer)
 
         ipc.send("step", step="init_automation", status="done", message="Automation ready, tracer attached")
     except Exception as e:
@@ -669,7 +503,6 @@ def main():
     ipc.send("step", step="run_workflow", status="running",
              message=f"Running {workflow_type} workflow (target={target})...")
 
-    global _active_watchdog
     watchdog = None
     workflow_success = False
     workflow_error = None
@@ -688,7 +521,7 @@ def main():
                     device, ipc=ipc,
                     stuck_timeout=90, check_interval=15, max_recoveries=5,
                 )
-                _active_watchdog = watchdog
+                set_active_watchdog(watchdog)
                 watchdog.start()
                 ipc.send("action_event", action="watchdog_started", username="",
                          success=True, data={"timeout": 90})
@@ -768,11 +601,11 @@ def main():
     if watchdog:
         try:
             watchdog.stop()
-            _active_watchdog = None
+            clear_active_watchdog()
             ipc.send("action_event", action="watchdog_stopped", username="",
                      success=True, data=watchdog.stats)
         except Exception:
-            _active_watchdog = None
+            clear_active_watchdog()
 
     elapsed_s = round(time.time() - start_time, 1)
 
@@ -796,7 +629,7 @@ def main():
         app_name=app_name,
         version=version,
         device_id=device_id,
-        last_stats=_last_stats,
+        last_stats=get_last_stats(),
     )
 
     # Send final report
