@@ -231,6 +231,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B169 | Fait | Extraire le chargement config et la validation du selector-test compat vers `runtime/selector_request.py`, sans changer les codes d'erreur IPC. | Import smoke selector request + launcher JSON smoke selector-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B170 | Fait | Extraire filtrage domain, execution XPath/progress et agregation summary du selector-test compat vers `runtime/selector_runner.py`. | Import smoke selector runner + launcher JSON smoke selector-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B171 | Fait | Extraire les familles d'actions Instagram du compat action-test sous `actions/instagram/**`; `action_test.py` charge le registry et appelle le runner commun. | Import smoke registry Instagram actions + launcher JSON smoke action-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B172 | Fait | Extraire les familles d'actions TikTok du compat action-test sous `actions/tiktok/**`; `tiktok_action_test.py` charge le registry et appelle le runner commun. | Import smoke registry TikTok actions + launcher JSON smoke tiktok-action-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
