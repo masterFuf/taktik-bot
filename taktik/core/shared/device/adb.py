@@ -10,6 +10,7 @@ def run_adb_shell_process(
     device_id: str,
     command_args: Sequence[str],
     *,
+    adb_command: str = "adb",
     text: bool = True,
     timeout: int = 10,
     encoding: str | None = None,
@@ -31,7 +32,7 @@ def run_adb_shell_process(
     if errors is not None:
         kwargs["errors"] = errors
 
-    return subprocess.run(["adb", "-s", device_id, "shell", *command_args], **kwargs)
+    return subprocess.run([adb_command, "-s", device_id, "shell", *command_args], **kwargs)
 
 
 def run_adb_shell(device_id: str, command: str) -> str:

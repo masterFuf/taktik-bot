@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 from loguru import logger
 from taktik.core.clone.packages.package_map import CLONE_PREFIXES, ORIGINAL_PACKAGES
+from taktik.core.shared.device.adb import run_adb_shell_process
 
 
 @dataclass(frozen=True)
@@ -79,10 +80,10 @@ def scan_clones(
 
     # Query all installed packages
     try:
-        result = subprocess.run(
-            [adb_command, "-s", device_id, "shell", "pm", "list", "packages"],
-            capture_output=True,
-            text=True,
+        result = run_adb_shell_process(
+            device_id,
+            ["pm", "list", "packages"],
+            adb_command=adb_command,
             timeout=15,
         )
         if result.returncode != 0:
@@ -178,10 +179,10 @@ def _make_label(platform: str, diff: Optional[str]) -> str:
 def _get_version(device_id: str, package: str, adb_command: str) -> Optional[str]:
     """Get the installed version of a package via dumpsys."""
     try:
-        result = subprocess.run(
-            [adb_command, "-s", device_id, "shell", "dumpsys", "package", package],
-            capture_output=True,
-            text=True,
+        result = run_adb_shell_process(
+            device_id,
+            ["dumpsys", "package", package],
+            adb_command=adb_command,
             timeout=10,
         )
         for line in result.stdout.splitlines():
