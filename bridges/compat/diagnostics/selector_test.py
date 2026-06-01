@@ -33,6 +33,11 @@ setup_environment()
 from bridges.common.runtime.ipc import IPC
 from bridges.common.device.connection import ConnectionService
 from bridges.compat.diagnostics.runtime.selector_request import load_selector_test_request
+from bridges.compat.diagnostics.runtime.selector_runner import (
+    filter_selectors_by_domain,
+    run_selector_tests,
+    summarize_selector_results,
+)
 from loguru import logger
 
 
@@ -63,14 +68,7 @@ def main():
         ipc.send("error", error=f"No selectors found for {app_name}", error_code="NO_SELECTORS")
         sys.exit(1)
 
-    # Filter by domains if specified
-    if domain_filter:
-        filtered = {}
-        for action, entry in all_selectors.items():
-            domain = action.split(".")[0]
-            if domain in domain_filter:
-                filtered[action] = entry
-        all_selectors = filtered
+    all_selectors = filter_selectors_by_domain(all_selectors, domain_filter)
 
     total = sum(len(entry.xpaths) for entry in all_selectors.values())
     ipc.send("status", status="connecting", message=f"Connecting to {device_id}...")
@@ -84,69 +82,12 @@ def main():
     device = conn.device
     ipc.send("status", status="testing", message=f"Testing {len(all_selectors)} selectors ({total} XPaths)...")
 
-    # Run tests
-    results = []
-    tested = 0
-
-    for action, entry in sorted(all_selectors.items()):
-        domain = action.split(".")[0]
-        field_name = action.split(".", 1)[1] if "." in action else action
-
-        xpath_results = []
-        action_has_match = False
-
-        for xpath in entry.xpaths:
-            tested += 1
-            found = False
-            error_msg = None
-
-            try:
-                # Use uiautomator2's xpath engine — same as the bot at runtime
-                found = device.xpath(xpath).exists
-            except Exception as e:
-                error_msg = str(e)
-                logger.warning(f"XPath error for {action}: {e}")
-
-            if found:
-                action_has_match = True
-
-            xpath_results.append({
-                "xpath": xpath,
-                "found": found,
-                "error": error_msg,
-            })
-
-        results.append({
-            "action": action,
-            "domain": domain,
-            "field": field_name,
-            "source": entry.source,
-            "has_match": action_has_match,
-            "xpaths": xpath_results,
-        })
-
-        # Send progress every 5 actions
-        if len(results) % 5 == 0:
-            ipc.send("progress", current=len(results), total=len(all_selectors), action=action)
+    results = run_selector_tests(device, all_selectors, ipc)
 
     # Disconnect
     conn.disconnect()
 
-    # Compute summary
-    passed = sum(1 for r in results if r["has_match"])
-    failed = sum(1 for r in results if not r["has_match"])
-
-    # Group by domain
-    domain_summary = {}
-    for r in results:
-        d = r["domain"]
-        if d not in domain_summary:
-            domain_summary[d] = {"total": 0, "passed": 0, "failed": 0}
-        domain_summary[d]["total"] += 1
-        if r["has_match"]:
-            domain_summary[d]["passed"] += 1
-        else:
-            domain_summary[d]["failed"] += 1
+    passed, failed, domain_summary = summarize_selector_results(results)
 
     ipc.send(
         "test_results",
