@@ -89,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Smart Comment post fingerprint verification moved to `engagement/runtime/smart_comment_post_fingerprint.py`, leaving post navigation focused on URL/profile/comment traversal.
 - Instagram DM conversation state handling moved to `engagement/runtime/dm_conversation_state.py`, leaving `dm_reader.py` focused on traversal and JSON conversation events.
 - Instagram DM session positioning helpers (`ensure_dm_inbox`, `return_to_inbox`) moved to `engagement/runtime/dm_session.py`, leaving `dm_commands.py` focused on CLI dispatch and JSON responses.
+- Instagram Account bridge workflow runners now live under `account/runtime/workflows.py`, leaving `account/account.py` focused on config validation, DB/device/app setup and workflow dispatch.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

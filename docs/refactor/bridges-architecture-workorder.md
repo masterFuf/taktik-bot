@@ -126,6 +126,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B77 | Fait | Extraire la verification fingerprint date/caption Smart Comment sous `engagement/runtime/smart_comment_post_fingerprint.py`; `smart_comment_navigation.py` garde la navigation post/commentaires. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B78 | Fait | Extraire l'etat conversation Instagram DM (`reply_state`, retour inbox, resolution username) sous `engagement/runtime/dm_conversation_state.py`; `dm_reader.py` garde la boucle de lecture et les events JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B79 | Fait | Extraire le positionnement session du bridge Instagram DM (`ensure_dm_inbox`, `return_to_inbox`) sous `engagement/runtime/dm_session.py`; `dm_commands.py` garde le parsing CLI et les reponses JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B80 | Fait | Extraire les runners login/logout/register du bridge Instagram Account sous `account/runtime/workflows.py`; `account/account.py` garde config, DB, device/app launch et dispatch. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
