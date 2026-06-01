@@ -161,6 +161,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B112 | Fait | Extraire la classe runtime `DMBridge` sous `engagement/runtime/dm_bridge.py`; `engagement/dm.py` reste l'entrypoint public reference par le manifest. | Import smoke DM + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B113 | Fait | Extraire la classe runtime `SmartCommentBridge` sous `engagement/runtime/smart_comment_bridge.py`; remplacer les derniers `title_text_view` inline du flow par `POST_COMMENTS_SELECTORS.comment_title_resource_id`. | Import smoke Smart Comment + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B114 | Fait | Extraire la classe runtime `ColdDMWorkflow` sous `engagement/runtime/cold_dm_workflow.py`; `engagement/cold_dm.py` reste l'entrypoint public reference par le manifest. | Import smoke Cold DM + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B115 | Fait | Extraire la classe runtime `TaktikAgentBridge` sous `agent/runtime/bridge.py`; `agent/taktik_agent.py` reste l'entrypoint public reference par le manifest. | Import smoke Agent + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
