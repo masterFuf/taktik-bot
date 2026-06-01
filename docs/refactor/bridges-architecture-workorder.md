@@ -120,6 +120,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B71 | Fait | Sortir les classes Android restantes du runtime Smart Comment comments vers `POST_COMMENTS_SELECTORS` (`Button`, parent `ViewGroup`). | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B72 | Fait | Extraire le reset/top-position de l'inbox Instagram DM sous `engagement/runtime/dm_inbox_reset.py`; `dm_navigation.py` garde la navigation inbox et l'ouverture de conversation. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B73 | Fait | Extraire la collecte de messages DM texte/reel sous `engagement/runtime/dm_message_extraction.py`; `dm_reader.py` garde le parcours conversations et le payload JSON `conversation`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B74 | Fait | Extraire la recherche/ouverture d'une conversation Instagram DM sous `engagement/runtime/dm_conversation_navigation.py`; `dm_navigation.py` garde seulement l'entree vers l'inbox. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
