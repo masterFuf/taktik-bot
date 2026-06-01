@@ -20,6 +20,8 @@ import time
 from typing import Optional, Tuple
 from loguru import logger
 
+from bridges.common.device.atx_health import check_atx_health as perform_atx_health_check
+
 
 class ConnectionService:
     """
@@ -106,30 +108,11 @@ class ConnectionService:
         Returns:
             Dict with keys: atx_healthy (bool), error (str|None), repaired (bool).
         """
-        if not self._device_manager:
-            return {"atx_healthy": False, "error": "Not connected", "repaired": False}
-
-        try:
-            status = self._device_manager.get_atx_status()
-            if status.get("atx_healthy"):
-                return {"atx_healthy": True, "error": None, "repaired": False}
-
-            error_detail = status.get("error", "Unknown ATX error")
-            logger.warning(f"ATX agent unhealthy: {error_detail}")
-
-            if repair:
-                logger.info("Attempting ATX repair...")
-                if self._device_manager._verify_and_repair_atx(max_retries=max_retries):
-                    logger.info("ATX agent repaired successfully")
-                    return {"atx_healthy": True, "error": None, "repaired": True}
-                else:
-                    logger.warning("ATX repair failed")
-
-            return {"atx_healthy": False, "error": error_detail, "repaired": False}
-
-        except Exception as e:
-            logger.warning(f"ATX health check error: {e}")
-            return {"atx_healthy": False, "error": str(e), "repaired": False}
+        return perform_atx_health_check(
+            self._device_manager,
+            repair=repair,
+            max_retries=max_retries,
+        )
 
     # ------------------------------------------------------------------
     # Properties
