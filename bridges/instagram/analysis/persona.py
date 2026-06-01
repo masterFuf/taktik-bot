@@ -38,11 +38,12 @@ from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc, logger
 from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
 from bridges.instagram.analysis.runtime.persona_media import PersonaMediaMixin
+from bridges.instagram.analysis.runtime.persona_posts import PersonaPostsMixin
 
 setup_signal_handlers()
 
 
-class PersonaAnalysisBridge(PersonaMediaMixin, PersonaCommentsMixin, InstagramBridgeBase):
+class PersonaAnalysisBridge(PersonaPostsMixin, PersonaMediaMixin, PersonaCommentsMixin, InstagramBridgeBase):
     """Bridge that scrapes own Instagram profile to build persona data."""
 
     def __init__(self, device_id: str, config: dict, package_name: str = None):
@@ -129,66 +130,7 @@ class PersonaAnalysisBridge(PersonaMediaMixin, PersonaCommentsMixin, InstagramBr
                 _ipc.status("completed", "Screenshot du profil capturé")
                 return {"success": True, "data": collected}
 
-            # ── Step 4: Scrape posts ───────────────────────────────────
-            _ipc.status("scraping_posts", f"Scraping des {self.max_posts} derniers posts…")
-            from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
-            from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
-
-            post_actions = ClickActions(self.device_manager)
-
-            for post_idx in range(self.max_posts):
-                try:
-                    # Make sure we're on the profile grid
-                    from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
-                    detect = DetectionActions(self.device_manager)
-
-                    if not detect.is_post_grid_visible():
-                        # Try pressing back to go back to grid
-                        self.device.press("back")
-                        time.sleep(1)
-
-                    _ipc.status("opening_post",
-                        f"Ouverture du post {post_idx + 1}/{self.max_posts}…")
-
-                    clicked = post_actions.click_post_in_grid(post_index=post_idx)
-                    if not clicked:
-                        clicked = post_actions.click_post_thumbnail(post_index=post_idx)
-                    if not clicked:
-                        logger.warning(f"[PersonaAnalysis] Could not click post {post_idx}")
-                        break
-                    time.sleep(2)
-
-                    # Get caption
-                    caption = ""
-                    for selector in POST_DETAIL_SELECTORS.persona_caption_selectors:
-                        try:
-                            elem = self.device.xpath(selector)
-                            if elem.exists:
-                                caption = elem.get_text() or ""
-                                break
-                        except Exception:
-                            pass
-
-                    if caption:
-                        collected["post_captions"].append(caption.strip())
-                        _ipc.status("post_caption_collected",
-                            f"Caption post {post_idx + 1} collectée")
-
-                    # Get comments
-                    comments = self._collect_comments(post_idx)
-                    collected["comments"].extend(comments)
-
-                    # Go back to profile
-                    self.device.press("back")
-                    time.sleep(1.5)
-
-                except Exception as e:
-                    logger.warning(f"[PersonaAnalysis] Error on post {post_idx}: {e}")
-                    try:
-                        self.device.press("back")
-                        time.sleep(1)
-                    except Exception:
-                        pass
+            self.collect_posts(collected)
 
             # ── Done ──────────────────────────────────────────────────
             total = len(collected["post_captions"])
