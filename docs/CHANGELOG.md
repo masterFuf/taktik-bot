@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compatibility workflow-test platform runner helpers now live under `bridges/compat/diagnostics/runtime/workflow_runners.py`; the bridge entrypoint keeps lifecycle, dispatch and report emission.
 - Compatibility workflow-test platform runners are split by owner under `workflow_runners_instagram.py` and `workflow_runners_tiktok.py`, with `workflow_runners.py` kept as a thin import facade.
 - Compatibility workflow-test workflow-family dispatch now lives under `workflow_dispatcher.py`; the public bridge keeps payload, device/app lifecycle, reporting and JSON IPC.
+- Compatibility workflow-test automation init, selector overrides, language detection and watchdog cleanup now live under `workflow_lifecycle.py`, keeping the bridge entrypoint focused on orchestration.
 - Compatibility workflow-test Instagram automation config building and workflow-runner instrumentation now live under `bridges/compat/diagnostics/runtime/instagram_automation.py`.
 - Compatibility registry bridge command handlers now live under `bridges/compat/diagnostics/runtime/registry_commands.py`; `compat.py` keeps config loading, registry initialization and command dispatch.
 - Compatibility selector-test config loading and validation now live under `bridges/compat/diagnostics/runtime/selector_request.py`, preserving existing IPC error codes.
