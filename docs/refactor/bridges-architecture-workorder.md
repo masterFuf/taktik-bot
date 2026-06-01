@@ -158,6 +158,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B109 | Fait | Extraire la classe `PersonaAnalysisBridge` sous `analysis/runtime/persona_bridge.py`; `analysis/persona.py` reste l'entrypoint public reference par le manifest. | Import smoke persona + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B110 | Fait | Extraire l'orchestration locale du bridge scraping Instagram sous `scraping/runtime/runner.py`; `scraping/scraping.py` reste l'entrypoint public reference par le manifest. | Import smoke scraping + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B111 | Fait | Extraire la classe runtime `AccountBridge` sous `account/runtime/bridge.py`; `account/account.py` reste l'entrypoint public reference par le manifest. | Import smoke account + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B112 | Fait | Extraire la classe runtime `DMBridge` sous `engagement/runtime/dm_bridge.py`; `engagement/dm.py` reste l'entrypoint public reference par le manifest. | Import smoke DM + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

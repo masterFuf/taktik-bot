@@ -7,7 +7,7 @@ import sys
 import time
 
 from bridges.instagram.runtime.ipc import logger
-from bridges.instagram.engagement.dm import DMBridge
+from bridges.instagram.engagement.runtime.dm_bridge import DMBridge
 from bridges.instagram.engagement.runtime.dm_session import ensure_dm_inbox, return_to_inbox
 
 
