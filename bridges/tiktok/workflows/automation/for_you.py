@@ -11,6 +11,7 @@ from bridges.tiktok.runtime.video_callbacks import (
     send_final_video_stats,
     setup_video_workflow_callbacks,
 )
+from bridges.tiktok.workflows.automation.runtime.for_you_config import build_for_you_config
 
 
 def run_for_you_workflow(config: Dict[str, Any]):
@@ -31,27 +32,7 @@ def run_for_you_workflow(config: Dict[str, Any]):
         # Common startup: connect, restart, navigate home, fetch profile
         manager, _bot_username = tiktok_startup(device_id, fetch_profile=True)
         
-        # Create workflow config from frontend config
-        workflow_config = ForYouConfig(
-            max_videos=config.get('maxVideos', 50),
-            min_watch_time=config.get('minWatchTime', 2.0),
-            max_watch_time=config.get('maxWatchTime', 8.0),
-            like_probability=config.get('likeProbability', 30) / 100.0,
-            follow_probability=config.get('followProbability', 10) / 100.0,
-            favorite_probability=config.get('favoriteProbability', 5) / 100.0,
-            required_hashtags=config.get('requiredHashtags', []),
-            excluded_hashtags=config.get('excludedHashtags', []),
-            min_likes=config.get('minLikes'),
-            max_likes=config.get('maxLikes'),
-            max_likes_per_session=config.get('maxLikesPerSession', 50),
-            max_follows_per_session=config.get('maxFollowsPerSession', 20),
-            skip_already_liked=config.get('skipAlreadyLiked', True),
-            skip_ads=config.get('skipAds', True),
-            follow_back_suggestions=config.get('followBackSuggestions', False),
-            pause_after_actions=config.get('pauseAfterActions', 10),
-            pause_duration_min=config.get('pauseDurationMin', 30.0),
-            pause_duration_max=config.get('pauseDurationMax', 60.0),
-        )
+        workflow_config = build_for_you_config(ForYouConfig, config)
         
         # Create workflow
         logger.info("🎯 Creating For You workflow...")

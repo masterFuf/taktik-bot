@@ -175,6 +175,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B124 | Fait | Extraire le chargement config, routing workflow, reset reseau et cleanup du dispatcher TikTok sous `workflows/runtime/dispatcher.py`; `workflows/dispatcher.py` reste l'entrypoint public reference par le manifest. | Import smoke dispatcher + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 | B125 | Fait | Extraire les helpers IPC TikTok video/action/stats et DM sous `runtime/ipc_video_events.py` et `runtime/ipc_dm_events.py`; `runtime/ipc.py` conserve les exports publics. | Import smoke IPC + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 | B126 | Fait | Extraire le wiring callbacks stdout des runners TikTok DM read/send sous `workflows/engagement/runtime/dm_callbacks.py`; les runners gardent config/startup/execution. | Import smoke DM runners + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
+| B127 | Fait | Extraire le mapping payload -> `ForYouConfig` sous `workflows/automation/runtime/for_you_config.py`; `for_you.py` garde startup, callbacks et execution. | Import smoke For You + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + dispatcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
