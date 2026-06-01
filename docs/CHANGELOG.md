@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compatibility action-test diagnostics now share JSON stdout/logging, per-entrypoint action registries and selector tracing through `bridges/compat/diagnostics/runtime/**`; Instagram and TikTok compat action IDs and `log`/`result` events remain unchanged.
 - Compatibility action-test diagnostics now share the config/device/tracing execution runner under `bridges/compat/diagnostics/runtime/action_runner.py`; platform entrypoints keep only their action catalog and bundle factories.
 - Compatibility action-test bundle/facade factories now live under `bridges/compat/diagnostics/runtime/bundles.py`, keeping platform-specific diagnostic wiring out of the action catalog entrypoints.
+- Compatibility action-test bundle factories are split by platform under `bundles_instagram.py` and `bundles_tiktok.py`; `bundles.py` remains a thin compatibility facade.
 - Compatibility workflow-test catalog constants now live under `bridges/compat/diagnostics/runtime/workflow_catalog.py`, separating workflow family/default metadata from the large diagnostic runner.
 - Compatibility workflow-test final report assembly now lives under `bridges/compat/diagnostics/runtime/workflow_report.py`; the bridge keeps IPC emission and workflow orchestration.
 - Compatibility workflow-test config loading, validation and default merging now live under `bridges/compat/diagnostics/runtime/workflow_request.py`, preserving the existing IPC error codes.

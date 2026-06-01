@@ -233,6 +233,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B171 | Fait | Extraire les familles d'actions Instagram du compat action-test sous `actions/instagram/**`; `action_test.py` charge le registry et appelle le runner commun. | Import smoke registry Instagram actions + launcher JSON smoke action-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B172 | Fait | Extraire les familles d'actions TikTok du compat action-test sous `actions/tiktok/**`; `tiktok_action_test.py` charge le registry et appelle le runner commun. | Import smoke registry TikTok actions + launcher JSON smoke tiktok-action-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B173 | Fait | Scinder les runners workflow-test compat par plateforme sous `workflow_runners_instagram.py` et `workflow_runners_tiktok.py`; `workflow_runners.py` reste une facade mince. | Import smoke workflow runners facade + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B174 | Fait | Scinder les factories de bundles action-test compat par plateforme sous `bundles_instagram.py` et `bundles_tiktok.py`; `bundles.py` reste une facade mince. | Import smoke bundle facades + launcher JSON smoke action/tiktok-action + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
