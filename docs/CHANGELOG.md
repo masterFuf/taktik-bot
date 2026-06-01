@@ -139,6 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gmail account bridge now uses the common config-file entrypoint helper, keeping `account.py` focused on bridge workflow orchestration.
 - Gmail account bridge persistence adapters moved under `bridges/gmail/account/runtime/persistence.py`, keeping repository calls out of the bridge orchestration class.
 - Gmail account bridge DB/device setup and Gmail cleanup moved under `bridges/gmail/account/runtime/session.py`, leaving `account.py` focused on payload validation, workflow dispatch and JSON results.
+- Gmail account workflow runners now live under `bridges/gmail/account/runtime/workflows.py`, leaving `account.py` focused on payload validation, session setup and routing.
 - YouTube account bridge now uses the common config-file entrypoint helper, keeping `account.py` focused on bridge workflow orchestration.
 - Shared YouTube DB/device setup and app cleanup now live under `bridges/youtube/runtime/session.py`; `youtube/account/account.py` already consumes that shared runtime owner.
 - YouTube upload bridge now reuses the shared YouTube session runtime for DB/device setup and app cleanup, while keeping its custom config parsing and `upload_result` payload.

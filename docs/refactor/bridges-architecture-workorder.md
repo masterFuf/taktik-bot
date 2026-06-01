@@ -196,6 +196,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B142 | Fait | Migrer l'entrypoint YouTube account vers `bridges/common/runtime/entrypoint.py`; `account.py` garde la classe bridge et les workflows YouTube account. | Import smoke YouTube account entrypoint + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B143 | Fait | Extraire le lifecycle DB/device/cleanup YouTube partage sous `bridges/youtube/runtime/session.py` et migrer `account.py` dessus; `upload.py` pourra reutiliser le meme owner. | Import smoke YouTube session + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B144 | Fait | Migrer `bridges/youtube/publish/upload.py` sur le runtime partage `bridges/youtube/runtime/session.py`; l'entrypoint custom garde son parsing config et le payload `upload_result`. | Import smoke YouTube upload session + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B145 | Fait | Extraire les runners Gmail account (`login`, `logout`, `read_otp`, `scan_accounts`) sous `bridges/gmail/account/runtime/workflows.py`; `account.py` garde validation payload, session bridge et routing. | Import smoke Gmail workflows + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
