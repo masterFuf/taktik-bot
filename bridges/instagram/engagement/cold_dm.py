@@ -21,13 +21,13 @@ from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.cold_dm_ai import generate_ai_message
 from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNavigationMixin
 from bridges.instagram.engagement.runtime.cold_dm_persistence import (
-    check_dm_already_sent,
     record_sent_dm,
 )
+from bridges.instagram.engagement.runtime.cold_dm_recipients import ColdDMRecipientMixin
 from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
 
 
-class ColdDMWorkflow(ColdDMSenderMixin, ColdDMNavigationMixin, InstagramBridgeBase):
+class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMixin, InstagramBridgeBase):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
 
     def __init__(self, device_id: str, package_name: str = None):
@@ -50,18 +50,7 @@ class ColdDMWorkflow(ColdDMSenderMixin, ColdDMNavigationMixin, InstagramBridgeBa
         if not recipients:
             return {'success': False, 'error': 'No recipients provided'}
 
-        # Filter out recipients who already received a DM
-        filtered_recipients = []
-        skipped_count = 0
-        for recipient in recipients:
-            if check_dm_already_sent(account_id, recipient):
-                logger.info(f"Skipping {recipient} - DM already sent")
-                skipped_count += 1
-            else:
-                filtered_recipients.append(recipient)
-
-        if skipped_count > 0:
-            logger.info(f"Skipped {skipped_count} recipients (DM already sent)")
+        filtered_recipients = self.filter_pending_recipients(recipients, account_id)
 
         if not filtered_recipients:
             return {'success': True, 'dms_sent': 0, 'dms_success': 0, 'dms_failed': 0, 'error': 'All recipients already received a DM'}
