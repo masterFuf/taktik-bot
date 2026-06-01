@@ -137,6 +137,13 @@ class DirectMessageSelectors:
     
     # === Dans une conversation ===
     edit_text_class_name: str = "android.widget.EditText"
+    message_input_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/row_thread_composer_edittext",
+        "com.instagram.android:id/message_content",
+    ])
+    message_input_text_contains: List[str] = field(default_factory=lambda: [
+        "Message",
+    ])
     message_input: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_thread_composer_edittext"]',
         '//android.widget.EditText[contains(@hint, "Message")]',
@@ -150,6 +157,16 @@ class DirectMessageSelectors:
         '//*[contains(@content-desc, "Send")]',
         '//android.widget.ImageButton[contains(@content-desc, "Envoyer")]',
         '//android.widget.ImageButton[contains(@content-desc, "Send")]'
+    ])
+    send_button_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/row_thread_composer_send_button_container",
+        "com.instagram.android:id/row_thread_composer_send_button",
+        "com.instagram.android:id/send_button",
+    ])
+    send_button_descriptions: List[str] = field(default_factory=lambda: [
+        "Envoyer",
+        "Send",
+        "Send message",
     ])
     send_button_content_descriptions: List[str] = field(default_factory=lambda: [
         "Send",
