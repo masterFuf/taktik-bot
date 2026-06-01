@@ -1,99 +1,58 @@
-﻿#!/usr/bin/env python3
-"""
-TikTok Bridge - Main dispatcher for TikTok workflows
-Routes to specific workflow bridges based on workflowType in config
-"""
+#!/usr/bin/env python3
+"""TikTok workflow dispatcher entrypoint."""
 
-import sys
 import os
-import json
+import sys
 
-# Bootstrap sys.path so absolute imports work when run as standalone script
+
 _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.tiktok.runtime.ipc import _ipc, logger, send_error
+from bridges.tiktok.runtime.ipc import logger, send_error
+from bridges.tiktok.workflows.runtime.dispatcher import (
+    UnknownWorkflowError,
+    dispatch_tiktok_workflow,
+    force_stop_tiktok,
+    load_dispatcher_config,
+    reset_network_if_enabled,
+)
 
 
 def main():
-    """Main entry point - dispatch to appropriate workflow bridge."""
-    if len(sys.argv) < 2:
-        send_error("No config file provided")
-        logger.error("No config file provided")
+    """Main entry point - dispatch to the configured TikTok workflow bridge."""
+    config = load_dispatcher_config(sys.argv)
+    if config is None:
         sys.exit(1)
 
-    config_path = sys.argv[1]
-
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except Exception as e:
-        send_error(f"Failed to load config: {e}")
-        logger.error(f"Failed to load config from {config_path}: {e}")
-        sys.exit(1)
-
-    workflow_type = config.get('workflowType', 'for_you')
-    device_id = config.get('deviceId', 'unknown')
-
+    workflow_type = config.get("workflowType", "for_you")
+    device_id = config.get("deviceId", "unknown")
     logger.info(f"ðŸŽµ TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
 
-    # Network reset (get new IP before session)
-    network_reset = config.get('networkReset', {})
-    if network_reset.get('enabled', False):
-        from bridges.common.device.network import perform_network_reset
-        perform_network_reset(device_id, method=network_reset.get('method', 'data'), ipc=_ipc)
+    reset_network_if_enabled(config, device_id)
 
     try:
-        if workflow_type == 'for_you':
-            from bridges.tiktok.workflows.automation.for_you import run_for_you_workflow
-            success = run_for_you_workflow(config)
-
-        elif workflow_type == 'search' or workflow_type == 'hashtag':
-            # Search and Hashtag workflows use search_bridge (Videos tab)
-            from bridges.tiktok.workflows.automation.search import run_search_workflow
-            success = run_search_workflow(config)
-
-        elif workflow_type == 'target' or workflow_type == 'followers':
-            # Target workflow uses followers bridge (targets = accounts to scrape followers from)
-            from bridges.tiktok.workflows.automation.followers import run_followers_workflow
-            success = run_followers_workflow(config)
-
-        elif workflow_type == 'dm_read':
-            from bridges.tiktok.workflows.engagement.dm_read import run_dm_read_workflow
-            success = run_dm_read_workflow(config)
-
-        elif workflow_type == 'dm_send':
-            from bridges.tiktok.workflows.engagement.dm_send import run_dm_send_workflow
-            success = run_dm_send_workflow(config)
-
-        elif workflow_type == 'scraping':
-            from bridges.tiktok.scraping.scraping import run_scraping_workflow
-            success = run_scraping_workflow(config)
-
-        else:
-            send_error(f"Unknown workflow type: {workflow_type}")
-            logger.error(f"Unknown workflow type: {workflow_type}")
-            sys.exit(1)
+        success, workflow_type = dispatch_tiktok_workflow(config)
 
         if success:
             logger.success(f"âœ… TikTok {workflow_type} workflow completed successfully")
             sys.exit(0)
-        else:
-            logger.error(f"âŒ TikTok {workflow_type} workflow failed")
-            sys.exit(1)
+
+        logger.error(f"âŒ TikTok {workflow_type} workflow failed")
+        sys.exit(1)
 
     except ImportError as e:
         send_error(f"Failed to import workflow module: {e}")
         logger.error(f"Import error: {e}")
+        sys.exit(1)
+    except UnknownWorkflowError:
         sys.exit(1)
     except Exception as e:
         send_error(f"Workflow error: {e}")
         logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
         sys.exit(1)
     finally:
-        from bridges.common.device.app_manager import force_stop_app
-        force_stop_app(device_id, "tiktok")
+        force_stop_tiktok(device_id)
 
 
 if __name__ == "__main__":
