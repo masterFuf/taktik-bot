@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compatibility registry bridge command handlers now live under `bridges/compat/diagnostics/runtime/registry_commands.py`; `compat.py` keeps config loading, registry initialization and command dispatch.
 - Compatibility selector-test config loading and validation now live under `bridges/compat/diagnostics/runtime/selector_request.py`, preserving existing IPC error codes.
 - Compatibility selector-test domain filtering, XPath execution, progress events and summary aggregation now live under `bridges/compat/diagnostics/runtime/selector_runner.py`.
+- Gmail account bridge workflow runners are split by operation under `bridges/gmail/account/runtime/workflow_{login,logout,otp,scan}.py`; `workflows.py` remains the public import facade.
 - Instagram compatibility action-test definitions are now split by family under `bridges/compat/diagnostics/actions/instagram/**`; the public action IDs and JSON event shapes remain unchanged.
 - TikTok compatibility action-test definitions are now split by family under `bridges/compat/diagnostics/actions/tiktok/**`; the public action IDs and JSON event shapes remain unchanged.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.

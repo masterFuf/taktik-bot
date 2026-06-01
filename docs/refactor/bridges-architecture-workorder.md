@@ -237,6 +237,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B175 | Fait | Scinder les hooks d'observabilite workflow-test Instagram sous `workflow_observability_instagram.py`; `workflow_observability.py` reste la facade stable appelee par le bridge. | Import smoke observability facade + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B176 | Fait | Extraire le dispatch des familles workflow-test compat sous `workflow_dispatcher.py`; l'entrypoint garde payload, lifecycle device/app, reporting et cleanup. | Import smoke workflow dispatcher + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B177 | Fait | Extraire le lifecycle workflow-test compat (init automation, overrides selectors, detection langue, cleanup watchdog) sous `workflow_lifecycle.py`; l'entrypoint garde orchestration et rapport. | Import smoke workflow lifecycle + launcher JSON smoke workflow-test + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B178 | Fait | Scinder les runners workflow Gmail account par operation sous `workflow_login.py`, `workflow_logout.py`, `workflow_otp.py`, `workflow_scan.py`; `workflows.py` reste la facade publique. | Import smoke Gmail workflow facade + launcher JSON smoke gmail-account + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
