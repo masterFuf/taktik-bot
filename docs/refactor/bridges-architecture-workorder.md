@@ -34,6 +34,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/engagement/runtime/**` = support local des bridges engagement : commandes CLI, parsing payload, navigation partagee, emitters JSON. Ne pas laisser ces modules gonfler l'entrypoint `engagement/<flow>.py`.
 - `bridges/<platform>/analysis/runtime/**` = support local des bridges analyse : commandes CLI, parsing config, capture/consolidation de donnees. Ne pas laisser ces modules gonfler l'entrypoint `analysis/<flow>.py`.
 - `bridges/<platform>/account/runtime/**` = support local des bridges compte : commandes CLI, preparation DB/device/app et dispatch login/logout/register. Ne pas laisser ces modules gonfler l'entrypoint `account/<flow>.py`.
+- `bridges/<platform>/publish/runtime/**` = support local des bridges publish/upload : commandes CLI, connexion device, patch clone et dispatch upload. Ne pas laisser ces modules gonfler l'entrypoint `publish/<flow>.py`.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/device/apps.py` = catalogue package/activity/wait times et variantes package connues pour `AppService`.
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
@@ -164,6 +165,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B115 | Fait | Extraire la classe runtime `TaktikAgentBridge` sous `agent/runtime/bridge.py`; `agent/taktik_agent.py` reste l'entrypoint public reference par le manifest. | Import smoke Agent + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B116 | Fait | Extraire la classe runtime `DesktopBridge` sous `automation/runtime/bridge.py`; `automation/desktop.py` reste l'entrypoint public reference par le manifest. | Import smoke desktop + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B117 | Fait | Extraire la classe runtime `TikTokAccountBridge` sous `account/runtime/bridge.py`; `account/account.py` reste l'entrypoint public reference par le manifest. | Import smoke TikTok Account + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B118 | Fait | Extraire la classe runtime `TikTokPublishBridge` et le parsing CLI sous `publish/runtime/**`; `publish/publish.py` reste l'entrypoint public reference par le manifest. | Import smoke TikTok Publish + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

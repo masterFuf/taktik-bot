@@ -111,6 +111,7 @@ Definition simple :
 - Quand un bridge d'engagement a besoin de support local (commandes CLI, parsing payload, navigation partagee, emitters JSON), le ranger sous `bridges/<platform>/engagement/runtime/**` plutot que de gonfler l'entrypoint `engagement/<flow>.py`.
 - Quand un bridge d'analyse a besoin de support local (commandes CLI, parsing config, capture/consolidation de donnees), le ranger sous `bridges/<platform>/analysis/runtime/**` plutot que de gonfler l'entrypoint `analysis/<flow>.py`.
 - Quand un bridge de compte a besoin de support local (commandes CLI, preparation DB/device/app, dispatch login/logout/register), le ranger sous `bridges/<platform>/account/runtime/**` plutot que de gonfler l'entrypoint `account/<flow>.py`.
+- Quand un bridge de publish/upload a besoin de support local (commandes CLI, connexion device, patch clone, dispatch upload), le ranger sous `bridges/<platform>/publish/runtime/**` plutot que de gonfler l'entrypoint `publish/<flow>.py`.
 - Les bridges de compatibilite et debug doivent vivre sous `bridges/compat/diagnostics/**` ; ne pas les melanger avec les bridges produit.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Les bridges Agent plateforme peuvent vivre sous `bridges/<platform>/agent/**`, mais le noyau d'orchestration durable reste sous `taktik/core/agent/**` et doit recevoir ses dependances par injection.
