@@ -1,0 +1,118 @@
+"""Instagram automation config builder for compat workflow diagnostics."""
+
+import math
+
+
+def build_workflow_config(
+    workflow_type: str,
+    target: str,
+    limits: dict,
+    probs: dict,
+    session_duration: int = 30,
+    delays: dict | None = None,
+) -> dict:
+    """Build a workflow config matching the format expected by InstagramAutomation."""
+    max_profiles = limits.get("maxProfiles", 3)
+    max_likes = limits.get("maxLikesPerProfile", 1)
+    like_pct = probs.get("like", 80)
+    follow_pct = probs.get("follow", 0)
+    comment_pct = probs.get("comment", 0)
+    story_pct = probs.get("watchStories", 0)
+    story_like_pct = probs.get("likeStories", 0)
+
+    action_type, interaction_type, session_wf_type = _resolve_workflow_types(workflow_type)
+    target_list = [value.strip() for value in target.split(",") if value.strip()]
+
+    action_config = {
+        "type": action_type,
+        "target_username": target_list[0] if target_list else target,
+        "target_usernames": target_list,
+        "hashtag": target if action_type == "hashtag" else None,
+        "interaction_type": interaction_type,
+        "max_interactions": max_profiles,
+        "like_posts": True,
+        "max_likes_per_profile": max_likes,
+        "probabilities": {
+            "like_percentage": like_pct,
+            "follow_percentage": follow_pct,
+            "comment_percentage": comment_pct,
+            "story_percentage": story_pct,
+            "story_like_percentage": story_like_pct,
+        },
+        "like_settings": {"enabled": like_pct > 0, "like_carousels": True, "like_reels": True},
+        "follow_settings": {"enabled": follow_pct > 0},
+        "story_settings": {"enabled": story_pct > 0},
+        "story_like_settings": {"enabled": story_like_pct > 0},
+        "comment_settings": {"enabled": comment_pct > 0, "custom_comments": []},
+    }
+
+    if action_type == "feed":
+        action_config = {
+            "type": "feed",
+            "max_interactions": max_profiles,
+            "like_percentage": like_pct,
+            "follow_percentage": follow_pct,
+            "comment_percentage": comment_pct,
+            "story_watch_percentage": story_pct,
+        }
+    elif action_type == "notifications":
+        action_config = {
+            "type": "notifications",
+            "max_interactions": limits.get("maxInteractions", max_profiles),
+            "like_percentage": like_pct,
+            "follow_percentage": follow_pct,
+            "comment_percentage": comment_pct,
+        }
+    elif action_type == "unfollow":
+        action_config = {
+            "type": "unfollow",
+            "max_unfollows": limits.get("maxUnfollows", 10),
+            "unfollow_mode": "non_followers",
+            "skip_verified": False,
+            "skip_business": False,
+        }
+    elif action_type == "post_url":
+        action_config["type"] = "post_url"
+        action_config["post_url"] = target
+
+    return {
+        "filters": {
+            "min_followers": 0,
+            "max_followers": 999999999,
+            "min_followings": 0,
+            "max_followings": 999999999,
+            "min_posts": 0,
+            "privacy_relation": "public_and_private",
+            "blacklist_words": [],
+        },
+        "session_settings": {
+            "workflow_type": session_wf_type,
+            "total_profiles_limit": max_profiles,
+            "total_follows_limit": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
+            "total_likes_limit": math.ceil(max_profiles * max_likes * like_pct / 100) if like_pct else 0,
+            "session_duration_minutes": session_duration,
+            "delay_between_actions": delays or {"min": 3, "max": 8},
+            "randomize_actions": False,
+        },
+        "actions": [action_config],
+    }
+
+
+def _resolve_workflow_types(workflow_type: str) -> tuple[str, str, str]:
+    if workflow_type in ("target_followers", "target_following"):
+        interaction_type = "followers" if workflow_type == "target_followers" else "following"
+        return "interact_with_followers", interaction_type, "target_followers"
+    if workflow_type == "hashtag":
+        return "hashtag", "hashtag", "hashtag"
+    if workflow_type in ("post_likers", "post_url"):
+        return "post_url", "post_likers", "post_url"
+    if workflow_type == "feed":
+        return "feed", "feed", "feed"
+    if workflow_type == "notifications":
+        return "notifications", "notifications", "notifications"
+    if workflow_type == "unfollow":
+        return "unfollow", "unfollow", "unfollow"
+    return "interact_with_followers", "followers", "target_followers"
+
+
+__all__ = ["build_workflow_config"]
