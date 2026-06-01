@@ -1,6 +1,6 @@
 """Instagram-specific bridge base and clone-aware device proxy."""
 
-from bridges.common.runtime.bridge_base import PlatformBridgeBase
+from bridges.common.runtime.platform_bridge import PlatformBridgeBase
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy as _CloneAwareDeviceProxy
 
 

@@ -1,38 +1,20 @@
 #!/usr/bin/env python3
-"""Threads bridge base — re-exports shared infrastructure + Threads-specific helpers.
-
-Common scaffolding (bootstrap, IPC singleton, status/error/log wrappers,
-signal handling, PlatformBridgeBase) lives in `bridges.common.runtime.bridge_base`.
-This module adds only the Threads-specific IPC events and the
-`ThreadsBridgeBase` subclass.
-
-Usage:
-    from bridges.threads.base import (
-        logger, _ipc,
-        send_message, send_status, send_progress,
-        send_threads_stats, send_threads_action, send_threads_profile_visit,
-        send_follow_event, send_unfollow_event,
-        send_error, send_log,
-        ThreadsBridgeBase,
-    )
-"""
+"""Threads bridge base re-exporting shared and Threads-specific helpers."""
 
 from bridges.common.runtime.bridge_base import (
     _ipc,
+    get_workflow,
     logger,
-    send_message,
-    send_status,
     send_error,
     send_log,
+    send_message,
     send_progress,
-    get_workflow,
+    send_status,
     set_workflow,
     signal_handler,
-    PlatformBridgeBase,
 )
+from bridges.common.runtime.platform_bridge import PlatformBridgeBase
 
-
-# ── Threads-specific IPC helpers ─────────────────────────────────────
 
 def send_threads_stats(
     profiles_visited: int = 0,
@@ -64,7 +46,11 @@ def send_threads_action(action: str, username: str, details: dict = None):
     _ipc.threads_action(action, username, details)
 
 
-def send_threads_profile_visit(username: str, followers: int = None, is_private: bool = False):
+def send_threads_profile_visit(
+    username: str,
+    followers: int = None,
+    is_private: bool = False,
+):
     """Send a Threads profile visit event."""
     _ipc.threads_profile_visit(username, followers, is_private)
 
@@ -79,10 +65,8 @@ def send_unfollow_event(username: str, success: bool = True):
     _ipc.unfollow_event(username, success)
 
 
-# ── Threads bridge base class ────────────────────────────────────────
-
 class ThreadsBridgeBase(PlatformBridgeBase):
-    """Threads-specific bridge base. Inherits connect/restart from `PlatformBridgeBase`."""
+    """Threads-specific bridge base."""
 
     PLATFORM = "threads"
     DEFAULT_PACKAGE = "com.instagram.barcelona"

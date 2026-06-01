@@ -126,6 +126,7 @@ Definition simple :
 - Sous `bridges/common/device/**`, garder les checks/reparations ATX dans `atx_health.py`; `connection.py` orchestre la connexion et delegue les probes/reparations specialisees.
 - Quand `bridges/common/runtime/ipc.py` grossit avec des familles d'events, garder le writer stdout JSON dans `ipc.py` et extraire les helpers par capacite dans des mixins `ipc_<family>.py` sous `bridges/common/runtime/**`. Ne jamais changer le format stdout pour un simple decoupage.
 - Les helpers d'entrypoint bridge bases sur un fichier config JSON (`load_bridge_config`, `run_bridge_main`) vivent sous `bridges/common/runtime/entrypoint.py`. `bridge_base.py` peut les re-exporter pour compatibilite, mais ne doit pas redevenir un fourre-tout bootstrap + IPC + entrypoint.
+- Sous `bridges/common/runtime/**`, `platform_bridge.py` est l'owner de `PlatformBridgeBase` et du scaffold device/app partage ; `bridge_base.py` reste une facade publique de compatibilite pour wrappers IPC, signaux et re-exports historiques.
 
 ### SQLite Bot
 
