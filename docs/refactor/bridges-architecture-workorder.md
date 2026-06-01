@@ -140,6 +140,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B91 | Fait | Extraire le choix de message Cold DM (AI OpenRouter ou random local) sous `engagement/runtime/cold_dm_messages.py`; la boucle garde compteur echec et reset home. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B92 | Fait | Extraire l'emission progress JSON Cold DM sous `engagement/runtime/cold_dm_progress.py`, pour garder le contrat stdout bridge hors de la boucle metier. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B93 | Fait | Extraire le delai aleatoire inter-DM sous `engagement/runtime/cold_dm_timing.py`, en conservant la condition historique sur la liste filtree complete. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B94 | Fait | Extraire l'application du resultat d'envoi Cold DM sous `engagement/runtime/cold_dm_results.py` : compteurs, logs et records successful/invite. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

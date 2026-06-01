@@ -17,11 +17,9 @@ from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import logger
 from bridges.instagram.engagement.runtime.cold_dm_messages import choose_cold_dm_message
 from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNavigationMixin
-from bridges.instagram.engagement.runtime.cold_dm_persistence import (
-    record_sent_dm,
-)
 from bridges.instagram.engagement.runtime.cold_dm_progress import emit_cold_dm_progress
 from bridges.instagram.engagement.runtime.cold_dm_recipients import ColdDMRecipientMixin
+from bridges.instagram.engagement.runtime.cold_dm_results import apply_cold_dm_send_result
 from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
 from bridges.instagram.engagement.runtime.cold_dm_timing import wait_before_next_cold_dm
 
@@ -118,21 +116,14 @@ class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMi
                 # Send message
                 send_result = self.send_message(message)
 
-                if send_result == "invite_sent":
-                    # Invite was already sent - record as success to avoid retry
-                    logger.info(f"Invite already sent to {recipient} - marking as done")
-                    record_sent_dm(account_id, recipient, "", True, "Invite already sent", session_id)
-                    self.dms_sent += 1
-                elif send_result:
-                    self.dms_success += 1
-                    logger.info(f"Successfully sent DM to {recipient}")
-                    # ONLY record successful DMs - these should not be retried
-                    record_sent_dm(account_id, recipient, message, True, None, session_id)
-                    self.dms_sent += 1
-                else:
-                    self.dms_failed += 1
-                    logger.warning(f"Failed to send DM to {recipient}")
-                    # DON'T record failed sends - we can retry later
+                apply_cold_dm_send_result(
+                    workflow=self,
+                    recipient=recipient,
+                    message=message,
+                    send_result=send_result,
+                    account_id=account_id,
+                    session_id=session_id,
+                )
 
                 # Go back to home before next user (more reliable than go_back twice)
                 self.go_home()
