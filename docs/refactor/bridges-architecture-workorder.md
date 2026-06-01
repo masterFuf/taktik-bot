@@ -253,6 +253,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B191 | Fait | Scinder les runners workflow-test compat Instagram par famille sous `runtime/instagram_workflows/**`; `workflow_runners_instagram.py` reste la facade publique stable. | Import smoke facade + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
 | B192 | Fait | Scinder le dispatcher workflow-test compat par plateforme sous `workflow_dispatcher_instagram.py` et `workflow_dispatcher_tiktok.py`; `workflow_dispatcher.py` garde routing public et erreurs JSON. | Import smoke dispatchers + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
 | B193 | Fait | Scinder les helpers Instagram automation du workflow-test compat entre construction config et instrumentation runner ; `instagram_automation.py` reste la facade publique stable. | Import smoke facade + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
+| B194 | Fait | Scinder l'observabilite Instagram du workflow-test compat entre inference d'ecran et hooks action/stats ; `workflow_observability_instagram.py` reste la facade publique stable. | Import smoke facade + screen inference smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
