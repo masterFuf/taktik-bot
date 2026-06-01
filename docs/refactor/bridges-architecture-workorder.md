@@ -245,6 +245,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B183 | Fait | Scinder les adapters workflow TikTok account par operation sous `account_login.py`, `account_logout.py`, `account_register.py`; `account_workflows.py` reste la facade mixin publique. | Import smoke TikTok account workflow facade + launcher JSON smoke tiktok-account + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B184 | Fait | Extraire les callbacks IPC communs Threads feed/search sous `bridges/threads/workflows/runtime/events.py`; les runners gardent le mapping config et l'appel workflow core. | Import smoke Threads runtime events + launcher JSON smoke threads + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B185 | Fait | Scinder les adapters workflow Instagram account par operation sous `login.py`, `logout.py`, `register.py`; `workflows.py` reste la facade mixin publique. | Import smoke Instagram account workflow facade + launcher JSON smoke instagram-account + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B186 | Fait | Extraire la construction config/session DB du bridge TikTok scraping sous `bridges/tiktok/scraping/runtime/config.py`; `workflow.py` garde lifecycle, callbacks et execution. | Import smoke TikTok scraping config + launcher smoke stdin empty + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

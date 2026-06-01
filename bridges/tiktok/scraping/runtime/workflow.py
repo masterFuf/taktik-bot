@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 from bridges.tiktok.runtime.ipc import logger, send_error, send_status, set_workflow
 from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.scraping.runtime.config import build_scraping_config, create_scraping_session
 from bridges.tiktok.scraping.runtime.events import (
     send_scraped_profile,
     send_scraping_completed,
@@ -14,7 +15,6 @@ from bridges.tiktok.scraping.runtime.events import (
 )
 from bridges.tiktok.scraping.runtime.persistence import (
     save_scraped_profile,
-    save_scraping_session,
     update_scraping_session,
 )
 
@@ -22,10 +22,7 @@ from bridges.tiktok.scraping.runtime.persistence import (
 def run_scraping_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok scraping workflow."""
     from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-    from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import (
-        ScrapingConfig,
-        ScrapingWorkflow,
-    )
+    from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import ScrapingWorkflow
 
     device_id = config.get("deviceId")
     if not device_id:
@@ -45,35 +42,11 @@ def run_scraping_workflow(config: Dict[str, Any]) -> bool:
         device = manager.device_manager.device
         navigation = NavigationActions(device)
 
-        scrape_type = config.get("type", "target")
-        target_scrape_type = config.get("scrapeType", "followers")
-
-        wf_config = ScrapingConfig(
-            scrape_type=scrape_type,
-            target_usernames=config.get("targetUsernames", []),
-            target_scrape_type=target_scrape_type,
-            hashtag=config.get("hashtag", ""),
-            max_profiles=config.get("maxProfiles", 500),
-            max_videos=config.get("maxPosts", 50),
-            enrich_profiles=enrich_profiles,
-            max_profiles_to_enrich=max_profiles_to_enrich,
-        )
-
+        wf_config = build_scraping_config(config)
         workflow = ScrapingWorkflow(device, navigation, wf_config)
         set_workflow(workflow)
 
-        session_id = None
-        if save_to_db:
-            target_usernames = config.get("targetUsernames", [])
-            source_name = target_usernames[0] if target_usernames else config.get("hashtag", "")
-            session_id = save_scraping_session(
-                source_type=target_scrape_type.upper() if scrape_type == "target" else "HASHTAG",
-                source_name=source_name,
-                total_scraped=0,
-                status="RUNNING",
-                duration_seconds=0,
-                platform="tiktok",
-            )
+        session_id = create_scraping_session(config) if save_to_db else None
 
         workflow.set_on_status_callback(lambda s, m: send_status(s, m))
         workflow.set_on_progress_callback(
