@@ -131,6 +131,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B82 | Fait | Extraire le parsing CLI/config du bridge Instagram Account sous `account/runtime/commands.py`; l'entrypoint garde bootstrap, signaux, classe bridge et `main()`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B83 | Fait | Extraire le scraping posts/captions Persona Analysis sous `analysis/runtime/persona_posts.py`; `analysis/persona.py` garde lancement, profil cible, screenshot et resultat final. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B84 | Fait | Extraire la navigation/resolution du profil cible Persona Analysis sous `analysis/runtime/persona_profile.py`; l'entrypoint garde restart app, screenshot, collecte posts et resultat final. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B85 | Fait | Extraire le mapping payload Front -> config workflow du bridge Instagram Scraping sous `scraping/runtime/config.py`; `scraping/scraping.py` garde CLI, DB/device, workflow et JSON final. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

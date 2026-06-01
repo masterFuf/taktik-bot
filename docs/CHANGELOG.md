@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Account bridge CLI/config loading moved under `account/runtime/commands.py`, keeping the public launcher behavior and usage JSON unchanged.
 - Instagram Persona Analysis post scraping now lives under `analysis/runtime/persona_posts.py`, leaving `analysis/persona.py` focused on launch/profile orchestration and final result assembly.
 - Instagram Persona Analysis profile navigation and metadata copy now live under `analysis/runtime/persona_profile.py`, keeping target-profile resolution out of the bridge entrypoint.
+- Instagram Scraping bridge workflow config mapping moved under `scraping/runtime/config.py`, keeping the entrypoint focused on CLI, DB/device setup, workflow execution and JSON output.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.
