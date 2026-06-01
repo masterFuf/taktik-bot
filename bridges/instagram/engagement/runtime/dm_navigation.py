@@ -6,7 +6,7 @@ import random
 import time
 
 from bridges.instagram.runtime.ipc import logger
-from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 class DMInboxNavigationMixin:
@@ -17,7 +17,7 @@ class DMInboxNavigationMixin:
         logger.info("Navigating to DM inbox...")
 
         logger.info("Trying method 1: direct_tab resource-id (uiautomator2)...")
-        dm_tab = self.device(resourceId="com.instagram.android:id/direct_tab")
+        dm_tab = self.device(resourceId=DM_SELECTORS.direct_tab_resource_id)
         if dm_tab.exists:
             dm_tab.click()
             time.sleep(2)
@@ -25,7 +25,7 @@ class DMInboxNavigationMixin:
             return True
 
         logger.info("Trying method 2: content-desc 'Message'...")
-        for desc in ["Message", "Messages", "Direct", "Messenger"]:
+        for desc in DM_SELECTORS.dm_inbox_button_descriptions:
             btn = self.device(description=desc)
             if btn.exists:
                 btn.click()
@@ -51,7 +51,7 @@ class DMInboxNavigationMixin:
                 return True
 
         logger.info("Trying method 5: action_bar_inbox_button...")
-        messenger = self.device(resourceId="com.instagram.android:id/action_bar_inbox_button")
+        messenger = self.device(resourceId=DM_SELECTORS.action_bar_inbox_button_resource_id)
         if messenger.exists:
             messenger.click()
             time.sleep(2)
@@ -59,12 +59,12 @@ class DMInboxNavigationMixin:
             return True
 
         logger.info("Trying method 6: descriptionContains variations...")
-        for desc in ["Message", "Messenger", "Inbox", "Boîte de réception", "Envoyer un message"]:
+        for desc in DM_SELECTORS.dm_inbox_description_contains:
             btn = self.device(descriptionContains=desc)
             if btn.exists:
                 btn.click()
                 time.sleep(2)
-                inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                inbox = self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
                 if inbox.exists:
                     logger.info(f"Navigated via descriptionContains: {desc}")
                     return True
@@ -73,13 +73,13 @@ class DMInboxNavigationMixin:
                 time.sleep(1)
 
         logger.info("Trying method 7: ImageView in action bar...")
-        action_bar = self.device(resourceId="com.instagram.android:id/action_bar_container")
+        action_bar = self.device(resourceId=DM_SELECTORS.inbox_action_bar_resource_id)
         if action_bar.exists:
-            images = action_bar.child(className="android.widget.ImageView", clickable=True)
+            images = action_bar.child(className=DM_SELECTORS.image_view_class_name, clickable=True)
             if images.count > 0:
                 images[images.count - 1].click()
                 time.sleep(2)
-                inbox = self.device(resourceId="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview")
+                inbox = self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
                 if inbox.exists:
                     logger.info("Navigated via action bar ImageView")
                     return True
@@ -92,42 +92,38 @@ class DMInboxNavigationMixin:
 
     def _ensure_primary_tab(self):
         """Ensure we're on the Primary tab in DM inbox."""
-        primary_tab = self.device(textContains="Primary")
-        if primary_tab.exists:
-            logger.info("Clicking Primary tab to ensure we're in the right section")
-            primary_tab.click()
-            time.sleep(1)
-            return True
+        for text in DM_SELECTORS.primary_tab_text_contains:
+            primary_tab = self.device(textContains=text)
+            if primary_tab.exists:
+                logger.info("Clicking Primary tab to ensure we're in the right section")
+                primary_tab.click()
+                time.sleep(1)
+                return True
 
-        primary_tab = self.device(descriptionContains="Primary")
-        if primary_tab.exists:
-            logger.info("Clicking Primary tab (via description)")
-            primary_tab.click()
-            time.sleep(1)
-            return True
+            primary_tab = self.device(descriptionContains=text)
+            if primary_tab.exists:
+                logger.info("Clicking Primary tab (via description)")
+                primary_tab.click()
+                time.sleep(1)
+                return True
 
         logger.warning("Primary tab not found")
         return False
 
     def _is_dm_inbox_top_visible(self) -> bool:
         """Return True when the inbox header area is visible near the top."""
-        header = self.device(resourceId="com.instagram.android:id/header_text", text="Messages")
-        requests = self.device(resourceId="com.instagram.android:id/header_action_button", text="Requests")
+        header = self.device(
+            resourceId=DM_SELECTORS.inbox_header_text_resource_id,
+            text=DM_SELECTORS.inbox_header_messages_text,
+        )
+        requests = self.device(
+            resourceId=DM_SELECTORS.inbox_header_action_button_resource_id,
+            text=DM_SELECTORS.inbox_header_requests_text,
+        )
         if header.exists or requests.exists:
             return True
 
-        for text in (
-            "Messages",
-            "Requests",
-            "Demandes",
-            "Search or ask Meta AI",
-            "Search",
-            "Rechercher",
-            "Your note",
-            "Votre note",
-            "Map",
-            "Carte",
-        ):
+        for text in DM_SELECTORS.inbox_top_visible_texts:
             elem = self.device(text=text)
             if elem.exists or self.device(textContains=text).exists:
                 return True
@@ -135,14 +131,7 @@ class DMInboxNavigationMixin:
 
     def _is_accounts_to_follow_visible(self) -> bool:
         """Detect the bottom recommendations block in the DM inbox."""
-        for text in (
-            "Accounts to follow",
-            "Suggested for you",
-            "See all",
-            "Comptes à suivre",
-            "Suggestions pour vous",
-            "Voir tout",
-        ):
+        for text in DM_SELECTORS.inbox_recommendation_texts:
             if self.device(text=text).exists or self.device(textContains=text).exists:
                 return True
         return False
@@ -168,12 +157,7 @@ class DMInboxNavigationMixin:
     def _reset_inbox_via_tab_roundtrip(self) -> bool:
         """Leave the DM inbox through a regular tab, then re-open DMs."""
         logger.info("Resetting DM inbox via tab roundtrip...")
-        tab_ids = [
-            "com.instagram.android:id/feed_tab",
-            "com.instagram.android:id/search_tab",
-            "com.instagram.android:id/clips_tab",
-            "com.instagram.android:id/profile_tab",
-        ]
+        tab_ids = list(DM_SELECTORS.bottom_tab_resource_ids)
         random.shuffle(tab_ids)
 
         for resource_id in tab_ids:
@@ -233,12 +217,12 @@ class DMInboxNavigationMixin:
 
     def _search_conversation_in_visible_list(self, username_lower: str) -> bool:
         """Search for a conversation in the currently visible inbox list."""
-        inbox_items = self.device(resourceId="com.instagram.android:id/row_inbox_container")
+        inbox_items = self.device(resourceId=DM_SELECTORS.thread_container_resource_id)
 
         for i in range(min(inbox_items.count, 20)):
             try:
                 item = inbox_items[i]
-                username_elem = item.child(resourceId="com.instagram.android:id/row_inbox_username")
+                username_elem = item.child(resourceId=DM_SELECTORS.thread_username_resource_id)
                 if username_elem.exists:
                     item_username = username_elem.get_text()
                     if item_username:
@@ -265,7 +249,7 @@ class DMInboxNavigationMixin:
             return True
 
         logger.info("Trying direct search on all row_inbox_username elements...")
-        username_elems = self.device(resourceId="com.instagram.android:id/row_inbox_username")
+        username_elems = self.device(resourceId=DM_SELECTORS.thread_username_resource_id)
         for i in range(min(username_elems.count, 20)):
             try:
                 elem = username_elems[i]

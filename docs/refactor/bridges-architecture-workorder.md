@@ -109,6 +109,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B60 | Fait | Decouper le runtime Smart Comment comments : extraction XML/dumpsys sous `smart_comment_comment_extraction.py` et scroll/expand sous `smart_comment_comment_navigation.py`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B61 | Fait | Sortir les signatures UI inline du runtime Instagram Smart Comment reply vers `POST_COMMENTS_SELECTORS` (input commentaire, boutons Post, labels Reply, liste/titre commentaires). | `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B62 | Fait | Decouper le runtime Smart Comment reply : recherche du bouton Reply sous `smart_comment_reply_finder.py`, saisie/envoi/dismiss clavier sous `smart_comment_reply_sender.py`, orchestration reply/batch dans `smart_comment_reply.py`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B63 | Fait | Sortir les signatures UI inline de la navigation Instagram DM vers `DM_SELECTORS` (`direct_messages.py`) et importer l'owner selector scope depuis `dm_navigation.py`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

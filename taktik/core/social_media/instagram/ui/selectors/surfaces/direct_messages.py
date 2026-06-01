@@ -7,6 +7,7 @@ class DirectMessageSelectors:
     
     # === Navigation vers DM ===
     # Bouton DM dans la tab bar (depuis le profil ou le feed)
+    direct_tab_resource_id: str = "com.instagram.android:id/direct_tab"
     direct_tab: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]'
     direct_tab_content_desc: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Message"]',
@@ -21,15 +22,62 @@ class DirectMessageSelectors:
         "Direct",
         "Messages",
     ])
+    dm_inbox_button_descriptions: List[str] = field(default_factory=lambda: [
+        "Message",
+        "Messages",
+        "Direct",
+        "Messenger",
+    ])
+    dm_inbox_description_contains: List[str] = field(default_factory=lambda: [
+        "Message",
+        "Messenger",
+        "Inbox",
+        "Boîte de réception",
+        "Envoyer un message",
+    ])
+    action_bar_inbox_button_resource_id: str = "com.instagram.android:id/action_bar_inbox_button"
     
     # Badge de notification sur l'onglet DM
     dm_notification_badge: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]//*[@resource-id="com.instagram.android:id/notification"]'
     
     # === Inbox (Liste des conversations) ===
+    inbox_thread_list_resource_id: str = "com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"
     inbox_thread_list: str = '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]'
+    inbox_header_text_resource_id: str = "com.instagram.android:id/header_text"
+    inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
+    inbox_header_messages_text: str = "Messages"
+    inbox_header_requests_text: str = "Requests"
+    inbox_top_visible_texts: List[str] = field(default_factory=lambda: [
+        "Messages",
+        "Requests",
+        "Demandes",
+        "Search or ask Meta AI",
+        "Search",
+        "Rechercher",
+        "Your note",
+        "Votre note",
+        "Map",
+        "Carte",
+    ])
+    inbox_recommendation_texts: List[str] = field(default_factory=lambda: [
+        "Accounts to follow",
+        "Suggested for you",
+        "See all",
+        "Comptes à suivre",
+        "Suggestions pour vous",
+        "Voir tout",
+    ])
     text_view_class_name: str = "android.widget.TextView"
+    image_view_class_name: str = "android.widget.ImageView"
+    bottom_tab_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/feed_tab",
+        "com.instagram.android:id/search_tab",
+        "com.instagram.android:id/clips_tab",
+        "com.instagram.android:id/profile_tab",
+    ])
     
     # Conteneur d'une conversation dans la liste
+    thread_container_resource_id: str = "com.instagram.android:id/row_inbox_container"
     thread_container: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
     
     # Éléments d'une conversation
@@ -54,6 +102,9 @@ class DirectMessageSelectors:
     filter_principal: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Principal")]',
         '//*[contains(@text, "Primary")]'
+    ])
+    primary_tab_text_contains: List[str] = field(default_factory=lambda: [
+        "Primary",
     ])
     filter_demandes: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Demandes")]',
@@ -118,6 +169,7 @@ class DirectMessageSelectors:
     add_note_button: str = '//*[@content-desc="Ajouter une note"]'
     
     # === Action bar dans l'inbox ===
+    inbox_action_bar_resource_id: str = "com.instagram.android:id/action_bar_container"
     inbox_action_bar: str = '//*[@resource-id="com.instagram.android:id/action_bar_container"]'
     inbox_title: str = '//*[@resource-id="com.instagram.android:id/igds_action_bar_title"]'
     
