@@ -35,6 +35,7 @@ from taktik.core.database import configure_db_service
 from loguru import logger
 
 from bridges.instagram.agent.runtime.ai import build_agent_ai_service
+from bridges.instagram.agent.runtime.commands import load_agent_bridge_config
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc
 
@@ -101,24 +102,11 @@ class TaktikAgentBridge(InstagramBridgeBase):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "No config file provided"}), flush=True)
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as exc:
-        print(json.dumps({"success": False, "error": f"Failed to load config: {exc}"}), flush=True)
+    config = load_agent_bridge_config(sys.argv)
+    if config is None:
         sys.exit(1)
 
     device_id = config.get("deviceId")
-    if not device_id:
-        print(json.dumps({"success": False, "error": "No deviceId in config"}), flush=True)
-        sys.exit(1)
-
     # Configure local SQLite database service
     try:
         configure_db_service()
