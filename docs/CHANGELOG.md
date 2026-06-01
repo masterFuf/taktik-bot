@@ -104,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Taktik Agent bridge app launch and workflow runner moved under `agent/runtime/workflow.py`, while the core Agent orchestration remains under `taktik/core/agent`.
 - Instagram Cold DM search navigation moved under `engagement/runtime/cold_dm_search.py`, leaving `cold_dm_navigation.py` focused on profile, back and home navigation.
 - Instagram runtime IPC stats helpers moved under `runtime/ipc_stats.py`, while `runtime/ipc.py` keeps the same public exports and stdout JSON event names.
+- Instagram runtime IPC live interaction events moved under `runtime/ipc_interaction_events.py`, while `runtime/ipc.py` remains the injected public adapter for core workflows.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

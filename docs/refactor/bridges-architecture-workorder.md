@@ -153,6 +153,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B104 | Fait | Extraire le lancement Instagram + runner workflow du bridge Taktik Agent sous `agent/runtime/workflow.py`, sans deplacer le noyau `taktik/core/agent`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B105 | Fait | Extraire la navigation recherche Cold DM (`navigate_to_search`, `search_user`) sous `engagement/runtime/cold_dm_search.py`; `cold_dm_navigation.py` garde profil/home/back. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B106 | Fait | Extraire les helpers stats IPC Instagram (`send_stats`, `send_instagram_stats`, callback `BaseStatsManager`) sous `runtime/ipc_stats.py`; `runtime/ipc.py` conserve les exports publics. | Import smoke + tests IPC emitter + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B107 | Fait | Extraire les events IPC live interaction Instagram (`action`, `profile_visit`, `follow`, `unfollow`, `like`) sous `runtime/ipc_interaction_events.py`; `runtime/ipc.py` conserve l'adapter public injecte au core. | Import smoke + tests IPC emitter + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
