@@ -6,7 +6,12 @@ from bridges.instagram.engagement.runtime.cold_dm.messages import choose_cold_dm
 from bridges.instagram.engagement.runtime.cold_dm.navigation import ColdDMNavigationMixin
 from bridges.instagram.engagement.runtime.cold_dm.progress import emit_cold_dm_progress
 from bridges.instagram.engagement.runtime.cold_dm.recipients import ColdDMRecipientMixin
-from bridges.instagram.engagement.runtime.cold_dm.results import apply_cold_dm_send_result
+from bridges.instagram.engagement.runtime.cold_dm.results import (
+    apply_cold_dm_send_result,
+    build_all_recipients_processed_result,
+    build_cold_dm_summary,
+    validate_cold_dm_inputs,
+)
 from bridges.instagram.engagement.runtime.cold_dm.search import ColdDMSearchMixin
 from bridges.instagram.engagement.runtime.cold_dm.sender import ColdDMSenderMixin
 from bridges.instagram.engagement.runtime.cold_dm.timing import wait_before_next_cold_dm
@@ -50,22 +55,14 @@ class ColdDMWorkflow(
             f"{len(messages)} messages, AI mode: {use_ai}"
         )
 
-        if not messages and not use_ai:
-            return {"success": False, "error": "No messages provided and AI mode not configured"}
-
-        if not recipients:
-            return {"success": False, "error": "No recipients provided"}
+        validation_error = validate_cold_dm_inputs(recipients=recipients, messages=messages, use_ai=use_ai)
+        if validation_error:
+            return validation_error
 
         filtered_recipients = self.filter_pending_recipients(recipients, account_id)
 
         if not filtered_recipients:
-            return {
-                "success": True,
-                "dms_sent": 0,
-                "dms_success": 0,
-                "dms_failed": 0,
-                "error": "All recipients already received a DM",
-            }
+            return build_all_recipients_processed_result()
 
         self.restart_instagram()
 
@@ -144,13 +141,7 @@ class ColdDMWorkflow(
                 self.dms_failed += 1
                 self.go_home()
 
-        return {
-            "success": True,
-            "dms_sent": self.dms_sent,
-            "dms_success": self.dms_success,
-            "dms_failed": self.dms_failed,
-            "private_profiles": self.private_profiles,
-        }
+        return build_cold_dm_summary(self)
 
 
 __all__ = ["ColdDMWorkflow"]

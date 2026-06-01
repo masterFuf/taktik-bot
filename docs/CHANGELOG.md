@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gmail account bridge workflow routing now lives under `bridges/gmail/account/runtime/dispatcher.py`; `account.py` keeps config validation, signal handling and session lifecycle.
 - YouTube action-test config loading and validation now live under `bridges/youtube/diagnostics/runtime/request.py`; `action_runner.py` keeps device connection, tracing and action execution.
 - Instagram DM bridge JSON stdout emission now lives under `bridges/instagram/engagement/runtime/dm/events.py`; command handlers and conversation reader keep the same payload shapes.
+- Instagram Cold DM bridge result helpers now own input validation, all-recipients-processed payloads and final counter summaries, keeping the Android send loop focused on navigation and send decisions.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.

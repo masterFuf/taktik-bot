@@ -258,6 +258,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B196 | Fait | Extraire le routing des operations Gmail account sous `bridges/gmail/account/runtime/dispatcher.py`; `account.py` garde validation config, signaux et session lifecycle. | Import smoke dispatcher + `py_compile` + `check_bridge_manifest` + launcher JSON smoke gmail-account + `compileall` + `git diff --check`. |
 | B197 | Fait | Extraire le chargement/validation de requete YouTube action-test sous `bridges/youtube/diagnostics/runtime/request.py`; `action_runner.py` garde connexion device, tracing et execution. | Request smoke + `py_compile` + `check_bridge_manifest` + launcher JSON smoke youtube-action-test + `compileall` + `git diff --check`. |
 | B198 | Fait | Extraire les emitters stdout JSON du bridge Instagram DM sous `engagement/runtime/dm/events.py`; commandes et reader conservent les memes payloads. | Emitter smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke dm-bridge + `compileall` + `git diff --check`. |
+| B199 | Fait | Extraire les helpers de resultat Cold DM (`validation`, `all recipients processed`, `summary`) sous `engagement/runtime/cold_dm/results.py`; la boucle Android reste dans `workflow.py`. | Result helpers smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher smoke cold-dm + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
