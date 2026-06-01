@@ -31,11 +31,14 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from taktik.core.database import configure_db_service
 from loguru import logger
 
 from bridges.instagram.agent.runtime.ai import build_agent_ai_service
 from bridges.instagram.agent.runtime.commands import load_agent_bridge_config
+from bridges.instagram.agent.runtime.session import (
+    configure_agent_database,
+    connect_agent_bridge,
+)
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc
 
@@ -107,12 +110,7 @@ def main():
         sys.exit(1)
 
     device_id = config.get("deviceId")
-    # Configure local SQLite database service
-    try:
-        configure_db_service()
-        logger.info("[TaktikAgentBridge] Database service configured")
-    except Exception as exc:
-        logger.warning(f"[TaktikAgentBridge] Could not configure DB service: {exc}")
+    configure_agent_database()
 
     # Connect to device
     bridge = TaktikAgentBridge(
@@ -121,8 +119,7 @@ def main():
         package_name=config.get("packageName"),
     )
 
-    if not bridge.connect():
-        print(json.dumps({"success": False, "error": "Failed to connect to device"}), flush=True)
+    if not connect_agent_bridge(bridge):
         sys.exit(1)
 
     result = bridge.run()

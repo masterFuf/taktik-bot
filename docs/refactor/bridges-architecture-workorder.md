@@ -148,6 +148,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B99 | Fait | Regrouper l'event `session_config` du runner Desktop dans `automation/runtime/events.py`, en conservant le payload construit par `core` via `build_instagram_session_config_event`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B100 | Fait | Extraire la factory OpenRouter du bridge Instagram Taktik Agent sous `agent/runtime/ai.py`; le workflow Agent core recoit toujours son provider par injection. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B101 | Fait | Extraire le chargement CLI/config du bridge Instagram Taktik Agent sous `agent/runtime/commands.py`, en preservant les JSON d'erreur d'entree. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B102 | Fait | Extraire le setup DB et la connexion device du bridge Instagram Taktik Agent sous `agent/runtime/session.py`, en preservant l'erreur JSON de connexion. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
