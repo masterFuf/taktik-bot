@@ -251,6 +251,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B189 | Fait | Scinder les events IPC Agent de `ipc_ai.py` vers `bridges/common/runtime/ipc_agent.py`; `IPC` conserve les memes methodes publiques via mixins. | Import smoke IPC AI/Agent methods + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B190 | Fait | Scinder les runners workflow-test compat TikTok par famille sous `runtime/tiktok_workflows/**`; `workflow_runners_tiktok.py` reste la facade publique stable. | Import smoke facade + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
 | B191 | Fait | Scinder les runners workflow-test compat Instagram par famille sous `runtime/instagram_workflows/**`; `workflow_runners_instagram.py` reste la facade publique stable. | Import smoke facade + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
+| B192 | Fait | Scinder le dispatcher workflow-test compat par plateforme sous `workflow_dispatcher_instagram.py` et `workflow_dispatcher_tiktok.py`; `workflow_dispatcher.py` garde routing public et erreurs JSON. | Import smoke dispatchers + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

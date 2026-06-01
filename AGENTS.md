@@ -119,6 +119,7 @@ Definition simple :
 - Les bridges de compatibilite et debug doivent vivre sous `bridges/compat/diagnostics/**` ; ne pas les melanger avec les bridges produit.
 - Quand un bridge compat diagnostics partage du support local (stdout JSON, logger, registry d'actions, tracing selectors), le ranger sous `bridges/compat/diagnostics/runtime/**`. Le compat reste un owner de diagnostic/debug, pas une zone de depot pour du runtime plateforme produit.
 - Quand un runner compat diagnostics par plateforme couvre plusieurs familles de workflow, classer les familles sous un sous-owner explicite comme `bridges/compat/diagnostics/runtime/<platform>_workflows/**` et garder le module historique comme facade d'import stable.
+- Quand un dispatcher compat diagnostics route plusieurs plateformes, garder le dispatcher public limite au choix plateforme, aux erreurs JSON et au contrat de retour ; placer les branches plateforme dans `workflow_dispatcher_<platform>.py`.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Quand un bridge diagnostics plateforme a besoin de support local (stdout JSON, registry d'actions, tracing selectors), le ranger sous `bridges/<platform>/diagnostics/runtime/**` plutot que de gonfler l'entrypoint diagnostics.
 - Quand un bridge diagnostics plateforme expose plusieurs familles d'actions manuelles, classer les definitions sous `bridges/<platform>/diagnostics/actions/**`; l'entrypoint charge ces familles et execute le registry.
