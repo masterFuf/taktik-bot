@@ -23,9 +23,9 @@ setup_environment()
 
 from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
+from bridges.youtube.account.runtime.workflows import run_youtube_account_login, run_youtube_account_logout
+from bridges.youtube.base import _ipc, send_error, send_status
 from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
-from taktik.core.social_media.youtube.workflows.account import YouTubeAccountWorkflow
 
 
 class YouTubeAccountBridge:
@@ -56,58 +56,13 @@ class YouTubeAccountBridge:
 
         try:
             if self.workflow_type == "login":
-                return self._run_login(session.device)
+                return run_youtube_account_login(self.config, device=session.device, device_id=self.device_id)
             if self.workflow_type == "logout":
-                return self._run_logout(session.device)
+                return run_youtube_account_logout(self.config, device=session.device, device_id=self.device_id)
             send_error(f"Unknown workflowType: {self.workflow_type}")
             return 1
         finally:
             cleanup_youtube_app(self.device_id)
-
-    def _run_login(self, device) -> int:
-        email = (self.config.get("email") or "").strip()
-        if not email:
-            send_error("email is required for YouTube login")
-            return 1
-
-        workflow = YouTubeAccountWorkflow(device, self.device_id, notifier=_ipc)
-        result = workflow.login(
-            email=email,
-            password=(self.config.get("password") or ""),
-        )
-        return self._finish_account_result(result, workflow_type="login", email=email)
-
-    def _run_logout(self, device) -> int:
-        email = (self.config.get("email") or "").strip()
-        workflow = YouTubeAccountWorkflow(device, self.device_id, notifier=_ipc)
-        result = workflow.logout(email=email)
-        return self._finish_account_result(result, workflow_type="logout", email=email)
-
-    def _finish_account_result(
-        self,
-        result: dict,
-        *,
-        workflow_type: str,
-        email: str,
-    ) -> int:
-        success = bool(result.get("success"))
-        message = result.get("message", "")
-        if success:
-            send_status("success", message)
-            send_message(
-                "account_result",
-                success=True,
-                workflow=workflow_type,
-                email=email,
-                message=message,
-            )
-            return 0
-
-        send_status("error", message)
-        send_error(message or f"YouTube {workflow_type} failed")
-        if result.get("error_type"):
-            send_log("debug", f"YouTube {workflow_type} error_type={result['error_type']}")
-        return 1
 
 
 def main() -> None:

@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threads workflow bridge callbacks and final completion status now live under `bridges/threads/workflows/runtime/events.py`, shared by feed and search runners.
 - Instagram account bridge workflow adapters are split by operation under `bridges/instagram/account/runtime/{login,logout,register}.py`; `workflows.py` remains the public mixin facade.
 - TikTok scraping bridge workflow config and optional DB session creation now live under `bridges/tiktok/scraping/runtime/config.py`; `workflow.py` keeps device lifecycle, callbacks and execution.
+- YouTube account bridge login/logout adapters now live under `bridges/youtube/account/runtime/workflows.py`; `account.py` keeps config loading, session lifecycle and dispatch.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
