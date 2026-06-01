@@ -13,18 +13,14 @@ Outputs JSON lines to stdout:
   {"type": "result", "success": true|false, "message": "...", "selector_traces": [...]}
 """
 
-import json
-import sys
 import time
-import traceback
 
 from bridges.compat.diagnostics.runtime.events import (
     configure_logger,
     configure_stdout,
-    emit as _emit,
 )
+from bridges.compat.diagnostics.runtime.action_runner import run_action_test_bridge
 from bridges.compat.diagnostics.runtime.registry import ActionRegistry
-from bridges.compat.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
 from loguru import logger
 
 configure_stdout()
@@ -258,92 +254,14 @@ def _build_action_bundle(device_facade):
 # Main entry point
 # =============================================================================
 
+def _create_device_facade(raw_device):
+    from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
+
+    return DeviceFacade(raw_device)
+
+
 def main():
-    if len(sys.argv) < 2:
-        _emit({"type": "result", "success": False, "message": "No config file provided"})
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8-sig") as f:
-            config = json.load(f)
-    except Exception as e:
-        _emit({"type": "result", "success": False, "message": f"Failed to read config: {e}"})
-        sys.exit(1)
-
-    device_id = config.get("device_id", "")
-    action_id = config.get("action_id", "")
-    params = config.get("params", {})
-
-    if not device_id:
-        _emit({"type": "result", "success": False, "message": "Missing device_id"})
-        sys.exit(1)
-
-    if not action_id:
-        _emit({"type": "result", "success": False, "message": "Missing action_id"})
-        sys.exit(1)
-
-    if action_id not in ACTION_REGISTRY:
-        _emit({"type": "result", "success": False, "message": f"Unknown action: '{action_id}'. Available: {sorted(ACTION_REGISTRY.keys())}"})
-        sys.exit(1)
-
-    # Connect to device
-    logger.info(f"Connecting to device: {device_id}")
-    try:
-        from taktik.core.shared.device.manager import DeviceManager
-        device_manager = DeviceManager(device_id=device_id)
-        if not device_manager.connect(verify_atx=False):
-            _emit({"type": "result", "success": False, "message": f"Could not connect to device {device_id}"})
-            sys.exit(1)
-        raw_device = device_manager.device
-        logger.info(f"Connected to {device_id}")
-    except Exception as e:
-        _emit({"type": "result", "success": False, "message": f"Device connection failed: {e}"})
-        sys.exit(1)
-
-    # Build action bundle
-    logger.info(f"Building bundle for action: {action_id}")
-    try:
-        from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
-        device_facade = DeviceFacade(raw_device)
-        bundle = _build_action_bundle(device_facade)
-    except Exception as e:
-        _emit({"type": "result", "success": False, "message": f"Action init failed: {e}\n{traceback.format_exc()}"})
-        sys.exit(1)
-
-    # Install selector tracer
-    tracer = SelectorTracer()
-    _original_xpath = device_facade._device.xpath
-
-    def _traced_xpath(expr, *args, **kwargs):
-        return TracedSelector(_original_xpath(expr, *args, **kwargs), expr, tracer)
-
-    device_facade._device.xpath = _traced_xpath
-
-    # Execute the action
-    try:
-        fn = ACTION_REGISTRY[action_id]
-        result = fn(bundle, params)
-        success = bool(result)
-        msg = f"Action '{action_id}' {'succeeded' if success else 'failed'}"
-        matched = sum(1 for t in tracer.traces if t["found"])
-        logger.info(f"{'✅' if success else '❌'} {msg} — selectors: {matched}/{len(tracer.traces)} matched")
-        _emit({
-            "type": "result",
-            "success": success,
-            "message": msg,
-            "selector_traces": tracer.traces,
-        })
-    except Exception as e:
-        tb = traceback.format_exc()
-        logger.error(f"Action '{action_id}' raised exception: {e}\n{tb}")
-        _emit({
-            "type": "result",
-            "success": False,
-            "message": f"Exception: {e}",
-            "selector_traces": tracer.traces,
-        })
-        sys.exit(1)
+    run_action_test_bridge(ACTION_REGISTRY, _create_device_facade, _build_action_bundle)
 
 
 if __name__ == "__main__":

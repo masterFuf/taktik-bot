@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YouTube action-test diagnostics now keep JSON stdout/logging, action registry and selector tracing under `bridges/youtube/diagnostics/runtime/**`, leaving the entrypoint focused on action definitions and execution.
 - YouTube action-test diagnostic definitions are now split by family under `bridges/youtube/diagnostics/actions/**`; the public bridge still exposes the same action IDs and `log`/`result` event shapes.
 - Compatibility action-test diagnostics now share JSON stdout/logging, per-entrypoint action registries and selector tracing through `bridges/compat/diagnostics/runtime/**`; Instagram and TikTok compat action IDs and `log`/`result` events remain unchanged.
+- Compatibility action-test diagnostics now share the config/device/tracing execution runner under `bridges/compat/diagnostics/runtime/action_runner.py`; platform entrypoints keep only their action catalog and bundle factories.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
