@@ -53,6 +53,10 @@ from bridges.compat.diagnostics.runtime.workflow_catalog import (
     TIKTOK_DM_WF,
     TIKTOK_SCRAPING_WF,
 )
+from bridges.compat.diagnostics.runtime.instagram_automation import (
+    build_workflow_config,
+    instrument_workflow_runner,
+)
 from bridges.compat.diagnostics.runtime.workflow_observability import (
     clear_active_watchdog,
     get_last_stats,
@@ -221,7 +225,7 @@ def main():
     try:
         # â”€â”€ Instagram Automation workflows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if app_name == "instagram" and workflow_type in INSTAGRAM_AUTOMATION_WF:
-            workflow_config = _build_workflow_config(workflow_type, target, limits, probs, session_duration, delays)
+            workflow_config = build_workflow_config(workflow_type, target, limits, probs, session_duration, delays)
             automation.config = workflow_config
 
             # Start the watchdog to detect stuck states and auto-recover
@@ -238,7 +242,7 @@ def main():
             except Exception as e:
                 logger.warning(f"[WorkflowTest] Could not start watchdog (non-fatal): {e}")
 
-            _instrument_workflow_runner(automation, tracer, ipc)
+            instrument_workflow_runner(automation, tracer, ipc)
             automation.run_workflow()
             workflow_success = True
 
@@ -350,151 +354,6 @@ def main():
 
     conn.disconnect()
     logger.info(f"[WorkflowTest] Done: score={score}%, workflow_success={workflow_success}")
-
-
-def _build_workflow_config(workflow_type: str, target: str, limits: dict, probs: dict, session_duration: int = 30, delays: dict = None) -> dict:
-    """Build a workflow config matching the format expected by InstagramAutomation."""
-    import math
-
-    max_profiles = limits.get("maxProfiles", 3)
-    max_likes = limits.get("maxLikesPerProfile", 1)
-    like_pct = probs.get("like", 80)
-    follow_pct = probs.get("follow", 0)
-    comment_pct = probs.get("comment", 0)
-    story_pct = probs.get("watchStories", 0)
-    story_like_pct = probs.get("likeStories", 0)
-
-    # Determine action type
-    if workflow_type in ("target_followers", "target_following"):
-        action_type = "interact_with_followers"
-        interaction_type = "followers" if workflow_type == "target_followers" else "following"
-        session_wf_type = "target_followers"
-    elif workflow_type == "hashtag":
-        action_type = "hashtag"
-        interaction_type = "hashtag"
-        session_wf_type = "hashtag"
-    elif workflow_type in ("post_likers", "post_url"):
-        action_type = "post_url"
-        interaction_type = "post_likers"
-        session_wf_type = "post_url"
-    elif workflow_type == "feed":
-        action_type = "feed"
-        interaction_type = "feed"
-        session_wf_type = "feed"
-    elif workflow_type == "notifications":
-        action_type = "notifications"
-        interaction_type = "notifications"
-        session_wf_type = "notifications"
-    elif workflow_type == "unfollow":
-        action_type = "unfollow"
-        interaction_type = "unfollow"
-        session_wf_type = "unfollow"
-    else:
-        action_type = "interact_with_followers"
-        interaction_type = "followers"
-        session_wf_type = "target_followers"
-
-    target_list = [t.strip() for t in target.split(",") if t.strip()]
-
-    action_config = {
-        "type": action_type,
-        "target_username": target_list[0] if target_list else target,
-        "target_usernames": target_list,
-        "hashtag": target if action_type == "hashtag" else None,
-        "interaction_type": interaction_type,
-        "max_interactions": max_profiles,
-        "like_posts": True,
-        "max_likes_per_profile": max_likes,
-        "probabilities": {
-            "like_percentage": like_pct,
-            "follow_percentage": follow_pct,
-            "comment_percentage": comment_pct,
-            "story_percentage": story_pct,
-            "story_like_percentage": story_like_pct,
-        },
-        "like_settings": {"enabled": like_pct > 0, "like_carousels": True, "like_reels": True},
-        "follow_settings": {"enabled": follow_pct > 0},
-        "story_settings": {"enabled": story_pct > 0},
-        "story_like_settings": {"enabled": story_like_pct > 0},
-        "comment_settings": {"enabled": comment_pct > 0, "custom_comments": []},
-    }
-
-    if action_type == "feed":
-        action_config = {
-            "type": "feed",
-            "max_interactions": max_profiles,
-            "like_percentage": like_pct,
-            "follow_percentage": follow_pct,
-            "comment_percentage": comment_pct,
-            "story_watch_percentage": story_pct,
-        }
-    elif action_type == "notifications":
-        action_config = {
-            "type": "notifications",
-            "max_interactions": limits.get("maxInteractions", max_profiles),
-            "like_percentage": like_pct,
-            "follow_percentage": follow_pct,
-            "comment_percentage": comment_pct,
-        }
-    elif action_type == "unfollow":
-        max_unfollows = limits.get("maxUnfollows", 10)
-        action_config = {
-            "type": "unfollow",
-            "max_unfollows": max_unfollows,
-            "unfollow_mode": "non_followers",
-            "skip_verified": False,
-            "skip_business": False,
-        }
-    elif action_type == "post_url":
-        action_config["type"] = "post_url"
-        action_config["post_url"] = target
-
-    return {
-        "filters": {
-            "min_followers": 0,
-            "max_followers": 999999999,
-            "min_followings": 0,
-            "max_followings": 999999999,
-            "min_posts": 0,
-            "privacy_relation": "public_and_private",
-            "blacklist_words": [],
-        },
-        "session_settings": {
-            "workflow_type": session_wf_type,
-            "total_profiles_limit": max_profiles,
-            "total_follows_limit": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
-            "total_likes_limit": math.ceil(max_profiles * max_likes * like_pct / 100) if like_pct else 0,
-            "session_duration_minutes": session_duration,
-            "delay_between_actions": delays or {"min": 3, "max": 8},
-            "randomize_actions": False,
-        },
-        "actions": [action_config],
-    }
-
-
-def _instrument_workflow_runner(automation, tracer, ipc: IPC):
-    """Monkey-patch WorkflowRunner.run_workflow_step to track steps in the tracer."""
-    runner = automation.workflow_runner
-    original_run_step = runner.run_workflow_step
-
-    def instrumented_run_step(action):
-        action_type = action.get("type", "unknown")
-        step_name = action.get("id", action_type)
-
-        tracer.begin_step(step_name)
-        ipc.send("workflow_step", step=step_name, status="running")
-
-        try:
-            result = original_run_step(action)
-            tracer.end_step(success=result)
-            ipc.send("workflow_step", step=step_name, status="done" if result else "failed")
-            return result
-        except Exception as e:
-            tracer.end_step(success=False, error=str(e))
-            ipc.send("workflow_step", step=step_name, status="error", error=str(e))
-            raise
-
-    runner.run_workflow_step = instrumented_run_step
 
 
 if __name__ == "__main__":
