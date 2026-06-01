@@ -270,3 +270,5 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 ## Notes de compatibilite
 
 Depuis le lot B25, le Front lance en dev `python bridges/launcher.py <bridge_name>` via `front/electron/utils/paths.ts`, comme la production lance `taktik_launcher.exe <bridge_name>`. Les fichiers `bridges/<platform>/<bridge_name>.py` racine ont ete supprimes pour eviter une couche legacy oubliee. Le contrat public devient `bridge_name + manifest + launcher`, et le code durable reste sous un owner clair.
+
+Point de reprise apres B206 : les plus gros fichiers restants sous `bridges/instagram/engagement/runtime/**` portent surtout des gestes UI Android fragiles (`smart_comment/comments.py`, `smart_comment/reply_sender.py`, `smart_comment/navigation.py`, `dm/inbox_reset.py`, `dm/commands.py`, `dm/sender.py`, `cold_dm/workflow.py`). Ils ne doivent pas etre decoupes agressivement sans test device ou replay manuel du flow concerne. Les prochaines extractions sur ces fichiers doivent rester data-only, event-only ou validation-only, sauf si un lot dedie prevoit une validation Android explicite.
