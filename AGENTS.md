@@ -116,6 +116,7 @@ Definition simple :
 - Quand un bridge de compte a besoin de support local (commandes CLI, preparation DB/device/app, dispatch login/logout/register), le ranger sous `bridges/<platform>/account/runtime/**` plutot que de gonfler l'entrypoint `account/<flow>.py`.
 - Quand un bridge de publish/upload a besoin de support local (commandes CLI, connexion device, patch clone, dispatch upload), le ranger sous `bridges/<platform>/publish/runtime/**` plutot que de gonfler l'entrypoint `publish/<flow>.py`.
 - Les bridges de compatibilite et debug doivent vivre sous `bridges/compat/diagnostics/**` ; ne pas les melanger avec les bridges produit.
+- Quand un bridge compat diagnostics partage du support local (stdout JSON, logger, registry d'actions, tracing selectors), le ranger sous `bridges/compat/diagnostics/runtime/**`. Le compat reste un owner de diagnostic/debug, pas une zone de depot pour du runtime plateforme produit.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Quand un bridge diagnostics plateforme a besoin de support local (stdout JSON, registry d'actions, tracing selectors), le ranger sous `bridges/<platform>/diagnostics/runtime/**` plutot que de gonfler l'entrypoint diagnostics.
 - Quand un bridge diagnostics plateforme expose plusieurs familles d'actions manuelles, classer les definitions sous `bridges/<platform>/diagnostics/actions/**`; l'entrypoint charge ces familles et execute le registry.
