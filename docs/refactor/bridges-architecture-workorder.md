@@ -36,6 +36,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/<platform>/analysis/runtime/**` = support local des bridges analyse : commandes CLI, parsing config, capture/consolidation de donnees. Ne pas laisser ces modules gonfler l'entrypoint `analysis/<flow>.py`.
 - `bridges/<platform>/account/runtime/**` = support local des bridges compte : commandes CLI, preparation DB/device/app et dispatch login/logout/register. Ne pas laisser ces modules gonfler l'entrypoint `account/<flow>.py`.
 - `bridges/<platform>/publish/runtime/**` = support local des bridges publish/upload : commandes CLI, connexion device, patch clone et dispatch upload. Ne pas laisser ces modules gonfler l'entrypoint `publish/<flow>.py`.
+- `bridges/<platform>/diagnostics/runtime/**` = support local des bridges diagnostics : stdout JSON, registry d'actions, tracing selectors, parsing de config de debug. Ne pas laisser ces modules gonfler l'entrypoint diagnostics.
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/device/apps.py` = catalogue package/activity/wait times et variantes package connues pour `AppService`.
 - `bridges/common/device/app_control.py` = commandes ADB standalone pour controler une app sans connexion uiautomator active, par exemple `force_stop_app`.
@@ -214,6 +215,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B154 | Fait | Rebrancher `bridges/common/input/keyboard.py` sur l'owner core `shared/input/taktik_keyboard.py` au lieu de dupliquer la gestion ADB/IME ; l'API `KeyboardService` reste identique. | Import smoke keyboard facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B155 | Fait | Ajouter `run_adb_shell_process()` sous `taktik/core/shared/device/adb.py` et migrer `app_control.py` / `app_inspection.py` dessus pour retirer les derniers subprocess ADB locaux de `bridges/common/device`. | Import smoke ADB process helper + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B156 | Fait | Extraire la lecture des dimensions ecran de `ConnectionService` vers `bridges/common/device/screen.py`; les proprietes publiques `screen_size`, `screen_width`, `screen_height` restent identiques. | Import smoke screen helper + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B157 | Fait | Extraire stdout JSON/logger, registry d'actions et tracing selectors de `bridges/youtube/diagnostics/action_test.py` vers `diagnostics/runtime/**`; les IDs d'actions et events `log`/`result` restent inchanges. | Import smoke YouTube diagnostics runtime + launcher JSON smoke + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

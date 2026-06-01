@@ -13,93 +13,25 @@ Outputs JSON lines to stdout:
   {"type": "result", "success": true|false, "message": "..."}
 """
 
-import sys
-import io
 import json
+import sys
 import time
 import traceback
-from loguru import logger
-
-
-# =============================================================================
-# Selector tracing
-# =============================================================================
-
-class SelectorTracer:
-    """Records every XPath selector check performed during an action."""
-
-    def __init__(self):
-        self.traces: list[dict] = []
-
-    def record(self, xpath_str: str, found: bool) -> None:
-        self.traces.append({"xpath": xpath_str, "found": found})
-        icon = "✓" if found else "✗"
-        short = xpath_str if len(xpath_str) <= 80 else "…" + xpath_str[-77:]
-        _log("debug", f"[selector] {icon} {short}")
-
-
-class _TracedSelector:
-    """Wraps a uiautomator2 XPathSelector and records .exists checks."""
-
-    __slots__ = ('_o', '_xpath', '_tracer')
-
-    def __init__(self, original, xpath_str: str, tracer: SelectorTracer):
-        object.__setattr__(self, '_o', original)
-        object.__setattr__(self, '_xpath', xpath_str)
-        object.__setattr__(self, '_tracer', tracer)
-
-    @property
-    def exists(self) -> bool:
-        o = object.__getattribute__(self, '_o')
-        t = object.__getattribute__(self, '_tracer')
-        x = object.__getattribute__(self, '_xpath')
-        result = o.exists
-        t.record(x, result)
-        return result
-
-    def __getattr__(self, name):
-        return getattr(object.__getattribute__(self, '_o'), name)
-
-    def __bool__(self):
-        return bool(object.__getattribute__(self, '_o'))
-
-
-# Force UTF-8 on Windows
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
-else:
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-
-# ── Logger setup ──────────────────────────────────────────────────────────────
-logger.remove()
-
-
-def _emit(obj: dict):
-    print(json.dumps(obj, ensure_ascii=False), flush=True)
-
-
-def _log(level: str, message: str):
-    _emit({"type": "log", "level": level, "message": message})
-
-
-logger.add(
-    lambda msg: _log(msg.record["level"].name.lower(), msg.record["message"]),
-    format="{message}",
-    level="DEBUG",
+from bridges.youtube.diagnostics.runtime.events import (
+    configure_logger,
+    configure_stdout,
+    emit as _emit,
+    log as _log,
 )
+from bridges.youtube.diagnostics.runtime.registry import (
+    ACTION_REGISTRY,
+    action as _action,
+)
+from bridges.youtube.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
 
 
-# ── Action registry ───────────────────────────────────────────────────────────
-
-ACTION_REGISTRY: dict = {}
-
-
-def _action(action_id: str):
-    """Decorator to register an action."""
-    def decorator(fn):
-        ACTION_REGISTRY[action_id] = fn
-        return fn
-    return decorator
+configure_stdout()
+configure_logger()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -540,7 +472,7 @@ def main():
     _original_xpath = raw_device.xpath
 
     def _traced_xpath(expr, *args, **kwargs):
-        return _TracedSelector(_original_xpath(expr, *args, **kwargs), expr, tracer)
+        return TracedSelector(_original_xpath(expr, *args, **kwargs), expr, tracer)
 
     raw_device.xpath = _traced_xpath
 
