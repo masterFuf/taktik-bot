@@ -6,7 +6,7 @@ import json
 import sys
 
 from bridges.instagram.runtime.ipc import logger
-from bridges.instagram.engagement.runtime.cold_dm_workflow import ColdDMWorkflow
+from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
 
 
 def run_cold_dm_cli(args: list[str]) -> None:

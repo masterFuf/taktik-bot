@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gmail account bridge workflow runners are split by operation under `bridges/gmail/account/runtime/workflow_{login,logout,otp,scan}.py`; `workflows.py` remains the public import facade.
 - Instagram compatibility action-test definitions are now split by family under `bridges/compat/diagnostics/actions/instagram/**`; the public action IDs and JSON event shapes remain unchanged.
 - Instagram DM bridge runtime files moved under `bridges/instagram/engagement/runtime/dm/**`; the public `dm_bridge` manifest entry still resolves through `bridges/instagram/engagement/dm.py`.
+- Instagram Cold DM bridge runtime files moved under `bridges/instagram/engagement/runtime/cold_dm/**`; the public `cold_dm_bridge` manifest entry still resolves through `bridges/instagram/engagement/cold_dm.py`.
 - TikTok compatibility action-test definitions are now split by family under `bridges/compat/diagnostics/actions/tiktok/**`; the public action IDs and JSON event shapes remain unchanged.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.

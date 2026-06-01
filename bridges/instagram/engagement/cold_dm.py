@@ -11,11 +11,11 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment(log_level="INFO")
 
-from bridges.instagram.engagement.runtime.cold_dm_workflow import ColdDMWorkflow
+from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
 
 
 def main():
-    from bridges.instagram.engagement.runtime.cold_dm_commands import run_cold_dm_cli
+    from bridges.instagram.engagement.runtime.cold_dm.commands import run_cold_dm_cli
 
     run_cold_dm_cli(sys.argv[1:])
 

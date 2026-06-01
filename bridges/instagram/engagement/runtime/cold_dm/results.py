@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridges.instagram.engagement.runtime.cold_dm_persistence import record_sent_dm
+from bridges.instagram.engagement.runtime.cold_dm.persistence import record_sent_dm
 from bridges.instagram.runtime.ipc import logger
 
 

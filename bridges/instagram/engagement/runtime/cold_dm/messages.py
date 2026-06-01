@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from bridges.instagram.engagement.runtime.cold_dm_ai import generate_ai_message
+from bridges.instagram.engagement.runtime.cold_dm.ai import generate_ai_message
 from bridges.instagram.runtime.ipc import logger
 
 

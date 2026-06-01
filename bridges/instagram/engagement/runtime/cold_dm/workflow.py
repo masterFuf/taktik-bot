@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from bridges.instagram.engagement.runtime.cold_dm_messages import choose_cold_dm_message
-from bridges.instagram.engagement.runtime.cold_dm_navigation import ColdDMNavigationMixin
-from bridges.instagram.engagement.runtime.cold_dm_progress import emit_cold_dm_progress
-from bridges.instagram.engagement.runtime.cold_dm_recipients import ColdDMRecipientMixin
-from bridges.instagram.engagement.runtime.cold_dm_results import apply_cold_dm_send_result
-from bridges.instagram.engagement.runtime.cold_dm_search import ColdDMSearchMixin
-from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
-from bridges.instagram.engagement.runtime.cold_dm_timing import wait_before_next_cold_dm
+from bridges.instagram.engagement.runtime.cold_dm.messages import choose_cold_dm_message
+from bridges.instagram.engagement.runtime.cold_dm.navigation import ColdDMNavigationMixin
+from bridges.instagram.engagement.runtime.cold_dm.progress import emit_cold_dm_progress
+from bridges.instagram.engagement.runtime.cold_dm.recipients import ColdDMRecipientMixin
+from bridges.instagram.engagement.runtime.cold_dm.results import apply_cold_dm_send_result
+from bridges.instagram.engagement.runtime.cold_dm.search import ColdDMSearchMixin
+from bridges.instagram.engagement.runtime.cold_dm.sender import ColdDMSenderMixin
+from bridges.instagram.engagement.runtime.cold_dm.timing import wait_before_next_cold_dm
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import logger
 
