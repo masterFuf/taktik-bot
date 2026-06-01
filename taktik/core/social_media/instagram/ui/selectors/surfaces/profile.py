@@ -83,6 +83,7 @@ class ProfileSelectors:
         '//*[contains(@text, "Envoyer un message")]',
         '//*[@resource-id="com.instagram.android:id/profile_header_message_button"]'
     ])
+    message_button_resource_id: str = "com.instagram.android:id/profile_header_message_button"
     message_button_text_labels: List[str] = field(default_factory=lambda: [
         'Message',
         'Envoyer un message',
@@ -196,6 +197,11 @@ class ProfileSelectors:
         '//*[contains(@text, "Suivre pour voir")]',
         '//*[contains(@content-desc, "privé")]',
         '//*[contains(@content-desc, "Private")]'
+    ])
+    private_empty_state_resource_id: str = "com.instagram.android:id/private_profile_empty_state"
+    private_text_contains: List[str] = field(default_factory=lambda: [
+        "account is private",
+        "compte est privé",
     ])
     
     # === Boutons multiples (écrans de suggestions) ===

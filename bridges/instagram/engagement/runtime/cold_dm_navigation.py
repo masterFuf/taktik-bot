@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class ColdDMNavigationMixin:
@@ -14,23 +16,25 @@ class ColdDMNavigationMixin:
         """Navigate to the search/explore tab."""
         logger.info("Navigating to search...")
 
-        search_btn = self.device(resourceId="com.instagram.android:id/search_tab")
+        search_btn = self.device(resourceId=NAVIGATION_SELECTORS.search_tab_resource_id)
         if search_btn.exists:
             search_btn.click()
             time.sleep(2)
             return True
 
-        search_btn = self.device(description="Search and explore")
-        if search_btn.exists:
-            search_btn.click()
-            time.sleep(2)
-            return True
+        for description in NAVIGATION_SELECTORS.search_tab_descriptions:
+            search_btn = self.device(description=description)
+            if search_btn.exists:
+                search_btn.click()
+                time.sleep(2)
+                return True
 
-        search_btn = self.device(descriptionContains="Search")
-        if search_btn.exists:
-            search_btn.click()
-            time.sleep(2)
-            return True
+        for description in NAVIGATION_SELECTORS.search_tab_description_contains:
+            search_btn = self.device(descriptionContains=description)
+            if search_btn.exists:
+                search_btn.click()
+                time.sleep(2)
+                return True
 
         logger.error("Could not find search button")
         return False
@@ -40,11 +44,13 @@ class ColdDMNavigationMixin:
         logger.info(f"Searching for user: {username}")
         username_lower = username.lower().strip()
 
-        search_bar = self.device(resourceId="com.instagram.android:id/action_bar_search_edit_text")
+        search_bar = self.device(resourceId=NAVIGATION_SELECTORS.explore_search_bar_resource_id)
+        for text in NAVIGATION_SELECTORS.explore_search_bar_texts:
+            if search_bar.exists:
+                break
+            search_bar = self.device(text=text)
         if not search_bar.exists:
-            search_bar = self.device(text="Search")
-        if not search_bar.exists:
-            search_bar = self.device(className="android.widget.EditText")
+            search_bar = self.device(className=NAVIGATION_SELECTORS.edit_text_class_name)
 
         if not search_bar.exists:
             logger.error("Search bar not found")
@@ -55,19 +61,21 @@ class ColdDMNavigationMixin:
         search_bar.set_text(username)
         time.sleep(2)
 
-        accounts_tab = self.device(text="Accounts")
-        if accounts_tab.exists:
-            logger.info("Clicking Accounts tab")
-            accounts_tab.click()
-            time.sleep(1.5)
+        for text in NAVIGATION_SELECTORS.search_accounts_tab_texts:
+            accounts_tab = self.device(text=text)
+            if accounts_tab.exists:
+                logger.info("Clicking Accounts tab")
+                accounts_tab.click()
+                time.sleep(1.5)
+                break
 
-        user_containers = self.device(resourceId="com.instagram.android:id/row_search_user_container")
+        user_containers = self.device(resourceId=NAVIGATION_SELECTORS.search_result_container_resource_id)
         if user_containers.exists:
             logger.info(f"Found {user_containers.count} user containers")
             for i in range(min(user_containers.count, 10)):
                 try:
                     container = user_containers[i]
-                    username_elem = container.child(resourceId="com.instagram.android:id/row_search_user_username")
+                    username_elem = container.child(resourceId=NAVIGATION_SELECTORS.search_result_username_resource_id)
                     if username_elem.exists:
                         found_username = username_elem.get_text()
                         if found_username:
@@ -82,7 +90,7 @@ class ColdDMNavigationMixin:
                     logger.warning(f"Error checking container {i}: {e}")
                     continue
 
-        first_username = self.device(resourceId="com.instagram.android:id/row_search_user_username")
+        first_username = self.device(resourceId=NAVIGATION_SELECTORS.search_result_username_resource_id)
         if first_username.exists:
             first_text = first_username.get_text()
             if first_text and username_lower in first_text.lower():
@@ -96,20 +104,16 @@ class ColdDMNavigationMixin:
 
     def is_private_profile(self) -> bool:
         """Check if the current profile is private."""
-        private_state = self.device(resourceId="com.instagram.android:id/private_profile_empty_state")
+        private_state = self.device(resourceId=PROFILE_SELECTORS.private_empty_state_resource_id)
         if private_state.exists:
             logger.info("Detected private profile (empty state)")
             return True
 
-        private_text = self.device(textContains="account is private")
-        if private_text.exists:
-            logger.info("Detected private profile (text)")
-            return True
-
-        private_text_fr = self.device(textContains="compte est privé")
-        if private_text_fr.exists:
-            logger.info("Detected private profile (text FR)")
-            return True
+        for text in PROFILE_SELECTORS.private_text_contains:
+            private_text = self.device(textContains=text)
+            if private_text.exists:
+                logger.info("Detected private profile (text)")
+                return True
 
         return False
 
@@ -121,11 +125,16 @@ class ColdDMNavigationMixin:
             logger.warning("Cannot send DM - profile is private")
             return "private"
 
-        msg_btn = self.device(text="Message")
-        if not msg_btn.exists:
-            msg_btn = self.device(description="Message")
-        if not msg_btn.exists:
-            msg_btn = self.device(resourceId="com.instagram.android:id/profile_header_message_button")
+        msg_btn = None
+        for label in PROFILE_SELECTORS.message_button_text_labels:
+            msg_btn = self.device(text=label)
+            if msg_btn.exists:
+                break
+            msg_btn = self.device(description=label)
+            if msg_btn.exists:
+                break
+        if not msg_btn or not msg_btn.exists:
+            msg_btn = self.device(resourceId=PROFILE_SELECTORS.message_button_resource_id)
 
         if msg_btn.exists:
             msg_btn.click()
@@ -137,7 +146,7 @@ class ColdDMNavigationMixin:
 
     def go_back(self):
         """Go back to previous screen."""
-        back_btn = self.device(resourceId="com.instagram.android:id/action_bar_button_back")
+        back_btn = self.device(resourceId=NAVIGATION_SELECTORS.action_bar_back_button_resource_id)
         if back_btn.exists:
             back_btn.click()
         else:
@@ -151,24 +160,30 @@ class ColdDMNavigationMixin:
         self.device.press("back")
         time.sleep(1)
 
-        home_btn = self.device(resourceId="com.instagram.android:id/feed_tab")
+        home_btn = self.device(resourceId=NAVIGATION_SELECTORS.home_tab_resource_id)
         if home_btn.exists:
             home_btn.click()
             time.sleep(2)
             return True
 
-        home_btn = self.device(description="Home")
-        if not home_btn.exists:
-            home_btn = self.device(descriptionContains="Home")
-        if home_btn.exists:
-            home_btn.click()
-            time.sleep(2)
-            return True
+        for description in NAVIGATION_SELECTORS.home_tab_descriptions:
+            home_btn = self.device(description=description)
+            if home_btn.exists:
+                home_btn.click()
+                time.sleep(2)
+                return True
+
+        for description in NAVIGATION_SELECTORS.home_tab_description_contains:
+            home_btn = self.device(descriptionContains=description)
+            if home_btn.exists:
+                home_btn.click()
+                time.sleep(2)
+                return True
 
         self.device.press("back")
         time.sleep(1)
 
-        home_btn = self.device(resourceId="com.instagram.android:id/feed_tab")
+        home_btn = self.device(resourceId=NAVIGATION_SELECTORS.home_tab_resource_id)
         if home_btn.exists:
             home_btn.click()
             time.sleep(2)

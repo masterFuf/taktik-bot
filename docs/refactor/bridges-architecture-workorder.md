@@ -115,6 +115,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B66 | Fait | Sortir les selectors de lecture Instagram DM (`header`, `composer`, messages texte/reels, detection groupe) de `dm_reader.py` vers `DM_SELECTORS`, sans changer le payload `conversation`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B67 | Fait | Sortir les indicateurs de landing post/comment-title de `smart_comment_navigation.py` vers `POST_DETAIL_SELECTORS` et `POST_COMMENTS_SELECTORS`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B68 | Fait | Sortir les probes UI de contexte post Smart Comment (`caption`, auteur, media, share/copy link) vers `POST_DETAIL_SELECTORS`, sans changer les commandes ADB clipboard ni les events `post_context`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B69 | Fait | Sortir les selectors inline Cold DM navigation/sender vers les catalogues existants (`NAVIGATION_SELECTORS`, `PROFILE_SELECTORS`, `DM_SELECTORS`) sans changer le workflow outreach ni le contrat JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

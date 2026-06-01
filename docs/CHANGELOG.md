@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram DM conversation reading now consumes scoped direct-message selectors for headers, composer presence, text/reel messages and group-detection probes while preserving the existing `conversation` JSON payload.
 - Instagram Smart Comment post navigation now uses scoped post/comment selector catalogs for landing verification and comment-title probes instead of hardcoded post action resource ids.
 - Instagram Smart Comment post-context extraction now uses scoped post selectors for caption expansion, author/media probes and share/copy-link UI while preserving the `post_context` event payload.
+- Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - `taktik/core` architecture cleanup continued in small verified lots: shared device boundaries were clarified, Instagram database ownership was tightened, and Instagram/TikTok selector trees were reorganized by real UI scope (`shell`, `surfaces`, `flows`, `support`).
 - Legacy top-level selector shim files were removed for Instagram and TikTok once internal imports had been migrated to the scoped owners.
 - `taktik/core/compat` now scopes its selector compatibility framework under `compat/selectors/**`; internal bridges import the scoped owners directly while the old top-level modules stay as compatibility shims.

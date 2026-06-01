@@ -12,12 +12,18 @@ class NavigationSelectors:
         '//*[contains(@content-desc, "Accueil")]',
         '//*[contains(@content-desc, "Home")]'
     ])
+    home_tab_resource_id: str = "com.instagram.android:id/feed_tab"
+    home_tab_descriptions: List[str] = field(default_factory=lambda: ["Home"])
+    home_tab_description_contains: List[str] = field(default_factory=lambda: ["Home"])
     
     search_tab: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "com.instagram.android:id/search_tab")]',
         '//*[contains(@content-desc, "Rechercher")]',
         '//*[contains(@content-desc, "Search")]'
     ])
+    search_tab_resource_id: str = "com.instagram.android:id/search_tab"
+    search_tab_descriptions: List[str] = field(default_factory=lambda: ["Search and explore"])
+    search_tab_description_contains: List[str] = field(default_factory=lambda: ["Search"])
     
     reels_tab: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reels")]',
@@ -65,6 +71,7 @@ class NavigationSelectors:
         '//*[@content-desc="Back"]',
         '//*[@content-desc="Précédent"]',
     ])
+    action_bar_back_button_resource_id: str = "com.instagram.android:id/action_bar_button_back"
     
     # === Boutons de retour pour la liste followers/following ===
     back_buttons_action_bar: List[str] = field(default_factory=lambda: [
@@ -105,6 +112,10 @@ class NavigationSelectors:
         '//*[contains(@content-desc, "Rechercher")]',
         '//*[contains(@content-desc, "Search")]',
     ])
+    explore_search_bar_resource_id: str = "com.instagram.android:id/action_bar_search_edit_text"
+    explore_search_bar_texts: List[str] = field(default_factory=lambda: ["Search"])
+    edit_text_class_name: str = "android.widget.EditText"
+    search_accounts_tab_texts: List[str] = field(default_factory=lambda: ["Accounts"])
     
     # === Search result selectors (use .format(username=...) for dynamic parts) ===
     search_result_container_resource_id: str = 'com.instagram.android:id/row_search_user_container'

@@ -187,6 +187,10 @@ class DirectMessageSelectors:
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
     reel_share_item_resource_id: str = "com.instagram.android:id/reel_share_item_view"
     reel_author_title_resource_id: str = "com.instagram.android:id/title_text"
+    invite_sent_text_contains: List[str] = field(default_factory=lambda: [
+        "Invite sent",
+        "invite is accepted",
+    ])
     
     # === Notes (Stories circulaires en haut des DM) ===
     notes_recycler: str = '//*[@resource-id="com.instagram.android:id/cf_hub_recycler_view"]'

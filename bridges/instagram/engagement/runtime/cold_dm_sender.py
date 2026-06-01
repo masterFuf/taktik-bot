@@ -7,6 +7,7 @@ import time
 
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 class ColdDMSenderMixin:
@@ -19,11 +20,13 @@ class ColdDMSenderMixin:
         """Send a message in the current conversation."""
         logger.info("Sending message...")
 
-        msg_input = self.device(resourceId="com.instagram.android:id/row_thread_composer_edittext")
+        msg_input = self.device(resourceId=DM_SELECTORS.composer_edittext_resource_id)
         if not msg_input.exists:
-            msg_input = self.device(className="android.widget.EditText")
-        if not msg_input.exists:
-            msg_input = self.device(textContains="Message")
+            msg_input = self.device(className=DM_SELECTORS.edit_text_class_name)
+        for text in DM_SELECTORS.message_input_text_contains:
+            if msg_input.exists:
+                break
+            msg_input = self.device(textContains=text)
 
         if not msg_input.exists:
             if self.check_invite_already_sent():
@@ -53,15 +56,17 @@ class ColdDMSenderMixin:
 
         time.sleep(0.5)
 
-        send_btn = self.device(resourceId="com.instagram.android:id/row_thread_composer_send_button_container")
-        if not send_btn.exists:
-            send_btn = self.device(resourceId="com.instagram.android:id/row_thread_composer_send_button")
-        if not send_btn.exists:
-            send_btn = self.device(description="Send")
-        if not send_btn.exists:
-            send_btn = self.device(description="Envoyer")
+        send_btn = None
+        for resource_id in DM_SELECTORS.send_button_resource_ids[:2]:
+            send_btn = self.device(resourceId=resource_id)
+            if send_btn.exists:
+                break
+        for description in DM_SELECTORS.send_button_content_descriptions:
+            if send_btn and send_btn.exists:
+                break
+            send_btn = self.device(description=description)
 
-        if send_btn.exists:
+        if send_btn and send_btn.exists:
             send_btn.click()
             time.sleep(1)
             logger.info("Message sent!")
@@ -72,14 +77,10 @@ class ColdDMSenderMixin:
 
     def check_invite_already_sent(self) -> bool:
         """Check if we're on the 'Invite sent' screen."""
-        invite_sent = self.device(textContains="Invite sent")
-        if invite_sent.exists:
-            logger.info("Invite already sent to this user")
-            return True
-
-        invite_msg = self.device(textContains="invite is accepted")
-        if invite_msg.exists:
-            logger.info("Invite already sent (waiting for acceptance)")
-            return True
+        for text in DM_SELECTORS.invite_sent_text_contains:
+            invite_sent = self.device(textContains=text)
+            if invite_sent.exists:
+                logger.info("Invite already sent to this user")
+                return True
 
         return False
