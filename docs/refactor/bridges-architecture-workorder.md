@@ -263,6 +263,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B201 | Fait | Extraire le calcul de delai de frappe Instagram DM sous `engagement/runtime/dm/timing.py`; `sender.py` garde uniquement input device et bouton d'envoi. | Timing helper smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke dm-bridge + `compileall` + `git diff --check`. |
 | B202 | Fait | Extraire le parsing XML des usernames visibles Smart Comment sous `engagement/runtime/smart_comment/visible_usernames.py`; le mixin garde dump device et orchestration dumpsys. | XML parser smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke smart-comment + `compileall` + `git diff --check`. |
 | B203 | Fait | Extraire les events Smart Comment de scraping commentaires (`comment_scraped`, `scrape_progress`, `scrape_complete`) sous `engagement/runtime/smart_comment/events.py`; payloads inchanges. | Event helper smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke smart-comment + `compileall` + `git diff --check`. |
+| B204 | Fait | Extraire les helpers data-only de contexte post Smart Comment (`author/caption`, date XML) sous `engagement/runtime/smart_comment/post_context_extractors.py`; le mixin garde acces device/stats/event. | Extractor smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke smart-comment + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

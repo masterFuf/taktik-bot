@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import re
 import time
-import xml.etree.ElementTree as ET
 from dataclasses import asdict
 
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment.models import PostContext
+from bridges.instagram.engagement.runtime.smart_comment.post_context_extractors import (
+    derive_author_and_caption,
+    extract_post_date_from_xml,
+)
 from bridges.instagram.engagement.runtime.smart_comment.post_stats import SmartCommentPostStatsMixin
 from bridges.instagram.engagement.runtime.smart_comment.post_url import SmartCommentPostUrlMixin
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
@@ -62,19 +65,13 @@ class SmartCommentPostContextMixin(SmartCommentPostStatsMixin, SmartCommentPostU
         if caption_elem.exists:
             try:
                 full_text = caption_elem.get_text() or ""
-                if not self.post_context.author_username and full_text:
-                    first_space = full_text.find(" ")
-                    if first_space > 0:
-                        candidate = full_text[:first_space].strip()
-                        if re.match(r"^[\w][\w.]{0,29}$", candidate):
-                            self.post_context.author_username = candidate
-                            logger.info(f"Post author (from caption prefix): {self.post_context.author_username}")
-
-                if self.post_context.author_username and full_text.startswith(self.post_context.author_username):
-                    self.post_context.caption = full_text[len(self.post_context.author_username):].strip()
-                else:
-                    self.post_context.caption = full_text
-                self.post_context.caption = re.sub(POST_DETAIL_SELECTORS.caption_tail_pattern, "", self.post_context.caption)
+                previous_author = self.post_context.author_username
+                self.post_context.author_username, self.post_context.caption = derive_author_and_caption(
+                    full_text,
+                    self.post_context.author_username,
+                )
+                if self.post_context.author_username and not previous_author:
+                    logger.info(f"Post author (from caption prefix): {self.post_context.author_username}")
                 logger.info(f"Caption ({len(self.post_context.caption)} chars): {self.post_context.caption[:150]}...")
             except Exception as e:
                 logger.warning(f"Error extracting caption: {e}")
@@ -82,27 +79,9 @@ class SmartCommentPostContextMixin(SmartCommentPostStatsMixin, SmartCommentPostU
         try:
             xml = self.device.dump_hierarchy()
             if xml:
-                root = ET.fromstring(xml)
-                for elem in root.iter():
-                    text = (elem.get("text", "") or "").strip()
-                    content_desc = (elem.get("content-desc", "") or "").strip()
-                    cls = elem.get("class", "") or ""
-                    if (
-                        cls == POST_DETAIL_SELECTORS.text_view_class_name
-                        and text
-                        and re.match(POST_DETAIL_SELECTORS.post_date_pattern, text)
-                    ):
-                        self.post_context.post_date = text
-                        logger.info(f"Post date: {text}")
-                        break
-                    if (
-                        not self.post_context.post_date
-                        and content_desc
-                        and re.match(POST_DETAIL_SELECTORS.post_date_pattern, content_desc)
-                    ):
-                        self.post_context.post_date = content_desc
-                        logger.info(f"Post date (from content-desc): {content_desc}")
-                        break
+                self.post_context.post_date = extract_post_date_from_xml(xml)
+                if self.post_context.post_date:
+                    logger.info(f"Post date: {self.post_context.post_date}")
         except Exception as e:
             logger.debug(f"Error extracting post date: {e}")
 
