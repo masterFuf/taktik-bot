@@ -1,34 +1,20 @@
-"""
-KeyboardService — type text on Android devices via Taktik Keyboard (ADB Keyboard).
+"""Bridge keyboard facade built on top of the shared Taktik Keyboard owner."""
 
-Centralizes the keyboard typing logic that was copy-pasted in cold_dm_bridge,
-dm_bridge, and smart_comment_bridge.
-
-Usage:
-    from bridges.common.input.keyboard import KeyboardService
-
-    kb = KeyboardService("DEVICE_SERIAL")
-    kb.type_text("Hello world! 🚀")
-    kb.type_text("Slow typing", delay_mean=120, delay_deviation=40)
-"""
-
-import base64
-import subprocess
-import time
 from loguru import logger
 
-
-# Taktik Keyboard (ADB Keyboard) constants
-TAKTIK_KEYBOARD_IME = 'com.alexal1.adbkeyboard/.AdbIME'
-IME_MESSAGE_B64 = 'ADB_INPUT_B64'
+from taktik.core.shared.input.taktik_keyboard import (
+    activate_taktik_keyboard,
+    is_taktik_keyboard_active,
+    type_with_taktik_keyboard,
+)
 
 
 class KeyboardService:
     """
-    Type text on an Android device using Taktik Keyboard (ADB Keyboard).
+    Type text on an Android device using the shared Taktik Keyboard runtime.
 
-    This method is more reliable than uiautomator2's send_keys() for
-    special characters, accented characters, and emojis.
+    The bridge keeps a thin adapter API for historical callers while the
+    durable IME/ADB behavior stays owned by `taktik.core.shared.input`.
     """
 
     def __init__(self, device_id: str):
@@ -37,82 +23,56 @@ class KeyboardService:
     def ensure_active(self) -> bool:
         """
         Ensure Taktik Keyboard is the active IME.
-        Returns True if the keyboard is active (or was successfully activated).
+
+        Returns True if the keyboard is active or was activated successfully.
         """
         try:
-            result = subprocess.run(
-                ['adb', '-s', self.device_id, 'shell', 'settings', 'get', 'secure', 'default_input_method'],
-                capture_output=True, text=True, timeout=5
-            )
-
-            if TAKTIK_KEYBOARD_IME in result.stdout:
+            if is_taktik_keyboard_active(self.device_id):
                 return True
 
-            # Enable and set Taktik Keyboard
-            subprocess.run(
-                ['adb', '-s', self.device_id, 'shell', 'ime', 'enable', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-            activate_result = subprocess.run(
-                ['adb', '-s', self.device_id, 'shell', 'ime', 'set', TAKTIK_KEYBOARD_IME],
-                capture_output=True, text=True, timeout=5
-            )
-
-            if 'selected' not in activate_result.stdout.lower():
+            if not activate_taktik_keyboard(self.device_id):
                 logger.warning("Could not activate Taktik Keyboard")
                 return False
 
             logger.info("Taktik Keyboard activated")
             return True
-
-        except Exception as e:
-            logger.error(f"Error checking/activating Taktik Keyboard: {e}")
+        except Exception as exc:
+            logger.error(f"Error checking/activating Taktik Keyboard: {exc}")
             return False
 
-    def type_text(self, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
+    def type_text(
+        self,
+        text: str,
+        delay_mean: int = 80,
+        delay_deviation: int = 30,
+    ) -> bool:
         """
-        Type text using Taktik Keyboard via ADB broadcast.
+        Type text using Taktik Keyboard via the shared core owner.
 
         Args:
-            text: The text to type (supports Unicode, emojis, accents).
+            text: The text to type (supports Unicode, emojis and accents).
             delay_mean: Average delay between keystrokes in ms.
-            delay_deviation: Random deviation around the mean in ms.
+            delay_deviation: Deviation around the mean in ms.
 
         Returns:
-            True if the broadcast was sent successfully.
+            True if the shared keyboard workflow succeeded.
         """
         if not text:
             return True
 
         try:
-            # Ensure keyboard is active
             if not self.ensure_active():
                 return False
 
-            # Encode text as base64
-            text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-
-            # Send broadcast
-            cmd = [
-                'adb', '-s', self.device_id, 'shell', 'am', 'broadcast',
-                '-a', IME_MESSAGE_B64,
-                '--es', 'msg', text_b64,
-                '--ei', 'delay_mean', str(delay_mean),
-                '--ei', 'delay_deviation', str(delay_deviation),
-            ]
-
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-
-            if result.returncode == 0:
-                # Wait for typing to complete
-                typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-                logger.debug(f"Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
-                time.sleep(typing_time + 0.5)
-                return True
-            else:
-                logger.warning(f"Taktik Keyboard broadcast failed: {result.stderr}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error using Taktik Keyboard: {e}")
+            return type_with_taktik_keyboard(
+                self.device_id,
+                text,
+                delay_mean=delay_mean,
+                delay_deviation=delay_deviation,
+            )
+        except Exception as exc:
+            logger.error(f"Error using Taktik Keyboard: {exc}")
             return False
+
+
+__all__ = ["KeyboardService"]

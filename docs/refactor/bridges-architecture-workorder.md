@@ -210,6 +210,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B151 | Fait | Extraire `PlatformBridgeBase` de `bridges/common/runtime/bridge_base.py` vers `bridges/common/runtime/platform_bridge.py`; `bridge_base.py` reste une facade publique de compatibilite et les consommateurs internes migrent vers l'owner direct. | Import smoke platform bridge + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B152 | Fait | Realigner `bridges/common/device/connection.py` sur l'owner canonique `taktik.core.shared.device.manager` au lieu du shim Instagram legacy ; l'API publique de `ConnectionService` reste identique. | Import smoke shared DeviceManager + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B153 | Fait | Extraire les probes IP reseau de `bridges/common/device/network.py` vers `network_probe.py` et les strategies de reset vers `network_reset.py`; `network.py` reste la facade publique avec `perform_network_reset`. | Import smoke network facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B154 | Fait | Rebrancher `bridges/common/input/keyboard.py` sur l'owner core `shared/input/taktik_keyboard.py` au lieu de dupliquer la gestion ADB/IME ; l'API `KeyboardService` reste identique. | Import smoke keyboard facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
