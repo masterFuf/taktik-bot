@@ -46,6 +46,17 @@ setup_environment()
 from bridges.common.runtime.ipc import IPC
 from bridges.common.device.connection import ConnectionService
 from bridges.common.device.app_manager import AppService
+from bridges.compat.diagnostics.runtime.workflow_catalog import (
+    DEFAULT_CONFIGS,
+    INSTAGRAM_AUTOMATION_WF,
+    INSTAGRAM_DM_WF,
+    INSTAGRAM_PUBLISH_WF,
+    INSTAGRAM_SCRAPING_WF,
+    NEEDS_TARGET,
+    TIKTOK_AUTOMATION_WF,
+    TIKTOK_DM_WF,
+    TIKTOK_SCRAPING_WF,
+)
 from loguru import logger
 
 
@@ -527,23 +538,6 @@ def _run_tiktok_scraping(conn, device, ipc, workflow_type, target, limits):
 
 
 
-# Default test configs per workflow type
-DEFAULT_CONFIGS = {
-    "target_followers": {
-        "limits": {"maxProfiles": 3, "maxLikesPerProfile": 1},
-        "probabilities": {"like": 80, "follow": 0, "comment": 0, "watchStories": 0, "likeStories": 0},
-    },
-    "hashtag": {
-        "limits": {"maxProfiles": 3, "maxLikesPerProfile": 1},
-        "probabilities": {"like": 80, "follow": 0, "comment": 0, "watchStories": 0, "likeStories": 0},
-    },
-    "feed": {
-        "limits": {"maxProfiles": 3, "maxLikesPerProfile": 1},
-        "probabilities": {"like": 80, "follow": 0, "comment": 0, "watchStories": 0, "likeStories": 0},
-    },
-}
-
-
 def main():
     ipc = IPC()
 
@@ -574,11 +568,6 @@ def main():
         ipc.send("error", error="No device_id provided", error_code="MISSING_DEVICE")
         sys.exit(1)
 
-    NEEDS_TARGET = (
-        "target_followers", "target_following", "hashtag", "post_likers", "post_url",
-        "scrape_account", "scrape_hashtag", "scrape_post_url", "scrape_e_story",
-        "smart_comment",
-    )
     if not target and workflow_type in NEEDS_TARGET:
         ipc.send("error", error="No target provided for this workflow", error_code="MISSING_TARGET")
         sys.exit(1)
@@ -622,15 +611,6 @@ def main():
     # ------------------------------------------------------------------
     # Step 3: Initialize automation + attach tracer
     # ------------------------------------------------------------------
-    # Determine workflow category to select the right engine
-    INSTAGRAM_AUTOMATION_WF = ("target_followers", "target_following", "hashtag", "post_likers", "post_url", "feed", "notifications", "unfollow")
-    INSTAGRAM_SCRAPING_WF = ("scrape_account", "scrape_hashtag", "scrape_post_url", "scrape_e_story")
-    INSTAGRAM_DM_WF = ("dm_response", "dm_outreach")
-    INSTAGRAM_PUBLISH_WF = ("upload_post", "upload_carousel", "upload_reel", "upload_story")
-    TIKTOK_AUTOMATION_WF = ("for_you", "hashtag", "target", "followers")
-    TIKTOK_DM_WF = ("dm_read", "dm_outreach")
-    TIKTOK_SCRAPING_WF = ("scrape_account", "scrape_hashtag", "scrape_post")
-
     ipc.send("step", step="init_automation", status="running", message="Initializing automation engine...")
 
     # Create the SelectorTracer with real-time IPC callback
