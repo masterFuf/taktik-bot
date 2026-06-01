@@ -130,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok Followers per-target execution moved under `workflows/automation/runtime/followers_target.py`, leaving `followers.py` responsible for multi-target sequencing and inter-target navigation.
 - TikTok Search/Hashtag per-query execution moved under `workflows/automation/runtime/search_query.py`, leaving `search.py` responsible for query budget distribution and inter-query navigation.
 - Common bridge IPC AI/Agent event helpers moved under `bridges/common/runtime/ipc_ai.py`; `ipc.py` keeps the stdout JSON writer and the public `IPC` facade.
+- Common bridge IPC DM event helpers moved under `bridges/common/runtime/ipc_dm.py`; `ipc.py` keeps the stdout JSON writer and the public `IPC` facade.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

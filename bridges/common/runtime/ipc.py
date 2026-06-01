@@ -20,9 +20,10 @@ import json
 from typing import Any
 
 from bridges.common.runtime.ipc_ai import AIIpcMixin
+from bridges.common.runtime.ipc_dm import DMIpcMixin
 
 
-class IPC(AIIpcMixin):
+class IPC(DMIpcMixin, AIIpcMixin):
     """
     Structured IPC channel to the Electron desktop app.
     
@@ -283,23 +284,3 @@ class IPC(AIIpcMixin):
     def threads_profile_visit(self, username: str, followers: int = None, is_private: bool = False) -> None:
         """Send Threads profile visit event."""
         self.send("threads_profile_visit", username=username, followers=followers, is_private=is_private)
-
-    # ------------------------------------------------------------------
-    # DM-specific helpers
-    # ------------------------------------------------------------------
-
-    def dm_conversation(self, conversation: dict) -> None:
-        """Send a conversation data to desktop app."""
-        self.send("dm_conversation", conversation=conversation)
-
-    def dm_progress(self, current: int, total: int, name: str) -> None:
-        """Send DM reading progress."""
-        self.send("dm_progress", current=current, total=total, name=name)
-
-    def dm_stats(self, stats: dict) -> None:
-        """Send DM workflow stats."""
-        self.send("dm_stats", stats=stats)
-
-    def dm_sent(self, conversation: str, success: bool, error: str = None) -> None:
-        """Send DM sent result."""
-        self.send("dm_sent", conversation=conversation, success=success, error=error)
