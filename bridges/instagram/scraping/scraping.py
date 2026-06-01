@@ -18,20 +18,16 @@ setup_environment()
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.instagram.runtime.ipc import _ipc
-from taktik.core.app.ai.providers.openrouter import AIService
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 from taktik.core.database import configure_db_service
 from loguru import logger
+from bridges.instagram.scraping.runtime.ai import build_scraping_ai_service
 from bridges.instagram.scraping.runtime.commands import load_scraping_bridge_config
 from bridges.instagram.scraping.runtime.config import build_scraping_config
 
 # Signal handlers for graceful shutdown
 setup_signal_handlers()
 
-
-def _build_scraping_ai_service(*, api_key: str, ipc=None, vision_model: str = None, text_model: str = None):
-    """Bridge-owned AI provider factory for Instagram scraping workflows."""
-    return AIService(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
 
 def main():
     config = load_scraping_bridge_config(sys.argv)
@@ -67,7 +63,7 @@ def main():
             device_manager,
             scraping_config,
             ai_notifier=_ipc,
-            ai_service_factory=_build_scraping_ai_service,
+            ai_service_factory=build_scraping_ai_service,
         )
         result = workflow.run()
 
