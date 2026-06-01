@@ -118,6 +118,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B69 | Fait | Sortir les selectors inline Cold DM navigation/sender vers les catalogues existants (`NAVIGATION_SELECTORS`, `PROFILE_SELECTORS`, `DM_SELECTORS`) sans changer le workflow outreach ni le contrat JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B70 | Fait | Sortir les probes fallback Smart Comment target (`action_bar_title`, landing post/reel) vers `PROFILE_SELECTORS` et `POST_DETAIL_SELECTORS`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B71 | Fait | Sortir les classes Android restantes du runtime Smart Comment comments vers `POST_COMMENTS_SELECTORS` (`Button`, parent `ViewGroup`). | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B72 | Fait | Extraire le reset/top-position de l'inbox Instagram DM sous `engagement/runtime/dm_inbox_reset.py`; `dm_navigation.py` garde la navigation inbox et l'ouverture de conversation. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
