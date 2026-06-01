@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import time
 
-from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment.comment_extraction import (
     SmartCommentCommentExtractionMixin,
 )
 from bridges.instagram.engagement.runtime.smart_comment.comment_navigation import (
     SmartCommentCommentNavigationMixin,
 )
+from bridges.instagram.engagement.runtime.smart_comment.events import emit_scrape_complete, emit_scrape_progress
 from bridges.instagram.engagement.runtime.smart_comment.models import ScrapedComment
+from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
@@ -115,8 +116,7 @@ class SmartCommentCommentsMixin(SmartCommentCommentExtractionMixin, SmartComment
             else:
                 no_new_count = 0
 
-            send_event(
-                "scrape_progress",
+            emit_scrape_progress(
                 current=len(self.comments),
                 total=max_comments,
                 scroll=scroll_attempts,
@@ -131,8 +131,7 @@ class SmartCommentCommentsMixin(SmartCommentCommentExtractionMixin, SmartComment
                 new_from_expand = self._extract_visible_comments_fast(seen_keys, max_comments)
                 if new_from_expand > 0:
                     no_new_count = 0
-                    send_event(
-                        "scrape_progress",
+                    emit_scrape_progress(
                         current=len(self.comments),
                         total=max_comments,
                         scroll=scroll_attempts,
@@ -146,5 +145,5 @@ class SmartCommentCommentsMixin(SmartCommentCommentExtractionMixin, SmartComment
             time.sleep(0.3)
 
         logger.info(f"Scraped {len(self.comments)} comments total")
-        send_event("scrape_complete", total=len(self.comments))
+        emit_scrape_complete(total=len(self.comments))
         return self.comments
