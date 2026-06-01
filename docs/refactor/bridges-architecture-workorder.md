@@ -43,6 +43,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
 - `bridges/common/runtime/**` = bootstrap process, stdout JSON IPC, base bridge commune et signal handling.
 - `bridges/common/runtime/ipc.py` = writer stdout JSON et facade `IPC`; les familles d'events volumineuses doivent etre extraites en mixins `ipc_<family>.py` sans changer les noms de methodes publiques ni les payloads JSON.
+- `bridges/common/runtime/entrypoint.py` = helpers d'entrypoint config-file (`load_bridge_config`, `run_bridge_main`). `bridge_base.py` reste la facade/base class commune et peut re-exporter ces helpers pour compatibilite.
 - Pas de deplacement d'entrypoint public sans mise a jour coordonnee : manifest, `launcher.py`, `scripts/build_exe.py`, `taktik_launcher.spec`, `front/scripts/build/build-all.ps1` et resolver Front.
 - Ne pas recreer de wrapper public racine. Le launcher doit ajouter `bot/` a `sys.path`, puis importer l'implementation scopee.
 
@@ -186,6 +187,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B134 | Fait | Extraire les helpers IPC TikTok communs sous `bridges/common/runtime/ipc_tiktok.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC TikTok + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B135 | Fait | Extraire les helpers IPC Threads communs sous `bridges/common/runtime/ipc_threads.py`; `ipc.py` garde le writer stdout JSON et expose la meme facade `IPC`. | Import smoke IPC Threads + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B136 | Fait | Extraire les helpers IPC Instagram communs sous `bridges/common/runtime/ipc_instagram.py`; `ipc.py` garde le writer stdout JSON, les helpers generiques et expose la meme facade `IPC`. | Import smoke IPC Instagram + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B137 | Fait | Extraire les helpers d'entrypoint config-file (`load_bridge_config`, `run_bridge_main`) sous `bridges/common/runtime/entrypoint.py`; `bridge_base.py` reste facade/base class et re-exporte pour compatibilite. | Import smoke entrypoint + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
