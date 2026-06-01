@@ -22,54 +22,12 @@ import subprocess
 from typing import Optional
 from loguru import logger
 
+from bridges.common.device.app_control import force_stop_app
 from bridges.common.device.apps import (
     alternatives_for_platform,
     get_app_config,
     known_platforms,
-    packages_for_platform,
 )
-
-
-def force_stop_app(device_id: str, platform: str) -> bool:
-    """
-    Force-stop a platform app on the given device using ADB.
-
-    Does NOT require an active uiautomator2 connection — safe to call
-    at any point (e.g. inside a finally block after the workflow ends).
-
-    For TikTok, tries all known package alternatives if the default fails.
-
-    Args:
-        device_id: ADB device serial.
-        platform: Platform key ("instagram", "tiktok", "threads", "gmail", "youtube").
-
-    Returns:
-        True if at least one force-stop command succeeded, False otherwise.
-    """
-    config = get_app_config(platform)
-    if not config:
-        logger.warning(f"[AppService] Unknown platform '{platform}' for force-stop")
-        return False
-
-    packages_to_try = packages_for_platform(platform)
-
-    success = False
-    for pkg in packages_to_try:
-        try:
-            result = subprocess.run(
-                ["adb", "-s", device_id, "shell", "am", "force-stop", pkg],
-                capture_output=True, timeout=5,
-            )
-            if result.returncode == 0:
-                logger.info(f"[AppService] Closed {platform} ({pkg}) on {device_id}")
-                success = True
-                break
-        except Exception as e:
-            logger.warning(f"[AppService] Could not force-stop {platform} ({pkg}): {e}")
-
-    if not success:
-        logger.warning(f"[AppService] force_stop_app failed for {platform} on {device_id}")
-    return success
 
 
 class AppService:
