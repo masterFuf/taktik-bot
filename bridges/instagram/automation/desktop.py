@@ -16,6 +16,7 @@ if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
 from bridges.instagram.automation.runtime.ai import create_instagram_ai_service
+from bridges.instagram.automation.runtime.entrypoint import run_desktop_config
 from bridges.instagram.automation.runtime.input import load_desktop_config
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
@@ -30,7 +31,6 @@ from bridges.instagram.runtime.ipc import (
     send_status, send_error, send_log,
     setup_stats_callback,
 )
-from bridges.instagram.diagnostics.debug import DebugBridge
 
 # Configure logging for desktop integration
 logging.basicConfig(
@@ -152,17 +152,7 @@ def main():
             send_error("No configuration provided. Use: desktop_bridge <config.json> or pipe JSON to stdin")
             sys.exit(1)
 
-        # Check if this is a debug command via JSON config
-        if config.get('debugMode'):
-            bridge = DebugBridge(config)
-            exit_code = bridge.run()
-            sys.exit(exit_code)
-
-        # Create and run bridge
-        bridge = DesktopBridge(config)
-        exit_code = bridge.run()
-
-        sys.exit(exit_code)
+        sys.exit(run_desktop_config(config, DesktopBridge))
 
     except json.JSONDecodeError as e:
         send_error(f"Invalid JSON configuration: {str(e)}")
