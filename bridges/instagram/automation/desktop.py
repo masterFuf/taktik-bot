@@ -8,7 +8,6 @@ It accepts a JSON configuration and runs the appropriate workflow.
 import sys
 import os
 import json
-import signal
 import logging
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call
@@ -20,6 +19,7 @@ from bridges.instagram.automation.runtime.ai import create_instagram_ai_service
 from bridges.instagram.automation.runtime.input import load_desktop_config
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
+from bridges.instagram.automation.runtime.signals import register_desktop_shutdown_handlers
 from bridges.instagram.automation.runtime.validation import (
     format_targets_display,
     validate_desktop_bridge_config,
@@ -71,11 +71,7 @@ class DesktopBridge:
             enabled=config.get('mediaCaptureEnabled', False),
         )
 
-        # Setup signal handlers for graceful shutdown
-        from bridges.common.runtime.signal_handler import setup_signal_handlers
-        setup_signal_handlers(ipc=_ipc)
-        signal.signal(signal.SIGTERM, self._handle_shutdown)
-        signal.signal(signal.SIGINT, self._handle_shutdown)
+        register_desktop_shutdown_handlers(self._handle_shutdown, ipc=_ipc)
 
     def _handle_shutdown(self, signum, frame):
         """Handle shutdown signal."""

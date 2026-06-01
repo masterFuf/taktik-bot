@@ -142,6 +142,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B93 | Fait | Extraire le delai aleatoire inter-DM sous `engagement/runtime/cold_dm_timing.py`, en conservant la condition historique sur la liste filtree complete. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B94 | Fait | Extraire l'application du resultat d'envoi Cold DM sous `engagement/runtime/cold_dm_results.py` : compteurs, logs et records successful/invite. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B95 | Fait | Extraire la validation config et le formatage targets du bridge Instagram Desktop sous `automation/runtime/validation.py`; l'entrypoint garde orchestration lifecycle/workflow. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B96 | Fait | Extraire l'enregistrement des signal handlers du bridge Instagram Desktop sous `automation/runtime/signals.py`, sans changer le handler shutdown ni le statut JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 
