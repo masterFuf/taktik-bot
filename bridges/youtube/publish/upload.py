@@ -15,21 +15,23 @@ Config JSON:
   }
 """
 
-import sys
-import os
 import json
+import os
 import signal
+import sys
 
-# Bootstrap
+
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
+
 from bridges.common.runtime.bootstrap import setup_environment
+
 setup_environment()
 
-from bridges.youtube.base import logger, _ipc, send_message, send_status, send_error, send_log
-from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
+from bridges.youtube.base import _ipc, logger, send_error, send_log, send_message, send_status
+from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
 
 
 class YouTubeUploadBridge:
@@ -43,15 +45,15 @@ class YouTubeUploadBridge:
         self.local_path = config.get("localPath", "")
         self.title = config.get("title", "")
         self.description = config.get("description", "")
-        self.upload_type = config.get("uploadType", "short").lower()  # "short" | "video"
-        self.visibility = config.get("visibility", "public").lower()  # "public" | "unlisted" | "private"
+        self.upload_type = config.get("uploadType", "short").lower()
+        self.visibility = config.get("visibility", "public").lower()
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._shutdown)
         signal.signal(signal.SIGINT, self._shutdown)
 
-    def _shutdown(self, signum, frame):
+    def _shutdown(self, _signum, _frame) -> None:
         send_status("stopping", "Received shutdown signal")
 
     def run(self) -> int:
@@ -64,45 +66,32 @@ class YouTubeUploadBridge:
         if not os.path.isfile(self.local_path):
             send_error(f"File not found: {self.local_path}")
             return 1
+
         if self.upload_type == "short" and self.title:
             chars = list(self.title.strip())
             if len(chars) > self.SHORT_TITLE_MAX_LENGTH:
                 self.title = "".join(chars[:self.SHORT_TITLE_MAX_LENGTH]).strip()
-                send_log("warning", f"YouTube Shorts title trimmed to {self.SHORT_TITLE_MAX_LENGTH} characters")
+                send_log(
+                    "warning",
+                    f"YouTube Shorts title trimmed to {self.SHORT_TITLE_MAX_LENGTH} characters",
+                )
 
-        # ── Connect ──────────────────────────────────────────────────────────
-        send_status("connecting", f"Connecting to device {self.device_id}…")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
+        session = prepare_youtube_session(self.device_id, send_status, send_error)
+        if not session:
             return 1
+        self._connection = session.connection
 
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
-            return 1
-
-        # ── Setup DB ─────────────────────────────────────────────────────────
-        try:
-            from taktik.core.database import configure_db_service
-            configure_db_service()
-        except Exception as e:
-            send_error(f"Database setup failed: {e}")
-            return 1
-
-        # ── Run workflow ─────────────────────────────────────────────────────
-        send_status("running", "Starting YouTube upload workflow…")
+        send_status("running", "Starting YouTube upload workflow...")
         try:
             from taktik.core.social_media.youtube.workflows.publish.upload_workflow import (
                 YouTubeUploadWorkflow,
-                set_callbacks as _set_upload_callbacks,
+                set_callbacks as set_upload_callbacks,
             )
 
-            # Inject IPC callbacks so the workflow can emit log/status events
-            # without importing bridge runtime IPC directly.
-            _set_upload_callbacks(log=send_log, status=send_status)
+            # Keep core workflow bridge-agnostic by injecting stdout callbacks here.
+            set_upload_callbacks(log=send_log, status=send_status)
 
-            workflow = YouTubeUploadWorkflow(device, self.device_id)
+            workflow = YouTubeUploadWorkflow(session.device, self.device_id)
             result = workflow.execute(
                 local_path=self.local_path,
                 title=self.title,
@@ -111,7 +100,7 @@ class YouTubeUploadBridge:
                 visibility=self.visibility,
             )
 
-            success = result.get("success", False)
+            success = bool(result.get("success", False))
             send_status("success" if success else "error", result.get("message", ""))
             send_message(
                 "upload_result",
@@ -123,31 +112,27 @@ class YouTubeUploadBridge:
             )
             return 0 if success else 1
 
-        except Exception as e:
+        except Exception as exc:
             import traceback
-            send_error(f"Upload workflow error: {e}")
+
+            send_error(f"Upload workflow error: {exc}")
             send_log("error", traceback.format_exc())
             return 1
         finally:
-            from bridges.common.device.app_manager import force_stop_app
-            force_stop_app(self.device_id, "youtube")
+            cleanup_youtube_app(self.device_id)
 
 
-# ---------------------------------------------------------------------------
-# Entrypoint
-# ---------------------------------------------------------------------------
-
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print(json.dumps({"type": "error", "message": "Usage: youtube_upload_bridge.py <config.json>"}))
         sys.exit(1)
 
     config_path = sys.argv[1]
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as e:
-        print(json.dumps({"type": "error", "message": f"Failed to read config: {e}"}))
+        with open(config_path, "r", encoding="utf-8") as file:
+            config = json.load(file)
+    except Exception as exc:
+        print(json.dumps({"type": "error", "message": f"Failed to read config: {exc}"}))
         sys.exit(1)
 
     bridge = YouTubeUploadBridge(config)
