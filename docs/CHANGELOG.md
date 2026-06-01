@@ -110,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram scraping bridge orchestration moved under `scraping/runtime/runner.py`; `scraping/scraping.py` remains the public manifest entrypoint.
 - Instagram account bridge runtime class moved under `account/runtime/bridge.py`; `account/account.py` remains the public manifest entrypoint.
 - Instagram DM bridge runtime class moved under `engagement/runtime/dm_bridge.py`; `engagement/dm.py` remains the public manifest entrypoint.
+- Instagram Smart Comment bridge runtime class moved under `engagement/runtime/smart_comment_bridge.py`; reply/scrape title defocus now uses the post comments selector catalog instead of inline resource IDs.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.

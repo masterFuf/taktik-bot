@@ -7,6 +7,7 @@ from dataclasses import asdict
 from typing import Any
 
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
 class SmartCommentScrapeMixin:
@@ -67,7 +68,7 @@ class SmartCommentScrapeMixin:
             return {"success": False, "error": "Could not open comments"}
 
         try:
-            title = self.device(resourceId="com.instagram.android:id/title_text_view")
+            title = self.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
             if title.exists:
                 title.click()
                 logger.info("Tapped comments title to dismiss keyboard")

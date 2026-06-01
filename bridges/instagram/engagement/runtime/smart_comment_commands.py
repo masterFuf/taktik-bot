@@ -7,6 +7,7 @@ import sys
 import time
 
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
 def run_smart_comment_cli(args: list[str]) -> None:
@@ -32,7 +33,7 @@ def run_smart_comment_cli(args: list[str]) -> None:
     mode = config.get("mode", "scrape")
     package_name = config.get("packageName")
 
-    from bridges.instagram.engagement.smart_comment import SmartCommentBridge
+    from bridges.instagram.engagement.runtime.smart_comment_bridge import SmartCommentBridge
 
     bridge = SmartCommentBridge(device_id, config, package_name=package_name)
 
@@ -94,7 +95,7 @@ def _run_reply_all(bridge, config: dict) -> None:
         sys.exit(1)
 
     try:
-        title = bridge.device(resourceId="com.instagram.android:id/title_text_view")
+        title = bridge.device(resourceId=POST_COMMENTS_SELECTORS.comment_title_resource_id)
         if title.exists:
             title.click()
             time.sleep(1)
