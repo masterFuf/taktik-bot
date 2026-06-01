@@ -39,6 +39,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/device/**` = helpers techniques de bridge lies au device, a la connectivite ou au lifecycle app (`connection.py`, `app_manager.py`, `network.py`).
 - `bridges/common/device/apps.py` = catalogue package/activity/wait times et variantes package connues pour `AppService`.
 - `bridges/common/device/app_control.py` = commandes ADB standalone pour controler une app sans connexion uiautomator active, par exemple `force_stop_app`.
+- `bridges/common/device/app_inspection.py` = probes non-destructives sur une app ou un package (foreground, version installee, etc.).
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
@@ -199,6 +200,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B145 | Fait | Extraire les runners Gmail account (`login`, `logout`, `read_otp`, `scan_accounts`) sous `bridges/gmail/account/runtime/workflows.py`; `account.py` garde validation payload, session bridge et routing. | Import smoke Gmail workflows + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B146 | Fait | Extraire la validation/normalisation de requete YouTube upload sous `bridges/youtube/publish/runtime/request.py`; `upload.py` garde session bridge, workflow et payload `upload_result`. | Import smoke YouTube upload request + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B147 | Fait | Extraire l'execution du workflow YouTube upload et l'emission `upload_result` sous `bridges/youtube/publish/runtime/workflow.py`; `upload.py` garde request, session et cleanup. | Import smoke YouTube upload workflow + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
+| B148 | Fait | Extraire les probes app foreground/version de `bridges/common/device/app_manager.py` vers `bridges/common/device/app_inspection.py`; `AppService` garde la meme API publique. | Import smoke app inspection + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 

@@ -18,11 +18,14 @@ Usage:
 """
 
 import time
-import subprocess
 from typing import Optional
 from loguru import logger
 
 from bridges.common.device.app_control import force_stop_app
+from bridges.common.device.app_inspection import (
+    get_installed_app_version,
+    is_app_running,
+)
 from bridges.common.device.apps import (
     alternatives_for_platform,
     get_app_config,
@@ -149,15 +152,7 @@ class AppService:
 
     def is_running(self) -> bool:
         """Check if the app is currently in the foreground."""
-        device = self._conn.device
-        if device is None:
-            return False
-        try:
-            current_app = device.app_current()
-            return current_app.get('package') == self.package
-        except Exception as e:
-            logger.warning(f"Could not check if {self._platform} is running: {e}")
-            return False
+        return is_app_running(self._conn.device, self.package, self._platform)
 
     def get_installed_version(self) -> Optional[str]:
         """
@@ -165,20 +160,4 @@ class AppService:
 
         Returns the versionName string (e.g. "417.0.0.54.77") or None on failure.
         """
-        try:
-            result = subprocess.run(
-                ["adb", "-s", self._conn.device_id,
-                 "shell", "dumpsys", "package", self.package],
-                capture_output=True, text=True, timeout=10,
-            )
-            for line in result.stdout.splitlines():
-                line = line.strip()
-                if line.startswith("versionName="):
-                    version = line.split("=", 1)[1].strip()
-                    logger.info(f"[AppService] {self._platform} installed version: {version}")
-                    return version
-            logger.warning(f"[AppService] versionName not found in dumpsys output for {self.package}")
-            return None
-        except Exception as e:
-            logger.warning(f"[AppService] Failed to detect app version: {e}")
-            return None
+        return get_installed_app_version(self._conn.device_id, self.package, self._platform)
