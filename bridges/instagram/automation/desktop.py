@@ -20,6 +20,10 @@ from bridges.instagram.automation.runtime.ai import create_instagram_ai_service
 from bridges.instagram.automation.runtime.input import load_desktop_config
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
+from bridges.instagram.automation.runtime.validation import (
+    format_targets_display,
+    validate_desktop_bridge_config,
+)
 from bridges.instagram.automation.runtime.workflow import InstagramAutomationRunner
 from bridges.instagram.runtime.ipc import (
     logger, _ipc,
@@ -78,19 +82,6 @@ class DesktopBridge:
         send_status("stopping", "Received shutdown signal")
         self.running = False
 
-    def validate_config(self) -> bool:
-        """Validate the configuration."""
-        if not self.device_id:
-            send_error("Device ID is required")
-            return False
-        if not self.workflow_type:
-            send_error("Workflow type is required")
-            return False
-        if not self.target:
-            send_error("Target is required")
-            return False
-        return True
-
     def run_workflow(self) -> bool:
         """Run the configured workflow."""
         runner = InstagramAutomationRunner(
@@ -110,13 +101,15 @@ class DesktopBridge:
     def run(self) -> int:
         """Main entry point."""
         send_status("starting", "TAKTIK Desktop Bridge starting...")
-        # Parse targets for display
-        target_list = [t.strip() for t in self.target.split(',') if t.strip()]
-        targets_display = ', '.join(target_list)
-        send_log("info", f"Config: device={self.device_id}, workflow={self.workflow_type}, targets=[{targets_display}] ({len(target_list)} target(s))")
+        targets_display, target_count = format_targets_display(self.target)
+        send_log("info", f"Config: device={self.device_id}, workflow={self.workflow_type}, targets=[{targets_display}] ({target_count} target(s))")
 
         # Validate configuration
-        if not self.validate_config():
+        if not validate_desktop_bridge_config(
+            device_id=self.device_id,
+            workflow_type=self.workflow_type,
+            target=self.target,
+        ):
             return 1
 
         # Setup license

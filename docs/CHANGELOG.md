@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Cold DM progress JSON emission moved under `engagement/runtime/cold_dm_progress.py`, keeping stdout event formatting out of the send-loop logic.
 - Instagram Cold DM inter-message delay handling moved under `engagement/runtime/cold_dm_timing.py`, preserving the historical wait condition against the full filtered recipient list.
 - Instagram Cold DM send-result handling moved under `engagement/runtime/cold_dm_results.py`, isolating counter updates, success records and invite-sent handling from the loop.
+- Instagram Desktop bridge config validation and target display formatting moved under `automation/runtime/validation.py`, keeping the entrypoint focused on lifecycle orchestration.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.
