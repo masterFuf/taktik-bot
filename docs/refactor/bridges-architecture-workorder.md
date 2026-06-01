@@ -145,6 +145,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B96 | Fait | Extraire l'enregistrement des signal handlers du bridge Instagram Desktop sous `automation/runtime/signals.py`, sans changer le handler shutdown ni le statut JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B97 | Fait | Extraire le dispatch `debugMode` vs bridge normal du Desktop sous `automation/runtime/entrypoint.py`; `main()` garde chargement config et erreurs JSON. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 | B98 | Fait | Extraire les emitters stats finales et erreurs workflow du runner Desktop sous `automation/runtime/events.py`; le runner garde config/runtime/IA et execution. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
+| B99 | Fait | Regrouper l'event `session_config` du runner Desktop dans `automation/runtime/events.py`, en conservant le payload construit par `core` via `build_instagram_session_config_event`. | Import smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + `compileall` + launcher JSON smoke + `git diff --check`. |
 
 ## Notes de compatibilite
 

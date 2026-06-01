@@ -2,7 +2,21 @@
 
 from __future__ import annotations
 
-from bridges.instagram.runtime.ipc import send_error, send_stats
+from bridges.instagram.runtime.ipc import send_error, send_message, send_stats
+
+
+def send_instagram_session_config(config: dict, *, ai_enabled: bool) -> None:
+    from taktik.core.social_media.instagram.workflows.core.config_builder import (
+        build_instagram_session_config_event,
+    )
+
+    send_message(
+        "session_config",
+        config=build_instagram_session_config_event(
+            config,
+            ai_enabled=ai_enabled,
+        ),
+    )
 
 
 def send_instagram_workflow_final_stats(stats: dict) -> None:

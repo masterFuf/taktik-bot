@@ -8,10 +8,10 @@ from typing import Any
 from bridges.instagram.runtime.ipc import (
     logger,
     send_log,
-    send_message,
     send_status,
 )
 from bridges.instagram.automation.runtime.events import (
+    send_instagram_session_config,
     send_instagram_workflow_error,
     send_instagram_workflow_final_stats,
 )
@@ -65,7 +65,7 @@ class InstagramAutomationRunner:
             send_status("starting", f"Starting {workflow_type} workflow for @{targets_display}")
             send_log("info", f"Configuration: {json.dumps(workflow_config, indent=2)}")
 
-            self._send_session_config()
+            send_instagram_session_config(self.config, ai_enabled=self.ai_enabled)
 
             send_status("initializing", "Initializing automation...")
             self.automation = InstagramAutomation(self.device_manager)
@@ -83,19 +83,6 @@ class InstagramAutomationRunner:
             send_instagram_workflow_error(e)
             logger.exception("Workflow error")
             return False
-
-    def _send_session_config(self) -> None:
-        from taktik.core.social_media.instagram.workflows.core.config_builder import (
-            build_instagram_session_config_event,
-        )
-
-        send_message(
-            "session_config",
-            config=build_instagram_session_config_event(
-                self.config,
-                ai_enabled=self.ai_enabled,
-            ),
-        )
 
     def _prepare_runtime(self, workflow_config: dict) -> None:
         from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
