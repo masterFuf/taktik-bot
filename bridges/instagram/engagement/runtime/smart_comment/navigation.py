@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import time
 
-from bridges.instagram.engagement.runtime.smart_comment_post_fingerprint import SmartCommentPostFingerprintMixin
+from bridges.instagram.engagement.runtime.smart_comment.post_fingerprint import SmartCommentPostFingerprintMixin
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_COMMENTS_SELECTORS,

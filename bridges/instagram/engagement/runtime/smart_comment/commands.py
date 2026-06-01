@@ -33,7 +33,7 @@ def run_smart_comment_cli(args: list[str]) -> None:
     mode = config.get("mode", "scrape")
     package_name = config.get("packageName")
 
-    from bridges.instagram.engagement.runtime.smart_comment_bridge import SmartCommentBridge
+    from bridges.instagram.engagement.runtime.smart_comment.bridge import SmartCommentBridge
 
     bridge = SmartCommentBridge(device_id, config, package_name=package_name)
 

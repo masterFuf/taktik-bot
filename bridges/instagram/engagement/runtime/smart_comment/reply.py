@@ -7,8 +7,8 @@ import time
 from typing import Any
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.engagement.runtime.smart_comment_reply_finder import SmartCommentReplyFinderMixin
-from bridges.instagram.engagement.runtime.smart_comment_reply_sender import SmartCommentReplySenderMixin
+from bridges.instagram.engagement.runtime.smart_comment.reply_finder import SmartCommentReplyFinderMixin
+from bridges.instagram.engagement.runtime.smart_comment.reply_sender import SmartCommentReplySenderMixin
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 

@@ -12,11 +12,11 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.instagram.engagement.runtime.smart_comment_bridge import SmartCommentBridge
+from bridges.instagram.engagement.runtime.smart_comment.bridge import SmartCommentBridge
 
 
 def main():
-    from bridges.instagram.engagement.runtime.smart_comment_commands import run_smart_comment_cli
+    from bridges.instagram.engagement.runtime.smart_comment.commands import run_smart_comment_cli
 
     run_smart_comment_cli(sys.argv[1:])
 

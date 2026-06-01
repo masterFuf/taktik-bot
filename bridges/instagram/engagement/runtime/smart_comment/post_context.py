@@ -8,9 +8,9 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict
 
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
-from bridges.instagram.engagement.runtime.smart_comment_models import PostContext
-from bridges.instagram.engagement.runtime.smart_comment_post_stats import SmartCommentPostStatsMixin
-from bridges.instagram.engagement.runtime.smart_comment_post_url import SmartCommentPostUrlMixin
+from bridges.instagram.engagement.runtime.smart_comment.models import PostContext
+from bridges.instagram.engagement.runtime.smart_comment.post_stats import SmartCommentPostStatsMixin
+from bridges.instagram.engagement.runtime.smart_comment.post_url import SmartCommentPostUrlMixin
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
 
 

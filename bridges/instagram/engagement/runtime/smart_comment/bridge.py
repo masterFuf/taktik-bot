@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from bridges.instagram.engagement.runtime.smart_comment_comments import SmartCommentCommentsMixin
-from bridges.instagram.engagement.runtime.smart_comment_media import SmartCommentMediaMixin
-from bridges.instagram.engagement.runtime.smart_comment_models import PostContext, ScrapedComment
-from bridges.instagram.engagement.runtime.smart_comment_navigation import SmartCommentNavigationMixin
-from bridges.instagram.engagement.runtime.smart_comment_post_context import SmartCommentPostContextMixin
-from bridges.instagram.engagement.runtime.smart_comment_reply import SmartCommentReplyMixin
-from bridges.instagram.engagement.runtime.smart_comment_scrape import SmartCommentScrapeMixin
-from bridges.instagram.engagement.runtime.smart_comment_target import SmartCommentTargetMixin
+from bridges.instagram.engagement.runtime.smart_comment.comments import SmartCommentCommentsMixin
+from bridges.instagram.engagement.runtime.smart_comment.media import SmartCommentMediaMixin
+from bridges.instagram.engagement.runtime.smart_comment.models import PostContext, ScrapedComment
+from bridges.instagram.engagement.runtime.smart_comment.navigation import SmartCommentNavigationMixin
+from bridges.instagram.engagement.runtime.smart_comment.post_context import SmartCommentPostContextMixin
+from bridges.instagram.engagement.runtime.smart_comment.reply import SmartCommentReplyMixin
+from bridges.instagram.engagement.runtime.smart_comment.scrape import SmartCommentScrapeMixin
+from bridges.instagram.engagement.runtime.smart_comment.target import SmartCommentTargetMixin
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import logger
 

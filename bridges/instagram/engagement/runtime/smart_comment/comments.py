@@ -5,13 +5,13 @@ from __future__ import annotations
 import time
 
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
-from bridges.instagram.engagement.runtime.smart_comment_comment_extraction import (
+from bridges.instagram.engagement.runtime.smart_comment.comment_extraction import (
     SmartCommentCommentExtractionMixin,
 )
-from bridges.instagram.engagement.runtime.smart_comment_comment_navigation import (
+from bridges.instagram.engagement.runtime.smart_comment.comment_navigation import (
     SmartCommentCommentNavigationMixin,
 )
-from bridges.instagram.engagement.runtime.smart_comment_models import ScrapedComment
+from bridges.instagram.engagement.runtime.smart_comment.models import ScrapedComment
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 

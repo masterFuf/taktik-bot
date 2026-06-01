@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 from bridges.instagram.runtime.ipc import logger
-from bridges.instagram.engagement.runtime.smart_comment_models import TargetProfile
+from bridges.instagram.engagement.runtime.smart_comment.models import TargetProfile
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
