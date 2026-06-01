@@ -6,8 +6,6 @@ Supports AI-generated personalized messages via OpenRouter.
 """
 
 import sys
-import time
-import random
 
 # Bootstrap: UTF-8 + loguru + sys.path in one call
 from pathlib import Path
@@ -25,6 +23,7 @@ from bridges.instagram.engagement.runtime.cold_dm_persistence import (
 from bridges.instagram.engagement.runtime.cold_dm_progress import emit_cold_dm_progress
 from bridges.instagram.engagement.runtime.cold_dm_recipients import ColdDMRecipientMixin
 from bridges.instagram.engagement.runtime.cold_dm_sender import ColdDMSenderMixin
+from bridges.instagram.engagement.runtime.cold_dm_timing import wait_before_next_cold_dm
 
 
 class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMixin, InstagramBridgeBase):
@@ -138,11 +137,12 @@ class ColdDMWorkflow(ColdDMRecipientMixin, ColdDMSenderMixin, ColdDMNavigationMi
                 # Go back to home before next user (more reliable than go_back twice)
                 self.go_home()
 
-                # Delay between DMs
-                if i < len(filtered_recipients) - 1:
-                    delay = random.uniform(delay_min, delay_max)
-                    logger.info(f"Waiting {delay:.1f}s before next DM...")
-                    time.sleep(delay)
+                wait_before_next_cold_dm(
+                    index=i,
+                    total=len(filtered_recipients),
+                    delay_min=delay_min,
+                    delay_max=delay_max,
+                )
 
             except Exception as e:
                 logger.error(f"Error sending DM to {recipient}: {e}")
