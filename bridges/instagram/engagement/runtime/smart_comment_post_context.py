@@ -11,6 +11,7 @@ from dataclasses import asdict
 from bridges.common.parsing.counts import parse_count
 from bridges.instagram.runtime.ipc import logger, send_message as send_event
 from bridges.instagram.engagement.runtime.smart_comment_models import PostContext
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_DETAIL_SELECTORS
 
 
 class SmartCommentPostContextMixin:
@@ -19,24 +20,25 @@ class SmartCommentPostContextMixin:
     def _expand_caption(self):
         """Click the 'more' button to expand the full caption text."""
         try:
-            caption_view = self.device(className="com.instagram.ui.widget.textview.IgTextLayoutView")
+            caption_view = self.device(className=POST_DETAIL_SELECTORS.caption_layout_class_name)
             if not caption_view.exists:
                 return
 
             caption_text = caption_view.get_text() or ""
-            if not (caption_text.rstrip().endswith("more") or caption_text.rstrip().endswith("plus")):
+            if not any(caption_text.rstrip().endswith(label) for label in POST_DETAIL_SELECTORS.caption_expand_labels):
                 logger.debug("Caption does not appear truncated — no 'more' button to click")
                 return
 
-            more_btn = self.device(description="more")
-            if not more_btn.exists:
-                more_btn = self.device(text="more", className="android.widget.Button")
-            if not more_btn.exists:
-                more_btn = self.device(description="plus")
-            if not more_btn.exists:
-                more_btn = self.device(text="plus", className="android.widget.Button")
+            more_btn = None
+            for label in POST_DETAIL_SELECTORS.caption_expand_labels:
+                more_btn = self.device(description=label)
+                if more_btn.exists:
+                    break
+                more_btn = self.device(text=label, className=POST_DETAIL_SELECTORS.button_class_name)
+                if more_btn.exists:
+                    break
 
-            if more_btn.exists:
+            if more_btn and more_btn.exists:
                 more_btn.click()
                 time.sleep(1)
                 logger.info("Clicked 'more' to expand caption")
@@ -49,14 +51,14 @@ class SmartCommentPostContextMixin:
         """Extract context from the currently visible post."""
         logger.info("Extracting post context...")
 
-        author_elem = self.device(resourceId="com.instagram.android:id/row_feed_photo_profile_name")
+        author_elem = self.device(resourceId=POST_DETAIL_SELECTORS.post_author_name_resource_id)
         if author_elem.exists:
             self.post_context.author_username = author_elem.get_text() or ""
             logger.info(f"Post author (from profile name): {self.post_context.author_username}")
 
         self._expand_caption()
 
-        caption_elem = self.device(className="com.instagram.ui.widget.textview.IgTextLayoutView")
+        caption_elem = self.device(className=POST_DETAIL_SELECTORS.caption_layout_class_name)
         if caption_elem.exists:
             try:
                 full_text = caption_elem.get_text() or ""
@@ -72,7 +74,7 @@ class SmartCommentPostContextMixin:
                     self.post_context.caption = full_text[len(self.post_context.author_username):].strip()
                 else:
                     self.post_context.caption = full_text
-                self.post_context.caption = re.sub(r"\s+(more|plus|less|moins)\s*$", "", self.post_context.caption)
+                self.post_context.caption = re.sub(POST_DETAIL_SELECTORS.caption_tail_pattern, "", self.post_context.caption)
                 logger.info(f"Caption ({len(self.post_context.caption)} chars): {self.post_context.caption[:150]}...")
             except Exception as e:
                 logger.warning(f"Error extracting caption: {e}")
@@ -85,16 +87,18 @@ class SmartCommentPostContextMixin:
                     text = (elem.get("text", "") or "").strip()
                     content_desc = (elem.get("content-desc", "") or "").strip()
                     cls = elem.get("class", "") or ""
-                    if cls == "android.widget.TextView" and text and re.match(
-                        r"^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}$",
-                        text,
+                    if (
+                        cls == POST_DETAIL_SELECTORS.text_view_class_name
+                        and text
+                        and re.match(POST_DETAIL_SELECTORS.post_date_pattern, text)
                     ):
                         self.post_context.post_date = text
                         logger.info(f"Post date: {text}")
                         break
-                    if not self.post_context.post_date and content_desc and re.match(
-                        r"^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}$",
-                        content_desc,
+                    if (
+                        not self.post_context.post_date
+                        and content_desc
+                        and re.match(POST_DETAIL_SELECTORS.post_date_pattern, content_desc)
                     ):
                         self.post_context.post_date = content_desc
                         logger.info(f"Post date (from content-desc): {content_desc}")
@@ -104,13 +108,10 @@ class SmartCommentPostContextMixin:
 
         if not self.post_context.post_date:
             try:
-                header = self.device(resourceId="com.instagram.android:id/row_feed_profile_header")
+                header = self.device(resourceId=POST_DETAIL_SELECTORS.post_profile_header_resource_id)
                 if header.exists:
                     desc = header.info.get("contentDescription", "") or ""
-                    date_match = re.search(
-                        r"((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})",
-                        desc,
-                    )
+                    date_match = re.search(POST_DETAIL_SELECTORS.post_date_search_pattern, desc)
                     if date_match:
                         self.post_context.post_date = date_match.group(1)
                         logger.info(f"Post date (from header): {self.post_context.post_date}")
@@ -119,11 +120,11 @@ class SmartCommentPostContextMixin:
 
         if not self.post_context.author_username:
             try:
-                for rid in ["com.instagram.android:id/carousel_image", "com.instagram.android:id/row_feed_photo_imageview"]:
+                for rid in POST_DETAIL_SELECTORS.post_media_description_resource_ids:
                     elem = self.device(resourceId=rid)
                     if elem.exists:
                         desc = elem.info.get("contentDescription", "") or ""
-                        by_match = re.search(r"by\s+([\w][\w.]{0,29})", desc)
+                        by_match = re.search(POST_DETAIL_SELECTORS.author_from_media_description_pattern, desc)
                         if by_match:
                             self.post_context.author_username = by_match.group(1)
                             logger.info(f"Post author (from content-desc): {self.post_context.author_username}")
@@ -144,7 +145,7 @@ class SmartCommentPostContextMixin:
     def _extract_post_stats(self):
         """Extract likes/comments count from post."""
         try:
-            carousel = self.device(resourceId="com.instagram.android:id/carousel_image")
+            carousel = self.device(resourceId=POST_DETAIL_SELECTORS.post_media_description_resource_ids[0])
             if carousel.exists:
                 desc = carousel.info.get("contentDescription", "")
                 likes_match = re.search(r"([\d,]+)\s*likes?", desc)
@@ -156,7 +157,7 @@ class SmartCommentPostContextMixin:
                 logger.info(f"Stats from carousel: {self.post_context.likes_count} likes, {self.post_context.comments_count} comments")
                 return
 
-            photo = self.device(resourceId="com.instagram.android:id/row_feed_photo_imageview")
+            photo = self.device(resourceId=POST_DETAIL_SELECTORS.post_media_description_resource_ids[1])
             if photo.exists:
                 desc = photo.info.get("contentDescription", "")
                 likes_match = re.search(r"([\d,]+)\s*likes?", desc)
@@ -166,7 +167,7 @@ class SmartCommentPostContextMixin:
                 if comments_match:
                     self.post_context.comments_count = int(comments_match.group(1).replace(",", ""))
 
-            buttons = self.device(className="android.widget.Button")
+            buttons = self.device(className=POST_DETAIL_SELECTORS.button_class_name)
             for i in range(buttons.count):
                 try:
                     btn = buttons[i]
@@ -190,10 +191,12 @@ class SmartCommentPostContextMixin:
         """Extract the current post's URL via Share → Copy Link."""
         logger.info("Extracting post URL via Share → Copy Link...")
         try:
-            share_btn = self.device(resourceId="com.instagram.android:id/row_feed_button_share")
-            if not share_btn.exists:
-                share_btn = self.device(resourceId="com.instagram.android:id/row_feed_button_send")
-            if not share_btn.exists:
+            share_btn = None
+            for resource_id in POST_DETAIL_SELECTORS.share_button_resource_ids:
+                share_btn = self.device(resourceId=resource_id)
+                if share_btn.exists:
+                    break
+            if not share_btn or not share_btn.exists:
                 logger.warning("Share button not found")
                 return ""
 
@@ -201,14 +204,14 @@ class SmartCommentPostContextMixin:
             time.sleep(1.5)
 
             copy_link = None
-            for label in ["Copy link", "Copier le lien", "Copy Link"]:
+            for label in POST_DETAIL_SELECTORS.copy_link_labels:
                 elem = self.device(text=label)
                 if elem.exists:
                     copy_link = elem
                     break
 
             if not copy_link:
-                for label in ["Copy link", "Copier le lien"]:
+                for label in POST_DETAIL_SELECTORS.copy_link_description_labels:
                     elem = self.device(description=label)
                     if elem.exists:
                         copy_link = elem

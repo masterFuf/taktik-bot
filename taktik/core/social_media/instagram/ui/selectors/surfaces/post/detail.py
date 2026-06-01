@@ -16,8 +16,12 @@ class PostSelectors:
     caption: str = '//android.widget.TextView[contains(@resource-id, "row_feed_comment_textview_comment")]'
     caption_layout_selector: str = '//com.instagram.ui.widget.textview.IgTextLayoutView'
     caption_layout_class_name: str = 'com.instagram.ui.widget.textview.IgTextLayoutView'
+    caption_expand_labels: List[str] = field(default_factory=lambda: ["more", "plus"])
+    caption_tail_pattern: str = r"\s+(more|plus|less|moins)\s*$"
     like_count: str = '//android.widget.TextView[contains(@resource-id, "row_feed_textview_likes")]'
     comment_count: str = '//android.widget.TextView[contains(@resource-id, "row_feed_textview_comment_count")]'
+    text_view_class_name: str = "android.widget.TextView"
+    button_class_name: str = "android.widget.Button"
     
     # === Éléments spéciaux ===
     carousel_indicator: str = '//androidx.viewpager.widget.ViewPager/following-sibling::*[1]'
@@ -36,11 +40,25 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
     ])
     post_profile_header_resource_id: str = "com.instagram.android:id/row_feed_profile_header"
+    post_author_name_resource_id: str = "com.instagram.android:id/row_feed_photo_profile_name"
     post_landing_indicator_resource_ids: List[str] = field(default_factory=lambda: [
         "com.instagram.android:id/row_feed_button_comment",
         "com.instagram.android:id/row_feed_button_like",
         "com.instagram.android:id/like_button",
     ])
+    post_media_description_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/carousel_image",
+        "com.instagram.android:id/row_feed_photo_imageview",
+    ])
+    post_date_pattern: str = (
+        r"^(?:January|February|March|April|May|June|July|August|September|October|November|December)"
+        r"\s+\d{1,2},\s+\d{4}$"
+    )
+    post_date_search_pattern: str = (
+        r"((?:January|February|March|April|May|June|July|August|September|October|November|December)"
+        r"\s+\d{1,2},\s+\d{4})"
+    )
+    author_from_media_description_pattern: str = r"by\s+([\w][\w.]{0,29})"
     
     username_extraction_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
@@ -406,6 +424,10 @@ class PostSelectors:
     # Share button (feed post & reel) — used to open the share sheet and retrieve the post URL.
     # Uses contains(@resource-id) so the selector remains valid for clone APKs whose
     # package name differs from com.instagram.android.
+    share_button_resource_ids: List[str] = field(default_factory=lambda: [
+        "com.instagram.android:id/row_feed_button_share",
+        "com.instagram.android:id/row_feed_button_send",
+    ])
     share_button_selectors: List[str] = field(default_factory=lambda: [
         # Reels: clips/direct share button (resource-id ends in "direct_share_button")
         '//*[contains(@resource-id, "direct_share_button")]',
@@ -419,6 +441,15 @@ class PostSelectors:
     ])
 
     # "Copy link" action inside Instagram's share sheet (FR + EN)
+    copy_link_labels: List[str] = field(default_factory=lambda: [
+        "Copy link",
+        "Copier le lien",
+        "Copy Link",
+    ])
+    copy_link_description_labels: List[str] = field(default_factory=lambda: [
+        "Copy link",
+        "Copier le lien",
+    ])
     copy_link_selectors: List[str] = field(default_factory=lambda: [
         '//*[@text="Copy link"]',
         '//*[@content-desc="Copy link"]',
