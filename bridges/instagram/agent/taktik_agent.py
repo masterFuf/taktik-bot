@@ -19,9 +19,7 @@ Config keys:
 """
 
 import sys
-import json
 import os
-import threading
 
 # Bootstrap: UTF-8 + loguru + sys.path
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -39,6 +37,7 @@ from bridges.instagram.agent.runtime.session import (
     configure_agent_database,
     connect_agent_bridge,
 )
+from bridges.instagram.agent.runtime.stop_listener import start_agent_stop_listener
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc
 
@@ -55,7 +54,7 @@ class TaktikAgentBridge(InstagramBridgeBase):
 
     def run(self):
         # Start stdin listener so Electron can request a graceful stop via {"command":"stop"}
-        self._start_stdin_listener()
+        start_agent_stop_listener()
 
         # Launch Instagram before starting the workflow
         _ipc.status("launching", "Launching Instagram…")
@@ -78,30 +77,6 @@ class TaktikAgentBridge(InstagramBridgeBase):
         result = workflow.run()
         logger.info(f"[TaktikAgentBridge] Session finished: {result}")
         return result
-
-    def _start_stdin_listener(self):
-        """Daemon thread: reads stdin for {"command":"stop"} and triggers workflow.stop()."""
-        def _listen():
-            try:
-                for raw in sys.stdin:
-                    line = raw.strip()
-                    if not line:
-                        continue
-                    try:
-                        msg = json.loads(line)
-                        if msg.get("command") == "stop":
-                            logger.info("[TaktikAgentBridge] Stop command received via stdin")
-                            from bridges.common.runtime import signal_handler as _sig
-                            if _sig._workflow and hasattr(_sig._workflow, "stop"):
-                                _sig._workflow.stop()
-                            break
-                    except json.JSONDecodeError:
-                        pass
-            except Exception:
-                pass  # stdin closed = Electron killed us (normal)
-
-        t = threading.Thread(target=_listen, daemon=True, name="stdin-stop-listener")
-        t.start()
 
 
 def main():
