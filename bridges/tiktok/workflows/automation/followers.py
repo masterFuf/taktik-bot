@@ -12,12 +12,11 @@ from bridges.tiktok.workflows.automation.runtime.followers_events import (
     send_final_followers_stats,
 )
 from bridges.tiktok.workflows.automation.runtime.followers_planning import (
-    build_target_list,
     calculate_target_distribution,
-    has_empty_target_candidates,
     max_profiles_for_target,
     should_stop_after_target,
 )
+from bridges.tiktok.workflows.automation.runtime.followers_request import validate_followers_workflow_request
 from bridges.tiktok.workflows.automation.runtime.followers_stats import create_total_stats
 from bridges.tiktok.workflows.automation.runtime.followers_target import run_followers_target
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
@@ -30,20 +29,13 @@ def run_followers_workflow(config: Dict[str, Any]):
     each target sequentially, distributing the max_followers limit across targets.
     Falls back to single 'searchQuery' for backwards compatibility.
     """
-    device_id = config.get("deviceId")
-    bot_username = config.get("botUsername")
-
-    if not device_id:
-        send_error("No device ID provided")
+    request = validate_followers_workflow_request(config)
+    if request is None:
         return False
 
-    target_list = build_target_list(config)
-    if not target_list:
-        if has_empty_target_candidates(config):
-            send_error("No valid targets provided")
-        else:
-            send_error("No target provided")
-        return False
+    device_id = request.device_id
+    bot_username = request.bot_username
+    target_list = request.target_list
 
     logger.info(f"Starting TikTok Followers workflow on device: {device_id}")
     if bot_username:

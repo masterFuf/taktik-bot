@@ -265,6 +265,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B203 | Fait | Extraire les events Smart Comment de scraping commentaires (`comment_scraped`, `scrape_progress`, `scrape_complete`) sous `engagement/runtime/smart_comment/events.py`; payloads inchanges. | Event helper smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke smart-comment + `compileall` + `git diff --check`. |
 | B204 | Fait | Extraire les helpers data-only de contexte post Smart Comment (`author/caption`, date XML) sous `engagement/runtime/smart_comment/post_context_extractors.py`; le mixin garde acces device/stats/event. | Extractor smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke smart-comment + `compileall` + `git diff --check`. |
 | B205 | Fait | Extraire la session device/app du workflow-test compat sous `runtime/workflow_session.py`; l'entrypoint garde request, dispatch, rapport et contrat stdout JSON. | Import smoke session + `py_compile` + `check_bridge_manifest` + launcher JSON smoke workflow-test + `compileall` + `git diff --check`. |
+| B206 | Fait | Extraire la validation de requete TikTok Followers sous `workflows/automation/runtime/followers_request.py`; `followers.py` garde startup, distribution et execution targets. | Request smoke + `py_compile` + `audit_selector_hardcodes` + `check_bridge_manifest` + launcher JSON smoke tiktok dispatcher + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
