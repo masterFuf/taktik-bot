@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TikTok compatibility action-test definitions are now split by family under `bridges/compat/diagnostics/actions/tiktok/**`; the public action IDs and JSON event shapes remain unchanged.
 - TikTok account bridge workflow adapters are split by operation under `bridges/tiktok/account/runtime/account_{login,logout,register}.py`; `account_workflows.py` remains the public mixin facade.
 - Threads workflow bridge callbacks and final completion status now live under `bridges/threads/workflows/runtime/events.py`, shared by feed and search runners.
+- Instagram account bridge workflow adapters are split by operation under `bridges/instagram/account/runtime/{login,logout,register}.py`; `workflows.py` remains the public mixin facade.
 - Instagram Smart Comment bridge implementation moved under `bridges/instagram/engagement/smart_comment.py`; `smart_comment_bridge.py` is now only the public Electron entrypoint wrapper.
 - Instagram DM and Cold DM bridge implementations moved under `bridges/instagram/engagement/{dm,cold_dm}.py`; `dm_bridge.py` and `cold_dm_bridge.py` remain public Electron entrypoint wrappers.
 - Instagram account bridge implementation moved under `bridges/instagram/account/account.py`; `account_bridge.py` remains the public Electron entrypoint wrapper.
