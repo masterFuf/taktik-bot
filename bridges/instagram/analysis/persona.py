@@ -39,11 +39,18 @@ from bridges.instagram.runtime.ipc import _ipc, logger
 from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
 from bridges.instagram.analysis.runtime.persona_media import PersonaMediaMixin
 from bridges.instagram.analysis.runtime.persona_posts import PersonaPostsMixin
+from bridges.instagram.analysis.runtime.persona_profile import PersonaProfileMixin
 
 setup_signal_handlers()
 
 
-class PersonaAnalysisBridge(PersonaPostsMixin, PersonaMediaMixin, PersonaCommentsMixin, InstagramBridgeBase):
+class PersonaAnalysisBridge(
+    PersonaProfileMixin,
+    PersonaPostsMixin,
+    PersonaMediaMixin,
+    PersonaCommentsMixin,
+    InstagramBridgeBase,
+):
     """Bridge that scrapes own Instagram profile to build persona data."""
 
     def __init__(self, device_id: str, config: dict, package_name: str = None):
@@ -77,52 +84,9 @@ class PersonaAnalysisBridge(PersonaPostsMixin, PersonaMediaMixin, PersonaComment
                 return {"success": False, "error": "Failed to launch Instagram"}
             time.sleep(2)
 
-            # ── Step 2: Navigate to own profile tab ───────────────────
-            _ipc.status("navigating_own_profile", "Navigation vers l'onglet profil…")
-            from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-            from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
-
-            nav = NavigationActions(self.device_manager)
-            profile_biz = ProfileBusiness(self.device_manager)
-
-            nav.navigate_to_profile_tab()
-            time.sleep(2)
-
-            # ── Step 3: Detect logged-in username ─────────────────────
-            _ipc.status("detecting_account", "Détection du compte connecté…")
-            own_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=True)
-            own_username = (own_info.get("username") or "").lower() if own_info else ""
-
-            is_own = (own_username == self.target_username)
-
-            if is_own:
-                _ipc.status("own_profile_detected",
-                    f"Compte @{self.target_username} connecté — profil propre utilisé")
-                # Already on profile page, collect all info (enrich=True already called above)
-                if own_info:
-                    collected["full_name"]       = own_info.get("full_name")
-                    collected["biography"]       = own_info.get("biography")
-                    collected["website"]         = own_info.get("website")
-                    collected["followers_count"] = own_info.get("followers_count")
-                    collected["following_count"] = own_info.get("following_count")
-                    collected["posts_count"]     = own_info.get("posts_count")
-            else:
-                # Navigate to target's public profile
-                _ipc.status("navigating_public_profile",
-                    f"Compte différent ({own_username or 'inconnu'}), navigation vers @{self.target_username}…")
-                ok = nav.navigate_to_profile(self.target_username)
-                if not ok:
-                    _ipc.error(f"Impossible d'accéder au profil @{self.target_username}")
-                    return {"success": False, "error": f"Cannot navigate to @{self.target_username}"}
-                time.sleep(2)
-                profile_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=True)
-                if profile_info:
-                    collected["full_name"]       = profile_info.get("full_name")
-                    collected["biography"]       = profile_info.get("biography")
-                    collected["website"]         = profile_info.get("website")
-                    collected["followers_count"] = profile_info.get("followers_count")
-                    collected["following_count"] = profile_info.get("following_count")
-                    collected["posts_count"]     = profile_info.get("posts_count")
+            nav, error_result = self.open_target_profile(collected)
+            if error_result:
+                return error_result
 
             self.capture_profile_screenshot(nav, collected)
 
