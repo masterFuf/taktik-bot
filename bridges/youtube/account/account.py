@@ -21,10 +21,10 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
+from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
 from taktik.core.social_media.youtube.workflows.account import YouTubeAccountWorkflow
 
 
@@ -49,36 +49,20 @@ class YouTubeAccountBridge:
             send_error("deviceId is required")
             return 1
 
-        try:
-            from taktik.core.database import configure_db_service
-
-            configure_db_service()
-        except Exception as exc:  # noqa: BLE001 - bridge must return JSON errors
-            send_error(f"Database setup failed: {exc}")
+        session = prepare_youtube_session(self.device_id, send_status, send_error)
+        if not session:
             return 1
-
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
-            return 1
-
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
-            return 1
+        self._connection = session.connection
 
         try:
             if self.workflow_type == "login":
-                return self._run_login(device)
+                return self._run_login(session.device)
             if self.workflow_type == "logout":
-                return self._run_logout(device)
+                return self._run_logout(session.device)
             send_error(f"Unknown workflowType: {self.workflow_type}")
             return 1
         finally:
-            from bridges.common.device.app_manager import force_stop_app
-
-            force_stop_app(self.device_id, "youtube")
+            cleanup_youtube_app(self.device_id)
 
     def _run_login(self, device) -> int:
         email = (self.config.get("email") or "").strip()
