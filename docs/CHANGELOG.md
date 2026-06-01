@@ -97,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Instagram Desktop bridge `debugMode` dispatch moved under `automation/runtime/entrypoint.py`, leaving `main()` focused on config loading and JSON error handling.
 - Instagram Desktop workflow final-stats and error emitters moved under `automation/runtime/events.py`, keeping stdout event formatting out of the workflow runner.
 - Instagram Desktop `session_config` event emission now lives under `automation/runtime/events.py`, preserving the core-built payload while reducing runner responsibilities.
+- Instagram Taktik Agent bridge OpenRouter factory moved under `agent/runtime/ai.py`, preserving provider injection into the core Agent workflow.
 - Instagram Cold DM navigation and sender runtime now consume existing navigation/profile/direct-message selector catalogs instead of embedding search, private-profile, message-button and composer probes inline.
 - Instagram Smart Comment target helpers now use scoped profile/post selectors for fallback username extraction and post/reel landing checks.
 - Instagram Smart Comment comments runtime now reads remaining Android class probes from `POST_COMMENTS_SELECTORS` instead of embedding `Button`/`ViewGroup` class names inline.
