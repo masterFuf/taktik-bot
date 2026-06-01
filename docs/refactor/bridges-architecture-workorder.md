@@ -42,6 +42,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 - `bridges/common/device/app_inspection.py` = probes non-destructives sur une app ou un package (foreground, version installee, etc.).
 - `bridges/common/device/app_resolution.py` = resolution runtime de la config app effective (override clone, auto-detection de package alternatif).
 - `bridges/common/device/atx_health.py` = checks et reparations du uiautomator2/ATX agent pour une connexion deja ouverte.
+- `bridges/common/device/network_probe.py` = probes reseau non destructives (IP externe courante) ; `bridges/common/device/network_reset.py` = strategies de reset reseau ; `network.py` reste la facade/orchestrateur de compatibilite.
 - `bridges/common/input/**` = helpers de saisie ou interaction input utilises par plusieurs bridges.
 - `bridges/common/parsing/**` = parseurs de texte/payload partages par les bridges, sans acces device ni IPC.
 - `bridges/common/persistence/**` = facades DB strictement bridge, sans SQL direct ; la vraie persistence reste dans `taktik/core/database/**`.
@@ -208,6 +209,7 @@ Assainir `bot/bridges` sans casser le contrat Electron :
 | B150 | Fait | Extraire le check/reparation ATX de `bridges/common/device/connection.py` vers `bridges/common/device/atx_health.py`; `ConnectionService` garde la meme API publique. | Import smoke ATX health + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 | B151 | Fait | Extraire `PlatformBridgeBase` de `bridges/common/runtime/bridge_base.py` vers `bridges/common/runtime/platform_bridge.py`; `bridge_base.py` reste une facade publique de compatibilite et les consommateurs internes migrent vers l'owner direct. | Import smoke platform bridge + `py_compile` + `check_bridge_manifest` + launcher JSON smoke + `compileall` + `git diff --check`. |
 | B152 | Fait | Realigner `bridges/common/device/connection.py` sur l'owner canonique `taktik.core.shared.device.manager` au lieu du shim Instagram legacy ; l'API publique de `ConnectionService` reste identique. | Import smoke shared DeviceManager + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
+| B153 | Fait | Extraire les probes IP reseau de `bridges/common/device/network.py` vers `network_probe.py` et les strategies de reset vers `network_reset.py`; `network.py` reste la facade publique avec `perform_network_reset`. | Import smoke network facade + `py_compile` + `check_bridge_manifest` + `compileall` + `git diff --check`. |
 
 ## Notes de compatibilite
 
