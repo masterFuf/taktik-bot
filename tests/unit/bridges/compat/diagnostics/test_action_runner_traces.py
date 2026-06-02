@@ -1,0 +1,99 @@
+from bridges.compat.diagnostics.runtime import action_runner
+from bridges.compat.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
+
+
+class _FakeSelector:
+    def __init__(self, exists: bool):
+        self._exists = exists
+
+    @property
+    def exists(self) -> bool:
+        return self._exists
+
+
+class _FakeRawDevice:
+    def app_current(self):
+        return {"package": "com.instagram.android", "activity": "MainActivity"}
+
+
+class _FakeDevice:
+    _device = _FakeRawDevice()
+
+
+class _FakeDetection:
+    def __init__(self, bundle):
+        self._bundle = bundle
+
+    def is_story_viewer_open(self):
+        return False
+
+    def is_on_post_screen(self):
+        return False
+
+    def is_on_profile_screen(self):
+        return self._bundle.state == "after"
+
+    def is_on_search_screen(self):
+        return False
+
+    def is_on_home_screen(self):
+        return self._bundle.state == "before"
+
+
+class _FakeBundle:
+    def __init__(self):
+        self.state = "before"
+        self.device = _FakeDevice()
+        self.detection = _FakeDetection(self)
+
+
+def test_traced_selector_records_front_contract_fields():
+    tracer = SelectorTracer()
+    tracer.set_action_context("post.like")
+    tracer.set_screen("instagram.home")
+
+    selector = TracedSelector(_FakeSelector(True), "//*[@content-desc='Like']", tracer)
+
+    assert selector.exists is True
+    assert len(tracer.traces) == 1
+    trace = tracer.traces[0]
+    assert trace["xpath"] == "//*[@content-desc='Like']"
+    assert trace["found"] is True
+    assert trace["source"] == "python"
+    assert trace["screen"] == "instagram.home"
+    assert trace["fallbackIndex"] == 0
+    assert trace["family"] == "post"
+    assert isinstance(trace["elapsedMs"], float)
+
+
+def test_execute_action_emits_ui_action_trace(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+
+    bundle = _FakeBundle()
+    tracer = SelectorTracer()
+    tracer.record("fallback", False)
+    tracer.traces[0]["fallbackIndex"] = 1
+
+    def run_action(fake_bundle, params):
+        fake_bundle.state = "after"
+        return True
+
+    action_runner._execute_action(
+        {"navigation.open_profile": run_action},
+        "navigation.open_profile",
+        bundle,
+        {},
+        tracer,
+    )
+
+    assert len(emitted) == 1
+    payload = emitted[0]
+    assert payload["type"] == "result"
+    assert payload["success"] is True
+    assert payload["ui_action_trace"]["actionId"] == "navigation.open_profile"
+    assert payload["ui_action_trace"]["intent"] == "navigation"
+    assert payload["ui_action_trace"]["screenBefore"] == "instagram.home"
+    assert payload["ui_action_trace"]["screenAfter"] == "instagram.profile"
+    assert payload["ui_action_trace"]["fallbackUsed"] is True
+    assert isinstance(payload["ui_action_trace"]["timingMs"], float)
