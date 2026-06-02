@@ -130,6 +130,8 @@ def _execute_action(
     mode: str = "manual",
     capture_artifacts: bool = False,
     language_optimization: dict | None = None,
+    request_id: str | None = None,
+    exit_on_error: bool = True,
 ) -> None:
     tracer.set_action_context(action_id)
     run_id = _build_run_id(action_id)
@@ -207,6 +209,7 @@ def _execute_action(
         emit(
             {
                 "type": "result",
+                "request_id": request_id,
                 "success": success,
                 "message": message,
                 "selector_traces": tracer.traces,
@@ -266,6 +269,7 @@ def _execute_action(
         emit(
             {
                 "type": "result",
+                "request_id": request_id,
                 "success": False,
                 "message": f"Exception: {exc}",
                 "selector_traces": tracer.traces,
@@ -275,7 +279,8 @@ def _execute_action(
                 "transition": transition,
             }
         )
-        sys.exit(1)
+        if exit_on_error:
+            sys.exit(1)
 
 
 def _detect_and_optimize_selectors(platform: str, device_facade) -> dict:

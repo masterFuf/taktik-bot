@@ -42,6 +42,11 @@ class SelectorTracer:
         short = xpath_str if len(xpath_str) <= 80 else "..." + xpath_str[-77:]
         log("debug", f"[selector] {icon} {short}")
 
+    def reset(self) -> None:
+        self.traces.clear()
+        self._screen = "unknown"
+        self._family = None
+
 
 class TracedSelector:
     """Wraps a uiautomator2 XPathSelector and records `.exists` checks."""

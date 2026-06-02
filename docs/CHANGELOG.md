@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Cartography Lab action diagnostics now support a persistent `action_session_bridge` so Lab-mode actions can reuse one device connection, action bundle and language optimization instead of respawning the single-action bridge for every click.
 - Selector Test diagnostics now evaluate registry XPath checks against a single XML snapshot when possible, falling back to live device XPath calls only when needed to reduce Cartography Lab latency without changing action workflows.
 - Cartography Lab analysis now treats profile-surface misses on `instagram.home` as expected negative screen-disambiguation probes instead of false `context_gate` warnings.
 - Cartography Lab screen resolution now skips broad story/post probes once `instagram.home` is resolved, reducing noisy selector-health warnings on feed runs without removing story/reel selectors from their real surfaces.

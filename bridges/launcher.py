@@ -56,6 +56,7 @@ BRIDGE_MODULES = {
     "selector_test_bridge":     "bridges.compat.diagnostics.entrypoints.selector_test",
     "workflow_test_bridge":     "bridges.compat.diagnostics.entrypoints.workflow_test",
     "action_test_bridge":       "bridges.compat.diagnostics.entrypoints.action_test",
+    "action_session_bridge":    "bridges.compat.diagnostics.entrypoints.action_session",
     "tiktok_action_test_bridge":"bridges.compat.diagnostics.entrypoints.tiktok_action_test",
 }
 

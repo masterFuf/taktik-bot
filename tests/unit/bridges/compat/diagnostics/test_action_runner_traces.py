@@ -134,6 +134,20 @@ def test_traced_selector_records_front_contract_fields():
     assert isinstance(trace["elapsedMs"], float)
 
 
+def test_selector_tracer_reset_clears_action_context():
+    tracer = SelectorTracer()
+    tracer.set_action_context("navigation.go_home")
+    tracer.set_screen("instagram.home")
+    tracer.record("//*[@resource-id='x']", False)
+
+    tracer.reset()
+    tracer.record("//*[@resource-id='y']", True)
+
+    assert len(tracer.traces) == 1
+    assert tracer.traces[0]["screen"] == "unknown"
+    assert "family" not in tracer.traces[0]
+
+
 def test_execute_action_emits_ui_action_trace(monkeypatch):
     emitted = []
     monkeypatch.setattr(action_runner, "emit", emitted.append)
@@ -216,6 +230,48 @@ def test_execute_action_marks_expected_screen_mismatch(monkeypatch):
     assert transition["actualScreenAfter"] == "instagram.profile"
     assert transition["ok"] is False
     assert transition["reason"] == "screen_mismatch"
+
+
+def test_execute_action_includes_request_id(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+
+    bundle = _FakeBundle()
+
+    action_runner._execute_action(
+        {"detection.get_current_screen": lambda fake_bundle, params: True},
+        "detection.get_current_screen",
+        bundle,
+        {},
+        SelectorTracer(),
+        request_id="req-1",
+    )
+
+    assert emitted[0]["request_id"] == "req-1"
+
+
+def test_execute_action_session_error_does_not_exit(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+
+    bundle = _FakeBundle()
+
+    def raise_action(fake_bundle, params):
+        raise RuntimeError("boom")
+
+    action_runner._execute_action(
+        {"detection.get_current_screen": raise_action},
+        "detection.get_current_screen",
+        bundle,
+        {},
+        SelectorTracer(),
+        request_id="req-error",
+        exit_on_error=False,
+    )
+
+    assert emitted[0]["request_id"] == "req-error"
+    assert emitted[0]["success"] is False
+    assert "Exception: boom" in emitted[0]["message"]
 
 
 def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
