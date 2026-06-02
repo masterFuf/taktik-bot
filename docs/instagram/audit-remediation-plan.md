@@ -128,6 +128,13 @@ sequenceDiagram
 
 ## P1-1 Sortir le SQL direct des handlers
 
+Etat au 2026-06-02 : **76% avance cote front/Electron**.
+
+Derniere mise a jour : `coldDm.ts` delegue maintenant la lecture/mapping des
+profils scraping a `InstagramScrapingSessionProfileService`, et
+`targetSearch.ts` delegue l'ecriture CSV a `InstagramTargetSearchService`.
+Les handlers restent donc plus proches d'une facade IPC.
+
 ### Cible prioritaire
 
 | Handler | Action |
