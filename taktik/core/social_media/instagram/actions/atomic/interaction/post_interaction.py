@@ -63,11 +63,10 @@ class PostInteractionMixin(BaseAction):
         try:
             self.logger.debug("❤️ Clicking likes count")
             
-            for selector in self.detection_selectors.likes_count_selectors:
-                if self._find_and_click(selector, timeout=2):
-                    self.logger.debug("✅ Successfully clicked likes count")
-                    return True
-            
+            if self._find_and_click(self.detection_selectors.likes_count_selectors, timeout=2):
+                self.logger.debug("✅ Successfully clicked likes count")
+                return True
+
             self.logger.debug("❌ Cannot find likes count")
             return False
             
@@ -139,11 +138,10 @@ class PostInteractionMixin(BaseAction):
         try:
             self.logger.debug("📋 Clicking Recent tab")
             
-            for selector in self.detection_selectors.recent_tab_selectors:
-                if self._find_and_click(selector, timeout=2):
-                    self.logger.debug("✅ Successfully clicked Recent tab")
-                    return True
-            
+            if self._find_and_click(self.detection_selectors.recent_tab_selectors, timeout=2):
+                self.logger.debug("✅ Successfully clicked Recent tab")
+                return True
+
             self.logger.debug("❌ Cannot find Recent tab")
             return False
             

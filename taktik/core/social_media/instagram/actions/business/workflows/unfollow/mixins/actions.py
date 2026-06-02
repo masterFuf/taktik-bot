@@ -26,13 +26,10 @@ class UnfollowActionsMixin:
                 time.sleep(1.5)
             
             # Cliquer sur le bouton "Abonné" / "Following"
-            clicked = False
-            for selector in self._unfollow_selectors['following_button']:
-                if self._find_and_click(selector, timeout=3):
-                    clicked = True
-                    self._human_like_delay('click')
-                    break
-            
+            clicked = self._find_and_click(self._unfollow_selectors['following_button'], timeout=3)
+            if clicked:
+                self._human_like_delay('click')
+
             if not clicked:
                 self.logger.warning(f"Cannot find Following button for @{username}")
                 return False
@@ -40,14 +37,13 @@ class UnfollowActionsMixin:
             time.sleep(1)
             
             # Confirmer l'unfollow
-            for selector in self._unfollow_selectors['unfollow_confirm']:
-                if self._find_and_click(selector, timeout=3):
-                    self._human_like_delay('click')
-                    self.logger.debug(f"✅ Unfollow confirmed for @{username}")
-                    
-                    # Retourner à la liste
-                    self._go_back_to_following_list()
-                    return True
+            if self._find_and_click(self._unfollow_selectors['unfollow_confirm'], timeout=3):
+                self._human_like_delay('click')
+                self.logger.debug(f"✅ Unfollow confirmed for @{username}")
+
+                # Retourner à la liste
+                self._go_back_to_following_list()
+                return True
             
             # Si pas de confirmation trouvée, peut-être que l'unfollow est direct
             # Vérifier si le bouton est maintenant "Follow" / "Suivre"

@@ -136,12 +136,10 @@ class SearchNavigationMixin(BaseAction):
                 self.logger.error("Cannot navigate to search screen")
                 return False
             
-            search_bar_clicked = False
-            for selector in self.detection_selectors.hashtag_search_bar_selectors:
-                if self._find_and_click(selector, timeout=2):
-                    search_bar_clicked = True
-                    break
-            
+            search_bar_clicked = self._find_and_click(
+                self.detection_selectors.hashtag_search_bar_selectors, timeout=2
+            )
+
             if not search_bar_clicked:
                 self.logger.error("Cannot click on search bar")
                 return False
@@ -157,13 +155,8 @@ class SearchNavigationMixin(BaseAction):
             time.sleep(2)
             hashtag_result_selectors = NAVIGATION_SELECTORS.hashtag_result_selectors(hashtag)
             
-            hashtag_clicked = False
-            for selector in hashtag_result_selectors:
-                if self._find_and_click(selector, timeout=3):
-                    hashtag_clicked = True
-                    self.logger.debug(f"Clicked on hashtag with selector: {selector}")
-                    break
-            
+            hashtag_clicked = self._find_and_click(hashtag_result_selectors, timeout=3)
+
             if not hashtag_clicked:
                 self.logger.error(f"Cannot click on hashtag #{hashtag}")
                 return False
