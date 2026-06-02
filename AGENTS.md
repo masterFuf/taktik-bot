@@ -221,6 +221,8 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Ne jamais logger mot de passe, token, cookie, proxy credential, payload complet de compte ou contenu DM sensible.
 - Les fichiers de config temporaires doivent etre limites au strict necessaire, stockes dans un emplacement controle et nettoyes quand le flux le permet.
 - Les dumps UI, screenshots et traces de debug peuvent contenir des donnees personnelles : ne pas les ajouter aux tests/docs sans anonymisation.
+- Les captures Cartography Lab appariees (XML + PNG) doivent passer par `scripts/capture_surface.py` ou un service qui conserve le meme contrat de fichiers sous `debug_ui/cartography/<platform>/<surface>/`. Ne pas ajouter un deuxieme format ou une deuxieme arborescence sans documenter la migration.
+- Les artefacts `debug_ui/**` restent de la matiere premiere locale potentiellement sensible. Ne pas les committer, ne pas les copier dans la doc, et ne pas envoyer leur contenu sur stdout JSON ; stdout doit rester reserve aux messages machine-readable des bridges.
 
 ### Tests et checks
 

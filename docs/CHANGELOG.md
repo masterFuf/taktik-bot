@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Added `scripts/capture_surface.py`, a Cartography Lab helper that captures paired UI XML dumps and PNG screenshots per platform/surface under `debug_ui/cartography/<platform>/<surface>/`.
+- Cartography Lab handoff notes from the temporary root `bot/CHANGELOG.md` were merged back into this official Bot changelog.
 - `bridges/tiktok` started moving away from a flat module list: internal dispatcher runners for For You, Search/Hashtag, Followers and DM read/send now live under `bridges/tiktok/workflows/{automation,engagement}/`, while public Electron entrypoints remain at the platform root.
 - `bridges/common` started the same capability-based cleanup: bridge network reset helpers now live under `bridges/common/device/network.py` instead of the flat common root.
 - Bridge keyboard typing and count parsing helpers are now scoped under `bridges/common/input/keyboard.py` and `bridges/common/parsing/counts.py`; the flat `keyboard.py` and `utils.py` common modules were removed.
