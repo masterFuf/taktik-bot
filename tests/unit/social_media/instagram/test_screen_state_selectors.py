@@ -24,8 +24,10 @@ class _ScreenProbe(ScreenDetectionMixin):
         self.logger = _NoopLogger()
         self.device = self if enable_batch else _LiveOnlyDevice()
         self.batch_calls = 0
+        self.live_calls = 0
 
     def _is_element_present(self, selectors):
+        self.live_calls += 1
         if isinstance(selectors, str):
             selectors = [selectors]
         return any(self._tree.xpath(selector) for selector in selectors)
@@ -114,6 +116,27 @@ def test_screen_detection_reuses_batched_signal_snapshot():
     assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
     assert ScreenDetectionMixin.is_on_home_screen(probe) is True
     assert probe.batch_calls == 1
+
+
+def test_batched_negatives_avoid_live_fallback_on_unknown_screen():
+    # An unknown screen makes every batched signal negative. The single dump must
+    # stay authoritative: no live re-probing of every indicator list.
+    probe = _ScreenProbe(
+        """
+        <hierarchy>
+          <node resource-id="com.instagram.android:id/some_unrelated_view" />
+        </hierarchy>
+        """,
+        enable_batch=True,
+    )
+
+    assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
+    assert ScreenDetectionMixin.is_on_home_screen(probe) is False
+    assert ScreenDetectionMixin.is_on_search_screen(probe) is False
+    assert ScreenDetectionMixin.is_on_post_screen(probe) is False
+
+    assert probe.batch_calls == 1
+    assert probe.live_calls == 0
 
 
 def test_screen_detection_falls_back_without_batch_xpath_check():

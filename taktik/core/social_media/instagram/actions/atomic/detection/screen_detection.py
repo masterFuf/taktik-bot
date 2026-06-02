@@ -39,29 +39,29 @@ class ScreenDetectionMixin(BaseAction):
 
     def is_on_home_screen(self) -> bool:
         signals = self._get_screen_signal_snapshot()
-        if signals and signals.get("home") is True:
-            self.logger.debug("Home screen detected from batched screen signals")
-            return True
+        if signals is not None:
+            # The single XML dump is authoritative for the screens it covers:
+            # trust the negative too instead of re-probing every indicator live.
+            return signals.get("home") is True
 
         return self._detect_element(self.detection_selectors.home_screen_indicators, "Home screen")
-    
+
     def is_on_search_screen(self) -> bool:
         signals = self._get_screen_signal_snapshot()
-        if signals and signals.get("search") is True:
-            self.logger.debug("Search screen detected from batched screen signals")
-            return True
+        if signals is not None:
+            return signals.get("search") is True
 
         return self._detect_element(self.detection_selectors.search_screen_indicators, "Search screen")
-    
+
     def is_on_profile_screen(self) -> bool:
         signals = self._get_screen_signal_snapshot()
-        if signals:
+        if signals is not None:
+            # Authoritative from the single dump (covers home/profile_surface/profile);
+            # no live re-probing on a negative.
             if signals.get("home") is True and signals.get("profile_surface") is not True:
                 self.logger.debug("Feed surface detected from batched signals; not on profile screen")
                 return False
-            if signals.get("profile") is True:
-                self.logger.debug("Profile screen detected from batched screen signals")
-                return True
+            return signals.get("profile") is True
 
         if (
             self._is_element_present(self.detection_selectors.home_screen_indicators)
@@ -97,9 +97,8 @@ class ScreenDetectionMixin(BaseAction):
 
     def is_on_post_screen(self) -> bool:
         signals = self._get_screen_signal_snapshot()
-        if signals and signals.get("post") is True:
-            self.logger.debug("Post screen detected from batched screen signals")
-            return True
+        if signals is not None:
+            return signals.get("post") is True
 
         return self._detect_element(self.detection_selectors.post_screen_indicators, "Post screen")
     
@@ -179,9 +178,8 @@ class ScreenDetectionMixin(BaseAction):
 
     def is_story_viewer_open(self) -> bool:
         signals = self._get_screen_signal_snapshot()
-        if signals and signals.get("story_viewer") is True:
-            self.logger.debug("Story viewer detected from batched screen signals")
-            return True
+        if signals is not None:
+            return signals.get("story_viewer") is True
 
         return self._detect_element(self.detection_selectors.story_viewer_indicators, "Story viewer")
 
