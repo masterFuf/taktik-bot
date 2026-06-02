@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram screen detection now batches common home/search/profile/story/post probes on one XML snapshot when available, reusing the result briefly during one screen resolution pass and falling back to live XPath checks for selectors that cannot be evaluated locally.
 - Cartography Lab action reports now include `phaseTimings` for artifact context, screen probes, app-current probes, XML/PNG captures and action execution, making selector/navigation performance bottlenecks auditable before changing production behavior.
 - Cartography Lab action diagnostics now support a persistent `action_session_bridge` so Lab-mode actions can reuse one device connection, action bundle and language optimization instead of respawning the single-action bridge for every click.
 - Selector Test diagnostics now evaluate registry XPath checks against a single XML snapshot when possible, falling back to live device XPath calls only when needed to reduce Cartography Lab latency without changing action workflows.

@@ -17,16 +17,29 @@ class _NoopLogger:
         return None
 
 
-class _ScreenProbe:
-    def __init__(self, xml: str):
+class _ScreenProbe(ScreenDetectionMixin):
+    def __init__(self, xml: str, *, enable_batch: bool = False):
         self._tree = etree.fromstring(xml.encode("utf-8"))
         self.detection_selectors = DetectionSelectors()
         self.logger = _NoopLogger()
+        self.device = self if enable_batch else _LiveOnlyDevice()
+        self.batch_calls = 0
 
     def _is_element_present(self, selectors):
         if isinstance(selectors, str):
             selectors = [selectors]
         return any(self._tree.xpath(selector) for selector in selectors)
+
+    def batch_xpath_check(self, selectors_dict: dict[str, list[str]]) -> dict[str, bool]:
+        self.batch_calls += 1
+        return {
+            name: any(self._tree.xpath(selector) for selector in selectors)
+            for name, selectors in selectors_dict.items()
+        }
+
+
+class _LiveOnlyDevice:
+    pass
 
 
 def test_feed_post_header_does_not_match_profile_surface():
@@ -80,6 +93,34 @@ def test_real_profile_header_is_reported_as_profile_screen():
           <node resource-id="com.instagram.android:id/profile_header_container">
             <node resource-id="com.instagram.android:id/row_profile_header" />
           </node>
+        </hierarchy>
+        """
+    )
+
+    assert ScreenDetectionMixin.is_on_profile_screen(probe) is True
+
+
+def test_screen_detection_reuses_batched_signal_snapshot():
+    probe = _ScreenProbe(
+        """
+        <hierarchy>
+          <node resource-id="com.instagram.android:id/feed_tab" content-desc="Home" selected="true" />
+          <node resource-id="com.instagram.android:id/row_feed_profile_header" />
+        </hierarchy>
+        """,
+        enable_batch=True,
+    )
+
+    assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
+    assert ScreenDetectionMixin.is_on_home_screen(probe) is True
+    assert probe.batch_calls == 1
+
+
+def test_screen_detection_falls_back_without_batch_xpath_check():
+    probe = _ScreenProbe(
+        """
+        <hierarchy>
+          <node resource-id="com.instagram.android:id/profile_header_container" />
         </hierarchy>
         """
     )

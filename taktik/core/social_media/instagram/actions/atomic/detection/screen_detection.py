@@ -1,5 +1,6 @@
 """Screen state detection, error detection, and popup handling."""
 
+import time
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
@@ -9,6 +10,8 @@ from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 class ScreenDetectionMixin(BaseAction):
     """Mixin: detect current screen state, errors, rate limits, popups."""
+
+    _SCREEN_SIGNAL_CACHE_TTL_SECONDS = 0.25
 
     def _detect_element(self, selectors, element_name: str, log_found: bool = False) -> bool:
         """
@@ -35,12 +38,31 @@ class ScreenDetectionMixin(BaseAction):
     # === Screen state ===
 
     def is_on_home_screen(self) -> bool:
+        signals = self._get_screen_signal_snapshot()
+        if signals and signals.get("home") is True:
+            self.logger.debug("Home screen detected from batched screen signals")
+            return True
+
         return self._detect_element(self.detection_selectors.home_screen_indicators, "Home screen")
     
     def is_on_search_screen(self) -> bool:
+        signals = self._get_screen_signal_snapshot()
+        if signals and signals.get("search") is True:
+            self.logger.debug("Search screen detected from batched screen signals")
+            return True
+
         return self._detect_element(self.detection_selectors.search_screen_indicators, "Search screen")
     
     def is_on_profile_screen(self) -> bool:
+        signals = self._get_screen_signal_snapshot()
+        if signals:
+            if signals.get("home") is True and signals.get("profile_surface") is not True:
+                self.logger.debug("Feed surface detected from batched signals; not on profile screen")
+                return False
+            if signals.get("profile") is True:
+                self.logger.debug("Profile screen detected from batched screen signals")
+                return True
+
         if (
             self._is_element_present(self.detection_selectors.home_screen_indicators)
             and not self._is_element_present(self.detection_selectors.profile_surface_indicators)
@@ -74,6 +96,11 @@ class ScreenDetectionMixin(BaseAction):
         return is_own_profile
 
     def is_on_post_screen(self) -> bool:
+        signals = self._get_screen_signal_snapshot()
+        if signals and signals.get("post") is True:
+            self.logger.debug("Post screen detected from batched screen signals")
+            return True
+
         return self._detect_element(self.detection_selectors.post_screen_indicators, "Post screen")
     
     def is_reel_post(self) -> bool:
@@ -151,7 +178,52 @@ class ScreenDetectionMixin(BaseAction):
     # === Story detection ===
 
     def is_story_viewer_open(self) -> bool:
+        signals = self._get_screen_signal_snapshot()
+        if signals and signals.get("story_viewer") is True:
+            self.logger.debug("Story viewer detected from batched screen signals")
+            return True
+
         return self._detect_element(self.detection_selectors.story_viewer_indicators, "Story viewer")
+
+    def _get_screen_signal_snapshot(self) -> dict[str, bool] | None:
+        """Batch common screen probes on one XML dump, with live fallbacks elsewhere."""
+        now = time.monotonic()
+        cached = getattr(self, "_screen_signal_snapshot_cache", None)
+        if (
+            isinstance(cached, dict)
+            and now - cached.get("created_at", 0) <= self._SCREEN_SIGNAL_CACHE_TTL_SECONDS
+        ):
+            signals = cached.get("signals")
+            return signals if isinstance(signals, dict) else None
+
+        batch_xpath_check = getattr(self.device, "batch_xpath_check", None)
+        if not callable(batch_xpath_check):
+            return None
+
+        selectors = {
+            "home": self.detection_selectors.home_screen_indicators,
+            "search": self.detection_selectors.search_screen_indicators,
+            "profile_surface": self.detection_selectors.profile_surface_indicators,
+            "profile": self.detection_selectors.profile_screen_indicators,
+            "story_viewer": self.detection_selectors.story_viewer_indicators,
+            "post": self.detection_selectors.post_screen_indicators,
+        }
+
+        try:
+            signals = batch_xpath_check(selectors)
+        except Exception as exc:
+            self.logger.debug(f"Batched screen signal detection failed: {exc}")
+            return None
+
+        if not isinstance(signals, dict):
+            return None
+
+        normalized = {key: bool(signals.get(key)) for key in selectors}
+        self._screen_signal_snapshot_cache = {
+            "created_at": time.monotonic(),
+            "signals": normalized,
+        }
+        return normalized
     
     def count_visible_stories(self) -> int:
         try:
