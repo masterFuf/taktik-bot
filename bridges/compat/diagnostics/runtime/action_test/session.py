@@ -14,6 +14,19 @@ from bridges.compat.diagnostics.runtime.action_test.runner import (
 from bridges.compat.diagnostics.runtime.events import emit
 
 
+class _SessionContextCache:
+    """Per-session holder for the session-invariant device/app artifact context.
+
+    The session owns this cache: it is resolved once (lazily, on the first
+    capturing run) and reused for every following run of the same persistent
+    connection, so device metadata / app version / package are not re-queried at
+    each action. The runner populates and reads ``value``.
+    """
+
+    def __init__(self) -> None:
+        self.value = None
+
+
 def run_action_session_bridge() -> None:
     """Keep one device connection alive and execute action commands from stdin."""
     config = _load_config()
@@ -21,6 +34,7 @@ def run_action_session_bridge() -> None:
     platform = config.get("platform", "instagram")
     mode = config.get("mode", "lab")
     capture_artifacts = config.get("capture_artifacts", True)
+    perf_fast = config.get("perf_fast", False)
 
     if not device_id:
         emit({"type": "error", "success": False, "message": "Missing device_id"})
@@ -45,6 +59,7 @@ def run_action_session_bridge() -> None:
         bundle = build_action_bundle(device_facade)
         language_optimization = _detect_and_optimize_selectors(platform, device_facade)
         tracer = _install_selector_tracer(device_facade)
+        session_context_cache = _SessionContextCache()
     except Exception as exc:
         emit({"type": "error", "success": False, "message": f"Action session init failed: {exc}", "traceback": traceback.format_exc()})
         sys.exit(1)
@@ -117,9 +132,11 @@ def run_action_session_bridge() -> None:
             device_id=device_id,
             mode=command.get("mode", mode),
             capture_artifacts=bool(command.get("capture_artifacts", capture_artifacts)),
+            perf_fast=bool(command.get("perf_fast", perf_fast)),
             language_optimization=language_optimization,
             request_id=request_id,
             exit_on_error=False,
+            session_context_cache=session_context_cache,
         )
 
 

@@ -56,6 +56,54 @@ class ActionArtifactContext:
         return self.artifact_dir / "report.json"
 
 
+@dataclass(frozen=True)
+class SessionInvariantContext:
+    """Device/app context that stays constant for a whole Cartography Lab session.
+
+    Resolved once (ADB / uiautomator / app_current) and reused across every run of
+    the same persistent session instead of being rebuilt at each action. Holds only
+    session-stable fields: no run_id/action_id/mode (per-run) and no current_app
+    before/after (those must stay real, see runner).
+    """
+
+    package_name: str | None
+    app_version: str | None
+    resolution: dict[str, int] | None
+    model: str | None
+    manufacturer: str | None
+    android_version: str | None
+    density_dpi: int | None
+    scaled_density: float | None
+
+
+def resolve_session_invariant_context(
+    *,
+    bundle: Any,
+    device_id: str,
+    platform: str,
+    current_app: dict | None = None,
+) -> SessionInvariantContext:
+    """Resolve the session-stable device/app context (one ADB/uiautomator pass).
+
+    ``current_app`` lets the caller reuse an ``app_current()`` value already obtained
+    (e.g. ``currentAppBefore``) so package resolution does not trigger an extra
+    device round-trip.
+    """
+    package_name = _resolve_package_name(bundle, platform, current_app=current_app)
+    app_version = _resolve_app_version(device_id, package_name, platform)
+    device_metadata = _resolve_device_metadata(bundle, device_id)
+    return SessionInvariantContext(
+        package_name=package_name,
+        app_version=app_version,
+        resolution=_resolve_resolution(bundle),
+        model=device_metadata.get("model"),
+        manufacturer=device_metadata.get("manufacturer"),
+        android_version=device_metadata.get("android_version"),
+        density_dpi=device_metadata.get("density_dpi"),
+        scaled_density=device_metadata.get("scaled_density"),
+    )
+
+
 def build_artifact_context(
     *,
     bot_root: Path,
@@ -65,26 +113,36 @@ def build_artifact_context(
     action_id: str,
     run_id: str,
     mode: str,
+    session_context: SessionInvariantContext | None = None,
+    current_app: dict | None = None,
 ) -> ActionArtifactContext:
-    """Create the filesystem context before writing XML/PNG/report files."""
-    package_name = _resolve_package_name(bundle, platform)
-    app_version = _resolve_app_version(device_id, package_name, platform)
-    device_metadata = _resolve_device_metadata(bundle, device_id)
+    """Create the filesystem context before writing XML/PNG/report files.
+
+    When ``session_context`` is provided, the session-stable device/app fields are
+    reused as-is (no ADB / uiautomator / app_current call). Otherwise they are
+    resolved on the spot, reusing ``current_app`` for package resolution when given.
+    """
+    invariant = session_context or resolve_session_invariant_context(
+        bundle=bundle,
+        device_id=device_id,
+        platform=platform,
+        current_app=current_app,
+    )
     return ActionArtifactContext(
         bot_root=bot_root,
         device_id=device_id or UNKNOWN_DEVICE,
         platform=platform or "unknown-platform",
-        app_version=app_version or UNKNOWN_VERSION,
+        app_version=invariant.app_version or UNKNOWN_VERSION,
         action_id=action_id or UNKNOWN_ACTION,
         run_id=run_id,
         mode=mode or "manual",
-        package_name=package_name,
-        resolution=_resolve_resolution(bundle),
-        model=device_metadata.get("model"),
-        manufacturer=device_metadata.get("manufacturer"),
-        android_version=device_metadata.get("android_version"),
-        density_dpi=device_metadata.get("density_dpi"),
-        scaled_density=device_metadata.get("scaled_density"),
+        package_name=invariant.package_name,
+        resolution=invariant.resolution,
+        model=invariant.model,
+        manufacturer=invariant.manufacturer,
+        android_version=invariant.android_version,
+        density_dpi=invariant.density_dpi,
+        scaled_density=invariant.scaled_density,
         started_at=_utc_now(),
     )
 
@@ -140,6 +198,7 @@ def build_report_payload(
     language_optimization: dict[str, Any] | None = None,
     transition: dict[str, Any] | None = None,
     error: str | None = None,
+    perf_fast: bool = False,
 ) -> dict[str, Any]:
     """Build the on-disk report used by humans and future selector-health jobs."""
     found = sum(1 for trace in selector_traces if trace.get("found") is True)
@@ -147,6 +206,7 @@ def build_report_payload(
         "schemaVersion": 1,
         "runId": context.run_id,
         "mode": context.mode,
+        "perfFast": perf_fast,
         "startedAt": context.started_at,
         "finishedAt": _utc_now(),
         "device": {
@@ -225,9 +285,9 @@ def artifact_dir_for(
     return context.artifact_dir
 
 
-def _resolve_package_name(bundle: Any, platform: str) -> str | None:
-    current_app = _get_current_app(bundle)
-    package_name = current_app.get("package") if current_app else None
+def _resolve_package_name(bundle: Any, platform: str, *, current_app: dict | None = None) -> str | None:
+    current = current_app if current_app is not None else _get_current_app(bundle)
+    package_name = current.get("package") if current else None
     if package_name:
         return package_name
 

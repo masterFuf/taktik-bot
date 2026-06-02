@@ -21,6 +21,7 @@ from bridges.compat.diagnostics.runtime.action_test.artifacts import (
     build_artifact_context,
     build_report_payload,
     capture_phase_artifacts,
+    resolve_session_invariant_context,
     write_action_report,
 )
 from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
@@ -49,6 +50,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
     platform = config.get("platform", _platform_from_action_id(action_id))
     mode = config.get("mode", "manual")
     capture_artifacts = _should_capture_artifacts(config)
+    perf_fast = _is_perf_fast(config)
 
     if not device_id:
         emit({"type": "result", "success": False, "message": "Missing device_id"})
@@ -103,6 +105,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         device_id=device_id,
         mode=mode,
         capture_artifacts=capture_artifacts,
+        perf_fast=perf_fast,
         language_optimization=language_optimization,
     )
 
@@ -129,26 +132,36 @@ def _execute_action(
     device_id: str = "unknown-device",
     mode: str = "manual",
     capture_artifacts: bool = False,
+    perf_fast: bool = False,
     language_optimization: dict | None = None,
     request_id: str | None = None,
     exit_on_error: bool = True,
+    session_context_cache=None,  # session-owned _SessionContextCache holder (.value)
 ) -> None:
+    # perf_fast keeps the artifact context + report.json (for phase timings) but
+    # skips the XML/PNG capture. It is a pure-timing diagnostic mode: the report is
+    # tagged perfFast so the front never aggregates it with full-artifact runs.
+    capture_media = capture_artifacts and not perf_fast
     run_started_at = time.perf_counter()
     phase_timings: dict[str, float] = {}
     tracer.set_action_context(action_id)
     run_id = _build_run_id(action_id)
+    # Resolve currentAppBefore first so the artifact context can reuse it for
+    # package resolution instead of issuing a third app_current() round-trip.
+    current_app_before = _time_phase(phase_timings, "currentAppBeforeMs", lambda: _get_current_app(bundle))
     artifact_context = (
         _time_phase(
             phase_timings,
             "artifactContextMs",
-            lambda: build_artifact_context(
-                bot_root=_BOT_ROOT,
+            lambda: _resolve_artifact_context(
+                session_context_cache=session_context_cache,
                 bundle=bundle,
                 device_id=device_id,
                 platform=platform,
                 action_id=action_id,
                 run_id=run_id,
                 mode=mode,
+                current_app=current_app_before,
             ),
         )
         if capture_artifacts
@@ -156,7 +169,6 @@ def _execute_action(
     )
     screen_probe_start = len(tracer.traces)
     screen_before = _time_phase(phase_timings, "screenBeforeMs", lambda: _detect_screen(bundle))
-    current_app_before = _time_phase(phase_timings, "currentAppBeforeMs", lambda: _get_current_app(bundle))
     tracer.set_screen_for_traces_since(screen_probe_start, screen_before)
     tracer.set_screen(screen_before)
     artifacts = (
@@ -165,7 +177,7 @@ def _execute_action(
             "artifactsBeforeMs",
             lambda: capture_phase_artifacts(bundle, artifact_context, "before"),
         )
-        if artifact_context
+        if capture_media
         else {}
     )
     started_at = time.perf_counter()
@@ -181,7 +193,7 @@ def _execute_action(
         current_app_after = _time_phase(phase_timings, "currentAppAfterMs", lambda: _get_current_app(bundle))
         tracer.set_screen_for_traces_since(screen_probe_start, screen_after)
         tracer.set_screen(screen_after)
-        if artifact_context:
+        if capture_media:
             artifacts.update(
                 _time_phase(
                     phase_timings,
@@ -222,6 +234,7 @@ def _execute_action(
                 phase_timings=phase_timings,
                 language_optimization=language_optimization,
                 transition=transition,
+                perf_fast=perf_fast,
             )
             write_action_report(artifact_context, report)
             write_action_analysis(
@@ -240,6 +253,7 @@ def _execute_action(
                 "phase_timings": phase_timings,
                 "language_optimization": language_optimization,
                 "transition": transition,
+                "perf_fast": perf_fast,
             }
         )
     except Exception as exc:
@@ -250,7 +264,7 @@ def _execute_action(
         current_app_after = _time_phase(phase_timings, "currentAppAfterMs", lambda: _get_current_app(bundle))
         tracer.set_screen_for_traces_since(screen_probe_start, screen_after)
         tracer.set_screen(screen_after)
-        if artifact_context:
+        if capture_media:
             artifacts.update(
                 _time_phase(
                     phase_timings,
@@ -291,6 +305,7 @@ def _execute_action(
                 error=str(exc),
                 language_optimization=language_optimization,
                 transition=transition,
+                perf_fast=perf_fast,
             )
             write_action_report(artifact_context, report)
             write_action_analysis(
@@ -309,10 +324,54 @@ def _execute_action(
                 "phase_timings": phase_timings,
                 "language_optimization": language_optimization,
                 "transition": transition,
+                "perf_fast": perf_fast,
             }
         )
         if exit_on_error:
             sys.exit(1)
+
+
+def _resolve_artifact_context(
+    *,
+    session_context_cache,
+    bundle,
+    device_id: str,
+    platform: str,
+    action_id: str,
+    run_id: str,
+    mode: str,
+    current_app: dict | None,
+):
+    """Build the artifact context, reusing session-invariant device/app context.
+
+    For a persistent session (``session_context_cache`` provided) the device/app
+    context is resolved once on the first capturing run and reused afterwards, so
+    later runs pay no ADB / uiautomator / app_current cost for it. The single-shot
+    bridge passes no cache and recomputes per run, but still reuses ``current_app``
+    to avoid a redundant app_current() round-trip.
+    """
+    session_context = None
+    if session_context_cache is not None:
+        if session_context_cache.value is None:
+            session_context_cache.value = resolve_session_invariant_context(
+                bundle=bundle,
+                device_id=device_id,
+                platform=platform,
+                current_app=current_app,
+            )
+        session_context = session_context_cache.value
+
+    return build_artifact_context(
+        bot_root=_BOT_ROOT,
+        bundle=bundle,
+        device_id=device_id,
+        platform=platform,
+        action_id=action_id,
+        run_id=run_id,
+        mode=mode,
+        session_context=session_context,
+        current_app=current_app,
+    )
 
 
 def _detect_and_optimize_selectors(platform: str, device_facade) -> dict:
@@ -410,6 +469,11 @@ def _platform_from_action_id(action_id: str) -> str:
 
 def _should_capture_artifacts(config: dict) -> bool:
     return config.get("mode") == "lab" or config.get("capture_artifacts") is True
+
+
+def _is_perf_fast(config: dict) -> bool:
+    """Opt-in pure-timing mode: build the report but skip XML/PNG capture."""
+    return config.get("perf_fast") is True
 
 
 def _build_run_id(action_id: str) -> str:

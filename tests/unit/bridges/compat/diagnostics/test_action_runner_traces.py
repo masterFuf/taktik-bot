@@ -3,6 +3,7 @@
 import re
 
 from bridges.compat.diagnostics.runtime.action_test import runner as action_runner
+from bridges.compat.diagnostics.runtime.action_test import session as action_session
 from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
 
@@ -340,6 +341,88 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     analysis = Path(artifacts["analysis"]).read_text(encoding="utf-8")
     assert '"recommendations"' in analysis
     assert '"selectorSummary"' in analysis
+
+
+def test_execute_action_perf_fast_skips_media_but_keeps_report(monkeypatch, tmp_path):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+    monkeypatch.setattr(action_runner, "_BOT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        "bridges.compat.diagnostics.runtime.action_test.artifacts._resolve_app_version",
+        lambda device_id, package_name, platform: "410.0.0.53.71",
+    )
+
+    bundle = _FakeBundle()
+
+    def run_action(fake_bundle, params):
+        fake_bundle.state = "after"
+        return True
+
+    action_runner._execute_action(
+        {"post.like": run_action},
+        "post.like",
+        bundle,
+        {},
+        SelectorTracer(),
+        platform="instagram",
+        device_id="device-1",
+        mode="lab",
+        capture_artifacts=True,
+        perf_fast=True,
+    )
+
+    artifacts = emitted[0]["artifacts"]
+    # Report is still produced (timings persisted) but no XML/PNG capture happened.
+    assert artifacts["report"].endswith("report.json")
+    assert "xmlBefore" not in artifacts
+    assert "screenshotBefore" not in artifacts
+    assert emitted[0]["perf_fast"] is True
+    assert "artifactsBeforeMs" not in emitted[0]["phase_timings"]
+
+    report = Path(artifacts["report"]).read_text(encoding="utf-8")
+    assert '"perfFast": true' in report
+
+
+def test_execute_action_session_cache_reused_across_runs(monkeypatch, tmp_path):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+    monkeypatch.setattr(action_runner, "_BOT_ROOT", tmp_path)
+
+    version_calls = []
+
+    def fake_version(device_id, package_name, platform):
+        version_calls.append(package_name)
+        return "410.0.0.53.71"
+
+    monkeypatch.setattr(
+        "bridges.compat.diagnostics.runtime.action_test.artifacts._resolve_app_version",
+        fake_version,
+    )
+
+    cache = action_session._SessionContextCache()
+
+    def run_action(fake_bundle, params):
+        fake_bundle.state = "after"
+        return True
+
+    for _ in range(2):
+        bundle = _FakeBundle()
+        action_runner._execute_action(
+            {"post.like": run_action},
+            "post.like",
+            bundle,
+            {},
+            SelectorTracer(),
+            platform="instagram",
+            device_id="device-1",
+            mode="lab",
+            capture_artifacts=True,
+            session_context_cache=cache,
+        )
+
+    # The session-invariant context (hence app version resolution) is resolved once.
+    assert len(version_calls) == 1
+    assert cache.value is not None
 
 
 def test_action_artifacts_use_bot_debug_ui_root():
