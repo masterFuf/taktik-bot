@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram quality/refactor audit progress was updated after the Electron Taktik Agent and Cold DM stream/launch extraction lots; global front/Electron estimate is now 70% and the P1 process-runner track is now 82%.
 - Instagram quality/refactor audit now includes a dated progress estimate by P0/P1/P2 area and reflects the current Electron publish service split instead of the old monolithic `instagram-upload.ts` risk state.
 - Instagram screen detection now batches common home/search/profile/story/post probes on one XML snapshot when available, reusing the result briefly during one screen resolution pass and falling back to live XPath checks for selectors that cannot be evaluated locally.
 - Cartography Lab action reports now include `phaseTimings` for artifact context, screen probes, app-current probes, XML/PNG captures and action execution, making selector/navigation performance bottlenecks auditable before changing production behavior.

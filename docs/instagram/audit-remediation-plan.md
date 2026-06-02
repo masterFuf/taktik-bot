@@ -150,6 +150,13 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
+Etat au 2026-06-02 : **82% avance cote front/Electron**.
+
+Derniere mise a jour : les handlers Electron Taktik Agent et Cold DM ne portent
+plus directement leurs bindings `stdout/stderr`, leur config temporaire ni leur
+spawn bridge. Les responsabilites sont maintenant separees entre `bridge/`,
+`launch/` et `runtime/` sous `front/electron/services/platforms/instagram/**`.
+
 ### Pattern cible
 
 ```mermaid
@@ -168,9 +175,10 @@ flowchart LR
 | Handler | Etat cible |
 |---|---|
 | `engagement/dm.ts` | Reference actuelle, deja proche du bon pattern. |
-| `engagement/coldDm.ts` | Migrer vers runner central. |
+| `engagement/coldDm.ts` | Streams et launch externalises ; reste event terminal/stop a comparer au runner cible. |
 | `scraping/scraping.ts` | Migrer progressivement, en gardant le live state. |
 | `automation/bot.ts` | Extraire parsing events avant migration complete. |
+| `agent/taktikAgent.ts` | Streams et launch externalises ; reste stop/lifecycle a rapprocher d'un service domaine complet. |
 
 ## P1-3 Publishing Instagram
 
