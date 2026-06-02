@@ -85,6 +85,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         emit({"type": "result", "success": False, "message": f"Action init failed: {exc}\n{traceback.format_exc()}"})
         sys.exit(1)
 
+    language_optimization = _detect_and_optimize_selectors(platform, device_facade)
     tracer = _install_selector_tracer(device_facade)
     _execute_action(
         action_registry,
@@ -96,6 +97,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         device_id=device_id,
         mode=mode,
         capture_artifacts=capture_artifacts,
+        language_optimization=language_optimization,
     )
 
 
@@ -121,6 +123,7 @@ def _execute_action(
     device_id: str = "unknown-device",
     mode: str = "manual",
     capture_artifacts: bool = False,
+    language_optimization: dict | None = None,
 ) -> None:
     tracer.set_action_context(action_id)
     run_id = _build_run_id(action_id)
@@ -185,6 +188,7 @@ def _execute_action(
                 ui_action_trace=ui_action_trace,
                 artifacts=artifacts,
                 timing_ms=timing_ms,
+                language_optimization=language_optimization,
             )
             write_action_report(artifact_context, report)
         emit(
@@ -195,6 +199,7 @@ def _execute_action(
                 "selector_traces": tracer.traces,
                 "ui_action_trace": ui_action_trace,
                 "artifacts": artifacts or None,
+                "language_optimization": language_optimization,
             }
         )
     except Exception as exc:
@@ -234,6 +239,7 @@ def _execute_action(
                 artifacts=artifacts,
                 timing_ms=timing_ms,
                 error=str(exc),
+                language_optimization=language_optimization,
             )
             write_action_report(artifact_context, report)
         emit(
@@ -244,9 +250,58 @@ def _execute_action(
                 "selector_traces": tracer.traces,
                 "ui_action_trace": ui_action_trace,
                 "artifacts": artifacts or None,
+                "language_optimization": language_optimization,
             }
         )
         sys.exit(1)
+
+
+def _detect_and_optimize_selectors(platform: str, device_facade) -> dict:
+    started_at = time.perf_counter()
+    try:
+        if platform == "instagram":
+            from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+        elif platform == "tiktok":
+            from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
+        else:
+            return {
+                "platform": platform,
+                "language": "unknown",
+                "applied": False,
+                "reason": "unsupported_platform",
+                "timingMs": 0,
+            }
+
+        language = detect_and_optimize(device_facade)
+        payload = {
+            "platform": platform,
+            "language": language,
+            "applied": language not in (None, "", "unknown"),
+            "reason": None if language not in (None, "", "unknown") else "language_unknown",
+            "timingMs": round((time.perf_counter() - started_at) * 1000, 2),
+        }
+        logger.info(
+            f"Action-test selectors optimized for language={payload['language']} "
+            f"platform={platform}"
+        )
+        emit(
+            {
+                "type": "log",
+                "level": "info",
+                "message": f"App language detected: {str(payload['language']).upper()}",
+                "language_optimization": payload,
+            }
+        )
+        return payload
+    except Exception as exc:
+        logger.warning(f"Language selector optimization failed (non-fatal): {exc}")
+        return {
+            "platform": platform,
+            "language": "unknown",
+            "applied": False,
+            "reason": "detection_failed",
+            "timingMs": round((time.perf_counter() - started_at) * 1000, 2),
+        }
 
 
 def _build_ui_action_trace(

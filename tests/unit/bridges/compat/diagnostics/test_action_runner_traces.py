@@ -170,6 +170,13 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
         device_id="device-1",
         mode="lab",
         capture_artifacts=True,
+        language_optimization={
+            "platform": "instagram",
+            "language": "fr",
+            "applied": True,
+            "reason": None,
+            "timingMs": 12.3,
+        },
     )
 
     artifacts = emitted[0]["artifacts"]
@@ -189,6 +196,8 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     assert '"selectorHealth"' in report
     assert '"resolution"' in report
     assert '"densityDpi": 420' in report
+    assert '"language": "fr"' in report
+    assert '"languageOptimization"' in report
     assert '"model": "Oukitel C57 S"' in report
     assert '"version": "410.0.0.53.71"' in report
 

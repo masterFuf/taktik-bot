@@ -136,6 +136,7 @@ def build_report_payload(
     ui_action_trace: dict,
     artifacts: dict[str, str],
     timing_ms: float,
+    language_optimization: dict[str, Any] | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
     """Build the on-disk report used by humans and future selector-health jobs."""
@@ -167,6 +168,7 @@ def build_report_payload(
             "intent": ui_action_trace.get("intent"),
             "params": _summarize_params(params),
         },
+        "languageOptimization": language_optimization,
         "screens": {
             "before": screen_before,
             "after": screen_after,

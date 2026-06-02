@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Cartography Lab action-test runs now reuse the same production app-language selector optimization (`detect_and_optimize`) before tracing actions, and persist the detected language/optimization status in `report.json`.
 - Cartography Lab `report.json` device metadata now includes model, manufacturer, Android version, `densityDpi` and `scaledDensity` when available, so Front comparison can detect resolution/DPI-specific selector behavior across devices.
 - Cartography Lab action artifacts now use a device/platform/app-version/action scoped layout under `debug_ui/cartography/<device_id>/<platform>/<app_version>/action-runs/<action_id>/<run_id>/` and write a complete local `report.json` alongside before/after XML and screenshots.
 - Fixed Cartography Lab action artifacts after the diagnostics owner split: `action_test/runner.py` now writes XML/PNG captures under `bot/debug_ui/cartography/**` again instead of the accidental `bot/bridges/debug_ui/**` path.
