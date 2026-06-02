@@ -6,15 +6,15 @@ from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.automa
     build_workflow_config,
     instrument_workflow_runner,
 )
-from bridges.compat.diagnostics.runtime.workflow_test.catalog import (
+from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import (
     INSTAGRAM_AUTOMATION_WF,
     INSTAGRAM_DM_WF,
     INSTAGRAM_PUBLISH_WF,
     INSTAGRAM_SCRAPING_WF,
 )
-from bridges.compat.diagnostics.runtime.workflow_test.dispatch_result import WorkflowDispatchResult
+from bridges.compat.diagnostics.runtime.workflow_test.contracts.dispatch import WorkflowDispatchResult
 from bridges.compat.diagnostics.runtime.workflow_test.observability import set_active_watchdog
-from bridges.compat.diagnostics.runtime.workflow_test.runners import (
+from bridges.compat.diagnostics.runtime.workflow_test.execution.runners import (
     run_instagram_dm,
     run_instagram_publish,
     run_instagram_scraping,

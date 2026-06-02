@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import json
 import sys
 
-from bridges.compat.diagnostics.runtime.workflow_test.catalog import DEFAULT_CONFIGS, NEEDS_TARGET
+from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import DEFAULT_CONFIGS, NEEDS_TARGET
 
 
 @dataclass
@@ -69,4 +69,3 @@ def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
 
 
 __all__ = ["WorkflowTestRequest", "load_workflow_test_request"]
-

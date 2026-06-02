@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Compatibility diagnostics bridge entrypoints now live under `bridges/compat/diagnostics/entrypoints/**`; the launcher/manifest point to those real owners instead of flat files at the diagnostics root.
+- Compatibility workflow-test runtime is now split by responsibility under `workflow_test/{config,contracts,execution,observability,reporting,platforms}/`, leaving the workflow-test root as a package boundary instead of a mixed module bucket.
+- `scripts/audit_diagnostics_runtime_layout.py` now guards the diagnostics root, runtime root and workflow-test root against new flat modules.
 - Compatibility diagnostics runtime is now organized by owner: `runtime/action_test/**`, `runtime/selector_test/**`, `runtime/workflow_test/**` and `runtime/registry/**` replace the previous flat pile of `workflow_*`, `selector_*`, `bundles_*` and registry modules.
 - Added `scripts/audit_diagnostics_runtime_layout.py` to block new flat modules or legacy imports under the compat diagnostics runtime.
 - Compatibility action-test diagnostics now support Lab-mode XML/PNG artifact capture under `debug_ui/cartography/<platform>/action-runs/`, returning file paths only through JSON stdout.

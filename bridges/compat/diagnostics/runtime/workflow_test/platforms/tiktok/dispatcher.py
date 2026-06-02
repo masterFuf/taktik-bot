@@ -1,12 +1,12 @@
 ﻿"""TikTok workflow dispatch for the compat workflow diagnostic bridge."""
 
-from bridges.compat.diagnostics.runtime.workflow_test.catalog import (
+from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import (
     TIKTOK_AUTOMATION_WF,
     TIKTOK_DM_WF,
     TIKTOK_SCRAPING_WF,
 )
-from bridges.compat.diagnostics.runtime.workflow_test.dispatch_result import WorkflowDispatchResult
-from bridges.compat.diagnostics.runtime.workflow_test.runners import (
+from bridges.compat.diagnostics.runtime.workflow_test.contracts.dispatch import WorkflowDispatchResult
+from bridges.compat.diagnostics.runtime.workflow_test.execution.runners import (
     run_tiktok_automation,
     run_tiktok_dm,
     run_tiktok_publish,

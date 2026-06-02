@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from bridges.compat.diagnostics.runtime.workflow_test.dispatch_result import WorkflowDispatchResult
+from bridges.compat.diagnostics.runtime.workflow_test.contracts.dispatch import WorkflowDispatchResult
 from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.dispatcher import dispatch_instagram_workflow
 from bridges.compat.diagnostics.runtime.workflow_test.platforms.tiktok.dispatcher import dispatch_tiktok_workflow
 
