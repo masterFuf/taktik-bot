@@ -1,5 +1,8 @@
 """Live selector execution helpers for compat selector diagnostics."""
 
+import time
+
+from lxml import etree
 from loguru import logger
 
 
@@ -19,6 +22,13 @@ def filter_selectors_by_domain(all_selectors: dict, domain_filter: list) -> dict
 def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
     """Test every XPath from the selector registry against the live device."""
     results = []
+    xml_tree, snapshot_error = _build_snapshot_tree(device)
+    mode = "xml_snapshot" if xml_tree is not None else "live_device"
+
+    if snapshot_error:
+        logger.warning(f"Selector snapshot unavailable, falling back to live XPath calls: {snapshot_error}")
+    else:
+        logger.info("Selector test runner using one XML snapshot for local XPath evaluation")
 
     for action, entry in sorted(all_selectors.items()):
         domain = action.split(".")[0]
@@ -30,12 +40,20 @@ def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
         for xpath in entry.xpaths:
             found = False
             error_msg = None
+            elapsed_ms = 0.0
+            execution_mode = mode
 
-            try:
-                found = device.xpath(xpath).exists
-            except Exception as exc:
-                error_msg = str(exc)
-                logger.warning(f"XPath error for {action}: {exc}")
+            started_at = time.perf_counter()
+            if xml_tree is not None:
+                try:
+                    found = bool(xml_tree.xpath(xpath))
+                except Exception as exc:
+                    logger.warning(f"Local XPath error for {action}, falling back to live device: {exc}")
+                    execution_mode = "live_device_fallback"
+                    found, error_msg = _run_live_xpath(device, xpath, action)
+            else:
+                found, error_msg = _run_live_xpath(device, xpath, action)
+            elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
 
             if found:
                 action_has_match = True
@@ -45,6 +63,8 @@ def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
                     "xpath": xpath,
                     "found": found,
                     "error": error_msg,
+                    "elapsed_ms": elapsed_ms,
+                    "mode": execution_mode,
                 }
             )
 
@@ -63,6 +83,22 @@ def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
             ipc.send("progress", current=len(results), total=len(all_selectors), action=action)
 
     return results
+
+
+def _build_snapshot_tree(device):
+    try:
+        xml = device.dump_hierarchy(compressed=False)
+        return etree.fromstring(xml.encode("utf-8")), None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _run_live_xpath(device, xpath: str, action: str) -> tuple[bool, str | None]:
+    try:
+        return bool(device.xpath(xpath).exists), None
+    except Exception as exc:
+        logger.warning(f"XPath error for {action}: {exc}")
+        return False, str(exc)
 
 
 def summarize_selector_results(results: list[dict]) -> tuple[int, int, dict]:
@@ -85,4 +121,3 @@ def summarize_selector_results(results: list[dict]) -> tuple[int, int, dict]:
 
 
 __all__ = ["filter_selectors_by_domain", "run_selector_tests", "summarize_selector_results"]
-

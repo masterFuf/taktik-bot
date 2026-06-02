@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Selector Test diagnostics now evaluate registry XPath checks against a single XML snapshot when possible, falling back to live device XPath calls only when needed to reduce Cartography Lab latency without changing action workflows.
 - Cartography Lab analysis now treats profile-surface misses on `instagram.home` as expected negative screen-disambiguation probes instead of false `context_gate` warnings.
 - Cartography Lab screen resolution now skips broad story/post probes once `instagram.home` is resolved, reducing noisy selector-health warnings on feed runs without removing story/reel selectors from their real surfaces.
 - Cartography Lab screen resolution now prefers `instagram.home` before broad post/search probes, and Instagram search-tab selectors require `selected="true"` to avoid feed runs being misclassified as `instagram.post` or `instagram.search`.
