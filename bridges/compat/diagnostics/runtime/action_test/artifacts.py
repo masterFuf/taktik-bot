@@ -30,6 +30,11 @@ class ActionArtifactContext:
     mode: str
     package_name: str | None
     resolution: dict[str, int] | None
+    model: str | None
+    manufacturer: str | None
+    android_version: str | None
+    density_dpi: int | None
+    scaled_density: float | None
     started_at: str
 
     @property
@@ -64,6 +69,7 @@ def build_artifact_context(
     """Create the filesystem context before writing XML/PNG/report files."""
     package_name = _resolve_package_name(bundle, platform)
     app_version = _resolve_app_version(device_id, package_name, platform)
+    device_metadata = _resolve_device_metadata(bundle, device_id)
     return ActionArtifactContext(
         bot_root=bot_root,
         device_id=device_id or UNKNOWN_DEVICE,
@@ -74,6 +80,11 @@ def build_artifact_context(
         mode=mode or "manual",
         package_name=package_name,
         resolution=_resolve_resolution(bundle),
+        model=device_metadata.get("model"),
+        manufacturer=device_metadata.get("manufacturer"),
+        android_version=device_metadata.get("android_version"),
+        density_dpi=device_metadata.get("density_dpi"),
+        scaled_density=device_metadata.get("scaled_density"),
         started_at=_utc_now(),
     )
 
@@ -137,7 +148,12 @@ def build_report_payload(
         "finishedAt": _utc_now(),
         "device": {
             "id": context.device_id,
+            "model": context.model,
+            "manufacturer": context.manufacturer,
+            "androidVersion": context.android_version,
             "resolution": context.resolution,
+            "densityDpi": context.density_dpi,
+            "scaledDensity": context.scaled_density,
         },
         "app": {
             "platform": context.platform,
@@ -193,6 +209,11 @@ def artifact_dir_for(
         mode="lab",
         package_name=None,
         resolution=None,
+        model=None,
+        manufacturer=None,
+        android_version=None,
+        density_dpi=None,
+        scaled_density=None,
         started_at=_utc_now(),
     )
     return context.artifact_dir
@@ -248,6 +269,85 @@ def _resolve_resolution(bundle: Any) -> dict[str, int] | None:
         logger.debug(f"Could not resolve screen resolution: {exc}")
 
     return None
+
+
+def _resolve_device_metadata(bundle: Any, device_id: str) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "model": None,
+        "manufacturer": None,
+        "android_version": None,
+        "density_dpi": None,
+        "scaled_density": None,
+    }
+
+    try:
+        info = _get_raw_device_info(bundle)
+        if isinstance(info, dict):
+            metadata["model"] = _first_text(info, "productName", "model", "displayName")
+            metadata["manufacturer"] = _first_text(info, "brand", "manufacturer")
+            metadata["android_version"] = _first_text(info, "release", "androidVersion")
+            metadata["density_dpi"] = _first_int(info, "displayDensity", "densityDpi", "density")
+            metadata["scaled_density"] = _first_float(info, "scaledDensity")
+    except Exception as exc:
+        logger.debug(f"Could not resolve device metadata from uiautomator info: {exc}")
+
+    if metadata["density_dpi"] is None:
+        metadata["density_dpi"] = _resolve_density_from_adb(device_id)
+
+    return metadata
+
+
+def _get_raw_device_info(bundle: Any) -> dict | None:
+    device = getattr(bundle, "device", None)
+    raw_device = getattr(device, "_device", None)
+    info = getattr(raw_device, "info", None)
+    return info if isinstance(info, dict) else None
+
+
+def _first_text(info: dict, *keys: str) -> str | None:
+    for key in keys:
+        value = info.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _first_int(info: dict, *keys: str) -> int | None:
+    for key in keys:
+        value = info.get(key)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.strip().isdigit():
+            return int(value.strip())
+    return None
+
+
+def _first_float(info: dict, *keys: str) -> float | None:
+    for key in keys:
+        value = info.get(key)
+        if isinstance(value, (float, int)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value.strip())
+            except ValueError:
+                continue
+    return None
+
+
+def _resolve_density_from_adb(device_id: str) -> int | None:
+    if not device_id or device_id == UNKNOWN_DEVICE:
+        return None
+
+    try:
+        from taktik.core.shared.device.adb import run_adb_shell
+
+        output = run_adb_shell(device_id, "wm density")
+        match = re.search(r"(?:Physical|Override)\s+density:\s*(\d+)", output or "")
+        return int(match.group(1)) if match else None
+    except Exception as exc:
+        logger.debug(f"Could not resolve screen density via ADB: {exc}")
+        return None
 
 
 def _safe_get_xml(bundle: Any) -> str | None:

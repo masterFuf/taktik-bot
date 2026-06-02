@@ -14,6 +14,14 @@ class _FakeSelector:
 
 
 class _FakeRawDevice:
+    info = {
+        "productName": "Oukitel C57 S",
+        "brand": "Oukitel",
+        "release": "14",
+        "displayDensity": 420,
+        "scaledDensity": 2.75,
+    }
+
     def app_current(self):
         return {"package": "com.instagram.android", "activity": "MainActivity"}
 
@@ -180,6 +188,8 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     report = Path(artifacts["report"]).read_text(encoding="utf-8")
     assert '"selectorHealth"' in report
     assert '"resolution"' in report
+    assert '"densityDpi": 420' in report
+    assert '"model": "Oukitel C57 S"' in report
     assert '"version": "410.0.0.53.71"' in report
 
 
