@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Fixed Cartography Lab action artifacts after the diagnostics owner split: `action_test/runner.py` now writes XML/PNG captures under `bot/debug_ui/cartography/**` again instead of the accidental `bot/bridges/debug_ui/**` path.
 - Compatibility diagnostics bridge entrypoints now live under `bridges/compat/diagnostics/entrypoints/**`; the launcher/manifest point to those real owners instead of flat files at the diagnostics root.
 - Compatibility workflow-test runtime is now split by responsibility under `workflow_test/{config,contracts,execution,observability,reporting,platforms}/`, leaving the workflow-test root as a package boundary instead of a mixed module bucket.
 - `scripts/audit_diagnostics_runtime_layout.py` now guards the diagnostics root, runtime root and workflow-test root against new flat modules.

@@ -139,3 +139,12 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
         assert Path(path).exists()
 
     assert "<hierarchy>" not in str(emitted[0])
+
+
+def test_action_artifacts_use_bot_debug_ui_root():
+    expected_bot_root = Path(action_runner.__file__).resolve().parents[5]
+
+    assert action_runner._BOT_ROOT == expected_bot_root
+    assert action_runner._artifact_dir("instagram", "run-1") == (
+        expected_bot_root / "debug_ui" / "cartography" / "instagram" / "action-runs" / "run-1"
+    )

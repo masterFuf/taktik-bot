@@ -13,7 +13,7 @@ from bridges.compat.diagnostics.runtime.events import emit
 from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
 
-_BOT_ROOT = Path(__file__).resolve().parents[4]
+_BOT_ROOT = Path(__file__).resolve().parents[5]
 
 
 def run_action_test_bridge(action_registry: dict, create_device_facade, build_action_bundle) -> None:
