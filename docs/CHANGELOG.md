@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Cartography Lab action run folders now use a human-readable UTC timestamp in `runId` (`<action>_YYYYMMDDTHHMMSSmmmZ`) while reports keep `startedAt`/`finishedAt`, making before/after selector-fix comparisons easier.
 - Instagram screen detection now treats the selected `feed_tab` resource-id as a language-neutral home/feed indicator and guards profile detection with profile-surface evidence, preventing Cartography Lab false `instagram.profile` classifications on feed posts (`row_feed_profile_header`).
 - Cartography Lab action reports now include expected-screen transition validation plus a read-only `analysis.json` sidecar with selector health recommendations (`keep`, `watch`, `context_gate`) for KPI review.
 - Cartography Lab action-test runs now reuse the same production app-language selector optimization (`detect_and_optimize`) before tracing actions, and persist the detected language/optimization status in `report.json`.

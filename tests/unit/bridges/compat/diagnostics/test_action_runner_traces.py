@@ -1,5 +1,7 @@
 ﻿from pathlib import Path
 
+import re
+
 from bridges.compat.diagnostics.runtime.action_test import runner as action_runner
 from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
@@ -254,3 +256,9 @@ def test_action_artifacts_use_bot_debug_ui_root():
         / "navigation.go_home"
         / "run-1"
     )
+
+
+def test_build_run_id_uses_readable_utc_timestamp():
+    run_id = action_runner._build_run_id("navigation.go_home")
+
+    assert re.match(r"^navigation.go_home_\d{8}T\d{9}Z$", run_id)

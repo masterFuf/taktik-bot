@@ -5,6 +5,7 @@ import re
 import sys
 import time
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 
 from loguru import logger
@@ -364,7 +365,8 @@ def _should_capture_artifacts(config: dict) -> bool:
 
 def _build_run_id(action_id: str) -> str:
     safe_action = re.sub(r"[^a-zA-Z0-9_.-]+", "_", action_id).strip("._") or "action"
-    return f"{safe_action}_{int(time.time() * 1000)}"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")[:-3] + "Z"
+    return f"{safe_action}_{timestamp}"
 
 
 def _artifact_dir(
