@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Compatibility action-test diagnostics now support Lab-mode XML/PNG artifact capture under `debug_ui/cartography/<platform>/action-runs/`, returning file paths only through JSON stdout.
 - Compatibility action-test diagnostics now emit enriched `selector_traces` plus a lightweight `ui_action_trace` with action intent, screen-before/screen-after, fallback usage and timing for Cartography Lab observability.
 - Added `scripts/capture_surface.py`, a Cartography Lab helper that captures paired UI XML dumps and PNG screenshots per platform/surface under `debug_ui/cartography/<platform>/<surface>/`.
 - Cartography Lab handoff notes from the temporary root `bot/CHANGELOG.md` were merged back into this official Bot changelog.

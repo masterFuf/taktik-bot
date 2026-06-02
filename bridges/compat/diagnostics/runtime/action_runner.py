@@ -1,14 +1,19 @@
 """Shared action-test runner for compat diagnostics bridges."""
 
 import json
+import re
 import sys
 import time
 import traceback
+from pathlib import Path
 
 from loguru import logger
 
 from bridges.compat.diagnostics.runtime.events import emit
 from bridges.compat.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
+
+
+_BOT_ROOT = Path(__file__).resolve().parents[4]
 
 
 def run_action_test_bridge(action_registry: dict, create_device_facade, build_action_bundle) -> None:
@@ -28,6 +33,8 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
     device_id = config.get("device_id", "")
     action_id = config.get("action_id", "")
     params = config.get("params", {})
+    platform = config.get("platform", _platform_from_action_id(action_id))
+    capture_artifacts = _should_capture_artifacts(config)
 
     if not device_id:
         emit({"type": "result", "success": False, "message": "Missing device_id"})
@@ -71,7 +78,15 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         sys.exit(1)
 
     tracer = _install_selector_tracer(device_facade)
-    _execute_action(action_registry, action_id, bundle, params, tracer)
+    _execute_action(
+        action_registry,
+        action_id,
+        bundle,
+        params,
+        tracer,
+        platform=platform,
+        capture_artifacts=capture_artifacts,
+    )
 
 
 def _install_selector_tracer(device_facade):
@@ -85,12 +100,23 @@ def _install_selector_tracer(device_facade):
     return tracer
 
 
-def _execute_action(action_registry: dict, action_id: str, bundle, params: dict, tracer: SelectorTracer) -> None:
+def _execute_action(
+    action_registry: dict,
+    action_id: str,
+    bundle,
+    params: dict,
+    tracer: SelectorTracer,
+    *,
+    platform: str = "unknown",
+    capture_artifacts: bool = False,
+) -> None:
     tracer.set_action_context(action_id)
+    run_id = _build_run_id(action_id)
     screen_probe_start = len(tracer.traces)
     screen_before = _detect_screen(bundle)
     tracer.set_screen_for_traces_since(screen_probe_start, screen_before)
     tracer.set_screen(screen_before)
+    artifacts = _capture_phase_artifacts(bundle, platform, action_id, run_id, "before") if capture_artifacts else {}
     started_at = time.perf_counter()
 
     try:
@@ -102,6 +128,9 @@ def _execute_action(action_registry: dict, action_id: str, bundle, params: dict,
         screen_after = _detect_screen(bundle)
         tracer.set_screen_for_traces_since(screen_probe_start, screen_after)
         tracer.set_screen(screen_after)
+        artifacts.update(
+            _capture_phase_artifacts(bundle, platform, action_id, run_id, "after") if capture_artifacts else {}
+        )
         message = f"Action '{action_id}' {'succeeded' if success else 'failed'}"
         matched = sum(1 for trace in tracer.traces if trace["found"])
         logger.info(f"{message} - selectors: {matched}/{len(tracer.traces)} matched")
@@ -119,6 +148,7 @@ def _execute_action(action_registry: dict, action_id: str, bundle, params: dict,
                     selector_traces=tracer.traces,
                     timing_ms=timing_ms,
                 ),
+                "artifacts": artifacts or None,
             }
         )
     except Exception as exc:
@@ -127,6 +157,9 @@ def _execute_action(action_registry: dict, action_id: str, bundle, params: dict,
         screen_after = _detect_screen(bundle)
         tracer.set_screen_for_traces_since(screen_probe_start, screen_after)
         tracer.set_screen(screen_after)
+        artifacts.update(
+            _capture_phase_artifacts(bundle, platform, action_id, run_id, "after") if capture_artifacts else {}
+        )
         tb = traceback.format_exc()
         logger.error(f"Action '{action_id}' raised exception: {exc}\n{tb}")
         emit(
@@ -143,6 +176,7 @@ def _execute_action(action_registry: dict, action_id: str, bundle, params: dict,
                     selector_traces=tracer.traces,
                     timing_ms=timing_ms,
                 ),
+                "artifacts": artifacts or None,
             }
         )
         sys.exit(1)
@@ -175,6 +209,66 @@ def _intent_from_action_id(action_id: str) -> str:
     if parts[0] == "tt" and len(parts) > 1:
         return parts[1]
     return parts[0]
+
+
+def _platform_from_action_id(action_id: str) -> str:
+    return "tiktok" if action_id.startswith("tt.") else "instagram"
+
+
+def _should_capture_artifacts(config: dict) -> bool:
+    return config.get("mode") == "lab" or config.get("capture_artifacts") is True
+
+
+def _build_run_id(action_id: str) -> str:
+    safe_action = re.sub(r"[^a-zA-Z0-9_.-]+", "_", action_id).strip("._") or "action"
+    return f"{safe_action}_{int(time.time() * 1000)}"
+
+
+def _capture_phase_artifacts(bundle, platform: str, action_id: str, run_id: str, phase: str) -> dict:
+    artifacts = {}
+    artifact_dir = _artifact_dir(platform, run_id)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    xml = _safe_get_xml(bundle)
+    if xml:
+        xml_path = artifact_dir / f"{phase}.xml"
+        xml_path.write_text(xml, encoding="utf-8")
+        artifacts[f"xml{phase.title()}"] = str(xml_path)
+
+    screenshot_path = artifact_dir / f"{phase}.png"
+    if _safe_screenshot(bundle, screenshot_path):
+        artifacts[f"screenshot{phase.title()}"] = str(screenshot_path)
+
+    logger.debug(f"Cartography artifacts captured for {action_id} phase={phase}: {artifacts}")
+    return artifacts
+
+
+def _artifact_dir(platform: str, run_id: str) -> Path:
+    safe_platform = re.sub(r"[^a-zA-Z0-9_-]+", "_", platform or "unknown").strip("_") or "unknown"
+    return _BOT_ROOT / "debug_ui" / "cartography" / safe_platform / "action-runs" / run_id
+
+
+def _safe_get_xml(bundle) -> str | None:
+    try:
+        device = getattr(bundle, "device", None)
+        if device is None or not hasattr(device, "get_xml_dump"):
+            return None
+        xml = device.get_xml_dump()
+        return xml if isinstance(xml, str) and xml else None
+    except Exception as exc:
+        logger.debug(f"XML artifact capture failed: {exc}")
+        return None
+
+
+def _safe_screenshot(bundle, path: Path) -> bool:
+    try:
+        device = getattr(bundle, "device", None)
+        if device is None or not hasattr(device, "screenshot"):
+            return False
+        return bool(device.screenshot(str(path)))
+    except Exception as exc:
+        logger.debug(f"Screenshot artifact capture failed: {exc}")
+        return False
 
 
 def _detect_screen(bundle) -> str:

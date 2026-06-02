@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from bridges.compat.diagnostics.runtime import action_runner
 from bridges.compat.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
 
@@ -18,6 +20,13 @@ class _FakeRawDevice:
 
 class _FakeDevice:
     _device = _FakeRawDevice()
+
+    def get_xml_dump(self):
+        return "<hierarchy><node text='test' /></hierarchy>"
+
+    def screenshot(self, path: str) -> bool:
+        Path(path).write_bytes(b"fake-png")
+        return True
 
 
 class _FakeDetection:
@@ -97,3 +106,36 @@ def test_execute_action_emits_ui_action_trace(monkeypatch):
     assert payload["ui_action_trace"]["screenAfter"] == "instagram.profile"
     assert payload["ui_action_trace"]["fallbackUsed"] is True
     assert isinstance(payload["ui_action_trace"]["timingMs"], float)
+
+
+def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+    monkeypatch.setattr(action_runner, "_BOT_ROOT", tmp_path)
+
+    bundle = _FakeBundle()
+
+    def run_action(fake_bundle, params):
+        fake_bundle.state = "after"
+        return True
+
+    action_runner._execute_action(
+        {"post.like": run_action},
+        "post.like",
+        bundle,
+        {},
+        SelectorTracer(),
+        platform="instagram",
+        capture_artifacts=True,
+    )
+
+    artifacts = emitted[0]["artifacts"]
+    assert artifacts["xmlBefore"].endswith("before.xml")
+    assert artifacts["xmlAfter"].endswith("after.xml")
+    assert artifacts["screenshotBefore"].endswith("before.png")
+    assert artifacts["screenshotAfter"].endswith("after.png")
+
+    for path in artifacts.values():
+        assert Path(path).exists()
+
+    assert "<hierarchy>" not in str(emitted[0])
