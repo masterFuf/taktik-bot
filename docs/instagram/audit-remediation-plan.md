@@ -157,12 +157,15 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
-Etat au 2026-06-02 : **82% avance cote front/Electron**.
+Etat au 2026-06-02 : **86% avance cote front/Electron**.
 
-Derniere mise a jour : les handlers Electron Taktik Agent et Cold DM ne portent
-plus directement leurs bindings `stdout/stderr`, leur config temporaire ni leur
-spawn bridge. Les responsabilites sont maintenant separees entre `bridge/`,
-`launch/` et `runtime/` sous `front/electron/services/platforms/instagram/**`.
+Derniere mise a jour : `personaAnalysis.ts` est maintenant une facade IPC qui
+delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
+`access/`, `bridge/`, `launch/`, `result/`, `runtime/` et `workflow/`. Taktik
+Agent a aussi sorti son gate validation/licence dans `TaktikAgentAccessService`.
+Les responsabilites Taktik Agent restantes sont separees entre `access/`,
+`bridge/`, `launch/` et `runtime/`, avec le lifecycle complet encore a rapprocher
+d'un service domaine.
 
 ### Pattern cible
 
@@ -185,7 +188,8 @@ flowchart LR
 | `engagement/coldDm.ts` | Streams et launch externalises ; reste event terminal/stop a comparer au runner cible. |
 | `scraping/scraping.ts` | Migrer progressivement, en gardant le live state. |
 | `automation/bot.ts` | Extraire parsing events avant migration complete. |
-| `agent/taktikAgent.ts` | Streams et launch externalises ; reste stop/lifecycle a rapprocher d'un service domaine complet. |
+| `agent/taktikAgent.ts` | Access, streams et launch externalises ; reste stop/lifecycle a rapprocher d'un service domaine complet. |
+| `agent/personaAnalysis.ts` | Handler facade ; orchestration complete sous `agent/persona-analysis/{access,bridge,launch,result,runtime,workflow}`. |
 
 ## P1-3 Publishing Instagram
 
