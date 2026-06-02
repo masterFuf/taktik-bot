@@ -115,6 +115,10 @@ def _selector_recommendations(selector_traces: list[dict[str, Any]]) -> list[dic
             recommendation = "keep"
             severity = "info"
             reason = "selector_matched"
+        elif _is_expected_negative_screen_probe(xpath, screens):
+            recommendation = "watch"
+            severity = "info"
+            reason = "screen_disambiguation_negative_probe"
         elif total_elapsed >= 1000 or calls >= 3:
             recommendation = "context_gate"
             severity = "warning"
@@ -148,6 +152,18 @@ def _selector_recommendations(selector_traces: list[dict[str, Any]]) -> list[dic
             item["xpath"],
         ),
     )
+
+
+def _is_expected_negative_screen_probe(xpath: str, screens: list[str]) -> bool:
+    if screens != ["instagram.home"]:
+        return False
+
+    profile_surface_markers = (
+        "profile_header_container",
+        "row_profile_header",
+        "profile_header_full_name",
+    )
+    return any(marker in xpath for marker in profile_surface_markers)
 
 
 def _verdict(
