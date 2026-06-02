@@ -24,6 +24,32 @@
 | P2 | POO/ORM cible | Mix POO, mixins, fonctions et SQL direct difficile a raisonner. | Roadmap Data Mapper/Unit of Work inspiree Symfony/Doctrine. |
 | P2 | Humanisation | Delais humains presents mais disperses et peu observables. | Moteur de comportement central, profils d'action, telemetry et garde-fous. |
 
+## Etat chantier au 2026-06-02
+
+> Estimation vivante, a recalculer apres chaque famille de commits importante.
+> Le pourcentage mesure le chantier `audit qualite/refacto` front + Electron
+> deja securise par code, docs et garde-fous. Il ne remplace pas les tests
+> manuels reels sur device.
+
+| Niveau | Avancement estime | Etat |
+|---|---:|---|
+| P0 Stop/cancel/session terminale | 86% | Instagram automation/scraping et TikTok workflow lifecycle sont tres avances, avec contrats anti-regression. Reste validation manuelle multi-workflow et quelques familles annexes/outils. |
+| P0 Ownership SQLite/sync | 72% | Beaucoup de handlers passent par repositories/services et `database:contracts` protege les boundaries. Reste ownership table-par-table Bot/Python vs Electron et diagnostics sync complets. |
+| P1 SQL direct handlers | 74% | `targetSearch`, scraping, DB commun, scheduler et plusieurs routes TikTok ont ete nettoyes. Reste des zones ponctuelles comme Cold DM/AI media/diagnostics et exceptions documentees. |
+| P1 Process runner uniforme | 78% | TikTok workflow, scraping Instagram et automation Instagram sont largement externalises. Reste Cold DM et certains outils compat/debug qui gardent des bindings process locaux. |
+| P1 Publish Instagram | 90% | Le handler est devenu une orchestration courte : selectors, media, caption, story, reel, carousel, creation, launch et navigation ont des services owners. Reste test manuel post/reel/carousel/story et decision long terme "exception Electron" vs bridge Python. |
+| P1 Selectors/pages/modales | 55% | Les selectors publish Electron sont centralises et le Lab cartographie progresse. Reste audit complet des autres surfaces Instagram/TikTok et nettoyage des allowlists. |
+| P1 Performance bot | 35% | Le Lab commence a remonter des timings et selector traces. Reste instrumentation runtime exploitable et remplacement progressif des sleeps fixes critiques. |
+| P2 Events Live typed | 58% | Scheduler/TikTok et plusieurs events Instagram ont des contrats centraux. Reste schema `InstagramBridgeEvent` commun par famille. |
+| P2 Bridges/debug partages | 45% | Un autre chantier Bot reorganise compat/bridges. Reste audit complet des modules transverses et suppression des shims legacy. |
+| P2 POO/ORM cible | 18% | Les repositories et services preparent le terrain, mais l'ORM/Data Mapper n'est pas encore implemente. |
+| P2 Humanisation | 22% | Les specs et la cartographie posent la trajectoire premium. Reste moteur runtime central et telemetry comportementale. |
+
+Estimation globale actuelle : environ **68%** du chantier front/Electron
+`audit qualite/refacto` est traite. Les P0 sont majoritairement colmates, mais
+pas encore "fermes" tant que les validations manuelles et l'ownership DB
+table-par-table ne sont pas termines.
+
 ## Constats par zone
 
 ### `automation/bot.ts`
@@ -133,25 +159,31 @@ Direction :
 
 Points positifs :
 
-- state machine d'ecrans explicite (`ScreenState`) ;
-- gestion clone package via `rid()` ;
-- detection UI dump, permission dialogs, media scan, Taktik Keyboard ;
-- progression operationnelle utile.
+- le handler est maintenant une orchestration IPC courte ;
+- la completion publish vit dans `InstagramPublishCompletionService` ;
+- les selectors/resource ids/textes/fallback points vivent dans
+  `InstagramPublishSelectors` ;
+- les services owners portent les sous-flux `launch`, `creation`, `story`,
+  `reel`, `carousel`, `navigation`, `media`, `text`, `dialogs`, `ui` ;
+- la validation media se fait avant `startUpload`, pour eviter un runtime actif
+  si le payload est invalide.
 
 Risques :
 
 | Constat | Pourquoi c'est fragile |
 |---|---|
 | Android pilote cote Electron | Exception forte au pattern ou le Bot controle Android. |
-| Fichier tres large | Les selectors, parser UI, ADB, media, publish et fallback sont au meme endroit. |
+| Exception directe ADB | Le handler ne spawn pas de bridge Python, donc il reste un cas a tester manuellement plus souvent. |
 | Duplication clone-aware | `rid()` TypeScript duplique l'idee de `CloneAwareDeviceProxy` Python. |
-| Selectors hors `ui/selectors` | Les ids/textes de publish vivent dans un handler Electron. |
+| Validation device obligatoire | Les flux post/reel/carousel/story doivent etre rejoues sur device apres chaque refactor de service. |
 
 Direction :
 
 1. Assumer officiellement cette exception ou migrer publish vers un bridge Python.
-2. Si on garde Electron : extraire `InstagramPublishStateMachine`, `InstagramPublishSelectors`, `InstagramMediaService`.
-3. Ajouter un contrat d'events publish identique pour manuel/scheduler.
+2. Ajouter un contrat d'events publish identique pour manuel/scheduler.
+3. Couvrir les services publish par tests unitaires la ou les dumps XML suffisent.
+4. Garder `instagram-upload.ts` en facade : aucun selector, tap adaptatif,
+   parser UI, media scan ou TypeWriter ne doit revenir dans ce handler.
 
 ### Bot Python Instagram
 

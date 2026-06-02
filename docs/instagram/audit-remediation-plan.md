@@ -174,21 +174,53 @@ flowchart LR
 
 ## P1-3 Publishing Instagram
 
+Etat au 2026-06-02 : **90% avance cote front/Electron**.
+
+Le compromis court terme retenu a ete "refactor interne sans migration" :
+`instagram-upload.ts` reste l'exception Electron/ADB, mais la logique sensible
+est sortie dans des services owners sous
+`front/electron/services/platforms/instagram/publish/**`.
+
+Services deja extraits :
+
+| Module actuel | Responsabilite |
+|---|---|
+| `publish/selectors/InstagramPublishSelectors.ts` | Resource ids, textes FR/EN, fallbacks nommes et viewports de reference. |
+| `publish/media/InstagramUploadMediaService.ts` | Resolution/validation fichiers, push device, scan MediaStore, content URI. |
+| `publish/text/InstagramUploadCaptionService.ts` | Formatage caption/hashtags. |
+| `publish/text/InstagramUploadCaptionEntryService.ts` | TypeWriter, saisie caption/hashtags, fermeture suggestions/clavier. |
+| `publish/story/InstagramUploadStoryFlowService.ts` | Swipe camera story, galerie, selection media, partage story. |
+| `publish/reel/InstagramUploadReelSelectionService.ts` | Onglet REEL, modale brouillon, selection video galerie. |
+| `publish/carousel/InstagramUploadCarouselSelectionService.ts` | Multi-select et cercles de selection galerie. |
+| `publish/creation/InstagramUploadCreationNavigationService.ts` | State machine bouton `+`, permissions apres clic, fallback top-left. |
+| `publish/launch/InstagramUploadLaunchService.ts` | Restart initial Instagram et dismissal tolerant brouillon Reel. |
+| `publish/navigation/InstagramUploadPublishNavigationService.ts` | Next/OK/caption/share adaptatifs. |
+| `publish/completion/InstagramPublishCompletionService.ts` | Polling confirmation/erreur/timeout publish. |
+
+Reste a faire pour fermer ce point :
+
+| Reste | Preuve attendue |
+|---|---|
+| Test manuel post/reel/carousel/story | Les quatre flux publient ou echouent avec un message terminal clair. |
+| Contrat events publish manuel/scheduler | Meme semantique `success/cancelled/error` et listeners nettoyes. |
+| Tests unitaires sur services parsant des dumps | Creation/reel/carousel/navigation valident les fallbacks sans device reel. |
+| Decision long terme Electron vs Bot | Exception documentee ou migration planifiee vers bridge Python. |
+
 ### Decision a prendre
 
 | Option | Avantage | Risque |
 |---|---|---|
 | Garder Electron comme exception | Moins de regression immediate, workflow deja fonctionnel. | Gros fichier sensible, selectors disperses. |
 | Migrer vers Bot Python | Cohesion avec les autres workflows Android. | Gros risque de regression publish. |
-| Refactor interne sans migration | Bon compromis court terme. | Il faut bien separer les services. |
+| Refactor interne sans migration | Bon compromis court terme, deja largement applique. | Il faut maintenir les garde-fous et tester sur device. |
 
 ### Refactor minimal recommande
 
 | Module cible | Responsabilite |
 |---|---|
-| `InstagramPublishStateMachine` | Ecrans, transitions, timeout et resultats. |
+| `InstagramUploadCreationNavigationService` | Ecrans creation, transitions bouton `+`, permissions et fallback top-left. |
 | `InstagramPublishSelectors` | Resource ids, textes FR/EN, fallback UI dump. |
-| `InstagramMediaService` | Push media, media scan, verification galerie. |
+| `InstagramUploadMediaService` | Push media, media scan, verification galerie. |
 | `InstagramPublishEvents` | Events Live communs manuel/scheduler. |
 
 ## P2 Events Live Instagram
