@@ -133,42 +133,62 @@ def _execute_action(
     request_id: str | None = None,
     exit_on_error: bool = True,
 ) -> None:
+    run_started_at = time.perf_counter()
+    phase_timings: dict[str, float] = {}
     tracer.set_action_context(action_id)
     run_id = _build_run_id(action_id)
     artifact_context = (
-        build_artifact_context(
-            bot_root=_BOT_ROOT,
-            bundle=bundle,
-            device_id=device_id,
-            platform=platform,
-            action_id=action_id,
-            run_id=run_id,
-            mode=mode,
+        _time_phase(
+            phase_timings,
+            "artifactContextMs",
+            lambda: build_artifact_context(
+                bot_root=_BOT_ROOT,
+                bundle=bundle,
+                device_id=device_id,
+                platform=platform,
+                action_id=action_id,
+                run_id=run_id,
+                mode=mode,
+            ),
         )
         if capture_artifacts
         else None
     )
     screen_probe_start = len(tracer.traces)
-    screen_before = _detect_screen(bundle)
-    current_app_before = _get_current_app(bundle)
+    screen_before = _time_phase(phase_timings, "screenBeforeMs", lambda: _detect_screen(bundle))
+    current_app_before = _time_phase(phase_timings, "currentAppBeforeMs", lambda: _get_current_app(bundle))
     tracer.set_screen_for_traces_since(screen_probe_start, screen_before)
     tracer.set_screen(screen_before)
-    artifacts = capture_phase_artifacts(bundle, artifact_context, "before") if artifact_context else {}
+    artifacts = (
+        _time_phase(
+            phase_timings,
+            "artifactsBeforeMs",
+            lambda: capture_phase_artifacts(bundle, artifact_context, "before"),
+        )
+        if artifact_context
+        else {}
+    )
     started_at = time.perf_counter()
 
     try:
         fn = action_registry[action_id]
         result = fn(bundle, params)
         success = bool(result)
-        timing_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        timing_ms = _elapsed_ms(started_at)
+        phase_timings["actionMs"] = timing_ms
         screen_probe_start = len(tracer.traces)
-        screen_after = _detect_screen(bundle)
-        current_app_after = _get_current_app(bundle)
+        screen_after = _time_phase(phase_timings, "screenAfterMs", lambda: _detect_screen(bundle))
+        current_app_after = _time_phase(phase_timings, "currentAppAfterMs", lambda: _get_current_app(bundle))
         tracer.set_screen_for_traces_since(screen_probe_start, screen_after)
         tracer.set_screen(screen_after)
-        artifacts.update(
-            capture_phase_artifacts(bundle, artifact_context, "after") if artifact_context else {}
-        )
+        if artifact_context:
+            artifacts.update(
+                _time_phase(
+                    phase_timings,
+                    "artifactsAfterMs",
+                    lambda: capture_phase_artifacts(bundle, artifact_context, "after"),
+                )
+            )
         message = f"Action '{action_id}' {'succeeded' if success else 'failed'}"
         transition = build_transition(action_id, screen_after, success)
         matched = sum(1 for trace in tracer.traces if trace["found"])
@@ -181,6 +201,7 @@ def _execute_action(
             selector_traces=tracer.traces,
             timing_ms=timing_ms,
         )
+        phase_timings["totalBeforeReportMs"] = _elapsed_ms(run_started_at)
         if artifact_context:
             artifacts["report"] = str(artifact_context.report_path)
             artifacts["analysis"] = str(artifact_context.report_path.with_name("analysis.json"))
@@ -198,6 +219,7 @@ def _execute_action(
                 ui_action_trace=ui_action_trace,
                 artifacts=artifacts,
                 timing_ms=timing_ms,
+                phase_timings=phase_timings,
                 language_optimization=language_optimization,
                 transition=transition,
             )
@@ -215,20 +237,27 @@ def _execute_action(
                 "selector_traces": tracer.traces,
                 "ui_action_trace": ui_action_trace,
                 "artifacts": artifacts or None,
+                "phase_timings": phase_timings,
                 "language_optimization": language_optimization,
                 "transition": transition,
             }
         )
     except Exception as exc:
-        timing_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        timing_ms = _elapsed_ms(started_at)
+        phase_timings["actionMs"] = timing_ms
         screen_probe_start = len(tracer.traces)
-        screen_after = _detect_screen(bundle)
-        current_app_after = _get_current_app(bundle)
+        screen_after = _time_phase(phase_timings, "screenAfterMs", lambda: _detect_screen(bundle))
+        current_app_after = _time_phase(phase_timings, "currentAppAfterMs", lambda: _get_current_app(bundle))
         tracer.set_screen_for_traces_since(screen_probe_start, screen_after)
         tracer.set_screen(screen_after)
-        artifacts.update(
-            capture_phase_artifacts(bundle, artifact_context, "after") if artifact_context else {}
-        )
+        if artifact_context:
+            artifacts.update(
+                _time_phase(
+                    phase_timings,
+                    "artifactsAfterMs",
+                    lambda: capture_phase_artifacts(bundle, artifact_context, "after"),
+                )
+            )
         tb = traceback.format_exc()
         logger.error(f"Action '{action_id}' raised exception: {exc}\n{tb}")
         transition = build_transition(action_id, screen_after, False)
@@ -240,6 +269,7 @@ def _execute_action(
             selector_traces=tracer.traces,
             timing_ms=timing_ms,
         )
+        phase_timings["totalBeforeReportMs"] = _elapsed_ms(run_started_at)
         if artifact_context:
             artifacts["report"] = str(artifact_context.report_path)
             artifacts["analysis"] = str(artifact_context.report_path.with_name("analysis.json"))
@@ -257,6 +287,7 @@ def _execute_action(
                 ui_action_trace=ui_action_trace,
                 artifacts=artifacts,
                 timing_ms=timing_ms,
+                phase_timings=phase_timings,
                 error=str(exc),
                 language_optimization=language_optimization,
                 transition=transition,
@@ -275,6 +306,7 @@ def _execute_action(
                 "selector_traces": tracer.traces,
                 "ui_action_trace": ui_action_trace,
                 "artifacts": artifacts or None,
+                "phase_timings": phase_timings,
                 "language_optimization": language_optimization,
                 "transition": transition,
             }
@@ -329,6 +361,18 @@ def _detect_and_optimize_selectors(platform: str, device_facade) -> dict:
             "reason": "detection_failed",
             "timingMs": round((time.perf_counter() - started_at) * 1000, 2),
         }
+
+
+def _time_phase(phase_timings: dict[str, float], name: str, callback):
+    phase_started_at = time.perf_counter()
+    try:
+        return callback()
+    finally:
+        phase_timings[name] = _elapsed_ms(phase_started_at)
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return round((time.perf_counter() - started_at) * 1000, 2)
 
 
 def _build_ui_action_trace(

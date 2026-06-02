@@ -179,6 +179,9 @@ def test_execute_action_emits_ui_action_trace(monkeypatch):
     assert payload["ui_action_trace"]["screenAfter"] == "instagram.profile"
     assert payload["ui_action_trace"]["fallbackUsed"] is True
     assert isinstance(payload["ui_action_trace"]["timingMs"], float)
+    assert isinstance(payload["phase_timings"]["actionMs"], float)
+    assert isinstance(payload["phase_timings"]["screenBeforeMs"], float)
+    assert isinstance(payload["phase_timings"]["screenAfterMs"], float)
 
 
 def test_execute_action_without_artifacts_stays_light(monkeypatch):
@@ -272,6 +275,7 @@ def test_execute_action_session_error_does_not_exit(monkeypatch):
     assert emitted[0]["request_id"] == "req-error"
     assert emitted[0]["success"] is False
     assert "Exception: boom" in emitted[0]["message"]
+    assert isinstance(emitted[0]["phase_timings"]["actionMs"], float)
 
 
 def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
@@ -329,6 +333,7 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     assert '"language": "fr"' in report
     assert '"languageOptimization"' in report
     assert '"model": "Oukitel C57 S"' in report
+    assert '"phaseTimings"' in report
     assert '"transition"' in report
     assert '"version": "410.0.0.53.71"' in report
 

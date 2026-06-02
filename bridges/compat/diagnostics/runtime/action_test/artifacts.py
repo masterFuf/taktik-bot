@@ -136,6 +136,7 @@ def build_report_payload(
     ui_action_trace: dict,
     artifacts: dict[str, str],
     timing_ms: float,
+    phase_timings: dict[str, Any] | None = None,
     language_optimization: dict[str, Any] | None = None,
     transition: dict[str, Any] | None = None,
     error: str | None = None,
@@ -170,6 +171,7 @@ def build_report_payload(
             "params": _summarize_params(params),
         },
         "languageOptimization": language_optimization,
+        "phaseTimings": phase_timings or {},
         "screens": {
             "before": screen_before,
             "after": screen_after,

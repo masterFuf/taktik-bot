@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Cartography Lab action reports now include `phaseTimings` for artifact context, screen probes, app-current probes, XML/PNG captures and action execution, making selector/navigation performance bottlenecks auditable before changing production behavior.
 - Cartography Lab action diagnostics now support a persistent `action_session_bridge` so Lab-mode actions can reuse one device connection, action bundle and language optimization instead of respawning the single-action bridge for every click.
 - Selector Test diagnostics now evaluate registry XPath checks against a single XML snapshot when possible, falling back to live device XPath calls only when needed to reduce Cartography Lab latency without changing action workflows.
 - Cartography Lab analysis now treats profile-surface misses on `instagram.home` as expected negative screen-disambiguation probes instead of false `context_gate` warnings.
