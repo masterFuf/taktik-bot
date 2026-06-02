@@ -86,10 +86,33 @@ class _HomeAndPostDetection:
         return True
 
 
+class _ProfileAndHomeDetection:
+    def is_story_viewer_open(self):
+        return False
+
+    def is_on_profile_screen(self):
+        return True
+
+    def is_on_home_screen(self):
+        return True
+
+    def is_on_search_screen(self):
+        return False
+
+    def is_on_post_screen(self):
+        return False
+
+
 class _HomeAndPostBundle:
     def __init__(self):
         self.device = _FakeDevice()
         self.detection = _HomeAndPostDetection()
+
+
+class _ProfileAndHomeBundle:
+    def __init__(self):
+        self.device = _FakeDevice()
+        self.detection = _ProfileAndHomeDetection()
 
 
 def test_traced_selector_records_front_contract_fields():
@@ -289,3 +312,7 @@ def test_build_run_id_uses_readable_utc_timestamp():
 
 def test_detect_screen_prefers_home_over_feed_post_indicators():
     assert action_runner._detect_screen(_HomeAndPostBundle()) == "instagram.home"
+
+
+def test_detect_screen_prefers_profile_over_selected_home_tab():
+    assert action_runner._detect_screen(_ProfileAndHomeBundle()) == "instagram.profile"

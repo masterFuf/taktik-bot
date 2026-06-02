@@ -389,10 +389,14 @@ def _artifact_dir(
 def _detect_screen(bundle) -> str:
     detection = getattr(bundle, "detection", None)
     checks = [
-        ("instagram.story_viewer", "is_story_viewer_open"),
+        # Profile must stay before home: Instagram can keep feed_tab selected
+        # while a profile surface is open in the navigation stack.
         ("instagram.profile", "is_on_profile_screen"),
+        # Home must stay before broad post/story probes: feed posts expose Like
+        # buttons and row_feed_profile_header, which are not opened post screens.
         ("instagram.home", "is_on_home_screen"),
         ("instagram.search", "is_on_search_screen"),
+        ("instagram.story_viewer", "is_story_viewer_open"),
         ("instagram.post", "is_on_post_screen"),
         ("tiktok.inbox", "is_on_inbox_page"),
         ("tiktok.feed.for_you", "is_on_for_you_page"),

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Cartography Lab screen resolution now skips broad story/post probes once `instagram.home` is resolved, reducing noisy selector-health warnings on feed runs without removing story/reel selectors from their real surfaces.
 - Cartography Lab screen resolution now prefers `instagram.home` before broad post/search probes, and Instagram search-tab selectors require `selected="true"` to avoid feed runs being misclassified as `instagram.post` or `instagram.search`.
 - Cartography Lab action run folders now use a human-readable UTC timestamp in `runId` (`<action>_YYYYMMDDTHHMMSSmmmZ`) while reports keep `startedAt`/`finishedAt`, making before/after selector-fix comparisons easier.
 - Instagram screen detection now treats the selected `feed_tab` resource-id as a language-neutral home/feed indicator and guards profile detection with profile-surface evidence, preventing Cartography Lab false `instagram.profile` classifications on feed posts (`row_feed_profile_header`).
