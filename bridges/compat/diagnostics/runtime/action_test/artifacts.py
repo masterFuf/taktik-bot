@@ -137,6 +137,7 @@ def build_report_payload(
     artifacts: dict[str, str],
     timing_ms: float,
     language_optimization: dict[str, Any] | None = None,
+    transition: dict[str, Any] | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
     """Build the on-disk report used by humans and future selector-health jobs."""
@@ -173,6 +174,7 @@ def build_report_payload(
             "before": screen_before,
             "after": screen_after,
         },
+        "transition": transition,
         "result": {
             "success": success,
             "message": message,

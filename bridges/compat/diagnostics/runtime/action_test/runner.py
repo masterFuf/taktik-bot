@@ -10,6 +10,11 @@ from pathlib import Path
 from loguru import logger
 
 from bridges.compat.diagnostics.runtime.events import emit
+from bridges.compat.diagnostics.runtime.action_test.analysis import (
+    build_action_analysis,
+    build_transition,
+    write_action_analysis,
+)
 from bridges.compat.diagnostics.runtime.action_test.artifacts import (
     artifact_dir_for,
     build_artifact_context,
@@ -162,6 +167,7 @@ def _execute_action(
             capture_phase_artifacts(bundle, artifact_context, "after") if artifact_context else {}
         )
         message = f"Action '{action_id}' {'succeeded' if success else 'failed'}"
+        transition = build_transition(action_id, screen_after, success)
         matched = sum(1 for trace in tracer.traces if trace["found"])
         logger.info(f"{message} - selectors: {matched}/{len(tracer.traces)} matched")
         ui_action_trace = _build_ui_action_trace(
@@ -174,6 +180,7 @@ def _execute_action(
         )
         if artifact_context:
             artifacts["report"] = str(artifact_context.report_path)
+            artifacts["analysis"] = str(artifact_context.report_path.with_name("analysis.json"))
             report = build_report_payload(
                 context=artifact_context,
                 action_id=action_id,
@@ -189,8 +196,13 @@ def _execute_action(
                 artifacts=artifacts,
                 timing_ms=timing_ms,
                 language_optimization=language_optimization,
+                transition=transition,
             )
             write_action_report(artifact_context, report)
+            write_action_analysis(
+                artifact_context.report_path,
+                build_action_analysis(report),
+            )
         emit(
             {
                 "type": "result",
@@ -200,6 +212,7 @@ def _execute_action(
                 "ui_action_trace": ui_action_trace,
                 "artifacts": artifacts or None,
                 "language_optimization": language_optimization,
+                "transition": transition,
             }
         )
     except Exception as exc:
@@ -214,6 +227,7 @@ def _execute_action(
         )
         tb = traceback.format_exc()
         logger.error(f"Action '{action_id}' raised exception: {exc}\n{tb}")
+        transition = build_transition(action_id, screen_after, False)
         ui_action_trace = _build_ui_action_trace(
             action_id=action_id,
             success=False,
@@ -224,6 +238,7 @@ def _execute_action(
         )
         if artifact_context:
             artifacts["report"] = str(artifact_context.report_path)
+            artifacts["analysis"] = str(artifact_context.report_path.with_name("analysis.json"))
             report = build_report_payload(
                 context=artifact_context,
                 action_id=action_id,
@@ -240,8 +255,13 @@ def _execute_action(
                 timing_ms=timing_ms,
                 error=str(exc),
                 language_optimization=language_optimization,
+                transition=transition,
             )
             write_action_report(artifact_context, report)
+            write_action_analysis(
+                artifact_context.report_path,
+                build_action_analysis(report),
+            )
         emit(
             {
                 "type": "result",
@@ -251,6 +271,7 @@ def _execute_action(
                 "ui_action_trace": ui_action_trace,
                 "artifacts": artifacts or None,
                 "language_optimization": language_optimization,
+                "transition": transition,
             }
         )
         sys.exit(1)

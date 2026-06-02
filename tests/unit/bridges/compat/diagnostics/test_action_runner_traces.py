@@ -145,6 +145,31 @@ def test_execute_action_without_artifacts_stays_light(monkeypatch):
     assert emitted[0]["artifacts"] is None
 
 
+def test_execute_action_marks_expected_screen_mismatch(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+
+    bundle = _FakeBundle()
+
+    def run_action(fake_bundle, params):
+        fake_bundle.state = "after"
+        return True
+
+    action_runner._execute_action(
+        {"navigation.go_home": run_action},
+        "navigation.go_home",
+        bundle,
+        {},
+        SelectorTracer(),
+    )
+
+    transition = emitted[0]["transition"]
+    assert transition["expectedScreenAfter"] == "instagram.home"
+    assert transition["actualScreenAfter"] == "instagram.profile"
+    assert transition["ok"] is False
+    assert transition["reason"] == "screen_mismatch"
+
+
 def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     emitted = []
     monkeypatch.setattr(action_runner, "emit", emitted.append)
@@ -185,6 +210,7 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     assert artifacts["screenshotBefore"].endswith("before.png")
     assert artifacts["screenshotAfter"].endswith("after.png")
     assert artifacts["report"].endswith("report.json")
+    assert artifacts["analysis"].endswith("analysis.json")
     assert "\\device-1\\instagram\\410.0.0.53.71\\action-runs\\post.like\\" in artifacts["report"]
 
     for path in artifacts.values():
@@ -199,7 +225,12 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     assert '"language": "fr"' in report
     assert '"languageOptimization"' in report
     assert '"model": "Oukitel C57 S"' in report
+    assert '"transition"' in report
     assert '"version": "410.0.0.53.71"' in report
+
+    analysis = Path(artifacts["analysis"]).read_text(encoding="utf-8")
+    assert '"recommendations"' in analysis
+    assert '"selectorSummary"' in analysis
 
 
 def test_action_artifacts_use_bot_debug_ui_root():
