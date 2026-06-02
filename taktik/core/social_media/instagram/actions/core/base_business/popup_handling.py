@@ -35,6 +35,68 @@ class PopupHandlingMixin:
                     return True
             return False
     
+    def _find_like_count_element(self):
+        """Find the like count element on the current post (reel-aware)."""
+        return self.ui_extractors.find_like_count_element(logger_instance=self.logger)
+
+    def _open_likers_popup(self, is_reel: bool = False) -> bool:
+        """Open the likers popup of the current post.
+
+        Canonical production flow (shared by workflows and the Cartography Lab):
+        find the like-count element (reel-aware), click it, abort if it opened
+        the comments view by mistake, and confirm the likers popup is open.
+        """
+        try:
+            like_count_element = self._find_like_count_element()
+
+            if not like_count_element:
+                self.logger.warning("⚠️ No like counter found - post may not have visible like count")
+                return False
+
+            like_count_element.click()
+            self._human_like_delay('click')
+            time.sleep(1.5)
+
+            # Check if we accidentally opened comments instead of likers
+            if self._is_comments_view_open():
+                self.logger.warning("⚠️ Opened comments view instead of likers popup - closing and aborting")
+                self._close_comments_view()
+                return False
+
+            if self._is_likers_popup_open():
+                post_type = "reel" if is_reel else "post"
+                self.logger.info(f"✅ Likers popup opened ({post_type})")
+                return True
+
+            self.logger.error("❌ Could not open likers popup")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error opening likers popup: {e}")
+            return False
+
+    def _close_comments_view(self) -> bool:
+        """Close comments view if accidentally opened."""
+        try:
+            for selector in self.navigation_selectors.back_buttons[:3]:
+                try:
+                    element = self.device.xpath(selector)
+                    if element.exists:
+                        element.click()
+                        time.sleep(0.5)
+                        if not self._is_comments_view_open():
+                            self.logger.debug("✅ Comments view closed")
+                            return True
+                except Exception:
+                    continue
+
+            self.device.press('back')
+            time.sleep(0.5)
+            return not self._is_comments_view_open()
+        except Exception as e:
+            self.logger.debug(f"Error closing comments view: {e}")
+            return False
+
     def _close_likers_popup(self):
         try:
             for _ in range(5):

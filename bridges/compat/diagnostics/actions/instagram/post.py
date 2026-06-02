@@ -32,7 +32,11 @@ def click_save(a, p):
 
 @action("post.click_likes_count")
 def click_likes_count(a, p):
-    return a.click.click_likes_count()
+    # Mirror production exactly: the bot opens the likers list via the shared
+    # _open_likers_popup flow (reel-aware finder + verifies the popup actually
+    # opened), not the bare click_likes_count atomic which prod never calls.
+    is_reel = bool(p.get("is_reel")) if isinstance(p, dict) else False
+    return a.popup._open_likers_popup(is_reel=is_reel)
 
 
 @action("post.is_liked")
