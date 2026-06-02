@@ -226,6 +226,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Les fichiers de config temporaires doivent etre limites au strict necessaire, stockes dans un emplacement controle et nettoyes quand le flux le permet.
 - Les dumps UI, screenshots et traces de debug peuvent contenir des donnees personnelles : ne pas les ajouter aux tests/docs sans anonymisation.
 - Les captures Cartography Lab appariees (XML + PNG) doivent passer par `scripts/capture_surface.py` ou un service qui conserve le meme contrat de fichiers sous `debug_ui/cartography/<platform>/<surface>/`. Ne pas ajouter un deuxieme format ou une deuxieme arborescence sans documenter la migration.
+- Les runs d'action du Cartography Lab doivent ecrire leurs artefacts sous `debug_ui/cartography/<device_id>/<platform>/<app_version>/action-runs/<action_id>/<run_id>/` et inclure un `report.json` complet. Le stdout JSON retourne seulement des chemins de fichiers (`artifacts`), jamais le contenu XML/PNG ni le rapport complet inline.
 - Les artefacts `debug_ui/**` restent de la matiere premiere locale potentiellement sensible. Ne pas les committer, ne pas les copier dans la doc, et ne pas envoyer leur contenu sur stdout JSON ; stdout doit rester reserve aux messages machine-readable des bridges.
 - Les contrats humanisation partages vivent sous `taktik/core/shared/behavior/**`. Le parser `parse_behavior_policy()` doit rester tolerant et sans effet de bord ; ne pas l'appliquer aux pauses, taps, scrolls ou RNG avant le lot runtime documente.
 

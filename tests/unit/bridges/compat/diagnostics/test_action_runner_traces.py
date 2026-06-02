@@ -21,6 +21,9 @@ class _FakeRawDevice:
 class _FakeDevice:
     _device = _FakeRawDevice()
 
+    def get_screen_size(self):
+        return 1080, 2340
+
     def get_xml_dump(self):
         return "<hierarchy><node text='test' /></hierarchy>"
 
@@ -108,10 +111,40 @@ def test_execute_action_emits_ui_action_trace(monkeypatch):
     assert isinstance(payload["ui_action_trace"]["timingMs"], float)
 
 
+def test_execute_action_without_artifacts_stays_light(monkeypatch):
+    emitted = []
+    monkeypatch.setattr(action_runner, "emit", emitted.append)
+    monkeypatch.setattr(
+        action_runner,
+        "build_artifact_context",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("artifact context should not be built")),
+    )
+
+    bundle = _FakeBundle()
+
+    def run_action(fake_bundle, params):
+        fake_bundle.state = "after"
+        return True
+
+    action_runner._execute_action(
+        {"navigation.open_profile": run_action},
+        "navigation.open_profile",
+        bundle,
+        {},
+        SelectorTracer(),
+    )
+
+    assert emitted[0]["artifacts"] is None
+
+
 def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     emitted = []
     monkeypatch.setattr(action_runner, "emit", emitted.append)
     monkeypatch.setattr(action_runner, "_BOT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        "bridges.compat.diagnostics.runtime.action_test.artifacts._resolve_app_version",
+        lambda device_id, package_name, platform: "410.0.0.53.71",
+    )
 
     bundle = _FakeBundle()
 
@@ -126,6 +159,8 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
         {},
         SelectorTracer(),
         platform="instagram",
+        device_id="device-1",
+        mode="lab",
         capture_artifacts=True,
     )
 
@@ -134,17 +169,38 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     assert artifacts["xmlAfter"].endswith("after.xml")
     assert artifacts["screenshotBefore"].endswith("before.png")
     assert artifacts["screenshotAfter"].endswith("after.png")
+    assert artifacts["report"].endswith("report.json")
+    assert "\\device-1\\instagram\\410.0.0.53.71\\action-runs\\post.like\\" in artifacts["report"]
 
     for path in artifacts.values():
         assert Path(path).exists()
 
     assert "<hierarchy>" not in str(emitted[0])
 
+    report = Path(artifacts["report"]).read_text(encoding="utf-8")
+    assert '"selectorHealth"' in report
+    assert '"resolution"' in report
+    assert '"version": "410.0.0.53.71"' in report
+
 
 def test_action_artifacts_use_bot_debug_ui_root():
     expected_bot_root = Path(action_runner.__file__).resolve().parents[5]
 
     assert action_runner._BOT_ROOT == expected_bot_root
-    assert action_runner._artifact_dir("instagram", "run-1") == (
-        expected_bot_root / "debug_ui" / "cartography" / "instagram" / "action-runs" / "run-1"
+    assert action_runner._artifact_dir(
+        "instagram",
+        "run-1",
+        device_id="device-1",
+        app_version="410.0.0.53.71",
+        action_id="navigation.go_home",
+    ) == (
+        expected_bot_root
+        / "debug_ui"
+        / "cartography"
+        / "device-1"
+        / "instagram"
+        / "410.0.0.53.71"
+        / "action-runs"
+        / "navigation.go_home"
+        / "run-1"
     )
