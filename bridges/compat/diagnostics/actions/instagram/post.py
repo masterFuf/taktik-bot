@@ -15,23 +15,23 @@ def unlike_post(a, p):
     return a.click.unlike_post()
 
 
-@action("post.click_comment_button")
-def click_comment_btn(a, p):
+@action("post.open_comments")
+def open_comments(a, p):
     return a.click.click_comment_button()
 
 
-@action("post.click_share_button")
-def click_share(a, p):
+@action("post.open_share")
+def open_share(a, p):
     return a.click.click_share_button()
 
 
-@action("post.click_save_button")
-def click_save(a, p):
+@action("post.save_post")
+def save_post(a, p):
     return a.click.click_save_button()
 
 
-@action("post.click_likes_count")
-def click_likes_count(a, p):
+@action("post.open_likers")
+def open_likers(a, p):
     # Mirror production exactly: the bot opens the likers list via the shared
     # _open_likers_popup flow (reel-aware finder + verifies the popup actually
     # opened), not the bare click_likes_count atomic which prod never calls.
