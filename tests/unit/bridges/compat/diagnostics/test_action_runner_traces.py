@@ -69,6 +69,29 @@ class _FakeBundle:
         self.detection = _FakeDetection(self)
 
 
+class _HomeAndPostDetection:
+    def is_story_viewer_open(self):
+        return False
+
+    def is_on_profile_screen(self):
+        return False
+
+    def is_on_home_screen(self):
+        return True
+
+    def is_on_search_screen(self):
+        return False
+
+    def is_on_post_screen(self):
+        return True
+
+
+class _HomeAndPostBundle:
+    def __init__(self):
+        self.device = _FakeDevice()
+        self.detection = _HomeAndPostDetection()
+
+
 def test_traced_selector_records_front_contract_fields():
     tracer = SelectorTracer()
     tracer.set_action_context("post.like")
@@ -262,3 +285,7 @@ def test_build_run_id_uses_readable_utc_timestamp():
     run_id = action_runner._build_run_id("navigation.go_home")
 
     assert re.match(r"^navigation.go_home_\d{8}T\d{9}Z$", run_id)
+
+
+def test_detect_screen_prefers_home_over_feed_post_indicators():
+    assert action_runner._detect_screen(_HomeAndPostBundle()) == "instagram.home"

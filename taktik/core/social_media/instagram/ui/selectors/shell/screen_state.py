@@ -22,8 +22,8 @@ class DetectionSelectors:
         # Search bar (when active)
         '//*[contains(@resource-id, "search_edit_text")]',
         # Explore page specific indicators
-        '//*[contains(@resource-id, "com.instagram.android:id/clips_tab")]',
-        '//*[contains(@resource-id, "com.instagram.android:id/search_tab")]',
+        '//*[@resource-id="com.instagram.android:id/clips_tab" and @selected="true"]',
+        '//*[@resource-id="com.instagram.android:id/search_tab" and @selected="true"]',
         # Search bar on Explore page (clickable text "Search" or "Rechercher")
         '//android.widget.TextView[@package="com.instagram.android" and (contains(@text, "Search") or contains(@text, "Rechercher"))]'
     ])

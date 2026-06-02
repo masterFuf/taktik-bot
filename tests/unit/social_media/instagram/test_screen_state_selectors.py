@@ -93,3 +93,16 @@ def test_french_language_filter_keeps_neutral_selected_feed_tab():
 
     assert '//*[@resource-id="com.instagram.android:id/feed_tab" and @selected="true"]' in filtered
     assert '//*[contains(@content-desc, "Home") and @selected="true"]' not in filtered
+
+
+def test_unselected_search_tabs_do_not_match_search_screen():
+    selectors = DetectionSelectors()
+    xml = """
+    <hierarchy>
+      <node resource-id="com.instagram.android:id/feed_tab" content-desc="Home" selected="true" />
+      <node resource-id="com.instagram.android:id/search_tab" content-desc="Search" selected="false" />
+      <node resource-id="com.instagram.android:id/clips_tab" content-desc="Reels" selected="false" />
+    </hierarchy>
+    """
+
+    assert _matches(xml, selectors.search_screen_indicators) is False

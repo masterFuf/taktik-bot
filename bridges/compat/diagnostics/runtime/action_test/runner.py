@@ -390,10 +390,10 @@ def _detect_screen(bundle) -> str:
     detection = getattr(bundle, "detection", None)
     checks = [
         ("instagram.story_viewer", "is_story_viewer_open"),
-        ("instagram.post", "is_on_post_screen"),
         ("instagram.profile", "is_on_profile_screen"),
-        ("instagram.search", "is_on_search_screen"),
         ("instagram.home", "is_on_home_screen"),
+        ("instagram.search", "is_on_search_screen"),
+        ("instagram.post", "is_on_post_screen"),
         ("tiktok.inbox", "is_on_inbox_page"),
         ("tiktok.feed.for_you", "is_on_for_you_page"),
     ]
