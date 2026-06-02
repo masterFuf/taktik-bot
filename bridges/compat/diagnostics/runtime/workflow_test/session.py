@@ -1,11 +1,11 @@
-"""Device/app session setup for the compat workflow diagnostic bridge."""
+﻿"""Device/app session setup for the compat workflow diagnostic bridge."""
 
 from dataclasses import dataclass
 import sys
 
 from bridges.common.device.app_manager import AppService
 from bridges.common.device.connection import ConnectionService
-from bridges.compat.diagnostics.runtime.workflow_lifecycle import (
+from bridges.compat.diagnostics.runtime.workflow_test.lifecycle import (
     apply_version_overrides,
     detect_instagram_language,
     init_automation,

@@ -1,10 +1,10 @@
-"""Lifecycle helpers for the compat workflow diagnostic bridge."""
+﻿"""Lifecycle helpers for the compat workflow diagnostic bridge."""
 
 import sys
 
 from loguru import logger
 
-from bridges.compat.diagnostics.runtime.workflow_observability import clear_active_watchdog, set_active_tracer
+from bridges.compat.diagnostics.runtime.workflow_test.observability import clear_active_watchdog, set_active_tracer
 
 
 def init_automation(app_name: str, conn, ipc):

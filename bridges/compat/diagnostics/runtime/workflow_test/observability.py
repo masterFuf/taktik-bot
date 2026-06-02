@@ -1,8 +1,8 @@
-"""Public observability facade for compat workflow diagnostics."""
+﻿"""Public observability facade for compat workflow diagnostics."""
 
 from loguru import logger
 
-from bridges.compat.diagnostics.runtime.workflow_observability_instagram import (
+from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.observability import (
     infer_instagram_screen_from_log,
     setup_instagram_action_hooks,
 )

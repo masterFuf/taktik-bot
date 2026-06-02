@@ -1,10 +1,10 @@
-"""Config loading and validation for compat workflow diagnostics."""
+﻿"""Config loading and validation for compat workflow diagnostics."""
 
 from dataclasses import dataclass
 import json
 import sys
 
-from bridges.compat.diagnostics.runtime.workflow_catalog import DEFAULT_CONFIGS, NEEDS_TARGET
+from bridges.compat.diagnostics.runtime.workflow_test.catalog import DEFAULT_CONFIGS, NEEDS_TARGET
 
 
 @dataclass

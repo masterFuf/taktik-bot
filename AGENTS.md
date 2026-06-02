@@ -118,9 +118,10 @@ Definition simple :
 - Quand un bridge de publish/upload a besoin de support local (commandes CLI, connexion device, patch clone, dispatch upload), le ranger sous `bridges/<platform>/publish/runtime/**` plutot que de gonfler l'entrypoint `publish/<flow>.py`.
 - Les bridges de compatibilite et debug doivent vivre sous `bridges/compat/diagnostics/**` ; ne pas les melanger avec les bridges produit.
 - Quand un bridge compat diagnostics partage du support local (stdout JSON, logger, registry d'actions, tracing selectors), le ranger sous `bridges/compat/diagnostics/runtime/**`. Le compat reste un owner de diagnostic/debug, pas une zone de depot pour du runtime plateforme produit.
-- Le runner compat diagnostics `bridges/compat/diagnostics/runtime/action_runner.py` est l'owner de `selector_traces`, `ui_action_trace` et des references d'artefacts Lab pour Action Tester/Cartography. Ne pas recreer ces payloads dans une action plateforme ; enrichir le runner/tracer commun, ecrire les XML/PNG en fichiers locaux et garder stdout JSON leger.
-- Quand un runner compat diagnostics par plateforme couvre plusieurs familles de workflow, classer les familles sous un sous-owner explicite comme `bridges/compat/diagnostics/runtime/<platform>_workflows/**` et garder le module historique comme facade d'import stable.
-- Quand un dispatcher compat diagnostics route plusieurs plateformes, garder le dispatcher public limite au choix plateforme, aux erreurs JSON et au contrat de retour ; placer les branches plateforme dans `workflow_dispatcher_<platform>.py`.
+- Sous `bridges/compat/diagnostics/runtime/**`, classer par sous-domaine explicite : `action_test/**` pour Action Tester/Cartography, `selector_test/**` pour les selectors live, `workflow_test/**` pour les tests de workflows, et `registry/**` pour le registre/commandes compat. Ne pas rajouter de nouveau module plat `workflow_*`, `selector_*`, `bundles_*` ou `registry_*` a la racine runtime.
+- Le runner compat diagnostics `bridges/compat/diagnostics/runtime/action_test/runner.py` est l'owner de `selector_traces`, `ui_action_trace` et des references d'artefacts Lab pour Cartography. Ne pas recreer ces payloads dans une action plateforme ; enrichir le runner/tracer commun, ecrire les XML/PNG en fichiers locaux et garder stdout JSON leger.
+- Quand un runner compat diagnostics par plateforme couvre plusieurs familles de workflow, classer les familles sous `bridges/compat/diagnostics/runtime/workflow_test/platforms/<platform>/workflows/**`; les helpers plateforme vivent sous `workflow_test/platforms/<platform>/**`, pas a la racine runtime.
+- Quand un dispatcher compat diagnostics route plusieurs plateformes, garder le dispatcher public limite au choix plateforme, aux erreurs JSON et au contrat de retour ; placer les branches plateforme dans `workflow_test/platforms/<platform>/dispatcher.py`.
 - Les bridges d'analyse plateforme doivent vivre sous un owner nomme comme `bridges/<platform>/analysis/**`.
 - Quand un bridge diagnostics plateforme a besoin de support local (stdout JSON, registry d'actions, tracing selectors), le ranger sous `bridges/<platform>/diagnostics/runtime/**` plutot que de gonfler l'entrypoint diagnostics.
 - Quand un bridge diagnostics plateforme expose plusieurs familles d'actions manuelles, classer les definitions sous `bridges/<platform>/diagnostics/actions/**`; l'entrypoint charge ces familles et execute le registry.
@@ -234,6 +235,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Pour workflow/registry : lancer `python scripts/audit_workflow_registry.py` si la declaration, le manifest ou la famille de workflow change.
 - Pour documentation schema partagee : lancer `python scripts/audit_sqlite_schema_docs.py` quand une table/colonne SQLite est ajoutee ou renommee.
 - Pour selectors Instagram/TikTok : lancer `python scripts/audit_selector_hardcodes.py` apres les lots runtime/selectors, et `python scripts/audit_selector_hardcodes.py --show-allowed` si on veut afficher la dette legacy restante.
+- Pour compat diagnostics : lancer `python scripts/audit_diagnostics_runtime_layout.py` apres tout changement sous `bridges/compat/diagnostics/runtime/**` afin de bloquer les retours de modules plats.
 - Si un test ne peut pas etre lance, l'expliquer dans le recap.
 
 ## Definition de done Bot

@@ -1,6 +1,6 @@
-"""TikTok compat diagnostic action catalog."""
+﻿"""TikTok compat diagnostic action catalog."""
 
-from bridges.compat.diagnostics.runtime.registry import ActionRegistry
+from bridges.compat.diagnostics.runtime.registry.actions import ActionRegistry
 
 
 _registry = ActionRegistry()

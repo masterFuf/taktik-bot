@@ -1,4 +1,4 @@
-"""
+﻿"""
 TikTok Action Test Bridge: manual action testing from the Debug Panel.
 
 Outputs JSON lines to stdout:
@@ -10,8 +10,8 @@ from bridges.compat.diagnostics.actions.tiktok import (
     ACTION_REGISTRY,
     register_actions,
 )
-from bridges.compat.diagnostics.runtime.action_runner import run_action_test_bridge
-from bridges.compat.diagnostics.runtime.bundles import (
+from bridges.compat.diagnostics.runtime.action_test.runner import run_action_test_bridge
+from bridges.compat.diagnostics.runtime.action_test.bundles import (
     build_tiktok_action_bundle,
     create_tiktok_device_facade,
 )

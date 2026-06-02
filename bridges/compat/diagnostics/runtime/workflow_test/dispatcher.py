@@ -1,10 +1,10 @@
-"""Workflow dispatch for the compat workflow diagnostic bridge."""
+﻿"""Workflow dispatch for the compat workflow diagnostic bridge."""
 
 from loguru import logger
 
-from bridges.compat.diagnostics.runtime.workflow_dispatch_result import WorkflowDispatchResult
-from bridges.compat.diagnostics.runtime.workflow_dispatcher_instagram import dispatch_instagram_workflow
-from bridges.compat.diagnostics.runtime.workflow_dispatcher_tiktok import dispatch_tiktok_workflow
+from bridges.compat.diagnostics.runtime.workflow_test.dispatch_result import WorkflowDispatchResult
+from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.dispatcher import dispatch_instagram_workflow
+from bridges.compat.diagnostics.runtime.workflow_test.platforms.tiktok.dispatcher import dispatch_tiktok_workflow
 
 
 def dispatch_workflow(

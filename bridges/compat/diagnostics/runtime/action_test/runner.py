@@ -1,4 +1,4 @@
-"""Shared action-test runner for compat diagnostics bridges."""
+﻿"""Shared action-test runner for compat diagnostics bridges."""
 
 import json
 import re
@@ -10,7 +10,7 @@ from pathlib import Path
 from loguru import logger
 
 from bridges.compat.diagnostics.runtime.events import emit
-from bridges.compat.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
+from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
 
 _BOT_ROOT = Path(__file__).resolve().parents[4]

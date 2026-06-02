@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Compatibility diagnostics runtime is now organized by owner: `runtime/action_test/**`, `runtime/selector_test/**`, `runtime/workflow_test/**` and `runtime/registry/**` replace the previous flat pile of `workflow_*`, `selector_*`, `bundles_*` and registry modules.
+- Added `scripts/audit_diagnostics_runtime_layout.py` to block new flat modules or legacy imports under the compat diagnostics runtime.
 - Compatibility action-test diagnostics now support Lab-mode XML/PNG artifact capture under `debug_ui/cartography/<platform>/action-runs/`, returning file paths only through JSON stdout.
 - Compatibility action-test diagnostics now emit enriched `selector_traces` plus a lightweight `ui_action_trace` with action intent, screen-before/screen-after, fallback usage and timing for Cartography Lab observability.
 - Added `scripts/capture_surface.py`, a Cartography Lab helper that captures paired UI XML dumps and PNG screenshots per platform/surface under `debug_ui/cartography/<platform>/<surface>/`.
@@ -31,22 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YouTube action-test diagnostic definitions are now split by family under `bridges/youtube/diagnostics/actions/**`; the public bridge still exposes the same action IDs and `log`/`result` event shapes.
 - YouTube action-test config loading, device connection, selector tracing and action execution now live under `bridges/youtube/diagnostics/runtime/action_runner.py`; `action_test.py` keeps stdout setup and action registration.
 - Compatibility action-test diagnostics now share JSON stdout/logging, per-entrypoint action registries and selector tracing through `bridges/compat/diagnostics/runtime/**`; Instagram and TikTok compat action IDs and `log`/`result` events remain unchanged.
-- Compatibility action-test diagnostics now share the config/device/tracing execution runner under `bridges/compat/diagnostics/runtime/action_runner.py`; platform entrypoints keep only their action catalog and bundle factories.
-- Compatibility action-test bundle/facade factories now live under `bridges/compat/diagnostics/runtime/bundles.py`, keeping platform-specific diagnostic wiring out of the action catalog entrypoints.
-- Compatibility action-test bundle factories are split by platform under `bundles_instagram.py` and `bundles_tiktok.py`; `bundles.py` remains a thin compatibility facade.
-- Compatibility workflow-test catalog constants now live under `bridges/compat/diagnostics/runtime/workflow_catalog.py`, separating workflow family/default metadata from the large diagnostic runner.
-- Compatibility workflow-test final report assembly now lives under `bridges/compat/diagnostics/runtime/workflow_report.py`; the bridge keeps IPC emission and workflow orchestration.
-- Compatibility workflow-test config loading, validation and default merging now live under `bridges/compat/diagnostics/runtime/workflow_request.py`, preserving the existing IPC error codes.
-- Compatibility workflow-test log streaming, IPCEmitter monkey-patches, watchdog heartbeat state and stats snapshots now live under `bridges/compat/diagnostics/runtime/workflow_observability.py`.
-- Compatibility workflow-test Instagram-specific observability hooks now live under `workflow_observability_instagram.py`; `workflow_observability.py` remains the public facade for the bridge.
-- Compatibility workflow-test platform runner helpers now live under `bridges/compat/diagnostics/runtime/workflow_runners.py`; the bridge entrypoint keeps lifecycle, dispatch and report emission.
-- Compatibility workflow-test platform runners are split by owner under `workflow_runners_instagram.py` and `workflow_runners_tiktok.py`, with `workflow_runners.py` kept as a thin import facade.
-- Compatibility workflow-test workflow-family dispatch now lives under `workflow_dispatcher.py`; the public bridge keeps payload, device/app lifecycle, reporting and JSON IPC.
-- Compatibility workflow-test automation init, selector overrides, language detection and watchdog cleanup now live under `workflow_lifecycle.py`, keeping the bridge entrypoint focused on orchestration.
-- Compatibility workflow-test Instagram automation config building and workflow-runner instrumentation now live under `bridges/compat/diagnostics/runtime/instagram_automation.py`.
-- Compatibility registry bridge command handlers now live under `bridges/compat/diagnostics/runtime/registry_commands.py`; `compat.py` keeps config loading, registry initialization and command dispatch.
-- Compatibility selector-test config loading and validation now live under `bridges/compat/diagnostics/runtime/selector_request.py`, preserving existing IPC error codes.
-- Compatibility selector-test domain filtering, XPath execution, progress events and summary aggregation now live under `bridges/compat/diagnostics/runtime/selector_runner.py`.
+- Compatibility action-test diagnostics now share the config/device/tracing execution runner under `bridges/compat/diagnostics/runtime/action_test/runner.py`; platform entrypoints keep only their action catalog and bundle factories.
+- Compatibility action-test bundle/facade factories now live under `bridges/compat/diagnostics/runtime/action_test/bundles/**`, keeping platform-specific diagnostic wiring out of the action catalog entrypoints.
+- Compatibility action-test bundle factories are split by platform under `action_test/bundles/instagram.py` and `action_test/bundles/tiktok.py`.
+- Compatibility workflow-test catalog constants now live under `bridges/compat/diagnostics/runtime/workflow_test/catalog.py`, separating workflow family/default metadata from the large diagnostic runner.
+- Compatibility workflow-test final report assembly now lives under `bridges/compat/diagnostics/runtime/workflow_test/report.py`; the bridge keeps IPC emission and workflow orchestration.
+- Compatibility workflow-test config loading, validation and default merging now live under `bridges/compat/diagnostics/runtime/workflow_test/request.py`, preserving the existing IPC error codes.
+- Compatibility workflow-test log streaming, IPCEmitter monkey-patches, watchdog heartbeat state and stats snapshots now live under `bridges/compat/diagnostics/runtime/workflow_test/observability.py`.
+- Compatibility workflow-test Instagram-specific observability hooks now live under `workflow_test/platforms/instagram/observability*.py`; `workflow_test/observability.py` remains the shared observability owner for the bridge.
+- Compatibility workflow-test platform runner helpers now live under `bridges/compat/diagnostics/runtime/workflow_test/runners.py`; the bridge entrypoint keeps lifecycle, dispatch and report emission.
+- Compatibility workflow-test platform runners are split by owner under `workflow_test/platforms/{instagram,tiktok}/runners.py`, with `workflow_test/runners.py` kept as the shared runner router.
+- Compatibility workflow-test workflow-family dispatch now lives under `workflow_test/dispatcher.py`; the public bridge keeps payload, device/app lifecycle, reporting and JSON IPC.
+- Compatibility workflow-test automation init, selector overrides, language detection and watchdog cleanup now live under `workflow_test/lifecycle.py`, keeping the bridge entrypoint focused on orchestration.
+- Compatibility workflow-test Instagram automation config building and workflow-runner instrumentation now live under `bridges/compat/diagnostics/runtime/workflow_test/platforms/instagram/**`.
+- Compatibility registry bridge command handlers now live under `bridges/compat/diagnostics/runtime/registry/commands.py`; `compat.py` keeps config loading, registry initialization and command dispatch.
+- Compatibility selector-test config loading and validation now live under `bridges/compat/diagnostics/runtime/selector_test/request.py`, preserving existing IPC error codes.
+- Compatibility selector-test domain filtering, XPath execution, progress events and summary aggregation now live under `bridges/compat/diagnostics/runtime/selector_test/runner.py`.
 - Gmail account bridge workflow runners are split by operation under `bridges/gmail/account/runtime/workflow_{login,logout,otp,scan}.py`; `workflows.py` remains the public import facade.
 - Instagram compatibility action-test definitions are now split by family under `bridges/compat/diagnostics/actions/instagram/**`; the public action IDs and JSON event shapes remain unchanged.
 - Instagram DM bridge runtime files moved under `bridges/instagram/engagement/runtime/dm/**`; the public `dm_bridge` manifest entry still resolves through `bridges/instagram/engagement/dm.py`.
@@ -60,11 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - YouTube account bridge login/logout adapters now live under `bridges/youtube/account/runtime/workflows.py`; `account.py` keeps config loading, session lifecycle and dispatch.
 - Instagram debug bridge device connection, screen analysis and problematic-page detection now live under `bridges/instagram/diagnostics/runtime/debug_actions.py`; `debug.py` keeps config/mode dispatch.
 - Common bridge IPC Agent events now live under `bridges/common/runtime/ipc_agent.py`; `ipc_ai.py` keeps AI-only events and `IPC` preserves the same public methods.
-- TikTok compatibility workflow-test runners are now split by family under `bridges/compat/diagnostics/runtime/tiktok_workflows/**`; `workflow_runners_tiktok.py` remains the stable public facade.
-- Instagram compatibility workflow-test runners are now split by family under `bridges/compat/diagnostics/runtime/instagram_workflows/**`; `workflow_runners_instagram.py` remains the stable public facade.
-- Compatibility workflow-test dispatch is now split by platform under `workflow_dispatcher_instagram.py` and `workflow_dispatcher_tiktok.py`; `workflow_dispatcher.py` keeps the stable public router and JSON error handling.
-- Instagram automation helpers for compatibility workflow-test now split config building and runner instrumentation into `instagram_automation_config.py` and `instagram_automation_instrumentation.py`, with `instagram_automation.py` kept as the stable facade.
-- Instagram workflow-test observability now splits screen inference and action/stat monkey-patches into `workflow_observability_instagram_screens.py` and `workflow_observability_instagram_hooks.py`; the public observability facade remains stable.
+- TikTok compatibility workflow-test runners are now split by family under `bridges/compat/diagnostics/runtime/workflow_test/platforms/tiktok/workflows/**`; `workflow_test/platforms/tiktok/runners.py` is the platform runner owner.
+- Instagram compatibility workflow-test runners are now split by family under `bridges/compat/diagnostics/runtime/workflow_test/platforms/instagram/workflows/**`; `workflow_test/platforms/instagram/runners.py` is the platform runner owner.
+- Compatibility workflow-test dispatch is now split by platform under `workflow_test/platforms/{instagram,tiktok}/dispatcher.py`; `workflow_test/dispatcher.py` keeps the stable public router and JSON error handling.
+- Instagram automation helpers for compatibility workflow-test now split config building and runner instrumentation into `workflow_test/platforms/instagram/automation_config.py` and `automation_instrumentation.py`, with `automation.py` kept as the platform facade.
+- Instagram workflow-test observability now splits screen inference and action/stat monkey-patches into `workflow_test/platforms/instagram/screens.py` and `observability_hooks.py`; the shared observability owner remains stable.
 - Instagram Smart Comment bridge ADB calls now use the shared `taktik/core/shared/device/adb.py` process helper instead of local `subprocess.run`, while preserving UTF-8 replacement decoding for dumpsys/clipboard output.
 - Clone package detection now uses the shared ADB process helper with custom `adb_command` support instead of direct subprocess calls in `taktik/core/clone/detection`.
 - Gmail account bridge workflow routing now lives under `bridges/gmail/account/runtime/dispatcher.py`; `account.py` keeps config validation, signal handling and session lifecycle.

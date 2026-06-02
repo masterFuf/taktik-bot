@@ -1,20 +1,20 @@
-"""Instagram workflow dispatch for the compat workflow diagnostic bridge."""
+﻿"""Instagram workflow dispatch for the compat workflow diagnostic bridge."""
 
 from loguru import logger
 
-from bridges.compat.diagnostics.runtime.instagram_automation import (
+from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.automation import (
     build_workflow_config,
     instrument_workflow_runner,
 )
-from bridges.compat.diagnostics.runtime.workflow_catalog import (
+from bridges.compat.diagnostics.runtime.workflow_test.catalog import (
     INSTAGRAM_AUTOMATION_WF,
     INSTAGRAM_DM_WF,
     INSTAGRAM_PUBLISH_WF,
     INSTAGRAM_SCRAPING_WF,
 )
-from bridges.compat.diagnostics.runtime.workflow_dispatch_result import WorkflowDispatchResult
-from bridges.compat.diagnostics.runtime.workflow_observability import set_active_watchdog
-from bridges.compat.diagnostics.runtime.workflow_runners import (
+from bridges.compat.diagnostics.runtime.workflow_test.dispatch_result import WorkflowDispatchResult
+from bridges.compat.diagnostics.runtime.workflow_test.observability import set_active_watchdog
+from bridges.compat.diagnostics.runtime.workflow_test.runners import (
     run_instagram_dm,
     run_instagram_publish,
     run_instagram_scraping,

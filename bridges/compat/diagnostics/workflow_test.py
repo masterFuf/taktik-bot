@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Workflow Test Bridge.
 
@@ -22,16 +22,16 @@ setup_environment()
 from loguru import logger
 
 from bridges.common.runtime.ipc import IPC
-from bridges.compat.diagnostics.runtime.workflow_dispatcher import dispatch_workflow
-from bridges.compat.diagnostics.runtime.workflow_lifecycle import stop_watchdog
-from bridges.compat.diagnostics.runtime.workflow_observability import (
+from bridges.compat.diagnostics.runtime.workflow_test.dispatcher import dispatch_workflow
+from bridges.compat.diagnostics.runtime.workflow_test.lifecycle import stop_watchdog
+from bridges.compat.diagnostics.runtime.workflow_test.observability import (
     get_last_stats,
     setup_action_hooks,
     setup_log_sink,
 )
-from bridges.compat.diagnostics.runtime.workflow_report import build_workflow_report
-from bridges.compat.diagnostics.runtime.workflow_request import load_workflow_test_request
-from bridges.compat.diagnostics.runtime.workflow_session import prepare_workflow_test_session
+from bridges.compat.diagnostics.runtime.workflow_test.report import build_workflow_report
+from bridges.compat.diagnostics.runtime.workflow_test.request import load_workflow_test_request
+from bridges.compat.diagnostics.runtime.workflow_test.session import prepare_workflow_test_session
 
 
 def main():

@@ -1,6 +1,6 @@
-"""Public facade for TikTok compat workflow diagnostic runners."""
+﻿"""Public facade for TikTok compat workflow diagnostic runners."""
 
-from bridges.compat.diagnostics.runtime.tiktok_workflows import (
+from bridges.compat.diagnostics.runtime.workflow_test.platforms.tiktok.workflows import (
     run_tiktok_automation,
     run_tiktok_dm,
     run_tiktok_publish,

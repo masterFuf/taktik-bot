@@ -1,8 +1,8 @@
-"""TikTok bundle factories for compat action-test diagnostics."""
+﻿"""TikTok bundle factories for compat action-test diagnostics."""
 
 from loguru import logger
 
-from bridges.compat.diagnostics.runtime.action_bundle import ActionBundle
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import ActionBundle
 
 
 def create_tiktok_device_facade(raw_device):

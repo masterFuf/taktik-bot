@@ -1,7 +1,7 @@
-from pathlib import Path
+﻿from pathlib import Path
 
-from bridges.compat.diagnostics.runtime import action_runner
-from bridges.compat.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
+from bridges.compat.diagnostics.runtime.action_test import runner as action_runner
+from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
 
 class _FakeSelector:

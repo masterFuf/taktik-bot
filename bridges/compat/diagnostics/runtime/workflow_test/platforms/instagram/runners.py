@@ -1,6 +1,6 @@
-"""Public facade for Instagram compat workflow diagnostic runners."""
+﻿"""Public facade for Instagram compat workflow diagnostic runners."""
 
-from bridges.compat.diagnostics.runtime.instagram_workflows import (
+from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.workflows import (
     run_instagram_dm,
     run_instagram_publish,
     run_instagram_scraping,

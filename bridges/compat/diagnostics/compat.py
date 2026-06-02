@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Compat Bridge — Electron-spawnable bridge for the App Compatibility Framework.
+Compat Bridge â€” Electron-spawnable bridge for the App Compatibility Framework.
 
 Follows the same stdout JSON protocol as all other bridges.
 Spawned by electron/handlers/compat/compat.ts via ProcessManager.
@@ -33,7 +33,7 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.common.runtime.ipc import IPC
-from bridges.compat.diagnostics.runtime.registry_commands import (
+from bridges.compat.diagnostics.runtime.registry.commands import (
     handle_check_selectors,
     handle_get_registry,
     handle_get_selector,
