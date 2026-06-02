@@ -172,10 +172,17 @@ def _notes(
     notes = []
     action_id = (report.get("action") or {}).get("id")
     if transition.get("ok") is False:
-        notes.append(
-            f"{action_id} returned success but ended on {transition.get('actualScreenAfter')} "
-            f"instead of {transition.get('expectedScreenAfter')}."
-        )
+        result_success = (report.get("result") or {}).get("success") is True
+        if result_success:
+            notes.append(
+                f"{action_id} returned success but ended on {transition.get('actualScreenAfter')} "
+                f"instead of {transition.get('expectedScreenAfter')}."
+            )
+        else:
+            notes.append(
+                f"{action_id} failed before reaching {transition.get('expectedScreenAfter')} "
+                f"(ended on {transition.get('actualScreenAfter')})."
+            )
     if selector_summary["total"] and selector_summary["matchRate"] < 25:
         notes.append("Selector match rate is below 25%; review context gates before deleting selectors.")
     return notes

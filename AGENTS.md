@@ -217,6 +217,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - Les workflows/services internes TikTok publish doivent importer les catalogues specialises `PUBLISH_*_SELECTORS` (`composer`, `editor`, `progress`, etc.). `PUBLISH_SELECTORS` reste seulement une facade publique de compatibilite.
 - Les services internes TikTok doivent importer les selectors depuis leur owner scope (`shell/*`, `surfaces/*`, `flows/*`) plutot que depuis l'agregateur `ui/selectors/__init__.py`, sauf code de compatibilite explicite.
 - Si un workflow a besoin d'un fast-path sur un dump XML, exposer une fonction/propriete depuis le catalogue selectors au lieu de mettre les strings dans le workflow.
+- Un detecteur d'ecran doit exiger une preuve de surface specifique. Ne pas classer un ecran avec un selector trop large comme `profile_header`, `action_bar_title`, `Follow` ou `Suivre` si le meme motif peut exister dans le feed, un post ou une autre surface.
 - Eviter les sleeps fixes quand un wait conditionnel ou une detection UI est possible.
 - Les selectors reutilisables doivent vivre dans des modules dedies ou partages, pas etre recopies dans plusieurs workflows.
 - Tout changement de navigation Android doit etre valide sur le workflow manuel et sur le lancement bridge si les deux existent.

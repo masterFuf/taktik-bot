@@ -7,6 +7,9 @@ class DetectionSelectors:
     
     # === Détection d'écrans ===
     home_screen_indicators: List[str] = field(default_factory=lambda: [
+        # Neutral and resilient across mixed-language dumps (observed on IG 410:
+        # FR app can still expose the bottom feed tab as content-desc="Home").
+        '//*[@resource-id="com.instagram.android:id/feed_tab" and @selected="true"]',
         '//*[contains(@content-desc, "Accueil") and @selected="true"]',
         '//*[contains(@content-desc, "Home") and @selected="true"]',
         '//*[contains(@resource-id, "feed_timeline")]'
@@ -26,20 +29,27 @@ class DetectionSelectors:
     ])
     
     profile_screen_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, "profile_header")]',
-        '//*[contains(@resource-id, "coordinator_root_layout")]',
-        '//*[contains(@resource-id, "action_bar_title")]',
+        # Keep profile detection scoped to the profile surface. Broad selectors
+        # like row_feed_profile_header/action_bar_title/Follow also match feed posts.
+        '//*[@resource-id="com.instagram.android:id/profile_header_container"]',
+        '//*[@resource-id="com.instagram.android:id/row_profile_header"]',
         '//*[contains(@resource-id, "profile_header_full_name")]',
         '//*[@content-desc="Modifier le profil"]',
         '//*[contains(@text, "Modifier le profil")]',
         '//*[@content-desc="Edit profile"]',
         '//*[contains(@text, "Edit profile")]',
-        '//*[contains(@text, "Follow")]',
-        '//*[contains(@text, "Suivre")]',
-        '//*[contains(@text, "Following")]',
-        '//*[contains(@text, "Abonné")]'
+        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Follow")]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Suivre")]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]',
+        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]'
     ])
     
+    profile_surface_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_header_container"]',
+        '//*[@resource-id="com.instagram.android:id/row_profile_header"]',
+        '//*[contains(@resource-id, "profile_header_full_name")]'
+    ])
+
     own_profile_indicators: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Modifier le profil"]',
         '//*[contains(@text, "Modifier le profil")]',

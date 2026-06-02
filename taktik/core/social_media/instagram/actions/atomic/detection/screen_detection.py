@@ -41,6 +41,13 @@ class ScreenDetectionMixin(BaseAction):
         return self._detect_element(self.detection_selectors.search_screen_indicators, "Search screen")
     
     def is_on_profile_screen(self) -> bool:
+        if (
+            self._is_element_present(self.detection_selectors.home_screen_indicators)
+            and not self._is_element_present(self.detection_selectors.profile_surface_indicators)
+        ):
+            self.logger.debug("Feed surface detected; not on profile screen")
+            return False
+
         is_profile = self._is_element_present(self.detection_selectors.profile_screen_indicators)
         if is_profile:
             self.logger.debug("✅ Profile screen detected")
