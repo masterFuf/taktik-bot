@@ -5,13 +5,37 @@ import time
 from bridges.compat.diagnostics.runtime.events import log
 
 
+_XPATH_ID_INDEX_CACHE: dict[str, dict[str, str]] = {}
+
+
+def _xpath_id_index(app: str | None) -> dict[str, str]:
+    """Return the cached xpath -> selectorId index for an app (best-effort).
+
+    The index is built once per app from the selector catalogs and only contains
+    unambiguous mappings. Any failure leaves the index empty so tracing keeps
+    working without selectorId enrichment (and stdout JSON stays clean).
+    """
+    if not app:
+        return {}
+    if app not in _XPATH_ID_INDEX_CACHE:
+        try:
+            from taktik.core.compat.selectors.setup import build_xpath_to_selector_id_index
+
+            _XPATH_ID_INDEX_CACHE[app] = build_xpath_to_selector_id_index(app)
+        except Exception as exc:
+            log("debug", f"[selector] xpath->id index unavailable for {app}: {exc}")
+            _XPATH_ID_INDEX_CACHE[app] = {}
+    return _XPATH_ID_INDEX_CACHE[app]
+
+
 class SelectorTracer:
     """Records every XPath selector check performed during an action."""
 
-    def __init__(self):
+    def __init__(self, app: str | None = None):
         self.traces: list[dict] = []
         self._screen = "unknown"
         self._family = None
+        self._app = app
 
     def set_screen(self, screen: str | None) -> None:
         self._screen = screen or "unknown"
@@ -36,6 +60,10 @@ class SelectorTracer:
             trace["family"] = self._family
         if elapsed_ms is not None:
             trace["elapsedMs"] = round(elapsed_ms, 2)
+
+        selector_id = _xpath_id_index(self._app).get(xpath_str)
+        if selector_id:
+            trace["selectorId"] = selector_id
 
         self.traces.append(trace)
         icon = "OK" if found else "MISS"

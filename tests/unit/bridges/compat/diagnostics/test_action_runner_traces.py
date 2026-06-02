@@ -4,6 +4,7 @@ import re
 
 from bridges.compat.diagnostics.runtime.action_test import runner as action_runner
 from bridges.compat.diagnostics.runtime.action_test import session as action_session
+from bridges.compat.diagnostics.runtime.action_test import tracing as action_tracing
 from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
 
@@ -341,6 +342,42 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     analysis = Path(artifacts["analysis"]).read_text(encoding="utf-8")
     assert '"recommendations"' in analysis
     assert '"selectorSummary"' in analysis
+
+
+def test_selector_tracer_resolves_selector_id_when_unambiguous(monkeypatch):
+    monkeypatch.setitem(
+        action_tracing._XPATH_ID_INDEX_CACHE,
+        "instagram",
+        {"//x": "navigation.home_tab"},
+    )
+    tracer = SelectorTracer(app="instagram")
+    tracer.record("//x", True)
+    tracer.record("//unknown", False)
+
+    assert tracer.traces[0]["selectorId"] == "navigation.home_tab"
+    assert "selectorId" not in tracer.traces[1]
+
+
+def test_selector_tracer_without_app_skips_selector_id(monkeypatch):
+    monkeypatch.setitem(
+        action_tracing._XPATH_ID_INDEX_CACHE,
+        "instagram",
+        {"//x": "navigation.home_tab"},
+    )
+    tracer = SelectorTracer()
+    tracer.record("//x", True)
+
+    assert "selectorId" not in tracer.traces[0]
+
+
+def test_build_xpath_index_is_unambiguous_and_namespaced():
+    from taktik.core.compat.selectors.setup import build_xpath_to_selector_id_index
+
+    index = build_xpath_to_selector_id_index("instagram")
+    assert isinstance(index, dict) and index
+    for xpath, selector_id in index.items():
+        assert isinstance(xpath, str) and xpath
+        assert isinstance(selector_id, str) and "." in selector_id
 
 
 def test_execute_action_perf_fast_skips_media_but_keeps_report(monkeypatch, tmp_path):

@@ -103,6 +103,29 @@ def create_registry(overrides_dir: Optional[str] = None) -> VersionedSelectorReg
     return registry
 
 
+def build_xpath_to_selector_id_index(
+    app: str, overrides_dir: Optional[str] = None
+) -> Dict[str, str]:
+    """Reverse index raw XPath -> logical selectorId for one app.
+
+    Only XPaths that resolve to exactly one logical selectorId (namespaced
+    ``domain.field``) are kept. XPaths shared by several selectors are dropped so
+    callers never receive an ambiguous id. Dynamically generated XPaths (built
+    from runtime parameters) are not in the catalogs and simply do not match.
+    """
+    registry = create_registry(overrides_dir=overrides_dir)
+    version = registry.get_current_version(app) or ""
+    candidates: Dict[str, set] = {}
+    for selector_id, entry in registry.get_all(app, version).items():
+        for xpath in entry.xpaths:
+            candidates.setdefault(xpath, set()).add(selector_id)
+    return {
+        xpath: next(iter(ids))
+        for xpath, ids in candidates.items()
+        if len(ids) == 1
+    }
+
+
 def _load_yaml_overrides(app: str, overrides_dir: Optional[Path] = None) -> Dict[str, Any]:
     """Load and return the raw YAML data for an app override file."""
     base_dir = overrides_dir or (Path(__file__).resolve().parent.parent / "data" / "overrides")

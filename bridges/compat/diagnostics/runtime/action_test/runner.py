@@ -94,7 +94,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         sys.exit(1)
 
     language_optimization = _detect_and_optimize_selectors(platform, device_facade)
-    tracer = _install_selector_tracer(device_facade)
+    tracer = _install_selector_tracer(device_facade, app=platform)
     _execute_action(
         action_registry,
         action_id,
@@ -110,8 +110,8 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
     )
 
 
-def _install_selector_tracer(device_facade):
-    tracer = SelectorTracer()
+def _install_selector_tracer(device_facade, app: str | None = None):
+    tracer = SelectorTracer(app=app)
     original_xpath = device_facade._device.xpath
 
     def traced_xpath(expr, *args, **kwargs):

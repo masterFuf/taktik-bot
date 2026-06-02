@@ -58,7 +58,7 @@ def run_action_session_bridge() -> None:
         device_facade = create_device_facade(device_manager.device)
         bundle = build_action_bundle(device_facade)
         language_optimization = _detect_and_optimize_selectors(platform, device_facade)
-        tracer = _install_selector_tracer(device_facade)
+        tracer = _install_selector_tracer(device_facade, app=platform)
         session_context_cache = _SessionContextCache()
     except Exception as exc:
         emit({"type": "error", "success": False, "message": f"Action session init failed: {exc}", "traceback": traceback.format_exc()})
