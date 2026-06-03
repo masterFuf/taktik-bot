@@ -195,6 +195,8 @@ Account suit maintenant le meme principe avec `account/{events,launch,result,run
 et un handler IPC facade. Le debug commun suit aussi le pattern :
 `handlers/common/debug/debug.ts` delegue a `tools/debug/{adb,bridge,workflow}`,
 et `desktop_bridge --debug` passe par `runBridge` avec timeout centralise.
+Le handler scrcpy window commun a aussi ete reduit en facade IPC, avec
+`services/shared/scrcpy/{events,install,path,window}` comme owners.
 
 ### Pattern cible
 
