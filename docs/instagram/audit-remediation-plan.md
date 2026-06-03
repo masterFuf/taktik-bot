@@ -118,14 +118,25 @@ sequenceDiagram
 
 ### Matrice attendue
 
-| Table | Owner cible | Ecrit par | Lu par | Sync |
-|---|---|---|---|---|
-| `sessions` | Electron SessionRepository | Electron | Electron UI, Live | Oui |
-| `scraping_sessions` | Electron SessionRepository | Electron, a clarifier si Python complete | Electron UI | Oui |
-| `instagram_profiles` | ProfileRepository | Electron et/ou Python, a trancher | Recherche, scraping, automation | Oui |
-| `interactions` | InteractionRepository | Bot/Python ou Electron selon workflow | Analytics, quotas | Oui |
-| `ai_profile_analysis` | Repository dedie a creer | Electron | UI data, scoring | Oui |
-| `profile_images` / media base64 | Media/profile repository | Electron ou sync fichiers | UI cartes compte/profil | Oui + fichiers |
+Inventaire des ecritures confirme par scan `INSERT/UPDATE/REPLACE` des deux cotes
+(Electron `electron/database/repositories/**`, Python `taktik/core/database/repositories/**`)
+au 2026-06-03. Le scan ne tranche pas l'owner cible (decision archi) ; il
+documente qui ecrit reellement et flague les **dual-write** a contractualiser.
+
+| Table | Ecrit par Electron | Ecrit par Python | Owner cible / decision |
+|---|---|---|---|
+| `sessions` | `SessionRepository` | `instagram/session_repository.py` | **Dual-write — contrat a definir** (qui ouvre/ferme la session terminale) |
+| `scraping_sessions` | `SessionRepository` | `instagram/session_repository.py` | **Dual-write confirme** (Python complete bien la session de scraping) |
+| `instagram_profiles` | `ProfileRepository`, `GeoEnrichmentRepository`, `MediaCacheRepository` | `instagram/profile_repository.py` | **Dual-write — contrat a definir** (champs factuels Python vs enrichissement/IA/media Electron) |
+| `profile_stats_history` | `StatsRepository` | `instagram/profile_repository.py` | **Dual-write — a trancher** |
+| `daily_stats` | `StatsRepository` | `instagram/stats_repository.py` | **Dual-write — a trancher** (quotas/analytics) |
+| `interaction_history` | `InteractionRepository` | `instagram/interaction_repository.py` | **Dual-write — selon workflow** (bot ecrit l'interaction, Electron lit/agrege) |
+| `instagram_accounts` | `AccountRepository` | `instagram/account_repository.py` | **Dual-write — a trancher** |
+| `following_sync` / `followers_sync` | — | `instagram/social_graph_repository.py` | Python owner (lecture Electron uniquement) |
+| `sent_dms` | — | `messaging/sent_dm_repository.py` | Python owner |
+| `scraped_profiles` / `discovered_profiles` | `DiscoveryRepository` | `instagram/discovery_repository.py` | A verifier (decoupage discovery Electron vs scraping Python) |
+| `ai_post_screenshots` / `ai_screenshots` / `profile_images` | `ProfileRepository`, `MediaCacheRepository` | — | Electron owner (IA/media local) |
+| `smart_comment_*`, `schedule*`, `taxonomy_*`, `device_groups`, `network_*`, `discovery_campaigns/templates` | repositories Electron dedies | — | Electron owner (donnees desktop) |
 
 ### Tests de validation
 
