@@ -37,7 +37,7 @@
 | P0 Ownership SQLite/sync | 72% | Beaucoup de handlers passent par repositories/services et `database:contracts` protege les boundaries. Reste ownership table-par-table Bot/Python vs Electron et diagnostics sync complets. |
 | P1 SQL direct handlers | 76% | `targetSearch`, scraping, DB commun, scheduler et plusieurs routes TikTok ont ete nettoyes. Cote Electron, Cold DM ne remappe plus les profils scraping dans le handler et Target Search n'ecrit plus l'export CSV depuis l'IPC. Reste des zones ponctuelles comme AI media/diagnostics et exceptions documentees. |
 | P1 Process runner uniforme | 99% | TikTok workflow, TikTok Account, scraping Instagram et automation Instagram sont largement externalises. Cote Electron, Account, Persona Analysis, Taktik Agent, Cold DM, Smart Comment, DM Responses, Threads automation et debug commun sont maintenant des facades IPC deleguant events/launch/runtime/workflow selon leur famille. Reste surtout `compat.ts`/Lab et la decision long terme runner unique vs exceptions documentees. |
-| P1 Publish Instagram | 90% | Le handler est devenu une orchestration courte : selectors, media, caption, story, reel, carousel, creation, launch et navigation ont des services owners. Reste test manuel post/reel/carousel/story et decision long terme "exception Electron" vs bridge Python. |
+| P1 Publish Instagram | 91% | Le handler est devenu une orchestration courte : selectors, media, caption, story, reel, carousel, creation, launch, navigation et events ont des services owners. Reste test manuel post/reel/carousel/story et decision long terme "exception Electron" vs bridge Python. |
 | P1 Selectors/pages/modales | 55% | Les selectors publish Electron sont centralises et le Lab cartographie progresse. Reste audit complet des autres surfaces Instagram/TikTok et nettoyage des allowlists. |
 | P1 Performance bot | 35% | Le Lab commence a remonter des timings et selector traces. Reste instrumentation runtime exploitable et remplacement progressif des sleeps fixes critiques. |
 | P2 Events Live typed | 58% | Scheduler/TikTok et plusieurs events Instagram ont des contrats centraux. Reste schema `InstagramBridgeEvent` commun par famille. |
@@ -45,7 +45,7 @@
 | P2 POO/ORM cible | 18% | Les repositories et services preparent le terrain, mais l'ORM/Data Mapper n'est pas encore implemente. |
 | P2 Humanisation | 22% | Les specs et la cartographie posent la trajectoire premium. Reste moteur runtime central et telemetry comportementale. |
 
-Estimation globale actuelle : environ **88%** du chantier front/Electron
+Estimation globale actuelle : environ **89%** du chantier front/Electron
 `audit qualite/refacto` est traite. Les P0 sont majoritairement colmates, mais
 pas encore "fermes" tant que les validations manuelles et l'ownership DB
 table-par-table ne sont pas termines.
