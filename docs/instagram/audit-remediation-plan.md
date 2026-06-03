@@ -165,7 +165,7 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
-Etat au 2026-06-03 : **97% avance cote front/Electron**.
+Etat au 2026-06-03 : **98% avance cote front/Electron**.
 
 Derniere mise a jour : `personaAnalysis.ts` est maintenant une facade IPC qui
 delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
@@ -189,7 +189,9 @@ finalisation. DM Responses suit maintenant le meme decoupage :
 l'annulation d'envoi, et `InstagramDmWorkflowService` porte
 read/send/bulk/stop/status avec `runBridge` et `stopManagedWorkflow`. Instagram
 Account suit maintenant le meme principe avec `account/{events,launch,result,runtime,sync,workflow}`
-et un handler IPC facade.
+et un handler IPC facade. Le debug commun suit aussi le pattern :
+`handlers/common/debug/debug.ts` delegue a `tools/debug/{adb,bridge,workflow}`,
+et `desktop_bridge --debug` passe par `runBridge` avec timeout centralise.
 
 ### Pattern cible
 
