@@ -159,7 +159,8 @@ code progressif.
 | `username`, `full_name`, `biography`, `followers_count`, `following_count`, `posts_count`, `is_private`, `is_verified`, `is_business`, `business_category`, `website`, `date_joined` | **Python** (fait scrape) | Electron les ecrit encore via `ProfileRepository.update()` (COALESCE) — **residuel a reduire** vers lecture / reception d'un scrape Python |
 | `ai_niche`, `ai_specific_niche`, `ai_score`, `ai_classification`, `ai_classified_at`, `ai_profession`, `ai_screenshot_path` | **Electron** (classification IA) | owner clair |
 | `profile_pic_path` | **Electron** (media cache) | Python l'initialise a l'insert, Electron rafraichit le cache local |
-| `account_based_in`, `location_region` | **Electron** (enrichissement geo) | `account_based_in` aussi pose par Python a l'insert (valeur factuelle si fournie) |
+| `location_region` | **Electron** (enrichissement geo) | colonne parallele dediee, deja conforme |
+| `account_based_in` | **Python** (fait) ; Electron remplit si vide | **a migrer** : la valeur geo derivee par Electron doit aller dans une colonne parallele `ai_account_based_in`, pas dans le champ factuel |
 
 **`instagram_accounts`** (+ profil business)
 
@@ -168,10 +169,22 @@ code progressif.
 | `username`, `is_bot`, `user_id`, `license_id` | **Partage a la creation** | rangee creee par le 1er des deux cotes (`getOrCreate`) ; pas de reecriture concurrente du factuel |
 | profil business / qualification (`niche`, `target_audience`, `tone_personality`, `objective`, `product_service`, `unique_selling_point`, prompt) | **Electron** | saisi dans le desktop, owner enrichissement |
 
-Etape code ciblee (a faire avec devices/QA, hors de ce lot documentaire) : passer
-`ProfileRepository.update()` en lecture pour les colonnes factuelles ci-dessus, ou
-ne les ecrire que sur reception explicite d'un scrape Python, puis etendre le garde
-`database:contracts` au niveau colonne une fois ces ecritures retirees.
+Regle d'enrichissement IA (decision 2026-06-03) : quand Electron derive une valeur
+par IA/enrichissement pour un champ factuel, il ne reecrit pas la colonne factuelle
+owner Python; il ecrit dans une **colonne parallele `ai_<champ>`**. On garde ainsi
+les deux donnees (fait Python + valeur IA Electron) separees. Les colonnes `ai_*`
+existantes suivent deja la regle; le seul ecart est le geo `account_based_in`.
+
+Etape code ciblee (a faire avec devices/QA, hors de ce lot documentaire) :
+1. Migration additive : ajouter `ai_account_based_in` (et au besoin d'autres
+   `ai_<champ>`) au schema partage.
+2. Rediriger l'ecriture geo Electron (`GeoEnrichmentRepository`) vers `ai_account_based_in`,
+   laisser `account_based_in` au scrape Python.
+3. Mettre a jour les lecteurs UI (cartes profil/compte) qui affichent la localisation
+   pour lire le fallback `account_based_in` puis `ai_account_based_in`.
+4. Passer `ProfileRepository.update()` en lecture pour les colonnes factuelles
+   (`full_name`, `biography`, counts, `is_private`...) — propagation factuelle, pas IA.
+5. Etendre le garde `database:contracts` au niveau colonne une fois ces ecritures retirees.
 
 ### Tests de validation
 
