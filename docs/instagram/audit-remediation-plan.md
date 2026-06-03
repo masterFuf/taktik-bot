@@ -328,6 +328,12 @@ Reste a faire pour fermer ce point :
 | Migrer vers Bot Python | Cohesion avec les autres workflows Android. | Gros risque de regression publish. |
 | Refactor interne sans migration | Bon compromis court terme, deja largement applique. | Il faut maintenir les garde-fous et tester sur device. |
 
+**Decision retenue (2026-06-03) : migrer vers le Bot Python** pour supprimer la
+disparite (publish est le seul workflow piloté depuis Electron ; TikTok/YouTube
+upload passent par un bridge Python). Migration **incrementale flux par flux**,
+chemin Electron garde en fallback jusqu'a validation device de chaque flux. Plan
+detaille : [Migration Instagram publish Electron -> Bot](publish-electron-to-bot-migration.md).
+
 ### Refactor minimal recommande
 
 | Module cible | Responsabilite |
