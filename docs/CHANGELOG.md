@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram quality/refactor audit progress was updated after the Electron Taktik Agent workflow-service extraction lot; global front/Electron estimate is now 73% and the P1 process-runner track is now 88%.
 - Instagram quality/refactor audit progress was updated after the Electron Persona Analysis facade/workflow extraction and Taktik Agent access-gate extraction lots; global front/Electron estimate is now 72% and the P1 process-runner track is now 86%.
 - Instagram quality/refactor audit progress was updated after the Electron Cold DM scraping read-model and Target Search export extraction lots; global front/Electron estimate is now 71% and the P1 SQL/direct-handler track is now 76%.
 - Instagram quality/refactor audit progress was updated after the Electron Taktik Agent and Cold DM stream/launch extraction lots; global front/Electron estimate is now 70% and the P1 process-runner track is now 82%.
