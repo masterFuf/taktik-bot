@@ -58,12 +58,14 @@
 2. **Selectors** : **réconcilier** (ne pas dupliquer) avec l'existant bot
    `ui/selectors/surfaces/content_creation.py` (déjà des selectors de création
    posts/stories). Ajouter seulement les selectors publish manquants depuis
-   `InstagramPublishSelectors.ts` (resource ids, textes FR/EN). **Attention** : les
-   `INSTAGRAM_PUBLISH_FALLBACK_POINTS` Electron sont des **coordonnées en dur par
-   viewport** — règle AGENTS « pas de coordonnées en dur sauf exception documentée » :
-   soit on les remplace par une détection selector, soit on les garde comme fallback
-   explicitement documenté et scopé par résolution. Audit `audit_selector_hardcodes.py`
-   doit rester vert. Source unique = bot.
+   `InstagramPublishSelectors.ts` (resource ids, textes FR/EN).
+   **Décision (Kevin, 2026-06-03) : on NE porte PAS les coordonnées en dur.** Côté
+   Electron, le chemin primaire est déjà selector-based (`findInstagram…(uiDump)`,
+   resource-id/content-desc/text) ; les `INSTAGRAM_PUBLISH_FALLBACK_POINTS` ne sont
+   qu'un `scaledFallback` quand le selector échoue — un hack qui casse selon
+   DPI/résolution. Le bot reste **100% détection selector dynamique** (xpath +
+   wait/retry) : si un selector n'est pas trouvé, on retry/échoue proprement, **jamais**
+   un tap sur coordonnée en dur. Audit `audit_selector_hardcodes.py` vert. Source unique = bot.
 3. **Flux POST** d'abord (le plus simple) : porter actions launch→création→média→caption→publish,
    bridge fonctionnel pour `postType=post`. **QA device.**
 4. **Flux REEL**, puis **CAROUSEL**, puis **STORY** : un par un, QA device à chaque fois.
