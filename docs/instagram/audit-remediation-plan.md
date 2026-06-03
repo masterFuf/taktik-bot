@@ -123,20 +123,28 @@ Inventaire des ecritures confirme par scan `INSERT/UPDATE/REPLACE` des deux cote
 au 2026-06-03. Le scan ne tranche pas l'owner cible (decision archi) ; il
 documente qui ecrit reellement et flague les **dual-write** a contractualiser.
 
-| Table | Ecrit par Electron | Ecrit par Python | Owner cible / decision |
+**Convention d'ownership tranchee (2026-06-03) : « Python ecrit les faits, Electron enrichit ».**
+Le bot Python est owner des **faits d'automatisation** (sessions reelles, interactions,
+champs factuels de profil scrapes, stats d'activite). Electron est owner de
+l'**enrichissement local** (classification IA, media/images, geo, scheduler,
+taxonomy, donnees desktop) et lit les faits pour l'UI/Live. Cible : reduire
+progressivement les ecritures Electron sur les colonnes factuelles des tables
+partagees au profit de lectures + d'un contrat de champs.
+
+| Table | Ecrit par Electron | Ecrit par Python | Owner cible (convention) |
 |---|---|---|---|
-| `sessions` | `SessionRepository` | `instagram/session_repository.py` | **Dual-write — contrat a definir** (qui ouvre/ferme la session terminale) |
-| `scraping_sessions` | `SessionRepository` | `instagram/session_repository.py` | **Dual-write confirme** (Python complete bien la session de scraping) |
-| `instagram_profiles` | `ProfileRepository`, `GeoEnrichmentRepository`, `MediaCacheRepository` | `instagram/profile_repository.py` | **Dual-write — contrat a definir** (champs factuels Python vs enrichissement/IA/media Electron) |
-| `profile_stats_history` | `StatsRepository` | `instagram/profile_repository.py` | **Dual-write — a trancher** |
-| `daily_stats` | `StatsRepository` | `instagram/stats_repository.py` | **Dual-write — a trancher** (quotas/analytics) |
-| `interaction_history` | `InteractionRepository` | `instagram/interaction_repository.py` | **Dual-write — selon workflow** (bot ecrit l'interaction, Electron lit/agrege) |
-| `instagram_accounts` | `AccountRepository` | `instagram/account_repository.py` | **Dual-write — a trancher** |
-| `following_sync` / `followers_sync` | — | `instagram/social_graph_repository.py` | Python owner (lecture Electron uniquement) |
-| `sent_dms` | — | `messaging/sent_dm_repository.py` | Python owner |
-| `scraped_profiles` / `discovered_profiles` | `DiscoveryRepository` | `instagram/discovery_repository.py` | A verifier (decoupage discovery Electron vs scraping Python) |
-| `ai_post_screenshots` / `ai_screenshots` / `profile_images` | `ProfileRepository`, `MediaCacheRepository` | — | Electron owner (IA/media local) |
-| `smart_comment_*`, `schedule*`, `taxonomy_*`, `device_groups`, `network_*`, `discovery_campaigns/templates` | repositories Electron dedies | — | Electron owner (donnees desktop) |
+| `sessions` | `SessionRepository` | `instagram/session_repository.py` | **Python** (cycle de vie reel de la session) ; Electron lit pour UI/Live |
+| `scraping_sessions` | `SessionRepository` | `instagram/session_repository.py` | **Python** (la session de scraping est un fait bot) ; Electron lit |
+| `instagram_profiles` | `ProfileRepository`, `GeoEnrichmentRepository`, `MediaCacheRepository` | `instagram/profile_repository.py` | **Partage par champs** : Python = champs factuels (username, followers, bio, scrape) ; Electron = enrichissement (classification IA, geo, media/images) |
+| `profile_stats_history` | `StatsRepository` | `instagram/profile_repository.py` | **Python** (stats factuelles) ; Electron lit |
+| `daily_stats` | `StatsRepository` | `instagram/stats_repository.py` | **Python** (activite/quotas reels) ; Electron lit/agrege |
+| `interaction_history` | `InteractionRepository` | `instagram/interaction_repository.py` | **Python** (l'interaction est un fait bot) ; Electron lit/agrege |
+| `instagram_accounts` | `AccountRepository` | `instagram/account_repository.py` | **Partage par champs** : Python = etat factuel du compte ; Electron = profil business/qualification saisis dans le desktop |
+| `following_sync` / `followers_sync` | — | `instagram/social_graph_repository.py` | **Python** (faits de relation) ; lecture Electron uniquement |
+| `sent_dms` | — | `messaging/sent_dm_repository.py` | **Python** (fait d'envoi) |
+| `scraped_profiles` / `discovered_profiles` | `DiscoveryRepository` | `instagram/discovery_repository.py` | **Partage** : Python = scrape factuel ; Electron = campagnes/qualification discovery |
+| `ai_post_screenshots` / `ai_screenshots` / `profile_images` | `ProfileRepository`, `MediaCacheRepository` | — | **Electron** (IA/media local) |
+| `smart_comment_*`, `schedule*`, `taxonomy_*`, `device_groups`, `network_*`, `discovery_campaigns/templates` | repositories Electron dedies | — | **Electron** (donnees desktop) |
 
 ### Tests de validation
 
