@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>Instagram & TikTok Automation Platform</h1>
+  <h1>Social Media Automation Platform</h1>
   
-  <p><strong>Instagram & TikTok automation via real Android devices. Likes, follows, DMs, scraping, hashtag & location targeting. Built with Python, uiautomator2 & ADB.</strong></p>
+  <p><strong>Instagram, TikTok, YouTube, Threads & Gmail automation via real Android devices. Likes, follows, DMs, scraping, publishing, hashtag & location targeting, AI tools. Built with Python, uiautomator2 & ADB.</strong></p>
   
   [![GitHub stars](https://img.shields.io/github/stars/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/stargazers)
   [![GitHub forks](https://img.shields.io/github/forks/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/network/members)
@@ -36,7 +36,7 @@
 
 ## 🎯 What is TAKTIK?
 
-**TAKTIK** is a comprehensive **social media automation platform** for Instagram and TikTok. It combines a powerful Python automation engine with a premium Desktop application featuring AI-powered tools, real-time analytics, and an intuitive interface.
+**TAKTIK** is a comprehensive **social media automation platform** for Instagram, TikTok, YouTube, Threads and Gmail. It combines a powerful Python automation engine with a premium Desktop application featuring AI-powered tools, real-time analytics, and an intuitive interface.
 
 > 🐍 **Open Source Core** — The Python automation engine is open source under GPLv3
 >
@@ -130,6 +130,38 @@
 
 ---
 
+### ▶️ YouTube
+
+| Feature | Description |
+|---------|-------------|
+| 👤 **Account** | Login / logout and account management |
+| ⬆️ **Upload** | Publish Shorts and Videos with title, description and visibility (public / unlisted / private) |
+
+---
+
+### 🧵 Threads & 📧 Gmail
+
+| Feature | Description |
+|---------|-------------|
+| 🧵 **Threads Automation** | Engagement automation on Threads |
+| 📧 **Gmail Accounts** | Account login/logout, OTP reading and account scanning (used for account creation flows) |
+
+---
+
+### 🤖 AI Tools
+
+| Feature | Description |
+|---------|-------------|
+| 🧠 **Persona Analysis** | Screenshot a profile → AI vision analysis → niche classification + relevance score |
+| 💬 **Smart Comment** | Context-aware AI-generated comments on posts |
+| 🕹️ **Taktik Agent** | AI-driven multi-step orchestration of workflows |
+| 🎨 **Content Generation** | AI images (text-to-image / image-to-image), captions and hashtags |
+| 🔊 **Text-to-Speech** | Voice synthesis for content |
+
+> AI text/vision flows run through **OpenRouter**; `@fal-ai/client` is still used for some media flows.
+
+---
+
 ### 🖥️ Desktop App Exclusive Features
 
 | Feature | Description |
@@ -143,6 +175,9 @@
 | 📜 **Scraping History** | Access all scraping sessions with CSV/XLSX export |
 | 🔍 **Discovery & AI Qualification** | Find and score leads with AI analysis |
 | 🔎 **Target Search** | Query discovered profiles with advanced filters |
+| 🌐 **Network & Proxy** | Network pools, IP/data reset and per-device IP history |
+| 🗂️ **Device Groups** | Group and configure multiple devices |
+| 🧪 **Cartography Lab** | Atomic-action test bench by surface (feed/post/story/reels/search/profile) with XML + screenshot capture, per-run reports and multi-device comparison |
 | 🌍 **Multi-language** | Interface available in 10+ languages |
 
 ---
