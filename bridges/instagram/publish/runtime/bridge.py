@@ -1,0 +1,97 @@
+"""Instagram publish bridge runtime class.
+
+Scaffold of the Instagram publish bridge (see
+`docs/instagram/publish-electron-to-bot-migration.md`). The bridge contract,
+device connection and per-`postType` dispatch are in place; each flow body
+(post / reel / carousel / story) is ported from the Electron services
+incrementally and validated on device. Until a flow is ported, it returns a
+clear terminal error and the Electron path remains the active publisher.
+"""
+
+from __future__ import annotations
+
+import signal
+
+from bridges.common.device.connection import ConnectionService
+from bridges.common.runtime.signal_handler import setup_signal_handlers
+from bridges.instagram.runtime.ipc import _ipc, send_error, send_log, send_status
+
+
+SUPPORTED_POST_TYPES = ("post", "reel", "carousel", "story")
+
+
+class InstagramPublishBridge:
+    """Bridge for Instagram post/reel/carousel/story publishing."""
+
+    def __init__(self, config: dict):
+        self.config = config
+        self.device_id = config.get("deviceId")
+        # Single or multi-media input (carousel uses several paths).
+        self.media_paths = config.get("mediaPaths") or (
+            [config["localPath"]] if config.get("localPath") else []
+        )
+        self.caption = config.get("caption", "")
+        self.hashtags = config.get("hashtags", [])
+        self.post_type = (config.get("postType") or "post").lower()
+        self.package_name = config.get("packageName")
+        self._connection = None
+        self._stop_requested = False
+
+        setup_signal_handlers(ipc=_ipc)
+        signal.signal(signal.SIGTERM, self._shutdown)
+        signal.signal(signal.SIGINT, self._shutdown)
+
+    def _shutdown(self, signum, frame):
+        self._stop_requested = True
+        send_status("stopping", "Received shutdown signal")
+
+    def run(self) -> int:
+        if not self.device_id:
+            send_error("deviceId is required")
+            return 1
+        if self.post_type not in SUPPORTED_POST_TYPES:
+            send_error(f"Unsupported postType '{self.post_type}' (expected one of {SUPPORTED_POST_TYPES})")
+            return 1
+        if self.post_type != "story" and not self.media_paths:
+            send_error("At least one media path is required (mediaPaths/localPath)")
+            return 1
+
+        send_status("connecting", f"Connecting to device {self.device_id}...")
+        self._connection = ConnectionService(self.device_id)
+
+        try:
+            dispatch = {
+                "post": self._run_post,
+                "reel": self._run_reel,
+                "carousel": self._run_carousel,
+                "story": self._run_story,
+            }
+            return dispatch[self.post_type]()
+        finally:
+            try:
+                if self._connection is not None:
+                    self._connection.close()
+            except Exception:
+                pass
+
+    # --- Flow owners (ported incrementally from the Electron publish services) ---
+
+    def _run_post(self) -> int:
+        return self._flow_not_ported("post")
+
+    def _run_reel(self) -> int:
+        return self._flow_not_ported("reel")
+
+    def _run_carousel(self) -> int:
+        return self._flow_not_ported("carousel")
+
+    def _run_story(self) -> int:
+        return self._flow_not_ported("story")
+
+    def _flow_not_ported(self, flow: str) -> int:
+        send_log("warn", f"Instagram publish flow '{flow}' not yet ported to the bot bridge")
+        send_error(
+            f"Instagram publish flow '{flow}' is not yet available on the bot bridge; "
+            "the Electron publish path is still the active publisher."
+        )
+        return 1

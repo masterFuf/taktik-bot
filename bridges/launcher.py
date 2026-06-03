@@ -36,6 +36,7 @@ BRIDGE_MODULES = {
     "account_bridge":       "bridges.instagram.account.account",
     "taktik_agent_bridge":  "bridges.instagram.agent.taktik_agent",
     "persona_analysis_bridge": "bridges.instagram.analysis.persona",
+    "publish_bridge":       "bridges.instagram.publish.publish",
     # TikTok
     "tiktok_bridge":          "bridges.tiktok.workflows.dispatcher",
     "tiktok_unfollow_bridge": "bridges.tiktok.automation.unfollow",
