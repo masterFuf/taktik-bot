@@ -32,13 +32,16 @@ Un point est considere ferme seulement si ces cinq preuves existent :
 
 ## P0-1 Stop, cancel et session terminale
 
-Etat au 2026-06-03 : **92% avance cote front/Electron**.
+Etat au 2026-06-03 : **93% avance cote front/Electron**.
 
 Derniere mise a jour : le workflow Instagram Account ne porte plus son stop
 manuel dans le handler. `InstagramAccountWorkflowService` gere validation
 device, anti-double-run et `stopManagedWorkflow`, pendant que
 `InstagramAccountLaunchService`, `InstagramAccountEventService` et
 `InstagramAccountDeviceSyncService` separent spawn, events et sync DB.
+Le terminal event Instagram automation `bot:session-ended` vit maintenant dans
+`InstagramBotSessionEventService`, avec la garde anti-double emission
+`markTerminalEventSent` hors du handler.
 
 ### Symptome observe
 
