@@ -45,7 +45,7 @@
 | P2 POO/ORM cible | 18% | Les repositories et services preparent le terrain, mais l'ORM/Data Mapper n'est pas encore implemente. |
 | P2 Humanisation | 22% | Les specs et la cartographie posent la trajectoire premium. Reste moteur runtime central et telemetry comportementale. |
 
-Estimation globale actuelle : environ **91%** du chantier front/Electron
+Estimation globale actuelle : environ **92%** du chantier front/Electron
 `audit qualite/refacto` est traite. Les P0 sont majoritairement colmates, mais
 pas encore "fermes" tant que les validations manuelles et l'ownership DB
 table-par-table ne sont pas termines.
