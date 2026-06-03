@@ -157,7 +157,7 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
-Etat au 2026-06-03 : **88% avance cote front/Electron**.
+Etat au 2026-06-03 : **90% avance cote front/Electron**.
 
 Derniere mise a jour : `personaAnalysis.ts` est maintenant une facade IPC qui
 delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
@@ -165,7 +165,10 @@ delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
 Agent est aussi une facade IPC : `TaktikAgentWorkflowService` porte maintenant
 `ProcessManager` injecte, watchdog, events terminaux, stop stdin/kill/force-stop
 et status, avec `access/`, `bridge/`, `launch/` et `runtime/` comme owners
-specialises.
+specialises. Cold DM suit maintenant le meme principe : `ColdDmWorkflowService`
+porte selection des recipients, `ProcessManager`, watchdog, events terminaux,
+`stopManagedWorkflow`, fermeture Instagram et shutdown, pendant que
+`coldDm.ts` reste une facade IPC.
 
 ### Pattern cible
 
