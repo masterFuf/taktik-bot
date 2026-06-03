@@ -32,6 +32,14 @@ Un point est considere ferme seulement si ces cinq preuves existent :
 
 ## P0-1 Stop, cancel et session terminale
 
+Etat au 2026-06-03 : **92% avance cote front/Electron**.
+
+Derniere mise a jour : le workflow Instagram Account ne porte plus son stop
+manuel dans le handler. `InstagramAccountWorkflowService` gere validation
+device, anti-double-run et `stopManagedWorkflow`, pendant que
+`InstagramAccountLaunchService`, `InstagramAccountEventService` et
+`InstagramAccountDeviceSyncService` separent spawn, events et sync DB.
+
 ### Symptome observe
 
 - Sidebar ou panneau device indique encore `Session en cours` alors que le telephone est revenu a l'accueil.
@@ -157,7 +165,7 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
-Etat au 2026-06-03 : **96% avance cote front/Electron**.
+Etat au 2026-06-03 : **97% avance cote front/Electron**.
 
 Derniere mise a jour : `personaAnalysis.ts` est maintenant une facade IPC qui
 delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
@@ -179,7 +187,9 @@ finalisation. DM Responses suit maintenant le meme decoupage :
 `InstagramDmReadEventService` porte le mapping lecture
 `conversation`/`progress`/`result`, `InstagramDmSendRuntimeService` porte
 l'annulation d'envoi, et `InstagramDmWorkflowService` porte
-read/send/bulk/stop/status avec `runBridge` et `stopManagedWorkflow`.
+read/send/bulk/stop/status avec `runBridge` et `stopManagedWorkflow`. Instagram
+Account suit maintenant le meme principe avec `account/{events,launch,result,runtime,sync,workflow}`
+et un handler IPC facade.
 
 ### Pattern cible
 
