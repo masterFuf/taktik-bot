@@ -200,6 +200,8 @@ Le handler scrcpy window commun a aussi ete reduit en facade IPC, avec
 YouTube Account suit maintenant le pattern account : handler facade, stop via
 `YouTubeAccountWorkflowService`, spawn/config dans `launch` et events
 `youtube-account:*` dans `events`.
+Gmail Account suit le meme pattern pour login/logout/read OTP/scan accounts,
+avec handler facade et owners `events/launch/result/runtime/workflow`.
 
 ### Pattern cible
 

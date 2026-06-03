@@ -33,7 +33,7 @@
 
 | Niveau | Avancement estime | Etat |
 |---|---:|---|
-| P0 Stop/cancel/session terminale | 94% | Instagram automation/scraping, Account, Cold DM, Smart Comment, Taktik Agent, Persona Analysis, YouTube Account et TikTok workflow lifecycle sont tres avances, avec contrats anti-regression. Reste validation manuelle multi-workflow et quelques familles annexes/outils. |
+| P0 Stop/cancel/session terminale | 95% | Instagram automation/scraping, Account, Cold DM, Smart Comment, Taktik Agent, Persona Analysis, YouTube/Gmail Account et TikTok workflow lifecycle sont tres avances, avec contrats anti-regression. Reste validation manuelle multi-workflow et quelques familles annexes/outils. |
 | P0 Ownership SQLite/sync | 72% | Beaucoup de handlers passent par repositories/services et `database:contracts` protege les boundaries. Reste ownership table-par-table Bot/Python vs Electron et diagnostics sync complets. |
 | P1 SQL direct handlers | 76% | `targetSearch`, scraping, DB commun, scheduler et plusieurs routes TikTok ont ete nettoyes. Cote Electron, Cold DM ne remappe plus les profils scraping dans le handler et Target Search n'ecrit plus l'export CSV depuis l'IPC. Reste des zones ponctuelles comme AI media/diagnostics et exceptions documentees. |
 | P1 Process runner uniforme | 98% | TikTok workflow, scraping Instagram et automation Instagram sont largement externalises. Cote Electron, Account, Persona Analysis, Taktik Agent, Cold DM, Smart Comment, DM Responses et debug commun sont maintenant des facades IPC deleguant events/launch/runtime/workflow selon leur famille. Reste surtout `compat.ts`/Lab et la decision long terme runner unique vs exceptions documentees. |
@@ -45,7 +45,7 @@
 | P2 POO/ORM cible | 18% | Les repositories et services preparent le terrain, mais l'ORM/Data Mapper n'est pas encore implemente. |
 | P2 Humanisation | 22% | Les specs et la cartographie posent la trajectoire premium. Reste moteur runtime central et telemetry comportementale. |
 
-Estimation globale actuelle : environ **85%** du chantier front/Electron
+Estimation globale actuelle : environ **86%** du chantier front/Electron
 `audit qualite/refacto` est traite. Les P0 sont majoritairement colmates, mais
 pas encore "fermes" tant que les validations manuelles et l'ownership DB
 table-par-table ne sont pas termines.
