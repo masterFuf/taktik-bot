@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram quality/refactor audit progress was updated after extracting `SchedulerDatabaseService` for the scheduler/content-planner handlers; no Electron handler imports `databaseService` or calls `db.prepare` anymore, and the P1 SQL/direct-handler track is now 92%.
 - Instagram quality/refactor audit progress was updated after routing the AI profile-classification handler's operator account read through `InstagramAccountDatabaseService`; the P1 SQL/direct-handler track is now 91%.
 - Instagram quality/refactor audit progress was updated after routing ADB network probe/reset snapshots through `NetworkHistoryService`; the P1 SQL/direct-handler track is now 90%.
 - Instagram quality/refactor audit progress was updated after the Electron Instagram target search database service extraction lot; the P1 SQL/direct-handler track is now 89%.
