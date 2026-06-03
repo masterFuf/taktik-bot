@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Enforced the P0-2 ownership convention in `database:contracts`: Electron repositories can no longer write the Python-owned fact tables (`following_sync`, `followers_sync`, `sent_dms`); the guard passes today and blocks regressions. P0 Ownership track moves 74% -> 75%.
 - Settled the P0-2 SQLite ownership convention: "Python writes facts, Electron enriches". Python owns automation facts (sessions, interactions, activity stats, sync, factual profile/account columns); Electron owns local enrichment (AI, media, geo, scheduler, taxonomy, desktop data) and reads facts. P0 Ownership track moves 73% -> 74%.
 - Documented the P0-2 SQLite write-ownership inventory (`audit-remediation-plan.md`) from an INSERT/UPDATE scan of both repos: dual-write confirmed on `sessions`, `scraping_sessions`, `instagram_profiles`, `profile_stats_history`, `daily_stats`, `interaction_history` and `instagram_accounts`. P0 Ownership track moves 72% -> 73%.
 - Instagram quality/refactor audit progress was updated after extracting `SchedulerDatabaseService` for the scheduler/content-planner handlers; no Electron handler imports `databaseService` or calls `db.prepare` anymore, and the P1 SQL/direct-handler track is now 92%.
