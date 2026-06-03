@@ -157,7 +157,7 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
-Etat au 2026-06-03 : **94% avance cote front/Electron**.
+Etat au 2026-06-03 : **95% avance cote front/Electron**.
 
 Derniere mise a jour : `personaAnalysis.ts` est maintenant une facade IPC qui
 delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
@@ -175,7 +175,9 @@ fichiers temporaires et options `runBridge`. `SmartCommentEventService` porte
 maintenant le mapping JSON bridge vers events IPC `smart-comment:*`. Smart
 Comment est aussi une facade IPC : `SmartCommentWorkflowService` porte
 `ProcessManager`, `runBridge`, watchdog, stop/status/shutdown, logs et
-finalisation.
+finalisation. DM Responses commence le meme decoupage : le mapping lecture
+`conversation`/`progress`/`result` vit maintenant dans
+`InstagramDmReadEventService`.
 
 ### Pattern cible
 

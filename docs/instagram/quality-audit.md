@@ -36,7 +36,7 @@
 | P0 Stop/cancel/session terminale | 91% | Instagram automation/scraping, Cold DM, Smart Comment, Taktik Agent, Persona Analysis et TikTok workflow lifecycle sont tres avances, avec contrats anti-regression. Reste validation manuelle multi-workflow et quelques familles annexes/outils. |
 | P0 Ownership SQLite/sync | 72% | Beaucoup de handlers passent par repositories/services et `database:contracts` protege les boundaries. Reste ownership table-par-table Bot/Python vs Electron et diagnostics sync complets. |
 | P1 SQL direct handlers | 76% | `targetSearch`, scraping, DB commun, scheduler et plusieurs routes TikTok ont ete nettoyes. Cote Electron, Cold DM ne remappe plus les profils scraping dans le handler et Target Search n'ecrit plus l'export CSV depuis l'IPC. Reste des zones ponctuelles comme AI media/diagnostics et exceptions documentees. |
-| P1 Process runner uniforme | 94% | TikTok workflow, scraping Instagram et automation Instagram sont largement externalises. Cote Electron, Persona Analysis, Taktik Agent, Cold DM et Smart Comment sont maintenant des facades IPC deleguant events/launch/runtime/workflow selon leur famille. Reste certains outils compat/debug et la decision long terme runner unique vs exceptions documentees. |
+| P1 Process runner uniforme | 95% | TikTok workflow, scraping Instagram et automation Instagram sont largement externalises. Cote Electron, Persona Analysis, Taktik Agent, Cold DM et Smart Comment sont maintenant des facades IPC deleguant events/launch/runtime/workflow selon leur famille, et DM Responses commence a sortir son event routing. Reste workflow DM Responses, certains outils compat/debug et la decision long terme runner unique vs exceptions documentees. |
 | P1 Publish Instagram | 90% | Le handler est devenu une orchestration courte : selectors, media, caption, story, reel, carousel, creation, launch et navigation ont des services owners. Reste test manuel post/reel/carousel/story et decision long terme "exception Electron" vs bridge Python. |
 | P1 Selectors/pages/modales | 55% | Les selectors publish Electron sont centralises et le Lab cartographie progresse. Reste audit complet des autres surfaces Instagram/TikTok et nettoyage des allowlists. |
 | P1 Performance bot | 35% | Le Lab commence a remonter des timings et selector traces. Reste instrumentation runtime exploitable et remplacement progressif des sleeps fixes critiques. |
@@ -45,7 +45,7 @@
 | P2 POO/ORM cible | 18% | Les repositories et services preparent le terrain, mais l'ORM/Data Mapper n'est pas encore implemente. |
 | P2 Humanisation | 22% | Les specs et la cartographie posent la trajectoire premium. Reste moteur runtime central et telemetry comportementale. |
 
-Estimation globale actuelle : environ **78%** du chantier front/Electron
+Estimation globale actuelle : environ **79%** du chantier front/Electron
 `audit qualite/refacto` est traite. Les P0 sont majoritairement colmates, mais
 pas encore "fermes" tant que les validations manuelles et l'ownership DB
 table-par-table ne sont pas termines.
