@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram quality/refactor audit progress was updated after the Electron YouTube Account workflow-service extraction lot; global front/Electron estimate is now 85%, and P0 stop/session terminale is now 94%.
 - Instagram quality/refactor audit progress was updated after the Electron scrcpy window lifecycle extraction lot; global front/Electron estimate is now 84%.
 - Instagram quality/refactor audit progress was updated after the Electron Instagram Bot session-event extraction lot; global front/Electron estimate is now 83%, and P0 stop/session terminale is now 93%.
 - Instagram quality/refactor audit progress was updated after the Electron common debug workflow-service extraction lot; global front/Electron estimate is now 82%, and the P1 process-runner track is now 98%.

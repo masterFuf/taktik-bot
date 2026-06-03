@@ -197,6 +197,9 @@ et un handler IPC facade. Le debug commun suit aussi le pattern :
 et `desktop_bridge --debug` passe par `runBridge` avec timeout centralise.
 Le handler scrcpy window commun a aussi ete reduit en facade IPC, avec
 `services/shared/scrcpy/{events,install,path,window}` comme owners.
+YouTube Account suit maintenant le pattern account : handler facade, stop via
+`YouTubeAccountWorkflowService`, spawn/config dans `launch` et events
+`youtube-account:*` dans `events`.
 
 ### Pattern cible
 
