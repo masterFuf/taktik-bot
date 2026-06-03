@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram quality/refactor audit progress was updated after the Electron database startup cleanup service extraction lot; the P1 SQL/direct-handler track is now 88%.
 - Instagram quality/refactor audit progress was updated after the Electron database export/tutorial service extraction lot; the P1 SQL/direct-handler track is now 87%.
 - Instagram quality/refactor audit progress was updated after the Electron database explorer service extraction lot; the P1 SQL/direct-handler track is now 86%.
 - Instagram quality/refactor audit progress was updated after the Electron TikTok database service extraction lot; the P1 SQL/direct-handler track is now 85%.
