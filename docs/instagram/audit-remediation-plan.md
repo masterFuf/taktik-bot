@@ -146,6 +146,33 @@ partagees au profit de lectures + d'un contrat de champs.
 | `ai_post_screenshots` / `ai_screenshots` / `profile_images` | `ProfileRepository`, `MediaCacheRepository` | — | **Electron** (IA/media local) |
 | `smart_comment_*`, `schedule*`, `taxonomy_*`, `device_groups`, `network_*`, `discovery_campaigns/templates` | repositories Electron dedies | — | **Electron** (donnees desktop) |
 
+### Contrat de champs des tables partagees
+
+Detail colonne par colonne des deux tables `partage par champs`, releve par scan
+des `INSERT/UPDATE` reels des deux cotes (2026-06-03). Sert de cible a l'enforcement
+code progressif.
+
+**`instagram_profiles`**
+
+| Colonnes | Owner cible | Note |
+|---|---|---|
+| `username`, `full_name`, `biography`, `followers_count`, `following_count`, `posts_count`, `is_private`, `is_verified`, `is_business`, `business_category`, `website`, `date_joined` | **Python** (fait scrape) | Electron les ecrit encore via `ProfileRepository.update()` (COALESCE) — **residuel a reduire** vers lecture / reception d'un scrape Python |
+| `ai_niche`, `ai_specific_niche`, `ai_score`, `ai_classification`, `ai_classified_at`, `ai_profession`, `ai_screenshot_path` | **Electron** (classification IA) | owner clair |
+| `profile_pic_path` | **Electron** (media cache) | Python l'initialise a l'insert, Electron rafraichit le cache local |
+| `account_based_in`, `location_region` | **Electron** (enrichissement geo) | `account_based_in` aussi pose par Python a l'insert (valeur factuelle si fournie) |
+
+**`instagram_accounts`** (+ profil business)
+
+| Colonnes | Owner cible | Note |
+|---|---|---|
+| `username`, `is_bot`, `user_id`, `license_id` | **Partage a la creation** | rangee creee par le 1er des deux cotes (`getOrCreate`) ; pas de reecriture concurrente du factuel |
+| profil business / qualification (`niche`, `target_audience`, `tone_personality`, `objective`, `product_service`, `unique_selling_point`, prompt) | **Electron** | saisi dans le desktop, owner enrichissement |
+
+Etape code ciblee (a faire avec devices/QA, hors de ce lot documentaire) : passer
+`ProfileRepository.update()` en lecture pour les colonnes factuelles ci-dessus, ou
+ne les ecrire que sur reception explicite d'un scrape Python, puis etendre le garde
+`database:contracts` au niveau colonne une fois ces ecritures retirees.
+
 ### Tests de validation
 
 | Test | Attendu |
