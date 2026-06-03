@@ -157,7 +157,7 @@ Il ne doit pas porter une requete SQL metier, sauf exception documentee dans l'a
 
 ## P1-2 Runner process unique
 
-Etat au 2026-06-03 : **92% avance cote front/Electron**.
+Etat au 2026-06-03 : **93% avance cote front/Electron**.
 
 Derniere mise a jour : `personaAnalysis.ts` est maintenant une facade IPC qui
 delegue a `PersonaAnalysisWorkflowService`, lui-meme decoupe en owners
@@ -171,8 +171,9 @@ porte selection des recipients, `ProcessManager`, watchdog, events terminaux,
 `coldDm.ts` reste une facade IPC. Smart Comment a maintenant
 `SmartCommentRuntimeService` pour l'etat stop/terminal et le code terminal stop
 manuel, et `SmartCommentLaunchService` pour les configs bridge scrape/reply,
-fichiers temporaires et options `runBridge` ; les prochains lots Smart Comment
-viseront events/workflow.
+fichiers temporaires et options `runBridge`. `SmartCommentEventService` porte
+maintenant le mapping JSON bridge vers events IPC `smart-comment:*` ; le prochain
+lot Smart Comment visera le workflow facade.
 
 ### Pattern cible
 
