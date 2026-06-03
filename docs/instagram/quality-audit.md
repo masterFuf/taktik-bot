@@ -35,7 +35,7 @@
 |---|---:|---|
 | P0 Stop/cancel/session terminale | 97% | Instagram automation/scraping, Account, Cold DM, Smart Comment, Taktik Agent, Persona Analysis, YouTube/Gmail/TikTok Account, Threads automation et TikTok workflow lifecycle sont tres avances, avec contrats anti-regression. Reste validation manuelle multi-workflow et quelques familles annexes/outils. |
 | P0 Ownership SQLite/sync | 72% | Beaucoup de handlers passent par repositories/services et `database:contracts` protege les boundaries. Reste ownership table-par-table Bot/Python vs Electron et diagnostics sync complets. |
-| P1 SQL direct handlers | 77% | `targetSearch`, scraping, DB commun, scheduler, storage media cleanup et plusieurs routes TikTok ont ete nettoyes. Cote Electron, Cold DM ne remappe plus les profils scraping dans le handler, Target Search n'ecrit plus l'export CSV depuis l'IPC, et `storage:*` delegue usage disque + cleanup DB a un service owner. Reste des zones ponctuelles comme AI media/diagnostics et exceptions documentees. |
+| P1 SQL direct handlers | 78% | `targetSearch`, scraping, DB commun, scheduler, storage media cleanup, configuration locale device/network et plusieurs routes TikTok ont ete nettoyes. Cote Electron, Cold DM ne remappe plus les profils scraping dans le handler, Target Search n'ecrit plus l'export CSV depuis l'IPC, `storage:*` delegue usage disque + cleanup DB a un service owner, et `device-groups`/`network-*` passent par des services app. Reste des zones ponctuelles comme AI media/diagnostics et exceptions documentees. |
 | P1 Process runner uniforme | 99% | TikTok workflow, TikTok Account, scraping Instagram et automation Instagram sont largement externalises. Cote Electron, Account, Persona Analysis, Taktik Agent, Cold DM, Smart Comment, DM Responses, Threads automation et debug commun sont maintenant des facades IPC deleguant events/launch/runtime/workflow selon leur famille. Reste surtout `compat.ts`/Lab et la decision long terme runner unique vs exceptions documentees. |
 | P1 Publish Instagram | 92% | Le handler est devenu une orchestration courte : selectors, media, caption, story, reel, carousel, creation, launch, navigation, events et media-capture ont des services owners. Reste test manuel post/reel/carousel/story et decision long terme "exception Electron" vs bridge Python. |
 | P1 Selectors/pages/modales | 55% | Les selectors publish Electron sont centralises et le Lab cartographie progresse. Reste audit complet des autres surfaces Instagram/TikTok et nettoyage des allowlists. |
@@ -45,7 +45,7 @@
 | P2 POO/ORM cible | 18% | Les repositories et services preparent le terrain, mais l'ORM/Data Mapper n'est pas encore implemente. |
 | P2 Humanisation | 22% | Les specs et la cartographie posent la trajectoire premium. Reste moteur runtime central et telemetry comportementale. |
 
-Estimation globale actuelle : environ **92%** du chantier front/Electron
+Estimation globale actuelle : environ **93%** du chantier front/Electron
 `audit qualite/refacto` est traite. Les P0 sont majoritairement colmates, mais
 pas encore "fermes" tant que les validations manuelles et l'ownership DB
 table-par-table ne sont pas termines.

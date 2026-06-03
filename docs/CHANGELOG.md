@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram quality/refactor audit progress was updated after the Electron local device/network config service extraction lot; global front/Electron estimate is now 93%, and the P1 SQL/direct-handler track is now 78%.
 - Instagram quality/refactor audit progress was updated after the Electron common system filesystem-service extraction lot; global front/Electron estimate is now 92%.
 - Instagram quality/refactor audit progress was updated after the Electron common storage media-service extraction lot; global front/Electron estimate is now 91%, and the P1 SQL/direct-handler track is now 77%.
 - Instagram quality/refactor audit progress was updated after the Electron Instagram Media Capture service extraction lot; global front/Electron estimate is now 90%, and the P1 Publish Instagram track is now 92%.
