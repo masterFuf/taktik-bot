@@ -142,9 +142,10 @@ def publish_dismiss_keyboard(a, p):
 
 @action("publish.tap_share")
 def publish_tap_share(a, p):
-    """Tap the final Share button."""
-    selectors = [_rid(CC.share_footer_button), _rid(CC.share_button)] + _by_texts(CC.publish_texts)
-    ok = a.click._find_and_click(selectors, timeout=4)
+    """Tap the final Share button. Uses the shared provider so text/content-desc 'Share'
+    is tried first (targets the real button, not the full-width share_button_container
+    whose center misses it)."""
+    ok = a.click._find_and_click(CC.share_button_xpaths(), timeout=4)
     return _result(ok, "Share clique", "Share introuvable")
 
 
