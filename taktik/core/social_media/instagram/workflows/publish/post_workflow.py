@@ -151,8 +151,11 @@ class InstagramPostWorkflow:
             self._log("info", "Dismissed draft modal (Start new video)")
             time.sleep(0.8)
 
-        # 5. Select the first gallery item (most recent = the pushed file)
+        # 5. Select the first gallery item (most recent = the pushed file).
+        # Create can land on the camera instead of the gallery grid (the "+" entry
+        # varies): open the gallery first if no thumbnail is visible.
         self._status("selecting", "Selecting media from gallery...")
+        self._ensure_gallery_open()
         if not self._tap(CC.first_gallery_item_xpath(), timeout=6):
             return self._error("gallery_item_not_found", "Could not select media from gallery")
         time.sleep(1.0)
@@ -206,6 +209,14 @@ class InstagramPostWorkflow:
                 self._log("debug", "No Next button on this screen")
             time.sleep(1.0)
         return self._a["click"]._is_element_present(composer)
+
+    def _ensure_gallery_open(self) -> None:
+        """If the create flow landed on the camera, open the gallery picker."""
+        if self._a["click"]._is_element_present(CC.gallery_grid_xpaths()):
+            return
+        self._log("info", "Gallery grid not visible; opening gallery from camera")
+        if self._tap(CC.gallery_open_xpaths(), timeout=3):
+            self._a["click"]._wait_for_element(CC.gallery_grid_xpaths(), timeout=5, silent=True)
 
     def _fill_caption(self, text: str) -> bool:
         if not self._tap(CC.composer_xpaths(), timeout=5):

@@ -183,6 +183,14 @@ class ContentCreationSelectors:
         """First (most recent) gallery thumbnail."""
         return self._indexed_rid_xpath(self.gallery_grid_item, 1)
 
+    def gallery_grid_xpaths(self) -> List[str]:
+        """Presence probe for the gallery grid (any thumbnail visible)."""
+        return [self._rid_xpath(self.gallery_grid_item)]
+
+    def gallery_open_xpaths(self) -> List[str]:
+        """Open the gallery picker from the create camera (bottom-left preview button)."""
+        return [self._rid_xpath(self.gallery_preview_button)] + self._text_xpaths(["Gallery", "Galerie"])
+
     def composer_xpaths(self) -> List[str]:
         """Caption composer field (presence => composer screen reached)."""
         return [self._rid_xpath(self.caption_input_text_view), self._rid_xpath(self.caption_text_view)]

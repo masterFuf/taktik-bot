@@ -57,8 +57,12 @@ def publish_open_creation(a, p):
 
 @action("publish.select_first_gallery")
 def publish_select_first_gallery(a, p):
-    """Select the first gallery media thumbnail (image or video)."""
-    ok = a.click._find_and_click('(//*[contains(@resource-id, "gallery_grid_item_thumbnail")])[1]', timeout=4)
+    """Select the first gallery media thumbnail (image or video). If the create flow
+    landed on the camera (no grid), open the gallery first via the preview button."""
+    if not a.click._is_element_present(CC.gallery_grid_xpaths()):
+        a.click._find_and_click(CC.gallery_open_xpaths(), timeout=3)
+        a.click._wait_for_element(CC.gallery_grid_xpaths(), timeout=5, silent=True)
+    ok = a.click._find_and_click(CC.first_gallery_item_xpath(), timeout=5)
     return _result(ok, "1er media selectionne", "gallery item introuvable", selector="gallery_grid_item_thumbnail")
 
 
