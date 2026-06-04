@@ -211,10 +211,15 @@ class ContentCreationSelectors:
         return [self._rid_xpath(self.bb_primary_action_container)] + self._text_xpaths(["OK"])
 
     def share_button_xpaths(self) -> List[str]:
-        """Final Share/Publish button."""
-        return [
+        """Final Share/Publish button.
+
+        Text/content-desc come FIRST on purpose: the `share_button_container` spans the
+        full footer width (Save draft + Share) and its center misses the actual button,
+        while `content-desc="Share"` targets the real (right-half) button precisely. The
+        resource-id selectors stay as fallbacks."""
+        return self._text_xpaths(self.publish_texts) + [
             self._rid_xpath(self.share_footer_button),
             self._rid_xpath(self.share_button),
-        ] + self._text_xpaths(self.publish_texts)
+        ]
 
 CONTENT_CREATION_SELECTORS = ContentCreationSelectors()
