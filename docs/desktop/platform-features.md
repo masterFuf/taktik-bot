@@ -99,7 +99,7 @@ sequenceDiagram
 | Discovery legacy | Retire | Les pages `data/discovery/Discovery.tsx` et `DiscoveryQualification.tsx` ne sont plus actives. Des dossiers vides/traductions legacy peuvent rester ; la prospection passe par scraping avance, Target Search et qualification IA. |
 | Target search | `data/target/TargetSearch.tsx`, `ProfileDetailSheet.tsx` | Recherche profils locaux, fiche detaillee, graph following et prefill workflows. Voir [Target Search Instagram](target-search.md). |
 | Account | `data/account/AccountLogin.tsx`, `AccountRegister.tsx`, `AccountLogout.tsx`, `AccountProfile.tsx` | Gestion compte Instagram sur device. |
-| Upload | `upload/post/UploadPost.tsx`, `UploadPostAI.tsx`, `upload/reel/UploadReel.tsx` | Les posts/reels reels passent par `UploadPost` / `UploadPostAI`. `UploadReel.tsx` existe encore mais son bouton est desactive et ne lance pas d'IPC. Voir [Upload Content](../workflows/upload-content.md). |
+| Upload | `upload/post/UploadPost.tsx`, `UploadPostAI.tsx`, `upload/reel/UploadReel.tsx` | Le routeur expose aujourd'hui `UploadPostAIPage` pour `post`, `reel` et `story` via `uploadType`. `UploadPost.tsx` reste present comme implementation legacy/non routee, et `UploadReel.tsx` existe encore mais son bouton est desactive et ne lance pas d'IPC. Voir [Upload Content](../workflows/upload-content.md). |
 | Live panels | `session/live-panel/*`, `session/scraping-panel/ScrapingLivePanel.tsx` | Affiche stats, logs, progression, fin de session. L'ancien panel Discovery n'est plus actif. |
 
 ### Automation classique
