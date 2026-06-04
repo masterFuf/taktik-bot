@@ -2069,3 +2069,31 @@ Note :
 - `desktop/ipc-handlers.md` est retombe a l'identique du miroir consolide.
 - `desktop/platform-features.md` reste divergent en hash car la copie source a
   ete normalisee, mais son contenu n'affirme plus de choses fausses.
+
+## Alignement doc target search et overview desktop
+
+Deux pages desktop supplementaires ont ete realignees :
+
+- `desktop/target-search.md`
+- `desktop/overview.md`
+
+Correctifs appliques :
+
+- correction du preload Target Search vers
+  `front/electron/preload/app/automation.ts` ;
+- remplacement de l'ancien libelle "Scraping & Discovery Instagram" par la
+  version actuelle centree qualification ;
+- retrait de Discovery comme responsabilite active de `common/database` dans la
+  vue d'ensemble desktop ;
+- correction de la famille de pages "Instagram data" vers scraping, historique,
+  target search et qualification IA sur profils scrapes ;
+- correction du lien de reference FastAPI.
+
+Verification :
+
+- `front/electron/preload/app/automation.ts`
+- `front/electron/handlers/instagram/search/targetSearch.ts`
+- `front/electron/handlers/common/database/**`
+- `front/src/features/platforms/instagram/data/target/**`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `115` a `113`.
