@@ -104,6 +104,7 @@ def run_action_session_bridge() -> None:
         action_id = command.get("action_id", "")
         request_id = command.get("request_id")
         params = command.get("params") if isinstance(command.get("params"), dict) else {}
+        scenario = command.get("scenario") if isinstance(command.get("scenario"), dict) else None
 
         if action_id not in action_registry:
             emit(
@@ -137,6 +138,7 @@ def run_action_session_bridge() -> None:
             request_id=request_id,
             exit_on_error=False,
             session_context_cache=session_context_cache,
+            scenario=scenario,
         )
 
 

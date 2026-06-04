@@ -137,6 +137,7 @@ def _execute_action(
     request_id: str | None = None,
     exit_on_error: bool = True,
     session_context_cache=None,  # session-owned _SessionContextCache holder (.value)
+    scenario: dict | None = None,  # scenario tag {runId,id,label,stepIndex,stepLabel,total}
 ) -> None:
     # perf_fast keeps the artifact context + report.json (for phase timings) but
     # skips the XML/PNG capture. It is a pure-timing diagnostic mode: the report is
@@ -185,7 +186,15 @@ def _execute_action(
     try:
         fn = action_registry[action_id]
         result = fn(bundle, params)
-        success = bool(result)
+        # Actions may return a bool, or a dict {success, message?, details?} to surface data.
+        if isinstance(result, dict):
+            success = bool(result.get("success", True))
+            action_message = result.get("message")
+            action_details = result.get("details")
+        else:
+            success = bool(result)
+            action_message = None
+            action_details = None
         timing_ms = _elapsed_ms(started_at)
         phase_timings["actionMs"] = timing_ms
         screen_probe_start = len(tracer.traces)
@@ -201,7 +210,7 @@ def _execute_action(
                     lambda: capture_phase_artifacts(bundle, artifact_context, "after"),
                 )
             )
-        message = f"Action '{action_id}' {'succeeded' if success else 'failed'}"
+        message = action_message or f"Action '{action_id}' {'succeeded' if success else 'failed'}"
         transition = build_transition(action_id, screen_after, success)
         matched = sum(1 for trace in tracer.traces if trace["found"])
         logger.info(f"{message} - selectors: {matched}/{len(tracer.traces)} matched")
@@ -235,6 +244,8 @@ def _execute_action(
                 language_optimization=language_optimization,
                 transition=transition,
                 perf_fast=perf_fast,
+                details=action_details,
+                scenario=scenario,
             )
             write_action_report(artifact_context, report)
             write_action_analysis(
@@ -254,6 +265,7 @@ def _execute_action(
                 "language_optimization": language_optimization,
                 "transition": transition,
                 "perf_fast": perf_fast,
+                "details": action_details or None,
             }
         )
     except Exception as exc:

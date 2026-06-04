@@ -199,6 +199,8 @@ def build_report_payload(
     transition: dict[str, Any] | None = None,
     error: str | None = None,
     perf_fast: bool = False,
+    details: dict[str, Any] | None = None,
+    scenario: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the on-disk report used by humans and future selector-health jobs."""
     found = sum(1 for trace in selector_traces if trace.get("found") is True)
@@ -207,6 +209,8 @@ def build_report_payload(
         "runId": context.run_id,
         "mode": context.mode,
         "perfFast": perf_fast,
+        "details": details or {},
+        "scenario": scenario or None,
         "startedAt": context.started_at,
         "finishedAt": _utc_now(),
         "device": {
