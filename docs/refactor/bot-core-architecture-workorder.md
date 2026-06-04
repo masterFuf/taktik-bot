@@ -79,7 +79,7 @@ Etat 2026-05-30 :
 - un sous-lot suivant du lot 5 applique la meme regle au scraping Instagram : `scraping_workflow.py` ne construit plus lui-meme `IPC` + `AIService`, et recoit maintenant notifier/provider AI depuis ses appelants bridge ou CLI.
 - un sous-lot suivant du lot 5 introduit enfin le premier noyau executable de `core/agent` : `registry.py` porte l'enregistrement des workflows canoniques et `executor.py` deroule un `AgentPlan` minimal en emettant des `AgentEvent`, sans encore remplacer les scenarios historiques existants.
 - un sous-lot suivant du lot 5 applique aussi la regle "notifier injecte" aux workflows TikTok de management (`login`, `logout`, `signup`) : ils n'instancient plus `bridges.common.ipc.IPC()` dans `core`, et le bridge compte TikTok leur passe maintenant `_ipc` depuis l'exterieur.
-- un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis `tiktok_publish_bridge.py`.
+- un sous-lot suivant du lot 5 etend cette hygiene au publish TikTok : `upload_workflow.py` garde un fallback standalone mais recoit maintenant son notifier live par injection depuis le bridge route par la cle manifest `tiktok_publish_bridge` (`bridges.tiktok.publish.publish`).
 - un sous-lot suivant du lot 5 clarifie aussi l'IA : le provider OpenRouter `AIService` vit maintenant sous `taktik/core/app/ai/providers/openrouter.py`, les bridges et le CLI importent cet owner canonique, et l'ancien shim `bridges/common/ai_service.py` a ensuite ete retire.
 - un sous-lot suivant du lot 5 restructure physiquement `core/ai` : `providers/` porte les providers IA runtime comme OpenRouter, `comments/` porte l'IA commentaire/persona historique, et la racine du package reste une facade publique via `__init__.py`.
 - un sous-lot suivant supprime finalement `taktik/core/device` : les derniers bridges debug/action-test, scripts et tests internes importent maintenant `shared/device/manager.py` directement.
@@ -107,17 +107,17 @@ Etat 2026-05-30 :
 - un sous-lot suivant branche TikTok Unfollow sur le noyau agent : `social_media/tiktok/actions/business/workflows/unfollow/agent_handler.py` enregistre `tiktok.standalone.tiktok_unfollow` avec un mapping explicite du contrat bridge `skipFriends`.
 - un sous-lot suivant branche TikTok Scraping sur le noyau agent : `social_media/tiktok/actions/business/workflows/scraping/agent_handler.py` enregistre `tiktok.automation.scraping` et `tiktok.standalone.tiktok_scraping`, avec persistence profile optionnelle injectee au lieu d'une DB bridge dans le core.
 - un sous-lot suivant branche TikTok DM read/send sur le noyau agent : `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` enregistre `tiktok.automation.dm_read` et `tiktok.automation.dm_send`, sans reprendre le startup bridge ni la logique outreach DB.
-- un sous-lot suivant sort la logique metier TikTok cold DM outreach de `bridges/tiktok/dm_outreach_bridge.py` vers `social_media/tiktok/actions/business/workflows/dm/outreach.py`; le bridge injecte seulement stdout JSON et la dedup SQLite.
+- un sous-lot suivant sort la logique metier TikTok cold DM outreach vers `social_media/tiktok/actions/business/workflows/dm/outreach.py`; le bridge route par la cle manifest `dm_outreach_bridge` (`bridges.tiktok.engagement.dm_outreach`) injecte seulement stdout JSON et la dedup SQLite.
 - un sous-lot suivant branche TikTok cold DM outreach sur le noyau agent : `social_media/tiktok/actions/business/workflows/dm/agent_handler.py` enregistre `tiktok.standalone.tiktok_dm_outreach` avec les memes injections notifier/dedup.
 - un sous-lot suivant branche les workflows TikTok account sur le noyau agent : `social_media/tiktok/workflows/management/agent_handler.py` enregistre `tiktok.account.login/logout/register` sans reprendre la connexion device ni le lancement app du bridge.
 - un sous-lot suivant branche les workflows Gmail core sur le noyau agent : `app/email/gmail/workflows/agent_handler.py` enregistre `gmail.account.login/read_otp/scan_accounts` avec persistence optionnelle injectee ; `gmail.account.logout` reste alors bridge-owned car il n'a pas encore de workflow core.
 - un sous-lot suivant extrait aussi le fallback Gmail logout dans le workflow core : `GmailWorkflow.open_account_removal_settings()` ouvre les settings Android pour confirmation manuelle, et `gmail.account.logout` devient enregistrable avec unpersister injecte.
-- un sous-lot suivant extrait le workflow account YouTube hors du bridge : `social_media/youtube/workflows/account/account_workflow.py` porte le flow login/logout, `ui/selectors/account.py` porte les signatures UI, et `youtube_account_bridge.py` reste l'adaptateur device/stdout JSON.
+- un sous-lot suivant extrait le workflow account YouTube hors du bridge : `social_media/youtube/workflows/account/account_workflow.py` porte le flow login/logout, `ui/selectors/account.py` porte les signatures UI, et la cle manifest `youtube_account_bridge` route vers l'adaptateur device/stdout JSON `bridges.youtube.account.account`.
 - un sous-lot suivant branche aussi YouTube account sur le noyau agent : `social_media/youtube/workflows/account/agent_handler.py` enregistre `youtube.account.login/logout` avec device, notifier et persistence injectables.
 - un sous-lot suivant branche les workflows Instagram account sur le noyau agent : `social_media/instagram/workflows/management/agent_handler.py` enregistre `instagram.account.login/logout/register` sans reprendre la connexion device ni le lancement app du bridge.
 - un sous-lot suivant branche les workflows Instagram scraping sur le noyau agent : `social_media/instagram/workflows/scraping/agent_handler.py` enregistre `instagram.scraping.target/hashtag/post_url`, avec config bridge-compatible, `device_manager` injecte et provider AI injecte.
 - un point d'arret documente les handlers restants non mecaniques : Instagram automation/engagement et Threads demandent une extraction de config/runtime avant d'etre branchables sans violer les frontieres Agent.
-- un sous-lot suivant demarre l'extraction Instagram automation sans brancher de handler premature : les mappings workflow config et payload structuree `session_config` quittent `desktop_bridge.py` pour `social_media/instagram/workflows/core/config_builder.py`, ce qui clarifie l'owner metier tout en preservant le startup bridge et stdout JSON.
+- un sous-lot suivant demarre l'extraction Instagram automation sans brancher de handler premature : les mappings workflow config et payload structuree `session_config` quittent le runtime route par la cle manifest `desktop_bridge` pour `social_media/instagram/workflows/core/config_builder.py`, ce qui clarifie l'owner metier tout en preservant le startup bridge et stdout JSON.
 - un sous-lot suivant extrait aussi les hooks IA automation Instagram : `social_media/instagram/workflows/core/ai_hooks.py` installe les monkey-patches avec AI/device/log injectes, et les selectors de crop post passent par `ui/selectors/surfaces/post/detail.py`.
 - un sous-lot suivant extrait le setup runtime automation Instagram : `social_media/instagram/workflows/core/runtime_setup.py` applique config, package clone, overrides selectors/version et detection langue avec provider version/log injectes, sans reprendre connexion device ni lancement app.
 - un sous-lot suivant branche les workflows Instagram automation sur le noyau agent : `social_media/instagram/workflows/core/agent_handler.py` enregistre les IDs `instagram.automation.*` avec `device_manager`, runtime setup et provider IA injectables, sans reprendre connexion device, lancement app, reset network ni media capture.
@@ -144,9 +144,9 @@ Ta mission porte d'abord sur `bot/taktik/core`.
 
 Avant toute modification :
 - lis le `AGENTS.md` racine, puis `bot/AGENTS.md`, puis `front/AGENTS.md` pour comprendre la methode deja appliquee ;
-- lis `bot/docs/refactor/bot-core-architecture-workorder.md` ;
-- lis `bot/docs/refactor/refactor-readiness.md` ;
-- lis `taktik-bot/docs/admin/instagram/quality-audit.md` et `taktik-bot/docs/admin/instagram/audit-remediation-plan.md` sur les sections Bot/core.
+- lis `taktik-docs/bot/refactor/bot-core-architecture-workorder.md` ;
+- lis `taktik-docs/bot/refactor/refactor-readiness.md` ;
+- lis `taktik-docs/premium/instagram/quality-audit.md` et `taktik-docs/premium/instagram/audit-remediation-plan.md` sur les sections Bot/core.
 
 Objectif :
 - auditer puis assainir l'architecture de `bot/taktik/core` ;
@@ -199,9 +199,9 @@ Avant de toucher le code :
 1. `AGENTS.md` a la racine du monorepo.
 2. `bot/AGENTS.md`.
 3. `front/AGENTS.md`.
-4. `bot/docs/refactor/refactor-readiness.md`.
-5. `taktik-bot/docs/admin/instagram/quality-audit.md`.
-6. `taktik-bot/docs/admin/instagram/audit-remediation-plan.md`.
+4. `taktik-docs/bot/refactor/refactor-readiness.md`.
+5. `taktik-docs/premium/instagram/quality-audit.md`.
+6. `taktik-docs/premium/instagram/audit-remediation-plan.md`.
 
 ## Philosophie d'alignement Front/Bot
 

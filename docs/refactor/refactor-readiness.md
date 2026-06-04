@@ -16,9 +16,9 @@ Elle ne remplace pas les tests. Elle aide a voir les dependances implicites entr
 | Actions business | casser plusieurs workflows qui partagent les memes actions | `modules/*/business-actions.md`, workflows plateforme |
 | Actions atomic/selectors | casser l'interaction Android | selectors, compat, versioned selectors |
 | SQLite | casser repositories Python/Electron ou sync | `database/schema.md`, `database/repositories.md`, `desktop/electron-database-repositories.md` |
-| Licence/API | bloquer le lancement desktop ou device | `taktik-docs/technical/api-current-state.md`, `desktop/auth-license-flow.md` |
+| Licence/API | bloquer le lancement desktop ou device | `../../technical/api-current-state.md`, `../desktop/auth-license-flow.md` |
 | Scheduler/session | casser les executions planifiees | `workflows/sessions.md`, `desktop/scheduler-ui.md`, `desktop/content-planner.md` |
-| Site Web | casser creation de licences/API keys | `web/overview.md`, `taktik-docs/technical/api-current-state.md` |
+| Site Web | casser creation de licences/API keys | `../web/overview.md`, `../../technical/api-current-state.md` |
 
 ## Process conseille
 
@@ -97,8 +97,8 @@ Ces commandes sont volontairement read-only : elles ne modifient ni le code, ni 
 |---|---|---|
 | `python bot/scripts/check_bridge_manifest.py` | Alignement entre `bot/bridges/bridges.manifest.json`, `bot/bridges/launcher.py::BRIDGE_MODULES` et `front/electron/utils/paths.ts::PLATFORM_BRIDGES`. | Ajout, renommage ou suppression d'un bridge. |
 | `python bot/scripts/audit_bridge_handler_usage.py` | Absence de `getSpawnArgs()` / `getBridgeCommand()` direct dans les handlers Electron. | Refactor ou ajout d'un handler qui lance un bridge Python. |
-| `python bot/scripts/audit_workflow_registry.py` | Alignement entre `bot/workflows.manifest.json`, `front/electron/services/workflows/workflow-registry.ts` et les types renderer derives. | Ajout, renommage ou suppression d'un `workflowType`. |
-| `python bot/scripts/audit_sqlite_schema_docs.py` | Presence de toutes les tables SQLite source dans `bot/docs/database/schema.md`. | Modification de `schema.py`, `migrations.py`, `schema.ts`, `schema.sql`, repositories DB ou doc SQLite. |
+| `python bot/scripts/audit_workflow_registry.py` | Audit legacy a corriger avant usage : le registry Electron vit maintenant dans `front/electron/services/app/workflows/registry/workflow-registry.ts`, alors que le script pointe encore l'ancien chemin. | Ajout, renommage ou suppression d'un `workflowType`. |
+| `python bot/scripts/audit_sqlite_schema_docs.py` | Presence de toutes les tables SQLite source dans la doc DB Bot consolidee. | Modification de `schema.py`, `migrations.py`, `schema.ts`, `schema.sql`, repositories DB ou doc SQLite. |
 | `python bot/scripts/audit_selector_hardcodes.py` | Absence de nouveaux selectors Android inline dans le runtime Instagram/TikTok hors `ui/selectors/**` et `ui/language.py`, avec dette legacy allowlistee. | Refactor ou ajout d'un workflow/action/service Instagram ou TikTok qui touche l'UI Android. |
 
 Ces checks ne remplacent pas les tests fonctionnels. Ils evitent surtout les oublis silencieux : bridge connu du Front mais absent du launcher, table creee par migration mais non documentee, ou documentation devenue obsolete.

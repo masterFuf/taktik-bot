@@ -6,7 +6,7 @@ Snapshot realise le 2026-05-30 avant les premiers deplacements structurels.
 
 Note de contexte :
 
-- `AGENTS.md` n'existe pas a la racine de `c:\Users\kevin\Documents\taktik-desktop` ; la lecture preparatoire s'est appuyee sur `bot/AGENTS.md`, `front/AGENTS.md` et les docs de refactor demandees.
+- `AGENTS.md` n'existe pas a la racine de `<repo>` ; la lecture preparatoire s'est appuyee sur `bot/AGENTS.md`, `front/AGENTS.md` et les docs de refactor demandees.
 - Cette page sert de base vivante pour les lots commitables. Elle doit etre mise a jour avant tout deplacement important.
 
 ## Cartographie top-level
