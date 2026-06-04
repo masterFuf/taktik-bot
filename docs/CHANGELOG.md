@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Aligned `workflows/instagram.md` with the verified Instagram workflow state: Discovery is no longer listed as an active workflow, DM bridge names no longer imply removed flat `*_bridge.py` files, Smart Comment points to the scoped bridge, and action limits are documented as local counters rather than remote quotas.
 - Aligned the Bot documentation README with the consolidated private documentation entrypoint and removed the stale `SUMMARY.md` navigation reference now that `_sidebar.md` and `taktik-docs` are the active navigation paths.
 - Aligned `modules/instagram/workflows.md` with the verified current Instagram workflow map: the removed `workflows/discovery/` package and `DiscoveryWorkflowV2` are no longer documented as active, advanced prospection now points to scraping/post scraping/deep qualification, and local session counters are no longer described as remote action quotas.
 - Aligned `desktop/ai-handlers.md` with the verified private documentation: current AI paths now point to `front/electron/services/app/ai/**`, OpenRouter is documented as the modern text/vision path, and fal.ai is kept only for active media/TTS/provider-credit usage rather than product action quotas.
