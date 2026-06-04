@@ -2097,3 +2097,38 @@ Verification :
 - `front/src/features/platforms/instagram/data/target/**`
 - `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
   `bot/docs` passees de `115` a `113`.
+
+## Alignement doc agent panel, utils et bridges desktop
+
+Trois pages desktop supplementaires ont ete repassees contre le code et les
+miroirs consolides :
+
+- `desktop/agent-panel.md`
+- `desktop/electron-utils-types.md`
+- `desktop/platform-bridge-handlers.md`
+
+Correctifs appliques :
+
+- correction du mode Target Scout vers `AgentScout.tsx` et du preload Agent
+  vers `front/electron/preload/platforms/instagram/bot.ts` ;
+- correction du bridge agent Instagram vers
+  `bot/bridges/instagram/agent/taktik_agent.py` et du lancement dev via
+  `bot/bridges/launcher.py taktik_agent_bridge ...` ;
+- retrait du faux `discovery_bridge` dans le registry Electron et ajout des
+  bridges reels `persona_analysis_bridge`, `publish_bridge` et
+  `action_session_bridge` ;
+- correction des chemins bridges Instagram/TikTok/Threads/Gmail/YouTube dans
+  la page handlers plateformes ;
+- remplacement des vieilles references a `front/electron/types/` comme point
+  central unique par la regle actuelle de centralisation dans les dossiers de
+  types applicatifs existants.
+
+Verification :
+
+- `front/electron/handlers/instagram/agent/taktikAgent.ts`
+- `front/electron/preload/platforms/instagram/bot.ts`
+- `front/electron/utils/paths.ts`
+- `bot/bridges/launcher.py`
+- `bot/bridges/**`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `113` a `110`.
