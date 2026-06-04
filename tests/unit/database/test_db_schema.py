@@ -68,10 +68,6 @@ EXPECTED_TABLES = {
     "tiktok_sessions",
     "tiktok_filtered_profiles",
     "tiktok_daily_stats",
-    # Discovery
-    "discovery_campaigns",
-    "discovery_progress",
-    "discovered_profiles",
     # Gmail
     "gmail_accounts",
 }

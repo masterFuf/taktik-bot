@@ -1,4 +1,4 @@
-# TAKTIK Database — Documentation Technique
+﻿# TAKTIK Database — Documentation Technique
 
 ## Vue d'ensemble
 
@@ -43,14 +43,14 @@ database/
 │   ├── schemas/             ← DDL classé par domaine
 │   │   ├── instagram.py
 │   │   ├── tiktok.py
-│   │   ├── discovery.py
+│   │   ├── scraping.py
 │   │   ├── social_graph.py
 │   │   └── gmail.py
 │   ├── migrations.py        ← Orchestrateur run_migrations()
 │   ├── migration_steps/     ← Migrations classées par domaine
 │   │   ├── instagram.py
 │   │   ├── tiktok.py
-│   │   ├── discovery.py
+│   │   ├── scraping.py
 │   │   ├── social_graph.py
 │   │   └── identifiers.py
 │   └── client.py            ← Interface publique (LocalDatabaseClient)
@@ -72,7 +72,7 @@ database/
 - `local/service.py` est actuellement une façade legacy trop large. Ne pas y ajouter de nouveau SQL métier si un repository peut le porter ; les méthodes publiques restantes doivent devenir des wrappers de compatibilité vers les repositories.
 - `local/schema.py` orchestre uniquement la création du schema. Les DDL doivent rester rangées dans `local/schemas/<domaine>.py`.
 - `local/migrations.py` orchestre uniquement `run_migrations()`. Les steps de migration doivent rester rangées dans `local/migration_steps/<domaine>.py`, avec l'ordre historique conservé dans l'orchestrateur.
-- `repositories/instagram/` porte les requêtes liées aux tables `instagram_*`, `sessions`, `interaction_history`, `filtered_profiles`, `daily_stats`, scraping/discovery Instagram et social graph Instagram.
+- `repositories/instagram/` porte les requêtes liées aux tables `instagram_*`, `sessions`, `interaction_history`, `filtered_profiles`, `daily_stats`, scraping avancé Instagram et social graph Instagram.
 - `repositories/instagram/stats/` porte les requêtes liées à `daily_stats` et aux agrégats analytics Instagram.
 - `repositories/tiktok/` porte les requêtes liées aux tables `tiktok_*`.
 - `repositories/gmail/` porte les requêtes liées à `gmail_accounts`, même quand le consommateur métier est YouTube, parce que la donnée est un compte Google.
@@ -120,7 +120,7 @@ database/
 │ + profiles   → ProfileRepository             │
 │ + interactions → InteractionRepository       │
 │ + sessions   → SessionRepository             │
-│ + discovery  → DiscoveryRepository           │
+│ + scraped_profiles → ScrapedProfileRepository│
 │ + tiktok     → TikTokRepository              │
 │──────────────────────────────────────────────│
 │ + get_or_create_account(...)                 │
@@ -143,7 +143,7 @@ database/
 │ ProfileRepository       ← instagram_profiles │
 │ InteractionRepository   ← interaction_history│
 │ SessionRepository       ← sessions           │
-│ DiscoveryRepository     ← discovery_*        │
+│ ScrapedProfileRepository ← scraped_profiles  │
 │ TikTokRepository        ← tiktok_*           │
 └──────────────────────────────────────────────┘
 ```
@@ -259,44 +259,31 @@ database/
 └─────────────────────────┘
 ```
 
-### Tables Discovery & Scraping
+### Tables Scraping avance
 
 ```
-┌──────────────────────┐     ┌────────────────────┐     ┌─────────────────────┐
-│ discovery_campaigns  │────►│ discovery_progress │     │ discovered_profiles │
-│──────────────────────│     │────────────────────│     │─────────────────────│
-│ campaign_id PK       │     │ progress_id PK     │     │ profile_id PK       │
-│ account_id FK        │     │ campaign_id FK     │     │ campaign_id FK      │
-│ name TEXT            │     │ source_type TEXT    │     │ username TEXT        │
-│ niche_keywords JSON  │     │ current_post_index │     │ engagement_score    │
-│ target_hashtags JSON │     │ status TEXT         │     │ ai_score REAL       │
-│ status TEXT          │     └────────────────────┘     │ status TEXT          │
-└──────────────────────┘                                └─────────────────────┘
++-------------------+      +------------------+      +------------------+
+| scraping_sessions |----->| scraped_profiles |      | scraped_comments |
++-------------------+      +------------------+      +------------------+
+| scraping_id PK    |      | id PK            |      | comment_id PK    |
+| account_id FK     |      | scraping_id FK   |      | session_id FK    |
+| scraping_type     |      | profile_id FK    |      | username         |
+| source_type       |      | ai_score         |      | post_url         |
+| total_scraped     |      | ai_qualified     |      | content          |
+| status            |      | ai_analysis      |      | likes_count      |
++-------------------+      +------------------+      +------------------+
 
-┌──────────────────────┐     ┌────────────────────┐     ┌─────────────────────┐
-│  scraping_sessions   │────►│  scraped_profiles  │     │  scraped_comments   │
-│──────────────────────│     │────────────────────│     │─────────────────────│
-│ scraping_id PK       │     │ id PK              │     │ comment_id PK       │
-│ account_id FK        │     │ scraping_id FK     │     │ scraping_session_id │
-│ scraping_type TEXT   │     │ profile_id FK      │     │ username TEXT        │
-│ source_type TEXT     │     │ ai_score INTEGER   │     │ content TEXT         │
-│ total_scraped INT    │     │ ai_qualified INT   │     │ likes_count INT     │
-│ status TEXT          │     └────────────────────┘     └─────────────────────┘
-└──────────────────────┘
-
-┌────────────────────────────┐
-│  processed_hashtag_posts   │
-│────────────────────────────│
-│ id PK AUTO                 │
-│ account_id FK              │
-│ hashtag TEXT               │
-│ post_author TEXT            │
-│ post_caption_hash TEXT     │
-│ likers_processed INTEGER   │
-│ interactions_made INTEGER  │
-│ UNIQUE(account_id, hashtag,│
-│   post_author, hash)       │
-└────────────────────────────┘
++-------------------------+
+| processed_hashtag_posts |
++-------------------------+
+| id PK                   |
+| account_id FK           |
+| hashtag                 |
+| post_author             |
+| post_caption_hash       |
+| likers_processed        |
+| interactions_made       |
++-------------------------+
 ```
 
 ---
@@ -399,7 +386,8 @@ const profiles = databaseService.getProfiles(accountId);
 |------|-------------|
 | 2026-01 | Création de la DB locale SQLite (migration depuis API distante) |
 | 2026-01 | Ajout des tables TikTok |
-| 2026-01 | Ajout des tables Discovery (campagnes, scraping) |
+| 2026-01 | Ajout des tables de scraping et scoring IA |
+| 2026-06 | Retrait du domaine Discovery obsolète ; `scraped_profiles` appartient au scraping avancé |
 | 2026-02 | Suppression de `api_client.py`, `api_database_service.py`, `config.py` (dead code) |
 | 2026-02 | Suppression de `sync_to_remote()` (route `/desktop/sync/*` supprimée) |
 | 2026-02 | Réorganisation : `local/service.py`, `local/client.py`, `repositories/` |

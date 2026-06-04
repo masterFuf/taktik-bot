@@ -11,7 +11,7 @@ from .instagram import (
     ProfileRepository,
     InteractionRepository,
     SessionRepository,
-    DiscoveryRepository,
+    ScrapedProfileRepository,
     SocialGraphRepository,
     StatsRepository,
 )
@@ -25,7 +25,7 @@ __all__ = [
     'ProfileRepository',
     'InteractionRepository',
     'SessionRepository',
-    'DiscoveryRepository',
+    'ScrapedProfileRepository',
     'SocialGraphRepository',
     'StatsRepository',
     'TikTokRepository',

@@ -129,7 +129,6 @@ class SessionRepository(BaseRepository):
         export_csv: bool = False,
         save_to_db: bool = True,
         config_used: Optional[dict] = None,
-        discovery_campaign_id: Optional[int] = None,
         platform: str = 'instagram'
     ) -> Optional[int]:
         """Create a new scraping session"""
@@ -137,8 +136,8 @@ class SessionRepository(BaseRepository):
             cursor = self.execute(
                 """INSERT INTO scraping_sessions (
                     account_id, scraping_type, source_type, source_name,
-                    max_profiles, export_csv, save_to_db, config_used, discovery_campaign_id, platform
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    max_profiles, export_csv, save_to_db, config_used, platform
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     account_id,
                     scraping_type,
@@ -148,7 +147,6 @@ class SessionRepository(BaseRepository):
                     1 if export_csv else 0,
                     1 if save_to_db else 0,
                     json.dumps(self._redact_sensitive(config_used)) if config_used else None,
-                    discovery_campaign_id,
                     platform
                 )
             )

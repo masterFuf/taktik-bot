@@ -16,10 +16,17 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE_FILES = [
     ROOT / "bot" / "taktik" / "core" / "database" / "local" / "schema.py",
     ROOT / "bot" / "taktik" / "core" / "database" / "local" / "migrations.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "schemas" / "gmail.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "schemas" / "instagram.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "schemas" / "scraping.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "schemas" / "social_graph.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "schemas" / "tiktok.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "migration_steps" / "scraping.py",
+    ROOT / "bot" / "taktik" / "core" / "database" / "local" / "migration_steps" / "tiktok.py",
     ROOT / "front" / "electron" / "database" / "schema.sql",
     ROOT / "front" / "electron" / "database" / "schema.ts",
     ROOT / "front" / "electron" / "database" / "migrations.ts",
-    ROOT / "front" / "electron" / "database" / "repositories" / "discovery" / "DiscoveryRepository.ts",
+    ROOT / "front" / "electron" / "database" / "repositories" / "platforms" / "instagram" / "scraping" / "ScrapedProfileRepository.ts",
 ]
 
 DOC_SCHEMA_PATH = ROOT / "bot" / "docs" / "database" / "schema.md"

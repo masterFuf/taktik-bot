@@ -18,7 +18,7 @@ from ..repositories import (
     ProfileRepository,
     InteractionRepository,
     SessionRepository,
-    DiscoveryRepository,
+    ScrapedProfileRepository,
     SocialGraphRepository,
     StatsRepository,
     TikTokRepository
@@ -67,7 +67,7 @@ class LocalDatabaseService:
         self._profiles: Optional[ProfileRepository] = None
         self._interactions: Optional[InteractionRepository] = None
         self._sessions: Optional[SessionRepository] = None
-        self._discovery: Optional[DiscoveryRepository] = None
+        self._scraped_profiles: Optional[ScrapedProfileRepository] = None
         self._social_graph: Optional[SocialGraphRepository] = None
         self._stats: Optional[StatsRepository] = None
         self._tiktok: Optional[TikTokRepository] = None
@@ -96,7 +96,7 @@ class LocalDatabaseService:
         self._profiles = ProfileRepository(conn)
         self._interactions = InteractionRepository(conn)
         self._sessions = SessionRepository(conn)
-        self._discovery = DiscoveryRepository(conn)
+        self._scraped_profiles = ScrapedProfileRepository(conn)
         self._social_graph = SocialGraphRepository(conn)
         self._stats = StatsRepository(conn)
         self._tiktok = TikTokRepository(conn)
@@ -131,11 +131,11 @@ class LocalDatabaseService:
         return self._sessions
     
     @property
-    def discovery(self) -> DiscoveryRepository:
-        """Access DiscoveryRepository for discovery operations."""
-        if not self._discovery:
+    def scraped_profiles(self) -> ScrapedProfileRepository:
+        """Access ScrapedProfileRepository for scraping profile junction operations."""
+        if not self._scraped_profiles:
             self._init_repositories()
-        return self._discovery
+        return self._scraped_profiles
 
     @property
     def social_graph(self) -> SocialGraphRepository:
@@ -628,21 +628,7 @@ class LocalDatabaseService:
         Returns:
             True if linked successfully
         """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                INSERT INTO scraped_profiles (scraping_id, profile_id, source_post_url)
-                VALUES (?, ?, ?)
-                ON CONFLICT(scraping_id, profile_id)
-                DO UPDATE SET source_post_url = COALESCE(excluded.source_post_url, source_post_url)
-            """, (scraping_id, profile_id, source_post_url))
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.debug(f"Error linking profile {profile_id} to session {scraping_id}: {e}")
-            return False
+        return self.scraped_profiles.link_profile_to_session(scraping_id, profile_id, source_post_url)
 
     def is_post_url_already_scraped(self, post_url: str) -> bool:
         """Check if likers from this Instagram post URL were already scraped in any session.
@@ -655,35 +641,19 @@ class LocalDatabaseService:
         """
         if not post_url:
             return False
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT 1 FROM scraped_profiles WHERE source_post_url = ? LIMIT 1",
-                (post_url,)
-            )
-            return cursor.fetchone() is not None
-        except Exception as e:
-            logger.debug(f"Error checking scraped post URL: {e}")
-            return False
+        return self.scraped_profiles.is_post_url_already_scraped(post_url)
 
     def update_scraped_profile_ai(self, scraping_id: int, profile_id: int,
                                    ai_score: int, ai_qualified: bool,
                                    ai_analysis: str = '') -> bool:
         """Update AI qualification columns in the scraped_profiles junction table."""
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE scraped_profiles
-                SET ai_score = ?, ai_qualified = ?, ai_analysis = ?
-                WHERE scraping_id = ? AND profile_id = ?
-            """, (ai_score, 1 if ai_qualified else 0, ai_analysis, scraping_id, profile_id))
-            conn.commit()
-            return cursor.rowcount > 0
-        except Exception as e:
-            logger.debug(f"Error updating AI score for profile {profile_id} / session {scraping_id}: {e}")
-            return False
+        return self.scraped_profiles.update_scraped_profile_ai(
+            scraping_id,
+            profile_id,
+            ai_score,
+            ai_qualified,
+            ai_analysis,
+        )
 
     def update_profile_city(self, profile_id: int, city: str) -> bool:
         """Update the location_city field on an instagram_profiles row."""

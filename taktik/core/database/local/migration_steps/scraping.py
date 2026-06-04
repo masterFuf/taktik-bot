@@ -1,4 +1,4 @@
-"""Discovery and scraping migration steps."""
+"""Instagram scraping migration steps."""
 
 from __future__ import annotations
 
@@ -44,13 +44,7 @@ def run_scraped_comments_migrations(cursor: sqlite3.Cursor) -> None:
 
 
 def run_scraping_session_migrations(cursor: sqlite3.Cursor) -> None:
-    """Ensure scraping_sessions has discovery and platform fields."""
-    try:
-        cursor.execute("SELECT discovery_campaign_id FROM scraping_sessions LIMIT 1")
-    except sqlite3.OperationalError:
-        logger.info("Migration: Adding discovery_campaign_id to scraping_sessions")
-        cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN discovery_campaign_id INTEGER")
-
+    """Ensure scraping_sessions has platform fields."""
     try:
         cursor.execute("SELECT platform FROM scraping_sessions LIMIT 1")
     except sqlite3.OperationalError:

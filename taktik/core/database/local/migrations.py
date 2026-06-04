@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from .migration_steps.discovery import (
+from .migration_steps.scraping import (
     run_scraped_comments_migrations,
     run_scraped_profile_migrations,
     run_scraping_session_migrations,
