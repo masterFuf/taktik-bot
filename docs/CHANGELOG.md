@@ -1984,3 +1984,28 @@ reel de fermeture), avec fallback `back`, et `story.close` **verifie** ensuite v
 - QA device des nouvelles actions story.
 - Eventuellement exposer `story.open_from_profile` / `story.open_highlight` (code atomique
   existe : `click_profile_story_ring`, `click_highlight`).
+
+## Alignement doc SQLite Electron
+
+Deux pages source Bot ont ete remises a niveau pour ne plus mentir sur
+l'architecture Electron actuelle :
+
+- `desktop/database.md`
+- `desktop/electron-database-repositories.md`
+
+Correctifs appliques :
+
+- suppression des references a `DiscoveryRepository` / `DiscoveryService`
+  comme composants actifs ;
+- suppression de l'ancienne arborescence plate `front/electron/database/repositories/*` ;
+- realignement sur les owners actuels `services/app/**`,
+  `services/platforms/**`, `services/tools/**` ;
+- rappel explicite que les handlers IPC ne doivent pas porter de SQL direct.
+
+Verification :
+
+- `front/electron/database/repositories/index.ts`
+- `front/electron/database/models/**`
+- `front/electron/services/**`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `120` a `118`.
