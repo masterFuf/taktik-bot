@@ -2132,3 +2132,46 @@ Verification :
 - `bot/bridges/**`
 - `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
   `bot/docs` passees de `113` a `110`.
+
+## Alignement doc lifecycle, managers et build desktop
+
+Trois pages desktop supplementaires ont ete corrigees contre le runtime
+Electron reel :
+
+- `desktop/app-lifecycle.md`
+- `desktop/electron-managers-sync-updater.md`
+- `desktop/build-update.md`
+
+Correctifs appliques :
+
+- correction du preload canonique vers `front/electron/preload/index.ts` et
+  `front/electron/preload/**` ;
+- mise a jour de la liste des handlers enregistres dans `main.ts`, avec
+  `registerTaktikAgentHandlers`, `registerPersonaAnalysisHandlers`,
+  `registerTargetSearchHandlers`, `registerInstagramUploadHandlers`,
+  `registerAccountHandlers`, `registerSystemHandlers` et
+  `registerTypeWriterHandlers` ;
+- correction du lifecycle de fermeture : `window-all-closed` ne fait plus le
+  cleanup principal ; `before-quit` lance `beginAppShutdownCleanup()` et
+  `will-quit` ferme la base SQLite ;
+- correction des pages globales/documentees vers `live-center`, `network` et
+  le laboratoire admin `test` ;
+- correction du path sync vers `front/electron/sync/runtime/TursoSyncService.ts`
+  et ajout du role de `TursoSyncRuntime.ts` ;
+- correction du `ProcessManager` : il ne fait plus un simple `SIGTERM`, il
+  delegue au `process-killer` pour tuer l'arbre de process ;
+- retrait de l'ancien upload `changelog.json` dans la doc build/update, pour
+  ne garder que `changelog.md` comme dans `publish-update.ps1`.
+
+Verification :
+
+- `front/electron/main.ts`
+- `front/electron/managers/process-manager.ts`
+- `front/electron/services/app/system/process/process-killer.ts`
+- `front/electron/sync/runtime/TursoSyncRuntime.ts`
+- `front/electron/updater/auto-updater.ts`
+- `front/src/app/routing/PageRouter.tsx`
+- `front/scripts/build/build-all.ps1`
+- `front/scripts/publish/publish-update.ps1`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `110` a `107`.
