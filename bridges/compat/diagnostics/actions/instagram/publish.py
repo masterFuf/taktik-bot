@@ -112,12 +112,21 @@ def publish_type_caption(a, p):
             "details": {"text": text}}
 
 
+@action("publish.confirm_caption")
+def publish_confirm_caption(a, p):
+    """Confirm the full-screen caption editor (tap OK/Done) to return to the composer.
+
+    Tapping the caption opens a dedicated editor (header 'New reel'/'New post' + OK
+    top-right) with the custom auto-typing IME. Pressing back does NOT close it; the
+    OK button commits the caption and returns to the composer where Share lives."""
+    ok = a.click._find_and_click(CC.caption_confirm_xpaths(), timeout=4)
+    return _result(ok, "caption validee (OK)", "bouton OK introuvable", selector="caption_done_button")
+
+
 @action("publish.dismiss_keyboard")
 def publish_dismiss_keyboard(a, p):
-    """Close the soft keyboard (press back) so the footer Share button becomes reachable.
-
-    After typing the caption the IME covers the Share button (it sits in the footer);
-    a single back press closes the keyboard without leaving the composer."""
+    """Close the soft keyboard (press back). Fallback only — for the caption editor use
+    publish.confirm_caption (OK) which both commits the caption and returns to the composer."""
     try:
         a.device.back()
         ok = True

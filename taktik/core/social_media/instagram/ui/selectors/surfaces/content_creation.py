@@ -117,6 +117,10 @@ class ContentCreationSelectors:
     # === Champs de texte ===
     caption_text_view: str = 'com.instagram.android:id/caption_text_view'
     caption_input_text_view: str = 'com.instagram.android:id/caption_input_text_view'
+    # Bouton "OK"/"Done" de l'editeur de caption plein ecran (action bar haut-droite) :
+    # le composer ouvre un editeur dedie quand on tape le champ caption ; valider via OK
+    # revient au composer (ou se trouve Share). Presser back ne ferme pas le clavier custom.
+    caption_done_button: str = 'com.instagram.android:id/action_bar_button_text'
     soft_input_window_class_name: str = "android.inputmethodservice.SoftInputWindow"
     
     # === Feed interactions ===
@@ -182,6 +186,10 @@ class ContentCreationSelectors:
     def composer_xpaths(self) -> List[str]:
         """Caption composer field (presence => composer screen reached)."""
         return [self._rid_xpath(self.caption_input_text_view), self._rid_xpath(self.caption_text_view)]
+
+    def caption_confirm_xpaths(self) -> List[str]:
+        """'OK'/'Done' button of the full-screen caption editor (returns to the composer)."""
+        return self._text_xpaths(["OK", "Done", "Terminé", "Termine"]) + [self._rid_xpath(self.caption_done_button)]
 
     def next_button_xpaths(self) -> List[str]:
         """Next button (gallery -> filters -> composer)."""

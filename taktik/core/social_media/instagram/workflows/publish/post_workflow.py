@@ -217,12 +217,16 @@ class InstagramPostWorkflow:
         except Exception as e:
             self._log("warning", f"type_text failed: {e}")
             return False
-        # The keyboard hides the footer Share button — close it before publishing.
-        self._dismiss_keyboard()
+        # Tapping the caption opens a full-screen editor (custom auto-typing IME). The
+        # footer Share button is hidden there; confirm with OK to return to the composer.
+        # Back does NOT dismiss the custom IME, so OK is the reliable path.
+        if not self._tap(CC.caption_confirm_xpaths(), timeout=4):
+            self._dismiss_keyboard()
+        time.sleep(0.6)
         return typed
 
     def _dismiss_keyboard(self) -> None:
-        """Press back once to close the soft keyboard (keeps the composer open)."""
+        """Press back once to close the soft keyboard (fallback when OK is not found)."""
         try:
             self.device.press("back")
             time.sleep(0.5)
