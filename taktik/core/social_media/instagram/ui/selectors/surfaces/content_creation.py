@@ -39,6 +39,11 @@ class ContentCreationSelectors:
     draft_headline: str = 'com.instagram.android:id/igds_headline_headline'
     draft_body: str = 'com.instagram.android:id/igds_headline_body'
 
+    # Onglets de destination du create (camera) : POST / REEL / STORY.
+    cam_dest_feed: str = 'com.instagram.android:id/cam_dest_feed'
+    cam_dest_clips: str = 'com.instagram.android:id/cam_dest_clips'
+    cam_dest_story: str = 'com.instagram.android:id/cam_dest_story'
+
     next_texts: List[str] = field(default_factory=lambda: [
         "Next",
         "Suivant",
@@ -197,9 +202,26 @@ class ContentCreationSelectors:
             ["Select multiple", "Select multiple button", "Sélectionner plusieurs"]
         )
 
+    def post_tab_xpaths(self) -> List[str]:
+        """POST destination tab (feed post / carousel)."""
+        return [self._rid_xpath(self.cam_dest_feed)] + self._text_xpaths(self.post_type_texts)
+
+    def reel_tab_xpaths(self) -> List[str]:
+        """REEL destination tab."""
+        return [self._rid_xpath(self.cam_dest_clips)] + self._text_xpaths(self.reel_type_texts)
+
     def story_mode_xpaths(self) -> List[str]:
-        """STORY mode/tab in the create surface."""
-        return self._text_xpaths(self.story_type_texts)
+        """STORY destination tab/mode in the create surface."""
+        return [self._rid_xpath(self.cam_dest_story)] + self._text_xpaths(self.story_type_texts)
+
+    def destination_tab_xpaths(self, post_type: str) -> List[str]:
+        """Destination tab selectors for a given publish type (POST/REEL/STORY)."""
+        if post_type == "reel":
+            return self.reel_tab_xpaths()
+        if post_type == "story":
+            return self.story_mode_xpaths()
+        # post + carousel both publish to the feed (POST tab)
+        return self.post_tab_xpaths()
 
     def story_publish_xpaths(self) -> List[str]:
         """'Your story' / Share button to publish a story."""

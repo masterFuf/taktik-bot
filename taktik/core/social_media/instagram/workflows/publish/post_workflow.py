@@ -181,7 +181,8 @@ class InstagramPostWorkflow:
         time.sleep(1.0)
 
     def _open_creation_and_gallery(self) -> Optional[dict]:
-        """Open creation, dismiss the draft modal, ensure the gallery grid is visible.
+        """Open creation, dismiss the draft modal, select the destination tab for the
+        publish type (POST/REEL/STORY) and ensure the gallery grid is visible.
         Returns an error dict on failure, else None."""
         self._status("navigating", "Opening creation...")
         if not self._tap(CC.create_button_flow_xpaths(), timeout=6):
@@ -190,6 +191,13 @@ class InstagramPostWorkflow:
 
         if self._tap(CC.draft_dismiss_xpaths(), timeout=2):
             self._log("info", "Dismissed draft modal (Start new video)")
+            time.sleep(0.8)
+
+        # Select the destination tab (the create camera opens on the last-used mode, e.g.
+        # REEL; carousel multi-select only exists under POST). Non-fatal: if creation
+        # opened straight on the gallery the tabs are absent.
+        if self._tap(CC.destination_tab_xpaths(self.post_type), timeout=3):
+            self._log("info", f"Selected destination tab for {self.post_type}")
             time.sleep(0.8)
 
         # Create can land on the camera instead of the gallery grid; open it if needed.
@@ -246,7 +254,7 @@ class InstagramPostWorkflow:
 
         NOTE: not yet device-validated end to end; selectors come from the catalogue.
         """
-        err = self._open_creation_and_gallery_story()
+        err = self._open_creation_and_gallery()
         if err:
             return err
         self._status("selecting", "Selecting media from gallery...")
@@ -261,16 +269,6 @@ class InstagramPostWorkflow:
         self._status("success", "Story published successfully")
         self._log("info", "Instagram story published")
         return {"success": True, "message": "story published successfully", "error_type": None}
-
-    def _open_creation_and_gallery_story(self) -> Optional[dict]:
-        self._status("navigating", "Opening creation (story)...")
-        if not self._tap(CC.create_button_flow_xpaths(), timeout=6):
-            return self._error("create_not_found", "Create button not found")
-        time.sleep(1.2)
-        # Select STORY mode if a tab/picker is shown (best-effort).
-        self._tap(CC.story_mode_xpaths(), timeout=2)
-        self._ensure_gallery_open()
-        return None
 
     # ------------------------------------------------------------------
     # Stage helpers

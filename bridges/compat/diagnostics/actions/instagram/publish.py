@@ -89,11 +89,18 @@ def publish_select_story_tab(a, p):
             "details": {"selected": ok}}
 
 
+@action("publish.select_post_tab")
+def publish_select_post_tab(a, p):
+    """Select the POST destination tab (feed post / carousel). Required for multi-select."""
+    ok = a.click._find_and_click(CC.post_tab_xpaths(), timeout=4)
+    return _result(ok, "onglet POST selectionne", "onglet POST introuvable", selector="cam_dest_feed")
+
+
 @action("publish.select_reel_tab")
 def publish_select_reel_tab(a, p):
-    """Select the REEL tab in the gallery."""
-    ok = a.click._find_and_click(_by_texts(CC.reel_type_texts), timeout=4)
-    return _result(ok, "onglet REEL selectionne", "onglet REEL introuvable", selector="reel_type_texts")
+    """Select the REEL destination tab."""
+    ok = a.click._find_and_click(CC.reel_tab_xpaths(), timeout=4)
+    return _result(ok, "onglet REEL selectionne", "onglet REEL introuvable", selector="cam_dest_clips")
 
 
 @action("publish.next")
