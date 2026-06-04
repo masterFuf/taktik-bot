@@ -191,7 +191,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - ecritures SQLite et repository/service proprietaire ;
 - handler Electron et Live Panel associes ;
 - scheduler si le workflow peut etre planifie ;
-- docs `bot/docs/**`, `front/docs/**` ou `taktik-docs/premium/instagram/**` selon le perimetre ;
+- docs `taktik-docs/bot/**`, `taktik-docs/front/**` ou `taktik-docs/premium/instagram/**` selon le perimetre ;
 - tests unitaires, script d'audit ou verification manuelle reproductible.
 
 ### SOLID cote Bot
@@ -229,7 +229,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 
 - Ne jamais logger mot de passe, token, cookie, proxy credential, payload complet de compte ou contenu DM sensible.
 - Les fichiers de config temporaires doivent etre limites au strict necessaire, stockes dans un emplacement controle et nettoyes quand le flux le permet.
-- Le changelog applicatif Bot est unique : `bot/docs/CHANGELOG.md`. Ne pas creer de changelog par plateforme, workflow, spec, cartography, lab ou version ; ajouter une section dans ce fichier canonique avec contexte, chemins impactes et provenance si necessaire.
+- Le changelog applicatif Bot est unique : `taktik-docs/bot/CHANGELOG.md`. Ne pas creer de changelog par plateforme, workflow, spec, cartography, lab ou version ; ajouter une section dans ce fichier canonique avec contexte, chemins impactes et provenance si necessaire.
 - Les dumps UI, screenshots et traces de debug peuvent contenir des donnees personnelles : ne pas les ajouter aux tests/docs sans anonymisation.
 - Les captures Cartography Lab appariees (XML + PNG) doivent passer par `scripts/capture_surface.py` ou un service qui conserve le meme contrat de fichiers sous `debug_ui/cartography/<platform>/<surface>/`. Ne pas ajouter un deuxieme format ou une deuxieme arborescence sans documenter la migration.
 - Les runs d'action du Cartography Lab doivent ecrire leurs artefacts sous `debug_ui/cartography/<device_id>/<platform>/<app_version>/action-runs/<action_id>/<run_id>/` et inclure un `report.json` complet. Le stdout JSON retourne seulement des chemins de fichiers (`artifacts`), jamais le contenu XML/PNG ni le rapport complet inline.

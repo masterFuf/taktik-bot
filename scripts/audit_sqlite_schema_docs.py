@@ -2,7 +2,7 @@
 
 This script is intentionally read-only. It compares table names declared in
 Python/Electron SQLite sources with the documented table sections in
-``bot/docs/database/schema.md``.
+``taktik-docs/bot/database/schema.md``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ SOURCE_FILES = [
     ROOT / "front" / "electron" / "database" / "repositories" / "platforms" / "instagram" / "scraping" / "ScrapedProfileRepository.ts",
 ]
 
-DOC_SCHEMA_PATH = ROOT / "bot" / "docs" / "database" / "schema.md"
+DOC_SCHEMA_PATH = ROOT / "taktik-docs" / "bot" / "database" / "schema.md"
 
 # Migration scratch tables are implementation details, not persistent domain
 # tables that should be documented as part of the application schema.
@@ -80,7 +80,7 @@ def main() -> int:
     if missing or stale:
         print("SQLite schema documentation audit failed:")
         if missing:
-            print(" - Missing from bot/docs/database/schema.md:")
+            print(" - Missing from taktik-docs/bot/database/schema.md:")
             for table in missing:
                 owners = sorted(file for file, tables in by_file.items() if table in tables)
                 print(f"   - {table} ({', '.join(owners)})")
