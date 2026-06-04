@@ -4,6 +4,13 @@
 
 Cette page decrit la cible technique pour transformer Taktik Agent en agent autonome transversal.
 
+> **Etat courant verifie** : cette page est une architecture cible partiellement
+> implementee, pas une description de feature totalement livree. Aujourd'hui,
+> le code expose une V1 Instagram-first (`TaktikAgentWorkflow`) avec contexte
+> desktop injecte, decisions IA feed/profil et burst hashtag. Les briques
+> `AgentExecutor`, `AgentPolicy` desktop et `AgentPlanner` desktop restent a
+> extraire/implementer.
+
 L'objectif n'est pas d'ajouter un workflow de plus. L'objectif est de faire de Taktik Agent le cerveau premium qui pilote plusieurs workflows existants, choisit l'ordre des actions, explique ses choix a l'utilisateur et adapte sa journee a l'historique reel du compte.
 
 ## Frontiere open-source / premium
@@ -14,7 +21,7 @@ L'orchestration complete de Taktik Agent est une valeur premium de l'application
 
 | Couche | Projet | Responsabilite |
 |---|---|---|
-| Orchestration premium | `front/electron/services/agent/` | Memoire chronologique, anti-patterns, choix de prochain outil, contexte injecte au bridge. |
+| Orchestration premium | `front/electron/services/app/agent/` | Memoire chronologique, anti-patterns, choix de prochain outil, contexte injecte au bridge. |
 | UX premium | `front/src/features/platforms/instagram/workflows/agent/` + Agent Panel | Controles, narration, affichage decisions, garde-fous. |
 | Bridge | `front/electron/handlers/instagram/agent/taktikAgent.ts` | Licence, preparation du contexte premium, lancement du bridge Python. |
 | Execution open-source | `bot/taktik/core/agent/scenarios/instagram_feed_autopilot.py` | Consommer le contexte desktop, executer feed/hashtag/actions, renvoyer stats/events. |
@@ -28,7 +35,7 @@ Fichiers actuels concernes :
 |---|---|
 | `bot/taktik/core/agent/scenarios/instagram_feed_autopilot.py` | Workflow autonome Instagram-first, principalement feed + burst hashtag. |
 | `bot/taktik/core/agent/decision/agent_ai.py` | Decisions IA vision pour posts feed et profils. |
-| `bot/bridges/instagram/taktik_agent_bridge.py` | Bridge Python lance par Electron pour Taktik Agent. |
+| `bot/bridges/instagram/agent/taktik_agent.py` (`taktik_agent_bridge`) | Bridge Python lance par Electron pour Taktik Agent. |
 | `front/src/features/platforms/instagram/workflows/agent/TaktikAgent.tsx` | Page front de lancement du workflow agent. |
 | `front/src/features/workspace/agent/components/AgentPanel.tsx` | Panneau conversationnel qui affiche l'activite IA. |
 
@@ -292,7 +299,7 @@ Types de messages :
 ```mermaid
 sequenceDiagram
     participant Front as Desktop Premium
-    participant Bridge as taktik_agent_bridge.py
+    participant Bridge as taktik_agent_bridge
     participant WF as TaktikAgentWorkflow
     participant Memory as Desktop Memory
     participant Planner as Desktop Planner
@@ -423,7 +430,7 @@ Etape 1 : refactor mecanique sans changer le comportement visible.
 | Brique | Etat | Fichiers |
 |---|---|---|
 | `AgentContext` bot | Implante V1 minimal | `bot/taktik/core/agent/kernel/context.py` |
-| `AgentOrchestrationContextService` desktop | Implante V1 | `front/electron/services/agent/AgentOrchestrationContextService.ts` |
+| `AgentOrchestrationContextService` desktop | Implante V1 | `front/electron/services/app/agent/orchestration/AgentOrchestrationContextService.ts` |
 | Injection bridge | Implante V1 | `front/electron/handlers/instagram/agent/taktikAgent.ts` |
 | Consommation contexte bot | Implante V1 | `bot/taktik/core/agent/scenarios/instagram_feed_autopilot.py` |
 | `AgentExecutor` | A faire | Extraction prochaine etape |
@@ -471,7 +478,7 @@ La V1 autonome est terminee quand :
 2. il explique le recap precedent dans l'Agent Panel ;
 3. il choisit un ordre de blocs different selon l'historique ;
 4. il execute au moins 3 outils haut niveau : stories feed, feed browse, hashtag explore ;
-5. il conserve les stop/duree/quotas locaux ;
+5. il conserve les stop/duree/limites locales ;
 6. il produit un recap final ;
 7. le comportement existant feed/hashtag reste fonctionnel.
 

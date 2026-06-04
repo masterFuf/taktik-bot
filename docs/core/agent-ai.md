@@ -1,7 +1,7 @@
 # Core Bot — Agent autonome et IA
 
 > **Périmètre : `[Bot]`**
-> Cette page couvre `bot/taktik/core/agent/` et `bot/taktik/core/ai/`. Elle décrit la logique IA côté Python ; les clés OpenRouter/fal.ai et l'affichage UI sont documentés côté desktop/settings.
+> Cette page couvre `bot/taktik/core/agent/` et `bot/taktik/core/app/ai/`. Elle décrit la logique IA côté Python ; les clés OpenRouter/fal.ai et l'affichage UI sont documentés côté desktop/settings.
 
 Le core IA contient deux familles :
 
@@ -11,7 +11,7 @@ Le core IA contient deux familles :
 | `agent/io/` | Manifest workflows et payloads JSON-safe plan/events. |
 | `agent/decision/` | Décisions IA locales à une action. |
 | `agent/scenarios/` | Scénarios legacy, dont l'autopilot Instagram-first. |
-| `ai/` | Fonctions IA réutilisables pour qualification de commentaires et génération de réponses. |
+| `app/ai/` | Fonctions IA réutilisables pour qualification de commentaires et génération de réponses. |
 
 > Evolution cible : la page [Taktik Agent autonome](taktik-agent-autonomous-orchestration.md) decrit le refactor prevu pour transformer l'agent actuel en orchestrateur multi-workflows avec memoire chronologique, planner, policy et narration temps reel.
 
@@ -22,7 +22,7 @@ flowchart LR
     Bridge[Bridge / workflow launcher] --> Agent[TaktikAgentWorkflow]
     Agent --> Persona[SQLite account persona]
     Agent --> AI[AgentAI]
-    AI --> Service[taktik.core.ai.providers.openrouter.AIService]
+    AI --> Service[taktik.core.app.ai.providers.openrouter.AIService]
     Service --> OpenRouter[OpenRouter vision/text]
     Agent --> IG[Instagram actions]
     Agent --> IPC[IPC agent_* / ai_* events]
@@ -40,8 +40,12 @@ taktik/core/
 │   │   └── agent_ai.py
 │   └── scenarios/
 │       └── instagram_feed_autopilot.py
-└── ai/
-    └── comment_ai.py
+└── app/
+    └── ai/
+        ├── providers/
+        │   └── openrouter.py
+        └── comments/
+            └── comment_ai.py
 ```
 
 ## `AgentAI`
@@ -111,7 +115,7 @@ stateDiagram-v2
     Persona --> AIInit
     AIInit --> Feed
     Feed --> StopCheck
-    StopCheck --> Done: quotas/durée/stop
+    StopCheck --> Done: limites/durée/stop
     StopCheck --> Scroll
     Scroll --> MaybeStop
     MaybeStop --> Feed: skip scroll
@@ -139,11 +143,11 @@ stateDiagram-v2
 |---|---|
 | Persona | Va sur le profil du compte bot via actions Instagram, extrait username/bio, charge le contexte SQLite. |
 | `UserProfile` | Construit un bloc prompt avec niche, objectif, service, audience, ton, contexte. |
-| IA | Initialise un provider injecte depuis le bridge, actuellement `taktik.core.ai.providers.openrouter.AIService`, avec `openrouter_api_key` ou `OPENROUTER_API_KEY`. |
+| IA | Initialise un provider injecte depuis le bridge, actuellement `taktik.core.app.ai.providers.openrouter.AIService`, avec `openrouter_api_key` ou `OPENROUTER_API_KEY`. |
 | Hashtags | Génère un pool de hashtags exploratoires après initialisation IA. |
 | Feed | Navigue vers le home feed Instagram. |
 
-### Config Et Quotas
+### Config Et Limites Locales
 
 | Clé config | Défaut | Rôle |
 |---|---:|---|
@@ -176,7 +180,7 @@ Statistiques :
 
 ## `comments/comment_ai.py`
 
-Fichier : `ai/comments/comment_ai.py`.
+Fichier : `app/ai/comments/comment_ai.py`.
 
 Module IA context-aware pour qualification de commentaires et génération de réponses.
 
@@ -238,4 +242,4 @@ sequenceDiagram
 1. Toute nouvelle décision IA doit retourner un schéma JSON explicite.
 2. Les prompts doivent rester proches du workflow qui les consomme.
 3. Les events IA doivent être documentés dans le protocole IPC si exposés au Front.
-4. Les règles de quotas doivent être visibles dans la doc dès qu'elles changent.
+4. Les règles de limites locales doivent être visibles dans la doc dès qu'elles changent.
