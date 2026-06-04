@@ -7,9 +7,21 @@ class ContentCreationSelectors:
     
     # === Tab de création ===
     creation_tab: str = 'com.instagram.android:id/creation_tab'
+
+    # Bouton "+" creer : barre du bas (creation_tab) si presente, sinon l'ImageView
+    # cliquable en haut a gauche de l'action bar (sans resource-id/content-desc sur
+    # certaines versions). Cible structurelle = selector-only, aucune coordonnee.
+    create_button_xpaths: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "creation_tab")]',
+        '//*[contains(@resource-id, "action_bar_buttons_container_left")]//android.widget.ImageView[@clickable="true"]',
+    ])
+    create_button_texts: List[str] = field(default_factory=lambda: ["Create", "Créer"])
     
     # === Galerie ===
     gallery_grid_item: str = 'com.instagram.android:id/gallery_grid_item_thumbnail'
+    gallery_grid_item_selection_circle: str = 'com.instagram.android:id/gallery_grid_item_selection_circle'
+    gallery_preview_button: str = 'com.instagram.android:id/gallery_preview_button'
+    multi_select_slide_button_alt: str = 'com.instagram.android:id/multi_select_slide_button_alt'
     view_group_class_name: str = "android.view.ViewGroup"
     
     # === Boutons de popup ===
@@ -19,7 +31,10 @@ class ContentCreationSelectors:
     
     # === Navigation création ===
     next_button: str = 'com.instagram.android:id/next_button_textview'
+    creation_next_button: str = 'com.instagram.android:id/creation_next_button'
     share_button: str = 'com.instagram.android:id/share_button'
+    share_footer_button: str = 'com.instagram.android:id/share_footer_button'
+    bb_primary_action_container: str = 'com.instagram.android:id/bb_primary_action_container'
     clips_right_action_button: str = 'com.instagram.android:id/clips_right_action_button'
     draft_headline: str = 'com.instagram.android:id/igds_headline_headline'
     draft_body: str = 'com.instagram.android:id/igds_headline_body'
@@ -129,5 +144,61 @@ class ContentCreationSelectors:
             f'//*[contains(@text, "#{hashtag}")]',
             '//*[contains(@resource-id, "hashtag")]',
         ]
+
+    # === XPath builders for the publish flow (selector-only, clone-agnostic) ===
+    # The publish workflow consumes these named groups so no XPath string is ever
+    # built inside the workflow code (selectors stay owned by this module).
+
+    @staticmethod
+    def _rid_xpath(resource_id: str) -> str:
+        """XPath matching a resource-id by suffix (works across clone packages)."""
+        return f'//*[contains(@resource-id, "{resource_id.split("/")[-1]}")]'
+
+    @staticmethod
+    def _indexed_rid_xpath(resource_id: str, index: int = 1) -> str:
+        return f'(//*[contains(@resource-id, "{resource_id.split("/")[-1]}")])[{index}]'
+
+    @staticmethod
+    def _text_xpaths(texts: List[str]) -> List[str]:
+        """XPath list matching any text or content-desc label."""
+        out: List[str] = []
+        for t in texts:
+            out.append(f'//*[@text="{t}"]')
+            out.append(f'//*[@content-desc="{t}"]')
+        return out
+
+    def create_button_flow_xpaths(self) -> List[str]:
+        """Open-creation ("+") selectors: structural action-bar button or Create label."""
+        return list(self.create_button_xpaths) + self._text_xpaths(self.create_button_texts)
+
+    def draft_dismiss_xpaths(self) -> List[str]:
+        """'Keep editing your draft?' -> Start new video (optional modal)."""
+        return [self._rid_xpath(self.auxiliary_button)] + self._text_xpaths(self.reel_draft_start_new_texts)
+
+    def first_gallery_item_xpath(self) -> str:
+        """First (most recent) gallery thumbnail."""
+        return self._indexed_rid_xpath(self.gallery_grid_item, 1)
+
+    def composer_xpaths(self) -> List[str]:
+        """Caption composer field (presence => composer screen reached)."""
+        return [self._rid_xpath(self.caption_input_text_view), self._rid_xpath(self.caption_text_view)]
+
+    def next_button_xpaths(self) -> List[str]:
+        """Next button (gallery -> filters -> composer)."""
+        return [
+            self._rid_xpath(self.creation_next_button),
+            self._rid_xpath(self.next_button),
+        ] + self._text_xpaths(self.next_texts)
+
+    def post_selection_ok_xpaths(self) -> List[str]:
+        """Optional post-selection 'OK' modal."""
+        return [self._rid_xpath(self.bb_primary_action_container)] + self._text_xpaths(["OK"])
+
+    def share_button_xpaths(self) -> List[str]:
+        """Final Share/Publish button."""
+        return [
+            self._rid_xpath(self.share_footer_button),
+            self._rid_xpath(self.share_button),
+        ] + self._text_xpaths(self.publish_texts)
 
 CONTENT_CREATION_SELECTORS = ContentCreationSelectors()

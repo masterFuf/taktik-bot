@@ -70,14 +70,43 @@ class InstagramPublishBridge:
         finally:
             try:
                 if self._connection is not None:
-                    self._connection.close()
+                    self._connection.disconnect()
             except Exception:
                 pass
 
     # --- Flow owners (ported incrementally from the Electron publish services) ---
 
     def _run_post(self) -> int:
-        return self._flow_not_ported("post")
+        """Publish a single-media feed POST via the core Instagram publish workflow.
+
+        Thin adapter: connect the device, delegate to InstagramPostWorkflow (which owns
+        the selector flow and media push), and translate its result into IPC events.
+        """
+        if not self._connection.connect():
+            send_error("Failed to connect to device", "device_connection_failed")
+            return 1
+
+        from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
+            InstagramPostWorkflow,
+        )
+
+        workflow = InstagramPostWorkflow(
+            self._connection.device,
+            self.device_id,
+            log=send_log,
+            status=send_status,
+            package_name=self.package_name,
+        )
+        result = workflow.execute(
+            caption=self.caption,
+            hashtags=self.hashtags,
+            media_paths=self.media_paths,
+        )
+        if result.get("success"):
+            send_status("completed", result.get("message", "Post published"))
+            return 0
+        send_error(result.get("message", "Publish failed"), result.get("error_type"))
+        return 1
 
     def _run_reel(self) -> int:
         return self._flow_not_ported("reel")
