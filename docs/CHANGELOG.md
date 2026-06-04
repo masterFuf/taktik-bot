@@ -2009,3 +2009,30 @@ Verification :
 - `front/electron/services/**`
 - `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
   `bot/docs` passees de `120` a `118`.
+
+## Alignement doc preload et network control
+
+Deux autres pages desktop source ont ete remises a niveau :
+
+- `desktop/preload-api.md`
+- `desktop/network-control-center.md`
+
+Correctifs appliques :
+
+- suppression du faux namespace `automationAPI.discovery` ;
+- suppression de l'ancien recit preload monolithique comme etat courant ;
+- realignement des chemins actuels `preload/app/**`, `preload/devices/**`,
+  `preload/platforms/**`, `preload/tools/**` ;
+- correction des chemins reseau vers
+  `database/repositories/app/network-pool/NetworkPoolRepository.ts`,
+  `services/shared/network/orchestration/shared-network-orchestrator.ts` et
+  `services/app/scheduler/engine/scheduler-engine.ts`.
+
+Verification :
+
+- `front/electron/preload.ts`
+- `front/electron/preload/**`
+- `front/electron/handlers/**`
+- `front/src/features/workspace/network/**`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `118` a `116`.
