@@ -45,6 +45,9 @@ class StorySelectors:
     # Barre de progression des stories
     story_progress_bar: str = '//*[contains(@resource-id, "reel_viewer_progress_bar")]'
     story_viewer_root: str = '//*[contains(@resource-id, "reel_viewer_root")]'
+
+    # === Pub / story sponsorisee (a NE PAS traiter comme une story d'ami) ===
+    story_sponsored_label: str = '//*[contains(@resource-id, "reel_item_sponsored_label") or contains(@content-desc, "sponsored story") or contains(@content-desc, "story sponsorisée") or contains(@content-desc, "Sponsorisé")]'
     
     # Actions sur story
     story_like_button: str = '//*[contains(@resource-id, "toolbar_like_button")]'

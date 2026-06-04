@@ -267,6 +267,26 @@ class ScreenDetectionMixin(BaseAction):
             self.logger.debug(f"Error counting feed stories: {e}")
             return 0
 
+    def get_feed_tray_total(self) -> int:
+        """Total friends with stories, parsed from a tray bubble content-desc ('... of N ...')."""
+        import re
+        try:
+            elements = self.device.xpath(STORY_SELECTORS.feed_story_buttons).all()
+            if not elements:
+                elements = self.device.xpath(STORY_SELECTORS.feed_unseen_story_buttons).all()
+            for element in elements or []:
+                try:
+                    desc = element.attrib.get('content-desc', '') or ''
+                except Exception:
+                    desc = ''
+                match = re.search(r'(?:of|sur)\s+(\d+)', desc, re.IGNORECASE)
+                if match:
+                    return int(match.group(1))
+            return 0
+        except Exception as e:
+            self.logger.debug(f"Error reading feed tray total: {e}")
+            return 0
+
     def has_unseen_profile_story(self) -> bool:
         """Detect the active profile-avatar story ring, excluding highlight bubbles."""
         try:
@@ -319,6 +339,7 @@ class ScreenDetectionMixin(BaseAction):
         metadata: Dict[str, Any] = {
             'is_open': False,
             'is_highlight': False,
+            'is_ad': False,
             'title': None,
             'timestamp': None,
             'current_story': 0,
@@ -376,10 +397,44 @@ class ScreenDetectionMixin(BaseAction):
                     'timestamp': feed_story_match.group(4).strip(),
                 })
 
+            # Fallback to dedicated nodes: the text_container content-desc is often EMPTY
+            # (confirmed on device), while reel_viewer_title / _timestamp carry the data.
+            if not metadata['title']:
+                for el in self.device.xpath(STORY_SELECTORS.story_viewer_title).all() or []:
+                    text = (el.attrib.get('text') or '').strip()
+                    if text:
+                        metadata['title'] = text
+                        break
+            if not metadata['timestamp']:
+                ts_el = self.device.xpath(STORY_SELECTORS.story_viewer_timestamp).get()
+                if ts_el:
+                    metadata['timestamp'] = (ts_el.attrib.get('text') or '').strip() or None
+            if not metadata['total_stories']:
+                segments = self.device.xpath(STORY_SELECTORS.story_progress_bar).all() or []
+                if segments:
+                    metadata['total_stories'] = len(segments)
+
+            # Sponsored story (ad): the title is a brand, not a friend. Flag it so callers
+            # (and workflows) never treat it as a real user story.
+            try:
+                sponsored = self.device.xpath(STORY_SELECTORS.story_sponsored_label)
+                metadata['is_ad'] = bool(sponsored and sponsored.exists)
+            except Exception:
+                pass
+
             return metadata
         except Exception as e:
             self.logger.debug(f"Error extracting story viewer metadata: {e}")
             return metadata
+
+    def is_story_ad(self) -> bool:
+        """Whether the current story is a sponsored ad (workflows must skip, not interact)."""
+        try:
+            sponsored = self.device.xpath(STORY_SELECTORS.story_sponsored_label)
+            return bool(sponsored and sponsored.exists)
+        except Exception as e:
+            self.logger.debug(f"Error detecting story ad: {e}")
+            return False
     
     def has_stories(self) -> bool:
         try:

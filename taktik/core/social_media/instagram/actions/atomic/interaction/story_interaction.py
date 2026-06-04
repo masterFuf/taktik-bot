@@ -218,6 +218,10 @@ class StoryInteractionMixin(BaseAction):
             self.logger.error(f"Error opening story reactions: {e}")
             return False
 
+    def open_story_reply_composer(self) -> bool:
+        """Focus the story reply text field (message composer) for typing a reply."""
+        return self._find_and_click(STORY_SELECTORS.story_message_composer, timeout=3)
+
     def react_to_story(self, reaction: Optional[str] = None, emoji_index: Optional[int] = None) -> bool:
         """React to the current story using Instagram's 2x3 quick reaction grid.
 
@@ -246,4 +250,19 @@ class StoryInteractionMixin(BaseAction):
             return self._click_element_center(elements[index], f"story reaction #{index}")
         except Exception as e:
             self.logger.error(f"Error reacting to story: {e}")
+            return False
+
+    def close_story(self) -> bool:
+        """Close the story viewer with a swipe-down gesture (back press is unreliable)."""
+        try:
+            width, height = self.device.get_screen_size()
+            self.device.swipe_coordinates(
+                width // 2, int(height * 0.30),
+                width // 2, int(height * 0.92),
+                duration=0.30,
+            )
+            self._human_like_delay('scroll')
+            return True
+        except Exception as e:
+            self.logger.error(f"Error closing story: {e}")
             return False
