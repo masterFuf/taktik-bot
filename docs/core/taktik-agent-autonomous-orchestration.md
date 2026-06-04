@@ -478,7 +478,7 @@ La V1 autonome est terminee quand :
 2. il explique le recap precedent dans l'Agent Panel ;
 3. il choisit un ordre de blocs different selon l'historique ;
 4. il execute au moins 3 outils haut niveau : stories feed, feed browse, hashtag explore ;
-5. il conserve les stop/duree/limites locales ;
+5. il conserve les stop/duree/quotas locaux ;
 6. il produit un recap final ;
 7. le comportement existant feed/hashtag reste fonctionnel.
 

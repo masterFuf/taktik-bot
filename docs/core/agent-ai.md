@@ -115,7 +115,7 @@ stateDiagram-v2
     Persona --> AIInit
     AIInit --> Feed
     Feed --> StopCheck
-    StopCheck --> Done: limites/durée/stop
+    StopCheck --> Done: quotas locaux/duree/stop
     StopCheck --> Scroll
     Scroll --> MaybeStop
     MaybeStop --> Feed: skip scroll
@@ -147,15 +147,15 @@ stateDiagram-v2
 | Hashtags | Génère un pool de hashtags exploratoires après initialisation IA. |
 | Feed | Navigue vers le home feed Instagram. |
 
-### Config Et Limites Locales
+### Config Et Quotas Locaux
 
 | Clé config | Défaut | Rôle |
 |---|---:|---|
-| `max_likes` | `80` | Limite likes. |
-| `max_comments` | `15` | Limite commentaires. |
-| `max_follows` | `20` | Limite follows. |
-| `max_profile_visits` | `40` | Limite visites profil. |
-| `max_posts_seen` | `150` | Limite posts parcourus. |
+| `max_likes` | `80` | Quota likes. |
+| `max_comments` | `15` | Quota commentaires. |
+| `max_follows` | `20` | Quota follows. |
+| `max_profile_visits` | `40` | Quota visites profil. |
+| `max_posts_seen` | `150` | Quota posts parcourus. |
 | `session_duration_min` | `25` | Durée max session. |
 | `openrouter_api_key` | env fallback | Clé IA. |
 | `vision_model` | service default | Modèle vision optionnel. |
@@ -242,4 +242,4 @@ sequenceDiagram
 1. Toute nouvelle décision IA doit retourner un schéma JSON explicite.
 2. Les prompts doivent rester proches du workflow qui les consomme.
 3. Les events IA doivent être documentés dans le protocole IPC si exposés au Front.
-4. Les règles de limites locales doivent être visibles dans la doc dès qu'elles changent.
+4. Les règles de quotas locaux doivent être visibles dans la doc dès qu'elles changent.
