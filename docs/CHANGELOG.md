@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Aligned `modules/instagram/workflows.md` with the verified current Instagram workflow map: the removed `workflows/discovery/` package and `DiscoveryWorkflowV2` are no longer documented as active, advanced prospection now points to scraping/post scraping/deep qualification, and local session counters are no longer described as remote action quotas.
 - Aligned `desktop/ai-handlers.md` with the verified private documentation: current AI paths now point to `front/electron/services/app/ai/**`, OpenRouter is documented as the modern text/vision path, and fal.ai is kept only for active media/TTS/provider-credit usage rather than product action quotas.
 - Clarified `bot/docs` as a historical Bot documentation source only; the canonical private documentation now lives in `taktik-docs`, and old standalone Docsify/GitBook launch instructions were removed from the Bot README/social-docs.
 - Removed obsolete Bot source docs already tracked in `taktik-docs/governance/SOURCE_EXCLUSIONS.md` (old API references, business credit/quota docs, Discovery-era audits, legacy product/marketing inventories, old TikTok plans and generic root guides) so they cannot be mistaken for current documentation.
