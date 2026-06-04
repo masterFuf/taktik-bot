@@ -2211,3 +2211,35 @@ Verification :
 - `front/electron/handlers/scheduler/content-planner.ts`
 - `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
   `bot/docs` passees de `107` a `104`.
+
+## Alignement doc design system, tools debug et video tools
+
+Trois pages desktop supplementaires ont ete realignees avec la documentation
+privee consolidee et les chemins Front actuels :
+
+- `desktop/design-system.md`
+- `desktop/tools-debug.md`
+- `desktop/video-tools.md`
+
+Correctifs appliques :
+
+- remplacement des references a l'ancien GitBook/public docs par la
+  documentation consolidee `taktik-docs` ;
+- correction des preloads debug/outils vers `preload/app/core.ts`,
+  `preload/devices/adb.ts`, `preload/devices/mirror.ts` et
+  `preload/tools/compat.ts` ;
+- remplacement de l'ancien `ActionTester` par `CartographyLabPage` dans la vue
+  d'ensemble des outils ;
+- correction du preload recorder vers
+  `front/electron/preload/platforms/instagram/instagram.ts` ;
+- retrait de la reference obsolete `discovery:*` dans les evenements timeline
+  video au profit du scraping/qualification actuel.
+
+Verification :
+
+- `front/electron/preload/devices/mirror.ts`
+- `front/electron/preload/app/core.ts`
+- `front/electron/preload/tools/compat.ts`
+- `front/electron/preload/platforms/instagram/instagram.ts`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `104` a `101`.
