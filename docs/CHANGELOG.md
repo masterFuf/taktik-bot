@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Clarified `bot/docs` as a historical Bot documentation source only; the canonical private documentation now lives in `taktik-docs`, and old standalone Docsify/GitBook launch instructions were removed from the Bot README/social-docs.
+- Removed obsolete Bot source docs already tracked in `taktik-docs/governance/SOURCE_EXCLUSIONS.md` (old API references, business credit/quota docs, Discovery-era audits, legacy product/marketing inventories, old TikTok plans and generic root guides) so they cannot be mistaken for current documentation.
 - Instagram `SessionManager.record_action()` no longer calls remote API action/quota tracking; action counters remain local to the session/SQLite path, and story watches are counted as stories instead of likes.
 - Consolidated the old Bot/TikTok/Multi-Target/Specs changelog files into this canonical Bot changelog and removed the secondary changelog files to avoid multiple sources of truth.
 - Removed the obsolete Instagram Discovery persistence owner. The active scraping/qualification data now lives under `repositories/instagram/scraping/ScrapedProfileRepository`, the schema bootstrap uses `local/schemas/scraping.py`, and AI score fields remain on `scraped_profiles` for advanced scraping, Target Search and Deep Qualify.
@@ -1179,9 +1181,9 @@ Nouvelles métriques trackées:
 # Changelog
 
 Voir les fichiers de changelog détaillés :
-- [Changelog principal](../CHANGELOG.md)
-- [Changelog TikTok](../CHANGELOG_TIKTOK.md)
-- [Changelog Multi-Target](../CHANGELOG_MULTI_TARGET.md)
+- Changelog principal : ancien `bot/CHANGELOG.md`, consolide ci-dessus.
+- Changelog TikTok : ancien `bot/docs/CHANGELOG_TIKTOK.md`, consolide ci-dessus.
+- Changelog Multi-Target : ancien `bot/docs/CHANGELOG_MULTI_TARGET.md`, consolide ci-dessus.
 
 ---
 

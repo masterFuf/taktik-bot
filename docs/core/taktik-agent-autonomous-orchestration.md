@@ -486,4 +486,4 @@ Quand cette architecture sera codee, mettre a jour :
 | `bridges/ipc-protocol.md` | Lister `agent_plan`, `agent_tool_started`, `agent_tool_completed` si crees. |
 | `database/schema.md` | Ajouter `agent_timeline_events` si Option B retenue. |
 | `desktop/agent-panel.md` | Distinguer narration agent, decisions IA et controles utilisateur. |
-| `product/feature-inventory.md` | Decrire Taktik Agent comme assistant autonome transversal. |
+| `taktik-docs/marketing/feature-overview.md` | Decrire Taktik Agent comme assistant autonome transversal. |

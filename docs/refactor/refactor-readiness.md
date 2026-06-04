@@ -16,9 +16,9 @@ Elle ne remplace pas les tests. Elle aide a voir les dependances implicites entr
 | Actions business | casser plusieurs workflows qui partagent les memes actions | `modules/*/business-actions.md`, workflows plateforme |
 | Actions atomic/selectors | casser l'interaction Android | selectors, compat, versioned selectors |
 | SQLite | casser repositories Python/Electron ou sync | `database/schema.md`, `database/repositories.md`, `desktop/electron-database-repositories.md` |
-| Licence/API | bloquer le lancement desktop ou device | `api-reference/architecture.md`, `api-reference/routers.md`, `desktop/auth-license-flow.md` |
+| Licence/API | bloquer le lancement desktop ou device | `taktik-docs/technical/api-current-state.md`, `desktop/auth-license-flow.md` |
 | Scheduler/session | casser les executions planifiees | `workflows/sessions.md`, `desktop/scheduler-ui.md`, `desktop/content-planner.md` |
-| Site Web | casser creation de licences/API keys | `web/overview.md`, `api-reference/architecture.md` |
+| Site Web | casser creation de licences/API keys | `web/overview.md`, `taktik-docs/technical/api-current-state.md` |
 
 ## Process conseille
 
