@@ -1,6 +1,6 @@
-# TikTok - Documentation Bot + Electron
+# TikTok - Section Bot + Electron
 
-Cette Docsify est la documentation de travail TikTok. Elle rassemble le chemin complet TikTok : UI Electron, handlers IPC, bridge Python, Bot TikTok, upload/publish, scraping, DM, scheduler, Live Center, network pools, SQLite et sync.
+Cette section de `taktik-docs` est la documentation de travail TikTok. Elle rassemble le chemin complet TikTok : UI Electron, handlers IPC, bridge Python, Bot TikTok, upload/publish, scraping, DM, scheduler, Live Center, network pools, SQLite et sync.
 
 Elle duplique volontairement certains modules partages. Quand on travaille TikTok, on veut voir les dependances TikTok dans leur contexte, meme si le code est partage avec Instagram ou d'autres plateformes.
 
@@ -68,4 +68,4 @@ flowchart LR
 
 ## Principe d'autonomie
 
-Cette docsify doit rester lisible seule. Si une page TikTok a besoin d'un concept transversal, on le resume ici dans le contexte TikTok au lieu de forcer un aller-retour vers la doc principale.
+Cette section doit rester lisible seule. Si une page TikTok a besoin d'un concept transversal, on le resume ici dans le contexte TikTok, tout en gardant `taktik-docs` comme source documentaire unique.
