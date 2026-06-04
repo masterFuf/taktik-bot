@@ -357,6 +357,12 @@ def _resolve_device_metadata(bundle: Any, device_id: str) -> dict[str, Any]:
     except Exception as exc:
         logger.debug(f"Could not resolve device metadata from uiautomator info: {exc}")
 
+    # Prefer the marketing model (ro.product.model, e.g. "Pixel 3a") over the
+    # uiautomator productName (codename, e.g. "sargo") so runs stay identifiable.
+    marketing_model = _resolve_marketing_model(device_id)
+    if marketing_model:
+        metadata["model"] = marketing_model
+
     if metadata["density_dpi"] is None:
         metadata["density_dpi"] = _resolve_density_from_adb(device_id)
 
@@ -413,6 +419,24 @@ def _resolve_density_from_adb(device_id: str) -> int | None:
         return int(match.group(1)) if match else None
     except Exception as exc:
         logger.debug(f"Could not resolve screen density via ADB: {exc}")
+        return None
+
+
+def _resolve_marketing_model(device_id: str) -> str | None:
+    """Marketing device name (e.g. "Pixel 3a") via getprop, not the ADB codename."""
+    if not device_id or device_id == UNKNOWN_DEVICE:
+        return None
+
+    try:
+        from taktik.core.shared.device.adb import run_adb_shell
+
+        for prop in ("ro.product.model", "ro.config.marketing_name", "ro.product.marketname"):
+            text = (run_adb_shell(device_id, f"getprop {prop}") or "").strip()
+            if text:
+                return text
+        return None
+    except Exception as exc:
+        logger.debug(f"Could not resolve marketing model via ADB: {exc}")
         return None
 
 
