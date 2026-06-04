@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Consolidated the old Bot/TikTok/Multi-Target/Specs changelog files into this canonical Bot changelog and removed the secondary changelog files to avoid multiple sources of truth.
 - Removed the obsolete Instagram Discovery persistence owner. The active scraping/qualification data now lives under `repositories/instagram/scraping/ScrapedProfileRepository`, the schema bootstrap uses `local/schemas/scraping.py`, and AI score fields remain on `scraped_profiles` for advanced scraping, Target Search and Deep Qualify.
 - Scaffolded the Instagram publish bridge (`publish_bridge` -> `bridges.instagram.publish.publish`): entrypoint, runtime class with device connection, signal handling and per-`postType` (post/reel/carousel/story) dispatch, registered in the manifest and launcher. Additive Phase 1 — the flow bodies are ported incrementally and the Electron path stays the active publisher until each flow is validated on device.
 - Decided to migrate Instagram publish from Electron to a Python bridge (`publish_bridge`) to remove the architecture disparity — it is the only workflow still driving ADB from Electron, while TikTok/YouTube upload already run through Python bridges. Added `publish-electron-to-bot-migration.md` (service→module mapping, bridge contract, incremental flow-by-flow phases with Electron fallback, QA gates) and recorded the decision in the P1-3 section of the remediation plan.
@@ -78,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compatibility action-test diagnostics now emit enriched `selector_traces` plus a lightweight `ui_action_trace` with action intent, screen-before/screen-after, fallback usage and timing for Cartography Lab observability.
 - Added `scripts/capture_surface.py`, a Cartography Lab helper that captures paired UI XML dumps and PNG screenshots per platform/surface under `debug_ui/cartography/<platform>/<surface>/`.
 - Cartography Lab handoff notes from the temporary root `bot/CHANGELOG.md` were merged back into this official Bot changelog.
-- Added shared humanization behavior-policy dataclasses and tolerant parser under `taktik/core/shared/behavior/**`, with parsing tests only and no runtime behavior change. See `specs/changelog/2026-06-02-humanization-contracts.md`.
+- Added shared humanization behavior-policy dataclasses and tolerant parser under `taktik/core/shared/behavior/**`, with parsing tests only and no runtime behavior change. Historical notes are now consolidated in this changelog.
 - `bridges/tiktok` started moving away from a flat module list: internal dispatcher runners for For You, Search/Hashtag, Followers and DM read/send now live under `bridges/tiktok/workflows/{automation,engagement}/`, while public Electron entrypoints remain at the platform root.
 - `bridges/common` started the same capability-based cleanup: bridge network reset helpers now live under `bridges/common/device/network.py` instead of the flat common root.
 - Bridge keyboard typing and count parsing helpers are now scoped under `bridges/common/input/keyboard.py` and `bridges/common/parsing/counts.py`; the flat `keyboard.py` and `utils.py` common modules were removed.
@@ -611,12 +612,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CLI now accepts comma-separated usernames (e.g., `user1,user2,user3`)
   - Automatic switching between targets when extraction limits are reached
   - Accumulated follower list across all targets for interaction
-  
+
 - **Intelligent end-of-list detection**: Prevents infinite scrolling on profiles with limited followers
   - Uses profile's total follower count to detect when ~95% of followers have been seen
   - Automatically switches to next target when current profile is exhausted
   - Significantly reduces wasted scrolling time
-  
+
 - **Automatic popup detection and closure**: Enhanced problematic page detector
   - New pattern for "Mute notifications" popup (`mute_notifications_popup`)
   - Improved `swipe_down_handle` method with dynamic element targeting
@@ -627,8 +628,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Navigation reliability**: Integrated problematic page detector into navigation flow
   - Automatic popup closure after each profile navigation
   - Reduced navigation failures due to blocking popups
-  
-- **Follower extraction efficiency**: 
+
+- **Follower extraction efficiency**:
   - Smarter extraction limits based on profile follower count
   - Better handling of profiles with few followers
   - Reduced unnecessary scrolling attempts
@@ -667,3 +668,1311 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **1.1.2** (2025-12-02): Fix follower count parsing for large accounts (K/M with space)
 - **1.1.1** (2025-11-26): Multi-target support, intelligent scrolling, automatic popup handling
 - **1.1.0**: Core automation features and workflows
+---
+
+## Archives consolidées depuis les anciens changelogs Bot / Specs
+
+> Consolidé le 2026-06-04 depuis les anciens fichiers de changelog secondaires. Les chemins sources sont conservés ci-dessous pour ne perdre aucune provenance.
+
+### Source consolidée : `bot\docs\CHANGELOG_MULTI_TARGET.md`
+
+# Changelog - Multi-Target Feature
+
+## Version 1.1 - Détection Intelligente de Fin de Liste
+**Date**: 26 novembre 2025
+
+### 🎯 Problème résolu
+
+Le bot continuait de scroller indéfiniment sur des profils avec peu de followers (ex: `@marshall_pp` avec 16 followers), essayant d'extraire 281 followers alors que le profil n'en avait que 16.
+
+**Exemple de logs problématiques:**
+```
+2025-11-26 18:19:43.938 | DEBUG | Scrolling followers list down
+2025-11-26 18:19:53.087 | DEBUG | Scrolling followers list down
+2025-11-26 18:20:02.825 | DEBUG | Scrolling followers list down
+2025-11-26 18:20:12.364 | DEBUG | Scrolling followers list down
+2025-11-26 18:20:22.062 | DEBUG | Scrolling followers list down
+# ... scroll infini ...
+```
+
+### ✅ Solution implémentée
+
+1. **Récupération du nombre de followers**: Avant d'ouvrir la liste, le bot récupère le nombre total de followers du profil
+2. **Ajustement de la limite d'extraction**: Le bot n'essaie pas d'extraire plus que 90% du nombre de followers disponibles
+3. **Détection de fin de liste**: Le bot compte tous les usernames vus (même filtrés) et arrête quand il a vu ~95% des followers du profil
+
+### 📝 Modifications techniques
+
+#### `followers.py` - Ligne 462-520
+**Fonction**: `interact_with_target_followers()`
+
+**Avant**:
+```python
+if not self.nav_actions.open_followers_list():
+    self.logger.error(f"Failed to open followers list for @{target_username}, skipping")
+    continue
+
+followers = self._extract_followers_with_scroll(remaining_needed, account_id, target_username)
+```
+
+**Après**:
+```python
+# Get profile info to check follower count BEFORE opening list
+profile_info = self.profile_business.get_complete_profile_info(target_username, navigate_if_needed=False)
+total_followers_count = profile_info.get('followers_count', 0) if profile_info else 0
+
+if total_followers_count > 0:
+    self.logger.info(f"📊 @{target_username} has {total_followers_count} followers")
+
+if not self.nav_actions.open_followers_list():
+    self.logger.error(f"Failed to open followers list for @{target_username}, skipping")
+    continue
+
+# Adjust extraction limit based on profile's actual follower count
+extraction_limit = remaining_needed
+if total_followers_count > 0:
+    max_available = int(total_followers_count * 0.9)
+    extraction_limit = min(remaining_needed, max_available)
+    self.logger.info(f"🎯 Extraction limit adjusted to {extraction_limit} (profile has ~{total_followers_count} followers)")
+
+followers = self._extract_followers_with_scroll(
+    extraction_limit,
+    account_id,
+    target_username,
+    max_followers_count=total_followers_count
+)
+```
+
+#### `followers.py` - Ligne 556-628
+**Fonction**: `_extract_followers_with_scroll()`
+
+**Modifications**:
+1. Ajout du paramètre `max_followers_count: int = 0`
+2. Ajout du compteur `total_usernames_seen` pour suivre TOUS les usernames vus
+3. Ajout de la vérification de fin de liste:
+
+```python
+# Check if we've seen approximately all followers from this profile
+if max_followers_count > 0 and total_usernames_seen >= max_followers_count * 0.95:
+    self.logger.info(f"🏁 Reached end of list: seen {total_usernames_seen}/{max_followers_count} followers from @{target_username}")
+    break
+```
+
+4. Logs améliorés avec progression:
+```python
+self.logger.debug(f"{new_found} new eligible, total: {len(followers_data)} (seen: {total_usernames_seen}/{max_followers_count if max_followers_count > 0 else '?'})")
+```
+
+### 📊 Exemple de comportement
+
+**Profil avec 16 followers** (`@marshall_pp`):
+
+**Avant** (scroll infini):
+```
+Extracting with individual filtering (max: 281)
+[scroll 1] 8 usernames extracted, total: 12
+[scroll 2] 8 usernames extracted, total: 12
+[scroll 3] 8 usernames extracted, total: 12
+[scroll 4] 8 usernames extracted, total: 12
+... (continue indéfiniment)
+```
+
+**Après** (arrêt intelligent):
+```
+📊 @marshall_pp has 16 followers
+🎯 Extraction limit adjusted to 14 (profile has ~16 followers)
+Extracting with individual filtering (max: 14)
+[scroll 1] 8 usernames extracted, total: 8 (seen: 8/16)
+[scroll 2] 8 usernames extracted, total: 12 (seen: 16/16)
+🏁 Reached end of list: seen 16/16 followers from @marshall_pp
+✅ 12 followers extracted from @marshall_pp (total: 31)
+```
+
+### 🎯 Impact
+
+- ✅ **Temps d'exécution réduit**: Plus de scroll infini sur les petits profils
+- ✅ **Passage automatique**: Le bot passe immédiatement au profil suivant
+- ✅ **Logs clairs**: Affichage de la progression (seen: X/Y)
+- ✅ **Optimisation**: N'essaie pas d'extraire plus que disponible
+
+### 🧪 Tests recommandés
+
+1. **Profil avec peu de followers** (< 20): Vérifier l'arrêt rapide
+2. **Profil avec beaucoup de followers** (> 1000): Vérifier que ça n'affecte pas l'extraction normale
+3. **Mix de profils**: Petit + Grand + Privé pour tester la robustesse
+
+---
+
+## Version 1.0 - Multi-Target Initial
+**Date**: 26 novembre 2025
+
+### Fonctionnalités initiales
+- Support de plusieurs targets séparés par virgules
+- Extraction séquentielle sur plusieurs profils
+- Basculement automatique entre targets
+- Gestion des comptes privés
+
+---
+
+**Auteur**: Cascade AI
+**Projet**: Taktik Bot - Instagram Automation
+
+---
+
+### Source consolidée : `bot\docs\CHANGELOG_TIKTOK.md`
+
+# 🎵 TikTok Changelog
+
+Historique des modifications de l'automatisation TikTok dans TAKTIK Desktop.
+
+---
+
+## [1.3.0] - 2026-01-11
+
+### 🎉 Nouveau Workflow: TikTok Followers
+
+Workflow complet pour interagir avec les followers d'un compte cible.
+
+#### Backend Python
+
+- **Followers Workflow** (`followers_workflow.py`)
+  - Configuration complète (`FollowersConfig`) avec tous les paramètres
+  - Statistiques détaillées (`FollowersStats`) avec `completion_reason`
+  - Navigation vers un profil cible via recherche
+  - Ouverture de la liste des followers
+  - Parcours des followers avec extraction des usernames
+  - Visite des profils et interaction avec leurs vidéos
+  - Skip automatique des profils déjà interagis (via BDD)
+  - Skip des profils "Friends" (déjà suivis mutuellement)
+  - Gestion des limites (max profiles, max likes, max follows)
+
+- **Profile Actions** (`profile_actions.py`)
+  - `navigate_to_profile()` - Navigation vers son propre profil
+  - `_parse_count()` - Parsing robuste des compteurs (1.2K, 166 K, 1,5M, etc.)
+  - Support des formats avec espaces, virgules, points décimaux
+
+- **Sélecteurs Followers** (`selectors.py`)
+  - `FollowersSelectors` - Sélecteurs pour la liste des followers
+  - Boutons Follow/Friends/Following (`rdh`)
+  - Username dans la liste (`rdf`)
+  - Grille de vidéos profil (`gxd`, `e52`)
+  - Bouton back in-app (`b9b`)
+
+#### Détection de pages et navigation robuste
+
+- **Méthodes de détection**
+  - `_is_on_video_page()` - Détecte page de lecture vidéo (`long_press_layout`, `f57`)
+  - `_is_on_profile_page()` - Détecte page profil (`qh5`, `qfv`, `gxd`)
+  - `_is_on_followers_list()` - Détecte liste followers (`w4m`, `s6p`)
+
+- **Navigation sécurisée**
+  - `_safe_return_to_followers_list()` - Retour avec vérification après chaque back
+  - `_recover_to_followers_list()` - Recovery: restart TikTok + re-navigation si échec
+  - 3 tentatives max avant recovery automatique
+
+- **Comptage des posts**
+  - `_count_visible_posts()` - Compte les posts visibles sur un profil (max 9)
+  - Limite automatique des interactions au nombre de posts disponibles
+  - Évite les swipes dans le vide sur profils avec peu de posts
+
+#### Base de données locale
+
+- **Nouvelles tables TikTok** (`local_database.py`)
+  - `tiktok_accounts` - Comptes TikTok liés aux devices
+  - `tiktok_profiles` - Profils visités avec infos (followers, following, likes)
+  - `tiktok_interaction_history` - Historique des interactions
+  - `tiktok_sessions` - Sessions avec stats complètes et `completion_reason`
+
+- **Méthodes CRUD**
+  - `get_or_create_tiktok_account()` - Gestion des comptes
+  - `get_or_create_tiktok_profile()` - Gestion des profils avec upsert
+  - `record_tiktok_interaction()` - Enregistrement des interactions
+  - `has_interacted_with_tiktok_profile()` - Vérification anti-doublon
+  - `start_tiktok_session()` / `end_tiktok_session()` - Gestion sessions
+  - `update_tiktok_session_stats()` - Mise à jour stats en temps réel
+
+#### Frontend Electron
+
+- **Page TikTok Followers** (`TikTokFollowers.tsx`)
+  - Interface de configuration complète
+  - Sélection du compte cible (search_query)
+  - Sliders pour probabilités (like, follow, favorite)
+  - Configuration posts par profil, temps de visionnage
+  - Limites de session (max profiles, likes, follows)
+
+- **Session Live Panel** (`SessionLivePanelTikTok.tsx`)
+  - Affichage stats en temps réel (profiles visited, likes, follows)
+  - Log d'activité avec événements colorés
+  - Cartes de profils visités avec avatar et stats
+  - Affichage de la raison de fin de session
+
+- **Handlers IPC** (`tiktok.ts`)
+  - `tiktok:start-followers` - Démarrer workflow followers
+  - Communication bidirectionnelle avec le bridge Python
+
+- **Traductions** (`i18n.tsx`)
+  - Nouvelles clés pour les raisons de fin de session
+  - `tiktokSession.reasonMaxProfiles`, `reasonMaxLikes`, `reasonMaxFollows`
+  - `tiktokSession.reasonNoMoreFollowers`, `reasonStoppedByUser`
+
+#### Bridge Python
+
+- **TikTok Bridge** (`tiktok_bridge.py`)
+  - Support du workflow `followers`
+  - Envoi de `completion_reason` avec les stats finales
+  - Callbacks pour `bot_profile`, `skip_friends`, `skip_already_interacted`
+  - Message `status: completed` avec raison
+
+### 🛡️ Protections
+
+- **Skip des profils déjà interagis**
+  - Vérification en BDD avant chaque interaction
+  - Log `⏭️ Skipping @username - already interacted`
+
+- **Skip des "Friends"**
+  - Détection du statut "Friends" (suivi mutuel)
+  - Log `👥 Skipping @username - already friends`
+
+- **Recovery automatique**
+  - Si navigation échoue après 3 tentatives
+  - Restart TikTok + re-navigation vers followers list
+  - Reprise automatique grâce au skip des profils déjà traités
+
+- **Limite de posts intelligente**
+  - Compte les posts avant interaction
+  - N'essaie pas de swiper au-delà des posts disponibles
+
+### 📊 Nouvelles statistiques
+
+- `followers_seen` - Followers vus dans la liste
+- `profiles_visited` - Profils visités
+- `posts_watched` - Vidéos regardées
+- `likes` - Likes effectués
+- `follows` - Follows effectués
+- `favorites` - Favoris ajoutés
+- `already_friends` - Profils skippés (déjà amis)
+- `skipped` - Profils skippés (déjà interagis)
+- `completion_reason` - Raison de fin de session
+
+---
+
+## [1.2.0] - 2026-01-10
+
+### ✨ Améliorations Scheduler
+
+- **Scheduler Engine** (`scheduler-engine.ts`)
+  - Planification des workflows TikTok
+  - Support des schedules récurrents
+  - Vérification des triggers chaque minute
+
+- **Interface Scheduler** (`Scheduler.tsx`)
+  - Création/édition de schedules
+  - Sélection device et workflow
+  - Configuration horaires et jours
+
+---
+
+## [1.1.0] - 2026-01-07
+
+### ✨ Améliorations
+
+#### Protections
+- **Section commentaires** - Détection et fermeture automatique si ouverte accidentellement pendant le scroll
+  - Nouveaux sélecteurs: `qx0`, `qx_`, `qx1`, `jt3` (section commentaires ouverte)
+  - Méthode `has_comments_section_open()` dans DetectionActions
+  - Méthode `close_comments_section()` dans ClickActions
+  - Intégration dans la boucle principale du workflow
+
+#### Interface utilisateur
+- **Affichage des publicités** - Design spécial pour les vidéos publicitaires
+  - Bordure orange sur la carte vidéo en cours
+  - Badge "AD" visible
+
+- **Affichage des pauses** - Les pauses sont maintenant visibles dans l'activité en direct
+  - Nouveau callback `on_pause` dans le workflow
+  - Fonction `send_pause(duration)` dans le bridge
+  - Affichage `⏸️ Pause de Xs` dans le frontend
+
+#### Performance
+- **Timeouts optimisés** - Réduction de 2s à 1s pour la récupération des infos vidéo
+- **Suppression de `comment_count`** - Non utilisé, économise ~1s par vidéo
+- **Affichage vidéo plus réactif** - Gain estimé de 4-5 secondes par vidéo
+
+---
+
+## [1.0.0] - 2026-01-07
+
+### 🎉 Release initiale
+
+Première implémentation complète de l'automatisation TikTok.
+
+### ✨ Ajouté
+
+#### Backend Python
+
+- **TikTok Bridge** (`bridges/tiktok_bridge.py`)
+  - Communication Electron ↔ Python via JSON
+  - Envoi des stats en temps réel avec `os.fsync()` pour latence minimale
+  - Gestion des signaux d'arrêt (SIGINT, SIGTERM)
+  - Callbacks pour vidéos, likes, follows, stats
+
+- **Sélecteurs UI** (`taktik/core/social_media/tiktok/ui/selectors.py`)
+  - `NavigationSelectors` - Bottom bar, header tabs
+  - `VideoSelectors` - Like, follow, comment, share, favorite, ad label
+  - `ProfileSelectors` - Infos profil, compteurs, grille vidéos
+  - `InboxSelectors` - Messages, conversations
+  - `PopupSelectors` - Collections, notifications, promos, suggestions
+  - `ScrollSelectors` - Indicateurs de chargement
+  - `DetectionSelectors` - États, erreurs, soft ban
+
+- **Actions atomiques**
+  - `ClickActions` - Like, follow, favorite, popups, suggestions
+  - `DetectionActions` - Page courante, vidéo likée, ads, popups, suggestions
+  - `NavigationActions` - Home, profile, inbox, search
+  - `ScrollActions` - Next/prev video, watch video
+
+- **Workflow For You** (`for_you_workflow.py`)
+  - Configuration complète (`ForYouConfig`)
+  - Statistiques détaillées (`ForYouStats`)
+  - Visionnage avec temps variable
+  - Like/Follow/Favorite avec probabilités
+  - Filtrage par hashtags et likes
+  - Pauses automatiques
+  - Limites de session
+
+#### Frontend Electron
+
+- **Handlers IPC** (`electron/handlers/tiktok.ts`)
+  - `tiktok:start-foryou` - Démarrer workflow
+  - `tiktok:stop` - Arrêter workflow
+  - `tiktok:session-status` - Statut session
+  - `tiktok:all-sessions` - Sessions actives
+  - Variable d'environnement `PYTHONUNBUFFERED=1`
+
+- **Preload** (`electron/preload.ts`)
+  - `startTikTokForYou(config)`
+  - `stopTikTok(deviceId)`
+  - `getTikTokSessionStatus(deviceId)`
+  - `getAllTikTokSessions()`
+  - Listeners pour output, stats, video-info, action, session-ended
+
+- **Page TikTok For You** (`src/pages/TikTokForYou.tsx`)
+  - Configuration complète du workflow
+  - Sliders pour probabilités
+  - Inputs pour limites et filtres
+  - Switches pour comportements
+
+- **Panel de session** (`src/components/session/SessionLivePanelTikTok.tsx`)
+  - Affichage stats en temps réel
+  - Log d'activité
+  - Intégration MirrorPanel
+
+- **Intégration App** (`src/App.tsx`)
+  - Type `'tiktok'` dans `workflowType`
+  - Helpers pour sessions TikTok
+  - Listeners pour événements TikTok
+
+### 🛡️ Protections
+
+- **Skip des publicités**
+  - Détection via `resource-id="ru3"` avec `text="Ad"`
+  - Passage automatique à la vidéo suivante
+  - Compteur `ads_skipped`
+
+- **Gestion des popups**
+  - Popup "Create shared collections"
+  - Bannières promotionnelles
+  - Notifications
+  - Fermeture automatique via boutons "Not now" ou "Close"
+
+- **Pages de suggestion**
+  - Détection via `resource-id="bjl"` (Not interested) ou `bjk` (Follow back)
+  - Option `follow_back_suggestions` pour choisir le comportement
+  - Par défaut: "Not interested"
+
+- **Redémarrage de l'app**
+  - TikTok est forcé à s'arrêter (`am force-stop`)
+  - Relancé (`am start`) avant chaque workflow
+  - Garantit un état propre (feed For You)
+
+### 🔧 Améliorations MirrorPanel
+
+- **Reconnexion automatique complète**
+  - 3 tentatives de reconnexion WebSocket
+  - Si échec: redémarrage complet du stream (stop + restart scrcpy)
+  - État `needsFullRestart` pour déclencher le redémarrage
+
+- **Heartbeat**
+  - Ping envoyé toutes les 30 secondes
+  - Maintient la connexion WebSocket active
+  - Nettoyage propre à la fermeture
+
+### 📊 Statistiques
+
+Nouvelles métriques trackées:
+- `videos_watched` - Vidéos visionnées
+- `videos_liked` - Likes effectués
+- `users_followed` - Follows effectués
+- `videos_favorited` - Favoris ajoutés
+- `videos_skipped` - Vidéos filtrées
+- `ads_skipped` - Publicités passées
+- `popups_closed` - Popups fermées
+- `suggestions_handled` - Suggestions gérées
+- `errors` - Erreurs rencontrées
+
+### ⚡ Performance
+
+- **Stats temps réel**
+  - `line_buffering=True` sur stdout/stderr
+  - `os.fsync()` après chaque message
+  - `PYTHONUNBUFFERED=1` dans l'environnement
+  - Callback `_on_stats_callback` appelé après chaque action
+
+---
+
+## Fichiers modifiés
+
+### Backend (`bot/`)
+
+| Fichier | Action | Lignes |
+|---------|--------|--------|
+| `bridges/tiktok_bridge.py` | Créé | ~295 |
+| `taktik/core/social_media/tiktok/ui/selectors.py` | Modifié | +60 |
+| `taktik/core/social_media/tiktok/actions/atomic/click_actions.py` | Modifié | +70 |
+| `taktik/core/social_media/tiktok/actions/atomic/detection_actions.py` | Modifié | +10 |
+| `taktik/core/social_media/tiktok/actions/business/workflows/for_you_workflow.py` | Modifié | +80 |
+
+### Frontend (`front/`)
+
+| Fichier | Action | Lignes |
+|---------|--------|--------|
+| `electron/handlers/tiktok.ts` | Créé | ~212 |
+| `electron/preload.ts` | Modifié | +80 |
+| `src/pages/TikTokForYou.tsx` | Modifié | +30 |
+| `src/components/session/SessionLivePanelTikTok.tsx` | Créé | ~470 |
+| `src/components/mirror/MirrorPanel.tsx` | Modifié | +60 |
+| `src/App.tsx` | Modifié | +120 |
+| `src/components/layout/MainSidebar.tsx` | Modifié | +2 |
+
+---
+
+## UI Dumps analysés
+
+| Fichier | Page | Éléments identifiés |
+|---------|------|---------------------|
+| `ui_dump_20260107_205804.xml` | For You | Navigation, boutons vidéo, infos |
+| `ui_dump_20260107_210126.xml` | Inbox | Messages, conversations |
+| `ui_dump_20260107_210156.xml` | Profile | Infos, compteurs, grille |
+| `ui_dump_20260107_215103.xml` | Ad video | Label "Ad" (ru3) |
+| `ui_dump_20260107_215919.xml` | Popup | Collections, Not now, Close |
+| `ui_dump_20260107_223235.xml` | Suggestion | Follow back, Not interested |
+
+---
+
+*Dernière mise à jour: 11 janvier 2026*
+
+---
+
+### Source consolidée : `bot\docs\annexes\changelog.md`
+
+# Changelog
+
+Voir les fichiers de changelog détaillés :
+- [Changelog principal](../CHANGELOG.md)
+- [Changelog TikTok](../CHANGELOG_TIKTOK.md)
+- [Changelog Multi-Target](../CHANGELOG_MULTI_TARGET.md)
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-cartography-action-naming.md`
+
+# 2026-06-02 - Cartography Lab : convention de nommage des actions (intention metier)
+
+> Perimetre : `bot/` + `front/`.
+
+## Contexte
+
+Les noms d'actions du Lab n'etaient pas representatifs : `post.click_likes_count`
+("Voir les likes") ouvre en realite la liste des likers, et les labels EN etaient
+en mode implementation ("Click Share Button", "Click Save Button"). La paire
+commentaires/likers n'etait pas symetrique.
+
+## Convention (voir `front/AGENTS.md`, section Cartography Lab)
+
+Nommer par intention metier `verbe + cible`, jamais par geste UI :
+- ouverture : `open_<cible>` / "Ouvrir les <cible>" / "Open <target>"
+- fermeture : `close_<cible>` / "Fermer ..." / "Close ..."
+- etat : `is_<cible>_open` / "<cible> ouvert(e) ?" / "Is <target> open?"
+- action metier : verbe direct (`like` / "Liker la publication" / "Like post")
+- bannir `click_<x>_button` et les labels qui decrivent le geste plutot que l'effet.
+
+## Changements
+
+IDs renommes (contrat bot diagnostics + front), avec labels alignes :
+- `post.click_comment_button` -> `post.open_comments` ("Ouvrir les commentaires")
+- `post.click_likes_count` -> `post.open_likers` ("Ouvrir les likers")
+- `post.click_share_button` -> `post.open_share` ("Ouvrir le partage")
+- `post.click_save_button` -> `post.save_post` ("Enregistrer la publication")
+
+- Bot : `bridges/compat/diagnostics/actions/instagram/post.py` (`@action(...)` + noms de fonction).
+- Front : `cartography.json` (cles label + `actionIds` + refs surface), `actionCatalog.tsx` (id/label/description).
+- Doc : regle de convention ajoutee a `front/AGENTS.md`.
+
+TikTok (`tt.*`, `a.video.*`) non touche : famille distincte.
+
+## Checks
+
+- `bot`: `py_compile` ; le registry charge les 4 nouveaux ids, anciens absents.
+- `front`: `yarn run cartography:contracts` -> OK (toutes les refs `actions[].id` existent).
+- `front`: `yarn run typecheck` -> seule erreur restante = `instagram-upload.ts` (`scaleCoordinates`), hors chantier (refactor services parallele en cours), sans rapport avec ce lot.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-cartography-lab-legacy-cleanup.md`
+
+# 2026-06-02 - Cartography Lab : suppression ActionTester legacy et runtime diagnostics
+
+> Perimetre : `front/` + `bot/`.
+> Lie a : `specs/lots/lot-5-cartography-lab.md`.
+
+## Contexte
+
+Audit suite a une incoherence : l'ancienne page device-scoped `ActionTester`
+etait censee avoir ete supprimee au profit de la page globale admin `test`
+(`CartographyLabPage`), mais elle etait encore routee via trois pages device.
+En parallele, le dossier Bot
+`bridges/compat/diagnostics/runtime/` etait devenu une liste plate de modules
+`workflow_*`, `selector_*`, `bundles_*`, difficile a maintenir.
+
+## Changements
+
+### Front
+
+- Suppression des routes device legacy :
+  `ig-action-tester`, `tiktok-action-tester`, `youtube-action-tester`.
+- Suppression de `ActionTester.tsx` et `AutoTestRunner.tsx`.
+- Suppression des types AutoTest associes dans
+  `src/app/types/features/debug/actions.types.ts`.
+- Suppression de l'IPC `compat:launch-app`, utilise uniquement par l'AutoTest
+  legacy.
+- Conservation de `actionCatalog.tsx` comme catalogue executable consomme par
+  le Cartography Lab.
+- Ajout de `npm run cartography:contracts` pour bloquer la reapparition des
+  routes/pages legacy `*-action-tester`.
+
+### Bot
+
+- Reorganisation de `bridges/compat/diagnostics/runtime/` :
+  `action_test/**`, `selector_test/**`, `workflow_test/**`, `registry/**`.
+- Les entrypoints publics restent stables :
+  `action_test.py`, `tiktok_action_test.py`, `selector_test.py`,
+  `workflow_test.py`, `compat.py`.
+- Les imports internes pointent maintenant vers les owners scopes, sans wrappers
+  plats de compatibilite dans `runtime/`.
+- Ajout de `scripts/audit_diagnostics_runtime_layout.py` pour bloquer les
+  nouveaux modules plats ou imports legacy sous le runtime diagnostics.
+
+## Decisions
+
+- Le Cartography Lab (`globalPage === 'test'`) est la seule UI de test manuel.
+- Les actions executables restent dans `actionCatalog.tsx`; le JSON de
+  cartographie ne declare que des references et libelles.
+- Le runtime diagnostics Bot ne doit plus recevoir de nouveaux fichiers plats a
+  la racine hors `events.py`/`__init__.py`.
+
+## Checks
+
+- `front`: `yarn run typecheck`
+- `front`: `yarn run cartography:contracts`
+- `bot`: `python -m py_compile bridges/compat/diagnostics/**/*.py`
+- `bot`: `python -m pytest tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py`
+- `bot`: `python scripts/check_bridge_manifest.py`
+- `bot`: `python scripts/audit_diagnostics_runtime_layout.py`
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-cartography-likers-open-prod-parity.md`
+
+# 2026-06-02 - Cartography Lab : ouverture des likers = chemin prod exact
+
+> Perimetre : `bot/`.
+> Principe (AGENTS) : le Lab doit executer ce que la prod execute, pas un chemin
+> Lab-only. Une optimisation/action qui ne represente pas la prod est inutile.
+
+## Contexte
+
+L'action Lab `post.click_likes_count` appelait l'atomique `click.click_likes_count()`,
+qui **n'est appele nulle part en prod** : elle clique le premier selecteur de
+compteur trouve et renvoie True **au clic**, sans verifier que la liste des likers
+s'est ouverte (faux succes possible, notamment sur les reels). La prod ouvre les
+likers via `_open_likers_popup()` (finder reel-aware `find_like_count_element`,
+gestion du misfire commentaires, verification `_is_likers_popup_open`).
+
+Cause structurelle : `_open_likers_popup` vivait sur le mixin **workflow**
+(`actions/business/workflows/common/likers_base.py`), inaccessible au bundle du
+Lab (`a.popup` = `BaseBusinessAction`), alors que les primitives `_is_likers_popup_open`,
+`_is_comments_view_open`, `_close_likers_popup` et `ui_extractors.find_like_count_element`
+etaient deja au niveau base.
+
+## Changements
+
+- Deplacement de `_open_likers_popup`, `_find_like_count_element` et
+  `_close_comments_view` du mixin workflow `likers_base.py` vers le mixin partage
+  `actions/core/base_business/popup_handling.py` (`PopupHandlingMixin`), ou vivent
+  deja les autres primitives likers/comments.
+- Les workflows `HashtagBusiness` / `PostUrlBusiness` heritent de `BaseBusinessAction`
+  (donc de `PopupHandlingMixin`) : ils gardent `_open_likers_popup` par heritage,
+  **une seule definition**, aucun changement de comportement prod (verifie par MRO :
+  les deux workflows resolvent `PopupHandlingMixin._open_likers_popup`).
+- `bridges/compat/diagnostics/actions/instagram/post.py` : `post.click_likes_count`
+  appelle maintenant `a.popup._open_likers_popup(is_reel=...)` (le **meme** objet
+  de methode que la prod), au lieu de l'atomique. Le resultat Lab reflete donc un
+  vrai "likers ouverts" (verifie), plus un simple "j'ai clique".
+
+## Decisions
+
+- Lab == prod : l'action Lab partage l'implementation prod, pas une copie.
+- L'atomique `post_interaction.click_likes_count` reste pour compat mais n'est plus
+  le chemin teste par le Lab (et n'est utilise par aucun workflow prod).
+- `is_reel` est purement cosmetique dans `_open_likers_popup` (label de log) ; le
+  finder est reel-aware quel que soit le flag. Le Lab le passe via param (defaut False).
+
+## Verifie sur dumps reels (avant ce changement)
+
+- `click_likes_count` matchait `content-desc contains "likes"` et l'`after.xml`
+  montrait bien la popup likers ouverte (`bottom_sheet`, `row_user_primary_name`
+  avec usernames reels, boutons Follow, titre "Likes").
+- La detection `is_likers_open` (selecteur `row_user_primary_name | follow_list_username
+  | bottom_sheet_container`) matchait 8 noeuds sur ce dump : detection correcte ; le
+  `0/1 KO` observe etait un run lance **avant** l'ouverture.
+
+## Checks
+
+- `bot`: `python -m pytest tests/unit/social_media/instagram/ tests/unit/bridges/compat/diagnostics/ --ignore=tests/unit/social_media/instagram/workflows/post_scraping/test_post_persistence.py` -> 69 passed (collecte `test_post_persistence.py` cassee en amont, hors chantier).
+- `bot`: introspection MRO (base + 2 workflows -> `PopupHandlingMixin._open_likers_popup`, definition unique).
+- `bot`: `py_compile`, `audit_selector_hardcodes.py`, `audit_diagnostics_runtime_layout.py`, `git diff --check`.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-cartography-runner-observability.md`
+
+# 2026-06-02 - Cartography Lab : observabilite runner action-test
+
+> Perimetre : `bot/` + `front/`.
+> Lie a : `specs/lots/lot-5-cartography-lab.md` (runner + artifacts Lab par fichiers).
+
+## Contexte
+
+La page Cartography Lab pouvait lancer les actions existantes, mais le pipeline
+diagnostics d'action ne remontait que `success/message` et des traces de selectors
+minimales. Pour preparer la cartographie complete, le runner doit produire un
+contrat lisible par le front : quelle action a ete jouee, sur quel ecran elle a
+commence, sur quel ecran elle a termine, combien de temps elle a pris et quels
+selectors ont matche.
+
+## Changements
+
+### Bot
+
+- Les runs manuels IG `410.0.0.53.71` ont revele un faux `instagram.profile`
+  apres `navigation.go_home` : le feed contenait `row_feed_profile_header`.
+  La detection Instagram utilise maintenant `feed_tab selected` comme signal
+  home neutre et une preuve forte de surface profil avant de classer `profile`.
+- `bridges/compat/diagnostics/runtime/action_test/tracing.py` enrichit les traces XPath avec
+  `source`, `screen`, `fallbackIndex`, `family` et `elapsedMs`.
+- `bridges/compat/diagnostics/runtime/action_test/runner.py` detecte un ecran avant et
+  apres l'action, mesure le temps d'execution et emet `ui_action_trace` en plus
+  de `selector_traces`.
+- Le mode `lab` capture XML + screenshot avant/apres sous
+  `debug_ui/cartography/<device_id>/<platform>/<app_version>/action-runs/<action_id>/<run_id>/`
+  et retourne uniquement les chemins via `artifacts`.
+- Les `run_id` sont maintenant horodates en UTC lisible
+  (`<action>_YYYYMMDDTHHMMSSmmmZ`) et le front affiche l'heure du run pour
+  comparer les campagnes avant/apres correctif sans ouvrir les dossiers.
+- La comparaison post-correctif a montre deux faux classements restants :
+  `Like` faisait gagner `instagram.post` sur le feed EN, et `clips_tab` faisait
+  gagner `instagram.search` sur le feed FR. Le resolver Lab privilegie maintenant
+  `home` avant ces sondes larges, et les selectors `search_tab`/`clips_tab`
+  demandent `selected="true"`.
+- Les selectors `story_viewer` / `reel_viewer_*` observes comme misses sur le
+  feed ne sont pas morts : ils appartiennent aux surfaces story/reel. Le gain
+  correct est un context-gate du resolver (ne plus sonder story/post apres home),
+  pas une suppression globale du catalogue.
+- Les misses de surface profil (`row_profile_header`, `profile_header_container`,
+  `profile_header_full_name`) observes uniquement sur `instagram.home` sont des
+  preuves negatives attendues pour distinguer profil/home. L'analyse les classe
+  comme `screen_disambiguation_negative_probe`, pas comme selectors morts.
+- Le Selector Test du Lab evalue maintenant les XPath du registre sur un dump XML
+  unique quand c'est possible, puis retombe sur les appels live device seulement
+  en fallback. Objectif : reduire la latence de cartographie sans paralleliser
+  brutalement les appels UIAutomator sur un seul device.
+- Les actions lancees depuis le Lab en mode `lab` passent maintenant par une
+  session persistante par device/platform (`action_session_bridge`) afin de
+  reutiliser la connexion device, le bundle d'actions et la detection de langue.
+  Le comportement mesure se rapproche ainsi d'un workflow prod, au lieu de
+  respawn un bridge single-shot pour chaque bouton.
+- Les runs Lab exposent maintenant `phaseTimings` dans le JSON stdout et dans
+  `report.json` : contexte artefacts, detection ecran avant/apres, app courante,
+  captures XML/PNG avant/apres et temps action. Objectif : savoir si un gain
+  vient du runtime reel, des selectors live, de la detection d'ecran ou de
+  l'observabilite Lab avant de modifier la prod.
+- Suite aux premiers `phaseTimings`, la detection d'ecran Instagram regroupe
+  maintenant les probes home/search/profile/story/post sur un dump XML quand le
+  device facade expose `batch_xpath_check()`. Le resultat est reutilise tres
+  brievement pendant une meme resolution d'ecran, puis les checks live restent
+  fallback pour les XPath non compatibles avec l'evaluation locale.
+- Chaque run Lab ecrit aussi un `report.json` local avec device, resolution,
+  package/version app, ecrans avant/apres, `selector_traces`, `ui_action_trace`,
+  resume selector health et chemins d'artefacts.
+- `tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py` verrouille
+  le contrat de trace selector et l'emission de `ui_action_trace`.
+
+### Front
+
+- `electron/handlers/compat/compat.ts` propage `ui_action_trace` dans le resultat
+  `runActionTest()`.
+- `electron/services/domain/cartography/CartographyRunIndexService.ts` indexe
+  les `report.json` locaux en lecture seule pour comparer les runs Lab entre
+  devices sans introduire de persistence DB.
+- `electron/preload/compat.ts` expose `listCartographyActionRuns()`.
+- `src/app/types/features/debug/actions.types.ts` permet aux resultats d'action
+  de conserver `uiActionTrace` et les resumes de runs Cartography.
+- `src/features/tools/cartography/CartographyLabPage.tsx` lance les actions en
+  mode `lab`, affiche une transition `screenBefore -> screenAfter`, le timing,
+  un resume selector health, un compteur d'artefacts et un module de comparaison
+  par device/version APK/resolution/DPI/timing, avec la phase la plus couteuse
+  quand `phaseTimings` est disponible.
+- La page legacy `ActionTester.tsx` a ensuite ete supprimee ; `CartographyLabPage`
+  est l'unique UI de test manuel.
+
+## Decisions
+
+- Les screenshots/XML sont captures seulement en mode `lab`; les appels standard
+  restent legers.
+- Pas de persistence DB et pas de binaire sur stdout.
+- Le `report.json` est la source locale exploitable avant la future persistence
+  DB du Lot 6.
+- Le runner compat diagnostics reste l'owner commun des traces Cartography.
+  Les actions plateforme ne construisent pas elles-memes
+  `ui_action_trace`.
+- Une optimisation de performance du Lab qui touche selectors, waits ou
+  navigation doit etre implementee chez l'owner production/shared si elle change
+  le comportement mesure. Les optimisations Lab-only doivent rester purement
+  diagnostiques et etre annoncees comme telles.
+- L'ecran est detecte par les actions de detection existantes quand elles sont
+  disponibles, puis fallback sur package/activity Android.
+
+## Checks
+
+- `bot`: `python -m pytest tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py`
+- `bot`: `python -m py_compile bridges/compat/diagnostics/runtime/action_test/runner.py bridges/compat/diagnostics/runtime/action_test/tracing.py`
+- `bot`: `python scripts/audit_selector_hardcodes.py`
+- `front`: `yarn run typecheck`
+
+## Reste a faire
+
+- Declarer progressivement les transitions attendues par action pour distinguer
+  transition OK/KO.
+- Relier proprement les XPath a des `selectorId` logiques depuis les catalogues
+  de selectors, au lieu de garder uniquement le XPath brut.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-cartography-runner-perf.md`
+
+# 2026-06-02 - Cartography Lab : perf runner action-test (cache session + mode perf rapide)
+
+> Perimetre : `bot/` + `front/`.
+> Lie a : l'ancien changelog Cartography Runner Observability, desormais consolide dans ce fichier,
+> `specs/PASSATION-cartography-lab.md`.
+
+## Contexte
+
+Les `phaseTimings` des runs Lab ont montre que, apres le batch de detection
+d'ecran, les couts residuels par run venaient surtout de la reconstruction du
+contexte d'artefacts a chaque action (`artifactContextMs` ~0,7-1 s) et de trois
+appels `app_current()` par run (avant, apres, et un troisieme pour resoudre le
+package). Or le bundle de session persistante (`action_session_bridge`) est
+reutilise pour tous les runs d'un meme device/plateforme : metadata device,
+version app et package sont invariants sur la session.
+
+Note de mesure : au moment de ce lot, les derniers `report.json` (runs 18h26
+locale) sont anterieurs au commit `6a2328c` (18h32) et leurs `selectorTraces`
+sont tous `source: "python"` (chemin non-batche, ~310 ms par sonde live). Le gain
+du batch de detection d'ecran n'est donc pas encore mesure : il faut relancer les
+3 actions Lab sur les deux devices pour confirmer la baisse de
+`screenBeforeMs`/`screenAfterMs`, puis valider ce lot.
+
+## Changements
+
+### Bot
+
+- `bridges/compat/diagnostics/runtime/action_test/artifacts.py` : nouvelle
+  dataclass `SessionInvariantContext` et builder `resolve_session_invariant_context()`
+  qui resolvent une seule fois le contexte device/app stable de la session
+  (package, version, resolution, modele, densite). `build_artifact_context()`
+  accepte ce contexte cache (`session_context`) et un `current_app` deja connu :
+  quand ils sont fournis, aucun appel ADB / uiautomator / `app_current` n'est
+  refait.
+- `_resolve_package_name()` accepte `current_app` pour reutiliser le
+  `currentAppBefore` deja mesure au lieu d'un 3e `app_current()`.
+- `bridges/compat/diagnostics/runtime/action_test/session.py` : la session possede
+  un `_SessionContextCache` peuple paresseusement au 1er run capturant des
+  artefacts et reutilise ensuite. Les runs suivants ne paient plus le cout du
+  contexte d'artefacts.
+- `bridges/compat/diagnostics/runtime/action_test/runner.py` : `currentAppBefore`
+  est resolu avant le contexte d'artefacts pour le reutiliser ; `_resolve_artifact_context()`
+  gere le peuplement/lecture du cache. `currentAppAfter` reste un appel reel
+  (une action comme `navigation.go_home` peut backgrounder l'app : on ne masque
+  jamais l'etat reel apres action).
+- Mode `perf_fast` opt-in (`config["perf_fast"]` / commande de session) : garde le
+  contexte et `report.json` (donc les `phaseTimings`) mais saute la capture
+  XML/PNG. Le report et le resultat stdout portent `perfFast: true`. C'est un mode
+  purement diagnostique de timing ; il ne pretend pas mesurer des artefacts prod.
+- `tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py` : nouveaux
+  tests verrouillant (1) le mode perf rapide (report ecrit, `perfFast` vrai, pas de
+  XML/PNG), (2) la reutilisation du cache session (resolution de version app une
+  seule fois sur 2 runs) et (3) la resolution `selectorId` (cablage tracer +
+  index reel non ambigu).
+- Lot C (1er increment) : `taktik/core/compat/selectors/setup.py` expose
+  `build_xpath_to_selector_id_index(app)`, un index inverse XPath -> selectorId
+  logique (`domain.field`) limite aux XPath non ambigus, construit depuis le
+  registre de selectors existant. Le tracer du Lab
+  (`bridges/compat/diagnostics/runtime/action_test/tracing.py`) recoit l'app et
+  annote chaque trace d'un `selectorId` quand le XPath brut correspond a un
+  selector nomme unique (sinon champ absent). Best-effort : toute erreur de
+  construction laisse l'index vide sans casser le tracing ni le stdout JSON.
+
+- Detection d'ecran : le snapshot batch (un seul dump XML) est maintenant
+  autoritatif aussi sur les signaux **negatifs** des 6 ecrans couverts
+  (home/search/profile/profile_surface/story_viewer/post). `is_on_*_screen()` ne
+  retombe plus en probing live quand le snapshot existe ; le fallback live n'est
+  garde que si le batch est indisponible. Corrige une regression mesuree a la
+  relance : sur un ecran inattendu (ex. `post`), `get_current_screen` faisait
+  ~44 sondes live serialisees (~8 s/detection) au lieu de lire le dump unique.
+
+### Front
+
+- `src/app/types/features/debug/actions.types.ts` : `perfFast` ajoute a
+  `ActionTestRunOptions`, `ActionTestResultEvent`, `ActionTestRunResult` et
+  `CartographyRunSummary`.
+- `electron/services/domain/cartography/CartographyRunIndexService.ts` lit
+  `perfFast` (camel/snake) depuis les `report.json`.
+- `src/features/tools/cartography/components/RunComparisonPanel.tsx` : les runs
+  perf rapides sont exclus des agregats de timing (timing moyen + resume par
+  action) pour ne jamais les melanger aux runs complets, et sont marques d'un
+  badge "perf" dans la table des runs.
+- `src/features/tools/cartography/CartographyLabPage.tsx` expose un toggle
+  "Perf rapide" qui passe `perfFast` dans les options de run. La chaine
+  `electron/handlers/compat/compat.ts` et
+  `electron/services/domain/cartography/CartographyActionSessionService.ts`
+  propage `perf_fast` jusqu'a la commande de session / config single-shot, et
+  remonte `perf_fast` dans le resultat.
+
+## Decisions
+
+- Le cache est invariant-session uniquement : metadata device / version app /
+  package. L'app courante APRES action n'est jamais cachee ni deduite.
+- L'optimisation est limitee au runtime diagnostics (overhead du runner) : elle ne
+  touche pas selectors / waits / navigation, donc pas d'impact sur le comportement
+  mesure de la prod.
+- Le mode perf rapide est opt-in, marque dans le report, et le front ne l'agrege
+  jamais avec les runs complets.
+- Detection d'ecran : on accepte de faire confiance au dump unique sur ses
+  signaux negatifs (plus de filet live par ecran). Compromis assume vitesse vs
+  robustesse, limite aux 6 ecrans couverts par le snapshot ; fallback live
+  conserve si le batch est indisponible.
+
+## Risques residuels
+
+- Rotation / resize device en cours de session : `resolution`/`densityDpi` cachees
+  pourraient se perimer. Acceptable pour une session de diagnostic ; a invalider
+  par une nouvelle session si besoin (garde optionnelle non implementee).
+- Upgrade de l'app en cours de session : non attendu ; necessite une nouvelle
+  session.
+
+## Checks
+
+- `bot`: `python -m pytest tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py tests/unit/social_media/instagram/test_screen_state_selectors.py` -> 22 passed
+- `bot`: `python -m py_compile bridges/compat/diagnostics/runtime/action_test/{runner,session,artifacts}.py`
+- `bot`: `python scripts/audit_diagnostics_runtime_layout.py`
+- `bot`: `python scripts/audit_selector_hardcodes.py`
+- `bot`: `git diff --check`
+- `front`: `yarn run cartography:contracts`
+- `front`: `yarn run typecheck`
+
+## Reste a faire
+
+- Relancer les 3 actions Lab sur les 2 devices et confirmer la baisse de
+  `screenBeforeMs`/`screenAfterMs` (batch) puis de `artifactContextMs` (cache
+  session, runs >= 2).
+- Lot C suite : exposer `selectorId` dans une vue par-trace cote front (aucun
+  composant ne rend les XPath individuels aujourd'hui) et lever l'ambiguite des
+  XPath partages (priorisation par surface/famille) au lieu de les omettre.
+- Etendre la couverture de l'index aux XPath generes dynamiquement (username,
+  hashtag, resource-id) qui ne sont pas dans les catalogues statiques.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-compat-diagnostics-layout-cleanup.md`
+
+# 2026-06-02 - Compat diagnostics : entrypoints et workflow-test ranges
+
+> Perimetre : `bot/bridges/compat/diagnostics/**`.
+> Lie a : `specs/lots/lot-5-cartography-lab.md`.
+
+## Contexte
+
+Apres le premier rangement du runtime diagnostics, deux zones restaient encore
+trop plates :
+
+- la racine `bridges/compat/diagnostics/` contenait directement les entrypoints
+  Electron (`compat.py`, `action_test.py`, `workflow_test.py`, etc.) ;
+- `runtime/workflow_test/` melangeait configuration, contrats, lifecycle,
+  dispatch, session, observabilite et reporting au meme niveau.
+
+## Changements
+
+- Les entrypoints compat diagnostics vivent maintenant sous
+  `bridges/compat/diagnostics/entrypoints/**`.
+- `bridges/bridges.manifest.json` et `bridges/launcher.py` pointent vers ces
+  nouveaux owners reels.
+- `runtime/workflow_test/**` est separe par responsabilite :
+  `config/**`, `contracts/**`, `execution/**`, `observability/**`,
+  `reporting/**`, `platforms/**`.
+- `scripts/audit_diagnostics_runtime_layout.py` verifie maintenant :
+  la racine diagnostics, la racine runtime et la racine workflow-test.
+- Correctif post-deplacement : `runtime/action_test/runner.py` remonte de
+  nouveau jusqu'a `bot/` pour ecrire les artefacts Lab sous
+  `bot/debug_ui/cartography/**`. Les captures produites accidentellement sous
+  `bot/bridges/debug_ui/**` ont ete rapatriees.
+
+## Decisions
+
+- Pas de wrappers plats de compatibilite conserves a la racine diagnostics :
+  le launcher doit pointer vers les vrais owners.
+- `observability` devient un package pour porter l'etat/hook de trace sans
+  redevenir un fichier plat `workflow_test/observability.py`.
+- Les fichiers `__pycache__` restent des artefacts locaux a nettoyer, pas de la
+  structure source.
+
+## Checks
+
+- `bot`: `python scripts/audit_diagnostics_runtime_layout.py`
+- `bot`: `python -m compileall -q bridges/compat/diagnostics`
+- `bot`: `python scripts/check_bridge_manifest.py`
+- `bot`: `python -m pytest tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py`
+
+## Reste a faire
+
+- Ajouter des tests workflow-test plus complets si on touche au comportement de
+  dispatch lui-meme. Ce lot est un rangement iso-comportement.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-humanization-contracts.md`
+
+# 2026-06-02 — Lot 1 : contrats humanisation
+
+> Périmètre : `front/` + `bot/`.
+> Lié à : `specs/lots/lot-1-contrats-stubs.md`.
+
+## Contexte
+
+Préparation du langage commun Electron/Bot avant les lots runtime
+humanisation, pause/stop, Cartography Lab enrichi et agent par objectif.
+Ce lot ne change aucun comportement d'exécution : il pose uniquement les types,
+le parser tolerant et les tests de parsing.
+
+## Changements
+
+### Front
+
+- Ajout des contrats centraux sous
+  `front/src/app/types/features/humanization/**` :
+  `BehaviorPolicy`, `PausePolicy`, `ResumePolicy`, stubs typing/tap/scroll et
+  `UiActionTrace`.
+- Enrichissement des contrats debug action-test :
+  `SelectorTrace` accepte désormais `selectorId`, `family`, `source`,
+  `elapsedMs`, `screen`, `fallbackIndex`.
+- `ActionTestRunResult` et `ActionTestResultEvent` peuvent porter
+  `ui_action_trace` pour le futur Lot 5.
+
+### Bot
+
+- Ajout de `taktik/core/shared/behavior/**` avec dataclasses
+  `BehaviorPolicy`, `PausePolicy`, `ResumePolicy`.
+- Ajout de `parse_behavior_policy()` tolerant :
+  payload absent => `None`, champs inconnus ignorés, valeurs invalides ramenées
+  aux defaults documentés.
+- Ajout de tests unitaires sous `tests/unit/shared/behavior/`.
+
+## Décisions
+
+- Aucun branchement runtime dans ce lot.
+- Le parser Bot reste standalone-safe et sans effet de bord.
+- La commande de test Bot à utiliser est `python -m pytest`, pas `pytest`, car
+  l'environnement Windows courant ne met pas toujours le package local sur
+  `sys.path` avec l'exécutable pytest direct.
+
+## Checks
+
+- `front`: `yarn run typecheck`.
+- `bot`: `python -m pytest tests/unit/shared/behavior`.
+- `bot`: `python scripts/audit_selector_hardcodes.py`.
+
+## Reste à faire
+
+- Lot 2 : pauses/stop interruptibles avec le contrat partagé.
+- Lot 4 : application runtime de `behaviorPolicy`.
+- Lot 5 : `UiActionTrace` alimenté par le runner diagnostics Cartography Lab.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-02-instagram-find-and-click-collapse.md`
+
+# 2026-06-02 - Instagram : effondrement des boucles _find_and_click par-selecteur
+
+> Perimetre : `bot/`.
+> Lie a : analyse Cartography Lab (likers 0/12 + actions a ~11s).
+
+## Contexte
+
+Les runs Lab ont montre que des actions echouant a trouver leur cible prenaient
+~11 s. Cause : plusieurs actions bouclaient `for selector in selectors:
+_find_and_click(selector, timeout=T)`, ce qui paie **T secondes par selecteur
+manquant** (ex. `click_likes_count` = 4 selecteurs x 2 s = 8 s sur un miss). Or
+`_find_and_click` (`taktik/core/shared/actions/base_action.py`) itere deja la
+liste en interne dans un budget timeout partage.
+
+## Changements
+
+Effondrement de 6 boucles par-selecteur en un seul appel liste (miss : `N*T -> T`,
+succes inchange voire plus rapide car tous les selecteurs sont testes a chaque
+passe) :
+
+- `actions/atomic/interaction/post_interaction.py` : `click_likes_count`,
+  `click_recent_posts_tab`.
+- `actions/atomic/navigation/search_navigation.py` : barre de recherche hashtag,
+  selection du resultat hashtag.
+- `actions/business/workflows/unfollow/mixins/actions.py` : bouton "Abonne",
+  confirmation d'unfollow.
+
+Volontairement **non touche** : `workflows/notifications/extraction.py`
+(`_navigate_to_activity_tab`) verifie l'ecran (`_is_on_activity_screen`) apres
+chaque clic et reessaie le selecteur suivant si la verification echoue ;
+l'effondrir changerait le comportement.
+
+## Decisions
+
+- Owner prod/shared : optimisation du comportement reel des actions, pas Lab-only.
+- Le `0/12` de `click_likes_count` au Lab n'etait pas un bug de selecteur : le XML
+  capture montrait un reel/preview dans le feed, sans element compteur de likes.
+  Pour tester les likers, viser une photo avec compteur visible ou le detail post.
+
+## Reste a faire (non fait ici)
+
+- Option B : batcher `_find_and_click`/`_is_element_present` sur un seul dump XML
+  par passe (au lieu de N sondes live) pour reduire le cout sur uiautomator
+  serialise.
+- `popups.close_comment` : ~8 s de sleeps fixes a remplacer par un wait
+  conditionnel (chantier sleeps).
+
+## Checks
+
+- `bot`: `python -m pytest tests/unit/social_media/instagram/ tests/unit/bridges/compat/diagnostics/ --ignore=tests/unit/social_media/instagram/workflows/post_scraping/test_post_persistence.py` -> 69 passed (la collecte de `test_post_persistence.py` est cassee en amont, hors chantier : `POST_DETAIL_SELECTORS` absent).
+- `bot`: `python -m py_compile` des 3 fichiers.
+- `bot`: `python scripts/audit_selector_hardcodes.py`, `git diff --check`.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-04-cartography-lab-ui-workflows.md`
+
+# 2026-06-04 — Lab : UX (logs/comparaison/familles), identite device, mode Workflows
+
+> Perimetre : `front/` + un petit correctif `bot/`.
+> Suite des retours UX sur la page Test (Laboratoire de cartographie).
+> Lie a : `2026-06-02-cartography-lab-test-page.md`, `specs/cartography-battle-mode.md`.
+
+## Contexte
+
+Retours apres usage du Lab : le dock bas (logs + comparaison) etait trop entasse, les
+familles d'actions trop deroulees, le header charge, le miroir pousse vers le bas (scroll
+necessaire), et les runs de comparaison montraient le nom de code ADB du device ("sargo")
+au lieu du vrai modele. Ajout d'un mode pour lancer/verifier un vrai workflow plateforme.
+
+## Changements
+
+### Disposition (controles au-dessus du centre, miroir pleine hauteur)
+- Le header (titre + controles) ne couvre plus toute la largeur : il vit **au-dessus de la
+  colonne centrale uniquement**. Le **miroir** est desormais pleine hauteur avec seulement
+  son header (parite avec les pages workflows), plus de scroll pour le voir entier.
+- Header degraisse : sous-titre retire, **Perf rapide** passe en bouton icone (tooltip).
+
+### Logs — panneau live repliable (et non une modale)
+- Les logs sont un **panneau live a droite, entre la page et le miroir** (defilement temps
+  reel), **repliable** via un chevron ; un bouton « Logs » reapparait dans le header pour le
+  rouvrir (responsivite : liberer de l'espace au besoin).
+- Correctif debordement : les longues chaines (chemins `C:\...`) sont coupees (`break-all`)
+  et contenues dans la largeur du panneau.
+
+### Comparaison — modale plein ecran filtrable
+- La comparaison passe en **modale plein ecran** (`Dialog`) au lieu du dock entasse.
+- `RunComparisonPanel` gagne un mode `full` : **tous** les runs et **toutes** les actions
+  (fin du top-5 / top-8 tronque).
+- **Filtres** : par device, par resolution, par type de test (action), avec « Reinitialiser »
+  et un compteur `X / Y runs`. (Filtres « par page » et « par workflow » : a venir, voir
+  Reste a faire.)
+
+### Familles en accordeons
+- Les familles thematiques (Ecran, Navigation, Defilement, J'aime, Commentaires, Likers…)
+  sont des **accordeons fermes par defaut** avec compteur — la surface respire.
+
+### Identite device (le probleme "sargo")
+- **Bot** : `_resolve_device_metadata` capturait le nom de code uiautomator (`productName`,
+  ex "sargo"). On resout desormais le **nom commercial** via `getprop ro.product.model`
+  (fallbacks `ro.config.marketing_name`, `ro.product.marketname`) → "Pixel 3a", avec repli
+  sur l'ancien comportement. Ecrit dans `report.json` (additif). N'apparait que sur les
+  **nouveaux** runs.
+- **Front** : la table Comparaison affiche le **serial** sous le modele, pour lever toute
+  ambiguite meme sur un device historique/inconnu.
+
+### Mode Workflows (framework + Automation Instagram)
+- Toggle **`Surfaces | Workflows`** dans le Lab. En mode Workflows, le centre devient un
+  panneau de lancement.
+- Choix d'un workflow IG (abonnes/abonnements d'une cible, hashtag, likers d'un post, feed,
+  notifications, unfollow) + cible (si pertinent) + **profils max** + **duree**, avec des
+  **defauts courts de verification** (2 profils, 2 min, like-only, pas de follow/comment).
+- **Run reel** via `startBotSession` (la meme API que le panel/scheduler — aucun nouveau
+  code bot/IPC), **observation live** (`onBotMessage` → panneau Logs partage), **verdict**
+  succes/echec (`onBotSessionEnded`), **Arreter** via `stopBotSession`. Garde-fou affiche
+  (run reel, defauts courts).
+
+## Fichiers touches
+
+### front/
+- `src/features/tools/cartography/CartographyLabPage.tsx` — refonte layout (controles au
+  centre, logs panel, miroir pleine hauteur), accordeons, toggle Surfaces/Workflows.
+- `src/features/tools/cartography/components/RunComparisonPanel.tsx` — mode `full` + serial.
+- `src/features/tools/cartography/components/LabWorkflowPanel.tsx` — **nouveau** : UI +
+  runner de lancement/observation d'un workflow.
+- `src/features/tools/cartography/workflows/labWorkflows.ts` — **nouveau** : catalogue des
+  workflows Lab + construction de la `BotSessionConfig` avec defauts de verification.
+
+### bot/
+- `bridges/compat/diagnostics/runtime/action_test/artifacts.py` — `_resolve_marketing_model`
+  (getprop) + precedence du nom commercial sur le nom de code.
+
+## Decisions
+
+- Logs = panneau live (pas modale) ; Comparaison = modale (info dense, a la demande).
+- Config workflow Lab = essentiels + defauts de verification (pas de reproduction du
+  formulaire complet du Scheduler).
+- Un run Lab de workflow = **run reel** (pas de dry-run) ; defauts volontairement courts.
+- Identite device : le bot stocke le nom commercial (source unique cote runner).
+
+## Reste a faire
+
+- Brancher les autres workflows (scraping, dm/cold-dm, publish…) un par un sur le meme
+  pattern (`labWorkflows.ts` + `LabWorkflowPanel`).
+- **Enregistrement de run workflow** (type, device, duree, succes, stats) pour faire entrer
+  les workflows dans la Comparaison (filtres « par page »/« par workflow ») et dans le
+  **mode Battle** — defere, voir `specs/cartography-battle-mode.md`.
+- Mode Battle (multi-device simultane) : spec ecrite, build apres l'enregistrement de run.
+- Commits front/bot du chantier UI : `feat(cartography-lab): logs en panneau live…`
+  (front 395bde52) et `fix(cartography-lab): nom commercial du device…` (bot 9ad6b21).
+  Le mode Workflows reste a committer apres validation device.
+
+---
+
+### Source consolidée : `specs\changelog\2026-06-04-cartography-stories-actions.md`
+
+# 2026-06-04 — Lab : actions stories + corrections cartographie feed
+
+> Perimetre : `front/` (cartography.json + actionCatalog) + `bot/` (registry action_test + une methode atomique).
+> Suite de la revue de la cartographie du feed.
+
+## Contexte
+
+Revue de la surface Feed : il manquait l'ouverture d'une story depuis le tray "stories a la
+une", et l'element "barre du haut" indiquait a tort "(notifications, DM)" alors que le haut ne
+contient que les notifications (les DM sont dans la barre d'onglets du bas). Besoin aussi de
+pouvoir tester les stories : ouvrir, liker, repondre, reagir, naviguer, compter.
+
+## Changements
+
+### Corrections cartographie Feed
+- `feed.top_bar` : libelle "(notifications, DM)" -> "(notifications)", avec note precisant
+  que les DM sont accessibles depuis la barre d'onglets du bas.
+- `feed.stories_tray` : passe de `todo` a `mapped`, cable a l'ouverture de story et au comptage.
+
+### Actions stories cablees (le code bot existait, il manquait le wrapper @action)
+- `story.open_from_tray` (param `story_index`) -> `click_feed_story` : ouvre la story d'un ami
+  depuis le tray du feed.
+- `story.count_feed_tray` -> `count_visible_feed_stories` : nombre de stories visibles au tray.
+- `story.count_in_viewer` -> `get_story_count_from_viewer` : compteur "X sur Y" dans la
+  visionneuse.
+- Les deux comptages sont des **mesures, pas des pass/fail** : ils reussissent meme a 0
+  (le nombre est dans le log ; un log warning amber signale 0 + le mauvais ecran). A lancer
+  sur le bon ecran : `count_feed_tray` sur le feed, `count_in_viewer` une fois la story ouverte.
+- `story.react` (param `emoji_index` 0-5) -> `react_to_story` : reaction rapide.
+
+### Action story nouvelle
+- `story.reply` (param `text`) : repond a la story via le composer. Ajout d'une methode
+  atomique `open_story_reply_composer()` (clic du `story_message_composer`), puis
+  `a.kb.type_text` + `a.kb.press_enter`. Selector du composer deja existant.
+
+### Surface Stories enrichie
+- Detections : ajout de `story.count_in_viewer`, `story.is_open`, `story.metadata`.
+- Actions : ajout de `story.reply`, `story.react`, `story.scroll_tray` (en plus de
+  like / next / previous / close).
+- Elements `stories.progress_bars` et `stories.reply_field` passes a `mapped`.
+
+### Lecture de la donnee story (cablage de l'existant)
+- `story.is_open` -> `is_story_viewer_open`.
+- `story.metadata` -> `get_story_viewer_metadata` : **username + heure de post + compteur
+  N sur M** loggues (depuis le content-desc `story_viewer_text_container`). Remplace la
+  capture manuelle de dump (difficile sur une story courte a cause de l'auto-avance).
+- `story.scroll_tray` -> `scroll_feed_stories_left` : balayer le tray du feed.
+- Reflexion complete (course de duree, garde-fou identite, pause) : voir
+  `specs/cartography-stories-deep-dive.md`.
+
+## Limite assumee — duree d'une story
+
+**Instagram n'expose pas la duree par story dans le dump UI** (commentaire explicite cote bot,
+`actions/business/actions/story.py`). Seule la progress bar est visible (estimation non fiable).
+Aucune action "duree" n'est donc ajoutee ; documente dans les notes de `stories.progress_bars`.
+
+## Fichiers touches
+
+### front/
+- `src/features/tools/cartography/data/cartography.json` — feed (top_bar, stories_tray,
+  detections, actions) + surface stories (detections, actions, elements).
+- `src/features/tools/debug/actions/actionCatalog.tsx` — famille `story` : open_from_tray,
+  count_feed_tray, count_in_viewer, reply, react.
+
+### bot/
+- `bridges/compat/diagnostics/actions/instagram/story.py` — 5 nouvelles `@action` (+ import logger).
+- `taktik/core/social_media/instagram/actions/atomic/interaction/story_interaction.py` —
+  `open_story_reply_composer()`.
+
+## Verification
+
+- front : `typecheck` + `cartography:contracts` verts (les nouvelles actions existent bien des
+  deux cotes, le contrat est satisfait).
+- bot : `py_compile` + `audit_selector_hardcodes` verts.
+- QA device a faire : ouvrir une story depuis le tray, compter, repondre, reagir.
+
+## Correctif device — fermeture de story
+
+`story.close` faisait un simple `press("back")` qui **ne fermait pas** la story (dump apres :
+`reel_viewer_root` toujours present ; pas de bouton X dans la visionneuse, seulement
+"More actions"). Corrige : nouvelle methode `close_story()` = **swipe vers le bas** (le geste
+reel de fermeture), avec fallback `back`, et `story.close` **verifie** ensuite via
+`is_story_viewer_open` -> renvoie success uniquement si la story est reellement fermee.
+
+## Reste a faire
+
+- QA device des nouvelles actions story.
+- Eventuellement exposer `story.open_from_profile` / `story.open_highlight` (code atomique
+  existe : `click_profile_story_ring`, `click_highlight`).
