@@ -183,9 +183,27 @@ class ContentCreationSelectors:
         """First (most recent) gallery thumbnail."""
         return self._indexed_rid_xpath(self.gallery_grid_item, 1)
 
+    def gallery_item_xpath(self, index: int = 1) -> str:
+        """The Nth gallery thumbnail (1-based)."""
+        return self._indexed_rid_xpath(self.gallery_grid_item, index)
+
     def gallery_grid_xpaths(self) -> List[str]:
         """Presence probe for the gallery grid (any thumbnail visible)."""
         return [self._rid_xpath(self.gallery_grid_item)]
+
+    def multi_select_xpaths(self) -> List[str]:
+        """Enable carousel multi-select in the gallery."""
+        return [self._rid_xpath(self.multi_select_slide_button_alt)] + self._text_xpaths(
+            ["Select multiple", "Select multiple button", "Sélectionner plusieurs"]
+        )
+
+    def story_mode_xpaths(self) -> List[str]:
+        """STORY mode/tab in the create surface."""
+        return self._text_xpaths(self.story_type_texts)
+
+    def story_publish_xpaths(self) -> List[str]:
+        """'Your story' / Share button to publish a story."""
+        return self._text_xpaths(self.story_publish_texts)
 
     def gallery_open_xpaths(self) -> List[str]:
         """Open the gallery picker from the create camera (bottom-left preview button)."""

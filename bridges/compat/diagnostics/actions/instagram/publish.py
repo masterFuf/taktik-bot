@@ -69,11 +69,24 @@ def publish_select_first_gallery(a, p):
 @action("publish.enable_multi_select")
 def publish_enable_multi_select(a, p):
     """Enable carousel multi-select."""
-    selectors = [_rid(CC.multi_select_slide_button_alt)] + _by_texts([
-        "Select multiple button", "Bouton de sélection multiple",
-    ])
-    ok = a.click._find_and_click(selectors, timeout=4)
+    ok = a.click._find_and_click(CC.multi_select_xpaths(), timeout=4)
     return _result(ok, "multi-select active", "multi-select introuvable", selector="multi_select_slide_button_alt")
+
+
+@action("publish.select_gallery_item")
+def publish_select_gallery_item(a, p):
+    """Select the Nth gallery thumbnail (param 'index', 1-based). For carousel."""
+    idx = int(p.get("index", 1))
+    ok = a.click._find_and_click(CC.gallery_item_xpath(idx), timeout=4)
+    return _result(ok, f"media {idx} selectionne", f"media {idx} introuvable", index=idx)
+
+
+@action("publish.select_story_tab")
+def publish_select_story_tab(a, p):
+    """Select the STORY mode/tab in the create surface (best-effort)."""
+    ok = a.click._find_and_click(CC.story_mode_xpaths(), timeout=3)
+    return {"success": True, "message": "onglet STORY selectionne" if ok else "pas d'onglet STORY",
+            "details": {"selected": ok}}
 
 
 @action("publish.select_reel_tab")
@@ -111,7 +124,8 @@ def publish_tap_caption(a, p):
 def publish_type_caption(a, p):
     """Type a caption (param 'text'). The caption field must be focused first."""
     text = p.get("text", "Test caption Lab")
-    ok = a.kb.type_text(text)
+    # clear_first: the composer may restore a previous draft caption -> avoid duplicates.
+    ok = a.kb.type_text(text, clear_first=True)
     return {"success": bool(ok), "message": f"caption: {text[:40]}" if ok else "echec saisie caption",
             "details": {"text": text}}
 

@@ -77,10 +77,23 @@ class InstagramPublishBridge:
     # --- Flow owners (ported incrementally from the Electron publish services) ---
 
     def _run_post(self) -> int:
-        """Publish a single-media feed POST via the core Instagram publish workflow.
+        return self._publish("post")
+
+    def _run_reel(self) -> int:
+        return self._publish("reel")
+
+    def _run_carousel(self) -> int:
+        return self._publish("carousel")
+
+    def _run_story(self) -> int:
+        return self._publish("story")
+
+    def _publish(self, post_type: str) -> int:
+        """Publish via the core Instagram publish workflow.
 
         Thin adapter: connect the device, delegate to InstagramPostWorkflow (which owns
-        the selector flow and media push), and translate its result into IPC events.
+        the selector flow and media push for post/reel/carousel/story), and translate
+        its result into IPC events.
         """
         if not self._connection.connect():
             send_error("Failed to connect to device", "device_connection_failed")
@@ -96,6 +109,7 @@ class InstagramPublishBridge:
             log=send_log,
             status=send_status,
             package_name=self.package_name,
+            post_type=post_type,
         )
         result = workflow.execute(
             caption=self.caption,
@@ -103,24 +117,7 @@ class InstagramPublishBridge:
             media_paths=self.media_paths,
         )
         if result.get("success"):
-            send_status("completed", result.get("message", "Post published"))
+            send_status("completed", result.get("message", f"{post_type} published"))
             return 0
         send_error(result.get("message", "Publish failed"), result.get("error_type"))
-        return 1
-
-    def _run_reel(self) -> int:
-        return self._flow_not_ported("reel")
-
-    def _run_carousel(self) -> int:
-        return self._flow_not_ported("carousel")
-
-    def _run_story(self) -> int:
-        return self._flow_not_ported("story")
-
-    def _flow_not_ported(self, flow: str) -> int:
-        send_log("warn", f"Instagram publish flow '{flow}' not yet ported to the bot bridge")
-        send_error(
-            f"Instagram publish flow '{flow}' is not yet available on the bot bridge; "
-            "the Electron publish path is still the active publisher."
-        )
         return 1

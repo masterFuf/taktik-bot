@@ -73,12 +73,17 @@ class InstagramPostWorkflow:
         log: Optional[Callable[[str, str], None]] = None,
         status: Optional[Callable[[str, str], None]] = None,
         package_name: Optional[str] = None,
+        post_type: str = "post",
     ):
         self.device = device
         self.device_id = device_id
         self._log = log or _default_log
         self._status = status or _default_status
         self.package_name = package_name or get_active_package()
+        # post | reel | carousel | story. post and reel share the same composer flow
+        # (a video auto-routes to the reel composer); carousel adds multi-select; story
+        # uses a distinct tail (no Next/caption screen, "Your story" button).
+        self.post_type = (post_type or "post").lower()
         self._a = self._build_actions(device)
 
     # ------------------------------------------------------------------
@@ -109,28 +114,63 @@ class InstagramPostWorkflow:
         hashtags: Optional[List[str]] = None,
         media_paths: Optional[List[str]] = None,
     ) -> dict:
-        """Publie le premier media de `media_paths` en POST.
+        """Publie `media_paths` selon `post_type` (post/reel/carousel/story).
 
         Returns dict {success: bool, message: str, error_type: str | None}.
         """
         hashtags = hashtags or []
-        media_paths = media_paths or []
+        media_paths = [p for p in (media_paths or []) if p]
 
         if not media_paths:
             return self._error("no_media", "At least one media path is required")
-        local_path = media_paths[0]
-        if not os.path.isfile(local_path):
-            return self._error("file_not_found", f"File not found: {local_path}")
+        for path in media_paths:
+            if not os.path.isfile(path):
+                return self._error("file_not_found", f"File not found: {path}")
 
-        # 1. Push + MediaStore indexing (shared helper)
-        self._status("uploading", f"Pushing media: {os.path.basename(local_path)}")
-        remote_path = push_media(self.device_id, local_path)
-        if not remote_path:
+        # 1. Push every media (MediaStore keeps the most recent at the top of the grid)
+        if not self._push_all(media_paths):
             return self._error("push_failed", "Failed to push media to device")
-        trigger_media_scan(self.device_id, remote_path, local_path, log=self._log)
-        time.sleep(scan_wait_for(local_path))
 
         # 2. Launch Instagram + return to feed
+        self._launch_and_home()
+
+        # Story has a distinct tail (no Next/caption screen).
+        if self.post_type == "story":
+            return self._publish_story()
+
+        # 3. Open creation + ensure the gallery grid is visible
+        err = self._open_creation_and_gallery()
+        if err:
+            return err
+
+        # 4. Select media (carousel = multi-select N, else the first thumbnail)
+        self._status("selecting", "Selecting media from gallery...")
+        if self.post_type == "carousel":
+            if not self._select_carousel(len(media_paths)):
+                return self._error("gallery_item_not_found", "Could not select carousel media")
+        else:
+            if not self._tap(CC.first_gallery_item_xpath(), timeout=6):
+                return self._error("gallery_item_not_found", "Could not select media from gallery")
+            time.sleep(1.0)
+
+        # 5. Compose (Next-loop -> caption) and share
+        return self._compose_and_share(caption, hashtags)
+
+    # ------------------------------------------------------------------
+    # Shared stages
+    # ------------------------------------------------------------------
+
+    def _push_all(self, media_paths: List[str]) -> bool:
+        for path in media_paths:
+            self._status("uploading", f"Pushing media: {os.path.basename(path)}")
+            remote_path = push_media(self.device_id, path)
+            if not remote_path:
+                return False
+            trigger_media_scan(self.device_id, remote_path, path, log=self._log)
+            time.sleep(scan_wait_for(path))
+        return True
+
+    def _launch_and_home(self) -> None:
         self._status("navigating", "Opening Instagram...")
         self._launch_app()
         try:
@@ -140,32 +180,42 @@ class InstagramPostWorkflow:
             self._log("warning", f"navigate_to_home raised (non-fatal): {e}")
         time.sleep(1.0)
 
-        # 3. Open the creation screen ("+")
+    def _open_creation_and_gallery(self) -> Optional[dict]:
+        """Open creation, dismiss the draft modal, ensure the gallery grid is visible.
+        Returns an error dict on failure, else None."""
         self._status("navigating", "Opening creation...")
         if not self._tap(CC.create_button_flow_xpaths(), timeout=6):
             return self._error("create_not_found", "Create button not found")
         time.sleep(1.2)
 
-        # 4. Dismiss the "Keep editing your draft?" modal if present (optional)
         if self._tap(CC.draft_dismiss_xpaths(), timeout=2):
             self._log("info", "Dismissed draft modal (Start new video)")
             time.sleep(0.8)
 
-        # 5. Select the first gallery item (most recent = the pushed file).
-        # Create can land on the camera instead of the gallery grid (the "+" entry
-        # varies): open the gallery first if no thumbnail is visible.
-        self._status("selecting", "Selecting media from gallery...")
+        # Create can land on the camera instead of the gallery grid; open it if needed.
         self._ensure_gallery_open()
-        if not self._tap(CC.first_gallery_item_xpath(), timeout=6):
-            return self._error("gallery_item_not_found", "Could not select media from gallery")
-        time.sleep(1.0)
+        return None
 
-        # 6. Tap "Next" until the caption composer is reached
+    def _select_carousel(self, count: int) -> bool:
+        """Enable multi-select then tap the first `count` thumbnails."""
+        self._tap(CC.multi_select_xpaths(), timeout=4)
+        time.sleep(0.6)
+        selected = 0
+        for i in range(1, count + 1):
+            if self._tap(CC.gallery_item_xpath(i), timeout=4):
+                selected += 1
+                time.sleep(0.4)
+            else:
+                self._log("warning", f"Carousel item {i} not found")
+        return selected > 0
+
+    def _compose_and_share(self, caption: str, hashtags: List[str]) -> dict:
+        # Next-loop to the caption composer
         self._status("navigating", "Navigating to caption screen...")
         if not self._advance_to_composer():
             return self._error("composer_not_reached", "Caption screen was not reached")
 
-        # 7. Enter caption + hashtags
+        # Caption + hashtags
         full_caption = self._build_caption(caption, hashtags)
         if full_caption:
             self._status("filling", "Entering caption...")
@@ -173,24 +223,54 @@ class InstagramPostWorkflow:
                 return self._error("caption_fill_failed", "Could not enter caption")
             time.sleep(0.5)
 
-        # 8. Share. The IME may still cover the footer Share button after caption entry,
-        # so dismiss the keyboard and retry once if the first tap misses.
+        # Share (the IME may still cover the footer button: dismiss + retry once)
         self._status("publishing", "Publishing...")
         if not self._tap(CC.share_button_xpaths(), timeout=6):
             self._dismiss_keyboard()
             if not self._tap(CC.share_button_xpaths(), timeout=6):
                 return self._error("share_not_found", "Share button not found")
 
-        # 9. Wait for the composer to close (publish committed)
         if not self._wait_for_publish_commit():
             return self._error(
                 "publish_not_committed",
                 "Instagram did not appear to finish publishing before timeout",
             )
 
-        self._status("success", "Post published successfully")
-        self._log("info", "Instagram post published")
-        return {"success": True, "message": "Post published successfully", "error_type": None}
+        label = self.post_type
+        self._status("success", f"{label} published successfully")
+        self._log("info", f"Instagram {label} published")
+        return {"success": True, "message": f"{label} published successfully", "error_type": None}
+
+    def _publish_story(self) -> dict:
+        """Story flow: open creation -> STORY mode -> gallery -> select -> 'Your story'.
+
+        NOTE: not yet device-validated end to end; selectors come from the catalogue.
+        """
+        err = self._open_creation_and_gallery_story()
+        if err:
+            return err
+        self._status("selecting", "Selecting media from gallery...")
+        if not self._tap(CC.first_gallery_item_xpath(), timeout=6):
+            return self._error("gallery_item_not_found", "Could not select media for story")
+        time.sleep(1.0)
+        self._status("publishing", "Publishing story...")
+        if not self._tap(CC.story_publish_xpaths(), timeout=6):
+            return self._error("share_not_found", "'Your story' button not found")
+        if not self._wait_for_publish_commit():
+            return self._error("publish_not_committed", "Story publish did not confirm before timeout")
+        self._status("success", "Story published successfully")
+        self._log("info", "Instagram story published")
+        return {"success": True, "message": "story published successfully", "error_type": None}
+
+    def _open_creation_and_gallery_story(self) -> Optional[dict]:
+        self._status("navigating", "Opening creation (story)...")
+        if not self._tap(CC.create_button_flow_xpaths(), timeout=6):
+            return self._error("create_not_found", "Create button not found")
+        time.sleep(1.2)
+        # Select STORY mode if a tab/picker is shown (best-effort).
+        self._tap(CC.story_mode_xpaths(), timeout=2)
+        self._ensure_gallery_open()
+        return None
 
     # ------------------------------------------------------------------
     # Stage helpers
@@ -224,7 +304,9 @@ class InstagramPostWorkflow:
             return False
         time.sleep(0.4)
         try:
-            typed = bool(self._a["kb"].type_text(text, clear_first=False, human_typing=True))
+            # clear_first: the composer can restore a previous draft caption; clearing
+            # avoids appending a duplicate.
+            typed = bool(self._a["kb"].type_text(text, clear_first=True, human_typing=True))
         except Exception as e:
             self._log("warning", f"type_text failed: {e}")
             return False
