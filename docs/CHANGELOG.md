@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Aligned the desktop scheduler source docs with the current renderer/runtime split: `desktop/scheduler-architecture.md`, `desktop/scheduler-ui.md` and `desktop/scheduler-ai-builder.md` now document the real `front/src/features/workspace/scheduler/**` tree, current node families/guards, the active Electron scheduler engine, `ai_generation` persistence, and the verified `tiktok-account` limitation (`login` still `not_implemented` Bot-side) instead of the removed `src/components/scheduler/` layout and stale `front/docs/Scheduler/*` links.
 - Aligned the Bot mirror of the frontend type-centralization audit with the current Cartography Lab state: legacy `ActionTester.tsx`/`AutoTestRunner.tsx` references are now explicitly historical, not active files.
 - Aligned `workflows/instagram.md` with the verified Instagram workflow state: Discovery is no longer listed as an active workflow, DM bridge names no longer imply removed flat `*_bridge.py` files, Smart Comment points to the scoped bridge, and action limits are documented as local counters rather than remote quotas.
 - Aligned the Bot documentation README with the consolidated private documentation entrypoint and removed the stale `SUMMARY.md` navigation reference now that `_sidebar.md` and `taktik-docs` are the active navigation paths.
