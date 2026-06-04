@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Instagram `SessionManager.record_action()` no longer calls remote API action/quota tracking; action counters remain local to the session/SQLite path, and story watches are counted as stories instead of likes.
 - Consolidated the old Bot/TikTok/Multi-Target/Specs changelog files into this canonical Bot changelog and removed the secondary changelog files to avoid multiple sources of truth.
 - Removed the obsolete Instagram Discovery persistence owner. The active scraping/qualification data now lives under `repositories/instagram/scraping/ScrapedProfileRepository`, the schema bootstrap uses `local/schemas/scraping.py`, and AI score fields remain on `scraped_profiles` for advanced scraping, Target Search and Deep Qualify.
 - Scaffolded the Instagram publish bridge (`publish_bridge` -> `bridges.instagram.publish.publish`): entrypoint, runtime class with device connection, signal handling and per-`postType` (post/reel/carousel/story) dispatch, registered in the manifest and launcher. Additive Phase 1 — the flow bodies are ported incrementally and the Electron path stays the active publisher until each flow is validated on device.

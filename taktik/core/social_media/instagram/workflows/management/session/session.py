@@ -112,13 +112,12 @@ class SessionManager:
         """
         self.counters['total_interactions'] += 1
         # Remote per-action quotas were removed; action history is local SQLite.
-        # Keep the old API recording block disabled for backward compatibility context.
-        if False and success:
+        if success:
             self.counters['successful_interactions'] += 1
 
         if action_type == 'follow_user' and success:
             self.counters['follows'] += 1
-        elif action_type in ['like_posts', 'watch_stories'] and success:
+        elif action_type == 'like_posts' and success:
             self.counters['likes'] += 1
         elif action_type == 'comment_posts' and success:
             self.counters['comments'] += 1
@@ -130,58 +129,14 @@ class SessionManager:
             if success:
                 if action_type == 'follow_user':
                     self.source_counters[source]['follows'] += 1
-                elif action_type in ['like_posts', 'watch_stories']:
+                elif action_type == 'like_posts':
                     self.source_counters[source]['likes'] += 1
                 elif action_type == 'comment_posts':
                     self.source_counters[source]['comments'] += 1
-
-        if success:
-            try:
-                from taktik.core.database import get_db_service
-                db_service = get_db_service()
-                
-                api_action_mapping = {
-                    'follow_user': 'FOLLOW',
-                    'like_posts': 'LIKE',
-                    'comment_posts': 'COMMENT',
-                    'watch_stories': 'STORY_WATCH'
-                }
-                
-                api_action_type = api_action_mapping.get(action_type)
-                if api_action_type and hasattr(db_service, 'api_client'):
-                    success_api = db_service.api_client.record_action_usage(api_action_type)
-                    if success_api:
-                        logger.info(f"✅ Action {api_action_type} recorded in API for quotas (license_usage updated)")
-                    else:
-                        logger.error(f"🚨 CRITICAL FAILURE: Cannot record action {api_action_type} in API")
-                        logger.error(f"🚨 SECURITY: Reverting local counters to prevent quota leaks")
-                        self.counters['total_interactions'] -= 1
-                        if success:
-                            self.counters['successful_interactions'] -= 1
-                        
-                        if action_type == 'follow_user':
-                            self.counters['follows'] -= 1
-                        elif action_type in ['like_posts', 'watch_stories']:
-                            self.counters['likes'] -= 1
-                        elif action_type == 'comment_posts':
-                            self.counters['comments'] -= 1
-                        elif action_type == 'watch_stories':
-                            self.counters['stories_watched'] -= 1
-                        
-                        if source and source in self.source_counters:
-                            self.source_counters[source]['interactions'] -= 1
-                            if action_type == 'follow_user':
-                                self.source_counters[source]['follows'] -= 1
-                            elif action_type in ['like_posts', 'watch_stories']:
-                                self.source_counters[source]['likes'] -= 1
-                            elif action_type == 'comment_posts':
-                                self.source_counters[source]['comments'] -= 1
-                        
-                        raise Exception(f"API recording failed for action {api_action_type} - quotas not updated")
-                        
-            except Exception as e:
-                logger.error(f"❌ CRITICAL ERROR recording action in API: {e}")
-                raise Exception(f"Action {action_type} canceled - cannot update API quotas: {e}")
+                elif action_type == 'watch_stories':
+                    self.source_counters[source]['stories_watched'] = (
+                        self.source_counters[source].get('stories_watched', 0) + 1
+                    )
 
     def get_delay_between_actions(self) -> float:
         """Return random delay between actions.
