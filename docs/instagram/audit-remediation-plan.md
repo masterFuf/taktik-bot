@@ -54,8 +54,8 @@ Le terminal event Instagram automation `bot:session-ended` vit maintenant dans
 | Zone | Fichiers |
 |---|---|
 | Handlers Instagram | `front/electron/handlers/instagram/automation/bot.ts`, `scraping/scraping.ts`, `engagement/coldDm.ts`, `engagement/dm.ts` |
-| Runner process | `front/electron/services/bridge/BridgeProcessRunner.ts`, `front/electron/managers/process-manager.ts` |
-| Sessions | `front/electron/database/repositories/session/SessionRepository.ts` |
+| Runner process | `front/electron/services/shared/bridge/process/BridgeProcessRunner.ts`, `front/electron/managers/process-manager.ts` |
+| Sessions | `front/electron/database/repositories/platforms/instagram/session/SessionRepository.ts` |
 | UI live | pages sessions, sidebar device, Live Center |
 
 ### Correction cible
@@ -137,14 +137,14 @@ partagees au profit de lectures + d'un contrat de champs.
 | `scraping_sessions` | `SessionRepository` | `instagram/session_repository.py` | **Python** (la session de scraping est un fait bot) ; Electron lit |
 | `instagram_profiles` | `ProfileRepository`, `GeoEnrichmentRepository`, `MediaCacheRepository` | `instagram/profile_repository.py` | **Partage par champs** : Python = champs factuels (username, followers, bio, scrape) ; Electron = enrichissement (classification IA, geo, media/images) |
 | `profile_stats_history` | `StatsRepository` | `instagram/profile_repository.py` | **Python** (stats factuelles) ; Electron lit |
-| `daily_stats` | `StatsRepository` | `instagram/stats_repository.py` | **Python** (activite/quotas reels) ; Electron lit/agrege |
+| `daily_stats` | `StatsRepository` | `instagram/stats_repository.py` | **Python** (activite et limites locales de session) ; Electron lit/agrege |
 | `interaction_history` | `InteractionRepository` | `instagram/interaction_repository.py` | **Python** (l'interaction est un fait bot) ; Electron lit/agrege |
 | `instagram_accounts` | `AccountRepository` | `instagram/account_repository.py` | **Partage par champs** : Python = etat factuel du compte ; Electron = profil business/qualification saisis dans le desktop |
 | `following_sync` / `followers_sync` | — | `instagram/social_graph_repository.py` | **Python** (faits de relation) ; lecture Electron uniquement |
 | `sent_dms` | — | `messaging/sent_dm_repository.py` | **Python** (fait d'envoi) |
-| `scraped_profiles` / `discovered_profiles` | `DiscoveryRepository` | `instagram/discovery_repository.py` | **Partage** : Python = scrape factuel ; Electron = campagnes/qualification discovery |
+| `scraped_profiles` | `ScrapedProfileRepository` | `instagram/scraping/scraped_profile_repository.py` | **Partage par usage** : Python = scrape factuel ; Electron = qualification IA et lectures UI |
 | `ai_post_screenshots` / `ai_screenshots` / `profile_images` | `ProfileRepository`, `MediaCacheRepository` | — | **Electron** (IA/media local) |
-| `smart_comment_*`, `schedule*`, `taxonomy_*`, `device_groups`, `network_*`, `discovery_campaigns/templates` | repositories Electron dedies | — | **Electron** (donnees desktop) |
+| `smart_comment_*`, `schedule*`, `taxonomy_*`, `device_groups`, `network_*` | repositories Electron dedies | — | **Electron** (donnees desktop) |
 
 ### Contrat de champs des tables partagees
 

@@ -8,7 +8,7 @@
 
 ## Pourquoi cette page existe
 
-- Le GitBook local du Bot expose des docs dediees Instagram et TikTok.
+- La doc consolidee expose des docs dediees Instagram et TikTok.
 - Le chantier `bot/taktik/core` est transverse et ne doit pas etre enterre dans un seul audit plateforme.
 - Cette page est l'entree canonique pour savoir ou on en est avant d'ouvrir les audits specialises.
 
@@ -38,7 +38,7 @@
 - [x] Le scraping Instagram ne construit plus directement `IPC` + `AIService` dans `core`; bridge et CLI injectent maintenant le provider AI.
 - [x] `core/agent` expose maintenant un premier `WorkflowRegistry` et un `AgentPlanExecutor` minimaux, sans brancher encore les workflows historiques.
 - [x] Les workflows TikTok `login/logout/signup` n'instancient plus `IPC()` dans `core`; le notifier live est injecte par le bridge compte.
-- [x] Le workflow `tiktok publish` n'instancie plus le notifier bridge dans `core`; `tiktok_publish_bridge.py` le lui injecte maintenant.
+- [x] Le workflow `tiktok publish` n'instancie plus le notifier bridge dans `core`; le bridge route par la cle manifest `tiktok_publish_bridge` (`bridges.tiktok.publish.publish`) le lui injecte maintenant.
 - [x] `core/ai` possede maintenant le provider OpenRouter ; l'ancien shim `bridges/common/ai_service.py` a ete retire.
 - [x] `core/ai` est maintenant classe par owners internes : `providers/` pour OpenRouter et `comments/` pour l'IA commentaire/persona.
 - [x] `core/agent` lit maintenant le manifest transversal pour exposer des IDs canoniques `platform.family.workflow`.

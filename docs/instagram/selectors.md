@@ -116,8 +116,8 @@ Quand un selector casse :
 Artefacts utiles :
 
 ```text
-C:\Users\kevin\AppData\Local\Temp\taktik_debug\*.png
-C:\Users\kevin\AppData\Local\Temp\taktik_debug\*.xml
+<temp>\taktik_debug\*.png
+<temp>\taktik_debug\*.xml
 ```
 
 ## Anti-regression selectors

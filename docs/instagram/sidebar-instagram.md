@@ -5,7 +5,7 @@
   * [Automation](automation.md)
   * [Engagement](engagement.md)
   * [Publishing](publishing.md)
-  * [Scraping et discovery](scraping.md)
+  * [Scraping et qualification](scraping.md)
   * [Dependances partagees Instagram](shared-modules.md)
 
 * **Architecture Instagram**

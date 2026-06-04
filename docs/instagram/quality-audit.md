@@ -67,14 +67,14 @@ Risques :
 | Constat | Pourquoi c'est fragile |
 |---|---|
 | Handler tres large | Il orchestre process, sessions, images, AI, taxonomy, crash report, logs et Live Center. |
-| SQL direct ponctuel | Exemples : update screenshot path et insert AI post screenshot via `db.prepare`. |
+| Persistance de bord | Les screenshots/profils IA sont maintenant delegues a `ProfileAiPersistenceService` / `ProfileCapturePersistenceService`, mais le contrat d'events reste implicite. |
 | Event contract implicite | Les events sont traites au fil de l'eau (`profile_captured`, `ai_profile_done`, `current_post`) sans schema central. |
 | Cleanup par handler | Le stop est robuste ici, mais pas forcement identique aux autres workflows Instagram. |
 
 Direction :
 
 1. Extraire `InstagramAutomationEventService` pour normaliser les events stdout.
-2. Deplacer les requetes AI screenshot dans `ProfileRepository` ou un repository `AiMediaRepository`.
+2. Stabiliser le contrat owner des screenshots IA et medias profils dans les services/repositories dedies.
 3. Declarer un type `InstagramBridgeEvent` partage cote Electron.
 4. Reutiliser ce cleanup comme reference pour les autres handlers.
 
@@ -91,14 +91,14 @@ Risques :
 
 | Constat | Pourquoi c'est fragile |
 |---|---|
-| Beaucoup de SQL direct | Le handler lit/ecrit `instagram_profiles`, `scraping_sessions`, `scraped_profiles` directement. |
-| Fallback DB dans le handler | Le safety-net insert de profil corrige une race, mais melange orchestration et persistence. |
+| Handler draine | Le handler delegue start/stop/export/history a des services scraping dedies. |
+| Facades DB dans les services | Les exports, history et profils passent encore par `databaseService.scrapingService` ou repositories injectes via service. |
 | Double persistence Python/Electron | `ScrapingWorkflow` persiste aussi via ses mixins. |
 | Log parsing + JSON parsing | Certaines infos viennent de stdout JSON, d'autres de regex sur stderr/logs. |
 
 Direction :
 
-1. Extraire `InstagramScrapingRepository` ou enrichir `SessionRepository` + `ProfileRepository`.
+1. Continuer a rapprocher `ScrapingService` / `ScrapingQualificationService` des repositories owners (`SessionRepository`, `ProfileRepository`, `ScrapedProfileRepository`).
 2. Documenter officiellement qui cree/complete `scraping_sessions`.
 3. Remplacer les regex stderr par events JSON quand le Bot peut les emettre.
 4. Garder le safety-net, mais l'encapsuler dans un service nomme.
@@ -109,13 +109,13 @@ Risques :
 
 | Constat | Pourquoi c'est fragile |
 |---|---|
-| Requetes discovery complexes dans le handler | Difficile a tester, a migrer et a synchroniser. |
+| Handler draine vers `InstagramTargetSearchDatabaseService` | Le risque n'est plus l'IPC direct, mais l'ownership des lectures/filtres sous-jacents. |
 | Logique de filtres proche de l'UI | Les criteres peuvent diverger entre recherche, scheduler et automation. |
-| Pas de repository dedie visible | La lecture cible devrait appartenir a un service data. |
+| Service database facade | La lecture cible passe par un service owner Electron, encore adosse a la facade `databaseService.instagramTargetSearchService`. |
 
 Direction :
 
-1. Creer `InstagramTargetSearchRepository`.
+1. Garder `InstagramTargetSearchDatabaseService` comme frontiere IPC et documenter l'owner repository cible.
 2. Extraire les filtres dans un service pur testable.
 3. Reutiliser ce service dans scheduler et Live Center si besoin.
 
@@ -145,13 +145,13 @@ Risques :
 
 | Constat | Pourquoi c'est fragile |
 |---|---|
-| SQL direct pour recipients | La selection depuis scraping session contourne les repositories. |
+| Selection recipients extraite du handler | La selection depuis scraping session passe par `InstagramScrapingSessionProfileService`, mais reste a promouvoir vers un owner repository/service plus explicite. |
 | Process map local | `activeColdDmProcesses` vit hors `ProcessManager` global. |
-| Bridge porte AI + navigation + dedup | Beaucoup de responsabilites dans `cold_dm_bridge.py`. |
+| Bridge porte AI + navigation + dedup | Beaucoup de responsabilites dans `bridges.instagram.engagement.cold_dm` et son runtime. |
 
 Direction :
 
-1. Extraire la selection recipients dans repository/service.
+1. Promouvoir la selection recipients scraping vers un owner repository/service explicite.
 2. Migrer vers `runBridge` avec `ProcessManager`.
 3. Aligner dedup avec `SentDMService` et documenter la table source.
 
@@ -216,10 +216,10 @@ Direction :
 | Redondance | Exemples | Effet |
 |---|---|---|
 | Process spawning | `spawnBridgeProcess` manuel vs `runBridge` | Cleanup et timeout differents selon workflow. |
-| SQLite access | repositories vs `db.prepare` dans handlers vs DB helpers Python | Sync et migrations difficiles a raisonner. |
+| SQLite access | repositories owners vs facades/services DB Electron/Python, avec anciens helpers Python deja migres sous `database/**` | Sync et migrations difficiles a raisonner. |
 | Clone package rewrite | `rid()` TypeScript vs `CloneAwareDeviceProxy` Python | Deux implementations a maintenir. |
 | Event parsing | stdout JSON, stderr JSON, regex logs | Live Center fragile. |
-| DM navigation | `dm_bridge.py`, `cold_dm_bridge.py`, business messaging | Duplication potentielle des selectors et fallback. |
+| DM navigation | `bridges.instagram.engagement.dm`, `bridges.instagram.engagement.cold_dm`, business messaging | Duplication potentielle des selectors et fallback. |
 
 ## Pattern cible Instagram
 

@@ -1,8 +1,8 @@
 # Instagram - Documentation dediee
 
 <div class="doc-hero">
-  <div class="doc-kicker">Docsify Instagram</div>
-  <p>Cette documentation est dediee a Instagram. Elle n'est pas un raccourci vers la doc universelle. Ici, on documente uniquement le fonctionnement d'Instagram dans TAKTIK : workflows, handlers Electron, bridges Python, Bot Android, sessions, donnees, live, debug et dependances partagees vues depuis Instagram.</p>
+  <div class="doc-kicker">Section Instagram</div>
+  <p>Cette section de `taktik-docs` est dediee a Instagram. Elle n'est pas une documentation separee : elle organise le fonctionnement Instagram dans TAKTIK avec le contexte Bot + Electron : workflows, handlers Electron, bridges Python, Bot Android, sessions, donnees, live, debug et dependances partagees vues depuis Instagram.</p>
   <p>Le but est simple : permettre a quelqu'un qui n'a jamais lu de doc technique de comprendre l'arbre des modules Instagram, puis de descendre progressivement vers l'implementation.</p>
 </div>
 
@@ -31,7 +31,7 @@
   </a>
   <a class="doc-card" href="#/scraping">
     <div class="doc-kicker">Scraping</div>
-    <h3>Discovery et qualification</h3>
+    <h3>Scraping et qualification</h3>
     <p>Voir d'ou viennent les donnees Instagram et comment elles sont reutilisees.</p>
   </a>
   <a class="doc-card" href="#/shared-modules">
@@ -150,4 +150,4 @@
 
 ## Principe
 
-Si un concept partage est utile a Instagram, on l'explique ici en tant que dependance d'Instagram. On ne renvoie pas le lecteur vers une autre doc pour comprendre le coeur du fonctionnement Instagram.
+Si un concept partage est utile a Instagram, on l'explique ici en tant que dependance d'Instagram. La source reste `taktik-docs`; cette section evite seulement au lecteur de traverser toute la doc transverse pour comprendre le coeur du fonctionnement Instagram.
