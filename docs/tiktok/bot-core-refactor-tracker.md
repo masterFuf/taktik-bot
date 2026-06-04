@@ -4,7 +4,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 
 ## Pourquoi cette page existe
 
-- Le GitBook local du Bot expose des docs dediees TikTok et Instagram.
+- La doc consolidee expose des docs dediees TikTok et Instagram.
 - Le chantier `bot/taktik/core` est transverse et ne doit pas etre enterre dans un seul audit plateforme.
 - Cette page est l'entree canonique pour savoir ou on en est avant d'ouvrir les audits specialises.
 
@@ -34,7 +34,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Le scraping Instagram ne construit plus directement `IPC` + `AIService` dans `core`; bridge et CLI injectent maintenant le provider AI.
 - [x] `core/agent` expose maintenant un premier `WorkflowRegistry` et un `AgentPlanExecutor` minimaux, sans brancher encore les workflows historiques.
 - [x] Les workflows TikTok `login/logout/signup` n'instancient plus `IPC()` dans `core`; le notifier live est injecte par le bridge compte.
-- [x] Le workflow `tiktok publish` n'instancie plus le notifier bridge dans `core`; `tiktok_publish_bridge.py` le lui injecte maintenant.
+- [x] Le workflow `tiktok publish` n'instancie plus le notifier bridge dans `core`; le bridge `tiktok_publish_bridge` (`bridges.tiktok.publish.publish`) le lui injecte maintenant.
 - [x] `core/ai` possede maintenant le provider OpenRouter ; l'ancien shim `bridges/common/ai_service.py` a ete retire.
 - [x] `core/ai` est maintenant classe par owners internes : `providers/` pour OpenRouter et `comments/` pour l'IA commentaire/persona.
 - [x] `core/agent` lit maintenant le manifest transversal pour exposer des IDs canoniques `platform.family.workflow`.
@@ -54,7 +54,7 @@ Cette page suit le refactor de `bot/taktik/core` pour TikTok et Instagram. Elle 
 - [x] Les handlers Agent TikTok partagent maintenant leurs primitives d'adaptation locales via `actions/business/workflows/_internal/agent_runtime.py`, sans nouveau helper transversal.
 - [x] TikTok Unfollow peut maintenant etre enregistre comme handler Agent `tiktok.standalone.tiktok_unfollow`, avec mapping conserve de `skipFriends` vers `include_friends`.
 - [x] TikTok Scraping peut maintenant etre enregistre comme handler Agent `tiktok.automation.scraping` / `tiktok.standalone.tiktok_scraping`, avec persistence profile injectable plutot que DB bridge integree.
-- [x] TikTok DM read/send peuvent maintenant etre enregistres comme handlers Agent `tiktok.automation.dm_read` / `tiktok.automation.dm_send`, sans melanger la logique `dm_outreach_bridge.py` encore bridge-owned.
+- [x] TikTok DM read/send peuvent maintenant etre enregistres comme handlers Agent `tiktok.automation.dm_read` / `tiktok.automation.dm_send`, sans melanger la logique `dm_outreach_bridge` (`bridges.tiktok.engagement.dm_outreach`) encore bridge-owned.
 - [x] TikTok cold DM outreach n'est plus une classe metier dans le bridge : `dm/outreach.py` porte le workflow et le bridge injecte notifier + dedup SQLite.
 - [x] TikTok cold DM outreach peut maintenant etre enregistre comme handler Agent `tiktok.standalone.tiktok_dm_outreach`, avec notifier et dedup injectes.
 - [x] TikTok account login/logout/register peuvent maintenant etre enregistres comme handlers Agent `tiktok.account.login/logout/register`, sans reprendre le startup bridge.
@@ -85,7 +85,7 @@ Pourquoi :
 Les IDs manifest sans handler reel ne sont plus des petits adapters evidents :
 
 - Instagram automation est maintenant branche sur `WorkflowRegistry` via `social_media/instagram/workflows/core/agent_handler.py` apres extraction des builders config/session, hooks IA et setup runtime. Attention residuelle : connexion device, lancement app, reset network et media capture restent volontairement chez le caller/bridge.
-- Instagram engagement (`dm_read`, `dm_send`, `coldDm`, `smart_comment`, `taktik_agent`) reste heterogene : DM read/send contient encore du metier dans `dm_bridge.py`, `coldDm` a une logique bridge historique, et `taktik_agent` doit rester orchestrateur transverse avec planner Front. Prochain lot recommande : traiter chaque bridge/workflow separement, pas un handler global.
+- Instagram engagement (`dm_read`, `dm_send`, `coldDm`, `smart_comment`, `taktik_agent`) reste heterogene : DM read/send contient encore du metier dans le module route par la cle manifest `dm_bridge`, `coldDm` a une logique bridge historique, et `taktik_agent` doit rester orchestrateur transverse avec planner Front. Prochain lot recommande : traiter chaque bridge/workflow separement, pas un handler global.
 - Threads (`follow`, `target`, `feed`) est maintenant branche sur `WorkflowRegistry` via `social_media/threads/workflows/agent_handler.py`; le caller doit fournir le `startup` afin que le handler n'ouvre pas de connexion device.
 
 ## Lire ensuite

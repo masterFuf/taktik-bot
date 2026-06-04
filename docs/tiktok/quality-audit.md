@@ -161,7 +161,7 @@ Remediation retenue :
 
 Symptome technique :
 
-- `search_bridge.py` et `followers_bridge.py` redefinissaient chacun une remise
+- les anciennes routes search et followers redefinissaient chacune une remise
   a Home TikTok entre deux queries/targets ;
 - les bridges portaient des XPath Home en dur alors que les selectors de
   navigation existent deja dans `ui/selectors/shell/navigation.py` ;
