@@ -2036,3 +2036,36 @@ Verification :
 - `front/src/features/workspace/network/**`
 - `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
   `bot/docs` passees de `118` a `116`.
+
+## Alignement doc handlers et features plateformes
+
+Deux autres pages desktop ont ete repassees contre le code :
+
+- `desktop/ipc-handlers.md`
+- `desktop/platform-features.md`
+
+Correctifs appliques :
+
+- retrait de la fausse responsabilite Discovery dans `common/database` ;
+- ajout de `agent` dans les handlers Instagram ;
+- correction des chemins bridges Threads et Gmail ;
+- marquage explicite des pages Discovery Instagram/TikTok comme legacy retiree ;
+- correction des chemins preload/bridge pour Instagram scraping, automation,
+  TikTok publish et YouTube upload ;
+- correction de la persistance React vers `scraping_sessions` /
+  `scraped_profiles` pour la qualification au lieu d'anciennes campagnes
+  Discovery actives.
+
+Verification :
+
+- `front/electron/handlers/**`
+- `front/electron/preload/**`
+- `front/src/features/platforms/**`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `116` a `115`.
+
+Note :
+
+- `desktop/ipc-handlers.md` est retombe a l'identique du miroir consolide.
+- `desktop/platform-features.md` reste divergent en hash car la copie source a
+  ete normalisee, mais son contenu n'affirme plus de choses fausses.
