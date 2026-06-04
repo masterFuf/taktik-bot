@@ -170,10 +170,13 @@ class InstagramPostWorkflow:
                 return self._error("caption_fill_failed", "Could not enter caption")
             time.sleep(0.5)
 
-        # 8. Share
+        # 8. Share. The IME may still cover the footer Share button after caption entry,
+        # so dismiss the keyboard and retry once if the first tap misses.
         self._status("publishing", "Publishing...")
         if not self._tap(CC.share_button_xpaths(), timeout=6):
-            return self._error("share_not_found", "Share button not found")
+            self._dismiss_keyboard()
+            if not self._tap(CC.share_button_xpaths(), timeout=6):
+                return self._error("share_not_found", "Share button not found")
 
         # 9. Wait for the composer to close (publish committed)
         if not self._wait_for_publish_commit():
@@ -210,10 +213,21 @@ class InstagramPostWorkflow:
             return False
         time.sleep(0.4)
         try:
-            return bool(self._a["kb"].type_text(text, clear_first=False, human_typing=True))
+            typed = bool(self._a["kb"].type_text(text, clear_first=False, human_typing=True))
         except Exception as e:
             self._log("warning", f"type_text failed: {e}")
             return False
+        # The keyboard hides the footer Share button — close it before publishing.
+        self._dismiss_keyboard()
+        return typed
+
+    def _dismiss_keyboard(self) -> None:
+        """Press back once to close the soft keyboard (keeps the composer open)."""
+        try:
+            self.device.press("back")
+            time.sleep(0.5)
+        except Exception as e:
+            self._log("debug", f"keyboard dismiss skipped: {e}")
 
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
         """Publish is committed once the composer (caption field) disappears."""

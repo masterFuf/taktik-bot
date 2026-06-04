@@ -112,6 +112,21 @@ def publish_type_caption(a, p):
             "details": {"text": text}}
 
 
+@action("publish.dismiss_keyboard")
+def publish_dismiss_keyboard(a, p):
+    """Close the soft keyboard (press back) so the footer Share button becomes reachable.
+
+    After typing the caption the IME covers the Share button (it sits in the footer);
+    a single back press closes the keyboard without leaving the composer."""
+    try:
+        a.device.back()
+        ok = True
+    except Exception:
+        ok = False
+    return {"success": True, "message": "clavier ferme" if ok else "echec fermeture clavier",
+            "details": {"dismissed": ok}}
+
+
 @action("publish.tap_share")
 def publish_tap_share(a, p):
     """Tap the final Share button."""
