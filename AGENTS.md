@@ -191,7 +191,7 @@ Pour tout nouveau workflow ou changement de workflow existant, verifier :
 - ecritures SQLite et repository/service proprietaire ;
 - handler Electron et Live Panel associes ;
 - scheduler si le workflow peut etre planifie ;
-- docs `bot/docs/**`, `front/docs/**` ou `taktik-bot/docs/admin/instagram/**` selon le perimetre ;
+- docs `bot/docs/**`, `front/docs/**` ou `taktik-docs/premium/instagram/**` selon le perimetre ;
 - tests unitaires, script d'audit ou verification manuelle reproductible.
 
 ### SOLID cote Bot
