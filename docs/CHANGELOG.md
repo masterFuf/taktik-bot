@@ -2175,3 +2175,39 @@ Verification :
 - `front/scripts/publish/publish-update.ps1`
 - `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
   `bot/docs` passees de `110` a `107`.
+
+## Alignement doc licence, workspace device et content planner
+
+Trois pages desktop supplementaires ont ete realignees contre la structure
+Front actuelle :
+
+- `desktop/auth-license-flow.md`
+- `desktop/device-workspace.md`
+- `desktop/content-planner.md`
+
+Correctifs appliques :
+
+- correction du preload licence vers `front/electron/preload/app/license.ts` ;
+- correction des chemins services licence/securite vers
+  `services/app/license/runtime` et `services/app/security/credentials` ;
+- remplacement du lien brut vers `taktik-docs/technical/...` par la page
+  consolidee `[Etat actuel FastAPI]` ;
+- correction du preload mirroring vers
+  `front/electron/preload/devices/mirror.ts` ;
+- correction des chemins Content Planner vers
+  `preload/app/core.ts`, `preload/app/automation.ts` et
+  `services/app/scheduler/engine/scheduler-engine.ts` ;
+- retrait de l'ancienne alerte sur `platformLabels` : le handler utilise
+  maintenant `enabledPlatforms` et construit bien les labels `TT`, `YT`, `IG`.
+
+Verification :
+
+- `front/electron/preload/app/license.ts`
+- `front/electron/preload/devices/mirror.ts`
+- `front/electron/preload/app/core.ts`
+- `front/electron/preload/app/automation.ts`
+- `front/electron/services/app/license/runtime/license-service.ts`
+- `front/electron/services/app/security/credentials/security-service.ts`
+- `front/electron/handlers/scheduler/content-planner.ts`
+- `taktik-docs/governance/SOURCE_COVERAGE.md` mis a jour : divergences
+  `bot/docs` passees de `107` a `104`.
