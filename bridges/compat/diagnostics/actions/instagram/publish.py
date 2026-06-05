@@ -73,12 +73,58 @@ def publish_enable_multi_select(a, p):
     return _result(ok, "multi-select active", "multi-select introuvable", selector="multi_select_slide_button_alt")
 
 
+@action("publish.clear_gallery_selection")
+def publish_clear_gallery_selection(a, p):
+    """Deselect every currently-selected thumbnail (clean slate before a carousel).
+
+    Enabling multi-select auto-selects the previewed thumbnail, which is NOT always grid
+    #1 (a stale preview can be selected at any position). Clearing first lets the carousel
+    select grid[1..N] deterministically. Idempotent: a no-op when nothing is selected."""
+    cleared = 0
+    for _ in range(12):
+        if _selected_media_count(a) == 0:
+            break
+        if not a.click._find_and_click(CC.selected_media_xpath(), timeout=2):
+            break
+        cleared += 1
+    total = _selected_media_count(a)
+    return {"success": True, "message": f"selection purgee ({cleared} deselectionne(s), {total} restant(s))",
+            "details": {"cleared": cleared, "selected_total": total}}
+
+
+def _selected_media_count(a) -> int:
+    """Count gallery thumbnails currently selected (content-desc based)."""
+    try:
+        return len(a.device.xpath(CC.selected_media_xpath()).all())
+    except Exception:
+        return 0
+
+
+def _is_gallery_item_selected(a, idx: int) -> bool:
+    """Whether the Nth thumbnail is already selected (avoids deselect-on-retap)."""
+    try:
+        return a.click._is_element_present(CC.gallery_item_selected_xpath(idx))
+    except Exception:
+        return False
+
+
 @action("publish.select_gallery_item")
 def publish_select_gallery_item(a, p):
-    """Select the Nth gallery thumbnail (param 'index', 1-based). For carousel."""
+    """Select the Nth gallery thumbnail (param 'index', 1-based). For carousel.
+
+    Idempotent: entering multi-select auto-selects thumbnail #1, and re-tapping a
+    selected thumbnail DESELECTS it (which would silently turn a carousel into a single
+    post). So we skip the tap when the item is already selected, and report the live
+    selected count so the Lab scenario reflects the real carousel state."""
     idx = int(p.get("index", 1))
+    if _is_gallery_item_selected(a, idx):
+        total = _selected_media_count(a)
+        return _result(True, f"media {idx} deja selectionne ({total} au total)",
+                       "", index=idx, already_selected=True, selected_total=total)
     ok = a.click._find_and_click(CC.gallery_item_xpath(idx), timeout=4)
-    return _result(ok, f"media {idx} selectionne", f"media {idx} introuvable", index=idx)
+    total = _selected_media_count(a)
+    return _result(ok, f"media {idx} selectionne ({total} au total)",
+                   f"media {idx} introuvable", index=idx, selected_total=total)
 
 
 @action("publish.select_story_tab")
@@ -183,3 +229,21 @@ def publish_tap_your_story(a, p):
     """Story flow: tap the 'Your story' publish button."""
     ok = a.click._find_and_click(_by_texts(["Your story", "Votre story"]), timeout=4)
     return _result(ok, "Your story clique", "Your story introuvable", selector="your_story")
+
+
+@action("publish.dismiss_story_promo")
+def publish_dismiss_story_promo(a, p):
+    """Dismiss the one-time 'Introducing story-to-story sharing' promo shown after a
+    story is published (igds headline -> OK). Non-blocking: it only appears the first time."""
+    ok = a.click._find_and_click(CC.story_share_promo_dismiss_xpaths(), timeout=4)
+    return {"success": True, "message": "promo story-to-story fermee" if ok else "pas de promo story",
+            "details": {"dismissed": ok}}
+
+
+@action("publish.open_story_from_feed")
+def publish_open_story_from_feed(a, p):
+    """2nd story-entry method: tap our own bubble in the feed reels tray ("Add to story")
+    to open story creation directly from the feed (no create "+" / STORY tab)."""
+    ok = a.click._find_and_click(CC.feed_story_tray_add_xpaths(), timeout=5)
+    return _result(ok, "story ouverte depuis le feed", "bubble 'Add to story' introuvable",
+                   selector="reel_empty_badge")

@@ -74,6 +74,7 @@ class InstagramPostWorkflow:
         status: Optional[Callable[[str, str], None]] = None,
         package_name: Optional[str] = None,
         post_type: str = "post",
+        story_via_feed: bool = False,
     ):
         self.device = device
         self.device_id = device_id
@@ -84,6 +85,9 @@ class InstagramPostWorkflow:
         # (a video auto-routes to the reel composer); carousel adds multi-select; story
         # uses a distinct tail (no Next/caption screen, "Your story" button).
         self.post_type = (post_type or "post").lower()
+        # Story entry method: False = create "+" then STORY tab; True = tap our own
+        # bubble in the feed reels tray ("Add to story"). Both reach the same gallery.
+        self.story_via_feed = bool(story_via_feed)
         self._a = self._build_actions(device)
 
     # ------------------------------------------------------------------
@@ -205,17 +209,52 @@ class InstagramPostWorkflow:
         return None
 
     def _select_carousel(self, count: int) -> bool:
-        """Enable multi-select then tap the first `count` thumbnails."""
+        """Enable multi-select and select exactly the first `count` gallery thumbnails.
+
+        Two device-confirmed gotchas (Cartography Lab):
+          1. Enabling multi-select auto-selects the *previewed* thumbnail, which is NOT
+             always grid #1 — a stale preview from a previous session can be selected at
+             an arbitrary grid position. Relying on the grid index then mixes the wrong
+             media into the carousel and makes the preview jump between files.
+          2. Re-tapping a selected thumbnail DESELECTS it.
+        So we first clear any auto/stale selection, then tap grid[1..count] on a clean
+        slate. The grid is date-sorted descending, so positions 1..count are the freshest
+        media (= the ones just pushed). Finally we verify the live selected count."""
         self._tap(CC.multi_select_xpaths(), timeout=4)
         time.sleep(0.6)
-        selected = 0
+
+        self._clear_gallery_selection()
         for i in range(1, count + 1):
             if self._tap(CC.gallery_item_xpath(i), timeout=4):
-                selected += 1
                 time.sleep(0.4)
             else:
                 self._log("warning", f"Carousel item {i} not found")
-        return selected > 0
+
+        final = self._selected_media_count()
+        self._log("info", f"Carousel selection: {final}/{count} media selected")
+        # A carousel needs >= 2 media; below that Instagram would publish a single post.
+        return final >= 2
+
+    def _clear_gallery_selection(self, max_taps: int = 12) -> None:
+        """Deselect every currently-selected thumbnail (handles stale auto-selection).
+
+        Tapping a selected thumbnail toggles it off; we repeat until none remain so the
+        subsequent grid[1..N] taps start from a deterministic empty state."""
+        for _ in range(max_taps):
+            if self._selected_media_count() == 0:
+                return
+            if not self._tap(CC.selected_media_xpath(), timeout=2):
+                return
+            time.sleep(0.3)
+        self._log("warning", "Could not fully clear gallery selection before carousel")
+
+    def _selected_media_count(self) -> int:
+        """Number of gallery thumbnails currently selected (content-desc based)."""
+        try:
+            return len(self.device.xpath(CC.selected_media_xpath()).all())
+        except Exception as e:
+            self._log("debug", f"selected media count failed: {e}")
+            return 0
 
     def _compose_and_share(self, caption: str, hashtags: List[str]) -> dict:
         # Next-loop to the caption composer
@@ -250,11 +289,12 @@ class InstagramPostWorkflow:
         return {"success": True, "message": f"{label} published successfully", "error_type": None}
 
     def _publish_story(self) -> dict:
-        """Story flow: open creation -> STORY mode -> gallery -> select -> 'Your story'.
-
-        NOTE: not yet device-validated end to end; selectors come from the catalogue.
-        """
-        err = self._open_creation_and_gallery()
+        """Story flow: enter (create '+' STORY tab OR feed tray) -> gallery -> select ->
+        'Your story' -> dismiss the one-time story-to-story promo modal."""
+        if self.story_via_feed:
+            err = self._open_story_from_feed_tray()
+        else:
+            err = self._open_creation_and_gallery()
         if err:
             return err
         self._status("selecting", "Selecting media from gallery...")
@@ -264,11 +304,24 @@ class InstagramPostWorkflow:
         self._status("publishing", "Publishing story...")
         if not self._tap(CC.story_publish_xpaths(), timeout=6):
             return self._error("share_not_found", "'Your story' button not found")
+        # One-time "Introducing story-to-story sharing" promo can appear after publish.
+        if self._tap(CC.story_share_promo_dismiss_xpaths(), timeout=4):
+            self._log("info", "Dismissed story-to-story sharing promo")
         if not self._wait_for_publish_commit():
             return self._error("publish_not_committed", "Story publish did not confirm before timeout")
         self._status("success", "Story published successfully")
         self._log("info", "Instagram story published")
         return {"success": True, "message": "story published successfully", "error_type": None}
+
+    def _open_story_from_feed_tray(self) -> Optional[dict]:
+        """2nd story entry: tap our own bubble in the feed reels tray, then ensure the
+        gallery grid is visible. Returns an error dict on failure, else None."""
+        self._status("navigating", "Opening story from feed tray...")
+        if not self._tap(CC.feed_story_tray_add_xpaths(), timeout=6):
+            return self._error("story_tray_not_found", "Feed 'Add to story' bubble not found")
+        time.sleep(1.2)
+        self._ensure_gallery_open()
+        return None
 
     # ------------------------------------------------------------------
     # Stage helpers
