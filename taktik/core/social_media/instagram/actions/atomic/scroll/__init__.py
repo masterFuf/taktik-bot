@@ -6,18 +6,23 @@ from ...core.base_action import BaseAction
 from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
 
 from .base_scroll import BaseScrollMixin
+from .feed_scroll import FeedScrollMixin
 from .context_scroll import ContextScrollMixin
 
 
 class ScrollActions(
     BaseScrollMixin,
+    FeedScrollMixin,
     ContextScrollMixin
 ):
     """
     Facade composing all scroll mixins.
-    
+
     Sub-modules:
-    - base_scroll.py      - Generic directional scrolls, scroll-to-top/bottom, momentum, carousel, info
+    - base_scroll.py      - Generic directional scrolls + the shared humanized gesture primitives
+                            (GestureMixin: real-fling flick / 1:1 drag) via inheritance.
+    - feed_scroll.py      - Intelligent feed scroll: advance-to-next-post, framing, stop-on-metadata,
+                            reading (caption/carousel), ad/suggested skip, browse session.
     - context_scroll.py   - Context-specific scrolls (followers, comments, feed, grid) + load more + smart scroll
     """
     
