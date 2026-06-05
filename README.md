@@ -24,9 +24,9 @@
   
   [![TAKTIK Demo](https://img.youtube.com/vi/mFh0iv3Hzck/maxresdefault.jpg)](https://www.youtube.com/watch?v=mFh0iv3Hzck)
 
-  **14-Day Free Trial — All Features Included**
+  **Desktop app access details are available on the website**
 
-  <a href="https://taktik-bot.com/en/auth/signin">**Start Your Free Trial** →</a>
+  <a href="https://taktik-bot.com/en">**See current access details** →</a>
   
   <br/><br/>
   
@@ -63,7 +63,7 @@
 | **Posts & Carousels** | Publish single images or multi-image carousels (manual or AI mode) |
 | **Reels** | Upload and publish Reels (manual or AI mode) |
 | **Stories** | Post Stories to your account (manual or AI mode) |
-| **AI Image Generation** | Create images with AI: text-to-image or image-to-image (via fal.ai) |
+| **AI Image Generation** | Create images with AI: text-to-image or image-to-image through the active media provider configuration |
 | **AI Caption & Hashtags** | Auto-generate descriptions and relevant hashtags for your content |
 
 #### Direct Messages
@@ -89,10 +89,10 @@
 | **Post URL Scraping** | Scrape likers from specific posts |
 | **Export** | Export to CSV or XLSX (Desktop app) |
 
-#### Discovery & Qualification (Desktop App)
+#### Advanced Scraping & Qualification (Desktop App)
 | Feature | Description |
 |---------|-------------|
-| **Discovery Workflow** | Mix multiple scraping sources to find relevant profiles in your niche |
+| **Advanced Scraping** | Combine target, hashtag and post-based scraping data to build prospect datasets |
 | **AI Qualification** | Score and qualify discovered profiles with AI to identify best prospects |
 | **Target Search** | Search all discovered profiles with filters (username, bio, follower count, etc.) |
 
@@ -173,7 +173,7 @@
 | **Analytics Dashboard** | Detailed interaction stats by day/week/month/year for Instagram & TikTok |
 | **Session Analytics** | View session history with interaction counts and details |
 | **Scraping History** | Access all scraping sessions with CSV/XLSX export |
-| **Discovery & AI Qualification** | Find and score leads with AI analysis |
+| **Advanced Scraping & AI Qualification** | Find, filter and score leads with scraping history and AI analysis |
 | **Target Search** | Query discovered profiles with advanced filters |
 | **Network & Proxy** | Network pools, IP/data reset and per-device IP history |
 | **Device Groups** | Group and configure multiple devices |
@@ -268,44 +268,14 @@ TAKTIK works with any Android device or emulator running Android 10 or higher:
 
 ---
 
-## 💰 Pricing
+## 💰 Commercial Access
 
-TAKTIK uses a simple, flexible pricing model with **degressive rates** — the more devices you add, the less you pay per device:
+The Python engine in this repository is open source.
 
-| Devices | Price/month | Per device |
-|---------|-------------|------------|
-| 1 | **$29** | $29 |
-| 10 | **$119** | $11.90 |
-| 20 | **$199** | $9.95 |
-| 30 | **$269** | $8.97 |
-| 40 | **$329** | $8.23 |
-| 50 | **$379** | $7.58 |
-| 50+ | [Contact us](https://taktik-bot.com/en/contact) | Custom |
+The Desktop application, premium tooling and commercial access terms evolve separately from the codebase. For current availability, onboarding and commercial details, refer to the official website:
 
-<details>
-<summary><strong>Degressive pricing breakdown</strong></summary>
-
-| Range | Additional cost per device |
-|-------|---------------------------|
-| 1 device (base) | $29 |
-| 2-10 devices | +$10/device |
-| 11-20 devices | +$8/device |
-| 21-30 devices | +$7/device |
-| 31-40 devices | +$6/device |
-| 41-50 devices | +$5/device |
-
-</details>
-
-**All plans include:**
-- All Instagram & TikTok automation features
-- AI-powered tools (image generation, captions, DM responses)
-- Analytics dashboard & session history
-- Scheduler with AI generation
-- Multi-account management
-- Discord community support
-- **14-day free trial**
-
-> Use the [price calculator](https://taktik-bot.com/en/pricing) on our website to see exact pricing for your needs.
+- [taktik-bot.com](https://taktik-bot.com/en)
+- [Contact us](https://taktik-bot.com/en/contact)
 
 ---
 
@@ -341,7 +311,7 @@ Join our active community for help, tips, and feature requests:
 
 This project is licensed under **GNU General Public License v3.0** — See [LICENSE](LICENSE) for details.
 
-The Python automation engine is open source. The Desktop application is a commercial product with a free trial.
+The Python automation engine is open source. The Desktop application is a commercial product with separate access terms published on the official website.
 
 ---
 
