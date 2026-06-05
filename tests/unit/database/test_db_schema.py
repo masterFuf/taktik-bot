@@ -61,6 +61,7 @@ EXPECTED_TABLES = {
     "followers_sync",
     "scraped_profiles",
     "scraped_comments",
+    "profile_ai_enrichments",
     # TikTok
     "tiktok_accounts",
     "tiktok_profiles",
@@ -250,3 +251,54 @@ class TestRunMigrations:
         assert "discovery_interactions" not in tables
         assert "discovery_progress" not in tables
         assert "discovery_templates" not in tables
+
+    def test_profile_ai_enrichments_backfilled_from_legacy_columns(self, base_conn):
+        for column, definition in (
+            ("ai_niche", "TEXT"),
+            ("ai_score", "INTEGER"),
+            ("ai_profession", "TEXT"),
+            ("account_based_in", "TEXT"),
+        ):
+            base_conn.execute(
+                f"ALTER TABLE instagram_profiles ADD COLUMN {column} {definition}"
+            )
+
+        base_conn.execute("""
+            INSERT INTO instagram_profiles (
+                profile_id, username, ai_niche, ai_score, ai_profession,
+                account_based_in, created_at, updated_at
+            )
+            VALUES (
+                123, 'legacy_creator', 'fitness', 84, 'coach',
+                'France', '2026-01-01T00:00:00', '2026-01-02T00:00:00'
+            )
+        """)
+
+        run_migrations(base_conn)
+        run_migrations(base_conn)
+
+        row = base_conn.execute("""
+            SELECT platform, profile_id, username, provider, model,
+                   criteria_hash, ai_niche, ai_score, ai_profession,
+                   ai_account_based_in, source
+            FROM profile_ai_enrichments
+            WHERE platform = 'instagram' AND username = 'legacy_creator'
+        """).fetchone()
+
+        assert row is not None
+        assert row["profile_id"] == 123
+        assert row["provider"] == "legacy"
+        assert row["model"] == "legacy"
+        assert row["criteria_hash"] == "legacy_profile_ai"
+        assert row["ai_niche"] == "fitness"
+        assert row["ai_score"] == 84
+        assert row["ai_profession"] == "coach"
+        assert row["ai_account_based_in"] == "France"
+        assert row["source"] == "legacy_backfill"
+
+        count = base_conn.execute("""
+            SELECT COUNT(*) AS count
+            FROM profile_ai_enrichments
+            WHERE platform = 'instagram' AND username = 'legacy_creator'
+        """).fetchone()
+        assert count["count"] == 1

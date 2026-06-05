@@ -9,6 +9,7 @@ from __future__ import annotations
 import sqlite3
 
 from .schemas.gmail import create_gmail_tables
+from .schemas.enrichment import create_enrichment_tables, create_enrichment_indexes
 from .schemas.instagram import create_instagram_tables, create_instagram_indexes
 from .schemas.scraping import create_scraping_tables, create_scraping_indexes
 from .schemas.social_graph import create_social_graph_tables
@@ -22,9 +23,11 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_instagram_tables(cursor)
     create_tiktok_tables(cursor)
     create_scraping_tables(cursor)
+    create_enrichment_tables(cursor)
     create_instagram_indexes(cursor)
     create_scraping_indexes(cursor)
     create_tiktok_indexes(cursor)
+    create_enrichment_indexes(cursor)
     create_social_graph_tables(cursor)
     create_gmail_tables(cursor)
 

@@ -15,6 +15,7 @@ from .migration_steps.scraping import (
     run_scraping_session_migrations,
 )
 from .migration_steps.identifiers import _validate_sql_identifier
+from .migration_steps.enrichment import run_profile_ai_enrichment_migrations
 from .migration_steps.instagram import (
     run_instagram_profile_ai_migrations,
     run_instagram_profile_core_migrations,
@@ -36,6 +37,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_legacy_tiktok_scraped_profiles_migration(cursor)
     run_profile_following_migrations(cursor)
     run_instagram_profile_ai_migrations(cursor)
+    run_profile_ai_enrichment_migrations(cursor)
     drop_legacy_discovery_tables(cursor)
 
     conn.commit()
