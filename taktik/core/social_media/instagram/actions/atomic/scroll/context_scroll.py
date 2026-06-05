@@ -9,6 +9,7 @@ from lxml import etree
 
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
+from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from .human_gesture import sample_burst_gap
 
 # uiautomator bounds string: "[left,top][right,bottom]"
@@ -34,8 +35,8 @@ _MODE_WEIGHTS = (("flick", 0.72), ("drag", 0.13), ("skim", 0.15))
 # and any miss is pulled to _LAND_TARGET by a precise drag (below).
 _LAND_GOOD_MAX = 0.12               # incoming header y / h ≤ this ⇒ post framed at top (done)
 _LAND_TARGET = 0.05                 # where the correction drag lands the header (just under the top)
-# Carousel index "N/M"
-_CAROUSEL_INDEX_RE = re.compile(r"^(\d+)\s*/\s*(\d+)$")
+# Carousel index "N/M" (pattern from the centralized feed-scroll selectors)
+_CAROUSEL_INDEX_RE = re.compile(FS.carousel_index_pattern)
 
 # Reading-time model (content-aware dwell). A human GLANCES at an image but READS a caption,
 # and the read time scales with the real PROSE length — hashtags/mentions/URLs are not "read"
@@ -190,11 +191,8 @@ class ContextScrollMixin(BaseAction):
         has_clips_root = False
         has_profile = False   # we mis-tapped onto a profile (e.g. the post author)
         video_band: Optional[tuple] = None  # (top, bottom) of the inline playing video/reel
-        # An actual playing video/reel embedded in the feed (NOT `clips_tab`, which is just
-        # the Reels nav button and is always present).
-        _video_ids = ("video_container", "clips_video_container", "clips_media_component")
-        _profile_ids = ("row_profile_header", "profile_header_follow_button", "profile_viewpager",
-                        "profile_tabs_container")
+        # All UI signatures come from FS (FeedScrollSelectors). NB: `clips_tab` is just the Reels
+        # nav button (always present) — the actual inline video is `FS.video_ids`.
         try:
             xml = self.device._device.dump_hierarchy()
             root = etree.fromstring(xml.encode("utf-8"))
@@ -203,15 +201,15 @@ class ContextScrollMixin(BaseAction):
                 # (on the media or a label), often on a node without a resource-id → check first.
                 cd = node.get("content-desc") or ""
                 cdl = cd.lower()
-                if cd and ("sponsoris" in cdl or "sponsored" in cdl):
+                if cd and any(tok in cdl for tok in FS.ad_desc_tokens):
                     ma = _BOUNDS_RE.search(node.get("bounds", ""))
                     if ma:
                         ad_tops.append(int(ma.group(2)))
                 # Suggested/recommended unit ("Suggestion Photo de…", "Suggested reels …"): IG
                 # inserts these in the feed (often once the followed posts run out). We skip them
                 # like ads — a normal user does not engage with the recommendation tail.
-                if cd and (cdl.startswith("suggestion") or cdl.startswith("suggested")
-                           or "reels suggérés" in cdl or "suggested reels" in cdl):
+                if cd and (cdl.startswith(FS.suggested_desc_prefixes)
+                           or any(s in cdl for s in FS.suggested_desc_contains)):
                     ma = _BOUNDS_RE.search(node.get("bounds", ""))
                     if ma:
                         sugg_tops.append(int(ma.group(2)))
@@ -219,33 +217,32 @@ class ContextScrollMixin(BaseAction):
                 if not rid:
                     continue
                 short = rid.rsplit("/", 1)[-1]
-                if short == "secondary_label":
-                    lab = (node.get("text") or "").strip().lower()
-                    if lab.startswith("suggest"):       # "Suggestions" (FR) / "Suggested" (EN)
+                if short == FS.secondary_label_id:
+                    if (node.get("text") or "").strip().lower().startswith(FS.suggested_label_prefix):
                         ms = _BOUNDS_RE.search(node.get("bounds", ""))
                         if ms:
                             sugg_tops.append(int(ms.group(2)))
-                if short == "root_clips_layout":
+                if short == FS.clips_root_id:
                     has_clips_root = True
-                if short in _profile_ids:
+                if short in FS.profile_ids:
                     has_profile = True
-                if short in ("row_feed_photo_profile_name", "main_feed_action_bar", "reels_tray_container", "tab_bar"):
+                if short in FS.feed_marker_ids:
                     has_feed_marker = True
                 m = _BOUNDS_RE.search(node.get("bounds", ""))
                 if not m:
                     continue
                 top, bottom = int(m.group(2)), int(m.group(4))
-                if short == "row_feed_photo_profile_name":
+                if short == FS.header_id:
                     headers.append(top)
                     user = (node.get("text") or node.get("content-desc") or "").strip()
                     posts.append((top, user))
-                elif short == "row_feed_button_like":
+                elif short == FS.like_button_id:
                     likes.append(top)
-                elif short == "main_feed_action_bar":
+                elif short == FS.action_bar_id:
                     top_bar_bottom = bottom
-                elif short == "tab_bar":  # tab_bar_shadow has no top we care about
+                elif short == FS.tab_bar_id:  # tab_bar_shadow has no top we care about
                     tab_top = top
-                elif short in _video_ids:
+                elif short in FS.video_ids:
                     if video_band is None or (bottom - top) > (video_band[1] - video_band[0]):
                         video_band = (top, bottom)
         except Exception as e:
@@ -295,11 +292,10 @@ class ContextScrollMixin(BaseAction):
             self.logger.debug(f"📰 off-feed (surface={anchors.get('surface')}) — recovering")
             acted = (
                 # 1) the in-app top-left back arrow (a real click, not a swallowed key event)
-                self._tap_xpath('//*[@content-desc="Retour" or @content-desc="Back"'
-                                ' or @content-desc="Revenir en arrière"]')
+                self._tap_xpath(FS.back_button_xpath)
                 # 2) the Home/feed bottom tab if the nav bar is present
-                or self._tap_xpath('//*[contains(@resource-id,"feed_tab")]')
-                or self._tap_xpath('//*[@content-desc="Accueil" or @content-desc="Home"]')
+                or self._tap_xpath(FS.feed_tab_xpath)
+                or self._tap_xpath(FS.home_tab_xpath)
             )
             if not acted:
                 # 3) last resort: system back
@@ -572,11 +568,9 @@ class ContextScrollMixin(BaseAction):
         root = self._dump_root()
         if root is None:
             return False
-        LAYOUT = "com.instagram.ui.widget.textview.IgTextLayoutView"
-        labels = ("plus", "more")
         best = None  # (visible_height, (l, t, r, b))
         for node in root.iter():
-            if node.get("class", "") != LAYOUT:
+            if node.get("class", "") != FS.caption_layout_class:
                 continue
             target = None
             for child in node.iter():
@@ -584,12 +578,12 @@ class ContextScrollMixin(BaseAction):
                     continue
                 if (child.get("class") == "android.widget.Button"
                         and child.get("clickable") == "true"
-                        and (child.get("content-desc") or "").strip() in labels):
+                        and (child.get("content-desc") or "").strip() in FS.caption_expand_descs):
                     target = child
                     break
             if target is None:   # fallback: a truncated layout whose text ends with the label
                 txt = (node.get("text") or "").rstrip()
-                if not (txt.endswith(" plus") or txt.endswith(" more")):
+                if not txt.endswith(FS.caption_expand_suffixes):
                     continue
                 target = node
             mc = _BOUNDS_RE.search(target.get("bounds", ""))      # where to click (the expander)
@@ -622,7 +616,6 @@ class ContextScrollMixin(BaseAction):
         human reads it, they don't open a caption that stays below the fold. Each scroll is a slow
         drag (smooth) with a reading beat; stops once no caption extends below the fold. Returns
         the number of reading scrolls done."""
-        LAYOUT = "com.instagram.ui.widget.textview.IgTextLayoutView"
         fold = int(0.86 * self.screen_height)
         done = 0
         for _ in range(max_scrolls):
@@ -631,7 +624,7 @@ class ContextScrollMixin(BaseAction):
                 break
             below = None    # tallest caption whose bottom runs past the fold
             for node in root.iter():
-                if node.get("class", "") != LAYOUT:
+                if node.get("class", "") != FS.caption_layout_class:
                     continue
                 m = _BOUNDS_RE.search(node.get("bounds", ""))
                 if not m:
@@ -655,8 +648,8 @@ class ContextScrollMixin(BaseAction):
         index text (`carousel_index_indicator_text_view`); swipe horizontally INSIDE the media band
         (vertical centre, |dy|≈0, travel ~60% width → pages the slide, never opens the post, never
         reads as a story-swipe), stop at the last slide. Returns the number of slides advanced."""
-        VIEWPAGER, MEDIA, INDEX = ("carousel_viewpager", "carousel_media_group",
-                                   "carousel_index_indicator_text_view")
+        VIEWPAGER, MEDIA, INDEX = (FS.carousel_viewpager_id, FS.carousel_media_group_id,
+                                   FS.carousel_index_id)
         swiped = 0
         for _ in range(2):   # at most 2 slides
             root = self._dump_root()
@@ -712,10 +705,9 @@ class ContextScrollMixin(BaseAction):
         root = root if root is not None else self._dump_root()
         if root is None:
             return 0
-        LAYOUT = "com.instagram.ui.widget.textview.IgTextLayoutView"
         best_text, best_h = "", -1
         for node in root.iter():
-            if node.get("class", "") != LAYOUT:
+            if node.get("class", "") != FS.caption_layout_class:
                 continue
             t = node.get("text") or ""
             if not t:
