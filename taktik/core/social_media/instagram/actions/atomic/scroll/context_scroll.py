@@ -10,7 +10,8 @@ from lxml import etree
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
-from .human_gesture import sample_burst_gap
+from taktik.core.shared.behavior.gesture import sample_burst_gap
+from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 
 # uiautomator bounds string: "[left,top][right,bottom]"
 _BOUNDS_RE = re.compile(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
@@ -38,34 +39,8 @@ _LAND_TARGET = 0.05                 # where the correction drag lands the header
 # Carousel index "N/M" (pattern from the centralized feed-scroll selectors)
 _CAROUSEL_INDEX_RE = re.compile(FS.carousel_index_pattern)
 
-# Reading-time model (content-aware dwell). A human GLANCES at an image but READS a caption,
-# and the read time scales with the real PROSE length — hashtags/mentions/URLs are not "read"
-# and must not inflate the count. Tunable seeds.
-_GLANCE_S = (1.2, 3.5)       # look at the media (image/video) — not reading
-_READ_CPS = (13.0, 22.0)     # chars/second reading speed (skim-ish); sampled per post
-_READ_CAP_S = 16.0           # nobody fully reads a wall of text — they skim
-_MIN_DWELL_S = 1.0
-_LINGER_PROB = 0.12          # occasionally zone out / really into it
-_LINGER_S = (3.0, 10.0)
-_URL_RE = re.compile(r"https?://\S+")
-_TAG_RE = re.compile(r"[#@]\S+")
-_EXPAND_LABEL_RE = re.compile(r"\b(?:plus|more|moins|less)\s*$", re.IGNORECASE)
-
-
-def _caption_prose_chars(text: str) -> int:
-    """Length of the REAL prose in a feed caption: drop the leading username token, strip URLs,
-    hashtags and @mentions (a wall of `#tags` is not reading), and the trailing expand/collapse
-    label ('plus'/'more'/'moins'/'less'). Returns the remaining character count — what a human
-    actually reads, used to size the reading dwell."""
-    if not text:
-        return 0
-    body = text.split(" ", 1)
-    body = body[1] if len(body) > 1 else ""     # everything after the username
-    body = _URL_RE.sub(" ", body)
-    body = _TAG_RE.sub(" ", body)
-    body = _EXPAND_LABEL_RE.sub("", body.strip())
-    body = re.sub(r"\s+", " ", body).strip()
-    return len(body)
+# The content-aware reading-time model (glance vs read-by-prose-length) lives in the shared
+# behavior toolkit (`content_dwell` / `caption_prose_chars`), reusable cross-platform.
 
 
 class ContextScrollMixin(BaseAction):
@@ -720,21 +695,7 @@ class ContextScrollMixin(BaseAction):
                 continue
             if (bot - top) > best_h:
                 best_h, best_text = bot - top, t
-        return _caption_prose_chars(best_text)
-
-    def _content_dwell(self, prose_len: int) -> float:
-        """How long a human dwells on a post, FROM ITS CONTENT — an image is glanced at (~1-3s,
-        "I like it"), a caption is READ in proportion to its PROSE length (hashtags excluded), and
-        once in a while they linger. This replaces a content-blind constant: no more 14s on a plain
-        image. (A future vision/`post_analysis` layer can override this via `human_reading_pause`.)"""
-        glance = random.uniform(*_GLANCE_S)
-        reading = 0.0
-        if prose_len >= 12:     # below ~12 chars there's nothing to "read"
-            reading = min(prose_len / random.uniform(*_READ_CPS), _READ_CAP_S)
-        total = glance + reading
-        if random.random() < _LINGER_PROB:
-            total += random.uniform(*_LINGER_S)
-        return total
+        return caption_prose_chars(best_text)
 
     def human_reading_pause(self, dwell_s: Optional[float] = None) -> float:
         """One human reading pause on the current post. First the intelligent reading — browse a
@@ -754,9 +715,9 @@ class ContextScrollMixin(BaseAction):
         except Exception as e:
             self.logger.debug(f"caption expand skipped: {e}")
         prose = self._caption_prose_length()                 # full text now (caption expanded)
-        target = dwell_s if dwell_s is not None else self._content_dwell(prose)
+        target = dwell_s if dwell_s is not None else content_dwell(prose)
         spent = time.monotonic() - start                     # carousel/caption already took time
-        remain = max(_MIN_DWELL_S, target - spent)
+        remain = max(MIN_DWELL_S, target - spent)
         time.sleep(remain)
         total = spent + remain
         self.logger.debug(f"⏲️ reading: prose={prose}ch target={target:.1f}s active={spent:.1f}s "

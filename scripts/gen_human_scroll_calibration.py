@@ -3,7 +3,7 @@
 
 Reads the JSONL session recordings (real swipes captured from associates browsing
 Instagram for days) and emits a normalised calibration consumed by the human gesture
-engine (`actions/atomic/scroll/human_gesture.py`).
+engine (`taktik/core/shared/behavior/gesture.py`).
 
 Why normalised: the recording device(s) differ in resolution from target devices, so
 every gesture is stored as ratios of screen size (nx,ny = start point / (W,H); ndy,ndx
@@ -17,7 +17,7 @@ Usage:
 
 Defaults:
     SESSIONS_DIR = ../human-session   (relative to repo root)
-    OUT_JSON     = taktik/core/social_media/instagram/actions/atomic/scroll/human_scroll_calibration.json
+    OUT_JSON     = taktik/core/shared/behavior/human_scroll_calibration.json
 """
 
 from __future__ import annotations
@@ -117,8 +117,7 @@ def main() -> int:
     repo_root = os.path.dirname(here)  # bot/
     sessions_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo_root, "..", "human-session")
     out_json = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
-        repo_root, "taktik", "core", "social_media", "instagram", "actions", "atomic", "scroll",
-        "human_scroll_calibration.json",
+        repo_root, "taktik", "core", "shared", "behavior", "human_scroll_calibration.json",
     )
     if not os.path.isdir(sessions_dir):
         print(f"sessions dir not found: {sessions_dir}", file=sys.stderr)
