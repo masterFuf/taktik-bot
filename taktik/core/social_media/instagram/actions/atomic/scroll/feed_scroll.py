@@ -37,7 +37,9 @@ _DRAG_VEL_PXS = (1500.0, 2200.0)    # drag velocity px/s (slow → 1:1 track, no
 # Flick is the workhorse: it coasts (real OS fling), matches the real human data (which has NO
 # long drags — humans flick), and a FAST fling escapes a feed video's touch region. The slow
 # `drag` is kept only as a rare variant; on a full-screen video it can be captured by the player.
-_MODE_WEIGHTS = (("flick", 0.72), ("drag", 0.13), ("skim", 0.15))
+# `skim` (passe plusieurs posts d'un coup) est RARE : combiné au skip pub/suggestion il faisait
+# défiler beaucoup trop de posts (signature non-humaine).
+_MODE_WEIGHTS = (("flick", 0.82), ("drag", 0.13), ("skim", 0.05))
 # A post is "framed" only when its header sits in the very top of the screen — otherwise the
 # previous post still fills the top and we stopped "in the middle of a post".
 _LAND_GOOD_MAX = 0.12               # incoming header y / h ≤ this ⇒ post framed at top (done)
@@ -271,7 +273,7 @@ class FeedScrollMixin:
         return done
 
     def scroll_feed_to_next_post(self, max_gestures: int = 3, skip_ads: bool = True,
-                                 skip_suggested: bool = True, max_ad_skips: int = 3) -> Dict[str, Any]:
+                                 skip_suggested: bool = True, max_ad_skips: int = 2) -> Dict[str, Any]:
         """ONE decisive human gesture that reveals the next post — never a burst of mini-flicks.
 
         Why this shape (proven by measuring real Lab dumps + a multi-agent analysis, iteration
@@ -313,7 +315,7 @@ class FeedScrollMixin:
                 gestures = 1
                 settle = random.uniform(0.15, 0.30)
             elif mode == "skim":
-                n = random.choices((2, 3), weights=(60, 40))[0]
+                n = 2   # a small skim (2 posts) — kept rare; never a long burst
                 for i in range(n):
                     self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
                                        vel_range=_FLICK_VEL_PXS)
@@ -334,30 +336,34 @@ class FeedScrollMixin:
                 anchors, used = self._recover_to_feed(anchors)
                 dumps += used
 
-            # ADVANCE TO A REAL, NEW POST. Keep flicking past anything we do NOT engage with — the
-            # moment we recognise it, never framing/reading/touching it:
-            #  - Sponsored ADS, and SUGGESTED / recommended units (incl. suggested reels) → a normal
-            #    user does not engage with the recommendation tail of the feed.
-            #  - A gesture that did NOT reach a new post (a slow drag captured by a feed video, a
-            #    no-op) → "stuck"; a flick escapes the video's touch region and moves on.
-            # Every retry is a FLICK (a fast fling escapes a video and never taps a reel/ad/tile).
+            # ADVANCE TO A REAL, NEW POST — but only a HUMAN number of skips. We flick past anything
+            # we don't engage with (Sponsored ADS, SUGGESTED/recommended units) or a gesture that
+            # didn't advance (video-stuck). BUT a human does NOT frantically scroll through a whole
+            # block of recommendations: once the followed feed is exhausted, the tail is all ads +
+            # suggestions, and a human STOPS (caught up). So we skip at most `max_ad_skips` junk
+            # units; beyond that we set `reached_tail` and stop here (the caller ends the session).
             ref_user = getattr(self, "_last_top_username", None)
             ads_skipped = sugg_skipped = stuck = 0
-            for _ in range(max_ad_skips + 3):
-                if not anchors["on_feed"]:
-                    break
+            reached_tail = False
+            while anchors["on_feed"]:
                 cur_user = anchors["posts"][0][1] if anchors.get("posts") else None
                 is_ad = skip_ads and self._dominant_is_ad(anchors)
                 is_sugg = skip_suggested and self._dominant_is_suggested(anchors)
                 reached_new = cur_user is not None and cur_user != ref_user
                 if not is_ad and not is_sugg and (reached_new or ref_user is None):
                     break                              # a real, NEW post we want to read → done
-                if is_ad:
-                    ads_skipped += 1
-                elif is_sugg:
-                    sugg_skipped += 1
-                else:
-                    stuck += 1                         # real post but didn't advance (e.g. video-stuck)
+                if is_ad or is_sugg:
+                    if ads_skipped + sugg_skipped >= max_ad_skips:
+                        reached_tail = True            # block of recommendations → end of fresh feed
+                        break
+                    if is_ad:
+                        ads_skipped += 1
+                    else:
+                        sugg_skipped += 1
+                else:                                  # didn't advance (video-stuck) — retry a flick
+                    if stuck >= 2:
+                        break
+                    stuck += 1
                 self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
                                    vel_range=_FLICK_VEL_PXS)
                 time.sleep(random.uniform(0.45, 0.65))
@@ -420,18 +426,22 @@ class FeedScrollMixin:
                             and new_user != getattr(self, "_last_top_username", None))
             if on_feed:
                 self._last_top_username = new_user
+            # reached_tail = the followed feed is exhausted (we hit a block of recommendations and
+            # stopped instead of frantically scrolling through it). Also true if we end on ad/sugg.
+            reached_tail = reached_tail or (on_feed and skippable)
             # "Post shown in full" = a real (non ad/suggested) post whose engagement bar is visible.
             full_post = bool(on_feed and meta_vis and not skippable)
             self.logger.debug(
                 f"📰 feed scroll: mode={mode} flicks={gestures} stuck_retry={stuck} reveal={reveal} "
-                f"ads_skipped={ads_skipped} sugg_skipped={sugg_skipped} land={land} corrected={corrected} "
-                f"full_post={full_post} meta={meta_vis} ad={is_ad} sugg={is_sugg} advanced={advanced} "
-                f"on_feed={on_feed} surface={anchors.get('surface')} dumps={dumps}")
+                f"ads_skipped={ads_skipped} sugg_skipped={sugg_skipped} reached_tail={reached_tail} land={land} "
+                f"corrected={corrected} full_post={full_post} meta={meta_vis} ad={is_ad} sugg={is_sugg} "
+                f"advanced={advanced} on_feed={on_feed} surface={anchors.get('surface')} dumps={dumps}")
             return {"advanced": advanced, "on_feed": on_feed, "on_reel": on_reel, "mode": mode,
                     "land_ratio": round(land, 3) if land is not None else None,
                     "corrected": corrected, "reveal": reveal, "stuck_retry": stuck,
                     "full_post": full_post, "metadata_visible": meta_vis, "is_ad": is_ad,
-                    "is_suggested": is_sugg, "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
+                    "is_suggested": is_sugg, "reached_tail": reached_tail,
+                    "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
                     "like_ratio": round(like_ratio, 3) if like_ratio is not None else None,
                     "surface": anchors.get("surface"), "gestures": gestures, "dumps": dumps}
         except Exception as e:
@@ -635,7 +645,7 @@ class FeedScrollMixin:
     # ── SESSION: a human browsing rhythm over N read posts ─────────────────────────
 
     def browse_feed(self, steps: int = 6, skip_ads: bool = True,
-                    skip_prob: float = 0.18, read_first: bool = True,
+                    skip_prob: float = 0.12, read_first: bool = True,
                     skip_suggested: bool = True) -> Dict[str, Any]:
         """A human feed-browsing session over `steps` READ posts.
 
@@ -671,7 +681,8 @@ class FeedScrollMixin:
                 done += 1
 
         guard = 0
-        max_iters = max(1, steps) * 6 + 12   # backstop against a feed that is all ads/suggestions
+        reached_tail = False
+        max_iters = max(1, steps) * 3 + 6
         while done < max(1, steps) and guard < max_iters:
             guard += 1
             res = self.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_suggested)
@@ -680,24 +691,26 @@ class FeedScrollMixin:
             if not res.get("on_feed"):
                 off_feed = True
                 break
-            if res.get("is_ad") or res.get("is_suggested"):  # cap hit, still ad/suggested → move on
-                continue
-            if random.random() < skip_prob:          # a human skim past 1-2 posts (no reading)
-                for _ in range(random.choice((1, 2))):
-                    r2 = self.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_suggested)
-                    ads_skipped += r2.get("ads_skipped", 0)
-                    sugg_skipped += r2.get("suggested_skipped", 0)
-                    if not r2.get("on_feed"):
-                        off_feed = True
-                        break
-                    if not r2.get("is_ad") and not r2.get("is_suggested"):
-                        skipped_posts += 1
-                if off_feed:
+            if res.get("reached_tail"):   # followed feed exhausted (block of recommendations) → STOP
+                reached_tail = True        # a human who has seen everything stops; no frantic scroll
+                break
+            if random.random() < skip_prob:          # a human occasionally skips ONE post (no reading)
+                r2 = self.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_suggested)
+                ads_skipped += r2.get("ads_skipped", 0)
+                sugg_skipped += r2.get("suggested_skipped", 0)
+                if not r2.get("on_feed"):
+                    off_feed = True
                     break
+                if r2.get("reached_tail"):
+                    reached_tail = True
+                    break
+                if not r2.get("is_ad") and not r2.get("is_suggested"):
+                    skipped_posts += 1
             pauses.append(round(self.human_reading_pause(), 1))   # read THIS post
             done += 1
-        self.logger.debug(f"📰 browse_feed: read={done} off_feed={off_feed} ads_skipped={ads_skipped} "
+        self.logger.debug(f"📰 browse_feed: read={done} off_feed={off_feed} reached_tail={reached_tail} "
+                          f"ads_skipped={ads_skipped} "
                           f"sugg_skipped={sugg_skipped} skipped={skipped_posts} pauses={pauses}")
-        return {"steps": done, "off_feed": off_feed, "pauses_s": pauses,
+        return {"steps": done, "off_feed": off_feed, "reached_tail": reached_tail, "pauses_s": pauses,
                 "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
                 "skipped_posts": skipped_posts}

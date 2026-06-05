@@ -40,8 +40,7 @@ def scroll_feed_next(a, p):
     tail = (f"land={land}" + (" +1 correction" if corr else "") + (f" +{rev} reveal" if rev else "")
             + (f" +{stuck} retry(bloque)" if stuck else "")
             + (f" ({pub} pub skip)" if pub else "") + (f" ({sug} suggest skip)" if sug else ""))
-    badge = ("PUB sponsorisee (non skip)" if res.get("is_ad")
-             else "SUGGESTION (non skip)" if res.get("is_suggested")
+    badge = ("FEED TAIL (que des recommandations -> stop)" if res.get("reached_tail")
              else "post COMPLET (meta visibles)" if full
              else "header cadre, meta sous le pli" if meta is False else "cadre")
     if res.get("on_reel"):
@@ -111,6 +110,7 @@ def scroll_browse(a, p):
     suffix = (" — " + ", ".join(extra)) if extra else ""
     return {"success": not res.get("off_feed"),
             "message": (f"browse {res.get('steps')} posts lus, lectures {pauses}s{suffix}"
+                        + (" — feed suivi epuise (stop)" if res.get("reached_tail") else "")
                         + (" — sorti du feed" if res.get("off_feed") else "")),
             "details": res}
 
