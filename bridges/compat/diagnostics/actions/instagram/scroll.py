@@ -19,7 +19,7 @@ def scroll_down(a, p):
 
 @action("scroll.feed_next")
 def scroll_feed_next(a, p):
-    """ONE decisive human gesture to reveal the next post (flick / continuous drag / rare skim),
+    """ONE decisive human gesture to reveal the next post (flick / continuous drag),
     real OS fling coast — not a burst of mini-scrolls. One dump measures the landing; one nudge
     if the post lands low. Surface-safe (never taps a reel/link/story); recovers if off-feed."""
     skip_ads = str(p.get("skip_ads", "1")).lower() not in ("0", "false", "no")

@@ -20,7 +20,6 @@ from typing import Optional, Dict, Any, List
 from lxml import etree
 
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
-from taktik.core.shared.behavior.gesture import sample_burst_gap
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 
 # uiautomator bounds string: "[left,top][right,bottom]"
@@ -37,9 +36,11 @@ _DRAG_VEL_PXS = (1500.0, 2200.0)    # drag velocity px/s (slow → 1:1 track, no
 # Flick is the workhorse: it coasts (real OS fling), matches the real human data (which has NO
 # long drags — humans flick), and a FAST fling escapes a feed video's touch region. The slow
 # `drag` is kept only as a rare variant; on a full-screen video it can be captured by the player.
-# `skim` (passe plusieurs posts d'un coup) est RARE : combiné au skip pub/suggestion il faisait
-# défiler beaucoup trop de posts (signature non-humaine).
-_MODE_WEIGHTS = (("flick", 0.82), ("drag", 0.13), ("skim", 0.05))
+# A geste-level `skim` (2 flicks at once) was REMOVED (#27): it overshot organic posts into the
+# ad/suggestion block and counted as a `filler_run`, falsely tripping `reached_tail` — and it is
+# redundant with `browse_feed.skip_prob`, which skips a post by advancing to a REAL one (no junk
+# overshoot). The gesture is now always ONE decisive advance.
+_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
 # A post is "framed" only when its header sits in the very top of the screen — otherwise the
 # previous post still fills the top and we stopped "in the middle of a post".
 _LAND_GOOD_MAX = 0.12               # incoming header y / h ≤ this ⇒ post framed at top (done)
@@ -289,13 +290,14 @@ class FeedScrollMixin:
         exactly the "petits à-coups / 3 mini-scrolls per post" the user rejected.
 
         A human does ONE of two things to bring the next post up, and we reproduce both:
-          - **flick** (default ~55%): one quick STRONG flick whose momentum coasts ~one post
+          - **flick** (default ~85%): one quick STRONG flick whose momentum coasts ~one post
             (`_strong_flick` → straight high-velocity `raw.swipe` → real OS fling, coast ~3x).
-          - **drag** (~35%): keep the finger down and push continuously (`_long_drag` → slow
+          - **drag** (~15%): keep the finger down and push continuously (`_long_drag` → slow
             `raw.drag`, 1:1 track, lands where the finger stops).
-          - **skim** (~10%): the genuine "scroll past several posts" burst — 2-3 strong flicks
-            spaced by the real inter-flick gap (so each coast dies, no catch). Distinct from
-            reveal-one-post; this is the only branch that chains gestures.
+        The gesture is always ONE decisive advance to the next post — a multi-flick "skim" was
+        removed (#27) because it overshot organic posts into the ad/suggestion block and falsely
+        tripped feed-exhaustion. Skipping a post WITHOUT reading is `browse_feed.skip_prob`, which
+        advances to a REAL next post (no junk overshoot).
 
         Then ONE settle + dump measures where the incoming post's header landed (`land_ratio`).
         If it is not framed at the very top (the previous post still fills the top = "stopped in
@@ -319,15 +321,6 @@ class FeedScrollMixin:
                                 vel_range=_DRAG_VEL_PXS)
                 gestures = 1
                 settle = random.uniform(0.15, 0.30)
-            elif mode == "skim":
-                n = 2   # a small skim (2 posts) — kept rare; never a long burst
-                for i in range(n):
-                    self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
-                                       vel_range=_FLICK_VEL_PXS)
-                    gestures += 1
-                    if i < n - 1:
-                        time.sleep(sample_burst_gap())   # let each coast die → no catch
-                settle = random.uniform(0.45, 0.70)
             else:  # flick (default)
                 self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
                                    vel_range=_FLICK_VEL_PXS)
