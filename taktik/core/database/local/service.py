@@ -1356,19 +1356,21 @@ class LocalDatabaseService:
         """
         try:
             conn = self._get_connection()
+            ai = self._profile_ai_read_model(conn, "p")
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     pf.profile_username,
                     pf.profile_id,
                     pf.discovered_at,
-                    p.ai_niche          AS niche_category,
-                    p.ai_specific_niche AS niche,
-                    p.location_city     AS cities,
-                    p.ai_profession     AS profession
+                    {ai["niche"]} AS niche_category,
+                    {ai["sub_niche"]} AS niche,
+                    {ai["city"]} AS cities,
+                    {ai["profession"]} AS profession
                 FROM profile_following pf
                 LEFT JOIN instagram_profiles p
                     ON p.profile_id = pf.profile_id
+                {ai["join"]}
                 WHERE pf.following_username = ?
                 ORDER BY pf.discovered_at DESC
                 LIMIT ?
@@ -1393,19 +1395,21 @@ class LocalDatabaseService:
         """
         try:
             conn = self._get_connection()
+            ai = self._profile_ai_read_model(conn, "p")
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     pf.following_username,
                     pf.following_id,
                     pf.discovered_at,
-                    p.ai_niche          AS niche_category,
-                    p.ai_specific_niche AS niche,
-                    p.location_city     AS cities,
-                    p.ai_profession     AS profession
+                    {ai["niche"]} AS niche_category,
+                    {ai["sub_niche"]} AS niche,
+                    {ai["city"]} AS cities,
+                    {ai["profession"]} AS profession
                 FROM profile_following pf
                 LEFT JOIN instagram_profiles p
                     ON p.profile_id = pf.following_id
+                {ai["join"]}
                 WHERE pf.profile_username = ?
                 ORDER BY pf.discovered_at ASC
                 """,
@@ -1415,6 +1419,48 @@ class LocalDatabaseService:
         except Exception as e:
             logger.debug(f"get_following_with_enrichment failed for @{profile_username}: {e}")
             return []
+
+    def _profile_ai_read_model(self, conn: sqlite3.Connection, profile_alias: str) -> Dict[str, str]:
+        """Build profile AI expressions compatible with enrichment and legacy schemas."""
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(instagram_profiles)").fetchall()
+        }
+
+        def column(name: str) -> str:
+            return f"{profile_alias}.{name}" if name in columns else "NULL"
+
+        legacy = {
+            "niche": column("ai_niche"),
+            "sub_niche": column("ai_specific_niche"),
+            "profession": column("ai_profession"),
+            "city": column("location_city"),
+        }
+
+        has_enrichment = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = 'profile_ai_enrichments'"
+        ).fetchone() is not None
+
+        if not has_enrichment:
+            return {"join": "", **legacy}
+
+        return {
+            "join": f"""
+                LEFT JOIN profile_ai_enrichments pae
+                    ON pae.enrichment_id = (
+                        SELECT latest_pae.enrichment_id
+                        FROM profile_ai_enrichments latest_pae
+                        WHERE latest_pae.platform = 'instagram'
+                        AND latest_pae.profile_id = {profile_alias}.profile_id
+                        ORDER BY datetime(latest_pae.updated_at) DESC, latest_pae.enrichment_id DESC
+                        LIMIT 1
+                    )
+            """,
+            "niche": f"COALESCE(pae.ai_niche, {legacy['niche']})",
+            "sub_niche": f"COALESCE(pae.ai_specific_niche, {legacy['sub_niche']})",
+            "profession": f"COALESCE(pae.ai_profession, {legacy['profession']})",
+            "city": f"COALESCE(pae.location_city, {legacy['city']})",
+        }
 
 
 # Singleton instance

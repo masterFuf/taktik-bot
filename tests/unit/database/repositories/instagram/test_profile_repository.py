@@ -52,3 +52,57 @@ def test_get_known_usernames_returns_limited_set(conn):
     assert repo.get_known_usernames(limit=2) <= {"a", "b", "c"}
     assert len(repo.get_known_usernames(limit=2)) == 2
     assert repo.get_known_usernames(days=7, limit=10) == {"a", "b", "c"}
+
+
+def test_profile_ai_enrichment_overrides_legacy_profile_fields(conn):
+    repo = ProfileRepository(conn)
+    profile_id, _ = repo.get_or_create(
+        "enriched_creator",
+        full_name="Legacy Name",
+        biography="Bio",
+    )
+
+    for column, definition in (
+        ("ai_niche", "TEXT"),
+        ("ai_specific_niche", "TEXT"),
+        ("ai_profession", "TEXT"),
+        ("ai_profession_tags", "TEXT"),
+    ):
+        conn.execute(f"ALTER TABLE instagram_profiles ADD COLUMN {column} {definition}")
+
+    conn.execute(
+        """
+        UPDATE instagram_profiles
+        SET ai_niche = 'legacy_niche',
+            ai_specific_niche = 'legacy_sub',
+            ai_profession = 'legacy_profession',
+            ai_profession_tags = '["legacy"]',
+            location_city = 'Legacy City'
+        WHERE profile_id = ?
+        """,
+        (profile_id,),
+    )
+    conn.execute(
+        """
+        INSERT INTO profile_ai_enrichments (
+            platform, profile_id, username, provider, model, criteria_hash,
+            ai_niche, ai_specific_niche, ai_profession, ai_profession_tags,
+            location_city, source, updated_at
+        ) VALUES (
+            'instagram', ?, 'enriched_creator', 'test', 'test-model', 'criteria',
+            'enriched_niche', 'enriched_sub', 'enriched_profession',
+            '["enriched"]', 'Enriched City', 'test', '2026-06-06T12:00:00'
+        )
+        """,
+        (profile_id,),
+    )
+    conn.commit()
+
+    rows = repo.find_profiles_with_latest_qualification(["enriched_creator"])
+
+    assert len(rows) == 1
+    assert rows[0]["niche_category"] == "enriched_niche"
+    assert rows[0]["niche"] == "enriched_sub"
+    assert rows[0]["profession"] == "enriched_profession"
+    assert rows[0]["profession_tags"] == '["enriched"]'
+    assert rows[0]["cities"] == "Enriched City"

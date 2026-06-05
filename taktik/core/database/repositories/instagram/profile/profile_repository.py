@@ -104,6 +104,7 @@ class ProfileRepository(BaseRepository):
         if not usernames:
             return []
 
+        ai = self._profile_ai_read_model("p")
         placeholders = ','.join('?' * len(usernames))
         rows = self.query(
             f"""
@@ -112,14 +113,15 @@ class ProfileRepository(BaseRepository):
                 p.full_name,
                 p.biography,
                 p.is_business,
-                p.ai_niche          AS niche_category,
-                p.ai_specific_niche AS niche,
-                p.ai_profession     AS profession,
-                p.ai_profession_tags AS profession_tags,
-                p.location_city     AS cities,
+                {ai["niche"]} AS niche_category,
+                {ai["sub_niche"]} AS niche,
+                {ai["profession"]} AS profession,
+                {ai["profession_tags"]} AS profession_tags,
+                {ai["city"]} AS cities,
                 sp.ai_analysis,
                 sp.ai_qualified
             FROM instagram_profiles p
+            {ai["join"]}
             LEFT JOIN (
                 SELECT profile_id,
                        MAX(scraped_at) AS latest,
@@ -134,6 +136,50 @@ class ProfileRepository(BaseRepository):
             tuple(usernames),
         )
         return [dict(row) for row in rows]
+
+    def _profile_ai_read_model(self, profile_alias: str) -> Dict[str, str]:
+        """Build profile AI expressions that support enrichment and legacy schemas."""
+        columns = {
+            row["name"]
+            for row in self.query("PRAGMA table_info(instagram_profiles)")
+        }
+
+        def column(name: str) -> str:
+            return f"{profile_alias}.{name}" if name in columns else "NULL"
+
+        legacy = {
+            "niche": column("ai_niche"),
+            "sub_niche": column("ai_specific_niche"),
+            "profession": column("ai_profession"),
+            "profession_tags": column("ai_profession_tags"),
+            "city": column("location_city"),
+        }
+
+        has_enrichment = self.query_one(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = 'profile_ai_enrichments'"
+        ) is not None
+
+        if not has_enrichment:
+            return {"join": "", **legacy}
+
+        return {
+            "join": f"""
+            LEFT JOIN profile_ai_enrichments pae
+                ON pae.enrichment_id = (
+                    SELECT latest_pae.enrichment_id
+                    FROM profile_ai_enrichments latest_pae
+                    WHERE latest_pae.platform = 'instagram'
+                    AND latest_pae.profile_id = {profile_alias}.profile_id
+                    ORDER BY datetime(latest_pae.updated_at) DESC, latest_pae.enrichment_id DESC
+                    LIMIT 1
+                )
+            """,
+            "niche": f"COALESCE(pae.ai_niche, {legacy['niche']})",
+            "sub_niche": f"COALESCE(pae.ai_specific_niche, {legacy['sub_niche']})",
+            "profession": f"COALESCE(pae.ai_profession, {legacy['profession']})",
+            "profession_tags": f"COALESCE(pae.ai_profession_tags, {legacy['profession_tags']})",
+            "city": f"COALESCE(pae.location_city, {legacy['city']})",
+        }
 
     def record_stats_history(self, profile_id: int, profile_data: Dict[str, Any]) -> bool:
         """Record a profile_stats_history snapshot for enriched profile data."""
