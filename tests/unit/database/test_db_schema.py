@@ -224,3 +224,29 @@ class TestRunMigrations:
         """).fetchone()
         assert link["scraping_id"] == 42
         assert link["username"] == "creator_legacy"
+
+    def test_legacy_discovery_tables_are_dropped(self, base_conn):
+        for table in (
+            "discovery_campaigns",
+            "discovered_profiles",
+            "discovery_interactions",
+            "discovery_progress",
+            "discovery_templates",
+        ):
+            base_conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")
+
+        run_migrations(base_conn)
+        run_migrations(base_conn)
+
+        tables = {
+            row["name"]
+            for row in base_conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+
+        assert "discovery_campaigns" not in tables
+        assert "discovered_profiles" not in tables
+        assert "discovery_interactions" not in tables
+        assert "discovery_progress" not in tables
+        assert "discovery_templates" not in tables
