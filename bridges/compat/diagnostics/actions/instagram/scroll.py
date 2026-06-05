@@ -40,7 +40,7 @@ def scroll_feed_next(a, p):
     tail = (f"land={land}" + (" +1 correction" if corr else "") + (f" +{rev} reveal" if rev else "")
             + (f" +{stuck} retry(bloque)" if stuck else "")
             + (f" ({pub} pub skip)" if pub else "") + (f" ({sug} suggest skip)" if sug else ""))
-    badge = ("FEED TAIL (que des recommandations -> stop)" if res.get("reached_tail")
+    badge = ("BLOC pub/suggestions (skip plafonne, browse decidera la queue)" if res.get("filler_run")
              else "post COMPLET (meta visibles)" if full
              else "header cadre, meta sous le pli" if meta is False else "cadre")
     if res.get("on_reel"):

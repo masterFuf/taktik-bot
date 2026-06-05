@@ -44,6 +44,11 @@ _MODE_WEIGHTS = (("flick", 0.82), ("drag", 0.13), ("skim", 0.05))
 # previous post still fills the top and we stopped "in the middle of a post".
 _LAND_GOOD_MAX = 0.12               # incoming header y / h ≤ this ⇒ post framed at top (done)
 _LAND_TARGET = 0.05                 # where the correction drag lands the header (just under the top)
+# Session exhaustion: the followed feed is declared spent only after this many CONSECUTIVE gestures
+# that saw nothing but ads/suggestions. One filler run (a normal 2-3 ad block between real posts) is
+# NOT the tail — at 2 runs in a row we have glided past ~4-6 junk units with no organic post, which a
+# human reads as "you're all caught up" and stops. A real post anywhere in between resets the count.
+_TAIL_FILLER_RUNS = 2
 # Carousel index "N/M" (pattern from the centralized feed-scroll selectors)
 _CAROUSEL_INDEX_RE = re.compile(FS.carousel_index_pattern)
 
@@ -339,12 +344,15 @@ class FeedScrollMixin:
             # ADVANCE TO A REAL, NEW POST — but only a HUMAN number of skips. We flick past anything
             # we don't engage with (Sponsored ADS, SUGGESTED/recommended units) or a gesture that
             # didn't advance (video-stuck). BUT a human does NOT frantically scroll through a whole
-            # block of recommendations: once the followed feed is exhausted, the tail is all ads +
-            # suggestions, and a human STOPS (caught up). So we skip at most `max_ad_skips` junk
-            # units; beyond that we set `reached_tail` and stop here (the caller ends the session).
+            # block of recommendations: a run of 2-3 ads/suggestions between two real posts is normal
+            # and we glide past it, but we do NOT mitraille through a wall of them. So we skip at most
+            # `max_ad_skips` junk units per gesture; beyond that we stop ON the junk and flag
+            # `filler_run` (this single gesture only saw filler). Whether the followed feed is truly
+            # EXHAUSTED is a session-level call (`browse_feed` counts consecutive filler runs) — a
+            # single block of ads must not end the session, there may be a real post right behind it.
             ref_user = getattr(self, "_last_top_username", None)
             ads_skipped = sugg_skipped = stuck = 0
-            reached_tail = False
+            filler_run = False
             while anchors["on_feed"]:
                 cur_user = anchors["posts"][0][1] if anchors.get("posts") else None
                 is_ad = skip_ads and self._dominant_is_ad(anchors)
@@ -354,7 +362,7 @@ class FeedScrollMixin:
                     break                              # a real, NEW post we want to read → done
                 if is_ad or is_sugg:
                     if ads_skipped + sugg_skipped >= max_ad_skips:
-                        reached_tail = True            # block of recommendations → end of fresh feed
+                        filler_run = True              # capped on a block of ads/suggestions
                         break
                     if is_ad:
                         ads_skipped += 1
@@ -426,21 +434,22 @@ class FeedScrollMixin:
                             and new_user != getattr(self, "_last_top_username", None))
             if on_feed:
                 self._last_top_username = new_user
-            # reached_tail = the followed feed is exhausted (we hit a block of recommendations and
-            # stopped instead of frantically scrolling through it). Also true if we end on ad/sugg.
-            reached_tail = reached_tail or (on_feed and skippable)
+            # filler_run = this gesture only ever saw filler — we hit a block of ads/suggestions and
+            # capped the skips, OR we simply ended on an ad/suggested unit. NOT terminal on its own:
+            # `browse_feed` decides the feed is exhausted only after several filler runs in a row.
+            filler_run = filler_run or (on_feed and skippable)
             # "Post shown in full" = a real (non ad/suggested) post whose engagement bar is visible.
             full_post = bool(on_feed and meta_vis and not skippable)
             self.logger.debug(
                 f"📰 feed scroll: mode={mode} flicks={gestures} stuck_retry={stuck} reveal={reveal} "
-                f"ads_skipped={ads_skipped} sugg_skipped={sugg_skipped} reached_tail={reached_tail} land={land} "
+                f"ads_skipped={ads_skipped} sugg_skipped={sugg_skipped} filler_run={filler_run} land={land} "
                 f"corrected={corrected} full_post={full_post} meta={meta_vis} ad={is_ad} sugg={is_sugg} "
                 f"advanced={advanced} on_feed={on_feed} surface={anchors.get('surface')} dumps={dumps}")
             return {"advanced": advanced, "on_feed": on_feed, "on_reel": on_reel, "mode": mode,
                     "land_ratio": round(land, 3) if land is not None else None,
                     "corrected": corrected, "reveal": reveal, "stuck_retry": stuck,
                     "full_post": full_post, "metadata_visible": meta_vis, "is_ad": is_ad,
-                    "is_suggested": is_sugg, "reached_tail": reached_tail,
+                    "is_suggested": is_sugg, "filler_run": filler_run,
                     "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
                     "like_ratio": round(like_ratio, 3) if like_ratio is not None else None,
                     "surface": anchors.get("surface"), "gestures": gestures, "dumps": dumps}
@@ -682,6 +691,7 @@ class FeedScrollMixin:
 
         guard = 0
         reached_tail = False
+        filler_runs = 0                  # consecutive gestures that saw only ads/suggestions
         max_iters = max(1, steps) * 3 + 6
         while done < max(1, steps) and guard < max_iters:
             guard += 1
@@ -691,9 +701,13 @@ class FeedScrollMixin:
             if not res.get("on_feed"):
                 off_feed = True
                 break
-            if res.get("reached_tail"):   # followed feed exhausted (block of recommendations) → STOP
-                reached_tail = True        # a human who has seen everything stops; no frantic scroll
-                break
+            if res.get("filler_run"):     # only ads/suggestions this gesture — glide past, don't read
+                filler_runs += 1          # a 2-3 ad block is normal; a WALL of them = feed exhausted
+                if filler_runs >= _TAIL_FILLER_RUNS:
+                    reached_tail = True    # caught up — a human stops here, no frantic scrolling
+                    break
+                continue                   # try once more: a real post may sit right behind the block
+            filler_runs = 0                # reached a real post → reset the exhaustion counter
             if random.random() < skip_prob:          # a human occasionally skips ONE post (no reading)
                 r2 = self.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_suggested)
                 ads_skipped += r2.get("ads_skipped", 0)
@@ -701,11 +715,14 @@ class FeedScrollMixin:
                 if not r2.get("on_feed"):
                     off_feed = True
                     break
-                if r2.get("reached_tail"):
-                    reached_tail = True
-                    break
-                if not r2.get("is_ad") and not r2.get("is_suggested"):
-                    skipped_posts += 1
+                if r2.get("filler_run"):
+                    filler_runs += 1
+                    if filler_runs >= _TAIL_FILLER_RUNS:
+                        reached_tail = True
+                        break
+                    continue               # skipped onto a junk block — advance again, don't read it
+                filler_runs = 0
+                skipped_posts += 1
             pauses.append(round(self.human_reading_pause(), 1))   # read THIS post
             done += 1
         self.logger.debug(f"📰 browse_feed: read={done} off_feed={off_feed} reached_tail={reached_tail} "
