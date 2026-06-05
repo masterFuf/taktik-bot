@@ -624,23 +624,28 @@ class FeedScrollMixin:
                 best_h, best_text = bot - top, t
         return caption_prose_chars(best_text)
 
-    def human_reading_pause(self, dwell_s: Optional[float] = None) -> float:
+    def human_reading_pause(self, dwell_s: Optional[float] = None,
+                            read_captions: bool = True, browse_carousels: bool = True) -> float:
         """One human reading pause on the current post. First the intelligent reading — browse a
         carousel's slides, then expand & READ a truncated caption — which already consumes real
         time. Then dwell so the TOTAL time on the post matches the CONTENT: an image is glanced at,
         a real caption is read in proportion to its prose length (hashtags excluded). Pass
         `dwell_s` to override the target (e.g. a future vision/`post_analysis` relevance score).
-        Returns the total time spent on the post (seconds)."""
+        `browse_carousels`/`read_captions` toggle the two intelligent-reading behaviours (a bot
+        user may disable them); when off, the post is only dwelled on. Returns the total time spent
+        on the post (seconds)."""
         start = time.monotonic()
-        try:
-            self.browse_carousel_slides()
-        except Exception as e:
-            self.logger.debug(f"carousel browse skipped: {e}")
-        try:
-            if random.random() < 0.85:
-                self.expand_caption_if_truncated()
-        except Exception as e:
-            self.logger.debug(f"caption expand skipped: {e}")
+        if browse_carousels:
+            try:
+                self.browse_carousel_slides()
+            except Exception as e:
+                self.logger.debug(f"carousel browse skipped: {e}")
+        if read_captions:
+            try:
+                if random.random() < 0.85:
+                    self.expand_caption_if_truncated()
+            except Exception as e:
+                self.logger.debug(f"caption expand skipped: {e}")
         prose = self._caption_prose_length()                 # full text now (caption expanded)
         target = dwell_s if dwell_s is not None else content_dwell(prose)
         spent = time.monotonic() - start                     # carousel/caption already took time
@@ -655,7 +660,8 @@ class FeedScrollMixin:
 
     def browse_feed(self, steps: int = 6, skip_ads: bool = True,
                     skip_prob: float = 0.12, read_first: bool = True,
-                    skip_suggested: bool = True) -> Dict[str, Any]:
+                    skip_suggested: bool = True, read_captions: bool = True,
+                    browse_carousels: bool = True) -> Dict[str, Any]:
         """A human feed-browsing session over `steps` READ posts.
 
         First, the post ALREADY on screen when we arrive (e.g. just opened the feed) is fully
@@ -668,8 +674,12 @@ class FeedScrollMixin:
         then (`skip_prob`) we skim past 1-2 posts without reading them, like a human; the advances
         coast and settle smoothly so even a skip ends on a cleanly framed post, never a brutal stop.
 
+        `skip_ads`/`skip_suggested` toggle skipping Sponsored ads / Suggested units; `read_captions`/
+        `browse_carousels` toggle the intelligent reading during each pause — all four are bot-user
+        options surfaced as Lab scenario controls.
+
         Stops early if pushed off-feed and unrecoverable. Returns
-        {steps, off_feed, pauses_s, ads_skipped, suggested_skipped, skipped_posts}."""
+        {steps, off_feed, reached_tail, pauses_s, ads_skipped, suggested_skipped, skipped_posts}."""
         done = 0
         off_feed = False
         pauses: List[float] = []
@@ -686,7 +696,8 @@ class FeedScrollMixin:
             if real:
                 if not self._metadata_visible(cur)[0]:
                     self._reveal_current_metadata()          # scroll a little to see it whole
-                pauses.append(round(self.human_reading_pause(), 1))
+                pauses.append(round(self.human_reading_pause(
+                    read_captions=read_captions, browse_carousels=browse_carousels), 1))
                 done += 1
 
         guard = 0
@@ -723,7 +734,8 @@ class FeedScrollMixin:
                     continue               # skipped onto a junk block — advance again, don't read it
                 filler_runs = 0
                 skipped_posts += 1
-            pauses.append(round(self.human_reading_pause(), 1))   # read THIS post
+            pauses.append(round(self.human_reading_pause(                 # read THIS post
+                read_captions=read_captions, browse_carousels=browse_carousels), 1))
             done += 1
         self.logger.debug(f"📰 browse_feed: read={done} off_feed={off_feed} reached_tail={reached_tail} "
                           f"ads_skipped={ads_skipped} "

@@ -94,11 +94,17 @@ def scroll_read_pause(a, p):
 def scroll_browse(a, p):
     """Human feed browsing: for `steps` READ posts, advance (stop smoothly on the engagement bar)
     + reading pause (carousel/caption). Skips Sponsored ads + Suggested units, occasionally skims
-    past 1-2 posts."""
-    steps = int(p.get("steps", 4))
-    skip_ads = str(p.get("skip_ads", "1")).lower() not in ("0", "false", "no")
-    skip_sugg = str(p.get("skip_suggested", "1")).lower() not in ("0", "false", "no")
-    res = a.scroll.browse_feed(steps=steps, skip_ads=skip_ads, skip_suggested=skip_sugg)
+    past 1-2 posts. Toggles (Lab scenario controls): skip_ads, skip_suggested, read_captions,
+    browse_carousels; `steps` (1-30) sets how many posts to read."""
+    def _flag(key, default="1"):
+        return str(p.get(key, default)).lower() not in ("0", "false", "no")
+    steps = max(1, min(30, int(p.get("steps", 6))))
+    skip_ads = _flag("skip_ads")
+    skip_sugg = _flag("skip_suggested")
+    read_captions = _flag("read_captions")
+    browse_carousels = _flag("browse_carousels")
+    res = a.scroll.browse_feed(steps=steps, skip_ads=skip_ads, skip_suggested=skip_sugg,
+                               read_captions=read_captions, browse_carousels=browse_carousels)
     pauses = res.get("pauses_s") or []
     extra = []
     if res.get("ads_skipped"):
