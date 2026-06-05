@@ -100,6 +100,7 @@ class ScrapingWorkflow(
                         api_key=config['openrouter_api_key'],
                         ipc=self._ipc,
                         vision_model=config.get('vision_model') or None,
+                        niche_taxonomy=config.get('niche_taxonomy') or None,
                     )
                     logger.info("AI qualification service initialized (injected provider)")
                 except Exception as e:

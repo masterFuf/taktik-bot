@@ -31,11 +31,17 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 class AIService:
     """Lightweight OpenRouter client for Bot AI operations."""
 
-    def __init__(self, api_key: str, ipc=None, text_model: str = None, vision_model: str = None):
+    def __init__(self, api_key: str, ipc=None, text_model: str = None, vision_model: str = None,
+                 niche_taxonomy: Dict[str, list] = None):
         self.api_key = api_key
         self.ipc = ipc
         self.text_model = text_model or DEFAULT_TEXT_MODEL
         self.vision_model = vision_model or DEFAULT_VISION_MODEL
+        # Premium niche taxonomy injected by the desktop app via the bridge config
+        # (slug -> [sub-niche labels]). The open-source bot does NOT own this list;
+        # when nothing is injected, profile classification stays free-form so the
+        # standalone bot keeps working without the premium taxonomy.
+        self.niche_taxonomy: Dict[str, list] = niche_taxonomy or {}
 
     # ------------------------------------------------------------------
     # Low-level API call
@@ -183,10 +189,7 @@ class AIService:
         if not usernames:
             return {}
 
-        niche_map = "\n".join(
-            f"  {cat}: {' | '.join(subs)}"
-            for cat, subs in self.SUB_NICHES.items()
-        )
+        niche_map = self._niche_map_text()
         system_prompt = (
             "You are an Instagram username analyst.\n"
             "Given a list of Instagram usernames, infer for each:\n"
@@ -298,107 +301,22 @@ class AIService:
         "community_causes", "other",
     ]
 
-    # Controlled sub-niche taxonomy — dict keyed by niche_category.
-    # Mirrors SUB_NICHE_CATEGORIES in niche-taxonomy.ts (single source of truth).
-    # AI must pick niche_category first, then niche from that category's list.
-    SUB_NICHES: Dict[str, list] = {
-        "lifestyle": [
-            "Daily Life & Vlogs", "Personal Blog", "Relatable Humor & Memes",
-            "Couple & Relationship Content", "Fan Page", "Quotes & Wisdom",
-            "Inspiration & Motivation", "Minimalism & Slow Life",
-        ],
-        "travel": [
-            "Adventure & Backpacking", "City Breaks & Urban Exploration",
-            "Luxury & Boutique Travel", "Road Trip & Van Life",
-            "Cultural & Heritage Travel", "Travel Photography & Drone",
-            "Digital Nomad & Remote Living", "Solo & Budget Travel",
-        ],
-        "fitness_sports": [
-            "Gym & Bodybuilding", "CrossFit & Functional Training",
-            "Running & Marathon", "Cycling & Triathlon",
-            "Martial Arts & Combat Sports", "Dance & Choreography",
-            "Football & Team Sports", "Equestrian Sports",
-            "Hiking & Outdoor Sports", "Water Sports & Surfing", "Winter Sports & Skiing",
-        ],
-        "food_drink": [
-            "Home Cooking & Recipes", "Restaurant & Food Reviews", "Vegan & Plant-Based",
-            "Pastry & Baking", "Coffee & Specialty Drinks", "Bar & Cocktails",
-            "BBQ & Street Food", "Healthy Eating & Meal Prep",
-        ],
-        "fashion": [
-            "Streetwear & Urban", "Luxury & High Fashion", "Sustainable Fashion",
-            "Style & Outfit Inspiration", "Accessories & Jewelry",
-            "Vintage & Thrift", "Men's Fashion", "Lingerie & Swimwear",
-        ],
-        "beauty_wellness": [
-            "Makeup & Cosmetics", "Skincare & Anti-Aging", "Hair & Nail Art",
-            "Barber & Men's Grooming", "Yoga & Pilates", "Mindfulness & Meditation",
-            "Wellness & Naturopathy", "Perfume & Fragrance",
-        ],
-        "tech_education": [
-            "Programming & Development", "AI & Machine Learning",
-            "Cybersecurity & Ethical Hacking", "Gadgets & Tech Reviews",
-            "Online Education & Courses", "Science & Engineering",
-            "No-Code & Automation Tools", "Hardware & Electronics",
-        ],
-        "business_marketing": [
-            "Entrepreneurship & Startups", "Digital Marketing & SEO",
-            "E-commerce & Dropshipping", "Business Coaching & Mentoring",
-            "Personal Branding", "B2B & Corporate",
-            "Freelancing & Remote Work", "Network Marketing & MLM",
-        ],
-        "music_entertainment": [
-            "Music Artists & Bands", "DJ & Electronic Music", "Rap & Hip-Hop",
-            "Gaming & Esports", "Comedy Sketches & Stand-Up",
-            "Movies & Series", "Anime & Manga", "Podcasts & Interviews",
-            "Live Events & Concerts", "Acting & Performance",
-            "Film & Cinema Production", "Screenwriting & Storytelling",
-            "Video Editing & Post-Production",
-        ],
-        "art_design": [
-            "Fine Art & Illustration", "Portrait Photography",
-            "Nature & Landscape Photography", "Graphic & UI Design",
-            "Sculpture & Ceramics", "Digital Art & AI Art",
-            "Animation & Motion Graphics", "Tattoo & Body Art",
-            "Videography & Cinematography",
-        ],
-        "finance": [
-            "Stock Market & Investing", "Crypto & Web3",
-            "Personal Finance & Budgeting", "Real Estate & Property",
-            "Financial Independence & FIRE", "Insurance & Fintech",
-            "Options & Day Trading", "Financial Education",
-        ],
-        "health_family": [
-            "Parenting & Family Life", "Pregnancy & New Mothers",
-            "Kids & Baby Content", "Nutrition & Healthy Eating",
-            "Mental Health & Therapy", "Alternative & Holistic Medicine",
-            "Medical & Healthcare", "Senior & Healthy Aging",
-        ],
-        "home_interior": [
-            "Interior Design & Staging", "DIY & Home Renovation",
-            "Gardening & Urban Farming", "Minimalist Home & Organization",
-            "Luxury & Premium Real Estate", "Architecture & Urban Design",
-            "Smart Home & Tech",
-        ],
-        "events_services": [
-            "Event Planning & Management", "Wedding & Ceremony",
-            "Local Trade Services", "Catering & Food Services",
-            "Childcare & Nanny Services", "Pet Care & Veterinary",
-            "Cleaning & Home Services", "Beauty & Personal Services",
-        ],
-        "community_causes": [
-            "Social Activism & Human Rights", "Environment & Climate Change",
-            "Faith & Religious Community", "Politics & Current Affairs",
-            "Wildlife & Nature Conservation", "Pets & Pet Owners",
-            "LGBTQ+ Community", "Women & Empowerment", "Cultural Heritage & Diaspora",
-        ],
-        "other": ["Other"],
-    }
-
     @property
     def _known_sub_niches(self) -> set:
-        """Flat set of all canonical sub-niche labels (for proposed-niche detection)."""
-        return {s for subs in self.SUB_NICHES.values() for s in subs}
+        """Flat set of all injected sub-niche labels (premium taxonomy, may be empty)."""
+        return {s for subs in self.niche_taxonomy.values() for s in subs}
+
+    def _niche_map_text(self) -> str:
+        """Render the injected taxonomy as a 'category: sub1 | sub2' block.
+
+        Returns a free-form hint when no premium taxonomy is injected, so the
+        standalone open-source bot still produces a usable classification.
+        """
+        if not self.niche_taxonomy:
+            return "  (no taxonomy provided — infer a concise niche_category slug and a short niche label)"
+        return "\n".join(
+            f"  {cat}: {' | '.join(subs)}" for cat, subs in self.niche_taxonomy.items()
+        )
 
     def classify_profile_niche(self, username: str, screenshot_path: str,
                                profile_context: dict = None,
@@ -447,10 +365,7 @@ class AIService:
                 avatar_url=avatar_thumb,
             )
 
-        niche_map = "\n".join(
-            f"  {cat}: {' | '.join(subs)}"
-            for cat, subs in self.SUB_NICHES.items()
-        )
+        niche_map = self._niche_map_text()
         _lang_map = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}
         _lang_full = _lang_map.get(response_language, 'English')
         system_prompt = (
@@ -623,7 +538,7 @@ class AIService:
             self.ipc.ai_profile_analyzing(username, prompt=prompt_text, model=self.vision_model,
                                           image_url=screenshot_thumb)
 
-        sub_niche_list = " | ".join(self.SUB_NICHES)
+        sub_niche_list = " | ".join(self.niche_taxonomy) or "(infer a concise niche)"
         system_prompt = (
             "You are an expert Instagram profile analyst. Given a screenshot of an Instagram profile page, extract and analyze:\n"
             "1. The niche/category of the account\n"

@@ -63,6 +63,8 @@ def build_scraping_config(config: dict) -> dict:
         scraping_config['ai_qualification_prompt'] = ai_config.get('qualificationPrompt', '')
         scraping_config['openrouter_api_key'] = ai_config.get('openrouterApiKey', '')
         scraping_config['vision_model'] = ai_config.get('visionModel', '')
+        # Premium niche taxonomy injected by the desktop app (slug -> [sub-niche labels]).
+        scraping_config['niche_taxonomy'] = ai_config.get('nicheTaxonomy') or {}
         scraping_config['ai_rescrape_mode'] = config.get('aiRescrapeMode', 'full')
     else:
         scraping_config['ai_mode'] = False
