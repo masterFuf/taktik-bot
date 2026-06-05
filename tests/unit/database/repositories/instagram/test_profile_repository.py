@@ -54,7 +54,7 @@ def test_get_known_usernames_returns_limited_set(conn):
     assert repo.get_known_usernames(days=7, limit=10) == {"a", "b", "c"}
 
 
-def test_profile_ai_enrichment_overrides_legacy_profile_fields(conn):
+def test_profile_ai_enrichment_ignores_legacy_profile_fields(conn):
     repo = ProfileRepository(conn)
     profile_id, _ = repo.get_or_create(
         "enriched_creator",
@@ -82,6 +82,23 @@ def test_profile_ai_enrichment_overrides_legacy_profile_fields(conn):
         """,
         (profile_id,),
     )
+    legacy_only_profile_id, _ = repo.get_or_create(
+        "legacy_only_creator",
+        full_name="Legacy Only",
+        biography="Bio",
+    )
+    conn.execute(
+        """
+        UPDATE instagram_profiles
+        SET ai_niche = 'legacy_only_niche',
+            ai_specific_niche = 'legacy_only_sub',
+            ai_profession = 'legacy_only_profession',
+            ai_profession_tags = '["legacy_only"]',
+            location_city = 'Legacy Only City'
+        WHERE profile_id = ?
+        """,
+        (legacy_only_profile_id,),
+    )
     conn.execute(
         """
         INSERT INTO profile_ai_enrichments (
@@ -98,11 +115,22 @@ def test_profile_ai_enrichment_overrides_legacy_profile_fields(conn):
     )
     conn.commit()
 
-    rows = repo.find_profiles_with_latest_qualification(["enriched_creator"])
+    rows = {
+        row["username"]: row
+        for row in repo.find_profiles_with_latest_qualification([
+            "enriched_creator",
+            "legacy_only_creator",
+        ])
+    }
 
-    assert len(rows) == 1
-    assert rows[0]["niche_category"] == "enriched_niche"
-    assert rows[0]["niche"] == "enriched_sub"
-    assert rows[0]["profession"] == "enriched_profession"
-    assert rows[0]["profession_tags"] == '["enriched"]'
-    assert rows[0]["cities"] == "Enriched City"
+    assert rows["enriched_creator"]["niche_category"] == "enriched_niche"
+    assert rows["enriched_creator"]["niche"] == "enriched_sub"
+    assert rows["enriched_creator"]["profession"] == "enriched_profession"
+    assert rows["enriched_creator"]["profession_tags"] == '["enriched"]'
+    assert rows["enriched_creator"]["cities"] == "Enriched City"
+
+    assert rows["legacy_only_creator"]["niche_category"] is None
+    assert rows["legacy_only_creator"]["niche"] is None
+    assert rows["legacy_only_creator"]["profession"] is None
+    assert rows["legacy_only_creator"]["profession_tags"] is None
+    assert rows["legacy_only_creator"]["cities"] == "Legacy Only City"

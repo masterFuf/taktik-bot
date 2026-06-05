@@ -138,7 +138,7 @@ class ProfileRepository(BaseRepository):
         return [dict(row) for row in rows]
 
     def _profile_ai_read_model(self, profile_alias: str) -> Dict[str, str]:
-        """Build profile AI expressions that support enrichment and legacy schemas."""
+        """Build profile AI expressions from enrichment storage only."""
         columns = {
             row["name"]
             for row in self.query("PRAGMA table_info(instagram_profiles)")
@@ -147,11 +147,11 @@ class ProfileRepository(BaseRepository):
         def column(name: str) -> str:
             return f"{profile_alias}.{name}" if name in columns else "NULL"
 
-        legacy = {
-            "niche": column("ai_niche"),
-            "sub_niche": column("ai_specific_niche"),
-            "profession": column("ai_profession"),
-            "profession_tags": column("ai_profession_tags"),
+        factual = {
+            "niche": "NULL",
+            "sub_niche": "NULL",
+            "profession": "NULL",
+            "profession_tags": "NULL",
             "city": column("location_city"),
         }
 
@@ -160,7 +160,7 @@ class ProfileRepository(BaseRepository):
         ) is not None
 
         if not has_enrichment:
-            return {"join": "", **legacy}
+            return {"join": "", **factual}
 
         return {
             "join": f"""
@@ -174,11 +174,11 @@ class ProfileRepository(BaseRepository):
                     LIMIT 1
                 )
             """,
-            "niche": f"COALESCE(pae.ai_niche, {legacy['niche']})",
-            "sub_niche": f"COALESCE(pae.ai_specific_niche, {legacy['sub_niche']})",
-            "profession": f"COALESCE(pae.ai_profession, {legacy['profession']})",
-            "profession_tags": f"COALESCE(pae.ai_profession_tags, {legacy['profession_tags']})",
-            "city": f"COALESCE(pae.location_city, {legacy['city']})",
+            "niche": "pae.ai_niche",
+            "sub_niche": "pae.ai_specific_niche",
+            "profession": "pae.ai_profession",
+            "profession_tags": "pae.ai_profession_tags",
+            "city": f"COALESCE(pae.location_city, {factual['city']})",
         }
 
     def record_stats_history(self, profile_id: int, profile_data: Dict[str, Any]) -> bool:

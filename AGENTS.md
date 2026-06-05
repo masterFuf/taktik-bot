@@ -173,7 +173,7 @@ Definition simple :
 - Si une table est partagee avec Electron, comparer aussi `front/electron/database/schema.sql`, `schema.ts` et `migrations.ts`.
 - Une migration doit etre idempotente et compatible avec une base deja peuplee.
 - Ne pas creer de table miroir ou de colonne AI/cache sans definir qui est source de verite : Bot, Electron ou sync.
-- Les enrichissements IA de profil transverses doivent viser `profile_ai_enrichments` plutot que de nouveaux champs `ai_*` dans `instagram_profiles` ou `tiktok_profiles`. Le Bot cree la table pour compatibilite standalone, mais l'ownership cible reste Electron/premium ; les anciennes colonnes `ai_*` sont legacy/fallback jusqu'a migration complete.
+- Les enrichissements IA de profil transverses doivent viser `profile_ai_enrichments` plutot que de nouveaux champs `ai_*` dans `instagram_profiles` ou `tiktok_profiles`. Le Bot cree la table pour compatibilite standalone, mais l'ownership cible reste Electron/premium ; les anciennes colonnes `instagram_profiles.ai_*` ne doivent plus etre lues/ecrites en runtime pour une classification/enrichissement profil. Elles restent uniquement historiques/backfill jusqu'a une migration destructive dediee.
 - Toute migration destructive ou restructuration de tables partagees doit avoir une spec technique dans `taktik-docs/technical/**` avant code. La sequence obligatoire est : nouveau modele, compat/fallback, backfill, checks, puis suppression legacy dans un lot separe. Ne pas fusionner `instagram_profiles`/`tiktok_profiles` ou sortir les colonnes IA sans contrat Front/Bot/Turso documente.
 
 ### Contrat avec Electron et standalone
