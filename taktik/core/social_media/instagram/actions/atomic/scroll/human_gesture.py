@@ -122,7 +122,11 @@ def sample_swipe(
         sy = rng.uniform(lo, hi)
     else:
         sy = base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h
-    sy = min(max(sy, 0.10 * screen_h), 0.92 * screen_h)
+    # Upper bound 0.85h: a gesture must NEVER start on the bottom navigation bar (~bottom 11% of
+    # the screen, tab bar top ≈ 0.886h). A touch-down on it — e.g. the Search/Explore tab — opens
+    # that tab (and its keyboard) instead of scrolling. 0.85h keeps the start on the media/content,
+    # clear of the nav, on every device (ratio-based). The real human start tops out ~0.83h anyway.
+    sy = min(max(sy, 0.10 * screen_h), 0.85 * screen_h)
 
     # Vertical magnitude: sampled, or overridden, then kept within the real human envelope.
     # Floor at ~9% screen height so a gesture always flings the feed and is never read as a

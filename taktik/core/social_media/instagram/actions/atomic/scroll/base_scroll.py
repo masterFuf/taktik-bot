@@ -111,8 +111,11 @@ class BaseScrollMixin(BaseAction):
         try:
             h = int(self.screen_height)
             target = distance_px if distance_px is not None else random.uniform(0.78, 0.90) * h
+            # Start band kept ABOVE the bottom nav bar (top ≈ 0.886h): a drag whose touch-down lands
+            # on the Search/Explore tab opens it (and the keyboard) instead of scrolling. 0.78-0.85h
+            # gives the drag room to travel ~one post upward while staying clear of the nav.
             path, _ = sample_swipe(int(self.screen_width), h, direction=direction,
-                                   distance_px=target, start_band=(0.80 * h, 0.90 * h),
+                                   distance_px=target, start_band=(0.78 * h, 0.85 * h),
                                    dist_cap_h=0.95)
             (sx, sy), (ex, ey) = path[0], path[-1]
             dy = abs(ey - sy) or 1
