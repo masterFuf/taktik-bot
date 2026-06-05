@@ -34,8 +34,9 @@ def scroll_feed_next(a, p):
         return {"success": False, "message": msg, "details": res}
     rev = res.get("reveal") or 0
     skipped = res.get("ads_skipped") or 0
+    stuck = res.get("stuck_retry") or 0
     tail = (f"land={land}" + (" +1 correction" if corr else "") + (f" +{rev} reveal" if rev else "")
-            + (f" ({skipped} pub skip)" if skipped else ""))
+            + (f" +{stuck} retry(bloque)" if stuck else "") + (f" ({skipped} pub skip)" if skipped else ""))
     badge = ("PUB sponsorisee (non skip)" if res.get("is_ad")
              else "post COMPLET (meta visibles)" if full
              else "header cadre, meta sous le pli" if meta is False else "cadre")

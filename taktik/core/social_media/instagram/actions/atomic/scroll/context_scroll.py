@@ -24,7 +24,11 @@ _FLICK_FINGER_H = (0.30, 0.40)      # decisive flick finger travel (× screen he
 _FLICK_VEL_PXS = (9000.0, 13000.0)  # flick release velocity px/s (>> Android fling floor)
 _DRAG_FINGER_H = (0.80, 0.90)       # continuous-drag finger travel (× screen height)
 _DRAG_VEL_PXS = (1500.0, 2200.0)    # drag velocity px/s (slow → 1:1 track, no coast)
-_MODE_WEIGHTS = (("flick", 0.55), ("drag", 0.35), ("skim", 0.10))
+# Flick is the workhorse: it coasts (real OS fling), matches the real human data (which has NO
+# long drags — humans flick), and a FAST fling escapes a feed video's touch region. The slow
+# `drag` is kept only as a rare variant; on a full-screen video it can be captured by the player
+# and scroll nothing — the stuck-retry (below) catches that by re-trying with a flick.
+_MODE_WEIGHTS = (("flick", 0.72), ("drag", 0.13), ("skim", 0.15))
 # A post is "framed" only when its header sits in the very top of the screen — otherwise the
 # previous post still fills the top and we stopped "in the middle of a post". So GOOD is tight,
 # and any miss is pulled to _LAND_TARGET by a precise drag (below).
@@ -432,6 +436,27 @@ class ContextScrollMixin(BaseAction):
 
             on_feed = anchors["on_feed"]
             is_ad = on_feed and self._dominant_is_ad(anchors)   # still an ad only if the cap was hit
+
+            # STUCK → RETRY WITH A FLICK. A slow drag on a full-screen feed VIDEO is captured by the
+            # player and scrolls NOTHING (measured: the header stayed at the exact same pixel). If we
+            # did not reach a NEW post, retry with a flick — a fast fling escapes the video's touch
+            # region. Skipped on the first call (no reference) and on ads (we're leaving anyway).
+            ref_user = getattr(self, "_last_top_username", None)
+            stuck = 0
+            while (on_feed and not is_ad and ref_user is not None and stuck < 2
+                   and (anchors["posts"][0][1] if anchors.get("posts") else None) == ref_user):
+                stuck += 1
+                self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
+                                   vel_range=_FLICK_VEL_PXS)
+                time.sleep(random.uniform(0.45, 0.65))
+                anchors = self._read_feed_anchors()
+                dumps += 1
+                if not anchors["on_feed"]:
+                    anchors, used = self._recover_to_feed(anchors)
+                    dumps += used
+                on_feed = anchors["on_feed"]
+                is_ad = on_feed and self._dominant_is_ad(anchors)
+
             land = self._incoming_header_ratio(anchors)
             corrected = False
             # Frame the (non-ad) post header at the top → the previous post must not still fill the
@@ -480,13 +505,15 @@ class ContextScrollMixin(BaseAction):
             # "Post shown in full" = the engagement bar is visible (the header was seen on the way up).
             full_post = bool(on_feed and meta_vis)
             self.logger.debug(
-                f"📰 feed scroll: mode={mode} flicks={gestures} reveal={reveal} ads_skipped={ads_skipped} "
-                f"land={land} corrected={corrected} full_post={full_post} meta={meta_vis} ad={is_ad} "
-                f"advanced={advanced} on_feed={on_feed} surface={anchors.get('surface')} dumps={dumps}")
+                f"📰 feed scroll: mode={mode} flicks={gestures} stuck_retry={stuck} reveal={reveal} "
+                f"ads_skipped={ads_skipped} land={land} corrected={corrected} full_post={full_post} "
+                f"meta={meta_vis} ad={is_ad} advanced={advanced} on_feed={on_feed} "
+                f"surface={anchors.get('surface')} dumps={dumps}")
             return {"advanced": advanced, "on_feed": on_feed, "on_reel": on_reel, "mode": mode,
                     "land_ratio": round(land, 3) if land is not None else None,
-                    "corrected": corrected, "reveal": reveal, "full_post": full_post,
-                    "metadata_visible": meta_vis, "is_ad": is_ad, "ads_skipped": ads_skipped,
+                    "corrected": corrected, "reveal": reveal, "stuck_retry": stuck,
+                    "full_post": full_post, "metadata_visible": meta_vis, "is_ad": is_ad,
+                    "ads_skipped": ads_skipped,
                     "like_ratio": round(like_ratio, 3) if like_ratio is not None else None,
                     "surface": anchors.get("surface"), "gestures": gestures, "dumps": dumps}
         except Exception as e:
