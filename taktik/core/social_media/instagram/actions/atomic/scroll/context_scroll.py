@@ -183,6 +183,7 @@ class ContextScrollMixin(BaseAction):
         posts: List[tuple] = []      # (header_top_y, username) to identify the dominant post
         likes: List[int] = []
         ad_tops: List[int] = []      # tops of "Sponsorisé(e)" / "Sponsored" markers (ad posts)
+        sugg_tops: List[int] = []    # tops of "Suggestions" / "Suggested" markers (recommended posts/reels)
         top_bar_bottom: Optional[int] = None
         tab_top: Optional[int] = None
         has_feed_marker = False
@@ -201,14 +202,29 @@ class ContextScrollMixin(BaseAction):
                 # Ad marker: the "Sponsorisé(e)" / "Sponsored" label lives in a content-desc
                 # (on the media or a label), often on a node without a resource-id → check first.
                 cd = node.get("content-desc") or ""
-                if cd and ("sponsoris" in cd.lower() or "sponsored" in cd.lower()):
+                cdl = cd.lower()
+                if cd and ("sponsoris" in cdl or "sponsored" in cdl):
                     ma = _BOUNDS_RE.search(node.get("bounds", ""))
                     if ma:
                         ad_tops.append(int(ma.group(2)))
+                # Suggested/recommended unit ("Suggestion Photo de…", "Suggested reels …"): IG
+                # inserts these in the feed (often once the followed posts run out). We skip them
+                # like ads — a normal user does not engage with the recommendation tail.
+                if cd and (cdl.startswith("suggestion") or cdl.startswith("suggested")
+                           or "reels suggérés" in cdl or "suggested reels" in cdl):
+                    ma = _BOUNDS_RE.search(node.get("bounds", ""))
+                    if ma:
+                        sugg_tops.append(int(ma.group(2)))
                 rid = node.get("resource-id", "")
                 if not rid:
                     continue
                 short = rid.rsplit("/", 1)[-1]
+                if short == "secondary_label":
+                    lab = (node.get("text") or "").strip().lower()
+                    if lab.startswith("suggest"):       # "Suggestions" (FR) / "Suggested" (EN)
+                        ms = _BOUNDS_RE.search(node.get("bounds", ""))
+                        if ms:
+                            sugg_tops.append(int(ms.group(2)))
                 if short == "root_clips_layout":
                     has_clips_root = True
                 if short in _profile_ids:
@@ -234,7 +250,7 @@ class ContextScrollMixin(BaseAction):
                         video_band = (top, bottom)
         except Exception as e:
             self.logger.debug(f"feed anchor read failed: {e}")
-            return {"headers": [], "posts": [], "likes": [], "ad_tops": [],
+            return {"headers": [], "posts": [], "likes": [], "ad_tops": [], "sugg_tops": [],
                     "top": int(self.screen_height * 0.10),
                     "tab": int(self.screen_height * 0.92), "on_feed": False, "video_band": None,
                     "surface": "unknown"}
@@ -246,6 +262,7 @@ class ContextScrollMixin(BaseAction):
             "posts": sorted(posts),
             "likes": sorted(likes),
             "ad_tops": sorted(ad_tops),
+            "sugg_tops": sorted(sugg_tops),
             "top": top_bar_bottom if top_bar_bottom is not None else int(self.screen_height * 0.10),
             "tab": tab_top if tab_top is not None else int(self.screen_height * 0.92),
             "on_feed": on_feed,
@@ -313,13 +330,12 @@ class ContextScrollMixin(BaseAction):
         ly = below[0]
         return (ly <= tab, ly / float(self.screen_height))
 
-    def _dominant_is_ad(self, anchors: Dict[str, Any]) -> bool:
-        """Is the dominant on-screen post a Sponsored ad? An ad marker ("Sponsorisé(e)"/
-        "Sponsored" content-desc) is attributed to the dominant post when it sits between that
-        post's header and the next post's header. (A full-screen sponsored reel has no feed
-        header → any ad marker counts.) Used to SKIP ads while browsing, never interact."""
-        ads = anchors.get("ad_tops") or []
-        if not ads:
+    def _dominant_has_marker(self, anchors: Dict[str, Any], tops_key: str) -> bool:
+        """Is a marker (`tops_key`) attributed to the DOMINANT on-screen post — i.e. it sits
+        between that post's header and the next post's header? (No feed header but markers present
+        = a full-screen unit → counts.) Shared by the ad and suggested-content detectors."""
+        tops = anchors.get(tops_key) or []
+        if not tops:
             return False
         headers = sorted(y for y in anchors.get("headers", []) if y >= 0)
         if not headers:
@@ -327,7 +343,17 @@ class ContextScrollMixin(BaseAction):
         hdr = headers[0]
         nxt = next((y for y in headers if y > hdr), self.screen_height * 3)
         lo = hdr - 0.08 * self.screen_height
-        return any(lo <= at < nxt for at in ads)
+        return any(lo <= t < nxt for t in tops)
+
+    def _dominant_is_ad(self, anchors: Dict[str, Any]) -> bool:
+        """The dominant on-screen post is a Sponsored ad ("Sponsorisé(e)"/"Sponsored")."""
+        return self._dominant_has_marker(anchors, "ad_tops")
+
+    def _dominant_is_suggested(self, anchors: Dict[str, Any]) -> bool:
+        """The dominant on-screen post is a Suggested/recommended unit ("Suggestions" label /
+        "Suggestion …" media). IG inserts these (and suggested reels) in the feed; we skip them
+        like ads — a normal user does not engage with the recommendation tail."""
+        return self._dominant_has_marker(anchors, "sugg_tops")
 
     def _reveal_current_metadata(self, max_scrolls: int = 2) -> int:
         """Scroll a little (gentle, smooth) so the CURRENT post's engagement bar comes into view —
@@ -356,7 +382,7 @@ class ContextScrollMixin(BaseAction):
         return min(on) / float(self.screen_height)
 
     def scroll_feed_to_next_post(self, max_gestures: int = 3, skip_ads: bool = True,
-                                 max_ad_skips: int = 3) -> Dict[str, Any]:
+                                 skip_suggested: bool = True, max_ad_skips: int = 3) -> Dict[str, Any]:
         """ONE decisive human gesture that reveals the next post — never a burst of mini-flicks.
 
         Why this shape (proven by measuring real Lab dumps + a multi-agent analysis, iteration
@@ -419,12 +445,30 @@ class ContextScrollMixin(BaseAction):
                 anchors, used = self._recover_to_feed(anchors)
                 dumps += used
 
-            # SKIP ADS DIRECTLY. If we landed on a Sponsored post, don't waste gestures framing or
-            # reading it — advance straight past it (smooth coasting flicks) to the next real post,
-            # the moment we recognise it. We never frame, read or touch an ad.
-            while (skip_ads and anchors["on_feed"] and self._dominant_is_ad(anchors)
-                   and ads_skipped < max_ad_skips):
-                ads_skipped += 1
+            # ADVANCE TO A REAL, NEW POST. Keep flicking past anything we do NOT engage with — the
+            # moment we recognise it, never framing/reading/touching it:
+            #  - Sponsored ADS, and SUGGESTED / recommended units (incl. suggested reels) → a normal
+            #    user does not engage with the recommendation tail of the feed.
+            #  - A gesture that did NOT reach a new post (a slow drag captured by a feed video, a
+            #    no-op) → "stuck"; a flick escapes the video's touch region and moves on.
+            # Every retry is a FLICK (a fast fling escapes a video and never taps a reel/ad/tile).
+            ref_user = getattr(self, "_last_top_username", None)
+            ads_skipped = sugg_skipped = stuck = 0
+            for _ in range(max_ad_skips + 3):
+                if not anchors["on_feed"]:
+                    break
+                cur_user = anchors["posts"][0][1] if anchors.get("posts") else None
+                is_ad = skip_ads and self._dominant_is_ad(anchors)
+                is_sugg = skip_suggested and self._dominant_is_suggested(anchors)
+                reached_new = cur_user is not None and cur_user != ref_user
+                if not is_ad and not is_sugg and (reached_new or ref_user is None):
+                    break                              # a real, NEW post we want to read → done
+                if is_ad:
+                    ads_skipped += 1
+                elif is_sugg:
+                    sugg_skipped += 1
+                else:
+                    stuck += 1                         # real post but didn't advance (e.g. video-stuck)
                 self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
                                    vel_range=_FLICK_VEL_PXS)
                 time.sleep(random.uniform(0.45, 0.65))
@@ -435,35 +479,17 @@ class ContextScrollMixin(BaseAction):
                     dumps += used
 
             on_feed = anchors["on_feed"]
-            is_ad = on_feed and self._dominant_is_ad(anchors)   # still an ad only if the cap was hit
-
-            # STUCK → RETRY WITH A FLICK. A slow drag on a full-screen feed VIDEO is captured by the
-            # player and scrolls NOTHING (measured: the header stayed at the exact same pixel). If we
-            # did not reach a NEW post, retry with a flick — a fast fling escapes the video's touch
-            # region. Skipped on the first call (no reference) and on ads (we're leaving anyway).
-            ref_user = getattr(self, "_last_top_username", None)
-            stuck = 0
-            while (on_feed and not is_ad and ref_user is not None and stuck < 2
-                   and (anchors["posts"][0][1] if anchors.get("posts") else None) == ref_user):
-                stuck += 1
-                self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
-                                   vel_range=_FLICK_VEL_PXS)
-                time.sleep(random.uniform(0.45, 0.65))
-                anchors = self._read_feed_anchors()
-                dumps += 1
-                if not anchors["on_feed"]:
-                    anchors, used = self._recover_to_feed(anchors)
-                    dumps += used
-                on_feed = anchors["on_feed"]
-                is_ad = on_feed and self._dominant_is_ad(anchors)
+            is_ad = on_feed and self._dominant_is_ad(anchors)
+            is_sugg = on_feed and skip_suggested and self._dominant_is_suggested(anchors)
+            skippable = is_ad or is_sugg               # still ad/suggested only if the cap was hit
 
             land = self._incoming_header_ratio(anchors)
             corrected = False
-            # Frame the (non-ad) post header at the top → the previous post must not still fill the
-            # top ("milieu d'un post"). ONE PRECISE 1:1 drag lifts the header to the top, reliable
-            # where the variable flick was not; moving LESS than one pitch it frames whatever post
-            # is topmost and can never skip. Skipped if the post is still an ad (we're leaving it).
-            if not is_ad and on_feed and land is not None and land > _LAND_GOOD_MAX:
+            # Frame the post header at the top → the previous post must not still fill the top
+            # ("milieu d'un post"). ONE PRECISE 1:1 drag lifts the header to the top, reliable where
+            # the variable flick was not; moving LESS than one pitch it frames whatever post is
+            # topmost and can never skip. Skipped if the post is still ad/suggested (we're leaving it).
+            if not skippable and on_feed and land is not None and land > _LAND_GOOD_MAX:
                 lift_px = (land - _LAND_TARGET) * h          # 1:1 content px to bring the header to the top
                 self._long_drag("up", distance_px=lift_px, vel_range=_DRAG_VEL_PXS)
                 corrected = True
@@ -475,16 +501,17 @@ class ContextScrollMixin(BaseAction):
             on_feed = anchors["on_feed"]
             on_reel = on_feed and not anchors["headers"] and anchors.get("video_band") is not None
             is_ad = on_feed and self._dominant_is_ad(anchors)
+            is_sugg = on_feed and skip_suggested and self._dominant_is_suggested(anchors)
+            skippable = is_ad or is_sugg
 
             # STOP-ON-METADATA. A post is "fully shown" only when its engagement bar (likes /
             # comments) is on screen — the header only proves a NEW post started. For a tall or
             # video post the bar is still below the fold after framing, so creep up with GENTLE
             # coasting flicks (smooth deceleration to rest, never an abrupt halt) until the bar
-            # appears = the whole post has been seen (header first, then engagement). Capped so we
-            # never loop; skipped for ads (no point revealing an ad's metadata — we skip it).
+            # appears = the whole post has been seen. Capped; skipped for ads/suggested (we leave them).
             meta_vis, like_ratio = self._metadata_visible(anchors)
             reveal = 0
-            while on_feed and not on_reel and not is_ad and not meta_vis and reveal < 2:
+            while on_feed and not on_reel and not skippable and not meta_vis and reveal < 2:
                 self._strong_flick("up", distance_px=random.uniform(0.20, 0.28) * h,
                                    vel_range=_FLICK_VEL_PXS)
                 reveal += 1
@@ -494,6 +521,8 @@ class ContextScrollMixin(BaseAction):
                 on_feed = anchors["on_feed"]
                 on_reel = on_feed and not anchors["headers"] and anchors.get("video_band") is not None
                 is_ad = on_feed and self._dominant_is_ad(anchors)
+                is_sugg = on_feed and skip_suggested and self._dominant_is_suggested(anchors)
+                skippable = is_ad or is_sugg
                 land = self._incoming_header_ratio(anchors)
                 meta_vis, like_ratio = self._metadata_visible(anchors)
 
@@ -502,18 +531,18 @@ class ContextScrollMixin(BaseAction):
                             and new_user != getattr(self, "_last_top_username", None))
             if on_feed:
                 self._last_top_username = new_user
-            # "Post shown in full" = the engagement bar is visible (the header was seen on the way up).
-            full_post = bool(on_feed and meta_vis)
+            # "Post shown in full" = a real (non ad/suggested) post whose engagement bar is visible.
+            full_post = bool(on_feed and meta_vis and not skippable)
             self.logger.debug(
                 f"📰 feed scroll: mode={mode} flicks={gestures} stuck_retry={stuck} reveal={reveal} "
-                f"ads_skipped={ads_skipped} land={land} corrected={corrected} full_post={full_post} "
-                f"meta={meta_vis} ad={is_ad} advanced={advanced} on_feed={on_feed} "
-                f"surface={anchors.get('surface')} dumps={dumps}")
+                f"ads_skipped={ads_skipped} sugg_skipped={sugg_skipped} land={land} corrected={corrected} "
+                f"full_post={full_post} meta={meta_vis} ad={is_ad} sugg={is_sugg} advanced={advanced} "
+                f"on_feed={on_feed} surface={anchors.get('surface')} dumps={dumps}")
             return {"advanced": advanced, "on_feed": on_feed, "on_reel": on_reel, "mode": mode,
                     "land_ratio": round(land, 3) if land is not None else None,
                     "corrected": corrected, "reveal": reveal, "stuck_retry": stuck,
                     "full_post": full_post, "metadata_visible": meta_vis, "is_ad": is_ad,
-                    "ads_skipped": ads_skipped,
+                    "is_suggested": is_sugg, "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
                     "like_ratio": round(like_ratio, 3) if like_ratio is not None else None,
                     "surface": anchors.get("surface"), "gestures": gestures, "dumps": dumps}
         except Exception as e:
@@ -743,7 +772,8 @@ class ContextScrollMixin(BaseAction):
         return round(total, 1)
 
     def browse_feed(self, steps: int = 6, skip_ads: bool = True,
-                    skip_prob: float = 0.18, read_first: bool = True) -> Dict[str, Any]:
+                    skip_prob: float = 0.18, read_first: bool = True,
+                    skip_suggested: bool = True) -> Dict[str, Any]:
         """A human feed-browsing session over `steps` READ posts.
 
         First, the post ALREADY on screen when we arrive (e.g. just opened the feed) is fully
@@ -762,47 +792,52 @@ class ContextScrollMixin(BaseAction):
         off_feed = False
         pauses: List[float] = []
         ads_skipped = 0
+        sugg_skipped = 0
         skipped_posts = 0
 
-        # The post already on screen: read it in place (or skip if it is an ad / can't be revealed).
+        # The post already on screen: read it in place (only if it is a real post — not an ad /
+        # suggested unit, which we never engage with).
         if read_first:
             cur = self._read_feed_anchors()
-            if cur.get("on_feed") and not self._dominant_is_ad(cur):
+            real = (cur.get("on_feed") and not self._dominant_is_ad(cur)
+                    and not (skip_suggested and self._dominant_is_suggested(cur)))
+            if real:
                 if not self._metadata_visible(cur)[0]:
                     self._reveal_current_metadata()          # scroll a little to see it whole
                 pauses.append(round(self.human_reading_pause(), 1))
                 done += 1
-            elif cur.get("on_feed") and self._dominant_is_ad(cur):
-                ads_skipped += 1                              # arrived on an ad → don't read it
 
         guard = 0
-        max_iters = max(1, steps) * 6 + 12   # backstop against a feed that is all ads
+        max_iters = max(1, steps) * 6 + 12   # backstop against a feed that is all ads/suggestions
         while done < max(1, steps) and guard < max_iters:
             guard += 1
-            res = self.scroll_feed_to_next_post(skip_ads=skip_ads)
+            res = self.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_suggested)
             ads_skipped += res.get("ads_skipped", 0)
+            sugg_skipped += res.get("suggested_skipped", 0)
             if not res.get("on_feed"):
                 off_feed = True
                 break
-            if skip_ads and res.get("is_ad"):       # cap hit, still an ad → move on, don't read
+            if res.get("is_ad") or res.get("is_suggested"):  # cap hit, still ad/suggested → move on
                 continue
             if random.random() < skip_prob:          # a human skim past 1-2 posts (no reading)
                 for _ in range(random.choice((1, 2))):
-                    r2 = self.scroll_feed_to_next_post(skip_ads=skip_ads)
+                    r2 = self.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_suggested)
                     ads_skipped += r2.get("ads_skipped", 0)
+                    sugg_skipped += r2.get("suggested_skipped", 0)
                     if not r2.get("on_feed"):
                         off_feed = True
                         break
-                    if not r2.get("is_ad"):
+                    if not r2.get("is_ad") and not r2.get("is_suggested"):
                         skipped_posts += 1
                 if off_feed:
                     break
             pauses.append(round(self.human_reading_pause(), 1))   # read THIS post
             done += 1
         self.logger.debug(f"📰 browse_feed: read={done} off_feed={off_feed} ads_skipped={ads_skipped} "
-                          f"skipped={skipped_posts} pauses={pauses}")
+                          f"sugg_skipped={sugg_skipped} skipped={skipped_posts} pauses={pauses}")
         return {"steps": done, "off_feed": off_feed, "pauses_s": pauses,
-                "ads_skipped": ads_skipped, "skipped_posts": skipped_posts}
+                "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
+                "skipped_posts": skipped_posts}
 
     def check_and_click_load_more(self) -> bool:
         try:

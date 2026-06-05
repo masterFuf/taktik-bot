@@ -23,7 +23,8 @@ def scroll_feed_next(a, p):
     real OS fling coast — not a burst of mini-scrolls. One dump measures the landing; one nudge
     if the post lands low. Surface-safe (never taps a reel/link/story); recovers if off-feed."""
     skip_ads = str(p.get("skip_ads", "1")).lower() not in ("0", "false", "no")
-    res = a.scroll.scroll_feed_to_next_post(skip_ads=skip_ads)
+    skip_sugg = str(p.get("skip_suggested", "1")).lower() not in ("0", "false", "no")
+    res = a.scroll.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_sugg)
     g, d = res.get("gestures"), res.get("dumps")
     mode, land, corr = res.get("mode"), res.get("land_ratio"), res.get("corrected")
     full, meta = res.get("full_post"), res.get("metadata_visible")
@@ -33,11 +34,14 @@ def scroll_feed_next(a, p):
             msg = f"erreur scroll: {res['error']}"
         return {"success": False, "message": msg, "details": res}
     rev = res.get("reveal") or 0
-    skipped = res.get("ads_skipped") or 0
+    pub = res.get("ads_skipped") or 0
+    sug = res.get("suggested_skipped") or 0
     stuck = res.get("stuck_retry") or 0
     tail = (f"land={land}" + (" +1 correction" if corr else "") + (f" +{rev} reveal" if rev else "")
-            + (f" +{stuck} retry(bloque)" if stuck else "") + (f" ({skipped} pub skip)" if skipped else ""))
+            + (f" +{stuck} retry(bloque)" if stuck else "")
+            + (f" ({pub} pub skip)" if pub else "") + (f" ({sug} suggest skip)" if sug else ""))
     badge = ("PUB sponsorisee (non skip)" if res.get("is_ad")
+             else "SUGGESTION (non skip)" if res.get("is_suggested")
              else "post COMPLET (meta visibles)" if full
              else "header cadre, meta sous le pli" if meta is False else "cadre")
     if res.get("on_reel"):
@@ -90,14 +94,18 @@ def scroll_read_pause(a, p):
 @action("scroll.browse")
 def scroll_browse(a, p):
     """Human feed browsing: for `steps` READ posts, advance (stop smoothly on the engagement bar)
-    + reading pause (carousel/caption). Skips Sponsored ads and occasionally skims past 1-2 posts."""
+    + reading pause (carousel/caption). Skips Sponsored ads + Suggested units, occasionally skims
+    past 1-2 posts."""
     steps = int(p.get("steps", 4))
     skip_ads = str(p.get("skip_ads", "1")).lower() not in ("0", "false", "no")
-    res = a.scroll.browse_feed(steps=steps, skip_ads=skip_ads)
+    skip_sugg = str(p.get("skip_suggested", "1")).lower() not in ("0", "false", "no")
+    res = a.scroll.browse_feed(steps=steps, skip_ads=skip_ads, skip_suggested=skip_sugg)
     pauses = res.get("pauses_s") or []
     extra = []
     if res.get("ads_skipped"):
         extra.append(f"{res['ads_skipped']} pub(s) skip")
+    if res.get("suggested_skipped"):
+        extra.append(f"{res['suggested_skipped']} suggestion(s) skip")
     if res.get("skipped_posts"):
         extra.append(f"{res['skipped_posts']} post(s) saute(s)")
     suffix = (" — " + ", ".join(extra)) if extra else ""
