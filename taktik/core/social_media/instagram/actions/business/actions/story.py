@@ -139,9 +139,14 @@ class StoryBusiness(BaseBusinessAction):
             'stories_viewed': 0,
             'stories_liked': 0,
             'stories_reacted': 0,
+            'stories_skipped_ads': 0,
             'errors': 0,
             'success': False,
         }
+
+        max_feed_profiles = config.get('max_feed_profiles', 5)
+        max_stories = config.get('max_stories_per_profile', 3)
+        max_tray_scrolls = config.get('max_tray_scrolls', 4)
 
         try:
             self.logger.info("Starting feed stories workflow")
@@ -151,32 +156,56 @@ class StoryBusiness(BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
 
-            visible_stories = self.detection_actions.count_visible_feed_stories(skip_own_story=True)
-            max_profiles = min(config.get('max_feed_profiles', 5), visible_stories)
-            if max_profiles <= 0:
-                self.logger.info("No visible friends' stories in feed tray")
-                return stats
+            opened = 0
+            tray_scrolls = 0
 
-            for profile_index in range(max_profiles):
-                if not self.click_actions.click_feed_story(profile_index, skip_own_story=True):
-                    self.logger.debug(f"Could not open feed story #{profile_index}")
+            # Watch up to `max_feed_profiles` friends; scroll the tray to reach more than
+            # the few bubbles initially visible (bounded by `max_tray_scrolls`).
+            while opened < max_feed_profiles:
+                visible_stories = self.detection_actions.count_visible_feed_stories(skip_own_story=True)
+                if visible_stories <= 0:
+                    self.logger.info("No more visible friends' stories in feed tray")
+                    break
+
+                # Consumed the currently visible bubbles → reveal more friends to the right.
+                if opened >= visible_stories:
+                    if tray_scrolls >= max_tray_scrolls:
+                        break
+                    if not self.click_actions.scroll_feed_stories_left():
+                        break
+                    tray_scrolls += 1
+                    continue
+
+                if not self.click_actions.click_feed_story(opened, skip_own_story=True):
+                    self.logger.debug(f"Could not open feed story #{opened}")
+                    opened += 1
                     continue
 
                 self._human_like_delay('story_load')
                 if not self.detection_actions.is_story_viewer_open():
                     self.logger.debug("Story viewer did not open")
                     stats['errors'] += 1
+                    opened += 1
                     continue
 
                 stats['profiles_opened'] += 1
                 current_username = None
 
-                for story_index in range(config.get('max_stories_per_profile', 3)):
+                for story_index in range(max_stories):
                     if not self.detection_actions.is_story_viewer_open():
                         break
 
                     metadata = self.detection_actions.get_story_viewer_metadata()
                     current_username = metadata.get('title') or current_username or 'unknown'
+
+                    # Never watch/like/react a sponsored story — advance past it.
+                    if metadata.get('is_ad'):
+                        stats['stories_skipped_ads'] += 1
+                        self.logger.debug("Skipping sponsored story")
+                        if not self.nav_actions.navigate_to_next_story():
+                            break
+                        time.sleep(random.uniform(*config['navigation_delay_range']))
+                        continue
 
                     view_duration = random.uniform(*config['view_duration_range'])
                     self.logger.debug(f"Viewing feed story @{current_username} for {view_duration:.1f}s")
@@ -198,19 +227,24 @@ class StoryBusiness(BaseBusinessAction):
                             stats['stories_reacted'] += 1
                             self._record_action(current_username, 'STORY_REACTION', 1)
 
-                    if story_index < config.get('max_stories_per_profile', 3) - 1:
+                    if story_index < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story():
                             break
                         time.sleep(random.uniform(*config['navigation_delay_range']))
 
-                self._press_back(1)
+                # Robust close: swipe-down (a back press is unreliable / can be swallowed by
+                # an overlay); fall back to back only if the viewer is still open.
+                self.click_actions.close_story()
+                if self.detection_actions.is_story_viewer_open():
+                    self._press_back(1)
                 self._human_like_delay('navigation')
+                opened += 1
 
             stats['success'] = stats['stories_viewed'] > 0
             self.logger.info(
                 f"Feed stories completed: {stats['profiles_opened']} profiles, "
-                f"{stats['stories_viewed']} stories viewed, {stats['stories_liked']} liked, "
-                f"{stats['stories_reacted']} reacted"
+                f"{stats['stories_viewed']} viewed, {stats['stories_liked']} liked, "
+                f"{stats['stories_reacted']} reacted, {stats['stories_skipped_ads']} ads skipped"
             )
             return stats
 
