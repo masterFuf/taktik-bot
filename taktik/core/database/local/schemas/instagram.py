@@ -175,37 +175,10 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS following_sync (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            display_name TEXT DEFAULT '',
-            first_seen_at TEXT DEFAULT (datetime('now')),
-            last_seen_at TEXT DEFAULT (datetime('now')),
-            is_follower_back INTEGER DEFAULT NULL,
-            followed_by_bot INTEGER DEFAULT 0,
-            unfollowed_at TEXT DEFAULT NULL,
-            source TEXT DEFAULT 'sync',
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-            UNIQUE(account_id, username)
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS followers_sync (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            display_name TEXT DEFAULT '',
-            first_seen_at TEXT DEFAULT (datetime('now')),
-            last_seen_at TEXT DEFAULT (datetime('now')),
-            is_following_back INTEGER DEFAULT NULL,
-            source TEXT DEFAULT 'sync',
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-            UNIQUE(account_id, username)
-        )
-    """)
+    # following_sync / followers_sync were folded into the unified
+    # `social_graph_sync` table (Vague B) and are dropped by
+    # run_social_graph_sync_migrations once their data is migrated. No longer
+    # created here.
 
 
 def create_instagram_indexes(cursor: sqlite3.Cursor) -> None:

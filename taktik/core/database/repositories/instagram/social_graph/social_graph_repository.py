@@ -11,7 +11,7 @@ from ..._base.base_repository import BaseRepository
 
 
 class SocialGraphRepository(BaseRepository):
-    """Read/write access for `following_sync`, `followers_sync` and follow lookups."""
+    """Read/write access for the unified `social_graph_sync` follow graph + follow lookups."""
 
     def has_bot_follow_record(self, username: str, account_id: int) -> bool:
         if not account_id:

@@ -57,8 +57,6 @@ EXPECTED_TABLES = {
     "scraping_sessions",
     "processed_hashtag_posts",
     "daily_stats",
-    "following_sync",
-    "followers_sync",
     "scraped_profiles",
     "scraped_comments",
     "profile_ai_enrichments",

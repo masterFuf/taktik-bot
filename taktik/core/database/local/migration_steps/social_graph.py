@@ -43,26 +43,38 @@ def run_social_graph_sync_migrations(cursor: sqlite3.Cursor) -> None:
         except sqlite3.OperationalError:
             pass
 
-    # Idempotent backfill from the two legacy tables (non destructive).
+    # Migrate any remaining legacy rows into social_graph_sync, then drop the
+    # (now dead) legacy tables. social_graph_sync is the primary store since the
+    # write flip; following_sync/followers_sync are local-only (not Turso-synced).
+    def _table_exists(name: str) -> bool:
+        return cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+        ).fetchone() is not None
+
     try:
-        cursor.execute("""
-            INSERT OR IGNORE INTO social_graph_sync
-                (platform, account_id, username, direction, display_name,
-                 is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
-            SELECT 'instagram', account_id, username, 'following', display_name,
-                   is_follower_back, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source
-            FROM following_sync
-        """)
-        cursor.execute("""
-            INSERT OR IGNORE INTO social_graph_sync
-                (platform, account_id, username, direction, display_name,
-                 is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
-            SELECT 'instagram', account_id, username, 'follower', display_name,
-                   is_following_back, 0, NULL, first_seen_at, last_seen_at, source
-            FROM followers_sync
-        """)
+        if _table_exists("following_sync"):
+            cursor.execute("""
+                INSERT OR IGNORE INTO social_graph_sync
+                    (platform, account_id, username, direction, display_name,
+                     is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
+                SELECT 'instagram', account_id, username, 'following', display_name,
+                       is_follower_back, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source
+                FROM following_sync
+            """)
+        if _table_exists("followers_sync"):
+            cursor.execute("""
+                INSERT OR IGNORE INTO social_graph_sync
+                    (platform, account_id, username, direction, display_name,
+                     is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
+                SELECT 'instagram', account_id, username, 'follower', display_name,
+                       is_following_back, 0, NULL, first_seen_at, last_seen_at, source
+                FROM followers_sync
+            """)
+        # Phase C drop (data is now in social_graph_sync).
+        cursor.execute("DROP TABLE IF EXISTS following_sync")
+        cursor.execute("DROP TABLE IF EXISTS followers_sync")
     except sqlite3.OperationalError as exc:
-        logger.debug(f"social_graph_sync backfill skipped: {exc}")
+        logger.debug(f"social_graph_sync backfill/drop skipped: {exc}")
 
 
 def run_profile_following_migrations(cursor: sqlite3.Cursor) -> None:

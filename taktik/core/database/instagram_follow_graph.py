@@ -1,7 +1,8 @@
 """Database facade for Instagram follow graph sync state.
 
-This service keeps legacy unfollow/sync workflows out of platform-local SQL while
-repositories for `following_sync` / `followers_sync` are still being introduced.
+Thin facade over `SocialGraphRepository`: it keeps the unfollow/sync workflows out
+of platform-local SQL. The follow graph is stored in the unified `social_graph_sync`
+table (the legacy `following_sync` / `followers_sync` tables have been dropped).
 """
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ class InstagramFollowGraphService:
         followed_by_bot: bool = False,
         source: str = "sync",
     ) -> str:
-        """Insert or update a following entry in `following_sync`."""
+        """Insert or update a following entry (unified `social_graph_sync`)."""
         if not account_id:
             return "error"
 
@@ -137,7 +138,7 @@ class InstagramFollowGraphService:
         is_following_back: Optional[bool] = None,
         source: str = "sync",
     ) -> str:
-        """Insert or update a follower entry in `followers_sync`."""
+        """Insert or update a follower entry (unified `social_graph_sync`)."""
         if not account_id:
             return "error"
 

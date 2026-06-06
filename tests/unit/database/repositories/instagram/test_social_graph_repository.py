@@ -71,8 +71,8 @@ def test_followers_sync_upsert_preserves_display_name_when_refresh_is_empty(conn
 
 
 def test_social_graph_sync_dual_write_and_backfill(conn):
-    """Vague B pilote: les ecritures sont mirrorees dans social_graph_sync et le
-    backfill des tables legacy est idempotent."""
+    """Vague B: les ecritures vont dans social_graph_sync (primaire) et la
+    migration Phase C migre puis droppe une table legacy de maniere idempotente."""
     repo = SocialGraphRepository(conn)
     conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (4, 'bot4', 1)")
     conn.commit()
@@ -105,14 +105,28 @@ def test_social_graph_sync_dual_write_and_backfill(conn):
     ).fetchone()
     assert unfollowed["unfollowed_at"] is not None
 
-    # Backfill of a legacy-only row is idempotent (INSERT OR IGNORE on unique key)
+    # Phase C: a legacy-only following_sync row is migrated into social_graph_sync
+    # and the legacy table is then dropped, idempotently.
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS following_sync (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, username TEXT NOT NULL,
+            display_name TEXT DEFAULT '', first_seen_at TEXT DEFAULT (datetime('now')),
+            last_seen_at TEXT DEFAULT (datetime('now')), is_follower_back INTEGER DEFAULT NULL,
+            followed_by_bot INTEGER DEFAULT 0, unfollowed_at TEXT DEFAULT NULL, source TEXT DEFAULT 'sync',
+            UNIQUE(account_id, username))"""
+    )
     conn.execute(
         "INSERT INTO following_sync (account_id, username, display_name, is_follower_back) VALUES (4, 'legacy', 'Legacy', 1)",
     )
     conn.commit()
     run_social_graph_sync_migrations(conn.cursor())
-    run_social_graph_sync_migrations(conn.cursor())
+    run_social_graph_sync_migrations(conn.cursor())  # idempotent
     count = conn.execute(
         "SELECT COUNT(*) AS c FROM social_graph_sync WHERE account_id = 4 AND username = 'legacy'",
     ).fetchone()
     assert count["c"] == 1
+    # the legacy table is dropped by the Phase C migration
+    dropped = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='following_sync'",
+    ).fetchone()
+    assert dropped is None
