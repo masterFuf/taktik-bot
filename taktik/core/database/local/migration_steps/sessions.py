@@ -32,13 +32,13 @@ IG_SESSION_COLS: List[str] = [
     "ai_total_cost_usd", "ai_profiles_analyzed", "ai_posts_analyzed", "ai_comments_generated",
     "stats_total_interactions", "stats_likes", "stats_follows", "stats_unfollows",
     "stats_comments", "stats_story_views", "stats_story_likes", "stats_profile_visits",
-    "created_at", "updated_at",
+    "created_at", "updated_at", "sync_id",
 ]
 TT_SESSION_COLS: List[str] = [
     "account_id", "session_name", "workflow_type", "target", "start_time", "end_time",
     "duration_seconds", "config_used", "status", "error_message",
     "profiles_visited", "posts_watched", "likes", "follows", "favorites", "comments",
-    "shares", "errors", "videos_watched", "created_at", "updated_at",
+    "shares", "errors", "videos_watched", "created_at", "updated_at", "sync_id",
 ]
 
 
@@ -112,9 +112,14 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
             videos_watched INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
+            sync_id TEXT,
             UNIQUE(platform, legacy_session_id)
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE sessions_unified ADD COLUMN sync_id TEXT")
+    except sqlite3.OperationalError:
+        pass
     try:
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_unified_account "
@@ -132,3 +137,11 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         cursor.execute(build_session_copy_sql(cursor, "tiktok", "tiktok_sessions", TT_SESSION_COLS))
     except sqlite3.OperationalError as exc:
         logger.debug(f"sessions_unified backfill (tiktok) skipped: {exc}")
+
+    # Generate a sync_id for rows the legacy table left NULL (PC-local rows).
+    try:
+        cursor.execute(
+            "UPDATE sessions_unified SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
+        )
+    except sqlite3.OperationalError as exc:
+        logger.debug(f"sessions_unified sync_id generation skipped: {exc}")
