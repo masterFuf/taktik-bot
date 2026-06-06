@@ -62,7 +62,7 @@ EXPECTED_TABLES = {
     "tiktok_accounts",
     "tiktok_profiles",
     "tiktok_sessions",
-    "tiktok_filtered_profiles",
+    # tiktok_filtered_profiles folded into the unified filtered_profiles (Vague B)
     # Gmail
     "gmail_accounts",
 }

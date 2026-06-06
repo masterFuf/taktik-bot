@@ -6,12 +6,12 @@ from loguru import logger
 
 
 class TikTokFilteredProfileRepositoryMixin:
-    """SQL owner for `tiktok_filtered_profiles`."""
+    """SQL owner for TikTok filtered profiles in the unified `filtered_profiles` table."""
 
     def is_profile_filtered(self, username: str, account_id: int) -> bool:
         """Check if a profile is filtered"""
         row = self.query_one(
-            "SELECT COUNT(*) as count FROM tiktok_filtered_profiles WHERE username = ? AND account_id = ?",
+            "SELECT COUNT(*) as count FROM filtered_profiles WHERE platform = 'tiktok' AND username = ? AND account_id = ?",
             (username, account_id)
         )
         return (row['count'] if row else 0) > 0
@@ -26,12 +26,20 @@ class TikTokFilteredProfileRepositoryMixin:
         source_name: str = 'unknown',
         session_id: Optional[int] = None
     ) -> bool:
-        """Record a filtered profile"""
+        """Record a filtered profile (unified filtered_profiles, platform='tiktok')."""
         try:
+            # Generate a sync_id on first insert; ON CONFLICT preserves it on re-filter.
             self.execute(
-                """INSERT OR REPLACE INTO tiktok_filtered_profiles
-                   (profile_id, account_id, username, reason, source_type, source_name, session_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO filtered_profiles
+                       (platform, profile_id, account_id, username, reason, source_type, source_name, session_id, sync_id)
+                   VALUES ('tiktok', ?, ?, ?, ?, ?, ?, ?, lower(hex(randomblob(16))))
+                   ON CONFLICT(platform, profile_id, account_id) DO UPDATE SET
+                       username = excluded.username,
+                       reason = excluded.reason,
+                       source_type = excluded.source_type,
+                       source_name = excluded.source_name,
+                       session_id = excluded.session_id,
+                       filtered_at = datetime('now')""",
                 (profile_id, account_id, username, reason, source_type, source_name, session_id)
             )
             return True

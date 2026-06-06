@@ -37,6 +37,7 @@ DOC_SCHEMA_PATH = ROOT / "taktik-docs" / "bot" / "database" / "schema.md"
 # tables that should be documented as part of the application schema.
 IGNORED_TABLES = {
     "_tiktok_scraped_profiles_backup",
+    "filtered_profiles_new",  # transient rebuild table (filtered_profiles platform axis)
 }
 
 CREATE_TABLE_RE = re.compile(

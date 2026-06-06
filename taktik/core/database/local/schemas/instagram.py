@@ -42,9 +42,13 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
     """)
 
 
+    # Unified filtered_profiles (platform axis: instagram + tiktok). No cross-table FK
+    # since profile_id / account_id are polymorphic across platforms; uniqueness is per
+    # (platform, profile_id, account_id). sync_id = Turso cross-device id (IG rows only).
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS filtered_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL DEFAULT 'instagram',
             profile_id INTEGER NOT NULL,
             account_id INTEGER NOT NULL,
             username TEXT NOT NULL,
@@ -53,9 +57,8 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
             source_type TEXT DEFAULT 'GENERAL',
             source_name TEXT DEFAULT 'unknown',
             session_id INTEGER,
-            FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-            UNIQUE(profile_id, account_id)
+            sync_id TEXT,
+            UNIQUE(platform, profile_id, account_id)
         )
     """)
 
@@ -151,3 +154,4 @@ def create_instagram_indexes(cursor: sqlite3.Cursor) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_username ON filtered_profiles(username)")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_filtered_profiles_sync_id ON filtered_profiles(sync_id)")
