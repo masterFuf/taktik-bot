@@ -18,7 +18,11 @@ from .user_interactions import FeedUserInteractionsMixin
 
 class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusinessAction):
     """Business logic for interacting with users from the home feed."""
-    
+
+    # Consecutive "filler" advances (only ads/suggestions) before the followed feed is
+    # considered exhausted. Mirrors the human crawl's session policy (feed-scroll #25).
+    _TAIL_FILLER_RUNS = 2
+
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "feed", init_business_modules=True)
         
@@ -38,6 +42,23 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
             'likes_count_button': self._feed_sel.likes_count_button,
         }
     
+    def _advance_to_next_post(self, skip_ads: bool, skip_suggested: bool) -> Dict[str, Any]:
+        """One human advance to the next real post via the shared crawl.
+
+        Replaces the old fixed ~50% swipe (`_scroll_to_next_post`): a decisive flick/drag
+        that coasts, skips ads/suggestions, stops once the engagement bar is in view and
+        frames the post at the top. Returns the scroll result dict (`on_feed`, `filler_run`,
+        `ads_skipped`, `suggested_skipped`, ...); on error a safe off-feed result so the
+        caller stops cleanly.
+        """
+        try:
+            return self.scroll_actions.scroll_feed_to_next_post(
+                skip_ads=skip_ads, skip_suggested=skip_suggested
+            )
+        except Exception as e:
+            self.logger.debug(f"Feed advance error: {e}")
+            return {'on_feed': False}
+
     def interact_with_feed(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Interagir avec les utilisateurs depuis le feed.
@@ -94,80 +115,101 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
                 
                 posts_liked = 0
                 posts_checked = 0
-                
-                while (posts_liked < effective_config['max_interactions'] and 
+
+                # Human crawl toggles (browse_feed-equivalent, driven here so the workflow
+                # keeps its like/comment orchestration). The gesture + content-aware dwell
+                # live in the shared/atomic layer; the workflow only consumes them.
+                skip_ads = effective_config.get('skip_ads', True)
+                skip_suggested = effective_config.get('skip_suggested', True)
+                read_captions = effective_config.get('read_captions', True)
+                browse_carousels = effective_config.get('browse_carousels', True)
+                min_likes = effective_config.get('min_post_likes', 0)
+                max_likes = effective_config.get('max_post_likes', 0)
+                filler_streak = 0
+
+                while (posts_liked < effective_config['max_interactions'] and
                        posts_checked < effective_config['max_posts_to_check']):
-                    
+
                     posts_checked += 1
                     stats['posts_checked'] += 1
-                    
+
                     self.logger.info(f"📱 Post {posts_checked}/{effective_config['max_posts_to_check']} (liked: {posts_liked})")
-                    
-                    # Vérifier si c'est une pub
-                    if effective_config.get('skip_ads', True) and self._is_sponsored_post():
+
+                    # The human crawl already skips ads/suggestions when advancing; this only
+                    # guards the very first on-screen post (we navigated home, never crawled to it).
+                    process_post = True
+                    if skip_ads and self._is_sponsored_post():
                         self.logger.debug("⏭️ Skipping sponsored post")
                         stats['posts_skipped_ads'] += 1
-                        self._scroll_to_next_post()
-                        time.sleep(random.uniform(1, 2))
-                        continue
-                    
+                        process_post = False
+
                     # Filtrer par nombre de likes si configuré
-                    min_likes = effective_config.get('min_post_likes', 0)
-                    max_likes = effective_config.get('max_post_likes', 0)
-                    
-                    self.logger.debug(f"🔍 Filter config: min_likes={min_likes}, max_likes={max_likes}")
-                    
-                    if min_likes > 0 or max_likes > 0:
+                    if process_post and (min_likes > 0 or max_likes > 0):
                         post_metadata = self._extract_post_metadata()
                         self.logger.debug(f"🔍 Post metadata result: {post_metadata}")
-                        
+
                         if post_metadata:
                             post_likes = post_metadata.get('likes_count', 0) or 0
-                            
                             if min_likes > 0 and post_likes < min_likes:
                                 self.logger.info(f"⏭️ Skipping post: {post_likes} likes < {min_likes} min")
                                 stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
-                                self._scroll_to_next_post()
-                                time.sleep(random.uniform(1, 2))
-                                continue
-                            
-                            if max_likes > 0 and post_likes > max_likes:
+                                process_post = False
+                            elif max_likes > 0 and post_likes > max_likes:
                                 self.logger.info(f"⏭️ Skipping post: {post_likes} likes > {max_likes} max")
                                 stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
-                                self._scroll_to_next_post()
-                                time.sleep(random.uniform(1, 2))
-                                continue
-                            
-                            self.logger.info(f"✅ Post matches filter: {post_likes} likes (max: {max_likes})")
+                                process_post = False
+                            else:
+                                self.logger.info(f"✅ Post matches filter: {post_likes} likes (max: {max_likes})")
                         else:
                             self.logger.debug("⚠️ Could not extract post metadata, skipping filter")
-                    
-                    # Liker le post directement dans le feed
-                    liked = False
-                    if random.randint(1, 100) <= effective_config.get('like_percentage', 100):
-                        if self._like_current_post():
-                            posts_liked += 1
-                            stats['likes_made'] += 1
-                            self.stats_manager.increment('likes')
-                            self.logger.info(f"❤️ Post liked ({posts_liked}/{effective_config['max_interactions']})")
-                            liked = True
-                        else:
-                            self.logger.debug("Failed to like post")
-                    
-                    # Commenter le post (si configuré)
-                    if liked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
-                        if self._comment_current_post(effective_config):
-                            stats['comments_made'] += 1
-                            self.stats_manager.increment('comments')
-                            self.logger.info(f"💬 Comment posted")
-                    
-                    # Passer au post suivant
-                    self._scroll_to_next_post()
-                    
-                    # Délai court entre les posts
-                    delay = random.randint(*effective_config['interaction_delay_range'])
-                    time.sleep(delay)
-                
+
+                    if process_post:
+                        # Liker le post directement dans le feed
+                        liked = False
+                        if random.randint(1, 100) <= effective_config.get('like_percentage', 100):
+                            if self._like_current_post():
+                                posts_liked += 1
+                                stats['likes_made'] += 1
+                                self.stats_manager.increment('likes')
+                                self.logger.info(f"❤️ Post liked ({posts_liked}/{effective_config['max_interactions']})")
+                                liked = True
+                            else:
+                                self.logger.debug("Failed to like post")
+
+                        # Commenter le post (si configuré)
+                        if liked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
+                            if self._comment_current_post(effective_config):
+                                stats['comments_made'] += 1
+                                self.stats_manager.increment('comments')
+                                self.logger.info(f"💬 Comment posted")
+
+                        # Lecture humaine du post (carousel + légende + dwell content-aware)
+                        # remplace le sleep fixe : on "passe du temps devant le post".
+                        self.scroll_actions.human_reading_pause(
+                            read_captions=read_captions, browse_carousels=browse_carousels
+                        )
+
+                    # Avance humaine vers le prochain VRAI post (skip pubs/suggestions,
+                    # stop-on-metadata, cadrage). Un seul point d'avance pour toute la boucle.
+                    res = self._advance_to_next_post(skip_ads, skip_suggested)
+                    stats['posts_skipped_ads'] += res.get('ads_skipped', 0)
+                    stats['posts_skipped_suggested'] = (
+                        stats.get('posts_skipped_suggested', 0) + res.get('suggested_skipped', 0)
+                    )
+
+                    if not res.get('on_feed', False):
+                        self.logger.info("🏁 Left the feed (reel/profile) - stopping")
+                        break
+
+                    # Feed suivi épuisé : N gestes "filler" (que des pubs/suggestions) d'affilée.
+                    if res.get('filler_run'):
+                        filler_streak += 1
+                        if filler_streak >= self._TAIL_FILLER_RUNS:
+                            self.logger.info("🏁 Feed tail (only recommendations) - stopping")
+                            break
+                    else:
+                        filler_streak = 0
+
                 stats['users_interacted'] = posts_liked
                 stats['success'] = True
                 self.logger.info(f"✅ Feed workflow completed: {posts_liked} posts liked")

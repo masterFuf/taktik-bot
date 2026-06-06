@@ -61,6 +61,7 @@ def _build_action_config(
 
     if action_type == "feed":
         feed_story_enabled = bool(feed_stories_config.get("enabled", story_percentage > 0))
+        feed_config = raw_config.get("feed", {})
         return {
             "type": "feed",
             "max_interactions": max_profiles,
@@ -79,6 +80,10 @@ def _build_action_config(
             "min_post_likes": filters.get("minPostLikes", 0),
             "max_post_likes": filters.get("maxPostLikes", 0),
             "custom_comments": comments_config.get("customComments", []),
+            # Human crawl toggles (default ON; future per-account bot settings).
+            "skip_suggested": feed_config.get("skipSuggested", True),
+            "read_captions": feed_config.get("readCaptions", True),
+            "browse_carousels": feed_config.get("browseCarousels", True),
         }
 
     if action_type == "notifications":

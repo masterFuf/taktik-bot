@@ -86,6 +86,12 @@ FEED_DEFAULTS: Dict[str, Any] = {
     'interact_with_post_likers': False,
     'skip_reels': False,
     'skip_ads': True,
+    # Human crawl (browse_feed/scroll_feed_to_next_post) toggles — default ON so the
+    # feed workflow scrolls like a human (skip suggestions, read captions, browse carousels).
+    # Exposed as future per-account bot settings.
+    'skip_suggested': True,
+    'read_captions': True,
+    'browse_carousels': True,
     'like_posts_directly': True,
     'min_post_likes': 0,
     'max_post_likes': 0,
