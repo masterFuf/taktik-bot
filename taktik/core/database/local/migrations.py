@@ -26,6 +26,7 @@ from .migration_steps.social_graph import (
     run_social_graph_sync_migrations,
 )
 from .migration_steps.tiktok import run_legacy_tiktok_scraped_profiles_migration
+from .migration_steps.interactions import run_interactions_unification_migrations
 
 
 def run_migrations(conn: sqlite3.Connection) -> None:
@@ -40,6 +41,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_legacy_tiktok_scraped_profiles_migration(cursor)
     run_profile_following_migrations(cursor)
     run_social_graph_sync_migrations(cursor)
+    run_interactions_unification_migrations(cursor)
     run_instagram_profile_ai_migrations(cursor)
     run_profile_ai_enrichment_migrations(cursor)
     drop_legacy_discovery_tables(cursor)

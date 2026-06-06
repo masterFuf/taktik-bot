@@ -27,7 +27,19 @@ class TikTokInteractionRepositoryMixin:
                 (session_id, account_id, profile_id, interaction_type,
                  1 if success else 0, content, video_id)
             )
-            return cursor.lastrowid
+            rowid = cursor.lastrowid
+            # Dual-write into the unified `interactions` table (Vague B Phase A).
+            try:
+                self.execute(
+                    """INSERT INTO interactions
+                       (platform, session_id, account_id, profile_id, interaction_type, success, content, video_id, interaction_time)
+                       VALUES ('tiktok', ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                    (session_id, account_id, profile_id, interaction_type,
+                     1 if success else 0, content, video_id),
+                )
+            except Exception as exc:
+                logger.debug(f"interactions mirror (tiktok) failed: {exc}")
+            return rowid
         except Exception as e:
             logger.error(f"Error recording TikTok interaction: {e}")
             return None

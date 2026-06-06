@@ -26,12 +26,24 @@ class InteractionRepository(BaseRepository):
         """Record a new interaction"""
         try:
             cursor = self.execute(
-                """INSERT INTO interaction_history 
+                """INSERT INTO interaction_history
                    (session_id, account_id, profile_id, interaction_type, success, content)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (session_id, account_id, profile_id, interaction_type.upper(), 1 if success else 0, content)
             )
-            return cursor.lastrowid
+            rowid = cursor.lastrowid
+            # Dual-write into the unified `interactions` table (Vague B Phase A).
+            # Best-effort: a mirror failure must not break the primary insert.
+            try:
+                self.execute(
+                    """INSERT INTO interactions
+                       (platform, session_id, account_id, profile_id, interaction_type, success, content, interaction_time)
+                       VALUES ('instagram', ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                    (session_id, account_id, profile_id, interaction_type.upper(), 1 if success else 0, content),
+                )
+            except Exception as exc:
+                logger.debug(f"interactions mirror (instagram) failed: {exc}")
+            return rowid
         except Exception as e:
             logger.error(f"Error recording interaction: {e}")
             return None
