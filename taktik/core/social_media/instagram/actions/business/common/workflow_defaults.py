@@ -40,6 +40,7 @@ FOLLOWERS_DEFAULTS: Dict[str, Any] = {
     'like_probability': 0.8,
     'follow_probability': 0.2,
     'story_probability': 0.15,
+    'story_like_probability': 0.0,
     'comment_probability': 0.05,
     'like_posts': True,
     'max_likes_per_profile': 4,

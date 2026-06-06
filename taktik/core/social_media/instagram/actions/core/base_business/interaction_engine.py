@@ -44,6 +44,7 @@ class InteractionEngineMixin:
             # === LIKE / COMMENT ===
             should_like = 'like' in interactions_to_do
             should_comment = 'comment' in interactions_to_do
+            min_likes = config.get('min_likes_per_profile', 1)
 
             if should_like or should_comment:
                 likes_result = self.like_business.like_profile_posts(
@@ -61,20 +62,26 @@ class InteractionEngineMixin:
                 if likes_result:
                     result['likes'] = likes_result.get('posts_liked', 0)
                     result['comments'] = likes_result.get('posts_commented', 0)
-                    if result['likes'] > 0 or result['comments'] > 0:
+
+                    # The min-likes threshold ONLY gates whether the like counts as an
+                    # interaction (e.g. a profile with too few posts in a like workflow).
+                    # It must NEVER short-circuit the follow/story blocks below — those
+                    # are independent interactions. Previously an early `return` here meant
+                    # that whenever a like yielded 0 (no posts / broken selector), the bot
+                    # also skipped follow AND story watching on EVERY workflow using this
+                    # engine (target, hashtag, post_url, feed, notifications).
+                    like_meets_threshold = (not should_like) or result['likes'] >= min_likes
+                    if should_like and not like_meets_threshold:
+                        self.logger.info(
+                            f"⏭️ @{username}: only {result['likes']}/{min_likes} min likes possible "
+                            f"(not enough posts) — like won't count, still evaluating follow/story"
+                        )
+
+                    if (like_meets_threshold and result['likes'] > 0) or result['comments'] > 0:
                         result['actually_interacted'] = True
 
-                    # Skip profile if we couldn't reach the minimum likes threshold
-                    min_likes = config.get('min_likes_per_profile', 1)
-                    if should_like and result['likes'] < min_likes:
-                        self.logger.info(
-                            f"⏭️ @{username} skipped: only {result['likes']}/{min_likes} min likes possible (not enough posts)"
-                        )
-                        return {'likes': 0, 'follows': 0, 'comments': 0,
-                                'stories': 0, 'stories_liked': 0, 'actually_interacted': False}
-                    
                     # IPC event for likes (so frontend WorkflowAnalyzer can track)
-                    if result['likes'] > 0:
+                    if like_meets_threshold and result['likes'] > 0:
                         self._emit_like_event(username, result['likes'], profile_data)
 
             # === FOLLOW ===

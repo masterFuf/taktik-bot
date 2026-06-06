@@ -48,9 +48,10 @@ class FollowerMultiTargetWorkflowMixin:
             'follow_probability': config.get('follow_probability', 0.2),
             'comment_probability': config.get('comment_probability', 0.1),
             'story_probability': config.get('story_probability', 0.2),
+            'story_like_probability': config.get('story_like_probability', 0.0),
             'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
         }
-        
+
         # Démarrer la phase de scraping
         if self.session_manager:
             self.session_manager.start_scraping_phase()

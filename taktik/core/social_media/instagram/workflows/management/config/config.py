@@ -9,7 +9,8 @@ class ActionProbabilities:
     follow: float = 0.15
     comment: float = 0.05
     story: float = 0.1
-    
+    story_like: float = 0.1
+
     @classmethod
     def from_percentages(cls, probabilities: Dict[str, float]) -> 'ActionProbabilities':
         """Convert percentage dict to decimal probabilities"""
@@ -17,16 +18,20 @@ class ActionProbabilities:
             like=probabilities.get('like_percentage', 70) / 100.0,
             follow=probabilities.get('follow_percentage', 15) / 100.0,
             comment=probabilities.get('comment_percentage', 5) / 100.0,
-            story=probabilities.get('story_percentage', 10) / 100.0
+            story=probabilities.get('story_percentage', 10) / 100.0,
+            # story_like (front "likeStories") was previously dropped here, so it never
+            # reached the interaction engine — keep it wired through to_dict() below.
+            story_like=probabilities.get('story_like_percentage', 10) / 100.0
         )
-    
+
     def to_dict(self) -> Dict[str, float]:
         """Convert to dict format for compatibility"""
         return {
             'like_probability': self.like,
             'follow_probability': self.follow,
             'comment_probability': self.comment,
-            'story_probability': self.story
+            'story_probability': self.story,
+            'story_like_probability': self.story_like
         }
 
 

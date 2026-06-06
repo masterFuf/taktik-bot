@@ -40,6 +40,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             'follow_probability': config.get('follow_probability', 0.2),
             'comment_probability': config.get('comment_probability', 0.1),
             'story_probability': config.get('story_probability', 0.2),
+            'story_like_probability': config.get('story_like_probability', 0.0),
             'max_likes_per_profile': config.get('max_likes_per_profile', 3),
             'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
         }
