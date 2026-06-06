@@ -29,12 +29,13 @@ class TikTokInteractionRepositoryMixin:
             )
             rowid = cursor.lastrowid
             # Dual-write into the unified `interactions` table (Vague B Phase A).
+            # legacy_id = the legacy row id so the boot backfill dedups (no dup).
             try:
                 self.execute(
-                    """INSERT INTO interactions
-                       (platform, session_id, account_id, profile_id, interaction_type, success, content, video_id, interaction_time)
-                       VALUES ('tiktok', ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                    (session_id, account_id, profile_id, interaction_type,
+                    """INSERT OR IGNORE INTO interactions
+                       (platform, legacy_id, session_id, account_id, profile_id, interaction_type, success, content, video_id, interaction_time)
+                       VALUES ('tiktok', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                    (rowid, session_id, account_id, profile_id, interaction_type,
                      1 if success else 0, content, video_id),
                 )
             except Exception as exc:

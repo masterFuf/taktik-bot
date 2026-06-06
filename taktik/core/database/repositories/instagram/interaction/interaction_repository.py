@@ -33,13 +33,15 @@ class InteractionRepository(BaseRepository):
             )
             rowid = cursor.lastrowid
             # Dual-write into the unified `interactions` table (Vague B Phase A).
+            # legacy_id = the legacy row id so the boot backfill (INSERT OR IGNORE
+            # on (platform, legacy_id)) dedups against this row, no duplicate.
             # Best-effort: a mirror failure must not break the primary insert.
             try:
                 self.execute(
-                    """INSERT INTO interactions
-                       (platform, session_id, account_id, profile_id, interaction_type, success, content, interaction_time)
-                       VALUES ('instagram', ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                    (session_id, account_id, profile_id, interaction_type.upper(), 1 if success else 0, content),
+                    """INSERT OR IGNORE INTO interactions
+                       (platform, legacy_id, session_id, account_id, profile_id, interaction_type, success, content, interaction_time)
+                       VALUES ('instagram', ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                    (rowid, session_id, account_id, profile_id, interaction_type.upper(), 1 if success else 0, content),
                 )
             except Exception as exc:
                 logger.debug(f"interactions mirror (instagram) failed: {exc}")

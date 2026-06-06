@@ -15,13 +15,23 @@ def test_interaction_dual_write_into_unified_table(conn):
     repo.record(account_id=5, profile_id=50, interaction_type="like", success=True, content="ok")
 
     row = conn.execute(
-        """SELECT platform, account_id, profile_id, interaction_type, success, content
+        """SELECT platform, account_id, profile_id, interaction_type, success, content, legacy_id
            FROM interactions WHERE account_id = 5 AND profile_id = 50""",
     ).fetchone()
     assert row["platform"] == "instagram"
     assert row["interaction_type"] == "LIKE"
     assert row["success"] == 1
     assert row["content"] == "ok"
+    assert row["legacy_id"] is not None  # dual-write carries the legacy row id
+
+    # Re-running the backfill must NOT duplicate the dual-written row
+    # (INSERT OR IGNORE dedups on (platform, legacy_id)).
+    run_interactions_unification_migrations(conn.cursor())
+    run_interactions_unification_migrations(conn.cursor())
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM interactions WHERE account_id = 5 AND profile_id = 50",
+    ).fetchone()
+    assert count["c"] == 1
 
 
 def test_backfill_both_platforms_is_idempotent(conn):
