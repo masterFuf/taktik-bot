@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from ....local.migration_steps.sessions import TT_SESSION_COLS, build_session_copy_sql
+
 
 class TikTokSessionRepositoryMixin:
     """SQL owner for the `tiktok_sessions` lifecycle."""
@@ -26,7 +28,9 @@ class TikTokSessionRepositoryMixin:
                 (account_id, session_name[:100], workflow_type, target[:50] if target else None,
                  json.dumps(self._redact_sensitive(config_used)) if config_used else None)
             )
-            return cursor.lastrowid
+            session_id = cursor.lastrowid
+            self._mirror_session(session_id)
+            return session_id
         except Exception as e:
             logger.error(f"Error creating TikTok session: {e}")
             return None
@@ -64,7 +68,20 @@ class TikTokSessionRepositoryMixin:
             f"UPDATE tiktok_sessions SET {', '.join(updates)} WHERE session_id = ?",
             tuple(values)
         )
+        self._mirror_session(session_id)
         return cursor.rowcount > 0
+
+    def _mirror_session(self, session_id: int) -> None:
+        """Mirror one TikTok session row into sessions_unified (Vague B Phase A).
+        Best-effort, column-aware; idempotent via UNIQUE(platform, legacy_session_id)."""
+        try:
+            sql = build_session_copy_sql(
+                self.conn.cursor(), "tiktok", "tiktok_sessions", TT_SESSION_COLS,
+                verb="INSERT OR REPLACE", where="WHERE session_id = ?",
+            )
+            self.execute(sql, (session_id,))
+        except Exception as exc:
+            logger.debug(f"sessions_unified mirror (tiktok) failed: {exc}")
 
     def end_session(
         self,
