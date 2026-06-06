@@ -158,8 +158,8 @@ class StatsRepository(BaseRepository):
                 COALESCE(SUM(total_duration_seconds), 0) as total_duration,
                 COALESCE(SUM(completed_sessions), 0) as completed_sessions,
                 COALESCE(SUM(failed_sessions), 0) as failed_sessions
-            FROM daily_stats
-            WHERE account_id = ?
+            FROM daily_stats_unified
+            WHERE platform = 'instagram' AND account_id = ?
             AND date >= date('now', '-' || ? || ' days')
             """,
             (account_id, days),

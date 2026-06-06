@@ -103,8 +103,8 @@ class TikTokStatsRepositoryMixin:
         """Get TikTok daily stats for an account."""
         rows = self.query(
             """
-            SELECT * FROM tiktok_daily_stats
-            WHERE account_id = ? AND date >= date('now', '-' || ? || ' days')
+            SELECT * FROM daily_stats_unified
+            WHERE platform = 'tiktok' AND account_id = ? AND date >= date('now', '-' || ? || ' days')
             ORDER BY date DESC
             """,
             (account_id, days),
