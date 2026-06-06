@@ -8,8 +8,8 @@ from loguru import logger
 class TikTokInteractionRepositoryMixin:
     """SQL owner for TikTok interactions.
 
-    Reads go through the unified `interactions` table (platform='tiktok'); writes
-    still mirror the legacy `tiktok_interaction_history` table (Vague B Phase A).
+    Reads and writes go through the unified `interactions` table
+    (platform='tiktok'); the legacy `tiktok_interaction_history` table is dropped (Vague B).
     """
 
     def record_interaction(
@@ -24,27 +24,16 @@ class TikTokInteractionRepositoryMixin:
     ) -> Optional[int]:
         """Record an interaction"""
         try:
+            # Vague B Phase C: write directly to the unified `interactions` table
+            # (legacy tiktok_interaction_history dropped). sync_id generated for Turso.
             cursor = self.execute(
-                """INSERT INTO tiktok_interaction_history
-                   (session_id, account_id, profile_id, interaction_type, success, content, video_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO interactions
+                   (platform, sync_id, session_id, account_id, profile_id, interaction_type, success, content, video_id, interaction_time, created_at)
+                   VALUES ('tiktok', lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
                 (session_id, account_id, profile_id, interaction_type,
                  1 if success else 0, content, video_id)
             )
-            rowid = cursor.lastrowid
-            # Dual-write into the unified `interactions` table (Vague B Phase A).
-            # legacy_id = the legacy row id so the boot backfill dedups (no dup).
-            try:
-                self.execute(
-                    """INSERT OR IGNORE INTO interactions
-                       (platform, legacy_id, session_id, account_id, profile_id, interaction_type, success, content, video_id, interaction_time)
-                       VALUES ('tiktok', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                    (rowid, session_id, account_id, profile_id, interaction_type,
-                     1 if success else 0, content, video_id),
-                )
-            except Exception as exc:
-                logger.debug(f"interactions mirror (tiktok) failed: {exc}")
-            return rowid
+            return cursor.lastrowid
         except Exception as e:
             logger.error(f"Error recording TikTok interaction: {e}")
             return None
@@ -103,7 +92,7 @@ class TikTokInteractionRepositoryMixin:
         """Get recent TikTok interactions for an account."""
         rows = self.query(
             """
-            SELECT ih.legacy_id AS id, ih.session_id, ih.account_id, ih.profile_id,
+            SELECT ih.id, ih.session_id, ih.account_id, ih.profile_id,
                    ih.interaction_type, ih.interaction_time, ih.success, ih.content, ih.video_id,
                    tp.username as target_username
             FROM interactions ih
@@ -139,7 +128,7 @@ class TikTokInteractionRepositoryMixin:
     def get_interactions_by_session(self, session_id: int) -> List[Dict[str, Any]]:
         """Get interactions by session"""
         rows = self.query(
-            """SELECT legacy_id AS id, session_id, account_id, profile_id,
+            """SELECT id, session_id, account_id, profile_id,
                       interaction_type, interaction_time, success, content, video_id
                FROM interactions WHERE platform = 'tiktok' AND session_id = ? ORDER BY interaction_time DESC""",
             (session_id,)

@@ -49,7 +49,6 @@ EXPECTED_TABLES = {
     # Instagram
     "instagram_accounts",
     "instagram_profiles",
-    "interaction_history",
     "filtered_profiles",
     "sessions",
     "profile_stats_history",
@@ -63,7 +62,6 @@ EXPECTED_TABLES = {
     # TikTok
     "tiktok_accounts",
     "tiktok_profiles",
-    "tiktok_interaction_history",
     "tiktok_sessions",
     "tiktok_filtered_profiles",
     "tiktok_daily_stats",

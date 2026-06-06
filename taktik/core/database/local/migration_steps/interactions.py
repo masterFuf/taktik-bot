@@ -101,3 +101,7 @@ def run_interactions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         )
     except sqlite3.OperationalError as exc:
         logger.debug(f"interactions sync_id generation/index skipped: {exc}")
+
+    # Phase C: writes now go straight to `interactions`; drop the legacy tables.
+    cursor.execute("DROP TABLE IF EXISTS interaction_history")
+    cursor.execute("DROP TABLE IF EXISTS tiktok_interaction_history")

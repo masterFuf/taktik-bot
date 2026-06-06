@@ -36,21 +36,6 @@ def create_tiktok_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tiktok_interaction_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER,
-            account_id INTEGER NOT NULL,
-            profile_id INTEGER NOT NULL,
-            interaction_type TEXT NOT NULL,
-            interaction_time TEXT DEFAULT (datetime('now')),
-            success INTEGER DEFAULT 1,
-            content TEXT,
-            video_id TEXT,
-            FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
-            FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE
-        )
-    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tiktok_sessions (
@@ -136,9 +121,6 @@ def create_tiktok_indexes(cursor: sqlite3.Cursor) -> None:
     """Create TikTok indexes."""
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_accounts_username ON tiktok_accounts(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_profiles_username ON tiktok_profiles(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_session ON tiktok_interaction_history(session_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_account ON tiktok_interaction_history(account_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_interactions_time ON tiktok_interaction_history(interaction_time)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_account ON tiktok_sessions(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_status ON tiktok_sessions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_account ON tiktok_filtered_profiles(account_id)")

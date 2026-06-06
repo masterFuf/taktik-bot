@@ -1,8 +1,8 @@
 """
 Interaction Repository - Manages filtered_profiles and Instagram interactions.
 
-Reads go through the unified `interactions` table (platform='instagram'); writes
-still mirror the legacy `interaction_history` table (Vague B Phase A).
+Reads and writes go through the unified `interactions` table
+(platform='instagram'); the legacy `interaction_history` table is dropped (Vague B).
 """
 
 from typing import Dict, List, Optional, Tuple, Any
@@ -28,27 +28,15 @@ class InteractionRepository(BaseRepository):
     ) -> Optional[int]:
         """Record a new interaction"""
         try:
+            # Vague B Phase C: write directly to the unified `interactions` table
+            # (legacy interaction_history dropped). sync_id generated for Turso.
             cursor = self.execute(
-                """INSERT INTO interaction_history
-                   (session_id, account_id, profile_id, interaction_type, success, content)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO interactions
+                   (platform, sync_id, session_id, account_id, profile_id, interaction_type, success, content, interaction_time, created_at)
+                   VALUES ('instagram', lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
                 (session_id, account_id, profile_id, interaction_type.upper(), 1 if success else 0, content)
             )
-            rowid = cursor.lastrowid
-            # Dual-write into the unified `interactions` table (Vague B Phase A).
-            # legacy_id = the legacy row id so the boot backfill (INSERT OR IGNORE
-            # on (platform, legacy_id)) dedups against this row, no duplicate.
-            # Best-effort: a mirror failure must not break the primary insert.
-            try:
-                self.execute(
-                    """INSERT OR IGNORE INTO interactions
-                       (platform, legacy_id, session_id, account_id, profile_id, interaction_type, success, content, interaction_time)
-                       VALUES ('instagram', ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-                    (rowid, session_id, account_id, profile_id, interaction_type.upper(), 1 if success else 0, content),
-                )
-            except Exception as exc:
-                logger.debug(f"interactions mirror (instagram) failed: {exc}")
-            return rowid
+            return cursor.lastrowid
         except Exception as e:
             logger.error(f"Error recording interaction: {e}")
             return None
@@ -71,7 +59,7 @@ class InteractionRepository(BaseRepository):
     def find_by_account(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
         """Get interactions by account"""
         rows = self.query(
-            """SELECT ih.legacy_id AS id, ih.session_id, ih.account_id, ih.profile_id,
+            """SELECT ih.id, ih.session_id, ih.account_id, ih.profile_id,
                       ih.interaction_type, ih.interaction_time, ih.success, ih.content,
                       ip.username as target_username
                FROM interactions ih
@@ -86,7 +74,7 @@ class InteractionRepository(BaseRepository):
     def find_by_session(self, session_id: int) -> List[Dict[str, Any]]:
         """Get interactions by session"""
         rows = self.query(
-            """SELECT ih.legacy_id AS id, ih.session_id, ih.account_id, ih.profile_id,
+            """SELECT ih.id, ih.session_id, ih.account_id, ih.profile_id,
                       ih.interaction_type, ih.interaction_time, ih.success, ih.content,
                       ip.username as target_username
                FROM interactions ih

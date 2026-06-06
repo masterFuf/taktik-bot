@@ -41,20 +41,6 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS interaction_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER,
-            account_id INTEGER NOT NULL,
-            profile_id INTEGER NOT NULL,
-            interaction_type TEXT NOT NULL,
-            interaction_time TEXT DEFAULT (datetime('now')),
-            success INTEGER DEFAULT 1,
-            content TEXT,
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-            FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE
-        )
-    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS filtered_profiles (
@@ -185,9 +171,6 @@ def create_instagram_indexes(cursor: sqlite3.Cursor) -> None:
     """Create Instagram core indexes."""
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_username ON instagram_accounts(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_username ON instagram_profiles(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_session ON interaction_history(session_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_account ON interaction_history(account_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_interactions_time ON interaction_history(interaction_time)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
