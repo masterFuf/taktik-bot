@@ -133,7 +133,7 @@ class TikTokSessionRepositoryMixin:
         workflow_type: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Get TikTok sessions with optional filters."""
-        query = "SELECT * FROM tiktok_sessions WHERE 1=1"
+        query = "SELECT *, legacy_session_id AS session_id FROM sessions_unified WHERE platform = 'tiktok'"
         params = []
 
         if account_id:
@@ -152,7 +152,8 @@ class TikTokSessionRepositoryMixin:
     def get_sessions_by_account(self, account_id: int, limit: int = 50) -> List[Dict[str, Any]]:
         """Get sessions by account"""
         rows = self.query(
-            "SELECT * FROM tiktok_sessions WHERE account_id = ? ORDER BY start_time DESC LIMIT ?",
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'tiktok' AND account_id = ? ORDER BY start_time DESC LIMIT ?",
             (account_id, limit)
         )
         return [dict(row) for row in rows]
@@ -160,7 +161,8 @@ class TikTokSessionRepositoryMixin:
     def get_all_sessions(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Get all sessions"""
         rows = self.query(
-            "SELECT * FROM tiktok_sessions ORDER BY start_time DESC LIMIT ?",
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'tiktok' ORDER BY start_time DESC LIMIT ?",
             (limit,)
         )
         return [dict(row) for row in rows]
@@ -168,7 +170,8 @@ class TikTokSessionRepositoryMixin:
     def get_session_stats(self, session_id: int) -> Optional[Dict[str, Any]]:
         """Get session stats"""
         row = self.query_one(
-            "SELECT * FROM tiktok_sessions WHERE session_id = ?",
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'tiktok' AND legacy_session_id = ?",
             (session_id,)
         )
         return dict(row) if row else None

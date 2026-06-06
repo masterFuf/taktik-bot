@@ -80,7 +80,8 @@ class SessionRepository(BaseRepository):
     def find_by_id(self, session_id: int) -> Optional[Dict[str, Any]]:
         """Find session by ID"""
         row = self.query_one(
-            "SELECT * FROM sessions WHERE session_id = ?",
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'instagram' AND legacy_session_id = ?",
             (session_id,)
         )
         return self._map_session_row(row)
@@ -88,15 +89,17 @@ class SessionRepository(BaseRepository):
     def find_by_account(self, account_id: int, limit: int = 50) -> List[Dict[str, Any]]:
         """Get sessions by account"""
         rows = self.query(
-            "SELECT * FROM sessions WHERE account_id = ? ORDER BY start_time DESC LIMIT ?",
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'instagram' AND account_id = ? ORDER BY start_time DESC LIMIT ?",
             (account_id, limit)
         )
         return [self._map_session_row(row) for row in rows]
-    
+
     def find_active(self) -> List[Dict[str, Any]]:
         """Get active sessions"""
         rows = self.query(
-            "SELECT * FROM sessions WHERE status = 'ACTIVE' ORDER BY start_time DESC"
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'instagram' AND status = 'ACTIVE' ORDER BY start_time DESC"
         )
         return [self._map_session_row(row) for row in rows]
     

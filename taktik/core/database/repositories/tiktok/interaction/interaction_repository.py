@@ -126,7 +126,7 @@ class TikTokInteractionRepositoryMixin:
             """
             SELECT COUNT(DISTINCT ih.profile_id) as count
             FROM interactions ih
-            JOIN tiktok_sessions ts ON ih.session_id = ts.session_id
+            JOIN sessions_unified ts ON ts.legacy_session_id = ih.session_id AND ts.platform = 'tiktok'
             WHERE ih.platform = 'tiktok'
             AND ih.account_id = ?
             AND ts.target = ?
