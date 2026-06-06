@@ -87,8 +87,9 @@ def test_following_sync_upsert_and_markers(monkeypatch):
 
     conn = fake_db._get_connection()
     row = conn.execute(
-        """SELECT display_name, followed_by_bot, is_follower_back, unfollowed_at, source
-           FROM following_sync WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+        """SELECT display_name, followed_by_bot, is_reciprocal AS is_follower_back, unfollowed_at, source
+           FROM social_graph_sync
+           WHERE account_id = ? AND username = ? COLLATE NOCASE AND direction = 'following'""",
         (7, "exampleuser"),
     ).fetchone()
 
@@ -115,7 +116,8 @@ def test_mark_follower_back_keeps_active_following_visible(monkeypatch):
     InstagramFollowGraphService.mark_follower_back("mutualuser", 8)
 
     row = fake_db._get_connection().execute(
-        "SELECT is_follower_back FROM following_sync WHERE account_id = ? AND username = ? COLLATE NOCASE",
+        "SELECT is_reciprocal AS is_follower_back FROM social_graph_sync "
+        "WHERE account_id = ? AND username = ? COLLATE NOCASE AND direction = 'following'",
         (8, "mutualuser"),
     ).fetchone()
 
@@ -144,8 +146,9 @@ def test_followers_sync_upsert_and_listing(monkeypatch):
     )
 
     row = fake_db._get_connection().execute(
-        """SELECT display_name, is_following_back, source
-           FROM followers_sync WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+        """SELECT display_name, is_reciprocal AS is_following_back, source
+           FROM social_graph_sync
+           WHERE account_id = ? AND username = ? COLLATE NOCASE AND direction = 'follower'""",
         (9, "fanuser"),
     ).fetchone()
 

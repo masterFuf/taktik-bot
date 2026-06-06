@@ -37,8 +37,9 @@ def test_following_sync_upsert_tracks_active_and_unfollowed_entries(conn):
     repo.mark_unfollowed("sampleuser", 2)
 
     row = conn.execute(
-        """SELECT display_name, followed_by_bot, is_follower_back, unfollowed_at, source
-           FROM following_sync WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+        """SELECT display_name, followed_by_bot, is_reciprocal AS is_follower_back, unfollowed_at, source
+           FROM social_graph_sync
+           WHERE account_id = ? AND username = ? COLLATE NOCASE AND direction = 'following'""",
         (2, "sampleuser"),
     ).fetchone()
     assert row["display_name"] == "Updated"
@@ -58,8 +59,9 @@ def test_followers_sync_upsert_preserves_display_name_when_refresh_is_empty(conn
     assert repo.upsert_follower("follower", 3, display_name="", is_following_back=True, source="mutual") == "updated"
 
     row = conn.execute(
-        """SELECT display_name, is_following_back, source
-           FROM followers_sync WHERE account_id = ? AND username = ? COLLATE NOCASE""",
+        """SELECT display_name, is_reciprocal AS is_following_back, source
+           FROM social_graph_sync
+           WHERE account_id = ? AND username = ? COLLATE NOCASE AND direction = 'follower'""",
         (3, "follower"),
     ).fetchone()
     assert row["display_name"] == "Display"

@@ -62,7 +62,7 @@ class SocialGraphRepository(BaseRepository):
             logger.debug(f"Error getting days since follow for @{username}: {exc}")
             return None
 
-    def _mirror_social_graph(
+    def _upsert_social_graph(
         self,
         account_id: int,
         username: str,
@@ -74,39 +74,37 @@ class SocialGraphRepository(BaseRepository):
         unfollowed: bool = False,
         source: Optional[str] = None,
     ) -> None:
-        """Best-effort mirror into the unified `social_graph_sync` table.
+        """Primary upsert into the unified `social_graph_sync` table.
 
-        Restructuring Vague B (pilote) : additif et non destructif. Ne leve
-        jamais d'exception - un echec de miroir ne doit pas casser l'ecriture
-        primaire de `following_sync`/`followers_sync`.
+        Restructuring Vague B : `social_graph_sync` est desormais la source de
+        verite (les tables legacy `following_sync`/`followers_sync` ont ete
+        droppees). Ne capture pas les exceptions : l'appelant gere l'erreur et
+        renvoie un statut "error".
         """
-        try:
-            unfollowed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if unfollowed else None
-            self.execute(
-                """INSERT INTO social_graph_sync
-                       (platform, account_id, username, direction, display_name,
-                        is_reciprocal, followed_by_bot, unfollowed_at, source)
-                   VALUES ('instagram', ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'sync'))
-                   ON CONFLICT(platform, account_id, username, direction) DO UPDATE SET
-                       display_name = COALESCE(NULLIF(excluded.display_name, ''), social_graph_sync.display_name),
-                       is_reciprocal = COALESCE(excluded.is_reciprocal, social_graph_sync.is_reciprocal),
-                       followed_by_bot = COALESCE(excluded.followed_by_bot, social_graph_sync.followed_by_bot),
-                       unfollowed_at = COALESCE(excluded.unfollowed_at, social_graph_sync.unfollowed_at),
-                       source = COALESCE(NULLIF(excluded.source, ''), social_graph_sync.source),
-                       last_seen_at = datetime('now')""",
-                (
-                    account_id,
-                    username,
-                    direction,
-                    display_name,
-                    None if is_reciprocal is None else int(is_reciprocal),
-                    None if followed_by_bot is None else int(followed_by_bot),
-                    unfollowed_at,
-                    source,
-                ),
-            )
-        except Exception as exc:
-            logger.debug(f"social_graph_sync mirror failed for @{username} ({direction}): {exc}")
+        unfollowed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if unfollowed else None
+        self.execute(
+            """INSERT INTO social_graph_sync
+                   (platform, account_id, username, direction, display_name,
+                    is_reciprocal, followed_by_bot, unfollowed_at, source)
+               VALUES ('instagram', ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(platform, account_id, username, direction) DO UPDATE SET
+                   display_name = COALESCE(NULLIF(excluded.display_name, ''), social_graph_sync.display_name),
+                   is_reciprocal = COALESCE(excluded.is_reciprocal, social_graph_sync.is_reciprocal),
+                   followed_by_bot = COALESCE(excluded.followed_by_bot, social_graph_sync.followed_by_bot),
+                   unfollowed_at = COALESCE(excluded.unfollowed_at, social_graph_sync.unfollowed_at),
+                   source = COALESCE(NULLIF(excluded.source, ''), social_graph_sync.source),
+                   last_seen_at = datetime('now')""",
+            (
+                account_id,
+                username,
+                direction,
+                display_name,
+                None if is_reciprocal is None else int(is_reciprocal),
+                None if followed_by_bot is None else int(followed_by_bot),
+                unfollowed_at,
+                source,
+            ),
+        )
 
     def upsert_following(
         self,
@@ -121,30 +119,13 @@ class SocialGraphRepository(BaseRepository):
 
         try:
             existing = self.query_one(
-                "SELECT id FROM following_sync WHERE account_id = ? AND username = ? COLLATE NOCASE",
+                "SELECT 1 FROM social_graph_sync "
+                "WHERE platform = 'instagram' AND account_id = ? AND username = ? COLLATE NOCASE AND direction = 'following'",
                 (account_id, username),
             )
-            if existing:
-                self.execute(
-                    """UPDATE following_sync
-                       SET display_name = ?, last_seen_at = datetime('now'),
-                           followed_by_bot = ?, source = ?
-                       WHERE account_id = ? AND username = ? COLLATE NOCASE""",
-                    (display_name, int(followed_by_bot), source, account_id, username),
-                )
-                self._mirror_social_graph(account_id, username, "following",
-                                          display_name=display_name, followed_by_bot=followed_by_bot, source=source)
-                return "updated"
-
-            self.execute(
-                """INSERT INTO following_sync
-                   (account_id, username, display_name, followed_by_bot, source)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (account_id, username, display_name, int(followed_by_bot), source),
-            )
-            self._mirror_social_graph(account_id, username, "following",
+            self._upsert_social_graph(account_id, username, "following",
                                       display_name=display_name, followed_by_bot=followed_by_bot, source=source)
-            return "new"
+            return "updated" if existing else "new"
         except Exception as exc:
             logger.debug(f"Error in upsert_following for @{username}: {exc}")
             return "error"
@@ -174,12 +155,7 @@ class SocialGraphRepository(BaseRepository):
             return
 
         try:
-            self.execute(
-                """UPDATE following_sync SET is_follower_back = ?, last_seen_at = datetime('now')
-                   WHERE account_id = ? AND username = ? COLLATE NOCASE""",
-                (int(is_follower_back), account_id, username),
-            )
-            self._mirror_social_graph(account_id, username, "following", is_reciprocal=is_follower_back)
+            self._upsert_social_graph(account_id, username, "following", is_reciprocal=is_follower_back)
         except Exception as exc:
             logger.debug(f"Error updating follower-back flag for @{username}: {exc}")
 
@@ -188,12 +164,7 @@ class SocialGraphRepository(BaseRepository):
             return
 
         try:
-            self.execute(
-                """UPDATE following_sync SET unfollowed_at = datetime('now')
-                   WHERE account_id = ? AND username = ? COLLATE NOCASE""",
-                (account_id, username),
-            )
-            self._mirror_social_graph(account_id, username, "following", unfollowed=True)
+            self._upsert_social_graph(account_id, username, "following", unfollowed=True)
         except Exception as exc:
             logger.debug(f"Error marking @{username} as unfollowed: {exc}")
 
@@ -210,34 +181,13 @@ class SocialGraphRepository(BaseRepository):
 
         try:
             existing = self.query_one(
-                "SELECT id FROM followers_sync WHERE account_id = ? AND username = ? COLLATE NOCASE",
+                "SELECT 1 FROM social_graph_sync "
+                "WHERE platform = 'instagram' AND account_id = ? AND username = ? COLLATE NOCASE AND direction = 'follower'",
                 (account_id, username),
             )
-            following_back_value = None if is_following_back is None else int(is_following_back)
-
-            if existing:
-                self.execute(
-                    """UPDATE followers_sync
-                       SET display_name = COALESCE(NULLIF(?, ''), display_name),
-                           last_seen_at = datetime('now'),
-                           is_following_back = COALESCE(?, is_following_back),
-                           source = ?
-                       WHERE account_id = ? AND username = ? COLLATE NOCASE""",
-                    (display_name, following_back_value, source, account_id, username),
-                )
-                self._mirror_social_graph(account_id, username, "follower",
-                                          display_name=display_name, is_reciprocal=is_following_back, source=source)
-                return "updated"
-
-            self.execute(
-                """INSERT INTO followers_sync
-                   (account_id, username, display_name, is_following_back, source)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (account_id, username, display_name, following_back_value, source),
-            )
-            self._mirror_social_graph(account_id, username, "follower",
+            self._upsert_social_graph(account_id, username, "follower",
                                       display_name=display_name, is_reciprocal=is_following_back, source=source)
-            return "new"
+            return "updated" if existing else "new"
         except Exception as exc:
             logger.debug(f"Error in upsert_follower for @{username}: {exc}")
             return "error"
