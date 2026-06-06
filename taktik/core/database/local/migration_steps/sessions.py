@@ -143,5 +143,8 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         cursor.execute(
             "UPDATE sessions_unified SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
         )
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_unified_sync_id ON sessions_unified(sync_id)"
+        )
     except sqlite3.OperationalError as exc:
-        logger.debug(f"sessions_unified sync_id generation skipped: {exc}")
+        logger.debug(f"sessions_unified sync_id generation/index skipped: {exc}")

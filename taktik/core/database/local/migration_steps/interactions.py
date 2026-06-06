@@ -96,5 +96,8 @@ def run_interactions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         cursor.execute(
             "UPDATE interactions SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
         )
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_interactions_sync_id ON interactions(sync_id)"
+        )
     except sqlite3.OperationalError as exc:
-        logger.debug(f"interactions sync_id generation skipped: {exc}")
+        logger.debug(f"interactions sync_id generation/index skipped: {exc}")
