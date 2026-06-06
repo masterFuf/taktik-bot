@@ -9,6 +9,9 @@ from taktik.core.database.local.schemas.instagram import (
 from taktik.core.database.local.migration_steps.interactions import (
     run_interactions_unification_migrations,
 )
+from taktik.core.database.local.migration_steps.social_graph import (
+    run_social_graph_sync_migrations,
+)
 from taktik.core.database.repositories.instagram.social_graph import SocialGraphRepository
 
 
@@ -19,9 +22,10 @@ class _FakeLocalDb:
         cursor = self._conn.cursor()
         create_instagram_tables(cursor)
         create_instagram_indexes(cursor)
-        # Unified interactions table (Vague B) is created by a migration step,
-        # not by the base schema; follow-history lookups read it.
+        # Unified tables (Vague B) are created by migration steps, not the base
+        # schema; follow-history and social-graph lookups read them.
         run_interactions_unification_migrations(cursor)
+        run_social_graph_sync_migrations(cursor)
         self._conn.commit()
         self.social_graph = SocialGraphRepository(self._conn)
 
