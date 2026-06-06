@@ -36,23 +36,18 @@ def run_instagram_profile_ai_migrations(cursor: sqlite3.Cursor) -> None:
     except sqlite3.OperationalError:
         logger.info("Migration: Adding ai_gender to instagram_profiles")
         cursor.execute("ALTER TABLE instagram_profiles ADD COLUMN ai_gender TEXT")
-        try:
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_instagram_profiles_ai_gender "
-                "ON instagram_profiles(ai_gender)"
-            )
-        except sqlite3.OperationalError:
-            pass
 
     try:
         cursor.execute("SELECT ai_age_group FROM instagram_profiles LIMIT 1")
     except sqlite3.OperationalError:
         logger.info("Migration: Adding ai_age_group to instagram_profiles")
         cursor.execute("ALTER TABLE instagram_profiles ADD COLUMN ai_age_group TEXT")
+
+    # Drop dead indexes on frozen ai_* columns: profile AI classification is read
+    # from profile_ai_enrichments (runtime read cutoff), so these indexes served
+    # no query and only slowed writes. Index hygiene only; no fact column change.
+    for _idx in ("idx_instagram_profiles_ai_gender", "idx_instagram_profiles_ai_age_group"):
         try:
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_instagram_profiles_ai_age_group "
-                "ON instagram_profiles(ai_age_group)"
-            )
+            cursor.execute(f"DROP INDEX IF EXISTS {_idx}")
         except sqlite3.OperationalError:
             pass
