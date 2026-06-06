@@ -66,17 +66,7 @@ def create_tiktok_tables(cursor: sqlite3.Cursor) -> None:
 
     # tiktok_filtered_profiles folded into the unified filtered_profiles (platform axis, Vague B).
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tiktok_scraped_profiles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            scraping_id INTEGER NOT NULL,
-            profile_id INTEGER NOT NULL,
-            is_enriched INTEGER DEFAULT 0,
-            scraped_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (profile_id) REFERENCES tiktok_profiles(profile_id) ON DELETE CASCADE,
-            UNIQUE(scraping_id, profile_id)
-        )
-    """)
+    # tiktok_scraped_profiles folded into the unified scraped_profiles (platform axis, Vague B).
 
 
 def create_tiktok_indexes(cursor: sqlite3.Cursor) -> None:
@@ -85,5 +75,3 @@ def create_tiktok_indexes(cursor: sqlite3.Cursor) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_profiles_username ON tiktok_profiles(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_account ON tiktok_sessions(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_status ON tiktok_sessions(status)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_scraped_profiles_session ON tiktok_scraped_profiles(scraping_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_scraped_profiles_profile ON tiktok_scraped_profiles(profile_id)")

@@ -50,19 +50,22 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
     """)
 
     cursor.execute("""
+        -- Unified scraped_profiles (platform axis: instagram + tiktok). scraping_id is
+        -- globally unique (shared scraping_sessions) so it is platform-bound; the
+        -- `platform` column disambiguates the polymorphic profile_id. No cross-table FK.
         CREATE TABLE IF NOT EXISTS scraped_profiles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL DEFAULT 'instagram',
             scraping_id INTEGER NOT NULL,
             profile_id INTEGER NOT NULL,
             scraped_at TEXT DEFAULT (datetime('now')),
+            is_enriched INTEGER DEFAULT 0,
             source_post_url TEXT,
             ai_score INTEGER,
             ai_qualified INTEGER DEFAULT 0,
             ai_analysis TEXT,
             qualification_criteria TEXT,
             scored_at TEXT,
-            FOREIGN KEY (scraping_id) REFERENCES scraping_sessions(scraping_id) ON DELETE CASCADE,
-            FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
             UNIQUE(scraping_id, profile_id)
         )
     """)

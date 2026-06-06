@@ -22,8 +22,8 @@ class ScrapedProfileRepository(BaseRepository):
         try:
             self.execute(
                 """
-                INSERT INTO scraped_profiles (scraping_id, profile_id, source_post_url)
-                VALUES (?, ?, ?)
+                INSERT INTO scraped_profiles (platform, scraping_id, profile_id, source_post_url)
+                VALUES ('instagram', ?, ?, ?)
                 ON CONFLICT(scraping_id, profile_id)
                 DO UPDATE SET source_post_url = COALESCE(excluded.source_post_url, source_post_url)
                 """,
@@ -43,7 +43,7 @@ class ScrapedProfileRepository(BaseRepository):
         for profile_id in profile_ids:
             try:
                 cursor = self.execute(
-                    "INSERT OR IGNORE INTO scraped_profiles (scraping_id, profile_id) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO scraped_profiles (platform, scraping_id, profile_id) VALUES ('instagram', ?, ?)",
                     (scraping_id, profile_id),
                 )
                 if cursor.rowcount > 0:

@@ -128,7 +128,7 @@ class ProfileRepository(BaseRepository):
                        ai_analysis,
                        ai_qualified
                 FROM scraped_profiles
-                WHERE ai_qualified = 1
+                WHERE platform = 'instagram' AND ai_qualified = 1
                 GROUP BY profile_id
             ) sp ON sp.profile_id = p.profile_id
             WHERE p.username IN ({placeholders})

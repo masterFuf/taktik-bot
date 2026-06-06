@@ -207,17 +207,21 @@ class TestRunMigrations:
         assert profile["biography"] == "Old bio"
         assert profile["followers_count"] == 1000
 
-        info = base_conn.execute("PRAGMA table_info(tiktok_scraped_profiles)").fetchall()
-        cols = {r["name"] for r in info}
-        assert "profile_id" in cols
-        assert "bio" not in cols
+        # The legacy snapshot is converted to a junction then folded into the unified
+        # scraped_profiles (platform='tiktok'); the legacy twin table is dropped.
+        dropped = base_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='tiktok_scraped_profiles'"
+        ).fetchone()
+        assert dropped is None
 
         link = base_conn.execute("""
-            SELECT tsp.scraping_id, tp.username
-            FROM tiktok_scraped_profiles tsp
-            JOIN tiktok_profiles tp ON tp.profile_id = tsp.profile_id
+            SELECT sp.scraping_id, sp.platform, tp.username
+            FROM scraped_profiles sp
+            JOIN tiktok_profiles tp ON tp.profile_id = sp.profile_id
+            WHERE sp.platform = 'tiktok'
         """).fetchone()
         assert link["scraping_id"] == 42
+        assert link["platform"] == "tiktok"
         assert link["username"] == "creator_legacy"
 
     def test_legacy_discovery_tables_are_dropped(self, base_conn):

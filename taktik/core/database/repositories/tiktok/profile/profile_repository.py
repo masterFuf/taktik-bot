@@ -80,8 +80,8 @@ class TikTokProfileRepositoryMixin:
         """Link a scraped profile to a scraping session via junction table."""
         try:
             self.execute(
-                """INSERT OR IGNORE INTO tiktok_scraped_profiles (scraping_id, profile_id, is_enriched)
-                   VALUES (?, ?, ?)""",
+                """INSERT OR IGNORE INTO scraped_profiles (platform, scraping_id, profile_id, is_enriched)
+                   VALUES ('tiktok', ?, ?, ?)""",
                 (scraping_id, profile_id, 1 if is_enriched else 0)
             )
             return True

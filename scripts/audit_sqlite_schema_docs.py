@@ -38,6 +38,11 @@ DOC_SCHEMA_PATH = ROOT / "taktik-docs" / "bot" / "database" / "schema.md"
 IGNORED_TABLES = {
     "_tiktok_scraped_profiles_backup",
     "filtered_profiles_new",  # transient rebuild table (filtered_profiles platform axis)
+    "scraped_profiles_new",  # transient rebuild table (scraped_profiles platform axis)
+    # tiktok_scraped_profiles is now transient: the legacy converter recreates the
+    # junction shape on very old bases, then the unification folds it into the unified
+    # scraped_profiles and drops it. It never persists, so it is not documented.
+    "tiktok_scraped_profiles",
 }
 
 CREATE_TABLE_RE = re.compile(

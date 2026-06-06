@@ -30,6 +30,7 @@ from .migration_steps.interactions import run_interactions_unification_migration
 from .migration_steps.daily_stats import run_daily_stats_unification_migrations
 from .migration_steps.sessions import run_sessions_unification_migrations
 from .migration_steps.filtered_profiles import run_filtered_profiles_unification_migrations
+from .migration_steps.scraped_profiles import run_scraped_profiles_unification_migrations
 
 
 def run_migrations(conn: sqlite3.Connection) -> None:
@@ -42,6 +43,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_scraping_session_migrations(cursor)
     run_scraped_profile_migrations(cursor)
     run_legacy_tiktok_scraped_profiles_migration(cursor)
+    run_scraped_profiles_unification_migrations(cursor)
     run_profile_following_migrations(cursor)
     run_social_graph_sync_migrations(cursor)
     run_interactions_unification_migrations(cursor)
