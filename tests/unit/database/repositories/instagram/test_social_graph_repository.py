@@ -13,9 +13,9 @@ def test_follow_history_lookups_use_profile_and_interaction_tables(conn):
     conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (1, 'bot', 1)")
     conn.execute("INSERT INTO instagram_profiles (profile_id, username) VALUES (10, 'Creator')")
     conn.execute(
-        """INSERT INTO interaction_history
-           (account_id, profile_id, interaction_type, interaction_time, success)
-           VALUES (?, ?, 'FOLLOW', ?, 1)""",
+        """INSERT INTO interactions
+           (platform, account_id, profile_id, interaction_type, interaction_time, success)
+           VALUES ('instagram', ?, ?, 'FOLLOW', ?, 1)""",
         (1, 10, (datetime.now() - timedelta(days=3, hours=1)).isoformat()),
     )
     conn.commit()

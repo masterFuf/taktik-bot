@@ -6,6 +6,9 @@ from taktik.core.database.local.schemas.instagram import (
     create_instagram_indexes,
     create_instagram_tables,
 )
+from taktik.core.database.local.migration_steps.interactions import (
+    run_interactions_unification_migrations,
+)
 from taktik.core.database.repositories.instagram.social_graph import SocialGraphRepository
 
 
@@ -16,6 +19,9 @@ class _FakeLocalDb:
         cursor = self._conn.cursor()
         create_instagram_tables(cursor)
         create_instagram_indexes(cursor)
+        # Unified interactions table (Vague B) is created by a migration step,
+        # not by the base schema; follow-history lookups read it.
+        run_interactions_unification_migrations(cursor)
         self._conn.commit()
         self.social_graph = SocialGraphRepository(self._conn)
 
@@ -40,9 +46,9 @@ def test_has_bot_follow_record_and_days_since_follow(monkeypatch):
         (12, "TargetUser"),
     )
     conn.execute(
-        """INSERT INTO interaction_history
-           (account_id, profile_id, interaction_type, interaction_time, success)
-           VALUES (?, ?, 'FOLLOW', ?, 1)""",
+        """INSERT INTO interactions
+           (platform, account_id, profile_id, interaction_type, interaction_time, success)
+           VALUES ('instagram', ?, ?, 'FOLLOW', ?, 1)""",
         (4, 12, (datetime.now() - timedelta(days=5, hours=2)).isoformat()),
     )
     conn.commit()

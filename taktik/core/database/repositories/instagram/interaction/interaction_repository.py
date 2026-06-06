@@ -1,5 +1,8 @@
 """
-Interaction Repository - Manages interaction_history and filtered_profiles tables
+Interaction Repository - Manages filtered_profiles and Instagram interactions.
+
+Reads go through the unified `interactions` table (platform='instagram'); writes
+still mirror the legacy `interaction_history` table (Vague B Phase A).
 """
 
 from typing import Dict, List, Optional, Tuple, Any
@@ -58,8 +61,8 @@ class InteractionRepository(BaseRepository):
     ) -> bool:
         """Check if there was a recent interaction with a profile"""
         row = self.query_one(
-            """SELECT COUNT(*) as count FROM interaction_history
-               WHERE account_id = ? AND profile_id = ?
+            """SELECT COUNT(*) as count FROM interactions
+               WHERE platform = 'instagram' AND account_id = ? AND profile_id = ?
                AND interaction_time >= datetime('now', '-' || ? || ' days')""",
             (account_id, profile_id, days)
         )
@@ -68,10 +71,12 @@ class InteractionRepository(BaseRepository):
     def find_by_account(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
         """Get interactions by account"""
         rows = self.query(
-            """SELECT ih.*, ip.username as target_username
-               FROM interaction_history ih
+            """SELECT ih.legacy_id AS id, ih.session_id, ih.account_id, ih.profile_id,
+                      ih.interaction_type, ih.interaction_time, ih.success, ih.content,
+                      ip.username as target_username
+               FROM interactions ih
                JOIN instagram_profiles ip ON ih.profile_id = ip.profile_id
-               WHERE ih.account_id = ?
+               WHERE ih.platform = 'instagram' AND ih.account_id = ?
                ORDER BY ih.interaction_time DESC
                LIMIT ?""",
             (account_id, limit)
@@ -81,10 +86,12 @@ class InteractionRepository(BaseRepository):
     def find_by_session(self, session_id: int) -> List[Dict[str, Any]]:
         """Get interactions by session"""
         rows = self.query(
-            """SELECT ih.*, ip.username as target_username
-               FROM interaction_history ih
+            """SELECT ih.legacy_id AS id, ih.session_id, ih.account_id, ih.profile_id,
+                      ih.interaction_type, ih.interaction_time, ih.success, ih.content,
+                      ip.username as target_username
+               FROM interactions ih
                JOIN instagram_profiles ip ON ih.profile_id = ip.profile_id
-               WHERE ih.session_id = ?
+               WHERE ih.platform = 'instagram' AND ih.session_id = ?
                ORDER BY ih.interaction_time DESC""",
             (session_id,)
         )
@@ -99,14 +106,14 @@ class InteractionRepository(BaseRepository):
         """Count interactions by type for an account"""
         if days:
             row = self.query_one(
-                """SELECT COUNT(*) as count FROM interaction_history 
-                   WHERE account_id = ? AND interaction_type = ?
+                """SELECT COUNT(*) as count FROM interactions
+                   WHERE platform = 'instagram' AND account_id = ? AND interaction_type = ?
                    AND interaction_time >= datetime('now', '-' || ? || ' days')""",
                 (account_id, interaction_type.upper(), days)
             )
         else:
             row = self.query_one(
-                "SELECT COUNT(*) as count FROM interaction_history WHERE account_id = ? AND interaction_type = ?",
+                "SELECT COUNT(*) as count FROM interactions WHERE platform = 'instagram' AND account_id = ? AND interaction_type = ?",
                 (account_id, interaction_type.upper())
             )
         return row['count'] if row else 0
@@ -124,8 +131,8 @@ class InteractionRepository(BaseRepository):
                 SUM(CASE WHEN interaction_type = 'STORY_WATCH' THEN 1 ELSE 0 END) as total_story_views,
                 SUM(CASE WHEN interaction_type = 'STORY_LIKE' THEN 1 ELSE 0 END) as total_story_likes,
                 SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_interactions
-            FROM interaction_history
-            WHERE session_id = ?
+            FROM interactions
+            WHERE platform = 'instagram' AND session_id = ?
             """,
             (session_id,)
         )

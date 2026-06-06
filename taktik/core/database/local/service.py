@@ -456,8 +456,8 @@ class LocalDatabaseService:
         
         cursor.execute("""
             SELECT interaction_type, interaction_time
-            FROM interaction_history
-            WHERE account_id = ? AND profile_id = ?
+            FROM interactions
+            WHERE platform = 'instagram' AND account_id = ? AND profile_id = ?
             AND interaction_time >= datetime('now', '-' || ? || ' hours')
             ORDER BY interaction_time DESC
             LIMIT 1

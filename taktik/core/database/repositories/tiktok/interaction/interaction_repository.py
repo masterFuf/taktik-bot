@@ -6,7 +6,11 @@ from loguru import logger
 
 
 class TikTokInteractionRepositoryMixin:
-    """SQL owner for `tiktok_interaction_history`."""
+    """SQL owner for TikTok interactions.
+
+    Reads go through the unified `interactions` table (platform='tiktok'); writes
+    still mirror the legacy `tiktok_interaction_history` table (Vague B Phase A).
+    """
 
     def record_interaction(
         self,
@@ -85,8 +89,9 @@ class TikTokInteractionRepositoryMixin:
 
         row = self.query_one(
             """
-            SELECT COUNT(*) as count FROM tiktok_interaction_history
-            WHERE account_id = ?
+            SELECT COUNT(*) as count FROM interactions
+            WHERE platform = 'tiktok'
+            AND account_id = ?
             AND profile_id = ?
             AND interaction_time >= datetime('now', '-' || ? || ' hours')
             """,
@@ -98,10 +103,12 @@ class TikTokInteractionRepositoryMixin:
         """Get recent TikTok interactions for an account."""
         rows = self.query(
             """
-            SELECT ih.*, tp.username as target_username
-            FROM tiktok_interaction_history ih
+            SELECT ih.legacy_id AS id, ih.session_id, ih.account_id, ih.profile_id,
+                   ih.interaction_type, ih.interaction_time, ih.success, ih.content, ih.video_id,
+                   tp.username as target_username
+            FROM interactions ih
             JOIN tiktok_profiles tp ON ih.profile_id = tp.profile_id
-            WHERE ih.account_id = ?
+            WHERE ih.platform = 'tiktok' AND ih.account_id = ?
             ORDER BY ih.interaction_time DESC
             LIMIT ?
             """,
@@ -118,9 +125,10 @@ class TikTokInteractionRepositoryMixin:
         row = self.query_one(
             """
             SELECT COUNT(DISTINCT ih.profile_id) as count
-            FROM tiktok_interaction_history ih
+            FROM interactions ih
             JOIN tiktok_sessions ts ON ih.session_id = ts.session_id
-            WHERE ih.account_id = ?
+            WHERE ih.platform = 'tiktok'
+            AND ih.account_id = ?
             AND ts.target = ?
             AND ih.interaction_time >= datetime('now', '-' || ? || ' hours')
             """,
@@ -131,7 +139,9 @@ class TikTokInteractionRepositoryMixin:
     def get_interactions_by_session(self, session_id: int) -> List[Dict[str, Any]]:
         """Get interactions by session"""
         rows = self.query(
-            "SELECT * FROM tiktok_interaction_history WHERE session_id = ? ORDER BY interaction_time DESC",
+            """SELECT legacy_id AS id, session_id, account_id, profile_id,
+                      interaction_type, interaction_time, success, content, video_id
+               FROM interactions WHERE platform = 'tiktok' AND session_id = ? ORDER BY interaction_time DESC""",
             (session_id,)
         )
         return [{**dict(r), 'success': bool(dict(r).get('success', 0))} for r in rows]

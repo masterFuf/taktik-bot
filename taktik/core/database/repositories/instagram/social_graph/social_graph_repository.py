@@ -26,8 +26,8 @@ class SocialGraphRepository(BaseRepository):
                 return False
 
             interaction = self.query_one(
-                """SELECT 1 FROM interaction_history
-                   WHERE account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
+                """SELECT 1 FROM interactions
+                   WHERE platform = 'instagram' AND account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
                    LIMIT 1""",
                 (account_id, row["profile_id"]),
             )
@@ -49,8 +49,8 @@ class SocialGraphRepository(BaseRepository):
                 return None
 
             follow = self.query_one(
-                """SELECT interaction_time FROM interaction_history
-                   WHERE account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
+                """SELECT interaction_time FROM interactions
+                   WHERE platform = 'instagram' AND account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
                    ORDER BY interaction_time DESC LIMIT 1""",
                 (account_id, row["profile_id"]),
             )
