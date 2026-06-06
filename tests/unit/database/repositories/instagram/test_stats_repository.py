@@ -34,7 +34,7 @@ def test_mark_as_synced_updates_synced_flags(conn):
     assert repo.mark_as_synced([unsynced[0]["id"]]) is True
 
     synced = conn.execute(
-        "SELECT synced_to_api, synced_at FROM daily_stats WHERE id = ?",
+        "SELECT synced_to_api, synced_at FROM daily_stats_unified WHERE id = ?",
         (unsynced[0]["id"],),
     ).fetchone()
     assert synced["synced_to_api"] == 1

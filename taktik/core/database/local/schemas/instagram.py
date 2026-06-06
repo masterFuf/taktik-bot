@@ -136,30 +136,6 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS daily_stats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL,
-            date TEXT NOT NULL,
-            total_likes INTEGER DEFAULT 0,
-            total_follows INTEGER DEFAULT 0,
-            total_unfollows INTEGER DEFAULT 0,
-            total_comments INTEGER DEFAULT 0,
-            total_story_views INTEGER DEFAULT 0,
-            total_story_likes INTEGER DEFAULT 0,
-            total_profile_visits INTEGER DEFAULT 0,
-            total_sessions INTEGER DEFAULT 0,
-            completed_sessions INTEGER DEFAULT 0,
-            failed_sessions INTEGER DEFAULT 0,
-            total_duration_seconds INTEGER DEFAULT 0,
-            synced_to_api INTEGER DEFAULT 0,
-            synced_at TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
-            UNIQUE(account_id, date)
-        )
-    """)
 
     # following_sync / followers_sync were folded into the unified
     # `social_graph_sync` table (Vague B) and are dropped by
@@ -175,4 +151,3 @@ def create_instagram_indexes(cursor: sqlite3.Cursor) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_username ON filtered_profiles(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_daily_stats_account_date ON daily_stats(account_id, date)")

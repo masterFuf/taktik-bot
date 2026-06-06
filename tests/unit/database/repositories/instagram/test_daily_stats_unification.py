@@ -1,4 +1,4 @@
-"""Unit tests for the unified `daily_stats_unified` table (Vague B Phase A)."""
+"""Unit tests for the unified `daily_stats_unified` table (Vague B Phase C)."""
 
 from datetime import datetime
 
@@ -8,7 +8,7 @@ from taktik.core.database.local.migration_steps.daily_stats import (
 )
 
 
-def test_increment_mirrors_into_unified_table(conn):
+def test_increment_writes_directly_into_unified_table(conn):
     repo = StatsRepository(conn)
     conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (5, 'bot5', 1)")
     conn.commit()
@@ -36,17 +36,22 @@ def test_increment_mirrors_into_unified_table(conn):
     assert count["c"] == 1
 
 
-def test_backfill_both_platforms_is_idempotent(conn):
+def test_phase_c_migrate_then_drop_is_idempotent(conn):
+    """Legacy daily_stats rows are migrated into daily_stats_unified and the legacy
+    tables are then dropped, idempotently (Phase C)."""
     conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (6, 'bot6', 1)")
-    conn.execute("INSERT INTO tiktok_accounts (account_id, username, is_bot) VALUES (7, 'tt7', 1)")
-    # Legacy-only rows (not mirrored via repos) — only the backfill should pick them up.
+    # Recreate a legacy table (dropped by the migration) to simulate an old base.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS daily_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, date TEXT NOT NULL,
+            total_likes INTEGER DEFAULT 0, total_follows INTEGER DEFAULT 0, total_unfollows INTEGER DEFAULT 0,
+            total_comments INTEGER DEFAULT 0, total_story_views INTEGER DEFAULT 0, total_story_likes INTEGER DEFAULT 0,
+            total_profile_visits INTEGER DEFAULT 0, total_sessions INTEGER DEFAULT 0, completed_sessions INTEGER DEFAULT 0,
+            failed_sessions INTEGER DEFAULT 0, total_duration_seconds INTEGER DEFAULT 0, synced_to_api INTEGER DEFAULT 0,
+            synced_at TEXT, created_at TEXT, updated_at TEXT, UNIQUE(account_id, date))
+    """)
     conn.execute(
-        """INSERT INTO daily_stats (account_id, date, total_likes, total_story_views)
-           VALUES (6, '2026-01-01', 3, 9)""",
-    )
-    conn.execute(
-        """INSERT INTO tiktok_daily_stats (account_id, date, total_likes, total_favorites, total_posts_watched)
-           VALUES (7, '2026-01-01', 4, 5, 6)""",
+        "INSERT INTO daily_stats (account_id, date, total_likes, total_story_views) VALUES (6, '2026-01-01', 3, 9)",
     )
     conn.commit()
 
@@ -57,14 +62,11 @@ def test_backfill_both_platforms_is_idempotent(conn):
         "SELECT total_likes, total_story_views FROM daily_stats_unified "
         "WHERE platform = 'instagram' AND account_id = 6 AND date = '2026-01-01'",
     ).fetchall()
-    tt = conn.execute(
-        "SELECT total_likes, total_favorites, total_posts_watched FROM daily_stats_unified "
-        "WHERE platform = 'tiktok' AND account_id = 7 AND date = '2026-01-01'",
-    ).fetchall()
     assert len(ig) == 1
     assert ig[0]["total_likes"] == 3
     assert ig[0]["total_story_views"] == 9
-    assert len(tt) == 1
-    assert tt[0]["total_likes"] == 4
-    assert tt[0]["total_favorites"] == 5
-    assert tt[0]["total_posts_watched"] == 6
+    # legacy table dropped by the Phase C migration
+    dropped = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='daily_stats'",
+    ).fetchone()
+    assert dropped is None

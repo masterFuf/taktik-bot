@@ -1,8 +1,8 @@
 """
-Stats Repository - Manages daily_stats analytics table.
+Stats Repository - Manages Instagram daily stats.
 
-Writes still target the legacy `daily_stats` table; each write is mirrored into
-the unified `daily_stats_unified` table (Vague B Phase A) via `_mirror_daily_stats`.
+Reads and writes go through the unified `daily_stats_unified` table
+(platform='instagram'); the legacy `daily_stats` table is dropped (Vague B).
 """
 
 from datetime import datetime
@@ -35,15 +35,14 @@ class StatsRepository(BaseRepository):
         today = datetime.now().strftime('%Y-%m-%d')
         self.execute(
             f"""
-            INSERT INTO daily_stats (account_id, date, {column})
-            VALUES (?, ?, 1)
-            ON CONFLICT(account_id, date) DO UPDATE SET
+            INSERT INTO daily_stats_unified (platform, account_id, date, {column})
+            VALUES ('instagram', ?, ?, 1)
+            ON CONFLICT(platform, account_id, date) DO UPDATE SET
                 {column} = {column} + 1,
                 updated_at = datetime('now')
             """,
             (account_id, today),
         )
-        self._mirror_daily_stats(account_id, today)
         return True
 
     def increment_session_count(self, account_id: int) -> None:
@@ -51,15 +50,14 @@ class StatsRepository(BaseRepository):
         today = datetime.now().strftime('%Y-%m-%d')
         self.execute(
             """
-            INSERT INTO daily_stats (account_id, date, total_sessions)
-            VALUES (?, ?, 1)
-            ON CONFLICT(account_id, date) DO UPDATE SET
+            INSERT INTO daily_stats_unified (platform, account_id, date, total_sessions)
+            VALUES ('instagram', ?, ?, 1)
+            ON CONFLICT(platform, account_id, date) DO UPDATE SET
                 total_sessions = total_sessions + 1,
                 updated_at = datetime('now')
             """,
             (account_id, today),
         )
-        self._mirror_daily_stats(account_id, today)
 
     def record_session_completion(self, account_id: int, status: str, duration: int) -> None:
         """Increment completion/failure counters and accumulate duration."""
@@ -67,43 +65,20 @@ class StatsRepository(BaseRepository):
         column = 'completed_sessions' if status == 'COMPLETED' else 'failed_sessions'
         self.execute(
             f"""
-            INSERT INTO daily_stats (account_id, date, {column}, total_duration_seconds)
-            VALUES (?, ?, 1, ?)
-            ON CONFLICT(account_id, date) DO UPDATE SET
+            INSERT INTO daily_stats_unified (platform, account_id, date, {column}, total_duration_seconds)
+            VALUES ('instagram', ?, ?, 1, ?)
+            ON CONFLICT(platform, account_id, date) DO UPDATE SET
                 {column} = {column} + 1,
                 total_duration_seconds = total_duration_seconds + ?,
                 updated_at = datetime('now')
             """,
             (account_id, today, duration, duration),
         )
-        self._mirror_daily_stats(account_id, today)
-
-    def _mirror_daily_stats(self, account_id: int, date: str) -> None:
-        """Mirror one Instagram daily_stats row into daily_stats_unified
-        (Vague B Phase A). Best-effort; idempotent via UNIQUE(platform, account_id, date)."""
-        try:
-            self.execute(
-                """
-                INSERT OR REPLACE INTO daily_stats_unified
-                    (platform, account_id, date, total_likes, total_follows, total_unfollows, total_comments,
-                     total_profile_visits, total_story_views, total_story_likes, total_favorites, total_shares,
-                     total_posts_watched, total_sessions, completed_sessions, failed_sessions,
-                     total_duration_seconds, synced_to_api, synced_at, created_at, updated_at)
-                SELECT 'instagram', account_id, date, total_likes, total_follows, total_unfollows, total_comments,
-                       total_profile_visits, total_story_views, total_story_likes, 0, 0,
-                       0, total_sessions, completed_sessions, failed_sessions,
-                       total_duration_seconds, synced_to_api, synced_at, created_at, updated_at
-                FROM daily_stats WHERE account_id = ? AND date = ?
-                """,
-                (account_id, date),
-            )
-        except Exception as exc:
-            logger.debug(f"daily_stats_unified mirror (instagram) failed: {exc}")
 
     def find_unsynced(self) -> List[Dict[str, Any]]:
         """Return daily stats rows that still need API sync."""
         rows = self.query(
-            "SELECT * FROM daily_stats WHERE synced_to_api = 0 ORDER BY date DESC, id DESC"
+            "SELECT * FROM daily_stats_unified WHERE platform = 'instagram' AND synced_to_api = 0 ORDER BY date DESC, id DESC"
         )
         return self.rows_to_dicts(rows)
 
@@ -115,31 +90,12 @@ class StatsRepository(BaseRepository):
         placeholders = ','.join('?' * len(stat_ids))
         cursor = self.execute(
             f"""
-            UPDATE daily_stats
+            UPDATE daily_stats_unified
             SET synced_to_api = 1, synced_at = datetime('now')
             WHERE id IN ({placeholders})
             """,
             tuple(stat_ids),
         )
-        # Re-mirror the affected rows into the unified table (Vague B Phase A).
-        try:
-            self.execute(
-                f"""
-                INSERT OR REPLACE INTO daily_stats_unified
-                    (platform, account_id, date, total_likes, total_follows, total_unfollows, total_comments,
-                     total_profile_visits, total_story_views, total_story_likes, total_favorites, total_shares,
-                     total_posts_watched, total_sessions, completed_sessions, failed_sessions,
-                     total_duration_seconds, synced_to_api, synced_at, created_at, updated_at)
-                SELECT 'instagram', account_id, date, total_likes, total_follows, total_unfollows, total_comments,
-                       total_profile_visits, total_story_views, total_story_likes, 0, 0,
-                       0, total_sessions, completed_sessions, failed_sessions,
-                       total_duration_seconds, synced_to_api, synced_at, created_at, updated_at
-                FROM daily_stats WHERE id IN ({placeholders})
-                """,
-                tuple(stat_ids),
-            )
-        except Exception as exc:
-            logger.debug(f"daily_stats_unified mirror (instagram sync) failed: {exc}")
         return cursor.rowcount > 0
 
     def get_account_stats(self, account_id: int, days: int = 7) -> Dict[str, Any]:

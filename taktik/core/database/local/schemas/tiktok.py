@@ -81,28 +81,6 @@ def create_tiktok_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tiktok_daily_stats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL,
-            date TEXT NOT NULL,
-            total_likes INTEGER DEFAULT 0,
-            total_follows INTEGER DEFAULT 0,
-            total_favorites INTEGER DEFAULT 0,
-            total_comments INTEGER DEFAULT 0,
-            total_shares INTEGER DEFAULT 0,
-            total_profile_visits INTEGER DEFAULT 0,
-            total_posts_watched INTEGER DEFAULT 0,
-            total_sessions INTEGER DEFAULT 0,
-            completed_sessions INTEGER DEFAULT 0,
-            failed_sessions INTEGER DEFAULT 0,
-            total_duration_seconds INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (account_id) REFERENCES tiktok_accounts(account_id) ON DELETE CASCADE,
-            UNIQUE(account_id, date)
-        )
-    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tiktok_scraped_profiles (
@@ -125,6 +103,5 @@ def create_tiktok_indexes(cursor: sqlite3.Cursor) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_sessions_status ON tiktok_sessions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_account ON tiktok_filtered_profiles(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_filtered_username ON tiktok_filtered_profiles(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_daily_stats_account_date ON tiktok_daily_stats(account_id, date)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_scraped_profiles_session ON tiktok_scraped_profiles(scraping_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_scraped_profiles_profile ON tiktok_scraped_profiles(profile_id)")

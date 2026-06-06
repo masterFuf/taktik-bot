@@ -84,3 +84,7 @@ def run_daily_stats_unification_migrations(cursor: sqlite3.Cursor) -> None:
         """)
     except sqlite3.OperationalError as exc:
         logger.debug(f"daily_stats_unified backfill (tiktok) skipped: {exc}")
+
+    # Phase C: writes now go straight to daily_stats_unified; drop the legacy tables.
+    cursor.execute("DROP TABLE IF EXISTS daily_stats")
+    cursor.execute("DROP TABLE IF EXISTS tiktok_daily_stats")

@@ -55,7 +55,6 @@ EXPECTED_TABLES = {
     "instagram_posts",
     "scraping_sessions",
     "processed_hashtag_posts",
-    "daily_stats",
     "scraped_profiles",
     "scraped_comments",
     "profile_ai_enrichments",
@@ -64,7 +63,6 @@ EXPECTED_TABLES = {
     "tiktok_profiles",
     "tiktok_sessions",
     "tiktok_filtered_profiles",
-    "tiktok_daily_stats",
     # Gmail
     "gmail_accounts",
 }
