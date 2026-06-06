@@ -155,7 +155,8 @@ class SocialGraphRepository(BaseRepository):
 
         try:
             rows = self.query(
-                "SELECT username FROM following_sync WHERE account_id = ? AND unfollowed_at IS NULL",
+                "SELECT username FROM social_graph_sync "
+                "WHERE platform = 'instagram' AND account_id = ? AND direction = 'following' AND unfollowed_at IS NULL",
                 (account_id,),
             )
             return {row["username"].lower() for row in rows}
@@ -247,7 +248,8 @@ class SocialGraphRepository(BaseRepository):
 
         try:
             rows = self.query(
-                "SELECT username FROM followers_sync WHERE account_id = ?",
+                "SELECT username FROM social_graph_sync "
+                "WHERE platform = 'instagram' AND account_id = ? AND direction = 'follower'",
                 (account_id,),
             )
             return {row["username"].lower() for row in rows}
