@@ -3,6 +3,9 @@
 from datetime import datetime, timedelta
 
 from taktik.core.database.repositories.instagram.social_graph import SocialGraphRepository
+from taktik.core.database.local.migration_steps.social_graph import (
+    run_social_graph_sync_migrations,
+)
 
 
 def test_follow_history_lookups_use_profile_and_interaction_tables(conn):
@@ -63,3 +66,51 @@ def test_followers_sync_upsert_preserves_display_name_when_refresh_is_empty(conn
     assert row["is_following_back"] == 1
     assert row["source"] == "mutual"
     assert repo.get_follower_usernames(3) == {"follower"}
+
+
+def test_social_graph_sync_dual_write_and_backfill(conn):
+    """Vague B pilote: les ecritures sont mirrorees dans social_graph_sync et le
+    backfill des tables legacy est idempotent."""
+    repo = SocialGraphRepository(conn)
+    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (4, 'bot4', 1)")
+    conn.commit()
+
+    # Dual-write: following + reciprocal + follower
+    repo.upsert_following("Alice", "Alice A", 4, followed_by_bot=True)
+    repo.set_following_follower_back("alice", 4, is_follower_back=True)
+    repo.upsert_follower("Bob", 4, display_name="Bob B", is_following_back=False)
+
+    following = conn.execute(
+        """SELECT direction, is_reciprocal, followed_by_bot
+           FROM social_graph_sync WHERE account_id = 4 AND username = 'Alice' COLLATE NOCASE""",
+    ).fetchone()
+    assert following["direction"] == "following"
+    assert following["is_reciprocal"] == 1
+    assert following["followed_by_bot"] == 1
+
+    follower = conn.execute(
+        """SELECT direction, display_name, is_reciprocal
+           FROM social_graph_sync WHERE account_id = 4 AND username = 'Bob' COLLATE NOCASE""",
+    ).fetchone()
+    assert follower["direction"] == "follower"
+    assert follower["display_name"] == "Bob B"
+    assert follower["is_reciprocal"] == 0
+
+    # Unfollow mirrors into the unified table without dropping the row
+    repo.mark_unfollowed("alice", 4)
+    unfollowed = conn.execute(
+        "SELECT unfollowed_at FROM social_graph_sync WHERE account_id = 4 AND username = 'Alice' COLLATE NOCASE",
+    ).fetchone()
+    assert unfollowed["unfollowed_at"] is not None
+
+    # Backfill of a legacy-only row is idempotent (INSERT OR IGNORE on unique key)
+    conn.execute(
+        "INSERT INTO following_sync (account_id, username, display_name, is_follower_back) VALUES (4, 'legacy', 'Legacy', 1)",
+    )
+    conn.commit()
+    run_social_graph_sync_migrations(conn.cursor())
+    run_social_graph_sync_migrations(conn.cursor())
+    count = conn.execute(
+        "SELECT COUNT(*) AS c FROM social_graph_sync WHERE account_id = 4 AND username = 'legacy'",
+    ).fetchone()
+    assert count["c"] == 1

@@ -7,6 +7,64 @@ import sqlite3
 from loguru import logger
 
 
+def run_social_graph_sync_migrations(cursor: sqlite3.Cursor) -> None:
+    """Create the unified `social_graph_sync` table and backfill it.
+
+    Restructuring Vague B (pilote) : unifie `following_sync` + `followers_sync`
+    en une seule table avec un axe `direction` ('following'|'follower') et un
+    `is_reciprocal` qui remplace `is_follower_back`/`is_following_back`.
+    Phase additive non destructive : les tables sources restent inchangees ; le
+    backfill est idempotent (`INSERT OR IGNORE` sur la cle unique).
+    """
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS social_graph_sync (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL DEFAULT 'instagram',
+            account_id INTEGER NOT NULL,
+            username TEXT NOT NULL COLLATE NOCASE,
+            direction TEXT NOT NULL,
+            display_name TEXT DEFAULT '',
+            is_reciprocal INTEGER DEFAULT NULL,
+            followed_by_bot INTEGER DEFAULT 0,
+            unfollowed_at TEXT DEFAULT NULL,
+            first_seen_at TEXT DEFAULT (datetime('now')),
+            last_seen_at TEXT DEFAULT (datetime('now')),
+            source TEXT DEFAULT 'sync',
+            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
+            UNIQUE(platform, account_id, username, direction)
+        )
+    """)
+    for stmt in (
+        "CREATE INDEX IF NOT EXISTS idx_social_graph_sync_account ON social_graph_sync(account_id, direction)",
+        "CREATE INDEX IF NOT EXISTS idx_social_graph_sync_username ON social_graph_sync(account_id, username)",
+    ):
+        try:
+            cursor.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
+
+    # Idempotent backfill from the two legacy tables (non destructive).
+    try:
+        cursor.execute("""
+            INSERT OR IGNORE INTO social_graph_sync
+                (platform, account_id, username, direction, display_name,
+                 is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
+            SELECT 'instagram', account_id, username, 'following', display_name,
+                   is_follower_back, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source
+            FROM following_sync
+        """)
+        cursor.execute("""
+            INSERT OR IGNORE INTO social_graph_sync
+                (platform, account_id, username, direction, display_name,
+                 is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
+            SELECT 'instagram', account_id, username, 'follower', display_name,
+                   is_following_back, 0, NULL, first_seen_at, last_seen_at, source
+            FROM followers_sync
+        """)
+    except sqlite3.OperationalError as exc:
+        logger.debug(f"social_graph_sync backfill skipped: {exc}")
+
+
 def run_profile_following_migrations(cursor: sqlite3.Cursor) -> None:
     """Ensure profile_following has FK and classification fields."""
     try:
