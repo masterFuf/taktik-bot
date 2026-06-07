@@ -47,4 +47,3 @@ def create_tiktok_tables(cursor: sqlite3.Cursor) -> None:
 def create_tiktok_indexes(cursor: sqlite3.Cursor) -> None:
     """Create TikTok indexes."""
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_accounts_username ON tiktok_accounts(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_profiles_username ON tiktok_profiles(username)")

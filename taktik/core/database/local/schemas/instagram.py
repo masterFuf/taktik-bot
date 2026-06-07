@@ -92,7 +92,6 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
 def create_instagram_indexes(cursor: sqlite3.Cursor) -> None:
     """Create Instagram core indexes."""
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_username ON instagram_accounts(username)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_username ON instagram_profiles(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_username ON filtered_profiles(username)")
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_filtered_profiles_sync_id ON filtered_profiles(sync_id)")
