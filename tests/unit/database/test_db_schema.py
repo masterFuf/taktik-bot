@@ -52,7 +52,7 @@ EXPECTED_TABLES = {
     "filtered_profiles",
     "sessions",
     "profile_stats_history",
-    "instagram_posts",
+    # instagram_posts removed (Vague B): dead table, dropped
     "scraping_sessions",
     "processed_hashtag_posts",
     "scraped_profiles",

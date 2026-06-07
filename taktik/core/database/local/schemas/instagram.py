@@ -99,46 +99,7 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS instagram_posts (
-            post_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            profile_id INTEGER NOT NULL,
-            account_id INTEGER,
-            source TEXT DEFAULT 'SCRAPED',
-            instagram_post_id TEXT UNIQUE,
-            instagram_id TEXT,
-            media_type TEXT NOT NULL,
-            is_video INTEGER DEFAULT 0,
-            caption TEXT,
-            media_urls TEXT,
-            thumbnail_url TEXT,
-            video_url TEXT,
-            likes_count INTEGER DEFAULT 0,
-            comments_count INTEGER DEFAULT 0,
-            views_count INTEGER DEFAULT 0,
-            posted_at TEXT,
-            scraped_at TEXT,
-            hashtags TEXT,
-            mentions TEXT,
-            tagged_users TEXT,
-            location TEXT,
-            location_data TEXT,
-            coauthors TEXT,
-            status TEXT DEFAULT 'DRAFT',
-            scheduled_for TEXT,
-            published_at TEXT,
-            error_message TEXT,
-            retry_count INTEGER DEFAULT 0,
-            dimensions TEXT,
-            product_type TEXT,
-            accessibility_caption TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE,
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE
-        )
-    """)
-
+    # instagram_posts removed (Vague B): dead table, never populated; dropped by run_migrations.
 
     # following_sync / followers_sync were folded into the unified
     # `social_graph_sync` table (Vague B) and are dropped by

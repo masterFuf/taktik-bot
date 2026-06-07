@@ -31,3 +31,6 @@ def drop_legacy_discovery_tables(cursor: sqlite3.Cursor) -> None:
     removed = sorted(existing.intersection(LEGACY_DISCOVERY_TABLES))
     if removed:
         logger.info(f"Migration: dropped legacy Discovery tables: {', '.join(removed)}")
+
+    # instagram_posts: dead table, never populated by any writer (Vague B). Drop it.
+    cursor.execute("DROP TABLE IF EXISTS instagram_posts")
