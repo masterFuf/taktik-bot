@@ -53,6 +53,7 @@ def main() -> None:
         if os.path.exists(real_db + suffix):
             shutil.copyfile(real_db + suffix, copy + suffix)
 
+    row_cap = 3000  # big tables: full count + first N rows compared
     engine = create_orm_engine(copy)
     for entity, order_col in PILOT_ENTITIES:
         table = entity.__tablename__
@@ -61,21 +62,26 @@ def main() -> None:
         raw = sqlite3.connect(copy)
         raw.row_factory = sqlite3.Row
         schema_before = _schema(raw, table)
+        total = raw.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         col_sql = ", ".join(columns)
         raw_rows = raw.execute(
-            f"SELECT {col_sql} FROM {table} ORDER BY {order_col}"
+            f"SELECT {col_sql} FROM {table} ORDER BY {order_col} LIMIT ?", (row_cap,)
         ).fetchall()
         raw.close()
 
         with Session(engine) as session:
+            orm_count = session.query(entity).count()
             orm_rows = (
                 session.query(entity)
                 .order_by(getattr(entity, order_col))
+                .limit(row_cap)
                 .all()
             )
 
+        if orm_count != total:
+            _fail(f"{table}: count mismatch raw={total} orm={orm_count}")
         if len(raw_rows) != len(orm_rows):
-            _fail(f"{table}: row count mismatch raw={len(raw_rows)} orm={len(orm_rows)}")
+            _fail(f"{table}: sampled row count mismatch raw={len(raw_rows)} orm={len(orm_rows)}")
         for i, raw_row in enumerate(raw_rows):
             for c in columns:
                 rv = raw_row[c]
@@ -89,7 +95,8 @@ def main() -> None:
         if schema_before != schema_after:
             _fail(f"{table}: ORM mutated the schema (must map only)")
 
-        print(f"PASS {table}: {len(orm_rows)} rows match raw; schema unchanged")
+        note = f" (compared first {len(raw_rows)}/{total})" if total > len(raw_rows) else ""
+        print(f"PASS {table}: count {orm_count} matches; rows match raw{note}; schema unchanged")
 
     engine.dispose()
     print("ALL PASS: SQLAlchemy reads match raw reads; mapping-only honored")

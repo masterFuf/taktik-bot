@@ -1,0 +1,223 @@
+"""ORM pilot (Vague D) - SQLAlchemy models for the unified families.
+
+Counterparts of the front TypeORM entities (electron/database/orm/entities/*.ts).
+Mapping only - the schema stays owned by the migrations (the engine never runs
+DDL). Grouped here (the app_config/interactions pilots keep their own files).
+"""
+from __future__ import annotations
+
+from sqlalchemy import Column, Float, Integer, Text
+
+from taktik.core.database.orm.base import Base
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    legacy_account_id = Column(Integer)
+    username = Column(Text, nullable=False)
+    is_bot = Column(Integer)
+    user_id = Column(Integer)
+    license_id = Column(Integer)
+    display_name = Column(Text)
+    qualification_prompt = Column(Text)
+    bio = Column(Text)
+    niche = Column(Text)
+    product_service = Column(Text)
+    objective = Column(Text)
+    target_audience = Column(Text)
+    tone_personality = Column(Text)
+    preferred_language = Column(Text)
+    website = Column(Text)
+    unique_selling_point = Column(Text)
+    custom_context = Column(Text)
+    created_at = Column(Text)
+    updated_at = Column(Text)
+    sync_id = Column(Text)
+
+
+class SocialProfile(Base):
+    __tablename__ = "social_profiles"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    legacy_profile_id = Column(Integer)
+    username = Column(Text, nullable=False)
+    display_name = Column(Text)
+    biography = Column(Text)
+    followers_count = Column(Integer)
+    following_count = Column(Integer)
+    posts_count = Column(Integer)
+    likes_count = Column(Integer)
+    is_private = Column(Integer)
+    is_verified = Column(Integer)
+    is_business = Column(Integer)
+    business_category = Column(Text)
+    website = Column(Text)
+    profile_pic_path = Column(Text)
+    notes = Column(Text)
+    account_based_in = Column(Text)
+    date_joined = Column(Text)
+    location_city = Column(Text)
+    location_region = Column(Text)
+    created_at = Column(Text)
+    updated_at = Column(Text)
+    sync_id = Column(Text)
+    ai_screenshot_path = Column(Text)
+
+
+class SessionUnified(Base):
+    __tablename__ = "sessions_unified"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    legacy_session_id = Column(Integer)
+    account_id = Column(Integer)
+    session_name = Column(Text)
+    target_type = Column(Text)
+    workflow_type = Column(Text)
+    target = Column(Text)
+    start_time = Column(Text)
+    end_time = Column(Text)
+    duration_seconds = Column(Integer)
+    config_used = Column(Text)
+    status = Column(Text)
+    error_message = Column(Text)
+    synced_to_api = Column(Integer)
+    ai_total_cost_usd = Column(Float)
+    ai_profiles_analyzed = Column(Integer)
+    ai_posts_analyzed = Column(Integer)
+    ai_comments_generated = Column(Integer)
+    stats_total_interactions = Column(Integer)
+    stats_likes = Column(Integer)
+    stats_follows = Column(Integer)
+    stats_unfollows = Column(Integer)
+    stats_comments = Column(Integer)
+    stats_story_views = Column(Integer)
+    stats_story_likes = Column(Integer)
+    stats_profile_visits = Column(Integer)
+    profiles_visited = Column(Integer)
+    posts_watched = Column(Integer)
+    likes = Column(Integer)
+    follows = Column(Integer)
+    favorites = Column(Integer)
+    comments = Column(Integer)
+    shares = Column(Integer)
+    errors = Column(Integer)
+    videos_watched = Column(Integer)
+    created_at = Column(Text)
+    updated_at = Column(Text)
+    sync_id = Column(Text)
+
+
+class ProfileQualification(Base):
+    __tablename__ = "profile_qualification"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    profile_id = Column(Integer)
+    username = Column(Text, nullable=False)
+    has_ai = Column(Integer)
+    has_taxonomy = Column(Integer)
+    provider = Column(Text)
+    model = Column(Text)
+    criteria_hash = Column(Text)
+    ai_niche = Column(Text)
+    ai_specific_niche = Column(Text)
+    ai_score = Column(Integer)
+    ai_classification = Column(Text)
+    ai_profession = Column(Text)
+    ai_profession_tags = Column(Text)
+    ai_gender = Column(Text)
+    ai_age_group = Column(Text)
+    ai_account_based_in = Column(Text)
+    location_city = Column(Text)
+    location_region = Column(Text)
+    analysis_json = Column(Text)
+    enrichment_source = Column(Text)
+    enrichment_created_at = Column(Text)
+    enrichment_updated_at = Column(Text)
+    niche_slug = Column(Text)
+    sub_niche_slug = Column(Text)
+    account_type = Column(Text)
+    market_scope = Column(Text)
+    target_segments = Column(Text)
+    confidence = Column(Float)
+    raw_snapshot = Column(Text)
+    taxonomy_source = Column(Text)
+    taxonomy_created_at = Column(Text)
+    taxonomy_updated_at = Column(Text)
+    created_at = Column(Text)
+    updated_at = Column(Text)
+    sync_id = Column(Text)
+
+
+class DailyStatsUnified(Base):
+    __tablename__ = "daily_stats_unified"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    account_id = Column(Integer)
+    date = Column(Text)
+    total_likes = Column(Integer)
+    total_follows = Column(Integer)
+    total_unfollows = Column(Integer)
+    total_comments = Column(Integer)
+    total_profile_visits = Column(Integer)
+    total_story_views = Column(Integer)
+    total_story_likes = Column(Integer)
+    total_favorites = Column(Integer)
+    total_shares = Column(Integer)
+    total_posts_watched = Column(Integer)
+    total_sessions = Column(Integer)
+    completed_sessions = Column(Integer)
+    failed_sessions = Column(Integer)
+    total_duration_seconds = Column(Integer)
+    synced_to_api = Column(Integer)
+    synced_at = Column(Text)
+    created_at = Column(Text)
+    updated_at = Column(Text)
+
+
+class SocialGraphSync(Base):
+    __tablename__ = "social_graph_sync"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    account_id = Column(Integer)
+    username = Column(Text)
+    direction = Column(Text)
+    display_name = Column(Text)
+    is_reciprocal = Column(Integer)
+    followed_by_bot = Column(Integer)
+    unfollowed_at = Column(Text)
+    first_seen_at = Column(Text)
+    last_seen_at = Column(Text)
+    source = Column(Text)
+
+
+class FilteredProfile(Base):
+    __tablename__ = "filtered_profiles"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    profile_id = Column(Integer)
+    account_id = Column(Integer)
+    username = Column(Text)
+    filtered_at = Column(Text)
+    reason = Column(Text)
+    source_type = Column(Text)
+    source_name = Column(Text)
+    session_id = Column(Integer)
+    sync_id = Column(Text)
+
+
+class ScrapedProfile(Base):
+    __tablename__ = "scraped_profiles"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(Text, nullable=False)
+    scraping_id = Column(Integer)
+    profile_id = Column(Integer)
+    scraped_at = Column(Text)
+    is_enriched = Column(Integer)
+    ai_score = Column(Integer)
+    ai_qualified = Column(Integer)
+    ai_analysis = Column(Text)
+    qualification_criteria = Column(Text)
+    scored_at = Column(Text)
+    source_post_url = Column(Text)
