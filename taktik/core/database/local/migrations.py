@@ -32,6 +32,7 @@ from .migration_steps.sessions import run_sessions_unification_migrations
 from .migration_steps.filtered_profiles import run_filtered_profiles_unification_migrations
 from .migration_steps.scraped_profiles import run_scraped_profiles_unification_migrations
 from .migration_steps.accounts import run_accounts_unification_migrations
+from .migration_steps.social_profiles import run_social_profiles_unification_migrations
 
 
 def run_migrations(conn: sqlite3.Connection) -> None:
@@ -54,6 +55,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_instagram_profile_ai_migrations(cursor)
     run_profile_ai_enrichment_migrations(cursor)
     run_accounts_unification_migrations(cursor)
+    run_social_profiles_unification_migrations(cursor)
     drop_legacy_discovery_tables(cursor)
 
     conn.commit()
