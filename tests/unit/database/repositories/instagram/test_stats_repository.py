@@ -5,9 +5,9 @@ from taktik.core.database.repositories.instagram.stats import StatsRepository
 
 def test_increment_interaction_updates_daily_stats(conn):
     repo = StatsRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (username, is_bot) VALUES ('bot', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 1, 'bot', 1)")
     account_id = conn.execute(
-        "SELECT account_id FROM instagram_accounts WHERE username = 'bot'"
+        "SELECT legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND username = 'bot'"
     ).fetchone()["account_id"]
 
     assert repo.increment_interaction(account_id, "LIKE") is True
@@ -20,9 +20,9 @@ def test_increment_interaction_updates_daily_stats(conn):
 
 def test_mark_as_synced_updates_synced_flags(conn):
     repo = StatsRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (username, is_bot) VALUES ('bot', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 1, 'bot', 1)")
     account_id = conn.execute(
-        "SELECT account_id FROM instagram_accounts WHERE username = 'bot'"
+        "SELECT legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND username = 'bot'"
     ).fetchone()["account_id"]
 
     repo.increment_interaction(account_id, "LIKE")

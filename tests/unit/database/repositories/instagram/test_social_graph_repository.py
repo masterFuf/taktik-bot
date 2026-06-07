@@ -10,7 +10,7 @@ from taktik.core.database.local.migration_steps.social_graph import (
 
 def test_follow_history_lookups_use_profile_and_interaction_tables(conn):
     repo = SocialGraphRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (1, 'bot', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 1, 'bot', 1)")
     conn.execute("INSERT INTO instagram_profiles (profile_id, username) VALUES (10, 'Creator')")
     conn.execute(
         """INSERT INTO interactions
@@ -26,7 +26,7 @@ def test_follow_history_lookups_use_profile_and_interaction_tables(conn):
 
 def test_following_sync_upsert_tracks_active_and_unfollowed_entries(conn):
     repo = SocialGraphRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (2, 'bot2', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 2, 'bot2', 1)")
     conn.commit()
 
     assert repo.upsert_following("SampleUser", "Sample", 2, followed_by_bot=True) == "new"
@@ -52,7 +52,7 @@ def test_following_sync_upsert_tracks_active_and_unfollowed_entries(conn):
 
 def test_followers_sync_upsert_preserves_display_name_when_refresh_is_empty(conn):
     repo = SocialGraphRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (3, 'bot3', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 3, 'bot3', 1)")
     conn.commit()
 
     assert repo.upsert_follower("Follower", 3, display_name="Display", is_following_back=False) == "new"
@@ -74,7 +74,7 @@ def test_social_graph_sync_dual_write_and_backfill(conn):
     """Vague B: les ecritures vont dans social_graph_sync (primaire) et la
     migration Phase C migre puis droppe une table legacy de maniere idempotente."""
     repo = SocialGraphRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (4, 'bot4', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 4, 'bot4', 1)")
     conn.commit()
 
     # Dual-write: following + reciprocal + follower

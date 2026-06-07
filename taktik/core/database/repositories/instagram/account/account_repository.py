@@ -21,73 +21,59 @@ class AccountRepository(BaseRepository):
         Returns: (account_id, created)
         """
         row = self.query_one(
-            "SELECT account_id FROM instagram_accounts WHERE username = ?",
+            "SELECT legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND username = ?",
             (username,)
         )
-        
+
         if row:
             return row['account_id'], False
-        
-        cursor = self.execute(
-            """INSERT INTO instagram_accounts (username, is_bot, user_id, license_id)
-               VALUES (?, ?, ?, ?)""",
+
+        # Vague B: write the unified `accounts` table; account_id = per-platform
+        # legacy_account_id, generated atomically (single INSERT...SELECT MAX+1).
+        self.execute(
+            """INSERT INTO accounts (platform, legacy_account_id, username, is_bot, user_id, license_id, created_at, updated_at)
+               SELECT 'instagram',
+                      COALESCE((SELECT MAX(legacy_account_id) FROM accounts WHERE platform='instagram'), 0) + 1,
+                      ?, ?, ?, ?, datetime('now'), datetime('now')""",
             (username, 1 if is_bot else 0, user_id, license_id)
         )
+        created = self.query_one(
+            "SELECT legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND username = ?",
+            (username,)
+        )
+        return (created['account_id'] if created else None), True
 
-        account_id = cursor.lastrowid
-        self._mirror_to_unified(account_id)
-        return account_id, True
-
-    def _mirror_to_unified(self, account_id: int) -> None:
-        """Re-mirror the base account fields into the unified `accounts` table (Vague B
-        Phase A). Best-effort; only base columns (the bot never writes the Electron
-        business columns, so ON CONFLICT does not clobber them)."""
-        try:
-            self.execute(
-                """INSERT INTO accounts
-                       (platform, legacy_account_id, username, is_bot, user_id, license_id, created_at)
-                   SELECT 'instagram', account_id, username, is_bot, user_id, license_id, created_at
-                   FROM instagram_accounts WHERE account_id = ?
-                   ON CONFLICT(platform, legacy_account_id) DO UPDATE SET
-                       username = excluded.username, is_bot = excluded.is_bot,
-                       user_id = excluded.user_id, license_id = excluded.license_id,
-                       updated_at = datetime('now')""",
-                (account_id,)
-            )
-        except Exception:
-            pass
-    
     def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Find account by username"""
         row = self.query_one(
-            "SELECT * FROM instagram_accounts WHERE username = ?",
+            "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND username = ?",
             (username,)
         )
         return self._map_row(row)
-    
+
     def find_by_id(self, account_id: int) -> Optional[Dict[str, Any]]:
         """Find account by ID"""
         row = self.query_one(
-            "SELECT * FROM instagram_accounts WHERE account_id = ?",
+            "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND legacy_account_id = ?",
             (account_id,)
         )
         return self._map_row(row)
-    
+
     def find_all(self) -> List[Dict[str, Any]]:
         """Get all accounts"""
         rows = self.query(
-            "SELECT * FROM instagram_accounts ORDER BY created_at DESC"
+            "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' ORDER BY created_at DESC"
         )
         return [self._map_row(row) for row in rows]
-    
+
     def update(self, account_id: int, **kwargs) -> bool:
         """Update account fields"""
         if not kwargs:
             return False
-        
+
         sets = []
         values = []
-        
+
         for key, value in kwargs.items():
             if key == 'is_bot':
                 sets.append('is_bot = ?')
@@ -95,24 +81,21 @@ class AccountRepository(BaseRepository):
             elif key in ('username', 'user_id', 'license_id'):
                 sets.append(f'{key} = ?')
                 values.append(value)
-        
+
         if not sets:
             return False
-        
+
         values.append(account_id)
         cursor = self.execute(
-            f"UPDATE instagram_accounts SET {', '.join(sets)} WHERE account_id = ?",
+            f"UPDATE accounts SET {', '.join(sets)} WHERE platform = 'instagram' AND legacy_account_id = ?",
             tuple(values)
         )
-
-        if cursor.rowcount > 0:
-            self._mirror_to_unified(account_id)
         return cursor.rowcount > 0
-    
+
     def delete(self, account_id: int) -> bool:
         """Delete account"""
         cursor = self.execute(
-            "DELETE FROM instagram_accounts WHERE account_id = ?",
+            "DELETE FROM accounts WHERE platform = 'instagram' AND legacy_account_id = ?",
             (account_id,)
         )
         return cursor.rowcount > 0

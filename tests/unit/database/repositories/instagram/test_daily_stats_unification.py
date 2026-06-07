@@ -10,7 +10,7 @@ from taktik.core.database.local.migration_steps.daily_stats import (
 
 def test_increment_writes_directly_into_unified_table(conn):
     repo = StatsRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (5, 'bot5', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 5, 'bot5', 1)")
     conn.commit()
 
     repo.increment_interaction(5, "LIKE")
@@ -39,7 +39,7 @@ def test_increment_writes_directly_into_unified_table(conn):
 def test_phase_c_migrate_then_drop_is_idempotent(conn):
     """Legacy daily_stats rows are migrated into daily_stats_unified and the legacy
     tables are then dropped, idempotently (Phase C)."""
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (6, 'bot6', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 6, 'bot6', 1)")
     # Recreate a legacy table (dropped by the migration) to simulate an old base.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS daily_stats (

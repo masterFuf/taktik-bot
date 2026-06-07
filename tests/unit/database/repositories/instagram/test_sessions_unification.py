@@ -8,7 +8,7 @@ from taktik.core.database.local.migration_steps.sessions import (
 
 def test_create_and_update_mirror_into_unified_table(conn):
     repo = SessionRepository(conn)
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (5, 'bot5', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 5, 'bot5', 1)")
     conn.commit()
 
     session_id = repo.create(5, "run-5", "USER", "target5", {"k": "v"})
@@ -45,8 +45,8 @@ def test_create_and_update_mirror_into_unified_table(conn):
 def test_phase_c_backfill_then_drop_is_idempotent(conn):
     """Legacy sessions / tiktok_sessions rows are folded into sessions_unified and the
     legacy tables are then dropped, idempotently (Phase C)."""
-    conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (6, 'bot6', 1)")
-    conn.execute("INSERT INTO tiktok_accounts (account_id, username, is_bot) VALUES (7, 'tt7', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 6, 'bot6', 1)")
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('tiktok', 7, 'tt7', 1)")
     # Recreate the legacy tables (dropped by the migration) to simulate an old base.
     conn.execute(
         """CREATE TABLE IF NOT EXISTS sessions (

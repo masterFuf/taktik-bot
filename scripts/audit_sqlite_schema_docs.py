@@ -65,6 +65,8 @@ def source_tables() -> dict[str, set[str]]:
             match.group("table")
             for match in CREATE_TABLE_RE.finditer(read(path))
             if match.group("table") not in IGNORED_TABLES
+            # Transient 12-step rebuild scratch tables (create -> copy -> drop -> rename).
+            and not match.group("table").endswith(("_fkrebuild", "_new"))
         }
         if tables:
             tables_by_file[str(path.relative_to(ROOT))] = tables

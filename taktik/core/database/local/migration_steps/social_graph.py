@@ -30,7 +30,6 @@ def run_social_graph_sync_migrations(cursor: sqlite3.Cursor) -> None:
             first_seen_at TEXT DEFAULT (datetime('now')),
             last_seen_at TEXT DEFAULT (datetime('now')),
             source TEXT DEFAULT 'sync',
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
             UNIQUE(platform, account_id, username, direction)
         )
     """)

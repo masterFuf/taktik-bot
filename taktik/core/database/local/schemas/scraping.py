@@ -26,8 +26,8 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
             error_message TEXT,
             config_used TEXT,
             platform TEXT DEFAULT 'instagram',
-            created_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE SET NULL
+            created_at TEXT DEFAULT (datetime('now'))
+            -- account_id FK to instagram_accounts dropped (Vague B: accounts unified/legacy dropped)
         )
     """)
 
@@ -44,7 +44,6 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
             likers_processed INTEGER DEFAULT 0,
             interactions_made INTEGER DEFAULT 0,
             processed_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (account_id) REFERENCES instagram_accounts(account_id) ON DELETE CASCADE,
             UNIQUE(account_id, hashtag, post_author, post_caption_hash)
         )
     """)

@@ -72,7 +72,7 @@ def run_accounts_unification_migrations(cursor: sqlite3.Cursor) -> None:
         )
         """
     )
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_unified_username ON accounts(platform, username)")
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_unified_username ON accounts(platform, username)")
 
     # The operator business columns (display_name/niche/.../qualification_prompt) are
     # Electron-added; a bot-standalone base may lack them. Build the backfill from the
@@ -98,3 +98,11 @@ def run_accounts_unification_migrations(cursor: sqlite3.Cursor) -> None:
         )
     except sqlite3.OperationalError as exc:
         logger.debug(f"accounts bio backfill skipped: {exc}")
+
+    # Phase C: writes go to `accounts`. Drop the legacy tables. On the shared DB the
+    # Electron migration has already rebuilt the FK-children without their FK to these
+    # parents before the bot connects, so the drop is safe. (Bot-standalone bases with
+    # FK-children are an edge case — see database-restructure-spec.md.)
+    cursor.execute("DROP TABLE IF EXISTS instagram_accounts")
+    cursor.execute("DROP TABLE IF EXISTS tiktok_accounts")
+    cursor.execute("DROP TABLE IF EXISTS account_profiles")
