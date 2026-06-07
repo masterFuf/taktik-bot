@@ -17,6 +17,11 @@ requests>=2.30.0
 pillow>=10.0.0
 loguru>=0.7.0
 
+# ORM pilot (Vague D) - SQLAlchemy maps existing tables only (never owns the
+# schema on the shared dual-runtime base). Capped < 2.0 to avoid the 1.4 -> 2.0
+# API break until the pilot is extended/validated against 2.x.
+sqlalchemy>=1.4,<2.0
+
 # Media capture dependencies are optional — install separately when needed:
 #   pip install -r requirements-media.txt
 reportlab>=4.4.3
