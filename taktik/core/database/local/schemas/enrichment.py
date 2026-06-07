@@ -38,6 +38,14 @@ def create_enrichment_tables(cursor: sqlite3.Cursor) -> None:
 
 def create_enrichment_indexes(cursor: sqlite3.Cursor) -> None:
     """Create indexes for enrichment lookups."""
+    # Vague C: once the Electron front unifies the qualification overlays,
+    # profile_ai_enrichments is a compat view over profile_qualification and
+    # "views may not be indexed". Skip; the unified table carries the indexes.
+    is_view = cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='view' AND name='profile_ai_enrichments'"
+    ).fetchone() is not None
+    if is_view:
+        return
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_profile_ai_enrichments_lookup "
         "ON profile_ai_enrichments(platform, username)"

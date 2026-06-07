@@ -109,7 +109,9 @@ class TestCreateSchema:
         ).fetchall()
         index_names = {r["name"] for r in rows}
         assert "idx_accounts_username" in index_names
-        assert "idx_profiles_username" in index_names
+        # idx_profiles_username / idx_tiktok_profiles_username removed (Vague B fix):
+        # instagram_profiles/tiktok_profiles are compat views and "views may not be
+        # indexed"; profile lookups are served by idx_social_profiles_username.
         assert "idx_tiktok_accounts_username" in index_names
 
 

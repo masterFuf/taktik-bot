@@ -21,6 +21,17 @@ LEGACY_PROFILE_AI_COLUMNS = (
 )
 
 
+def _is_view(cursor: sqlite3.Cursor, name: str) -> bool:
+    """True if `name` is a view. Vague C: the Electron front unifies the two
+    qualification overlays into profile_qualification and turns
+    profile_ai_enrichments into a read-only compat view. The bot reads via that
+    view; it must not try to (re)index or backfill it (writes/indexes on a view
+    fail). On a bot-only/standalone base the table stays real, so this is a no-op."""
+    return cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='view' AND name=?", (name,)
+    ).fetchone() is not None
+
+
 def _table_columns(cursor: sqlite3.Cursor, table_name: str) -> set[str]:
     try:
         cursor.execute(f"PRAGMA table_info({table_name})")
@@ -47,6 +58,8 @@ def _non_empty_predicates(columns: Iterable[str]) -> list[str]:
 
 def run_profile_ai_enrichment_migrations(cursor: sqlite3.Cursor) -> None:
     """Create profile_ai_enrichments and backfill legacy Instagram AI columns."""
+    if _is_view(cursor, "profile_ai_enrichments"):
+        return  # Vague C: front unified into profile_qualification; nothing to do
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS profile_ai_enrichments (
             enrichment_id INTEGER PRIMARY KEY AUTOINCREMENT,
