@@ -82,8 +82,8 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
             is_reply INTEGER DEFAULT 0,
             parent_comment_id INTEGER,
             scraped_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (scraping_session_id) REFERENCES scraping_sessions(scraping_id) ON DELETE SET NULL,
-            FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL
+            FOREIGN KEY (scraping_session_id) REFERENCES scraping_sessions(scraping_id) ON DELETE SET NULL
+            -- profile_id FK to instagram_profiles dropped (Vague B: profiles unified; legacy is a view)
         )
     """)
 

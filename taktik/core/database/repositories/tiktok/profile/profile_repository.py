@@ -11,7 +11,7 @@ class TikTokProfileRepositoryMixin:
     def get_or_create_profile(self, username: str, **kwargs) -> Tuple[int, bool]:
         """Get or create a TikTok profile"""
         row = self.query_one(
-            "SELECT profile_id FROM tiktok_profiles WHERE username = ?",
+            "SELECT legacy_profile_id AS profile_id FROM social_profiles WHERE platform = 'tiktok' AND username = ?",
             (username,)
         )
 
@@ -20,11 +20,15 @@ class TikTokProfileRepositoryMixin:
             self._update_profile(profile_id, **kwargs)
             return profile_id, False
 
-        cursor = self.execute(
-            """INSERT INTO tiktok_profiles (
-                username, display_name, followers_count, following_count,
-                likes_count, videos_count, is_private, is_verified, biography
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        # Unified social_profiles (platform='tiktok'); videos_count maps to posts_count;
+        # legacy_profile_id generated atomically.
+        self.execute(
+            """INSERT INTO social_profiles (
+                platform, legacy_profile_id, username, display_name, followers_count, following_count,
+                likes_count, posts_count, is_private, is_verified, biography
+            ) SELECT 'tiktok',
+                COALESCE((SELECT MAX(legacy_profile_id) FROM social_profiles WHERE platform='tiktok'), 0) + 1,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?""",
             (
                 username,
                 kwargs.get('display_name', ''),
@@ -37,12 +41,18 @@ class TikTokProfileRepositoryMixin:
                 kwargs.get('biography')
             )
         )
-        return cursor.lastrowid, True
+        created = self.query_one(
+            "SELECT legacy_profile_id AS profile_id FROM social_profiles WHERE platform = 'tiktok' AND username = ?",
+            (username,)
+        )
+        return (created['profile_id'] if created else None), True
 
     def _update_profile(self, profile_id: int, **kwargs) -> None:
-        """Update profile with non-None values"""
+        """Update profile with non-None values (unified social_profiles, platform='tiktok')."""
         updates = []
         values = []
+        # videos_count maps to social_profiles.posts_count
+        colmap = {'videos_count': 'posts_count'}
 
         for key in ('display_name', 'biography'):
             if kwargs.get(key):
@@ -52,7 +62,8 @@ class TikTokProfileRepositoryMixin:
         for key in ('followers_count', 'following_count', 'likes_count', 'videos_count'):
             value = kwargs.get(key)
             if value and value > 0:
-                updates.append(f"{key} = ?")
+                col = colmap.get(key, key)
+                updates.append(f"{col} = ?")
                 values.append(value)
 
         for key in ('is_private', 'is_verified'):
@@ -64,7 +75,7 @@ class TikTokProfileRepositoryMixin:
             updates.append("updated_at = datetime('now')")
             values.append(profile_id)
             self.execute(
-                f"UPDATE tiktok_profiles SET {', '.join(updates)} WHERE profile_id = ?",
+                f"UPDATE social_profiles SET {', '.join(updates)} WHERE platform = 'tiktok' AND legacy_profile_id = ?",
                 tuple(values)
             )
 

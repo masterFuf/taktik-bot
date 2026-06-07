@@ -40,6 +40,7 @@ _IG_MAP = {
     "date_joined": "date_joined",
     "location_city": "location_city",
     "location_region": "location_region",
+    "ai_screenshot_path": "ai_screenshot_path",
     "created_at": "created_at",
     "updated_at": "updated_at",
 }
@@ -59,7 +60,17 @@ _TT_MAP = {
 }
 
 
+def _is_table(cursor: sqlite3.Cursor, name: str) -> bool:
+    row = cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone()
+    return row is not None
+
+
 def _backfill(cursor: sqlite3.Cursor, source_table: str, platform: str, mapping: dict) -> None:
+    # Only backfill from a real legacy table (after Phase C it is a compat view).
+    if not _is_table(cursor, source_table):
+        return
     try:
         existing = {row[1] for row in cursor.execute(f"PRAGMA table_info({source_table})").fetchall()}
     except sqlite3.OperationalError:
@@ -97,6 +108,7 @@ def run_social_profiles_unification_migrations(cursor: sqlite3.Cursor) -> None:
             business_category TEXT,
             website TEXT,
             profile_pic_path TEXT,
+            ai_screenshot_path TEXT,
             notes TEXT,
             account_based_in TEXT,
             date_joined TEXT,
@@ -109,7 +121,39 @@ def run_social_profiles_unification_migrations(cursor: sqlite3.Cursor) -> None:
         )
         """
     )
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_social_profiles_username ON social_profiles(platform, username)")
+    try:
+        cursor.execute("ALTER TABLE social_profiles ADD COLUMN ai_screenshot_path TEXT")
+    except sqlite3.OperationalError:
+        pass
+    cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_social_profiles_username ON social_profiles(platform, username)")
 
     _backfill(cursor, "instagram_profiles", "instagram", _IG_MAP)
     _backfill(cursor, "tiktok_profiles", "tiktok", _TT_MAP)
+
+    # Phase C: drop the legacy tables and replace with compatibility views over
+    # social_profiles (reads unchanged). On the shared DB the Electron migration has
+    # already done this before the bot connects (then these are no-ops). Guarded by
+    # is-table so it never runs against the views.
+    for legacy in ("instagram_profiles", "tiktok_profiles"):
+        if _is_table(cursor, legacy):
+            cursor.execute(f"DROP TABLE {legacy}")
+    if not cursor.execute("SELECT 1 FROM sqlite_master WHERE name='instagram_profiles'").fetchone():
+        cursor.execute(
+            """CREATE VIEW instagram_profiles AS SELECT
+                legacy_profile_id AS profile_id, username, display_name AS full_name, biography,
+                followers_count, following_count, posts_count, is_private, profile_pic_path, notes,
+                created_at, updated_at, is_verified, is_business, business_category, website,
+                NULL AS linked_accounts, NULL AS ai_niche, NULL AS ai_score, NULL AS ai_classification,
+                NULL AS ai_classified_at, ai_screenshot_path, account_based_in, date_joined, location_city,
+                NULL AS ai_specific_niche, NULL AS ai_profession, NULL AS ai_profession_tags,
+                NULL AS ai_gender, NULL AS ai_age_group, location_region
+            FROM social_profiles WHERE platform='instagram'"""
+        )
+    if not cursor.execute("SELECT 1 FROM sqlite_master WHERE name='tiktok_profiles'").fetchone():
+        cursor.execute(
+            """CREATE VIEW tiktok_profiles AS SELECT
+                legacy_profile_id AS profile_id, username, display_name, followers_count, following_count,
+                likes_count, posts_count AS videos_count, is_private, is_verified, biography,
+                created_at, updated_at, profile_pic_path
+            FROM social_profiles WHERE platform='tiktok'"""
+        )

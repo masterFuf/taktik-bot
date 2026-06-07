@@ -9,7 +9,7 @@ from taktik.core.database.local.migration_steps.interactions import (
 def test_record_writes_directly_into_unified_table(conn):
     repo = InteractionRepository(conn)
     conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 5, 'bot5', 1)")
-    conn.execute("INSERT INTO instagram_profiles (profile_id, username) VALUES (50, 'target50')")
+    conn.execute("INSERT INTO social_profiles (platform, legacy_profile_id, username) VALUES ('instagram', 50, 'target50')")
     conn.commit()
 
     repo.record(account_id=5, profile_id=50, interaction_type="like", success=True, content="ok")
@@ -36,7 +36,7 @@ def test_phase_c_migrate_then_drop_is_idempotent(conn):
     """A legacy interaction_history row is migrated into interactions and the
     legacy tables are then dropped, idempotently (Phase C)."""
     conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 6, 'bot6', 1)")
-    conn.execute("INSERT INTO instagram_profiles (profile_id, username) VALUES (60, 'ig60')")
+    conn.execute("INSERT INTO social_profiles (platform, legacy_profile_id, username) VALUES ('instagram', 60, 'ig60')")
     # Recreate a legacy table (dropped by the migration) to simulate an old base.
     conn.execute("""
         CREATE TABLE IF NOT EXISTS interaction_history (

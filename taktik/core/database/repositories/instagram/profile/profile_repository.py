@@ -15,23 +15,26 @@ class ProfileRepository(BaseRepository):
         Returns: (profile_id, created)
         """
         row = self.query_one(
-            "SELECT profile_id FROM instagram_profiles WHERE username = ?",
+            "SELECT legacy_profile_id AS profile_id FROM social_profiles WHERE platform = 'instagram' AND username = ?",
             (username,)
         )
-        
+
         if row:
             # Update existing profile
             profile_id = row['profile_id']
             self._update_profile(profile_id, **kwargs)
             return profile_id, False
-        
-        # Create new profile
-        cursor = self.execute(
-            """INSERT INTO instagram_profiles (
-                username, full_name, biography, followers_count, following_count,
+
+        # Create new profile in the unified social_profiles (full_name -> display_name);
+        # legacy_profile_id = per-platform id generated atomically.
+        self.execute(
+            """INSERT INTO social_profiles (
+                platform, legacy_profile_id, username, display_name, biography, followers_count, following_count,
                 posts_count, is_private, is_verified, is_business, business_category,
                 website, profile_pic_path, notes, account_based_in, date_joined
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ) SELECT 'instagram',
+                COALESCE((SELECT MAX(legacy_profile_id) FROM social_profiles WHERE platform='instagram'), 0) + 1,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?""",
             (
                 username,
                 kwargs.get('full_name', ''),
@@ -50,16 +53,20 @@ class ProfileRepository(BaseRepository):
                 kwargs.get('date_joined')
             )
         )
-        
-        return cursor.lastrowid, True
-    
+        created = self.query_one(
+            "SELECT legacy_profile_id AS profile_id FROM social_profiles WHERE platform = 'instagram' AND username = ?",
+            (username,)
+        )
+        return (created['profile_id'] if created else None), True
+
     def _update_profile(self, profile_id: int, **kwargs) -> None:
-        """Update profile with non-None values"""
+        """Update profile with non-None values (unified social_profiles)."""
         updates = []
         values = []
-        
+
+        # field name -> social_profiles column (full_name maps to display_name)
         field_mapping = {
-            'full_name': 'full_name',
+            'full_name': 'display_name',
             'biography': 'biography',
             'followers_count': 'followers_count',
             'following_count': 'following_count',
@@ -71,23 +78,23 @@ class ProfileRepository(BaseRepository):
             'account_based_in': 'account_based_in',
             'date_joined': 'date_joined',
         }
-        
+
         for key, column in field_mapping.items():
             if key in kwargs and kwargs[key] is not None:
                 updates.append(f"{column} = COALESCE(?, {column})")
                 values.append(kwargs[key])
-        
+
         # Boolean fields
         for key in ('is_private', 'is_verified', 'is_business'):
             if key in kwargs and kwargs[key] is not None:
                 updates.append(f"{key} = COALESCE(?, {key})")
                 values.append(1 if kwargs[key] else 0)
-        
+
         if updates:
             updates.append("updated_at = datetime('now')")
             values.append(profile_id)
             self.execute(
-                f"UPDATE instagram_profiles SET {', '.join(updates)} WHERE profile_id = ?",
+                f"UPDATE social_profiles SET {', '.join(updates)} WHERE platform = 'instagram' AND legacy_profile_id = ?",
                 tuple(values)
             )
     
@@ -301,7 +308,7 @@ class ProfileRepository(BaseRepository):
     def delete(self, profile_id: int) -> bool:
         """Delete profile"""
         cursor = self.execute(
-            "DELETE FROM instagram_profiles WHERE profile_id = ?",
+            "DELETE FROM social_profiles WHERE platform = 'instagram' AND legacy_profile_id = ?",
             (profile_id,)
         )
         return cursor.rowcount > 0

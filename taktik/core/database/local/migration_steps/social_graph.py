@@ -83,8 +83,7 @@ def run_profile_following_migrations(cursor: sqlite3.Cursor) -> None:
     except sqlite3.OperationalError:
         logger.info("Migration: Adding profile_id to profile_following")
         cursor.execute(
-            "ALTER TABLE profile_following ADD COLUMN profile_id INTEGER "
-            "REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL"
+            "ALTER TABLE profile_following ADD COLUMN profile_id INTEGER"
         )
         logger.info("Migration: Backfilling profile_id in profile_following from instagram_profiles")
         cursor.execute("""
@@ -108,8 +107,7 @@ def run_profile_following_migrations(cursor: sqlite3.Cursor) -> None:
     except sqlite3.OperationalError:
         logger.info("Migration: Adding following_id to profile_following")
         cursor.execute(
-            "ALTER TABLE profile_following ADD COLUMN following_id INTEGER "
-            "REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL"
+            "ALTER TABLE profile_following ADD COLUMN following_id INTEGER"
         )
         logger.info("Migration: Backfilling following_id in profile_following from instagram_profiles")
         cursor.execute("""

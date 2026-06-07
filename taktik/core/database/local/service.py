@@ -661,7 +661,7 @@ class LocalDatabaseService:
             conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE instagram_profiles SET location_city = ? WHERE profile_id = ?",
+                "UPDATE social_profiles SET location_city = ? WHERE platform = 'instagram' AND legacy_profile_id = ?",
                 (city, profile_id)
             )
             conn.commit()

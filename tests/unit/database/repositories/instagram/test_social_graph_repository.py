@@ -11,7 +11,7 @@ from taktik.core.database.local.migration_steps.social_graph import (
 def test_follow_history_lookups_use_profile_and_interaction_tables(conn):
     repo = SocialGraphRepository(conn)
     conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 1, 'bot', 1)")
-    conn.execute("INSERT INTO instagram_profiles (profile_id, username) VALUES (10, 'Creator')")
+    conn.execute("INSERT INTO social_profiles (platform, legacy_profile_id, username) VALUES ('instagram', 10, 'Creator')")
     conn.execute(
         """INSERT INTO interactions
            (platform, account_id, profile_id, interaction_type, interaction_time, success)

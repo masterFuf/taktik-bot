@@ -11,9 +11,9 @@ def create_social_graph_tables(cursor: sqlite3.Cursor) -> None:
         CREATE TABLE IF NOT EXISTS profile_following (
             id                 INTEGER PRIMARY KEY AUTOINCREMENT,
             profile_username   TEXT NOT NULL,
-            profile_id         INTEGER REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL,
+            profile_id         INTEGER,
             following_username TEXT NOT NULL,
-            following_id       INTEGER REFERENCES instagram_profiles(profile_id) ON DELETE SET NULL,
+            following_id       INTEGER,
             session_id         TEXT,
             discovered_at      TEXT DEFAULT (datetime('now')),
             UNIQUE(profile_username, following_username)

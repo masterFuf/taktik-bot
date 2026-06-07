@@ -76,8 +76,8 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
             biography TEXT,
             external_url TEXT,
             profile_pic_url TEXT,
-            recorded_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (profile_id) REFERENCES instagram_profiles(profile_id) ON DELETE CASCADE
+            recorded_at TEXT DEFAULT (datetime('now'))
+            -- profile_id FK to instagram_profiles dropped (Vague B: profiles unified; legacy is a view)
         )
     """)
 

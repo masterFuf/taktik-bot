@@ -62,24 +62,14 @@ def test_profile_ai_enrichment_ignores_legacy_profile_fields(conn):
         biography="Bio",
     )
 
-    for column, definition in (
-        ("ai_niche", "TEXT"),
-        ("ai_specific_niche", "TEXT"),
-        ("ai_profession", "TEXT"),
-        ("ai_profession_tags", "TEXT"),
-    ):
-        conn.execute(f"ALTER TABLE instagram_profiles ADD COLUMN {column} {definition}")
-
+    # Vague B: instagram_profiles is now a compat VIEW over social_profiles and the
+    # legacy ai_* classification columns no longer exist (they read NULL), so the
+    # "ignore legacy ai_* fields" behaviour is now structural. We only seed
+    # location_city (a real column, written via social_profiles) to verify the
+    # enrichment overlay vs the profile fallback.
     conn.execute(
-        """
-        UPDATE instagram_profiles
-        SET ai_niche = 'legacy_niche',
-            ai_specific_niche = 'legacy_sub',
-            ai_profession = 'legacy_profession',
-            ai_profession_tags = '["legacy"]',
-            location_city = 'Legacy City'
-        WHERE profile_id = ?
-        """,
+        "UPDATE social_profiles SET location_city = 'Legacy City' "
+        "WHERE platform = 'instagram' AND legacy_profile_id = ?",
         (profile_id,),
     )
     legacy_only_profile_id, _ = repo.get_or_create(
@@ -88,15 +78,8 @@ def test_profile_ai_enrichment_ignores_legacy_profile_fields(conn):
         biography="Bio",
     )
     conn.execute(
-        """
-        UPDATE instagram_profiles
-        SET ai_niche = 'legacy_only_niche',
-            ai_specific_niche = 'legacy_only_sub',
-            ai_profession = 'legacy_only_profession',
-            ai_profession_tags = '["legacy_only"]',
-            location_city = 'Legacy Only City'
-        WHERE profile_id = ?
-        """,
+        "UPDATE social_profiles SET location_city = 'Legacy Only City' "
+        "WHERE platform = 'instagram' AND legacy_profile_id = ?",
         (legacy_only_profile_id,),
     )
     conn.execute(
