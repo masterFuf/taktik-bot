@@ -35,6 +35,7 @@ class StoryBusiness(BaseBusinessAction):
             'stories_viewed': 0,
             'stories_liked': 0,
             'stories_skipped': 0,
+            'stories_skipped_ads': 0,
             'total_stories_detected': 0,
             'errors': 0,
             'success': False
@@ -72,7 +73,18 @@ class StoryBusiness(BaseBusinessAction):
                     if not self.detection_actions.is_story_viewer_open():
                         self.logger.debug("No longer in story screen")
                         break
-                    
+
+                    # Never watch/like/react a sponsored story — advance past it
+                    # (same guard as view_feed_stories).
+                    metadata = self.detection_actions.get_story_viewer_metadata()
+                    if metadata.get('is_ad'):
+                        stats['stories_skipped_ads'] += 1
+                        self.logger.debug("Skipping sponsored story")
+                        if not self.nav_actions.navigate_to_next_story():
+                            break
+                        time.sleep(random.uniform(*config['navigation_delay_range']))
+                        continue
+
                     current_story, total_stories = self.detection_actions.get_story_count_from_viewer()
                     if total_stories > 0:
                         self.logger.debug(f"Viewing story {current_story}/{total_stories}")
@@ -109,9 +121,13 @@ class StoryBusiness(BaseBusinessAction):
                     stats['errors'] += 1
                     continue
             
-            self.device.back()
+            # Robust close: swipe-down (a back press is unreliable / can be swallowed
+            # by an overlay); fall back to back only if the viewer is still open.
+            self.click_actions.close_story()
+            if self.detection_actions.is_story_viewer_open():
+                self._press_back(1)
             self._human_like_delay('navigation')
-            
+
             stats['success'] = stats['stories_viewed'] > 0
             
             if stats['total_stories_detected'] > 0:
