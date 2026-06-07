@@ -8,9 +8,8 @@ owned by the migrations, never by the ORM.
 from __future__ import annotations
 
 from sqlalchemy import Column, Text
-from sqlalchemy.orm import declarative_base
 
-Base = declarative_base()
+from taktik.core.database.orm.base import Base
 
 
 class AppConfig(Base):
