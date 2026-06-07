@@ -42,18 +42,35 @@ def test_create_and_update_mirror_into_unified_table(conn):
     assert count["c"] == 1
 
 
-def test_backfill_both_platforms_is_idempotent(conn):
+def test_phase_c_backfill_then_drop_is_idempotent(conn):
+    """Legacy sessions / tiktok_sessions rows are folded into sessions_unified and the
+    legacy tables are then dropped, idempotently (Phase C)."""
     conn.execute("INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (6, 'bot6', 1)")
     conn.execute("INSERT INTO tiktok_accounts (account_id, username, is_bot) VALUES (7, 'tt7', 1)")
-    # Use base columns present in the bot-standalone legacy schemas (the front adds
-    # stats_*/ai_* to sessions; the column-aware copy handles those on the real DB).
+    # Recreate the legacy tables (dropped by the migration) to simulate an old base.
     conn.execute(
-        """INSERT INTO sessions (session_id, account_id, session_name, target_type, target, status)
-           VALUES (600, 6, 'ig-run', 'HASHTAG', '#x', 'COMPLETED')""",
+        """CREATE TABLE IF NOT EXISTS sessions (
+            session_id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL,
+            session_name TEXT NOT NULL, target_type TEXT NOT NULL, target TEXT NOT NULL,
+            start_time TEXT, end_time TEXT, duration_seconds INTEGER DEFAULT 0, config_used TEXT,
+            status TEXT DEFAULT 'ACTIVE', error_message TEXT, synced_to_api INTEGER DEFAULT 0,
+            created_at TEXT, updated_at TEXT)"""
     )
     conn.execute(
-        """INSERT INTO tiktok_sessions (session_id, account_id, session_name, workflow_type, target, status, likes)
-           VALUES (700, 7, 'tt-run', 'automation', '@y', 'COMPLETED', 22)""",
+        """CREATE TABLE IF NOT EXISTS tiktok_sessions (
+            session_id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL,
+            session_name TEXT NOT NULL, workflow_type TEXT NOT NULL, target TEXT,
+            start_time TEXT, end_time TEXT, duration_seconds INTEGER DEFAULT 0, config_used TEXT,
+            status TEXT DEFAULT 'ACTIVE', error_message TEXT, likes INTEGER DEFAULT 0,
+            created_at TEXT, updated_at TEXT)"""
+    )
+    conn.execute(
+        "INSERT INTO sessions (session_id, account_id, session_name, target_type, target, status) "
+        "VALUES (600, 6, 'ig-run', 'HASHTAG', '#x', 'COMPLETED')"
+    )
+    conn.execute(
+        "INSERT INTO tiktok_sessions (session_id, account_id, session_name, workflow_type, target, status, likes) "
+        "VALUES (700, 7, 'tt-run', 'automation', '@y', 'COMPLETED', 22)"
     )
     conn.commit()
 
@@ -74,3 +91,10 @@ def test_backfill_both_platforms_is_idempotent(conn):
     assert len(tt) == 1
     assert tt[0]["workflow_type"] == "automation"
     assert tt[0]["likes"] == 22
+
+    # legacy tables dropped by the Phase C migration
+    for legacy in ("sessions", "tiktok_sessions"):
+        gone = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?", (legacy,)
+        ).fetchone()
+        assert gone is None

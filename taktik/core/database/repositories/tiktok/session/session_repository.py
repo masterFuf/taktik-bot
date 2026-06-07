@@ -6,11 +6,9 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ....local.migration_steps.sessions import TT_SESSION_COLS, build_session_copy_sql
-
 
 class TikTokSessionRepositoryMixin:
-    """SQL owner for the `tiktok_sessions` lifecycle."""
+    """SQL owner for the TikTok session lifecycle (unified sessions_unified)."""
 
     def create_session(
         self,
@@ -20,17 +18,24 @@ class TikTokSessionRepositoryMixin:
         target: Optional[str] = None,
         config_used: Optional[dict] = None
     ) -> Optional[int]:
-        """Create a new TikTok session"""
+        """Create a new TikTok session (unified sessions_unified, platform='tiktok')."""
         try:
+            # session_id = per-platform legacy_session_id, generated atomically.
             cursor = self.execute(
-                """INSERT INTO tiktok_sessions (account_id, session_name, workflow_type, target, config_used)
-                   VALUES (?, ?, ?, ?, ?)""",
+                """INSERT INTO sessions_unified
+                       (platform, legacy_session_id, account_id, session_name, workflow_type, target,
+                        config_used, status, start_time, created_at, updated_at, sync_id)
+                   SELECT 'tiktok',
+                          COALESCE((SELECT MAX(legacy_session_id) FROM sessions_unified WHERE platform='tiktok'), 0) + 1,
+                          ?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), datetime('now'), datetime('now'), lower(hex(randomblob(16)))""",
                 (account_id, session_name[:100], workflow_type, target[:50] if target else None,
                  json.dumps(self._redact_sensitive(config_used)) if config_used else None)
             )
-            session_id = cursor.lastrowid
-            self._mirror_session(session_id)
-            return session_id
+            row = self.query_one(
+                "SELECT legacy_session_id FROM sessions_unified WHERE id = ?",
+                (cursor.lastrowid,)
+            )
+            return row['legacy_session_id'] if row else None
         except Exception as e:
             logger.error(f"Error creating TikTok session: {e}")
             return None
@@ -65,23 +70,10 @@ class TikTokSessionRepositoryMixin:
 
         values.append(session_id)
         cursor = self.execute(
-            f"UPDATE tiktok_sessions SET {', '.join(updates)} WHERE session_id = ?",
+            f"UPDATE sessions_unified SET {', '.join(updates)} WHERE platform = 'tiktok' AND legacy_session_id = ?",
             tuple(values)
         )
-        self._mirror_session(session_id)
         return cursor.rowcount > 0
-
-    def _mirror_session(self, session_id: int) -> None:
-        """Mirror one TikTok session row into sessions_unified (Vague B Phase A).
-        Best-effort, column-aware; idempotent via UNIQUE(platform, legacy_session_id)."""
-        try:
-            sql = build_session_copy_sql(
-                self.conn.cursor(), "tiktok", "tiktok_sessions", TT_SESSION_COLS,
-                verb="INSERT OR REPLACE", where="WHERE session_id = ?",
-            )
-            self.execute(sql, (session_id,))
-        except Exception as exc:
-            logger.debug(f"sessions_unified mirror (tiktok) failed: {exc}")
 
     def end_session(
         self,
@@ -93,7 +85,7 @@ class TikTokSessionRepositoryMixin:
         """End a TikTok session with final stats."""
         try:
             row = self.query_one(
-                "SELECT start_time FROM tiktok_sessions WHERE session_id = ?",
+                "SELECT start_time FROM sessions_unified WHERE platform = 'tiktok' AND legacy_session_id = ?",
                 (session_id,),
             )
 

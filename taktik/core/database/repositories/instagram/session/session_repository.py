@@ -6,7 +6,6 @@ import json
 from typing import Dict, List, Optional, Any
 from loguru import logger
 from ..._base.base_repository import BaseRepository
-from ....local.migration_steps.sessions import IG_SESSION_COLS, build_session_copy_sql
 
 
 class SessionRepository(BaseRepository):
@@ -24,11 +23,18 @@ class SessionRepository(BaseRepository):
         target: str,
         config_used: Optional[dict] = None
     ) -> Optional[int]:
-        """Create a new automation session"""
+        """Create a new automation session (unified sessions_unified, platform='instagram')."""
         try:
+            # session_id = per-platform legacy_session_id, generated atomically (single
+            # INSERT ... SELECT MAX+1 runs under SQLite's write lock -> collision-free
+            # across the bot + Electron processes).
             cursor = self.execute(
-                """INSERT INTO sessions (account_id, session_name, target_type, target, config_used)
-                   VALUES (?, ?, ?, ?, ?)""",
+                """INSERT INTO sessions_unified
+                       (platform, legacy_session_id, account_id, session_name, target_type, target,
+                        config_used, status, start_time, created_at, updated_at, sync_id)
+                   SELECT 'instagram',
+                          COALESCE((SELECT MAX(legacy_session_id) FROM sessions_unified WHERE platform='instagram'), 0) + 1,
+                          ?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), datetime('now'), datetime('now'), lower(hex(randomblob(16)))""",
                 (
                     account_id,
                     session_name[:100],
@@ -37,9 +43,11 @@ class SessionRepository(BaseRepository):
                     json.dumps(self._redact_sensitive(config_used)) if config_used else None
                 )
             )
-            session_id = cursor.lastrowid
-            self._mirror_session(session_id)
-            return session_id
+            row = self.query_one(
+                "SELECT legacy_session_id FROM sessions_unified WHERE id = ?",
+                (cursor.lastrowid,)
+            )
+            return row['legacy_session_id'] if row else None
         except Exception as e:
             logger.error(f"Error creating session: {e}")
             return None
@@ -71,10 +79,9 @@ class SessionRepository(BaseRepository):
         
         values.append(session_id)
         cursor = self.execute(
-            f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?",
+            f"UPDATE sessions_unified SET {', '.join(updates)} WHERE platform = 'instagram' AND legacy_session_id = ?",
             tuple(values)
         )
-        self._mirror_session(session_id)
         return cursor.rowcount > 0
 
     def find_by_id(self, session_id: int) -> Optional[Dict[str, Any]]:
@@ -106,43 +113,25 @@ class SessionRepository(BaseRepository):
     def find_unsynced(self) -> List[Dict[str, Any]]:
         """Get unsynced sessions"""
         rows = self.query(
-            "SELECT * FROM sessions WHERE synced_to_api = 0 AND status IN ('COMPLETED', 'FAILED', 'ERROR') ORDER BY start_time DESC"
+            "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
+            "WHERE platform = 'instagram' AND synced_to_api = 0 AND status IN ('COMPLETED', 'FAILED', 'ERROR') "
+            "ORDER BY start_time DESC"
         )
         return [self._map_session_row(row) for row in rows]
-    
+
     def mark_as_synced(self, session_ids: List[int]) -> bool:
         """Mark sessions as synced"""
         if not session_ids:
             return True
-        
+
         placeholders = ','.join('?' * len(session_ids))
         cursor = self.execute(
-            f"UPDATE sessions SET synced_to_api = 1 WHERE session_id IN ({placeholders})",
+            f"UPDATE sessions_unified SET synced_to_api = 1 "
+            f"WHERE platform = 'instagram' AND legacy_session_id IN ({placeholders})",
             tuple(session_ids)
         )
-        # Re-mirror the affected rows into sessions_unified (Vague B Phase A).
-        try:
-            sql = build_session_copy_sql(
-                self.conn.cursor(), "instagram", "sessions", IG_SESSION_COLS,
-                verb="INSERT OR REPLACE", where=f"WHERE session_id IN ({placeholders})",
-            )
-            self.execute(sql, tuple(session_ids))
-        except Exception as exc:
-            logger.debug(f"sessions_unified mirror (instagram sync) failed: {exc}")
         return cursor.rowcount > 0
 
-    def _mirror_session(self, session_id: int) -> None:
-        """Mirror one Instagram session row into sessions_unified (Vague B Phase A).
-        Best-effort, column-aware; idempotent via UNIQUE(platform, legacy_session_id)."""
-        try:
-            sql = build_session_copy_sql(
-                self.conn.cursor(), "instagram", "sessions", IG_SESSION_COLS,
-                verb="INSERT OR REPLACE", where="WHERE session_id = ?",
-            )
-            self.execute(sql, (session_id,))
-        except Exception as exc:
-            logger.debug(f"sessions_unified mirror (instagram) failed: {exc}")
-    
     # ============================================
     # SCRAPING SESSIONS
     # ============================================

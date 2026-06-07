@@ -50,7 +50,7 @@ EXPECTED_TABLES = {
     "instagram_accounts",
     "instagram_profiles",
     "filtered_profiles",
-    "sessions",
+    # sessions folded into sessions_unified (Vague B Phase C): dropped
     "profile_stats_history",
     # instagram_posts removed (Vague B): dead table, dropped
     "scraping_sessions",
@@ -61,7 +61,7 @@ EXPECTED_TABLES = {
     # TikTok
     "tiktok_accounts",
     "tiktok_profiles",
-    "tiktok_sessions",
+    # tiktok_sessions folded into sessions_unified (Vague B Phase C): dropped
     # tiktok_filtered_profiles folded into the unified filtered_profiles (Vague B)
     # Gmail
     "gmail_accounts",
@@ -99,15 +99,8 @@ class TestCreateSchema:
         cols = {r["name"] for r in info}
         assert {"account_id", "username", "is_bot", "created_at"} <= cols
 
-    def test_sessions_foreign_key(self, fresh_conn):
-        create_schema(fresh_conn)
-        # Inserting a session with a non-existent account_id must fail when FKs are on
-        fresh_conn.execute("PRAGMA foreign_keys=ON")
-        with pytest.raises(sqlite3.IntegrityError):
-            fresh_conn.execute(
-                "INSERT INTO sessions (account_id, session_name, target_type, target) VALUES (999, 'x', 'y', 'z')"
-            )
-            fresh_conn.commit()
+    # test_sessions_foreign_key removed (Vague B Phase C): the legacy `sessions` table
+    # is dropped; the unified `sessions_unified` is polymorphic and carries no account FK.
 
     def test_indexes_created(self, fresh_conn):
         create_schema(fresh_conn)
