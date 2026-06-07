@@ -154,6 +154,27 @@ class WorkflowHelpers:
             self.logger.info("Detecting active Instagram account...")
             profile_info = self.automation.get_profile_info(username=None, save_to_db=True, log_result=False)
 
+            # A warm launch (skip_initial_restart) can resume Instagram deep inside
+            # another user's profile, which navigate_to_profile_tab cannot always pop
+            # out of (a single back per attempt doesn't unwind a multi-level stack),
+            # so account detection fails. Recover by forcing one clean restart (a cold
+            # start lands on the home feed) and retrying. Failure-path only: a run that
+            # already detected the account never reaches this branch, so normal runs
+            # are unchanged.
+            if skip_initial_restart and not (profile_info and profile_info.get('username')):
+                pkg = self._get_package()
+                self.logger.warning(
+                    f"Account detection failed on warm launch; forcing a clean restart of {pkg} and retrying"
+                )
+                if self.automation.device_manager.launch_app(pkg, stop_first=True):
+                    wait_time = random.randint(5, 10)
+                    self.logger.info(f"Waiting {wait_time}s for Instagram to fully load...")
+                    time.sleep(wait_time)
+                    self._handle_post_restart_popups()
+                    profile_info = self.automation.get_profile_info(username=None, save_to_db=True, log_result=False)
+                else:
+                    self.logger.warning("Failed to restart Instagram during account-detection recovery")
+
             if profile_info and profile_info.get('username'):
                 import json
                 active_account_msg = {
