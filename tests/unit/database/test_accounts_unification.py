@@ -83,3 +83,24 @@ def test_idempotent():
     total = con.execute("SELECT COUNT(*) AS c FROM accounts").fetchone()["c"]
     assert total == 2  # no duplication
     con.close()
+
+
+def test_repo_create_mirrors_into_accounts(db):
+    """Creating an account through the service must mirror it into the unified
+    `accounts` table (Vague B Phase A mirror-write)."""
+    account_id, created = db.get_or_create_account("mirror_ig", is_bot=True)
+    assert created is True
+
+    row = db._connection.execute(
+        "SELECT username FROM accounts WHERE platform='instagram' AND legacy_account_id=?",
+        (account_id,),
+    ).fetchone()
+    assert row is not None and row[0] == "mirror_ig"
+
+    tt_id, tt_created = db.get_or_create_tiktok_account("mirror_tt")
+    assert tt_created is True
+    tt = db._connection.execute(
+        "SELECT username FROM accounts WHERE platform='tiktok' AND legacy_account_id=?",
+        (tt_id,),
+    ).fetchone()
+    assert tt is not None and tt[0] == "mirror_tt"

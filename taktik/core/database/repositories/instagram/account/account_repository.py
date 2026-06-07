@@ -33,8 +33,29 @@ class AccountRepository(BaseRepository):
                VALUES (?, ?, ?, ?)""",
             (username, 1 if is_bot else 0, user_id, license_id)
         )
-        
-        return cursor.lastrowid, True
+
+        account_id = cursor.lastrowid
+        self._mirror_to_unified(account_id)
+        return account_id, True
+
+    def _mirror_to_unified(self, account_id: int) -> None:
+        """Re-mirror the base account fields into the unified `accounts` table (Vague B
+        Phase A). Best-effort; only base columns (the bot never writes the Electron
+        business columns, so ON CONFLICT does not clobber them)."""
+        try:
+            self.execute(
+                """INSERT INTO accounts
+                       (platform, legacy_account_id, username, is_bot, user_id, license_id, created_at)
+                   SELECT 'instagram', account_id, username, is_bot, user_id, license_id, created_at
+                   FROM instagram_accounts WHERE account_id = ?
+                   ON CONFLICT(platform, legacy_account_id) DO UPDATE SET
+                       username = excluded.username, is_bot = excluded.is_bot,
+                       user_id = excluded.user_id, license_id = excluded.license_id,
+                       updated_at = datetime('now')""",
+                (account_id,)
+            )
+        except Exception:
+            pass
     
     def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Find account by username"""
@@ -83,7 +104,9 @@ class AccountRepository(BaseRepository):
             f"UPDATE instagram_accounts SET {', '.join(sets)} WHERE account_id = ?",
             tuple(values)
         )
-        
+
+        if cursor.rowcount > 0:
+            self._mirror_to_unified(account_id)
         return cursor.rowcount > 0
     
     def delete(self, account_id: int) -> bool:

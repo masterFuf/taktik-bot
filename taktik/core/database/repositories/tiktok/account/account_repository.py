@@ -28,7 +28,27 @@ class TikTokAccountRepositoryMixin:
                VALUES (?, ?, ?, ?, ?)""",
             (username, display_name, 1 if is_bot else 0, user_id, license_id)
         )
-        return cursor.lastrowid, True
+        account_id = cursor.lastrowid
+        self._mirror_account_to_unified(account_id)
+        return account_id, True
+
+    def _mirror_account_to_unified(self, account_id: int) -> None:
+        """Re-mirror the TikTok account into the unified `accounts` table (Vague B
+        Phase A). Best-effort; never breaks the primary write."""
+        try:
+            self.execute(
+                """INSERT INTO accounts
+                       (platform, legacy_account_id, username, is_bot, user_id, license_id, display_name, created_at)
+                   SELECT 'tiktok', account_id, username, is_bot, user_id, license_id, display_name, created_at
+                   FROM tiktok_accounts WHERE account_id = ?
+                   ON CONFLICT(platform, legacy_account_id) DO UPDATE SET
+                       username = excluded.username, is_bot = excluded.is_bot, user_id = excluded.user_id,
+                       license_id = excluded.license_id, display_name = excluded.display_name,
+                       updated_at = datetime('now')""",
+                (account_id,)
+            )
+        except Exception:
+            pass
 
     def find_account_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Find account by username"""
