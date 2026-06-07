@@ -61,7 +61,10 @@ class LocalDatabaseService:
             self.db_path = os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
         
         self._connection: Optional[sqlite3.Connection] = None
-        
+        # ORM pilot (Vague D): read-mapping SQLAlchemy engine over the same DB file.
+        # Wired fail-safe at startup; the bot keeps running on raw sqlite3 if it fails.
+        self._orm_engine = None
+
         # Repositories (initialized after connection)
         self._accounts: Optional[AccountRepository] = None
         self._profiles: Optional[ProfileRepository] = None
@@ -88,6 +91,33 @@ class LocalDatabaseService:
         # Initialize repositories
         self._init_repositories()
         logger.info(f"✅ Local database initialized at: {self.db_path}")
+        # ORM (Vague D): bring up the read-mapping SQLAlchemy engine, fail-safe.
+        self._init_orm()
+
+    def _init_orm(self) -> None:
+        """Initialize the read-mapping SQLAlchemy engine over the same DB file.
+
+        Fail-safe: any import/init error is non-fatal - the bot keeps running on
+        raw sqlite3. The engine maps existing tables only (never runs DDL); the
+        schema stays owned by the migrations.
+        """
+        try:
+            from taktik.core.database.orm.engine import create_orm_engine
+            from taktik.core.database.orm.unified_models import Account
+            from sqlalchemy.orm import Session as _Session
+
+            engine = create_orm_engine(self.db_path)
+            with _Session(engine) as session:
+                count = session.query(Account).count()  # boot self-check (read live DB)
+            self._orm_engine = engine
+            logger.info(f"✅ ORM (SQLAlchemy) ready - live DB readable (accounts: {count})")
+        except Exception as exc:  # noqa: BLE001 - intentional fail-safe
+            logger.warning(f"ORM init skipped (non-fatal, bot runs on raw sqlite3): {exc}")
+
+    @property
+    def orm_engine(self):
+        """The read-mapping SQLAlchemy engine (None until/unless ORM init succeeds)."""
+        return self._orm_engine
     
     def _init_repositories(self) -> None:
         """Initialize all repositories with the database connection."""
@@ -182,6 +212,12 @@ class LocalDatabaseService:
     
     def close(self) -> None:
         """Close the database connection."""
+        if self._orm_engine is not None:
+            try:
+                self._orm_engine.dispose()
+            except Exception:  # noqa: BLE001
+                pass
+            self._orm_engine = None
         if self._connection:
             self._connection.close()
             self._connection = None
