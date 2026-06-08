@@ -126,6 +126,9 @@ def run_social_profiles_unification_migrations(cursor: sqlite3.Cursor) -> None:
     except sqlite3.OperationalError:
         pass
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_social_profiles_username ON social_profiles(platform, username)")
+    # Front Target Search sorts by created_at DESC over ~150k profiles; index makes the
+    # ORDER BY ... LIMIT use an index walk (front page load ~1.5s -> ~15ms). Mirrors the front index.
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_social_profiles_platform_created ON social_profiles(platform, created_at)")
 
     _backfill(cursor, "instagram_profiles", "instagram", _IG_MAP)
     _backfill(cursor, "tiktok_profiles", "tiktok", _TT_MAP)
