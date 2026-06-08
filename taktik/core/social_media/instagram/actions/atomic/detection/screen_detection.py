@@ -224,17 +224,19 @@ class ScreenDetectionMixin(BaseAction):
         return normalized
     
     def count_visible_stories(self) -> int:
+        """Count the active profile-avatar story ring (0 or 1).
+
+        Scoped to the profile-header avatar via `has_unseen_profile_story()`, so
+        highlights (highlights_reel_tray_*) and the home feed tray
+        (reels_tray_container) never inflate the count. That conflation previously
+        made the bot believe a profile had a watchable story when it only had
+        highlights, then fail to open anything ("No stories found").
+        """
         try:
-            count = 0
-            for selector in self.detection_selectors.story_ring_indicators:
-                elements = self.device.xpath(selector).all()
-                if elements:
-                    count = len(elements)
-                    break
-            
+            count = 1 if self.has_unseen_profile_story() else 0
             self.logger.debug(f"{count} visible stories")
             return count
-            
+
         except Exception as e:
             self.logger.debug(f"Error counting stories: {e}")
             return 0

@@ -43,6 +43,54 @@ def story_open_from_tray(a, p):
     return a.click.click_feed_story(index)
 
 
+@action("story.has_profile_story")
+def story_has_profile_story(a, p):
+    """Whether the open profile shows an *unseen* story ring on its avatar.
+
+    Scoped to the profile-header avatar, so "à la une" highlights are excluded —
+    this is the detector behind the 2026-06-08 fix (highlights were wrongly counted
+    as a watchable story). Run it while on a user's profile page.
+    """
+    has_story = a.detection.has_unseen_profile_story()
+    logger.info(f"Profile story ring (unseen): {has_story}")
+    return {
+        "success": True,
+        "message": "story en cours" if has_story else "aucune story en cours (ou deja vue)",
+        "details": {"has_unseen_story": has_story},
+    }
+
+
+@action("story.open_from_profile")
+def story_open_from_profile(a, p):
+    """Open the active story from the current profile's avatar ring (not a highlight)."""
+    return a.click.click_profile_story_ring()
+
+
+@action("story.count_highlights")
+def story_count_highlights(a, p):
+    """Count the 'à la une' highlight bubbles on the open profile (always-available stories)."""
+    count = a.detection.count_visible_highlights()
+    logger.info(f"Visible highlights: {count}")
+    return {
+        "success": True,
+        "message": f"{count} highlight(s)" if count else "aucun highlight",
+        "details": {"count": count},
+    }
+
+
+@action("story.open_highlight")
+def story_open_highlight(a, p):
+    """Open a 'à la une' highlight by horizontal index (0 = first visible)."""
+    index = int(p.get("highlight_index", 0))
+    return a.click.click_highlight(index)
+
+
+@action("story.scroll_highlights")
+def story_scroll_highlights(a, p):
+    """Scroll the highlights tray left to reveal more 'à la une'."""
+    return a.click.scroll_highlights_left()
+
+
 @action("story.count_feed_tray")
 def story_count_feed_tray(a, p):
     """Count the stories in the home feed tray (visible + total parsed from content-desc)."""

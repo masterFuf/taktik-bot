@@ -89,18 +89,6 @@ class DetectionSelectors:
         # clips_* resource-ids supprimés 2026-03-07 (0/30 trouvés sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     
-    # === Détection de contenu ===
-    story_ring_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "unseen story")]',
-        '//*[contains(@resource-id, "reels_tray_container")]//android.widget.Button[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")]',
-        '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]//android.widget.Button[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")]',
-        '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "highlight story")]',
-        '//*[contains(@resource-id, "story_ring")]',
-        '//*[contains(@content-desc, "Story")]',
-        '//*[contains(@content-desc, "story")]',
-        '//*[contains(@resource-id, "reel_ring")]'
-    ])
-    
     # === Messages d'erreur ===
     error_message_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Erreur")]',

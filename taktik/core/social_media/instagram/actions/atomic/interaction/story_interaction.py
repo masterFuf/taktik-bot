@@ -46,38 +46,15 @@ class StoryInteractionMixin(BaseAction):
             return False
 
     def click_story_ring(self, story_index: int = 0) -> bool:
-        """Backward-compatible generic story click.
+        """Open the active profile-avatar story ring (backward-compatible alias).
 
-        Prefer `click_profile_story_ring()` for the active profile avatar and
-        `click_highlight()` for highlights when the workflow needs precision.
+        A profile page exposes a single avatar ring, so `story_index` is ignored.
+        Delegates to `click_profile_story_ring()`, which is scoped to the profile
+        header avatar so highlights and the home feed tray are never mistaken for a
+        watchable story. Use `click_highlight()` for highlights and
+        `click_feed_story()` for the home tray when precision is needed.
         """
-        self.logger.debug(f"Clicking story #{story_index}")
-
-        story_elements = []
-        for selector in self.story_selectors.story_ring_indicators if hasattr(self.story_selectors, 'story_ring_indicators') else [self.story_selectors.story_ring]:
-            try:
-                elements = self.device.xpath(selector)
-                if elements and elements.exists:
-                    story_elements = elements.all()
-                    break
-            except Exception:
-                continue
-
-        if not story_elements:
-            self.logger.warning("No stories found")
-            return False
-
-        if story_index >= len(story_elements):
-            self.logger.warning(f"Index {story_index} out of bounds (max: {len(story_elements) - 1})")
-            return False
-
-        try:
-            story_elements[story_index].click()
-            self._human_like_delay('click')
-            return True
-        except Exception as e:
-            self.logger.error(f"Error clicking story: {e}")
-            return False
+        return self.click_profile_story_ring()
 
     def click_feed_story(self, story_index: int = 0, skip_own_story: bool = True) -> bool:
         """Click a visible story bubble from the home feed tray.

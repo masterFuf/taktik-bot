@@ -6,7 +6,6 @@ class StorySelectors:
     """Sélecteurs pour les stories."""
     
     # === Éléments de base ===
-    story_ring: str = '//android.view.View[contains(@content-desc, "story") or contains(@content-desc, "story")]'
     story_image: str = '//android.widget.ImageView[contains(@resource-id, "reel_media_image")]'
     story_video: str = '//android.widget.VideoView[contains(@resource-id, "reel_media_video")]'
 
@@ -17,11 +16,30 @@ class StorySelectors:
     feed_unseen_story_buttons: str = '//*[contains(@resource-id, "reels_tray_container")]//android.widget.Button[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story") and (contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "non vus") or contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "unseen"))]'
 
     # === Profile / highlights ===
-    profile_unseen_story_avatar: str = '//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "unseen story")]'
+    # Active profile-avatar story ring (NOT a highlight, NOT a feed-tray bubble).
+    # Scoped to the profile-header avatar imageview so highlights
+    # (highlights_reel_tray_recycler_view) and the home tray (reels_tray_container)
+    # can never be mistaken for a watchable profile story. The avatar carries the
+    # word "story" in its content-desc only while a story exists; "non vue"/"unseen"
+    # narrows it to an *unseen* story (seen ones read "vue"/"seen").
+    # Real dump 2026-06-08 (IG v410, FR): id=row_profile_header_imageview,
+    # content-desc="story de <user> non vue" (sibling reel_ring View carries no desc).
+    profile_unseen_story_avatar: str = (
+        '//*[contains(@resource-id, "row_profile_header_imageview")'
+        ' and contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")'
+        ' and (contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "non vue")'
+        ' or contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "unseen"))]'
+    )
     highlight_tray: str = '//*[contains(@resource-id, "highlights_tray")]'
     highlight_recycler: str = '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]'
     highlight_buttons: str = '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]//android.widget.Button[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")]'
-    highlight_images: str = '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "highlight story")]'
+    # Highlight thumbnail image. FR: "story à la une de <user> dans la colonne N";
+    # EN: "<user>'s highlight story". Real dump 2026-06-08 (IG v410, FR).
+    highlight_images: str = (
+        '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]'
+        '//*[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "à la une")'
+        ' or contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "highlight story")]'
+    )
     
     # === Navigation ===
     next_story: str = '//android.widget.FrameLayout[contains(@resource-id, "story_viewer_container")]//android.widget.ImageView[contains(@content-desc, "Suivant") or contains(@content-desc, "Next")]'

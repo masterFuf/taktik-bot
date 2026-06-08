@@ -82,8 +82,9 @@ _FR_WORDS: Set[str] = {
     "Envoyer", "Autoriser",
     # Unfollow (unfollow.py)
     "Vous suit", "vous suit",
-    # Story (story.py)
+    # Story (story.py, story_viewer.py)
     "Suivant",
+    "non vue", "non vus", "à la une",
     # Detection (detection.py)
     "Erreur", "Impossible", "Échec",
     "Trop de tentatives", "Veuillez patienter", "Action bloquée",
@@ -153,8 +154,9 @@ _EN_WORDS: Set[str] = {
     # Unfollow (unfollow.py)
     "Follows you",
     "Sort by", "Default", "Date followed",
-    # Story (story.py)
+    # Story (story.py, story_viewer.py)
     "Next",
+    "unseen", "highlight story",
     # Detection (detection.py)
     "Error", "Failed", "Retry",
     "Too many requests", "Please wait", "Action blocked",
