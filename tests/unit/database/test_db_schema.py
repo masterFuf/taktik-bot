@@ -63,8 +63,7 @@ EXPECTED_TABLES = {
     "tiktok_profiles",
     # tiktok_sessions folded into sessions_unified (Vague B Phase C): dropped
     # tiktok_filtered_profiles folded into the unified filtered_profiles (Vague B)
-    # Gmail
-    "gmail_accounts",
+    # gmail_accounts folded into accounts (Vague F2): now a compat VIEW, not a table
 }
 
 
@@ -146,6 +145,19 @@ class TestRunMigrations:
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()}
         assert "scraped_comments" not in tables
+
+    def test_gmail_accounts_folded_to_view(self, base_conn):
+        """Vague F2: gmail_accounts is folded into accounts and becomes a compat view.
+
+        (View-query correctness is covered against the real shared DB; here we assert
+        the fold turns gmail_accounts into a view. account_device_history is front-owned
+        so it is absent from this bot-only base, which is why we don't query the view.)
+        """
+        run_migrations(base_conn)
+        typ = base_conn.execute(
+            "SELECT type FROM sqlite_master WHERE name = 'gmail_accounts'"
+        ).fetchone()
+        assert typ is not None and typ["type"] == "view"
 
     def test_instagram_profiles_extra_columns(self, base_conn):
         """Migrations must ensure account_based_in and date_joined exist."""

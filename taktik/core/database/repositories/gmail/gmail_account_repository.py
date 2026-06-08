@@ -25,24 +25,59 @@ class GmailAccountRepository:
         self._db = get_local_database()
 
     def upsert(self, email: str, device_id: str) -> bool:
-        """Insert the account or refresh its `device_id` / `last_used_at`.
+        """Insert/refresh the Gmail account in the unified ``accounts`` table
+        (platform='gmail') + its device sighting in ``account_device_history``.
 
-        Returns True on success, False on any DB error (the error is logged
-        via loguru — callers should treat persistence as best-effort).
+        Vague F2: ``gmail_accounts`` is now a read-only compat view, so writes target
+        the underlying tables. Best-effort (errors logged; callers tolerate failure).
         """
         try:
             conn = self._db._get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO gmail_accounts (email, device_id, last_used_at)
-                VALUES (?, ?, datetime('now'))
-                ON CONFLICT(email) DO UPDATE SET
-                    device_id = excluded.device_id,
-                    last_used_at = datetime('now')
-                """,
-                (email, device_id),
-            )
+            # accounts row (platform='gmail'). SELECT-then-act (no ON CONFLICT: the
+            # accounts unique index isn't on (platform, username) on every base).
+            row = cursor.execute(
+                "SELECT legacy_account_id FROM accounts WHERE platform = 'gmail' AND username = ?",
+                (email,),
+            ).fetchone()
+            if row:
+                cursor.execute(
+                    "UPDATE accounts SET updated_at = datetime('now') WHERE platform = 'gmail' AND username = ?",
+                    (email,),
+                )
+            else:
+                cursor.execute(
+                    "SELECT COALESCE(MAX(legacy_account_id), 0) + 1 FROM accounts WHERE platform = 'gmail'"
+                )
+                next_id = cursor.fetchone()[0]
+                cursor.execute(
+                    """
+                    INSERT INTO accounts (platform, legacy_account_id, username, is_bot, created_at, updated_at)
+                    VALUES ('gmail', ?, ?, 0, datetime('now'), datetime('now'))
+                    """,
+                    (next_id, email),
+                )
+            if device_id:
+                drow = cursor.execute(
+                    "SELECT id FROM account_device_history "
+                    "WHERE platform = 'gmail' AND username = ? AND device_id = ? AND package_name = ''",
+                    (email, device_id),
+                ).fetchone()
+                if drow:
+                    cursor.execute(
+                        "UPDATE account_device_history SET last_seen_at = datetime('now'), "
+                        "seen_count = seen_count + 1 WHERE id = ?",
+                        (drow[0],),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO account_device_history
+                            (platform, username, device_id, package_name, source, first_seen_at, last_seen_at, seen_count)
+                        VALUES ('gmail', ?, ?, '', 'gmail', datetime('now'), datetime('now'), 1)
+                        """,
+                        (email, device_id),
+                    )
             conn.commit()
             return True
         except Exception as e:
@@ -50,11 +85,18 @@ class GmailAccountRepository:
             return False
 
     def delete(self, email: str) -> bool:
-        """Remove the account row. Returns True on success, False on DB error."""
+        """Remove the Gmail account from the unified tables. Returns True on success."""
         try:
             conn = self._db._get_connection()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM gmail_accounts WHERE email = ?", (email,))
+            cursor.execute(
+                "DELETE FROM account_device_history WHERE platform = 'gmail' AND username = ?",
+                (email,),
+            )
+            cursor.execute(
+                "DELETE FROM accounts WHERE platform = 'gmail' AND username = ?",
+                (email,),
+            )
             conn.commit()
             return True
         except Exception as e:

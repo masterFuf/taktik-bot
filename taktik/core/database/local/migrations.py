@@ -32,6 +32,7 @@ from .migration_steps.sessions import run_sessions_unification_migrations
 from .migration_steps.filtered_profiles import run_filtered_profiles_unification_migrations
 from .migration_steps.scraped_profiles import run_scraped_profiles_unification_migrations
 from .migration_steps.accounts import run_accounts_unification_migrations
+from .migration_steps.gmail import run_gmail_accounts_fold
 from .migration_steps.social_profiles import run_social_profiles_unification_migrations
 
 
@@ -56,6 +57,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_profile_ai_enrichment_migrations(cursor)
     run_accounts_unification_migrations(cursor)
     run_social_profiles_unification_migrations(cursor)
+    run_gmail_accounts_fold(cursor)  # Vague F2: gmail_accounts -> accounts + compat view
     drop_legacy_discovery_tables(cursor)
 
     conn.commit()
