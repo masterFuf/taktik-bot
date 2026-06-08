@@ -9,38 +9,19 @@ from loguru import logger
 from .identifiers import _validate_sql_identifier
 
 
-def run_scraped_comments_migrations(cursor: sqlite3.Cursor) -> None:
-    """Ensure scraped_comments has the post-release columns and indexes."""
-    try:
-        cursor.execute("SELECT scraping_session_id FROM scraped_comments LIMIT 1")
-    except sqlite3.OperationalError:
-        logger.info("Migration: Adding scraping_session_id to scraped_comments")
-        cursor.execute("ALTER TABLE scraped_comments ADD COLUMN scraping_session_id INTEGER")
+def drop_scraped_comments(cursor: sqlite3.Cursor) -> None:
+    """Vague F1: drop the dead ``scraped_comments`` table.
 
-    try:
-        cursor.execute("SELECT profile_id FROM scraped_comments LIMIT 1")
-    except sqlite3.OperationalError:
-        logger.info("Migration: Adding profile_id to scraped_comments")
-        cursor.execute("ALTER TABLE scraped_comments ADD COLUMN profile_id INTEGER")
-
-    try:
-        cursor.execute("SELECT target_username FROM scraped_comments LIMIT 1")
-    except sqlite3.OperationalError:
-        logger.info("Migration: Adding target_username to scraped_comments")
-        cursor.execute("ALTER TABLE scraped_comments ADD COLUMN target_username TEXT")
-
-    try:
-        cursor.execute("SELECT is_reply FROM scraped_comments LIMIT 1")
-    except sqlite3.OperationalError:
-        logger.info("Migration: Adding is_reply to scraped_comments")
-        cursor.execute("ALTER TABLE scraped_comments ADD COLUMN is_reply INTEGER DEFAULT 0")
-
-    try:
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_session ON scraped_comments(scraping_session_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_username ON scraped_comments(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_comments_target ON scraped_comments(target_username)")
-    except sqlite3.OperationalError:
-        pass
+    Confirmed dead before removal: no live writer/reader (the
+    ``save_scraped_comment`` + getters were orphaned, 0 callers), 405 rows with
+    100% NULL ``content``, last write 2026-01-17 — superseded by
+    ``smart_comment_replies``. Backup exported to
+    ``%APPDATA%/taktik-desktop/backups/scraped_comments_backup_2026-06-08.csv``.
+    No FK child references it (it FK'd scraping_sessions), so the drop is safe.
+    Idempotent; the CREATE has been removed from the schema bootstrap so it does
+    not come back.
+    """
+    cursor.execute("DROP TABLE IF EXISTS scraped_comments")
 
 
 def run_scraping_session_migrations(cursor: sqlite3.Cursor) -> None:

@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 
 from .migration_steps.scraping import (
-    run_scraped_comments_migrations,
+    drop_scraped_comments,
     run_scraped_profile_migrations,
     run_scraping_session_migrations,
 )
@@ -40,7 +40,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
 
     # Keep the historical order to avoid subtle regressions on old databases.
-    run_scraped_comments_migrations(cursor)
+    drop_scraped_comments(cursor)  # Vague F1: dead table removed
     run_instagram_profile_core_migrations(cursor)
     run_scraping_session_migrations(cursor)
     run_scraped_profile_migrations(cursor)

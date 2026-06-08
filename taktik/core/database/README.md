@@ -262,16 +262,17 @@ database/
 ### Tables Scraping avance
 
 ```
-+-------------------+      +------------------+      +------------------+
-| scraping_sessions |----->| scraped_profiles |      | scraped_comments |
-+-------------------+      +------------------+      +------------------+
-| scraping_id PK    |      | id PK            |      | comment_id PK    |
-| account_id FK     |      | scraping_id FK   |      | session_id FK    |
-| scraping_type     |      | profile_id FK    |      | username         |
-| source_type       |      | ai_score         |      | post_url         |
-| total_scraped     |      | ai_qualified     |      | content          |
-| status            |      | ai_analysis      |      | likes_count      |
-+-------------------+      +------------------+      +------------------+
++-------------------+      +------------------+
+| scraping_sessions |----->| scraped_profiles |
++-------------------+      +------------------+
+| scraping_id PK    |      | id PK            |
+| account_id FK     |      | scraping_id FK   |
+| scraping_type     |      | profile_id FK    |
+| source_type       |      | ai_qualified     |
+| total_scraped     |      | source_post_url  |
+| status            |      | scraped_at       |
++-------------------+      +------------------+
+(scraped_comments retiree - Vague F1: table morte, voir smart_comment_replies)
 
 +-------------------------+
 | processed_hashtag_posts |

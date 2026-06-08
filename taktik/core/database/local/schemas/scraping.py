@@ -69,23 +69,9 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS scraped_comments (
-            comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            scraping_session_id INTEGER,
-            profile_id INTEGER,
-            target_username TEXT,
-            post_url TEXT,
-            username TEXT NOT NULL,
-            content TEXT,
-            likes_count INTEGER DEFAULT 0,
-            is_reply INTEGER DEFAULT 0,
-            parent_comment_id INTEGER,
-            scraped_at TEXT DEFAULT (datetime('now')),
-            FOREIGN KEY (scraping_session_id) REFERENCES scraping_sessions(scraping_id) ON DELETE SET NULL
-            -- profile_id FK to instagram_profiles dropped (Vague B: profiles unified; legacy is a view)
-        )
-    """)
+    # scraped_comments removed (Vague F1): dead table (no live writer/reader, 100%
+    # NULL content, superseded by smart_comment_replies). Dropped in migrations
+    # (drop_scraped_comments) and no longer created here.
 
 
 def create_scraping_indexes(cursor: sqlite3.Cursor) -> None:

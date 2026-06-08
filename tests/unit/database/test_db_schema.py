@@ -56,7 +56,7 @@ EXPECTED_TABLES = {
     "scraping_sessions",
     "processed_hashtag_posts",
     "scraped_profiles",
-    "scraped_comments",
+    # scraped_comments removed (Vague F1): dead table dropped, see smart_comment_replies
     "profile_ai_enrichments",
     # TikTok
     "tiktok_accounts",
@@ -132,15 +132,20 @@ class TestRunMigrations:
         run_migrations(base_conn)
         run_migrations(base_conn)
 
-    def test_scraped_comments_columns_added(self, base_conn):
-        """Migrations must add scraping_session_id, profile_id, target_username, is_reply."""
+    def test_scraped_comments_dropped(self, base_conn):
+        """Vague F1: scraped_comments is a dead table - not created, dropped by migrations."""
+        # create_schema must not recreate it
+        tables = {r["name"] for r in base_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "scraped_comments" not in tables
+        # run_migrations drops it idempotently even if a legacy base still has it
+        base_conn.execute("CREATE TABLE IF NOT EXISTS scraped_comments (comment_id INTEGER PRIMARY KEY)")
         run_migrations(base_conn)
-        info = base_conn.execute("PRAGMA table_info(scraped_comments)").fetchall()
-        cols = {r["name"] for r in info}
-        assert "scraping_session_id" in cols
-        assert "profile_id" in cols
-        assert "target_username" in cols
-        assert "is_reply" in cols
+        tables = {r["name"] for r in base_conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "scraped_comments" not in tables
 
     def test_instagram_profiles_extra_columns(self, base_conn):
         """Migrations must ensure account_based_in and date_joined exist."""
