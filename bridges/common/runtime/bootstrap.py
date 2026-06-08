@@ -35,6 +35,13 @@ def setup_environment(log_level: str = "DEBUG"):
 
 def _setup_utf8():
     """Force UTF-8 encoding for stdout/stderr on Windows to support emojis."""
+    # Never re-wrap stdio under pytest: several library modules (bridge_base,
+    # platform_bridge) call setup_environment() at import time, so this runs during
+    # test collection. Replacing sys.stdout/sys.stderr detaches pytest's capture
+    # buffers and crashes its teardown with "I/O operation on closed file".
+    # Production bridge runs never have pytest imported, so behaviour is unchanged.
+    if "pytest" in sys.modules:
+        return
     if sys.platform == 'win32':
         import io
         # line_buffering=True ensures real-time output to Electron

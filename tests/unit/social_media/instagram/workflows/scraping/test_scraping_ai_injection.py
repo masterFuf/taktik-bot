@@ -15,11 +15,14 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
     captured = {}
     notifier = object()
 
-    def factory(*, api_key, ipc=None, vision_model=None, text_model=None):
+    # Mirror the real factory signature (bridges/instagram/scraping/runtime/ai.py):
+    # the workflow forwards api_key/ipc/vision_model/niche_taxonomy (premium taxonomy
+    # injected by the front), not text_model.
+    def factory(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None):
         captured["api_key"] = api_key
         captured["ipc"] = ipc
         captured["vision_model"] = vision_model
-        captured["text_model"] = text_model
+        captured["niche_taxonomy"] = niche_taxonomy
         return _FakeAIService()
 
     workflow = ScrapingWorkflow(
@@ -28,6 +31,7 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
             "ai_mode": True,
             "openrouter_api_key": "test-key",
             "vision_model": "vision-model",
+            "niche_taxonomy": {"fitness": ["gym", "yoga"]},
         },
         ai_notifier=notifier,
         ai_service_factory=factory,
@@ -39,7 +43,7 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
         "api_key": "test-key",
         "ipc": notifier,
         "vision_model": "vision-model",
-        "text_model": None,
+        "niche_taxonomy": {"fitness": ["gym", "yoga"]},
     }
 
 

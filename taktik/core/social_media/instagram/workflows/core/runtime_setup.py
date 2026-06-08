@@ -4,8 +4,12 @@ from typing import Any, Callable, Optional
 
 from taktik.core.clone import patch_selectors_for_package, set_active_package
 from taktik.core.clone.packages import get_original_package
-from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+
+# NB: `apply_version_overrides` is imported lazily inside the function below.
+# `compat.selectors.setup` imports the Instagram selector catalogs, which forces
+# this package (`social_media.instagram`) to initialize; a module-level import here
+# would re-enter the still-initializing compat module and raise a circular ImportError.
 
 LogCallback = Callable[[str, str], None]
 VersionProvider = Callable[[], Optional[str]]
@@ -32,6 +36,8 @@ def prepare_instagram_automation_runtime(
     log("info", "Dynamic config applied")
 
     try:
+        from taktik.core.compat.selectors.setup import apply_version_overrides
+
         detected_version = installed_version_provider() if installed_version_provider else None
         if detected_version:
             patched = apply_version_overrides("instagram", detected_version)
