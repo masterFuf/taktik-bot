@@ -11,6 +11,7 @@ import sqlite3
 
 from .migration_steps.scraping import (
     drop_scraped_comments,
+    drop_scraping_sessions_discovery_campaign_id,
     run_scraped_profile_migrations,
     run_scraping_session_migrations,
 )
@@ -59,5 +60,8 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_social_profiles_unification_migrations(cursor)
     run_gmail_accounts_fold(cursor)  # Vague F2: gmail_accounts -> accounts + compat view
     drop_legacy_discovery_tables(cursor)
+    # Lot 4 (audit): runs last so every scraping_sessions column-add (platform) is already
+    # applied; only acts on front-touched DBs that still carry the dead discovery column.
+    drop_scraping_sessions_discovery_campaign_id(cursor)
 
     conn.commit()
