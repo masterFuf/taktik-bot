@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = ROOT / "bot" / "workflows.manifest.json"
-TS_REGISTRY_PATH = ROOT / "front" / "electron" / "services" / "workflows" / "workflow-registry.ts"
+TS_REGISTRY_PATH = ROOT / "front" / "electron" / "services" / "app" / "workflows" / "registry" / "workflow-registry.ts"
 RENDERER_TYPES_PATH = ROOT / "front" / "src" / "app" / "types" / "workflow.types.ts"
 
 TS_ARRAY_RE = re.compile(
