@@ -2,7 +2,6 @@
 
 from typing import Dict, Any, Optional
 
-from ......core.ipc import IPCEmitter
 from ......core.base_business.profile_processing import ProfileProcessingResult
 
 
@@ -48,7 +47,7 @@ class DirectProfileProcessingMixin:
         # Profile successfully visited
         stats['visited'] += 1
         self.stats_manager.increment('profiles_visited')
-        IPCEmitter.emit_profile_visit(username)
+        # profile_visit IPC is emitted centrally in _process_profile_on_screen.
         tracker.log_profile_visit(username, idx, already_in_db=False)
         
         # === UNIFIED PROFILE PROCESSING ===

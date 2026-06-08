@@ -4,7 +4,6 @@ import time
 import random
 from typing import Dict, Any, List
 
-from .....core.ipc import IPCEmitter
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 
@@ -97,9 +96,7 @@ class FollowerLegacyWorkflowMixin:
                         self.stats_manager.add_error(f"Navigation error @{username}: {str(e)}")
                         continue
                     
-                    # Emit IPC event for frontend (WorkflowAnalyzer + SessionLivePanel)
-                    IPCEmitter.emit_profile_visit(username)
-                    
+                    # profile_visit IPC is emitted centrally in _process_profile_on_screen.
                     self._random_sleep()
                     
                     # === UNIFIED PROFILE PROCESSING ===

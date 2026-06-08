@@ -116,7 +116,14 @@ class ProfileProcessingMixin:
                     result.error_message = 'Navigation failed'
                     self.logger.warning(f"Cannot navigate to @{username}")
                     return result
-            
+
+            # We are on the profile now — open/refresh its live card in the Taktik
+            # Agent copilot. Centralized here (the single extract->filter->interact
+            # pipeline) so EVERY profile workflow opens a card — Target, Hashtag,
+            # Post Likers, post_url — not only Target. The Target-specific callers
+            # used to emit this themselves; those duplicates have been removed.
+            IPCEmitter.emit_profile_visit(username)
+
             # === 2. Extract profile info ===
             profile_data = self.profile_business.get_complete_profile_info(
                 username=username, navigate_if_needed=False
