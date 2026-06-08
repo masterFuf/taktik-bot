@@ -50,6 +50,8 @@ def run_interactions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_interactions_account ON interactions(platform, account_id, interaction_type)",
         "CREATE INDEX IF NOT EXISTS idx_interactions_profile ON interactions(platform, profile_id)",
         "CREATE INDEX IF NOT EXISTS idx_interactions_time ON interactions(interaction_time)",
+        # Speeds per-session stats aggregation (front Sessions page + get_session_stats).
+        "CREATE INDEX IF NOT EXISTS idx_interactions_session ON interactions(platform, session_id)",
     ):
         try:
             cursor.execute(stmt)
