@@ -132,7 +132,7 @@ class LocalDatabaseService:
         # ORM-first reads are cut over repo-by-repo; pass the engine only to repos already
         # migrated (others keep raw sqlite3 until their own cutover lot).
         self._accounts = AccountRepository(conn, orm)
-        self._profiles = ProfileRepository(conn)
+        self._profiles = ProfileRepository(conn, orm)
         self._interactions = InteractionRepository(conn)
         self._sessions = SessionRepository(conn)
         self._scraped_profiles = ScrapedProfileRepository(conn)

@@ -99,8 +99,8 @@ class ProfileRepository(BaseRepository):
             )
     
     def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """Find profile by username"""
-        row = self.query_one(
+        """Find profile by username (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT * FROM instagram_profiles WHERE username = ?",
             (username,)
         )
@@ -265,36 +265,36 @@ class ProfileRepository(BaseRepository):
         return {row['username'] for row in rows}
     
     def find_by_id(self, profile_id: int) -> Optional[Dict[str, Any]]:
-        """Find profile by ID"""
-        row = self.query_one(
+        """Find profile by ID (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT * FROM instagram_profiles WHERE profile_id = ?",
             (profile_id,)
         )
         return self._map_row(row)
-    
+
     def find_by_ids(self, profile_ids: List[int]) -> List[Dict[str, Any]]:
-        """Find profiles by IDs"""
+        """Find profiles by IDs (ORM-first, fallback to raw sqlite3)."""
         if not profile_ids:
             return []
-        
+
         placeholders = ','.join('?' * len(profile_ids))
-        rows = self.query(
+        rows = self.query_orm_first(
             f"SELECT * FROM instagram_profiles WHERE profile_id IN ({placeholders})",
             tuple(profile_ids)
         )
         return [self._map_row(row) for row in rows]
-    
+
     def search_by_username(self, pattern: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Search profiles by username pattern"""
-        rows = self.query(
+        """Search profiles by username pattern (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT * FROM instagram_profiles WHERE username LIKE ? ORDER BY followers_count DESC LIMIT ?",
             (f"%{pattern}%", limit)
         )
         return [self._map_row(row) for row in rows]
-    
+
     def find_business_profiles(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get business profiles"""
-        rows = self.query(
+        """Get business profiles (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT * FROM instagram_profiles WHERE is_business = 1 ORDER BY followers_count DESC LIMIT ?",
             (limit,)
         )
