@@ -9,6 +9,7 @@ This mixin only handles what happens WHILE on the profile screen.
 
 from typing import Optional, Dict, Any
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from ..ipc import IPCEmitter
 
 
 class ProfileProcessingResult:
@@ -139,6 +140,9 @@ class ProfileProcessingMixin:
                     username, 'Private profile', source_type, source_name,
                     account_id, session_id
                 )
+                IPCEmitter.emit_action('private', username, {
+                    'followers_count': profile_data.get('followers_count', 0),
+                })
                 return result
             
             # === 4. Apply filters ===
@@ -157,6 +161,10 @@ class ProfileProcessingMixin:
                     username, ', '.join(reasons), source_type, source_name,
                     account_id, session_id
                 )
+                IPCEmitter.emit_action('filter', username, {
+                    'reasons': reasons,
+                    'followers_count': profile_data.get('followers_count', 0),
+                })
                 return result
             
             # === 5. Perform interactions ===

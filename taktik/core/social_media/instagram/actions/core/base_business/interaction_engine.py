@@ -41,6 +41,17 @@ class InteractionEngineMixin:
             interactions_to_do = self._determine_interactions_from_config(config)
             self.logger.debug(f"🎯 Planned interactions for @{username}: {interactions_to_do}")
 
+            # Pre-announce the plan to the live copilot (Taktik Agent) BEFORE acting:
+            # "on va faire N likes, une story dispo…". Reuses the instagram_action
+            # channel (action='plan'); no-op in standalone (no bridge adapter).
+            IPCEmitter.emit_action('plan', username, {
+                'likes': config.get('max_likes_per_profile', 3) if 'like' in interactions_to_do else 0,
+                'story': ('story' in interactions_to_do) or ('story_like' in interactions_to_do),
+                'story_like': 'story_like' in interactions_to_do,
+                'follow': 'follow' in interactions_to_do,
+                'comment': config.get('max_comments_per_profile', 1) if 'comment' in interactions_to_do else 0,
+            })
+
             # === LIKE / COMMENT ===
             should_like = 'like' in interactions_to_do
             should_comment = 'comment' in interactions_to_do
