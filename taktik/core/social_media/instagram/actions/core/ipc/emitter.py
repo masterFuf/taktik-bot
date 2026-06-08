@@ -138,6 +138,26 @@ class IPCEmitter:
             log.debug(f"IPC action event error: {exc}")
 
     @staticmethod
+    def emit_feed_decision(
+        author: Optional[str],
+        action: str,
+        reason: Optional[str] = None,
+        comment: Optional[str] = None,
+        visit_profile: bool = False,
+    ) -> None:
+        """Emit a per-post feed decision for the Taktik Agent copilot (classic feed
+        workflow). action is 'like' | 'like_comment' | 'skip'. Reuses the
+        agent_decision wire event the desktop already renders as a feed card."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, "send_feed_decision"):
+                bridge.send_feed_decision(author, action, reason, comment, visit_profile)
+        except Exception as exc:
+            log.debug(f"IPC feed_decision error: {exc}")
+
+    @staticmethod
     def emit_unfollow(username: str, success: bool = True) -> None:
         """Emit an unfollow event to the frontend."""
         bridge = _get_bridge()

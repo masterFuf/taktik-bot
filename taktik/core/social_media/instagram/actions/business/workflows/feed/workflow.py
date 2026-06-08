@@ -12,6 +12,7 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from ....core.stats import create_workflow_stats
+from ....core.ipc import IPCEmitter
 from .post_actions import FeedPostActionsMixin
 from .user_interactions import FeedUserInteractionsMixin
 
@@ -143,6 +144,13 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
                         stats['posts_skipped_ads'] += 1
                         process_post = False
 
+                    # Taktik Agent copilot: one feed card per real (non-ad) post.
+                    # The branches below set `feed_action` ('like'/'like_comment'/'skip')
+                    # and `feed_reason`; the author is best-effort (None if not found).
+                    post_author = self._get_current_post_author() if process_post else None
+                    feed_action = None
+                    feed_reason = None
+
                     # Filtrer par nombre de likes si configuré
                     if process_post and (min_likes > 0 or max_likes > 0):
                         post_metadata = self._extract_post_metadata()
@@ -154,10 +162,12 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
                                 self.logger.info(f"⏭️ Skipping post: {post_likes} likes < {min_likes} min")
                                 stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
                                 process_post = False
+                                feed_action, feed_reason = 'skip', f"{post_likes} likes < min {min_likes}"
                             elif max_likes > 0 and post_likes > max_likes:
                                 self.logger.info(f"⏭️ Skipping post: {post_likes} likes > {max_likes} max")
                                 stats['posts_skipped_filter'] = stats.get('posts_skipped_filter', 0) + 1
                                 process_post = False
+                                feed_action, feed_reason = 'skip', f"{post_likes} likes > max {max_likes}"
                             else:
                                 self.logger.info(f"✅ Post matches filter: {post_likes} likes (max: {max_likes})")
                         else:
@@ -177,17 +187,29 @@ class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusiness
                                 self.logger.debug("Failed to like post")
 
                         # Commenter le post (si configuré)
+                        commented = False
                         if liked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
                             if self._comment_current_post(effective_config):
                                 stats['comments_made'] += 1
                                 self.stats_manager.increment('comments')
                                 self.logger.info(f"💬 Comment posted")
+                                commented = True
+
+                        if liked:
+                            feed_action = 'like_comment' if commented else 'like'
+                            feed_reason = 'Commenté' if commented else 'Liké'
+                        else:
+                            feed_action, feed_reason = 'skip', 'Non liké (probabilité)'
 
                         # Lecture humaine du post (carousel + légende + dwell content-aware)
                         # remplace le sleep fixe : on "passe du temps devant le post".
                         self.scroll_actions.human_reading_pause(
                             read_captions=read_captions, browse_carousels=browse_carousels
                         )
+
+                    # Copilot feed card (skip pure ad-skips, which leave feed_action None).
+                    if feed_action is not None:
+                        IPCEmitter.emit_feed_decision(post_author, feed_action, reason=feed_reason)
 
                     # Avance humaine vers le prochain VRAI post (skip pubs/suggestions,
                     # stop-on-metadata, cadrage). Un seul point d'avance pour toute la boucle.

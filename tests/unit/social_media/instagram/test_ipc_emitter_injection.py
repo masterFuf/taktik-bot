@@ -22,6 +22,9 @@ class RecordingAdapter:
     def send_post_skipped(self, **payload):
         self.calls.append(("post_skipped", payload))
 
+    def send_feed_decision(self, author, action, reason=None, comment=None, visit_profile=False):
+        self.calls.append(("feed_decision", author, action, reason, comment, visit_profile))
+
 
 def teardown_function():
     IPCEmitter.clear_bridge_adapter()
@@ -51,3 +54,24 @@ def test_ipc_emitter_uses_injected_bridge_adapter():
         ("current_post", {"author": "author", "likes_count": None, "comments_count": None, "caption": None, "hashtag": "fitness"}),
         ("post_skipped", {"author": "author", "reason": "already_processed", "hashtag": "fitness"}),
     ]
+
+
+def test_emit_feed_decision_forwards_to_adapter():
+    adapter = RecordingAdapter()
+    IPCEmitter.configure_bridge_adapter(adapter)
+
+    IPCEmitter.emit_feed_decision("alice", "like", reason="Liké")
+    IPCEmitter.emit_feed_decision("bob", "like_comment", reason="Commenté", comment="nice!")
+    IPCEmitter.emit_feed_decision(None, "skip", reason="200 likes > max 150")
+
+    assert adapter.calls == [
+        ("feed_decision", "alice", "like", "Liké", None, False),
+        ("feed_decision", "bob", "like_comment", "Commenté", "nice!", False),
+        ("feed_decision", None, "skip", "200 likes > max 150", None, False),
+    ]
+
+
+def test_emit_feed_decision_is_noop_without_bridge_adapter():
+    IPCEmitter.clear_bridge_adapter()
+    # Must not raise when no bridge is injected (standalone/CLI runs).
+    IPCEmitter.emit_feed_decision("alice", "like", reason="Liké")

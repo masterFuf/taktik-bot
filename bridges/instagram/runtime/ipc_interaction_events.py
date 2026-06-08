@@ -36,6 +36,21 @@ def send_story_event(username: str, stories_watched: int = 1, stories_liked: int
     _ipc.story_event(username, stories_watched, stories_liked, profile_data)
 
 
+def send_feed_decision(author: str, action: str, reason: str = None,
+                       comment: str = None, visit_profile: bool = False):
+    """Send a per-post feed decision (classic feed workflow) as an agent_decision
+    event so the desktop renders it as a Taktik Agent feed card.
+
+    action is 'like' | 'like_comment' | 'skip'. Reuses the AI autopilot's
+    agent_decision wire event (the front already maps it to a feed_decision card);
+    the classic feed is rule-based so no model/cost is attached.
+    """
+    _ipc.agent_decision(
+        action=action, author=author, reason=reason,
+        comment=comment, visit_profile=visit_profile,
+    )
+
+
 __all__ = [
     "send_instagram_action",
     "send_instagram_profile_visit",
@@ -43,4 +58,5 @@ __all__ = [
     "send_follow_event",
     "send_like_event",
     "send_story_event",
+    "send_feed_decision",
 ]
