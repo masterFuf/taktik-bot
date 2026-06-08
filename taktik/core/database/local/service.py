@@ -88,11 +88,12 @@ class LocalDatabaseService:
         self._create_tables()
         # Run migrations for existing tables
         self._run_migrations()
+        # ORM (Vague D): bring up the read-mapping SQLAlchemy engine (fail-safe) BEFORE
+        # the repositories, so it can be injected into them for ORM-first reads.
+        self._init_orm()
         # Initialize repositories
         self._init_repositories()
         logger.info(f"✅ Local database initialized at: {self.db_path}")
-        # ORM (Vague D): bring up the read-mapping SQLAlchemy engine, fail-safe.
-        self._init_orm()
 
     def _init_orm(self) -> None:
         """Initialize the read-mapping SQLAlchemy engine over the same DB file.
@@ -120,9 +121,17 @@ class LocalDatabaseService:
         return self._orm_engine
     
     def _init_repositories(self) -> None:
-        """Initialize all repositories with the database connection."""
+        """Initialize all repositories with the database connection.
+
+        The SQLAlchemy engine (set by _init_orm, which runs first) is injected so the
+        repositories' read helpers can go ORM-first with a raw-sqlite3 fallback. It is
+        None on standalone bases where the ORM failed/was skipped -> reads stay raw.
+        """
         conn = self._get_connection()
-        self._accounts = AccountRepository(conn)
+        orm = self._orm_engine
+        # ORM-first reads are cut over repo-by-repo; pass the engine only to repos already
+        # migrated (others keep raw sqlite3 until their own cutover lot).
+        self._accounts = AccountRepository(conn, orm)
         self._profiles = ProfileRepository(conn)
         self._interactions = InteractionRepository(conn)
         self._sessions = SessionRepository(conn)

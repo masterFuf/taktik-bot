@@ -7,31 +7,73 @@ import sqlite3
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Generic
 from abc import ABC
 
+from loguru import logger
+
 T = TypeVar('T')
 
 
 class BaseRepository(ABC):
     """Base class for all repositories"""
-    
-    def __init__(self, connection: sqlite3.Connection):
+
+    def __init__(self, connection: sqlite3.Connection, orm_engine: Any = None):
         self._conn = connection
         self._conn.row_factory = sqlite3.Row
-    
+        # ORM cutover (Vague D): optional SQLAlchemy engine. When present, the read
+        # helpers route through it (ORM-first) and fall back to raw sqlite3 on any error.
+        # None on standalone-bridge bases (factory) -> reads stay on raw sqlite3.
+        # SQLAlchemy is synchronous, so the ORM-first decision lives inside the read
+        # method: callers are unaffected (no async ripple, unlike the front).
+        self._orm_engine = orm_engine
+
     @property
     def conn(self) -> sqlite3.Connection:
         return self._conn
-    
+
     def query(self, sql: str, params: Tuple = ()) -> List[sqlite3.Row]:
         """Execute a query and return all results"""
         cursor = self._conn.cursor()
         cursor.execute(sql, params)
         return cursor.fetchall()
-    
+
     def query_one(self, sql: str, params: Tuple = ()) -> Optional[sqlite3.Row]:
         """Execute a query and return the first result"""
         cursor = self._conn.cursor()
         cursor.execute(sql, params)
         return cursor.fetchone()
+
+    def _orm_rows(self, sql: str, params: Tuple) -> List[Dict[str, Any]]:
+        """Run the SAME ``?``-parameterised SQL through the SQLAlchemy engine's pooled
+        DBAPI connection and return dict rows (column names from the cursor description,
+        so an aliased ``SELECT *, x AS y`` reproduces the raw shape exactly)."""
+        raw = self._orm_engine.raw_connection()
+        try:
+            cursor = raw.cursor()
+            cursor.execute(sql, params)
+            cols = [d[0] for d in cursor.description]
+            return [dict(zip(cols, row)) for row in cursor.fetchall()]
+        finally:
+            raw.close()
+
+    def query_orm_first(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
+        """ORM-first read (SQLAlchemy engine) with a full fallback to raw sqlite3.
+        Returns list[dict]. Same SQL on both paths -> identical results by construction."""
+        if self._orm_engine is not None:
+            try:
+                return self._orm_rows(sql, params)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(f"ORM read failed, falling back to sqlite3: {exc}")
+        return [dict(row) for row in self.query(sql, params)]
+
+    def query_one_orm_first(self, sql: str, params: Tuple = ()) -> Optional[Dict[str, Any]]:
+        """Single-row ORM-first read with a full fallback to raw sqlite3."""
+        if self._orm_engine is not None:
+            try:
+                rows = self._orm_rows(sql, params)
+                return rows[0] if rows else None
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(f"ORM read failed, falling back to sqlite3: {exc}")
+        row = self.query_one(sql, params)
+        return dict(row) if row is not None else None
     
     def execute(self, sql: str, params: Tuple = ()) -> sqlite3.Cursor:
         """Execute an insert/update/delete and return the cursor"""

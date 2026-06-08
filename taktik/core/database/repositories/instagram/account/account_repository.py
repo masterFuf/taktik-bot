@@ -44,24 +44,24 @@ class AccountRepository(BaseRepository):
         return (created['account_id'] if created else None), True
 
     def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """Find account by username"""
-        row = self.query_one(
+        """Find account by username (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND username = ?",
             (username,)
         )
         return self._map_row(row)
 
     def find_by_id(self, account_id: int) -> Optional[Dict[str, Any]]:
-        """Find account by ID"""
-        row = self.query_one(
+        """Find account by ID (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' AND legacy_account_id = ?",
             (account_id,)
         )
         return self._map_row(row)
 
     def find_all(self) -> List[Dict[str, Any]]:
-        """Get all accounts"""
-        rows = self.query(
+        """Get all accounts (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'instagram' ORDER BY created_at DESC"
         )
         return [self._map_row(row) for row in rows]
