@@ -168,15 +168,20 @@ class ProfileProcessingMixin:
             if interaction and interaction.get('actually_interacted', False):
                 result.status = ProfileProcessingResult.SUCCESS
                 self.logger.success(f"✅ Successful interaction with @{username}")
-                
-                # Record as processed in DB
-                InstagramWorkflowStateService.mark_profile_as_processed(
-                    username, source_name, account_id, session_id
-                )
             else:
                 result.status = ProfileProcessingResult.SKIPPED_PROBABILITY
                 self.logger.debug(f"@{username} visited but no interaction (probability)")
-            
+
+            # Mark as processed in DB on EVERY successful visit — interacted OR
+            # skipped-by-probability. A visited-but-not-interacted profile used to
+            # leave no `interactions` row, so the `already_processed` check missed it
+            # and a later pass / followers-list re-scroll re-visited and re-qualified
+            # the same profile (confirmed on the live DB: @julian_training70.3 was
+            # visited once with no row, then fully re-processed ~5 min later).
+            InstagramWorkflowStateService.mark_profile_as_processed(
+                username, source_name, account_id, session_id
+            )
+
             return result
             
         except Exception as e:
