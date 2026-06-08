@@ -38,8 +38,8 @@ class TikTokAccountRepositoryMixin:
         return (created['account_id'] if created else None), True
 
     def find_account_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """Find account by username"""
-        row = self.query_one(
+        """Find account by username (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             "SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'tiktok' AND username = ?",
             (username,)
         )
@@ -49,6 +49,6 @@ class TikTokAccountRepositoryMixin:
         return {**row_dict, 'is_bot': bool(row_dict.get('is_bot', 0))}
 
     def get_all_accounts(self) -> List[Dict[str, Any]]:
-        """Get all TikTok accounts"""
-        rows = self.query("SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'tiktok' ORDER BY created_at DESC")
+        """Get all TikTok accounts (ORM-first, fallback raw)."""
+        rows = self.query_orm_first("SELECT *, legacy_account_id AS account_id FROM accounts WHERE platform = 'tiktok' ORDER BY created_at DESC")
         return [{**dict(r), 'is_bot': bool(dict(r).get('is_bot', 0))} for r in rows]

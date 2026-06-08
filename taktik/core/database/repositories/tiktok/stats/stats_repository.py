@@ -74,8 +74,8 @@ class TikTokStatsRepositoryMixin:
         return self.increment_stat(account_id, column)
 
     def get_daily_stats(self, account_id: int, days: int = 7) -> List[Dict[str, Any]]:
-        """Get TikTok daily stats for an account."""
-        rows = self.query(
+        """Get TikTok daily stats for an account (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             """
             SELECT * FROM daily_stats_unified
             WHERE platform = 'tiktok' AND account_id = ? AND date >= date('now', '-' || ? || ' days')

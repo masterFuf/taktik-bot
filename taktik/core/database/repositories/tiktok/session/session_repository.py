@@ -139,11 +139,11 @@ class TikTokSessionRepositoryMixin:
         query += " ORDER BY start_time DESC LIMIT ?"
         params.append(limit)
 
-        return [dict(row) for row in self.query(query, tuple(params))]
+        return [dict(row) for row in self.query_orm_first(query, tuple(params))]
 
     def get_sessions_by_account(self, account_id: int, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get sessions by account"""
-        rows = self.query(
+        """Get sessions by account (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'tiktok' AND account_id = ? ORDER BY start_time DESC LIMIT ?",
             (account_id, limit)
@@ -151,8 +151,8 @@ class TikTokSessionRepositoryMixin:
         return [dict(row) for row in rows]
 
     def get_all_sessions(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get all sessions"""
-        rows = self.query(
+        """Get all sessions (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'tiktok' ORDER BY start_time DESC LIMIT ?",
             (limit,)
@@ -160,8 +160,8 @@ class TikTokSessionRepositoryMixin:
         return [dict(row) for row in rows]
 
     def get_session_stats(self, session_id: int) -> Optional[Dict[str, Any]]:
-        """Get session stats"""
-        row = self.query_one(
+        """Get session stats (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'tiktok' AND legacy_session_id = ?",
             (session_id,)

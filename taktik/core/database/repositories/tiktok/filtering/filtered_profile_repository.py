@@ -9,8 +9,8 @@ class TikTokFilteredProfileRepositoryMixin:
     """SQL owner for TikTok filtered profiles in the unified `filtered_profiles` table."""
 
     def is_profile_filtered(self, username: str, account_id: int) -> bool:
-        """Check if a profile is filtered"""
-        row = self.query_one(
+        """Check if a profile is filtered (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             "SELECT COUNT(*) as count FROM filtered_profiles WHERE platform = 'tiktok' AND username = ? AND account_id = ?",
             (username, account_id)
         )

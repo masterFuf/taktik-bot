@@ -136,9 +136,9 @@ class LocalDatabaseService:
         self._interactions = InteractionRepository(conn, orm)
         self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn, orm)
-        self._social_graph = SocialGraphRepository(conn)
+        self._social_graph = SocialGraphRepository(conn, orm)
         self._stats = StatsRepository(conn, orm)
-        self._tiktok = TikTokRepository(conn)
+        self._tiktok = TikTokRepository(conn, orm)
     
     # Repository accessors for new code
     @property

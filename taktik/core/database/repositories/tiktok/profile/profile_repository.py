@@ -80,8 +80,8 @@ class TikTokProfileRepositoryMixin:
             )
 
     def find_profile_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        """Find profile by username"""
-        row = self.query_one(
+        """Find profile by username (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             "SELECT * FROM tiktok_profiles WHERE username = ?",
             (username,)
         )

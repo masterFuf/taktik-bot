@@ -76,7 +76,7 @@ class TikTokInteractionRepositoryMixin:
         if not profile:
             return False
 
-        row = self.query_one(
+        row = self.query_one_orm_first(
             """
             SELECT COUNT(*) as count FROM interactions
             WHERE platform = 'tiktok'
@@ -89,8 +89,8 @@ class TikTokInteractionRepositoryMixin:
         return (row['count'] if row else 0) > 0
 
     def get_interactions(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get recent TikTok interactions for an account."""
-        rows = self.query(
+        """Get recent TikTok interactions for an account (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             """
             SELECT ih.id, ih.session_id, ih.account_id, ih.profile_id,
                    ih.interaction_type, ih.interaction_time, ih.success, ih.content, ih.video_id,
@@ -110,8 +110,8 @@ class TikTokInteractionRepositoryMixin:
         return self.check_recent_interaction(target_username, account_id, hours)
 
     def count_interactions_for_target(self, account_id: int, target_username: str, hours: int = 168) -> int:
-        """Count unique interacted profiles for a target's follower workflow."""
-        row = self.query_one(
+        """Count unique interacted profiles for a target's follower workflow (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             """
             SELECT COUNT(DISTINCT ih.profile_id) as count
             FROM interactions ih
@@ -126,8 +126,8 @@ class TikTokInteractionRepositoryMixin:
         return row['count'] if row else 0
 
     def get_interactions_by_session(self, session_id: int) -> List[Dict[str, Any]]:
-        """Get interactions by session"""
-        rows = self.query(
+        """Get interactions by session (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             """SELECT id, session_id, account_id, profile_id,
                       interaction_type, interaction_time, success, content, video_id
                FROM interactions WHERE platform = 'tiktok' AND session_id = ? ORDER BY interaction_time DESC""",

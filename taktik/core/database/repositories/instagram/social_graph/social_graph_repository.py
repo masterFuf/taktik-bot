@@ -18,14 +18,14 @@ class SocialGraphRepository(BaseRepository):
             return False
 
         try:
-            row = self.query_one(
+            row = self.query_one_orm_first(
                 "SELECT profile_id FROM instagram_profiles WHERE username = ? COLLATE NOCASE",
                 (username,),
             )
             if not row:
                 return False
 
-            interaction = self.query_one(
+            interaction = self.query_one_orm_first(
                 """SELECT 1 FROM interactions
                    WHERE platform = 'instagram' AND account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
                    LIMIT 1""",
@@ -41,14 +41,14 @@ class SocialGraphRepository(BaseRepository):
             return None
 
         try:
-            row = self.query_one(
+            row = self.query_one_orm_first(
                 "SELECT profile_id FROM instagram_profiles WHERE username = ? COLLATE NOCASE",
                 (username,),
             )
             if not row:
                 return None
 
-            follow = self.query_one(
+            follow = self.query_one_orm_first(
                 """SELECT interaction_time FROM interactions
                    WHERE platform = 'instagram' AND account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
                    ORDER BY interaction_time DESC LIMIT 1""",
@@ -135,7 +135,7 @@ class SocialGraphRepository(BaseRepository):
             return set()
 
         try:
-            rows = self.query(
+            rows = self.query_orm_first(
                 "SELECT username FROM social_graph_sync "
                 "WHERE platform = 'instagram' AND account_id = ? AND direction = 'following' AND unfollowed_at IS NULL",
                 (account_id,),
@@ -197,7 +197,7 @@ class SocialGraphRepository(BaseRepository):
             return set()
 
         try:
-            rows = self.query(
+            rows = self.query_orm_first(
                 "SELECT username FROM social_graph_sync "
                 "WHERE platform = 'instagram' AND account_id = ? AND direction = 'follower'",
                 (account_id,),
