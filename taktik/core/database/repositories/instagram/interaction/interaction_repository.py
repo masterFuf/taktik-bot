@@ -57,8 +57,8 @@ class InteractionRepository(BaseRepository):
         return (row['count'] if row else 0) > 0
     
     def find_by_account(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get interactions by account"""
-        rows = self.query(
+        """Get interactions by account (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             """SELECT ih.id, ih.session_id, ih.account_id, ih.profile_id,
                       ih.interaction_type, ih.interaction_time, ih.success, ih.content,
                       ip.username as target_username
@@ -72,8 +72,8 @@ class InteractionRepository(BaseRepository):
         return [self._map_interaction_row(row) for row in rows]
     
     def find_by_session(self, session_id: int) -> List[Dict[str, Any]]:
-        """Get interactions by session"""
-        rows = self.query(
+        """Get interactions by session (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             """SELECT ih.id, ih.session_id, ih.account_id, ih.profile_id,
                       ih.interaction_type, ih.interaction_time, ih.success, ih.content,
                       ip.username as target_username
@@ -93,22 +93,22 @@ class InteractionRepository(BaseRepository):
     ) -> int:
         """Count interactions by type for an account"""
         if days:
-            row = self.query_one(
+            row = self.query_one_orm_first(
                 """SELECT COUNT(*) as count FROM interactions
                    WHERE platform = 'instagram' AND account_id = ? AND interaction_type = ?
                    AND interaction_time >= datetime('now', '-' || ? || ' days')""",
                 (account_id, interaction_type.upper(), days)
             )
         else:
-            row = self.query_one(
+            row = self.query_one_orm_first(
                 "SELECT COUNT(*) as count FROM interactions WHERE platform = 'instagram' AND account_id = ? AND interaction_type = ?",
                 (account_id, interaction_type.upper())
             )
         return row['count'] if row else 0
     
     def get_session_stats(self, session_id: int) -> Dict[str, int]:
-        """Get aggregated interaction stats for a session."""
-        row = self.query_one(
+        """Get aggregated interaction stats for a session (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             """
             SELECT
                 COUNT(*) as total_interactions,
@@ -196,15 +196,15 @@ class InteractionRepository(BaseRepository):
             return []
 
         placeholders = ','.join('?' * len(usernames))
-        rows = self.query(
+        rows = self.query_orm_first(
             f"SELECT username FROM filtered_profiles WHERE platform = 'instagram' AND account_id = ? AND username IN ({placeholders})",
             (account_id, *usernames)
         )
         return [row['username'] for row in rows]
 
     def get_filtered_profiles(self, account_id: int, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get filtered profiles for an account"""
-        rows = self.query(
+        """Get filtered profiles for an account (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT * FROM filtered_profiles WHERE platform = 'instagram' AND account_id = ? ORDER BY filtered_at DESC LIMIT ?",
             (account_id, limit)
         )
@@ -219,8 +219,8 @@ class InteractionRepository(BaseRepository):
         return cursor.rowcount > 0
 
     def count_filtered(self, account_id: int) -> int:
-        """Count filtered profiles for an account"""
-        row = self.query_one(
+        """Count filtered profiles for an account (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT COUNT(*) as count FROM filtered_profiles WHERE platform = 'instagram' AND account_id = ?",
             (account_id,)
         )

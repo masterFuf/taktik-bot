@@ -76,8 +76,8 @@ class StatsRepository(BaseRepository):
         )
 
     def find_unsynced(self) -> List[Dict[str, Any]]:
-        """Return daily stats rows that still need API sync."""
-        rows = self.query(
+        """Return daily stats rows that still need API sync (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             "SELECT * FROM daily_stats_unified WHERE platform = 'instagram' AND synced_to_api = 0 ORDER BY date DESC, id DESC"
         )
         return self.rows_to_dicts(rows)
@@ -99,8 +99,8 @@ class StatsRepository(BaseRepository):
         return cursor.rowcount > 0
 
     def get_account_stats(self, account_id: int, days: int = 7) -> Dict[str, Any]:
-        """Return aggregated daily stats for an account over the last N days."""
-        row = self.query_one(
+        """Return aggregated daily stats for an account over the last N days (ORM-first)."""
+        row = self.query_one_orm_first(
             """
             SELECT
                 COALESCE(SUM(total_sessions), 0) as total_sessions,
