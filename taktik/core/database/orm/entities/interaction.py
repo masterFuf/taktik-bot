@@ -1,8 +1,8 @@
-"""ORM pilot (Vague D) - SQLAlchemy mapping for the unified ``interactions`` table.
+"""ORM (Vague D) - SQLAlchemy mapping for the unified ``interactions`` table.
 
 Counterpart of front ``electron/database/orm/entities/InteractionEntity.ts``.
-Second pilot table: a real Turso-synced, platform-keyed table (~11k rows). Mapping
-only; the schema stays owned by the migrations. Read-only in the pilot.
+A Turso-synced, platform-keyed table. Mapping only; the schema stays owned by the
+migrations.
 """
 from __future__ import annotations
 

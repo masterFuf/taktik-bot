@@ -6,12 +6,12 @@ here as the ORM is extended.
 """
 from __future__ import annotations
 
-from taktik.core.database.orm.app_config_entity import AppConfig
-from taktik.core.database.orm.interaction_entity import Interaction
-from taktik.core.database.orm.unified_models import (
+from taktik.core.database.orm.entities import (
     Account,
+    AppConfig,
     DailyStatsUnified,
     FilteredProfile,
+    Interaction,
     ProfileQualification,
     ScrapedProfile,
     SessionUnified,

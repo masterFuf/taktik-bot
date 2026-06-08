@@ -103,7 +103,7 @@ class LocalDatabaseService:
         """
         try:
             from taktik.core.database.orm.engine import create_orm_engine
-            from taktik.core.database.orm.unified_models import Account
+            from taktik.core.database.orm.entities import Account
             from sqlalchemy.orm import Session as _Session
 
             engine = create_orm_engine(self.db_path)
