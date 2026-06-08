@@ -305,31 +305,64 @@ class ProfileExtractionMixin(BaseAction):
             return results
 
     def extract_profile_image(self, xml_content: Optional[str] = None) -> Optional[str]:
-        """
-        Extract profile picture via screenshot + crop.
-        Uses XML dump to find the avatar ImageView bounds, then crops from a screenshot.
-        
+        """Extract a profile picture (screenshot + crop of the header avatar).
+
+        Use for VISITED profiles. For our own connected account prefer
+        `extract_own_avatar_from_tab()` — the header avatar is polluted by the story
+        ring and the "Ajouter à la story" (+) badge.
+
         Args:
             xml_content: Pre-fetched XML dump (optional, will fetch if None)
-        
+
         Returns:
             Base64 data URL string (data:image/jpeg;base64,...) or None if failed
         """
+        return self._extract_avatar_base64(
+            PROFILE_SELECTORS.profile_picture_imageview, xml_content=xml_content
+        )
+
+    def extract_own_avatar_from_tab(self, xml_content: Optional[str] = None) -> Optional[str]:
+        """Extract OUR connected account's avatar from the bottom-bar profile tab.
+
+        The bottom-bar avatar is overlay-free (no story ring, no "+" add-to-story
+        badge) so it gives a clean picture of the logged-in user. It is small
+        (~83 px), so it is upscaled x2 (~166 px) for a sharper thumbnail.
+
+        Args:
+            xml_content: Pre-fetched XML dump (optional, will fetch if None)
+
+        Returns:
+            Base64 data URL string (data:image/jpeg;base64,...) or None if failed
+        """
+        return self._extract_avatar_base64(
+            PROFILE_SELECTORS.tab_profile_avatar, scale=2, xml_content=xml_content
+        )
+
+    def _extract_avatar_base64(
+        self,
+        selectors: list,
+        *,
+        scale: int = 1,
+        xml_content: Optional[str] = None,
+    ) -> Optional[str]:
+        """Find the first matching avatar ImageView, crop it from a screenshot and
+        return it as a JPEG base64 data URL. `scale` upsamples the crop (Lanczos)."""
         import base64
         import io
         from lxml import etree
-        
+        from PIL import Image
+
         try:
             if not xml_content:
                 xml_content = self.device.get_xml_dump()
             if not xml_content:
                 return None
-            
+
             tree = etree.fromstring(xml_content.encode('utf-8'))
-            
-            # Find profile picture ImageView bounds
+
+            # Find the avatar ImageView bounds
             bounds = None
-            for selector in PROFILE_SELECTORS.profile_picture_imageview:
+            for selector in selectors:
                 try:
                     elements = tree.xpath(selector)
                     if elements:
@@ -346,16 +379,16 @@ class ProfileExtractionMixin(BaseAction):
                                 break
                 except Exception:
                     continue
-            
+
             if not bounds:
-                self.logger.debug("Profile picture ImageView not found in XML")
+                self.logger.debug("Avatar ImageView not found in XML")
                 return None
-            
+
             # Take screenshot and crop
             screenshot = self.device.screenshot_pil()
             if screenshot is None:
                 return None
-            
+
             padding = 2
             crop_box = (
                 max(0, bounds['left'] - padding),
@@ -363,18 +396,24 @@ class ProfileExtractionMixin(BaseAction):
                 min(screenshot.size[0], bounds['right'] + padding),
                 min(screenshot.size[1], bounds['bottom'] + padding)
             )
-            cropped = screenshot.crop(crop_box)
-            
+            cropped = screenshot.crop(crop_box).convert('RGB')
+
+            if scale and scale > 1:
+                cropped = cropped.resize(
+                    (cropped.size[0] * scale, cropped.size[1] * scale),
+                    resample=Image.LANCZOS,
+                )
+
             # Convert to JPEG base64
             buffer = io.BytesIO()
-            cropped.convert('RGB').save(buffer, format='JPEG', quality=85)
+            cropped.save(buffer, format='JPEG', quality=85)
             b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            
-            self.logger.debug(f"📸 Profile image extracted ({cropped.size[0]}x{cropped.size[1]}, {len(b64) // 1024}KB)")
+
+            self.logger.debug(f"📸 Avatar extracted ({cropped.size[0]}x{cropped.size[1]}, {len(b64) // 1024}KB)")
             return f"data:image/jpeg;base64,{b64}"
-            
+
         except Exception as e:
-            self.logger.debug(f"Failed to extract profile image: {e}")
+            self.logger.debug(f"Failed to extract avatar: {e}")
             return None
 
     def click_bio_more_button(self) -> bool:

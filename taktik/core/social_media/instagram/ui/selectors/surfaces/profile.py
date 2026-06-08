@@ -144,6 +144,16 @@ class ProfileSelectors:
         '//*[@resource-id="com.instagram.android:id/profile_header_avatar_image"]',
         '//*[@resource-id="com.instagram.android:id/profile_pic"]',
     ])
+
+    # Bottom navigation bar avatar (the logged-in user's own picture, last tab).
+    # Overlay-free — unlike the profile header avatar it carries no story ring nor
+    # "Ajouter à la story" (+) badge — so it is the clean source for OUR connected
+    # account picture. Always present on the bottom bar (feed, profile, …).
+    # Real dump 2026-06-08 (IG v410): profile_tab > container > tab_avatar (ImageView).
+    tab_profile_avatar: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "profile_tab")]//*[contains(@resource-id, "tab_avatar")]',
+        '//*[contains(@resource-id, "tab_avatar")]',
+    ])
     
     # === Enrichment selectors (XML-based profile extraction) ===
     enrichment_username_selectors: List[str] = field(default_factory=lambda: [

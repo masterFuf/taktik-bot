@@ -137,8 +137,15 @@ class ProfileExtraction(BaseBusinessAction):
                             f"Visible stories: {profile_info.get('visible_stories_count', 0)}")
             self.logger.debug(f"  • Follow button state: {profile_info.get('follow_button_state', 'unknown')}")
             
-            # Extract profile image (screenshot + crop → base64)
-            profile_pic_base64 = self.detection_actions.extract_profile_image()
+            # Extract profile image (screenshot + crop → base64).
+            # Our own connected account (username is None → reached via the profile
+            # tab): use the bottom-bar tab avatar — it is overlay-free, unlike the
+            # header avatar which carries the story ring and the "Ajouter à la story"
+            # (+) badge. Visited profiles (username given) keep the header avatar.
+            if username is None:
+                profile_pic_base64 = self.detection_actions.extract_own_avatar_from_tab()
+            else:
+                profile_pic_base64 = self.detection_actions.extract_profile_image()
             if profile_pic_base64:
                 profile_info['profile_pic_base64'] = profile_pic_base64
             
