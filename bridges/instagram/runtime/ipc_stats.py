@@ -19,6 +19,7 @@ def send_instagram_stats(
     follows: int = 0,
     comments: int = 0,
     stories_watched: int = 0,
+    story_likes: int = 0,
     errors: int = 0,
 ):
     """Send comprehensive Instagram stats update to desktop app."""
@@ -31,6 +32,7 @@ def send_instagram_stats(
         follows=follows,
         comments=comments,
         stories_watched=stories_watched,
+        story_likes=story_likes,
         errors=errors,
     )
 
@@ -46,6 +48,7 @@ def _on_stats_update(stats_dict: dict):
         follows=stats_dict.get("follows", 0),
         comments=stats_dict.get("comments", 0),
         stories_watched=stats_dict.get("stories_watched", 0),
+        story_likes=stats_dict.get("story_likes", 0),
         errors=stats_dict.get("errors", 0),
     )
 

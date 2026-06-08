@@ -60,6 +60,28 @@ class IPCEmitter:
             log.debug(f"IPC like event error: {exc}")
 
     @staticmethod
+    def emit_story(
+        username: str,
+        stories_watched: int = 1,
+        stories_liked: int = 0,
+        profile_data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Emit a story watch/like event to the frontend WorkflowAnalyzer."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, "send_story_event"):
+                bridge.send_story_event(
+                    username,
+                    stories_watched=stories_watched,
+                    stories_liked=stories_liked,
+                    profile_data=profile_data,
+                )
+        except Exception as exc:
+            log.debug(f"IPC story event error: {exc}")
+
+    @staticmethod
     def emit_profile_visit(username: str) -> None:
         """Emit a profile visit event to the frontend."""
         bridge = _get_bridge()

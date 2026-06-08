@@ -116,6 +116,11 @@ class InteractionEngineMixin:
                     result['stories_liked'] = story_result.get('stories_liked', 0)
                     if result['stories'] > 0:
                         result['actually_interacted'] = True
+                        # IPC event for stories (live panel + WorkflowAnalyzer),
+                        # mirroring the like/follow events.
+                        self._emit_story_event(
+                            username, result['stories'], result['stories_liked'], profile_data
+                        )
 
             return result
 
@@ -158,8 +163,13 @@ class InteractionEngineMixin:
                 if not self.nav_actions.navigate_to_next_story():
                     break
 
-            # Back to profile
-            self.device.press('back')
+            # Back to profile — robust close: swipe-down (a back press is unreliable
+            # and can leave the viewer open, which then makes the followers-list
+            # recovery overshoot to the target profile and re-scroll from the top).
+            # Fall back to back only if the viewer is still open. Mirrors StoryBusiness.
+            self.click_actions.close_story()
+            if self.detection_actions.is_story_viewer_open():
+                self.device.press('back')
             self._human_like_delay('navigation')
 
             if stories_viewed > 0:
@@ -188,6 +198,16 @@ class InteractionEngineMixin:
         """Send IPC like event to frontend for WorkflowAnalyzer."""
         pd = profile_data or {}
         IPCEmitter.emit_like(username, likes_count=likes_count, profile_data={
+            "followers_count": pd.get('followers_count', 0),
+            "following_count": pd.get('following_count', 0),
+            "posts_count": pd.get('posts_count', 0)
+        } if profile_data else None)
+
+    def _emit_story_event(self, username: str, stories_watched: int, stories_liked: int,
+                          profile_data: Dict[str, Any] = None):
+        """Send IPC story event to frontend for the live panel & WorkflowAnalyzer."""
+        pd = profile_data or {}
+        IPCEmitter.emit_story(username, stories_watched=stories_watched, stories_liked=stories_liked, profile_data={
             "followers_count": pd.get('followers_count', 0),
             "following_count": pd.get('following_count', 0),
             "posts_count": pd.get('posts_count', 0)

@@ -30,10 +30,17 @@ def send_like_event(username: str, likes_count: int = 1, profile_data: dict = No
     _ipc.like_event(username, likes_count, profile_data)
 
 
+def send_story_event(username: str, stories_watched: int = 1, stories_liked: int = 0,
+                     profile_data: dict = None):
+    """Send story watch/like event to desktop app for real-time activity and WorkflowAnalyzer."""
+    _ipc.story_event(username, stories_watched, stories_liked, profile_data)
+
+
 __all__ = [
     "send_instagram_action",
     "send_instagram_profile_visit",
     "send_unfollow_event",
     "send_follow_event",
     "send_like_event",
+    "send_story_event",
 ]

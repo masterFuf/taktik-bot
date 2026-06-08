@@ -14,6 +14,7 @@ class InstagramIpcMixin:
         follows: int = 0,
         comments: int = 0,
         stories_watched: int = 0,
+        story_likes: int = 0,
         errors: int = 0,
     ) -> None:
         """Send comprehensive Instagram stats update."""
@@ -26,6 +27,7 @@ class InstagramIpcMixin:
             "follows": follows,
             "comments": comments,
             "stories_watched": stories_watched,
+            "story_likes": story_likes,
             "errors": errors,
         })
 
@@ -49,6 +51,14 @@ class InstagramIpcMixin:
         if profile_data:
             data["profile_data"] = profile_data
         self.send("like_event", **data)
+
+    def story_event(self, username: str, stories_watched: int = 1, stories_liked: int = 0,
+                    profile_data: dict = None) -> None:
+        """Send story watch/like event for real-time activity."""
+        data = {"username": username, "stories_watched": stories_watched, "stories_liked": stories_liked}
+        if profile_data:
+            data["profile_data"] = profile_data
+        self.send("story_event", **data)
 
     def unfollow_event(self, username: str, success: bool = True) -> None:
         """Send unfollow event."""
