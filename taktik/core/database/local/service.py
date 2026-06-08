@@ -134,7 +134,7 @@ class LocalDatabaseService:
         self._accounts = AccountRepository(conn, orm)
         self._profiles = ProfileRepository(conn, orm)
         self._interactions = InteractionRepository(conn)
-        self._sessions = SessionRepository(conn)
+        self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn)
         self._social_graph = SocialGraphRepository(conn)
         self._stats = StatsRepository(conn)

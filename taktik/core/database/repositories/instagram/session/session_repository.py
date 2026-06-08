@@ -85,17 +85,17 @@ class SessionRepository(BaseRepository):
         return cursor.rowcount > 0
 
     def find_by_id(self, session_id: int) -> Optional[Dict[str, Any]]:
-        """Find session by ID"""
-        row = self.query_one(
+        """Find session by ID (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'instagram' AND legacy_session_id = ?",
             (session_id,)
         )
         return self._map_session_row(row)
-    
+
     def find_by_account(self, account_id: int, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get sessions by account"""
-        rows = self.query(
+        """Get sessions by account (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'instagram' AND account_id = ? ORDER BY start_time DESC LIMIT ?",
             (account_id, limit)
@@ -103,16 +103,16 @@ class SessionRepository(BaseRepository):
         return [self._map_session_row(row) for row in rows]
 
     def find_active(self) -> List[Dict[str, Any]]:
-        """Get active sessions"""
-        rows = self.query(
+        """Get active sessions (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'instagram' AND status = 'ACTIVE' ORDER BY start_time DESC"
         )
         return [self._map_session_row(row) for row in rows]
-    
+
     def find_unsynced(self) -> List[Dict[str, Any]]:
-        """Get unsynced sessions"""
-        rows = self.query(
+        """Get unsynced sessions (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT *, legacy_session_id AS session_id FROM sessions_unified "
             "WHERE platform = 'instagram' AND synced_to_api = 0 AND status IN ('COMPLETED', 'FAILED', 'ERROR') "
             "ORDER BY start_time DESC"
@@ -216,24 +216,24 @@ class SessionRepository(BaseRepository):
         return cursor.rowcount > 0
     
     def find_scraping_by_id(self, scraping_id: int) -> Optional[Dict[str, Any]]:
-        """Find scraping session by ID"""
-        row = self.query_one(
+        """Find scraping session by ID (ORM-first, fallback to raw sqlite3)."""
+        row = self.query_one_orm_first(
             "SELECT * FROM scraping_sessions WHERE scraping_id = ?",
             (scraping_id,)
         )
         return self._map_scraping_row(row)
-    
+
     def find_all_scraping(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get all scraping sessions"""
-        rows = self.query(
+        """Get all scraping sessions (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT * FROM scraping_sessions ORDER BY start_time DESC LIMIT ?",
             (limit,)
         )
         return [self._map_scraping_row(row) for row in rows]
-    
+
     def find_scraping_by_type(self, scraping_type: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get scraping sessions by type"""
-        rows = self.query(
+        """Get scraping sessions by type (ORM-first, fallback to raw sqlite3)."""
+        rows = self.query_orm_first(
             "SELECT * FROM scraping_sessions WHERE scraping_type = ? ORDER BY start_time DESC LIMIT ?",
             (scraping_type, limit)
         )
