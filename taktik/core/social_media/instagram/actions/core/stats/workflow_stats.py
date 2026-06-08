@@ -42,6 +42,7 @@ _TYPE_EXTRAS: Dict[str, Dict[str, Any]] = {
         'visited': 0,       # alias of profiles_visited
         'liked': 0,         # alias of likes_made
         'followed': 0,      # alias of follows_made
+        'stories_viewed': 0,  # alias of stories_watched — required by profile_processing
         'story_likes': 0,   # alias of stories_liked
         'filtered': 0,      # alias of profiles_filtered
         'already_processed': 0,
