@@ -135,7 +135,7 @@ class LocalDatabaseService:
         self._profiles = ProfileRepository(conn, orm)
         self._interactions = InteractionRepository(conn, orm)
         self._sessions = SessionRepository(conn, orm)
-        self._scraped_profiles = ScrapedProfileRepository(conn)
+        self._scraped_profiles = ScrapedProfileRepository(conn, orm)
         self._social_graph = SocialGraphRepository(conn)
         self._stats = StatsRepository(conn, orm)
         self._tiktok = TikTokRepository(conn)

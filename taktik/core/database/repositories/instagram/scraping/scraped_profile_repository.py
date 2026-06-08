@@ -53,8 +53,8 @@ class ScrapedProfileRepository(BaseRepository):
         return linked
 
     def get_scraped_profiles(self, scraping_id: int) -> List[Dict[str, Any]]:
-        """Get profiles for a scraping session with details."""
-        rows = self.query(
+        """Get profiles for a scraping session with details (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             """
             SELECT
                 sp.id, sp.scraping_id, sp.profile_id, sp.scraped_at, sp.source_post_url,
@@ -127,8 +127,8 @@ class ScrapedProfileRepository(BaseRepository):
             return False
 
     def get_qualified_profiles(self, scraping_id: int, min_score: int = 60) -> List[Dict[str, Any]]:
-        """Get qualified profiles for a scraping session."""
-        rows = self.query(
+        """Get qualified profiles for a scraping session (ORM-first, fallback raw)."""
+        rows = self.query_orm_first(
             """
             SELECT sp.*, ip.username, ip.full_name, ip.biography,
                 ip.followers_count, ip.following_count, ip.posts_count,
@@ -143,8 +143,8 @@ class ScrapedProfileRepository(BaseRepository):
         return [self._map_scraped_profile_row(row) for row in rows]
 
     def count_by_qualification(self, scraping_id: int) -> Dict[str, int]:
-        """Count profiles by qualification status."""
-        row = self.query_one(
+        """Count profiles by qualification status (ORM-first, fallback raw)."""
+        row = self.query_one_orm_first(
             """
             SELECT
                 COUNT(*) as total,
