@@ -281,7 +281,30 @@ class BaseDeviceFacade:
         except Exception as e:
             self.logger.error(f"Error long clicking at ({x}, {y}): {e}")
             raise
-    
+
+    def human_tap(self, bounds, *, rng=None):
+        """Tap a human-sampled point inside `bounds` (left, top, right, bottom): a point
+        near the centre but never the dead centre twice and never the rim, with a varied
+        finger-down time. Returns the tapped (x, y) on success, else None.
+
+        Use this instead of clicking an element's exact centre — it removes the
+        "always the same pixel" touch-heatmap fingerprint. Sampling logic lives in
+        `taktik/core/shared/behavior/tap.py`.
+        """
+        from taktik.core.shared.behavior.tap import sample_tap_point, sample_tap_down_ms
+        try:
+            x, y = sample_tap_point(bounds, rng=rng)
+            down_s = sample_tap_down_ms(rng=rng) / 1000.0
+            self.logger.debug(f"👆 Human tap ({x}, {y}) down={down_s:.3f}s in {tuple(bounds)}")
+            # A short, sub-threshold press (touch-down → wait → up) varies the contact
+            # time vs an instant click, while staying a tap (never a long-press).
+            self._device.long_click(x, y, down_s)
+            time.sleep(0.05)
+            return (x, y)
+        except Exception as e:
+            self.logger.error(f"Error human-tapping in {bounds}: {e}")
+            return None
+
     def press_back(self):
         try:
             self._device.press("back")

@@ -20,6 +20,7 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.instagram import publish  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import scroll  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import story  # noqa: F401
+    from bridges.compat.diagnostics.actions.instagram import tap  # noqa: F401
 
 
 __all__ = ["ACTION_REGISTRY", "action", "register_actions"]
