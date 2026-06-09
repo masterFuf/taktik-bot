@@ -4,6 +4,16 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 
+# A human doesn't always like the same way: some likes are a tap on the like button,
+# others a double-tap on the image. Alternate between the two by chance (this is the
+# share done via the image double-tap). Tunable; will move to the behaviour profile.
+_DOUBLE_TAP_LIKE_PROB = 0.45
+
+
+def _should_double_tap_like(rng=None) -> bool:
+    """Pick the like method at random — True = image double-tap, False = like button."""
+    return (rng or random).random() < _DOUBLE_TAP_LIKE_PROB
+
 
 class FeedPostActionsMixin:
     """Mixin: post-level actions in the feed (like, comment, detect, scroll)."""
@@ -56,53 +66,49 @@ class FeedPostActionsMixin:
             return None
     
     def _like_current_post(self) -> bool:
-        """Liker le post actuellement visible dans le feed."""
+        """Like the current feed post, alternating like methods like a human would:
+        sometimes a tap on the like button, sometimes a double-tap on the image."""
         try:
-            like_button_selectors = self._feed_sel.like_button
-            
-            # D'abord vérifier si le post est déjà liké
-            for selector in like_button_selectors:
+            # Locate the like button and bail out if the post is already liked.
+            like_button = None
+            for selector in self._feed_sel.like_button:
                 element = self.device.xpath(selector)
                 if element.exists:
                     content_desc = element.attrib.get('content-desc', '').lower()
-                    # Vérifier si déjà liké (unlike = déjà liké)
                     if 'unlike' in content_desc or 'ne plus aimer' in content_desc or 'liked' in content_desc:
                         self.logger.debug("⏭️ Post already liked, skipping")
                         return False
-                    
-                    # Cliquer sur le bouton like
-                    element.click()
-                    self._human_like_delay('click')
-                    return True
-            
-            # Fallback: vérifier via l'icône du coeur si le post est déjà liké
-            # avant de faire un double tap
-            already_liked_selectors = self._feed_sel.already_liked_indicators
-            
-            for selector in already_liked_selectors:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    self.logger.debug("⏭️ Post already liked (detected via unlike button), skipping")
+                    like_button = element
+                    break
+
+            # Heart-icon fallback check for an already-liked post.
+            for selector in self._feed_sel.already_liked_indicators:
+                if self.device.xpath(selector).exists:
+                    self.logger.debug("⏭️ Post already liked, skipping")
                     return False
-            
-            # Double tap seulement si on n'a pas trouvé de bouton like ET le post n'est pas déjà liké
-            self.logger.debug("Like button not found, trying double tap")
+
+            # Pick the method: double-tap by chance, or whenever no like button is visible.
+            if like_button is not None and not _should_double_tap_like():
+                self.logger.debug("❤️ Liking via the like button")
+                if not self._human_tap_element(like_button):
+                    like_button.click()  # centre-click fallback
+                self._human_like_delay('click')
+                return True
+
+            # Image double-tap: a varied point within the post image band (not the fixed
+            # centre); fall back to the centre double-tap if sampling fails.
+            self.logger.debug("❤️ Liking via image double-tap")
             screen_height = self.device.info.get('displayHeight', 1920)
             screen_width = self.device.info.get('displayWidth', 1080)
-            center_x = screen_width // 2
-            center_y = int(screen_height * 0.4)  # Milieu du post
-
-            # Human double-tap a varied point within the post image band (not the fixed
-            # centre); fall back to the centre double-tap if sampling fails.
             image_region = (
                 int(screen_width * 0.30), int(screen_height * 0.30),
                 int(screen_width * 0.70), int(screen_height * 0.52),
             )
             if not self.device.human_double_tap(image_region):
-                self.device.double_click(center_x, center_y)
+                self.device.double_click(screen_width // 2, int(screen_height * 0.4))
             self._human_like_delay('click')
             return True
-            
+
         except Exception as e:
             self.logger.debug(f"Error liking post: {e}")
             return False
