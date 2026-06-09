@@ -282,27 +282,46 @@ class BaseDeviceFacade:
             self.logger.error(f"Error long clicking at ({x}, {y}): {e}")
             raise
 
-    def human_tap(self, bounds, *, rng=None):
+    def human_tap(self, bounds, *, rng=None, quick=False):
         """Tap a human-sampled point inside `bounds` (left, top, right, bottom): a point
         near the centre but never the dead centre twice and never the rim, with a varied
         finger-down time. Returns the tapped (x, y) on success, else None.
 
         Use this instead of clicking an element's exact centre — it removes the
         "always the same pixel" touch-heatmap fingerprint. Sampling logic lives in
-        `taktik/core/shared/behavior/tap.py`.
+        `taktik/core/shared/behavior/tap.py`. Set `quick=True` for surfaces where a held
+        press has a meaning (e.g. a story pauses on touch-and-hold) → instant tap.
         """
         from taktik.core.shared.behavior.tap import sample_tap_point, sample_tap_down_ms
         try:
             x, y = sample_tap_point(bounds, rng=rng)
-            down_s = sample_tap_down_ms(rng=rng) / 1000.0
-            self.logger.debug(f"👆 Human tap ({x}, {y}) down={down_s:.3f}s in {tuple(bounds)}")
-            # A short, sub-threshold press (touch-down → wait → up) varies the contact
-            # time vs an instant click, while staying a tap (never a long-press).
-            self._device.long_click(x, y, down_s)
+            if quick:
+                self.logger.debug(f"👆 Human tap ({x}, {y}) [quick] in {tuple(bounds)}")
+                self._device.click(x, y)
+            else:
+                down_s = sample_tap_down_ms(rng=rng) / 1000.0
+                self.logger.debug(f"👆 Human tap ({x}, {y}) down={down_s:.3f}s in {tuple(bounds)}")
+                # A short, sub-threshold press (touch-down → wait → up) varies the contact
+                # time vs an instant click, while staying a tap (never a long-press).
+                self._device.long_click(x, y, down_s)
             time.sleep(0.05)
             return (x, y)
         except Exception as e:
             self.logger.error(f"Error human-tapping in {bounds}: {e}")
+            return None
+
+    def human_double_tap(self, bounds, *, rng=None):
+        """Double-tap a human-sampled point inside `bounds` (e.g. the post image area to
+        like) — a varied point, never the fixed centre. Returns the (x, y) or None."""
+        from taktik.core.shared.behavior.tap import sample_tap_point
+        try:
+            x, y = sample_tap_point(bounds, rng=rng)
+            self.logger.debug(f"👆👆 Human double-tap ({x}, {y}) in {tuple(bounds)}")
+            self._device.double_click(x, y)
+            time.sleep(0.1)
+            return (x, y)
+        except Exception as e:
+            self.logger.error(f"Error human double-tapping in {bounds}: {e}")
             return None
 
     def press_back(self):

@@ -91,8 +91,15 @@ class FeedPostActionsMixin:
             screen_width = self.device.info.get('displayWidth', 1080)
             center_x = screen_width // 2
             center_y = int(screen_height * 0.4)  # Milieu du post
-            
-            self.device.double_click(center_x, center_y)
+
+            # Human double-tap a varied point within the post image band (not the fixed
+            # centre); fall back to the centre double-tap if sampling fails.
+            image_region = (
+                int(screen_width * 0.30), int(screen_height * 0.30),
+                int(screen_width * 0.70), int(screen_height * 0.52),
+            )
+            if not self.device.human_double_tap(image_region):
+                self.device.double_click(center_x, center_y)
             self._human_like_delay('click')
             return True
             

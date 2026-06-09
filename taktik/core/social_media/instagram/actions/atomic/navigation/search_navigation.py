@@ -301,10 +301,18 @@ class SearchNavigationMixin(BaseAction):
             
             tap_x = int(screen_width * 0.75)
             tap_y = int(screen_height * 0.5)
-            
-            self.logger.debug(f"👆 Tap for next story: ({tap_x}, {tap_y})")
-            self.device.click(tap_x, tap_y)
-            
+
+            # Human-tap a varied point in the right-side advance zone (stays clearly on
+            # the right → next, never the same pixel); quick tap so a held press never
+            # pauses the story. Fall back to the fixed point if sampling fails.
+            right_zone = (
+                int(screen_width * 0.62), int(screen_height * 0.30),
+                int(screen_width * 0.88), int(screen_height * 0.70),
+            )
+            if not self.device.human_tap(right_zone, quick=True):
+                self.logger.debug(f"👆 Tap for next story: ({tap_x}, {tap_y})")
+                self.device.click(tap_x, tap_y)
+
             self._human_like_delay('story_transition')
             
             for indicator in self.detection_selectors.story_viewer_indicators:
