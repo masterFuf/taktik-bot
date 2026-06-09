@@ -120,6 +120,55 @@ def clear_text_with_taktik_keyboard(device_id: str) -> bool:
         return False
 
 
+def _press_backspace(device_id: str, count: int = 1) -> bool:
+    """Delete `count` characters (KEYCODE_DEL = 67) — used to correct a typo."""
+    ok = True
+    for _ in range(max(0, count)):
+        try:
+            run_adb_shell(device_id, "input keyevent 67")
+            time.sleep(0.04)
+        except Exception as exc:
+            logger.debug(f"Backspace keyevent failed: {exc}")
+            ok = False
+    return ok
+
+
+def type_text_human(
+    device_id: str,
+    text: str,
+    *,
+    typos: bool = True,
+    rng=None,
+    delay_mean: int = 80,
+    delay_deviation: int = 30,
+) -> bool:
+    """Type `text` like a human: occasional adjacent-key typos that get corrected, and
+    think-pauses, on top of the per-character cadence the keyboard already applies.
+
+    Set `typos=False` for fields where a mistake must never be committed even briefly
+    (passwords, 2FA codes, login usernames) — that types the exact string, cadence only.
+    """
+    if not text:
+        return True
+    if not typos:
+        return type_with_taktik_keyboard(device_id, text, delay_mean, delay_deviation)
+
+    from taktik.core.shared.behavior.typing import build_typing_plan
+
+    ok = True
+    for op in build_typing_plan(text, rng=rng):
+        kind = op[0]
+        if kind == "type":
+            if not type_with_taktik_keyboard(device_id, op[1], delay_mean, delay_deviation):
+                ok = False
+        elif kind == "backspace":
+            if not _press_backspace(device_id, op[1]):
+                ok = False
+        elif kind == "pause":
+            time.sleep(op[1])
+    return ok
+
+
 __all__ = [
     "run_adb_shell",
     "TAKTIK_KEYBOARD_PKG",
@@ -129,5 +178,6 @@ __all__ = [
     "is_taktik_keyboard_active",
     "activate_taktik_keyboard",
     "type_with_taktik_keyboard",
+    "type_text_human",
     "clear_text_with_taktik_keyboard",
 ]
