@@ -99,12 +99,15 @@ class SharedBaseAction:
                     element = self.device.xpath(selector)
                     if element.exists:
                         self.logger.debug(f"✅ Element found with selector #{i+1}: {selector[:50]}...")
-                        element.click()
+                        # Tap a varied point inside the element (never its exact centre);
+                        # fall back to a plain centre click if the bounds are unreadable.
+                        if not self._human_tap_element(element):
+                            element.click()
                         self._method_stats['clicks'] += 1
-                        
+
                         if human_delay:
                             self._human_like_delay('click')
-                        
+
                         return True
                 except Exception as e:
                     last_error = e
@@ -119,7 +122,19 @@ class SharedBaseAction:
         
         self._method_stats['errors'] += 1
         return False
-    
+
+    def _human_tap_element(self, element) -> bool:
+        """Tap a uiautomator2 XPath element at a human-sampled point within its bounds
+        (never its exact centre). Returns False if the bounds can't be read, so the
+        caller can fall back to a plain centre ``element.click()``."""
+        try:
+            bounds = element.get(timeout=0.5).bounds
+        except Exception:
+            return False
+        if not bounds or len(bounds) != 4:
+            return False
+        return bool(self.device.human_tap(bounds))
+
     def _wait_for_element(self, selectors: Union[List[str], str], timeout: float = 10.0,
                          check_interval: float = 0.5, silent: bool = False) -> bool:
         """Wait for element to appear."""
