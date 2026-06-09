@@ -128,10 +128,13 @@ class SharedBaseAction:
         (never its exact centre). Returns False if the bounds can't be read, so the
         caller can fall back to a plain centre ``element.click()``."""
         try:
-            bounds = element.get(timeout=0.5).bounds
-        except Exception:
+            el = element.get(timeout=0.5)
+            bounds = tuple(el.bounds)  # (left, top, right, bottom)
+        except Exception as e:
+            self.logger.debug(f"human tap: bounds unreadable ({e}); centre-click fallback")
             return False
-        if not bounds or len(bounds) != 4:
+        if not bounds or len(bounds) != 4 or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+            self.logger.debug(f"human tap: unusable bounds {bounds}; centre-click fallback")
             return False
         return bool(self.device.human_tap(bounds))
 
