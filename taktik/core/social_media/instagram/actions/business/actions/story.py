@@ -5,7 +5,11 @@ from loguru import logger
 
 from ...core.base_business import BaseBusinessAction
 from ..management.profile import ProfileBusiness
-from taktik.core.shared.behavior.interaction_plan import sample_story_like_slot
+from taktik.core.shared.behavior.interaction_plan import (
+    sample_story_like_slot,
+    sample_story_like_count,
+    sample_story_like_slots,
+)
 
 
 class StoryBusiness(BaseBusinessAction):
@@ -27,15 +31,23 @@ class StoryBusiness(BaseBusinessAction):
         }
     
     def _plan_story_engagement(self, config: Dict[str, Any], max_stories: int) -> tuple:
-        """Decide, ONCE per story session, whether to leave a single like / a single
-        reaction and on WHICH slide. A human likes/reacts to one slide that resonates,
-        never every slide — so the probability gates ONE engagement, not a per-slide roll.
-        Returns (like_slot, react_slot), each a 0-based slide index or -1 (none)."""
+        """Decide, ONCE per story session, how many slides to like and on WHICH ones, plus an
+        optional single reaction slide. The like count is PROPORTIONAL to the story length
+        (`max_stories` is already the watchable slide count here): a human leaves a couple of
+        likes on a long story, none/one on a short one — never every slide. The probability
+        gates WHETHER we engage; the count scales with length. Returns (like_slots, react_slots),
+        sets of 0-based slide indices (possibly empty). A reaction stays a single slide."""
         like_p = config.get('like_probability', 0.0)
         react_p = config.get('reaction_probability', 0.0)
-        like_slot = sample_story_like_slot(max_stories) if random.random() < like_p else -1
-        react_slot = sample_story_like_slot(max_stories) if random.random() < react_p else -1
-        return like_slot, react_slot
+        max_likes = int(config.get('max_story_likes_per_profile', 3))
+        like_slots = set()
+        react_slots = set()
+        if random.random() < like_p:
+            n = sample_story_like_count(max_stories, max_likes)
+            like_slots = set(sample_story_like_slots(max_stories, n))
+        if random.random() < react_p:
+            react_slots = {sample_story_like_slot(max_stories)}
+        return like_slots, react_slots
 
     def view_profile_stories(self, username: str,
                            max_stories: int = 5,
@@ -80,8 +92,8 @@ class StoryBusiness(BaseBusinessAction):
             else:
                 self.logger.debug(f"Story count not detected, using max_stories={max_stories}")
 
-            # Leave AT MOST one like on a single slide (varied position), not one per slide.
-            like_slot, _ = self._plan_story_engagement(config, max_stories)
+            # Like a count of slides PROPORTIONAL to the story length, at varied positions.
+            like_slots, _ = self._plan_story_engagement(config, max_stories)
 
             for i in range(max_stories):
                 try:
@@ -115,8 +127,8 @@ class StoryBusiness(BaseBusinessAction):
                     # Record story view in database
                     self._record_action(username, 'STORY_WATCH', 1)
 
-                    # Like at most ONE slide, at the planned position.
-                    if like_slot >= 0 and stats['stories_liked'] == 0 and i == like_slot:
+                    # Like this slide if it's one of the planned (varied) positions.
+                    if i in like_slots:
                         if self.click_actions.like_story():
                             stats['stories_liked'] += 1
                             self.logger.debug(f"Story {i+1} liked")
@@ -125,8 +137,9 @@ class StoryBusiness(BaseBusinessAction):
                     if i < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story():
                             self.logger.debug("No next story or end of stories")
-                            # Last slide reached early: leave the planned like here if missed.
-                            if like_slot >= 0 and stats['stories_liked'] == 0:
+                            # Last slide reached early: if likes were planned but none landed
+                            # (story shorter than the sampled slots), leave one here.
+                            if like_slots and stats['stories_liked'] == 0:
                                 if self.click_actions.like_story():
                                     stats['stories_liked'] += 1
                                     self._record_action(username, 'STORY_LIKE', 1)
@@ -225,10 +238,11 @@ class StoryBusiness(BaseBusinessAction):
 
                 stats['profiles_opened'] += 1
                 current_username = None
-                # Per friend's story: at most ONE like and ONE reaction, each on a single
-                # planned slide — not one per slide.
-                like_slot, react_slot = self._plan_story_engagement(config, max_stories)
-                liked_this = reacted_this = False
+                # Per friend's story: likes PROPORTIONAL to the story length (varied slots) and
+                # at most ONE reaction on a single planned slide.
+                like_slots, react_slots = self._plan_story_engagement(config, max_stories)
+                likes_done = 0
+                reacted_this = False
 
                 for story_index in range(max_stories):
                     if not self.detection_actions.is_story_viewer_open():
@@ -253,15 +267,15 @@ class StoryBusiness(BaseBusinessAction):
                     stats['stories_viewed'] += 1
                     self._record_action(current_username, 'STORY_WATCH', 1)
 
-                    # One like, on the planned slide only.
-                    if like_slot >= 0 and not liked_this and story_index == like_slot:
+                    # Like this slide if it's one of the planned (varied) positions.
+                    if story_index in like_slots:
                         if self.click_actions.like_story():
-                            liked_this = True
+                            likes_done += 1
                             stats['stories_liked'] += 1
                             self._record_action(current_username, 'STORY_LIKE', 1)
 
                     # One reaction, on the planned slide only.
-                    if react_slot >= 0 and not reacted_this and story_index == react_slot:
+                    if react_slots and not reacted_this and story_index in react_slots:
                         if self.click_actions.react_to_story(
                             reaction=config.get('reaction'),
                             emoji_index=config.get('reaction_index'),
@@ -272,10 +286,10 @@ class StoryBusiness(BaseBusinessAction):
 
                     if story_index < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story():
-                            # Last slide early: leave the planned like here if missed.
-                            if like_slot >= 0 and not liked_this:
+                            # Last slide early: if likes were planned but none landed, leave one.
+                            if like_slots and likes_done == 0:
                                 if self.click_actions.like_story():
-                                    liked_this = True
+                                    likes_done += 1
                                     stats['stories_liked'] += 1
                                     self._record_action(current_username, 'STORY_LIKE', 1)
                             break

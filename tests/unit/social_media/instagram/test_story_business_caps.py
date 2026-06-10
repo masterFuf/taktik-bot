@@ -1,11 +1,9 @@
-"""StoryBusiness leaves AT MOST one like / one reaction per story (not one per slide).
-
-Covers `_plan_story_engagement` (the once-per-story decision) and `view_profile_stories`
-(the ≤1-like enforcement) without a real device.
+"""StoryBusiness story-likes are PROPORTIONAL to the slide count (varied positions), with a
+single optional reaction. Covers `_plan_story_engagement` and `view_profile_stories` without
+a real device.
 """
 
-import random
-import types
+import types  # noqa: F401  (kept for parity with sibling test helpers)
 
 import taktik.core.social_media.instagram.actions.business.actions.story as story_mod
 from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
@@ -28,29 +26,34 @@ def _make_business():
     return biz
 
 
-# ─── _plan_story_engagement ──────────────────────────────────────────────────
+# ─── _plan_story_engagement (proportional like slots) ────────────────────────
 
-def test_plan_likes_one_slot_when_certain(monkeypatch):
+def test_plan_likes_proportional_slots_when_certain(monkeypatch):
     biz = _make_business()
-    like_slot, react_slot = biz._plan_story_engagement(
-        {'like_probability': 1.0, 'reaction_probability': 0.0}, max_stories=6)
-    assert 0 <= like_slot <= 5
-    assert react_slot == -1
+    like_slots, react_slots = biz._plan_story_engagement(
+        {'like_probability': 1.0, 'reaction_probability': 0.0,
+         'max_story_likes_per_profile': 3}, max_stories=6)
+    assert isinstance(like_slots, set) and like_slots                  # at least one like
+    assert all(0 <= s < 6 for s in like_slots)                         # in range
+    assert len(like_slots) <= 3                                        # never exceeds the cap
+    assert react_slots == set()
 
 
-def test_plan_no_engagement_when_zero(monkeypatch):
+def test_plan_no_engagement_when_zero():
     biz = _make_business()
-    assert biz._plan_story_engagement({'like_probability': 0.0, 'reaction_probability': 0.0}, 6) == (-1, -1)
+    assert biz._plan_story_engagement(
+        {'like_probability': 0.0, 'reaction_probability': 0.0}, 6) == (set(), set())
 
 
-def test_plan_reaction_independent(monkeypatch):
+def test_plan_reaction_is_single_slot_independent():
     biz = _make_business()
-    _, react_slot = biz._plan_story_engagement(
+    _, react_slots = biz._plan_story_engagement(
         {'like_probability': 0.0, 'reaction_probability': 1.0}, max_stories=4)
-    assert 0 <= react_slot <= 3
+    assert isinstance(react_slots, set) and len(react_slots) == 1
+    assert all(0 <= s < 4 for s in react_slots)
 
 
-# ─── view_profile_stories: ≤ 1 like over a long story ────────────────────────
+# ─── view_profile_stories: proportional likes over a long story ──────────────
 
 class _Nav:
     def navigate_to_profile(self, _u): return True
@@ -79,10 +82,13 @@ class _Clicks:
     def close_story(self): return True
 
 
-def test_view_profile_stories_likes_at_most_once(monkeypatch):
+def test_view_profile_stories_likes_planned_varied_slots(monkeypatch):
     monkeypatch.setattr(story_mod.time, "sleep", lambda _s: None)
     monkeypatch.setattr(story_mod.random, "uniform", lambda a, b: a)
-    monkeypatch.setattr(story_mod.random, "random", lambda: 0.0)   # always plan a like
+    monkeypatch.setattr(story_mod.random, "random", lambda: 0.0)   # always plan likes
+    # Deterministic proportional plan: 2 likes at slots 1 and 4.
+    monkeypatch.setattr(story_mod, "sample_story_like_count", lambda *a, **k: 2)
+    monkeypatch.setattr(story_mod, "sample_story_like_slots", lambda *a, **k: [1, 4])
 
     biz = _make_business()
     biz.nav_actions = _Nav()
@@ -93,6 +99,6 @@ def test_view_profile_stories_likes_at_most_once(monkeypatch):
     biz._record_action = lambda *_a, **_k: None
 
     stats = biz.view_profile_stories("friend", max_stories=6)
-    assert biz.click_actions.like_calls == 1     # ONE like over 6 slides, never 6
-    assert stats['stories_liked'] == 1
+    assert biz.click_actions.like_calls == 2     # the 2 planned slots, not all 6
+    assert stats['stories_liked'] == 2
     assert stats['stories_viewed'] == 6
