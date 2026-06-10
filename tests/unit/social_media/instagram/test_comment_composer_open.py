@@ -62,3 +62,19 @@ def test_composer_indicators_are_specific_not_a_bare_edittext():
     assert any("layout_comment_thread_edittext" in s for s in inds)
     # Must NOT include a bare EditText catch-all (would false-positive on any text field).
     assert not any(s.strip() == "//android.widget.EditText" for s in inds)
+
+
+def test_comment_field_selectors_match_v410_multiline_autocompletetextview():
+    """Regression: IG v410 FR comment field is an AutoCompleteTextView with id
+    `layout_comment_thread_edittext_multiline` and hint 'Rejoindre la conversation…' — the
+    old EditText/exact-id/hint selectors all missed it, so the bot could never type a comment."""
+    sels = POST_COMMENTS_SELECTORS.comment_field_selectors
+    # The robust contains() on the thread-edittext id (matches base + _multiline, any class).
+    robust = [s for s in sels if 'contains(@resource-id, "layout_comment_thread_edittext")' in s]
+    assert robust, "missing the contains() selector that matches the _multiline field id"
+    # It must be tried FIRST (most reliable, before broad EditText fallbacks).
+    assert sels[0] == robust[0]
+    # The composer is an AutoCompleteTextView — at least one selector targets that class.
+    assert any('AutoCompleteTextView' in s for s in sels)
+    # The v410 thread hint is covered too.
+    assert any('Rejoindre la conversation' in s for s in sels)

@@ -346,16 +346,25 @@ class PostSelectors:
         '//android.widget.ImageView[contains(@content-desc, "Comment")]'
     ])
     
-    comment_field_selector: str = '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
+    comment_field_selector: str = '//*[contains(@resource-id, "layout_comment_thread_edittext")]'
     comment_field_selectors: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
+        # IG v410's composer field is an AutoCompleteTextView with id
+        # `layout_comment_thread_edittext_multiline` (not plain EditText, not the un-suffixed
+        # id) and the hint "Rejoindre la conversation…" — so the old EditText/exact-id/hint
+        # selectors all missed. The contains() on the thread-edittext id matches both the
+        # base and the `_multiline` variant, any class. Keep it FIRST.
+        '//*[contains(@resource-id, "layout_comment_thread_edittext")]',
         '//*[@resource-id="com.instagram.android:id/comment_box_text"]',
         '//*[@resource-id="com.instagram.android:id/inline_compose_box"]',
         '//*[contains(@resource-id, "comment_box")]',
         '//*[contains(@hint, "Add a comment")]',
         '//*[contains(@hint, "Ajouter un commentaire")]',
+        '//*[contains(@hint, "Rejoindre la conversation")]',
+        '//*[contains(@hint, "Join the conversation")]',
         '//*[contains(@resource-id, "comment_edittext")]',
+        '//android.widget.AutoCompleteTextView[contains(@resource-id, "comment")]',
         '//android.widget.EditText[contains(@resource-id, "comment")]',
+        '//android.widget.AutoCompleteTextView[@focused="true"]',
         '//android.widget.EditText[@focused="true"]',
         '//android.widget.EditText[@clickable="true"]',
         '//android.widget.EditText',
