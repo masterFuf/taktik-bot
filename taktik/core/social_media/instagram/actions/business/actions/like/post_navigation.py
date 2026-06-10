@@ -1,16 +1,203 @@
 """Post navigation helpers for the like workflow (open, next, return)."""
 
 import time
+import random
+import re
 from loguru import logger
+
+from taktik.core.shared.behavior.grid_entry import plan_prescroll, sample_entry_index, GRID_COLUMNS
+from ....core.ipc.emitter import IPCEmitter
+
+# Grid cells expose their position in content-desc ("... à la ligne R, colonne C" /
+# "row R, column C"). Lets us narrate the real post position to the copilot.
+_GRID_POS_RE = re.compile(r'(?:ligne|row)\D*(\d+)\D+(?:colonne|column)\D*(\d+)', re.IGNORECASE)
 
 
 class PostNavigationMixin:
     """Mixin providing post navigation methods.
-    
+
     Must be used with a class that inherits from BaseBusinessAction
-    (provides self.device, self.logger, self.post_selectors, self.detection_selectors, etc.)
+    (provides self.device, self.logger, self.post_selectors, self.detection_selectors,
+    self.scroll_actions, etc.)
     """
-    
+
+    def _open_entry_post_of_profile(self, posts_count: int = 0, username: str = None) -> bool:
+        """Open a post to start engaging — but NOT always the top-left (newest) one.
+
+        Humanised entry (see ``shared/behavior/grid_entry``): on a profile large
+        enough, optionally scroll the grid down a little first, then open a
+        thumbnail chosen with a top-weighted-but-spread distribution and a human
+        tap on its real bounds. Always falls back to the legacy "open first post"
+        on any problem, so this is a zero-regression replacement of the constant
+        entry point.
+
+        ``posts_count`` is the profile's publication count (already read upstream);
+        it drives whether pre-scrolling the grid looks natural at all.
+        """
+        try:
+            thumb_selector = self.detection_selectors.post_thumbnail_selectors[0]
+
+            posts = self._visible_grid_thumbnails(thumb_selector)
+            if not posts:
+                self.logger.debug("Grid not visible — using legacy first-post open")
+                return self._open_first_post_of_profile()
+
+            # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
+            prescroll = plan_prescroll(int(posts_count or 0))
+            for _ in range(prescroll):
+                scrolled = False
+                try:
+                    scrolled = self.scroll_actions._strong_flick("up")
+                except Exception as e:
+                    self.logger.debug(f"Grid flick failed: {e}")
+                if not scrolled:
+                    break
+                time.sleep(random.uniform(0.5, 0.8))
+            if prescroll:
+                posts = self._visible_grid_thumbnails(thumb_selector)
+                if not posts:
+                    return self._open_first_post_of_profile()
+
+            # 2. Open a varied visible thumbnail (top-weighted, spread).
+            index = sample_entry_index(len(posts))
+            target = posts[index]
+            self.logger.info(
+                f"Opening entry post: thumbnail #{index + 1}/{len(posts)} "
+                f"(prescroll={prescroll}, profile posts={posts_count})"
+            )
+
+            # Narrate the entry decision to the live copilot (Taktik Agent):
+            # "profile has N posts → opening post #X". Reuses the instagram_action
+            # channel; no-op in standalone / Lab (guarded on username).
+            if username:
+                self._emit_entry_decision(username, posts_count, prescroll, target, index)
+
+            if not self._human_tap_grid_thumbnail(target):
+                target.click()  # centre-click fallback if bounds unreadable
+
+            time.sleep(3)
+            if self._is_in_post_view():
+                self.logger.success("Entry post opened successfully")
+                return True
+
+            self.logger.warning("Entry post did not open — falling back to first post")
+            return self._open_first_post_of_profile()
+
+        except Exception as e:
+            self.logger.error(f"Error opening entry post: {e} — falling back to first post")
+            try:
+                return self._open_first_post_of_profile()
+            except Exception:
+                return False
+
+    def _open_post_at_position(self, index: int) -> bool:
+        """Open a SPECIFIC grid post by absolute position (1-based), scrolling the
+        grid (human flick) to reveal it if needed. Returns True if the post viewer
+        opened. Deterministic — used by the Lab to test post targeting; prod entry
+        stays humanised via `_open_entry_post_of_profile`.
+        """
+        if index < 1:
+            index = 1
+        row = (index - 1) // 3 + 1
+        col = (index - 1) % 3 + 1
+        selector = self.detection_selectors.post_grid_cell_by_position(row, col)
+        try:
+            if not self._visible_grid_thumbnails(self.detection_selectors.post_thumbnail_selectors[0]):
+                self.logger.warning("Grid not visible — cannot open post by position")
+                return False
+
+            target = None
+            for _ in range(6):
+                el = self.device.xpath(selector)
+                if el.exists:
+                    target = el
+                    break
+                if not self.scroll_actions._strong_flick("up"):
+                    break
+                time.sleep(random.uniform(0.5, 0.8))
+
+            if target is None:
+                self.logger.warning(
+                    f"Post #{index} (ligne {row}, colonne {col}) introuvable après scroll"
+                )
+                return False
+
+            self.logger.info(f"Opening post #{index} (ligne {row}, colonne {col})")
+            tapped = False
+            try:
+                el = target.get(timeout=1.0)
+                bounds = tuple(el.bounds)
+                if bounds and len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                    tapped = bool(self.device.human_tap(bounds))
+            except Exception as e:
+                self.logger.debug(f"position tap bounds unreadable ({e}); click fallback")
+            if not tapped:
+                target.click()
+
+            time.sleep(3)
+            if self._is_in_post_view():
+                self.logger.success(f"Post #{index} opened successfully")
+                return True
+            self.logger.warning(f"Post #{index} did not open")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error opening post #{index}: {e}")
+            return False
+
+    def _emit_entry_decision(self, username, posts_count, prescroll, target, index):
+        """Tell the copilot which post we're opening and why (the humanised entry
+        decision). Best-effort: reads the chosen thumbnail's grid position from its
+        content-desc so the narration says the real post number."""
+        try:
+            row = col = position = None
+            try:
+                cd = (target.attrib.get('content-desc') if hasattr(target, 'attrib') else None) or ''
+                m = _GRID_POS_RE.search(cd)
+                if m:
+                    row, col = int(m.group(1)), int(m.group(2))
+                    position = (row - 1) * GRID_COLUMNS + col
+            except Exception:
+                pass
+            IPCEmitter.emit_action('entry', username, {
+                'posts_count': int(posts_count or 0),
+                'prescroll': int(prescroll or 0),
+                'visible_index': int(index) + 1,
+                'row': row,
+                'col': col,
+                'position': position,
+            })
+        except Exception as e:
+            self.logger.debug(f"entry decision narration failed: {e}")
+
+    def _visible_grid_thumbnails(self, thumb_selector: str):
+        """Return the currently rendered grid thumbnails, revealing the grid with a
+        small scroll if none are on screen yet (mirrors the legacy reveal logic)."""
+        posts = self.device.xpath(thumb_selector).all()
+        if posts:
+            return posts
+        from ....core.device.facade import Direction
+        self.device.swipe(Direction.UP, scale=0.3)
+        time.sleep(0.5)
+        posts = self.device.xpath(thumb_selector).all()
+        if posts:
+            return posts
+        self.device.swipe(Direction.UP, scale=0.5)
+        time.sleep(0.5)
+        return self.device.xpath(thumb_selector).all()
+
+    def _human_tap_grid_thumbnail(self, element) -> bool:
+        """Human-tap a grid thumbnail at a sampled point within its bounds (never the
+        exact centre). Returns False if bounds are unreadable so the caller can
+        fall back to a plain ``element.click()``."""
+        try:
+            bounds = getattr(element, "bounds", None)
+            if bounds and len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                return bool(self.device.human_tap(tuple(bounds)))
+        except Exception as e:
+            self.logger.debug(f"thumbnail human-tap bounds unreadable ({e}); centre-click fallback")
+        return False
+
     def _open_first_post_of_profile(self) -> bool:
         try:
             self.logger.info("Opening first post of profile...")
@@ -77,21 +264,24 @@ class PostNavigationMixin:
             
             # Get screen dimensions for adaptive swipe coordinates
             width, height = self.device.get_screen_size()
-            
+
             try:
-                # Vertical scroll: center X, from 78% to 21% of height
-                center_x = width // 2
-                start_y = int(height * 0.78)
-                end_y = int(height * 0.21)
-                
-                self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.25)
+                # Vertical advance to the next post. Humanised: a sampled curved 1:1
+                # swipe (start point / curvature / duration all sampled from real
+                # data) instead of the old fixed 78%->21% geometry. `controlled=True`
+                # tracks the finger so it lands ~one post ahead without a fling
+                # overshoot; distance is randomised around the original magnitude.
+                dist = height * random.uniform(0.55, 0.72)
+                advanced = self.scroll_actions._human_swipe(
+                    direction="up", distance_px=dist, controlled=True
+                )
                 time.sleep(2.0)
-                
-                if self._is_in_post_view():
-                    self.logger.debug("Navigation successful via vertical scroll")
+
+                if advanced and self._is_in_post_view():
+                    self.logger.debug("Navigation successful via human vertical swipe")
                     return True
             except Exception as e:
-                self.logger.debug(f"Vertical scroll failed: {e}")
+                self.logger.debug(f"Vertical swipe failed: {e}")
             
             try:
                 # Horizontal swipe: from 74% to 19% of width, center Y
@@ -142,13 +332,12 @@ class PostNavigationMixin:
                     self.logger.debug("Returned via back button")
                     return
             
-            # Adaptive swipe coordinates
+            # Humanised downward swipe fallback (sampled geometry, not fixed coords).
             width, height = self.device.get_screen_size()
-            center_x = width // 2
-            start_y = int(height * 0.625)  # ~62.5% of height
-            end_y = int(height * 0.21)     # ~21% of height
-            
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.5)
+            dist = height * random.uniform(0.40, 0.55)
+            if not self.scroll_actions._human_swipe(direction="down", distance_px=dist, controlled=True):
+                center_x = width // 2
+                self.device.swipe_coordinates(center_x, int(height * 0.625), center_x, int(height * 0.21), duration=0.5)
             time.sleep(1.5)
             self.logger.debug("Returned via downward swipe")
             

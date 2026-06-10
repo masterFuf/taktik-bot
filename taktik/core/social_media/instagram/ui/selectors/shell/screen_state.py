@@ -257,6 +257,20 @@ class DetectionSelectors:
         '//*[@resource-id="com.instagram.android:id/image_button"]',
         '//android.widget.ImageView[contains(@resource-id, "image")]'
     ])
+
+    def post_grid_cell_by_position(self, row: int, col: int) -> str:
+        """XPath for a SPECIFIC profile-grid thumbnail by absolute position.
+
+        Grid cells carry their position in content-desc (real dumps IG v410,
+        2026-06-09): e.g. "Reel par <author> à la ligne 2, colonne 2" or
+        "7 photos de <author>, à la ligne 1, colonne 3". Matches the image_button
+        bearing that position (FR or EN wording), so a caller can open post #N
+        deterministically: row = (N-1)//3 + 1, col = (N-1)%3 + 1 (3-column grid)."""
+        return (
+            '//*[@resource-id="com.instagram.android:id/image_button" and '
+            f'(contains(@content-desc, "ligne {row}, colonne {col}") or '
+            f'contains(@content-desc, "row {row}, column {col}"))]'
+        )
     
     # === Private account detection ===
     private_account_indicators: List[str] = field(default_factory=lambda: [

@@ -163,12 +163,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             posts_commented = 0
             posts_seen = 0
             
-            if not self._open_first_post_of_profile():
-                self.logger.error("Failed to open first post of profile")
+            if not self._open_entry_post_of_profile(total_posts_on_profile, username=username):
+                self.logger.error("Failed to open entry post of profile")
                 stats['errors'] += 1
                 return stats
-            
-            self.logger.success("First post opened, starting sequential scroll")
+
+            self.logger.success("Entry post opened, starting sequential scroll")
             
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
