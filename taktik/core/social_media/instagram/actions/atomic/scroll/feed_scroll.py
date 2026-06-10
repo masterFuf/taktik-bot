@@ -244,6 +244,34 @@ class FeedScrollMixin(PostReadingMixin):
             return None
         return min(on) / float(self.screen_height)
 
+    def land_on_post_header(self, max_corrections: int = 1) -> Dict[str, Any]:
+        """Frame the topmost post at the very top after an advance — so we never stop
+        'half-and-half' (end of one post + start of the next). Reuses the feed's landing logic
+        (header ratio + ONE precise 1:1 lift drag, moving LESS than one post pitch so it frames
+        whatever post is topmost and can never skip) but WITHOUT any feed-specific ad/recover
+        behaviour, so it is safe to call on the profile-post viewer too (same post layout).
+
+        Best-effort + non-destructive: a NO-OP when no post header is detected (a reel, or an
+        unrecognised surface) → it never regresses the caller. Returns {framed, corrected,
+        land_ratio}."""
+        corrected = False
+        anchors = self._read_feed_anchors()
+        land = self._incoming_header_ratio(anchors)
+        for _ in range(max(0, max_corrections)):
+            if land is None or land <= _LAND_GOOD_MAX:
+                break
+            lift_px = (land - _LAND_TARGET) * self.screen_height
+            self._long_drag("up", distance_px=lift_px, vel_range=_DRAG_VEL_PXS)
+            corrected = True
+            time.sleep(random.uniform(0.30, 0.50))
+            anchors = self._read_feed_anchors()
+            land = self._incoming_header_ratio(anchors)
+        return {
+            "framed": land is not None and land <= _LAND_GOOD_MAX,
+            "corrected": corrected,
+            "land_ratio": land,
+        }
+
     # ── ENGINE: advance to the next real post ──────────────────────────────────────
 
     def _reveal_current_metadata(self, max_scrolls: int = 2) -> int:

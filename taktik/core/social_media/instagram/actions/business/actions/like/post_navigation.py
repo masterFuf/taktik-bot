@@ -295,6 +295,17 @@ class PostNavigationMixin:
                     advanced = self.scroll_actions._strong_flick(
                         direction="up", distance_px=random.uniform(0.55, 0.72) * height
                     )
+                # Land cleanly on the next post — exactly like the FEED does: a variable flick
+                # can stop "half-and-half" (end of the post above + start of the one below), so
+                # if the incoming post header isn't framed at the top, ONE precise 1:1 lift drag
+                # brings it up (moves less than one post pitch → frames the topmost post, never
+                # skips). No-op if no header is detected, so it can't regress navigation. A human
+                # advances to SEE the next post in full, not stop mid-way.
+                try:
+                    self.scroll_actions.land_on_post_header()
+                except Exception as land_exc:
+                    self.logger.debug(f"land_on_post_header skipped: {land_exc}")
+
                 # A human GLANCES at each post while scrolling — a short, varied dwell.
                 # The deliberate "open + read the full description" is no longer done on
                 # every advance: it's now an engagement step (see engagement_sequence), so
