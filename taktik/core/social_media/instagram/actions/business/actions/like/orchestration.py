@@ -8,6 +8,7 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from ...management.profile import ProfileBusiness
 from .post_navigation import PostNavigationMixin
+from taktik.core.shared.behavior.like_method import should_double_tap_like
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
@@ -317,20 +318,43 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             if not self.detection_actions.is_on_post_screen():
                 self.logger.warning("Not on a post screen")
                 return False
-            
+
             if self.detection_actions.is_post_liked():
                 self.logger.debug("Post already liked")
                 return True
-            
+
+            # Alternate like methods like a human (telemetry showed the profile-posts
+            # path always used the button): ~45% an image double-tap, else the button.
+            if should_double_tap_like() and self._double_tap_like_image():
+                self.logger.debug("Post liked via image double-tap")
+                return True
+
             if self.click_actions.like_post():
-                self.logger.debug("Post liked successfully")
+                self.logger.debug("Post liked successfully (button)")
                 return True
             else:
                 self.logger.warning("Failed to like")
                 return False
-                
+
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
+            return False
+
+    def _double_tap_like_image(self) -> bool:
+        """Double-tap a varied point in the post image band to like it, then confirm the
+        like registered (a double-tap can miss). Returns False so the caller falls back
+        to the like button if it didn't take."""
+        try:
+            width, height = self.device.get_screen_size()
+            image_region = (
+                int(width * 0.30), int(height * 0.30),
+                int(width * 0.70), int(height * 0.52),
+            )
+            self.device.human_double_tap(image_region)
+            self._human_like_delay('click')
+            return self.detection_actions.is_post_liked()
+        except Exception as e:
+            self.logger.debug(f"Double-tap like failed: {e}")
             return False
     
     def _is_post_already_liked(self) -> bool:

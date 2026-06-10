@@ -4,15 +4,10 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 
-# A human doesn't always like the same way: some likes are a tap on the like button,
-# others a double-tap on the image. Alternate between the two by chance (this is the
-# share done via the image double-tap). Tunable; will move to the behaviour profile.
-_DOUBLE_TAP_LIKE_PROB = 0.45
-
-
-def _should_double_tap_like(rng=None) -> bool:
-    """Pick the like method at random — True = image double-tap, False = like button."""
-    return (rng or random).random() < _DOUBLE_TAP_LIKE_PROB
+# A human doesn't always like the same way: some likes tap the like button, others
+# double-tap the image. The choice lives in shared behaviour so the feed and the
+# profile-posts (like workflow) paths alternate identically.
+from taktik.core.shared.behavior.like_method import should_double_tap_like as _should_double_tap_like
 
 
 class FeedPostActionsMixin:

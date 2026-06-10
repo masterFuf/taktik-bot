@@ -6,7 +6,13 @@ import re
 from loguru import logger
 
 from taktik.core.shared.behavior.grid_entry import plan_prescroll, sample_entry_index, GRID_COLUMNS
+from taktik.core.shared.behavior.dwell import content_dwell
 from ....core.ipc.emitter import IPCEmitter
+
+# Advance gesture mix when browsing a profile's posts — same humanised profile as the
+# feed (a decisive flick most of the time, an occasional slow drag), instead of the
+# old single fixed swipe that read as a robotic, identical scroll every post.
+_ADVANCE_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
 
 # Grid cells expose their position in content-desc ("... à la ligne R, colonne C" /
 # "row R, column C"). Lets us narrate the real post position to the copilot.
@@ -266,22 +272,28 @@ class PostNavigationMixin:
             width, height = self.device.get_screen_size()
 
             try:
-                # Vertical advance to the next post. Humanised: a sampled curved 1:1
-                # swipe (start point / curvature / duration all sampled from real
-                # data) instead of the old fixed 78%->21% geometry. `controlled=True`
-                # tracks the finger so it lands ~one post ahead without a fling
-                # overshoot; distance is randomised around the original magnitude.
-                dist = height * random.uniform(0.55, 0.72)
-                advanced = self.scroll_actions._human_swipe(
-                    direction="up", distance_px=dist, controlled=True
-                )
-                time.sleep(2.0)
+                # Vertical advance to the next post — humanised like the FEED browse:
+                # alternate a decisive flick (most of the time) with an occasional slow
+                # drag, instead of the single fixed swipe that read as a robotic identical
+                # scroll every post. Then a content-aware reading dwell (varied glance +
+                # occasional linger) replaces the flat 2s pause.
+                modes, weights = zip(*_ADVANCE_MODE_WEIGHTS)
+                mode = random.choices(modes, weights=weights)[0]
+                if mode == "drag":
+                    advanced = self.scroll_actions._long_drag(
+                        direction="up", distance_px=random.uniform(0.80, 0.90) * height
+                    )
+                else:
+                    advanced = self.scroll_actions._strong_flick(
+                        direction="up", distance_px=random.uniform(0.55, 0.72) * height
+                    )
+                time.sleep(content_dwell(0))   # human reading dwell on the post
 
                 if advanced and self._is_in_post_view():
-                    self.logger.debug("Navigation successful via human vertical swipe")
+                    self.logger.debug(f"Navigation successful via human {mode}")
                     return True
             except Exception as e:
-                self.logger.debug(f"Vertical swipe failed: {e}")
+                self.logger.debug(f"Vertical advance failed: {e}")
             
             try:
                 # Horizontal swipe: from 74% to 19% of width, center Y
