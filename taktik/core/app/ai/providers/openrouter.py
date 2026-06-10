@@ -318,18 +318,71 @@ class AIService:
             f"  {cat}: {' | '.join(subs)}" for cat, subs in self.niche_taxonomy.items()
         )
 
+    @staticmethod
+    def _normalize_engagement(raw: Any) -> Optional[Dict[str, Any]]:
+        """Coerce the model's `engagement` block into a safe, typed verdict (or None).
+
+        Returns None when the block is missing/garbage so callers cleanly fall back to the
+        non-AI behaviour. `relevant` defaults to the OR of follow/comment/like; a missing
+        sub-flag is False; score is clamped to [0,1]."""
+        if not isinstance(raw, dict):
+            return None
+
+        def _b(v) -> bool:
+            if isinstance(v, bool):
+                return v
+            if isinstance(v, str):
+                return v.strip().lower() in ("true", "yes", "1")
+            return bool(v) if isinstance(v, (int, float)) else False
+
+        follow = _b(raw.get("follow"))
+        comment = _b(raw.get("comment"))
+        like = _b(raw.get("like"))
+        relevant = raw.get("relevant")
+        relevant = _b(relevant) if relevant is not None else (follow or comment or like)
+
+        score = raw.get("score")
+        try:
+            score = max(0.0, min(1.0, float(score)))
+        except (TypeError, ValueError):
+            score = None
+
+        reason = raw.get("reason")
+        reason = reason.strip()[:200] if isinstance(reason, str) else None
+
+        return {
+            "relevant": relevant,
+            "follow": follow,
+            "comment": comment,
+            "like": like,
+            "score": score,
+            "reason": reason,
+        }
+
     def classify_profile_niche(self, username: str, screenshot_path: str,
                                profile_context: dict = None,
-                               response_language: str = 'en') -> Dict[str, Any]:
+                               response_language: str = 'en',
+                               include_engagement: bool = False,
+                               account_niche: str = None,
+                               account_sub_niche: str = None) -> Dict[str, Any]:
         """
         Classify an Instagram profile from a screenshot into a niche (scraping mode).
         No relevance score — focus is on niche classification + profile summary.
         Emits IPC events for the AgentPanel.
-        
+
         Args:
             profile_context: Optional dict with enriched profile data (bio, website,
                              business_category, linked_accounts, full_name) to augment
                              the vision classification with text hints.
+            include_engagement: When True, ALSO return an `engagement` verdict
+                             {relevant, follow, comment, like, score, reason} judging whether
+                             engaging this profile is worthwhile (opt-in so the scraping path,
+                             which reuses this call, pays no extra tokens). See
+                             `taktik-docs/technical/ai-relevance-engagement-spec.md`.
+            account_niche / account_sub_niche: the niche of the account being automated, so the
+                             engagement verdict is judged RELATIVE to it (adjacency-aware). When
+                             absent the verdict falls back to a generic "is this a good engagement
+                             target" judgement.
         """
         t0 = time.time()
 
@@ -368,6 +421,36 @@ class AIService:
         niche_map = self._niche_map_text()
         _lang_map = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}
         _lang_full = _lang_map.get(response_language, 'English')
+
+        # Optional engagement-relevance verdict (Lot 1 of the AI-relevance spec). Opt-in so the
+        # scraping path pays no extra tokens. Judged vs the operated account's niche when known.
+        engagement_instr = ""
+        engagement_json = ""
+        if include_engagement:
+            if account_niche:
+                who = f"a '{account_niche}'" + (f" / '{account_sub_niche}'" if account_sub_niche else "") + " account"
+                relativity = (
+                    f"We are GROWING {who}. Judge whether engaging THIS profile is worthwhile for that "
+                    "account: consider niche ADJACENCY (e.g. fitness ↔ bodybuilding ↔ nutrition are adjacent), "
+                    "audience overlap, and whether it's a real, active, human-ish account (not a spam/store/bot). "
+                )
+            else:
+                relativity = (
+                    "Judge whether THIS profile is a worthwhile engagement target in general: a real, active, "
+                    "niche-coherent, human-ish account (not a spam/store/bot). "
+                )
+            engagement_instr = (
+                "\nENGAGEMENT RELEVANCE: " + relativity +
+                "Be SELECTIVE — not every profile deserves a follow or a comment. Return an 'engagement' object: "
+                "'relevant' (bool), 'follow' (bool: worth following), 'comment' (bool: worth a comment — STRICTER "
+                "than follow), 'like' (bool: worth liking its posts), 'score' (0.0-1.0 relevance confidence), "
+                "'reason' (one short sentence).\n"
+            )
+            engagement_json = (
+                ', "engagement": {"relevant": true, "follow": true, "comment": false, '
+                '"like": true, "score": 0.8, "reason": "short reason"}'
+            )
+
         system_prompt = (
             "You are an Instagram profile classifier.\n"
             "Analyze this profile screenshot and identify the account's niche.\n"
@@ -388,13 +471,15 @@ class AIService:
             "All structured fields (niche_category, niche, language, content_type, tags, cities, profession, profession_tags, gender, age_group) must remain in English.\n"
             "For 'gender': determine if this is a 'female', 'male', 'brand' (company/organization/product page), or 'unknown' account. Base this on profile photo, name, and bio cues.\n"
             "For 'age_group': estimate the person's age range as 'teen' (<18), 'young_adult' (18-24), 'adult' (25-34), 'mature' (35+), or 'unknown'. Use 'unknown' for brands or if unclear.\n"
+            + engagement_instr +
             "Respond ONLY with valid JSON — no extra text:\n"
             '{"niche_category": "travel", "niche": "Adventure & Backpacking", '
             '"summary": "2-3 sentences describing the account in detail.", '
             '"following_insights": "What the following sample reveals about this person, or null.", '
             '"language": "en", "content_type": "creator", "tags": ["tag1", "tag2"], '
             '"cities": [], "profession": null, "profession_tags": [], '
-            '"gender": "female", "age_group": "young_adult"}'
+            '"gender": "female", "age_group": "young_adult"'
+            + engagement_json + '}'
         )
 
         # Build user prompt — include enriched text context when available
@@ -453,7 +538,7 @@ class AIService:
         )
 
         result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
-                                        temperature=0.2, max_tokens=900)
+                                        temperature=0.2, max_tokens=1100 if include_engagement else 900)
         duration_ms = int((time.time() - t0) * 1000)
 
         logger.debug(
@@ -484,6 +569,10 @@ class AIService:
                 if self.ipc:
                     self.ipc.ai_error(f"JSON parse error: {e}", username)
                 return {"success": False, "error": f"JSON parse error: {e}", "raw": result["text"]}
+
+        # Normalize the optional engagement verdict (defensive: coerce types, drop if unusable).
+        if include_engagement:
+            classification["engagement"] = self._normalize_engagement(classification.get("engagement"))
 
         niche = classification.get("niche", "?")
         niche_cat = classification.get("niche_category", "other")

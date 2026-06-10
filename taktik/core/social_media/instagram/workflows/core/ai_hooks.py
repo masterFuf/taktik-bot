@@ -212,6 +212,12 @@ def install_instagram_ai_hooks(
 
             original_perform = InteractionEngineMixin._perform_interactions_on_profile
 
+            # Operated account's niche → the engagement verdict is judged relative to it.
+            # Injected by the front into the AI config (taxonomy is front-owned); absent for
+            # now → the verdict falls back to a generic "good engagement target?" judgement.
+            account_niche = ai_config.get("accountNiche") or ai_config.get("account_niche")
+            account_sub_niche = ai_config.get("accountSubNiche") or ai_config.get("account_sub_niche")
+
             def ai_perform_interactions(self_engine, username, config, profile_data=None):
                 try:
                     tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
@@ -224,6 +230,9 @@ def install_instagram_ai_hooks(
                         username=username,
                         screenshot_path=screenshot_path,
                         profile_context=profile_data or {},
+                        include_engagement=True,
+                        account_niche=account_niche,
+                        account_sub_niche=account_sub_niche,
                     )
                     if result.get("success") and result.get("classification"):
                         classification = result["classification"]
@@ -236,6 +245,31 @@ def install_instagram_ai_hooks(
                                 f"{classification.get('age_group', '?')}"
                             ),
                         )
+                        # Lot 1: surface the engagement verdict on profile_data so the engine
+                        # can later GATE follow/comment with it (no decision change yet — we log
+                        # it and compare to what the random ratio would do, to vet quality first).
+                        engagement = classification.get("engagement")
+                        if isinstance(engagement, dict):
+                            if isinstance(profile_data, dict):
+                                profile_data["ai_engagement"] = engagement
+                            would = []
+                            if engagement.get("follow"):
+                                would.append("follow")
+                            if engagement.get("comment"):
+                                would.append("comment")
+                            if engagement.get("like"):
+                                would.append("like")
+                            score = engagement.get("score")
+                            score_str = f"{score:.2f}" if isinstance(score, (int, float)) else "?"
+                            log(
+                                "info",
+                                (
+                                    f"  ↳ pertinence IA @{username}: "
+                                    f"{'pertinent' if engagement.get('relevant') else 'non pertinent'} "
+                                    f"(score {score_str}) → {', '.join(would) or 'rien'}"
+                                    + (f" · {engagement['reason']}" if engagement.get("reason") else "")
+                                ),
+                            )
                 except Exception as exc:
                     log("warning", f"AI profile analysis error for @{username}: {exc}")
 
