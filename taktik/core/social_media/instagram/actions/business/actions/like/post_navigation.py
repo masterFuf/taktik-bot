@@ -7,6 +7,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.grid_entry import plan_prescroll, sample_entry_index, GRID_COLUMNS
 from taktik.core.shared.behavior.dwell import content_dwell
+from taktik.core.shared.telemetry import emit_step
 from ....core.ipc.emitter import IPCEmitter
 
 # Advance gesture mix when browsing a profile's posts — same humanised profile as the
@@ -173,6 +174,13 @@ class PostNavigationMixin:
                 'col': col,
                 'position': position,
             })
+            # Also on the step_metric channel: the IPC action feeds the copilot
+            # narration, but the metrics cards (Choix du post) read step_metric.
+            emit_step(
+                "post_entry", target=username,
+                posts_count=int(posts_count or 0), prescroll=int(prescroll or 0),
+                visible_index=int(index) + 1, position=position,
+            )
         except Exception as e:
             self.logger.debug(f"entry decision narration failed: {e}")
 

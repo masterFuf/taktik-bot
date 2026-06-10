@@ -35,8 +35,14 @@ _CAROUSEL_INDEX_RE = re.compile(FS.carousel_index_pattern)
 # Reading scrolls are slow 1:1 drags (no coast) — same velocity band as the feed's drag profile.
 _READ_DRAG_VEL_PXS = (1500.0, 2200.0)
 
-# Share of reading pauses that expand a truncated caption (a human doesn't always tap 'more').
-_EXPAND_CAPTION_PROB = 0.85
+# Share of reading pauses that expand a truncated caption (a human doesn't always tap
+# 'more'). Lowered from 0.85 after a real run showed nearly every description being
+# opened — too eager to read as human. Tunable; will move to the behaviour profile.
+_EXPAND_CAPTION_PROB = 0.45
+
+# Below this cumulated reveal-scroll distance the post is still framed (image + button
+# row on screen) → no reframe needed after reading.
+_REFRAME_MIN_PX = 120
 
 
 class PostReadingMixin:
@@ -102,18 +108,19 @@ class PostReadingMixin:
         self.logger.debug(f"📖 expanded truncated caption at ({x},{y})")
         # The expanded text usually runs below the fold (the expander sat low). Scroll a little to
         # read it, like a human reading on (gentle, smooth), instead of "opening" a caption nobody
-        # can see. No-op if the whole caption already fits.
+        # can see. No-op if the whole caption already fits. The scrolled distance is remembered so
+        # the reading pause can REFRAME the post afterwards (scroll back up to image + buttons).
         time.sleep(random.uniform(0.4, 0.8))   # let it expand + a beat before reading
-        self._reveal_expanded_caption()
+        self._last_reveal_scroll_px = self._reveal_expanded_caption()
         return True
 
     def _reveal_expanded_caption(self, max_scrolls: int = 2) -> int:
         """After expanding a caption, gently scroll so its now-visible text comes INTO view — a
         human reads it, they don't open a caption that stays below the fold. Each scroll is a slow
         drag (smooth) with a reading beat; stops once no caption extends below the fold. Returns
-        the number of reading scrolls done."""
+        the TOTAL distance scrolled in px (0 if none) so the caller can reframe the post after."""
         fold = int(0.86 * self.screen_height)
-        done = 0
+        scrolled_px = 0
         for _ in range(max_scrolls):
             root = self._dump_root()
             if root is None:
@@ -130,13 +137,40 @@ class PostReadingMixin:
                     below = b - t
             if below is None:
                 break
-            self._long_drag("up", distance_px=random.uniform(0.20, 0.30) * self.screen_height,
-                            vel_range=_READ_DRAG_VEL_PXS)
-            done += 1
+            dist = random.uniform(0.20, 0.30) * self.screen_height
+            self._long_drag("up", distance_px=dist, vel_range=_READ_DRAG_VEL_PXS)
+            scrolled_px += int(dist)
             time.sleep(random.uniform(0.7, 1.4))   # read the revealed lines
-        if done:
-            self.logger.debug(f"📖 scrolled {done}x to read the expanded caption")
-        return done
+        if scrolled_px:
+            self.logger.debug(f"📖 scrolled {scrolled_px}px to read the expanded caption")
+        return scrolled_px
+
+    def _reframe_post_after_reading(self, scrolled_px: int) -> None:
+        """Scroll BACK UP after reading a caption so the post is framed again (image +
+        like/comment button row on screen) — what a human does before acting on the post.
+        Without this, everything after the reading acts on a mis-framed screen: the
+        double-tap band can hit the caption or the NEXT post's image, the generic
+        like/comment button selectors can match the next post's row, and the AI
+        smart-comment screenshot captures the caption zone instead of the image.
+
+        Returns slightly PAST the read distance (bias 0.95-1.15x) so the post header comes
+        back fully into view — a small overshoot at the top just bounces, which is human."""
+        if scrolled_px <= 0:
+            return
+        try:
+            remaining = scrolled_px * random.uniform(0.95, 1.15)
+            h = int(self.screen_height)
+            # 1-2 controlled gestures (1:1 track, no fling) starting HIGH so the finger
+            # has room to travel down; second gesture only for long read-scrolls.
+            gestures = 1 if remaining <= 0.45 * h else 2
+            per = remaining / gestures
+            for _ in range(gestures):
+                self._human_swipe(direction="down", distance_px=per,
+                                  start_band=(0.18 * h, 0.32 * h), controlled=True)
+                time.sleep(random.uniform(0.25, 0.55))
+            self.logger.debug(f"📐 reframed post after reading (back ~{int(remaining)}px)")
+        except Exception as e:
+            self.logger.debug(f"post reframe failed: {e}")
 
     def browse_carousel_slides(self) -> int:
         """If the dominant on-screen post is a multi-slide carousel, swipe through 1-2 slides like
@@ -237,6 +271,7 @@ class PostReadingMixin:
         user may disable them); when off, the post is only dwelled on. Returns the total time spent
         on the post (seconds)."""
         start = time.monotonic()
+        self._last_reveal_scroll_px = 0
         if browse_carousels:
             try:
                 self.browse_carousel_slides()
@@ -253,7 +288,13 @@ class PostReadingMixin:
         spent = time.monotonic() - start                     # carousel/caption already took time
         remain = max(MIN_DWELL_S, target - spent)
         time.sleep(remain)
-        total = spent + remain
+        # Done reading: scroll back up so the post (image + button row) is framed again
+        # before anything acts on it (like / comment / AI screenshot).
+        reveal_px = getattr(self, "_last_reveal_scroll_px", 0)
+        if reveal_px >= _REFRAME_MIN_PX:
+            self._reframe_post_after_reading(reveal_px)
+        self._last_reveal_scroll_px = 0
+        total = time.monotonic() - start
         self.logger.debug(f"⏲️ reading: prose={prose}ch target={target:.1f}s active={spent:.1f}s "
                           f"dwell={remain:.1f}s total={total:.1f}s")
         return round(total, 1)

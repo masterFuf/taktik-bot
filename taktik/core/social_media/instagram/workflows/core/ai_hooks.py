@@ -110,8 +110,16 @@ def install_instagram_ai_hooks(
                     try:
                         scroll = getattr(self_comment, "scroll_actions", None)
                         if scroll is not None:
+                            scroll._last_reveal_scroll_px = 0
                             scroll.expand_caption_if_truncated()
                             post_caption = scroll.current_caption_text()
+                            # Reading may have scrolled down to reveal the caption —
+                            # reframe the post so the comment button click that follows
+                            # targets THIS post's row, not the next one's.
+                            reveal_px = getattr(scroll, "_last_reveal_scroll_px", 0)
+                            if reveal_px:
+                                scroll._reframe_post_after_reading(reveal_px)
+                                scroll._last_reveal_scroll_px = 0
                     except Exception as exc:
                         log("warning", f"Caption read failed for @{username}: {exc}")
 
