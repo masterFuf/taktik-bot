@@ -41,9 +41,11 @@ class InteractionEngineMixin:
         try:
             interactions_to_do = self._determine_interactions_from_config(config)
             # Resolve the per-profile plan: turns the rolled intents into concrete
-            # quantities — a likes target SAMPLED in [min,max] (no longer "always the max")
-            # and the single story slide to like (a human likes one slide, not all).
-            plan = build_interaction_plan(config, interactions_to_do)
+            # quantities — a likes target sampled PROPORTIONALLY to the profile's post count
+            # (a 10-post account gets few likes, a 500-post one can take more) and the single
+            # story slide to like (a human likes one slide, not all).
+            posts_count = (profile_data or {}).get('posts_count')
+            plan = build_interaction_plan(config, interactions_to_do, posts_count=posts_count)
             self.logger.debug(f"🎯 Plan for @{username}: {interactions_to_do} → "
                               f"likes={plan.like_target}, story_slot={plan.story_like_slot}")
 
@@ -52,6 +54,7 @@ class InteractionEngineMixin:
             # channel (action='plan'); no-op in standalone (no bridge adapter).
             IPCEmitter.emit_action('plan', username, {
                 'likes': plan.like_target,
+                'posts_count': posts_count or 0,
                 'story': plan.do_watch_story,
                 'story_like': plan.story_like_slot >= 0,
                 'follow': plan.do_follow,

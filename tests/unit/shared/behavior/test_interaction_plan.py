@@ -4,6 +4,7 @@ import random
 
 from taktik.core.shared.behavior.interaction_plan import (
     InteractionPlan,
+    proportional_like_cap,
     sample_like_target,
     sample_story_like_slot,
     build_interaction_plan,
@@ -35,6 +36,51 @@ def test_like_target_explicit_max_zero_disables():
     # An explicit max=0 means "no likes" — a default min=1 must not override it.
     assert sample_like_target(1, 0) == 0
     assert all(sample_like_target(1, 0) == 0 for _ in range(50))
+
+
+# ─── proportional_like_cap (likes scale with profile size) ───────────────────
+
+def test_proportional_cap_matches_operator_anchors():
+    # The two reference points Kevin gave: a small account likes few, a big one more.
+    assert proportional_like_cap(10, 1, 8) == 2
+    assert proportional_like_cap(500, 1, 8) == 8
+
+
+def test_proportional_cap_floor_and_ceiling():
+    assert proportional_like_cap(3, 1, 8) == 1          # tiny account -> floor
+    assert proportional_like_cap(100000, 1, 8) == 8     # huge account -> hard ceiling
+    assert proportional_like_cap(500, 2, 6) == 6        # never exceeds max
+    assert proportional_like_cap(10, 4, 8) == 4         # never below the explicit floor
+
+
+def test_proportional_cap_is_monotonic_non_decreasing():
+    caps = [proportional_like_cap(n, 1, 8) for n in (5, 10, 50, 100, 300, 500, 1000)]
+    assert caps == sorted(caps)                          # more posts never means fewer likes
+
+
+def test_proportional_cap_unknown_or_zero_posts_is_floor():
+    assert proportional_like_cap(0, 1, 8) == 1
+    assert proportional_like_cap(None, 2, 8) == 2
+
+
+def test_proportional_cap_max_zero_disables():
+    assert proportional_like_cap(500, 1, 0) == 0
+
+
+def test_sample_like_target_proportional_stays_near_cap():
+    rng = random.Random(11)
+    small = {sample_like_target(1, 8, posts_count=10, rng=rng) for _ in range(200)}
+    big = {sample_like_target(1, 8, posts_count=500, rng=rng) for _ in range(200)}
+    assert small <= {1, 2}                               # 10 posts -> ~2, never the full max
+    assert big <= {7, 8}                                 # 500 posts -> ~8
+    assert max(big) > max(small)                         # bigger profile gets more likes
+
+
+def test_sample_like_target_without_posts_is_legacy_uniform():
+    # Back-compat: no post-count info -> the old uniform [min,max] spread.
+    rng = random.Random(5)
+    vals = {sample_like_target(1, 3, rng=rng) for _ in range(200)}
+    assert vals == {1, 2, 3}
 
 
 # ─── sample_story_like_slot ──────────────────────────────────────────────────
@@ -71,6 +117,17 @@ def test_plan_story_like_slot_only_when_story_like_intent():
     # story_like rolled → a single slot in range
     p2 = build_interaction_plan(_cfg(), ['story', 'story_like'], rng=random.Random(2))
     assert p2.do_watch_story is True and 0 <= p2.story_like_slot <= 2
+
+
+def test_plan_like_target_proportional_to_posts_count():
+    cfg = {'min_likes_per_profile': 1, 'max_likes_per_profile': 8, 'max_stories_per_profile': 3}
+    small = build_interaction_plan(cfg, ['like'], posts_count=10, rng=random.Random(1))
+    big = build_interaction_plan(cfg, ['like'], posts_count=500, rng=random.Random(1))
+    assert small.like_target <= 2
+    assert big.like_target >= 7
+    # Without posts_count the legacy uniform draw still applies (back-compat).
+    legacy = build_interaction_plan(cfg, ['like'], rng=random.Random(1))
+    assert 1 <= legacy.like_target <= 8
 
 
 def test_plan_comment_carries_max():
