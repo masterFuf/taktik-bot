@@ -10,9 +10,17 @@ def build_workflow_config(
     probs: dict,
     session_duration: int = 30,
     delays: dict | None = None,
+    filters: dict | None = None,
+    max_consecutive_known: int | None = None,
 ) -> dict:
-    """Build a workflow config matching the format expected by InstagramAutomation."""
+    """Build a workflow config matching the format expected by InstagramAutomation.
+
+    When ``filters`` is provided (mirroring the real workflow's profile-filter
+    card) it is honoured verbatim, so a test run applies the exact same profile
+    selection as production instead of a permissive stub.
+    """
     max_profiles = limits.get("maxProfiles", 3)
+    min_likes = limits.get("minLikesPerProfile", 1)
     max_likes = limits.get("maxLikesPerProfile", 1)
     like_pct = probs.get("like", 80)
     follow_pct = probs.get("follow", 0)
@@ -31,6 +39,7 @@ def build_workflow_config(
         "interaction_type": interaction_type,
         "max_interactions": max_profiles,
         "like_posts": True,
+        "min_likes_per_profile": min_likes,
         "max_likes_per_profile": max_likes,
         "probabilities": {
             "like_percentage": like_pct,
@@ -75,25 +84,37 @@ def build_workflow_config(
         action_config["type"] = "post_url"
         action_config["post_url"] = target
 
+    f = filters or {}
+    allow_private = f.get("allowPrivate", True)
+    filters_config = {
+        "min_followers": f.get("minFollowers", 0),
+        "max_followers": f.get("maxFollowers", 999999999),
+        "min_followings": 0,
+        "max_followings": f.get("maxFollowing", 999999999),
+        "min_posts": f.get("minPosts", 0),
+        "privacy_relation": "public_and_private" if allow_private else "public",
+        # Real workflows read these allow_* flags from the filter criteria.
+        "allow_private": allow_private,
+        "allow_verified": f.get("allowVerified", True),
+        "allow_business": f.get("allowBusiness", True),
+        "blacklist_words": [],
+    }
+
+    session_settings = {
+        "workflow_type": session_wf_type,
+        "total_profiles_limit": max_profiles,
+        "total_follows_limit": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
+        "total_likes_limit": math.ceil(max_profiles * max_likes * like_pct / 100) if like_pct else 0,
+        "session_duration_minutes": session_duration,
+        "delay_between_actions": delays or {"min": 3, "max": 8},
+        "randomize_actions": False,
+    }
+    if max_consecutive_known is not None:
+        session_settings["max_consecutive_known_usernames"] = max_consecutive_known
+
     return {
-        "filters": {
-            "min_followers": 0,
-            "max_followers": 999999999,
-            "min_followings": 0,
-            "max_followings": 999999999,
-            "min_posts": 0,
-            "privacy_relation": "public_and_private",
-            "blacklist_words": [],
-        },
-        "session_settings": {
-            "workflow_type": session_wf_type,
-            "total_profiles_limit": max_profiles,
-            "total_follows_limit": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
-            "total_likes_limit": math.ceil(max_profiles * max_likes * like_pct / 100) if like_pct else 0,
-            "session_duration_minutes": session_duration,
-            "delay_between_actions": delays or {"min": 3, "max": 8},
-            "randomize_actions": False,
-        },
+        "filters": filters_config,
+        "session_settings": session_settings,
         "actions": [action_config],
     }
 

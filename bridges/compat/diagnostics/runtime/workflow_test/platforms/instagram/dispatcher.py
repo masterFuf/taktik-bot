@@ -35,6 +35,8 @@ def dispatch_instagram_workflow(
     automation,
     tracer,
     ipc,
+    filters: dict | None = None,
+    max_consecutive_known: int | None = None,
 ) -> WorkflowDispatchResult:
     """Dispatch an Instagram workflow family while preserving compat IPC events."""
     result = WorkflowDispatchResult()
@@ -47,6 +49,8 @@ def dispatch_instagram_workflow(
             probabilities=probabilities,
             session_duration=session_duration,
             delays=delays,
+            filters=filters,
+            max_consecutive_known=max_consecutive_known,
             automation=automation,
             device=device,
             tracer=tracer,
@@ -95,8 +99,13 @@ def _run_instagram_automation(
     device,
     tracer,
     ipc,
+    filters: dict | None = None,
+    max_consecutive_known: int | None = None,
 ):
-    workflow_config = build_workflow_config(workflow_type, target, limits, probabilities, session_duration, delays)
+    workflow_config = build_workflow_config(
+        workflow_type, target, limits, probabilities, session_duration, delays,
+        filters=filters, max_consecutive_known=max_consecutive_known,
+    )
     automation.config = workflow_config
 
     watchdog = None

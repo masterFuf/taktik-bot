@@ -47,6 +47,8 @@ def main():
     probs = request.probabilities
     session_duration = request.session_duration
     delays = request.delays
+    filters = request.filters
+    max_consecutive_known = request.max_consecutive_known
 
     setup_log_sink(ipc)
     setup_action_hooks(ipc)
@@ -71,6 +73,8 @@ def main():
         probabilities=probs,
         session_duration=session_duration,
         delays=delays,
+        filters=filters,
+        max_consecutive_known=max_consecutive_known,
         conn=session.connection,
         device=session.device,
         automation=session.automation,

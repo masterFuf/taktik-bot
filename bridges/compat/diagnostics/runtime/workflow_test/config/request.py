@@ -18,6 +18,9 @@ class WorkflowTestRequest:
     probabilities: dict
     session_duration: int
     delays: dict
+    # Profile filters mirroring the real workflow config (None = permissive defaults).
+    filters: dict | None = None
+    max_consecutive_known: int | None = None
 
 
 def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
@@ -65,6 +68,8 @@ def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
         probabilities=probabilities,
         session_duration=config.get("session_duration", 30),
         delays=config.get("delays", {"min": 3, "max": 8}),
+        filters=config.get("filters") or None,
+        max_consecutive_known=config.get("maxConsecutiveKnownUsernames"),
     )
 
 

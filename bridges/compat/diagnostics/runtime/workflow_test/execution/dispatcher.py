@@ -21,6 +21,8 @@ def dispatch_workflow(
     automation,
     tracer,
     ipc,
+    filters: dict | None = None,
+    max_consecutive_known: int | None = None,
 ) -> WorkflowDispatchResult:
     """Dispatch a workflow family while preserving compat diagnostic IPC events."""
     result = WorkflowDispatchResult()
@@ -34,6 +36,8 @@ def dispatch_workflow(
                 probabilities=probabilities,
                 session_duration=session_duration,
                 delays=delays,
+                filters=filters,
+                max_consecutive_known=max_consecutive_known,
                 conn=conn,
                 automation=automation,
                 device=device,
