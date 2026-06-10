@@ -16,6 +16,7 @@ PAUSE_STRATEGIES = {
 }
 
 PROFILE_IDS = {
+    "natural",
     "strict_test",
     "balanced",
     "careful",
@@ -44,7 +45,7 @@ class PausePolicy:
 
 @dataclass(frozen=True)
 class BehaviorPolicy:
-    profile_id: str = "balanced"
+    profile_id: str = "natural"
     seed: Optional[int] = None
     strict_regression: bool = False
     pause: Optional[PausePolicy] = None
@@ -124,8 +125,8 @@ def _profile_id(value: Any) -> str:
     if isinstance(value, str) and value in PROFILE_IDS:
         return value
     if value is not None:
-        logger.warning("[BehaviorPolicy] Unsupported profileId '{}', using balanced", value)
-    return "balanced"
+        logger.warning("[BehaviorPolicy] Unsupported profileId '{}', using natural", value)
+    return "natural"
 
 
 def _pause_strategy(value: Any) -> str:

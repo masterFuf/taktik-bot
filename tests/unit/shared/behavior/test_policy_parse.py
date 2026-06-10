@@ -57,7 +57,7 @@ def test_parse_behavior_policy_partial_payload_uses_defaults():
     policy = parse_behavior_policy({"behaviorPolicy": {"pausePolicy": {"enabled": True}}})
 
     assert policy is not None
-    assert policy.profile_id == "balanced"
+    assert policy.profile_id == "natural"
     assert policy.seed is None
     assert policy.strict_regression is False
     assert policy.pause is not None
@@ -88,7 +88,7 @@ def test_parse_behavior_policy_invalid_values_fallback_safely():
     )
 
     assert policy is not None
-    assert policy.profile_id == "balanced"
+    assert policy.profile_id == "natural"
     assert policy.seed is None
     assert policy.strict_regression is False
     assert policy.pause is not None

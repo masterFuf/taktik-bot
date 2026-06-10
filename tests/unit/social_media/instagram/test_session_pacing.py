@@ -10,12 +10,12 @@ def test_explicit_user_delay_wins_backcompat():
         assert 5 <= sm.get_delay_between_actions() <= 15
 
 
-def test_no_explicit_delay_uses_balanced_default():
-    # No explicit delay, no profile → default 'balanced' = historical 5-15s.
+def test_no_explicit_delay_uses_natural_default():
+    # No explicit delay, no profile → default 'natural' = no systematic inter-step pause.
     sm = SessionManager({'session_settings': {}})
-    assert sm.pacing.profile_id == 'balanced'
+    assert sm.pacing.profile_id == 'natural'
     for _ in range(50):
-        assert 5 <= sm.get_delay_between_actions() <= 15
+        assert 0 <= sm.get_delay_between_actions() <= 1
 
 
 def test_profile_drives_delay_when_no_explicit():
@@ -38,9 +38,9 @@ def test_explicit_delay_overrides_profile():
         assert 2 <= sm.get_delay_between_actions() <= 4
 
 
-def test_unknown_profile_falls_back_to_balanced():
+def test_unknown_profile_falls_back_to_natural():
     sm = SessionManager({'session_settings': {}, 'behaviorPolicy': {'profileId': 'nope'}})
-    assert sm.pacing.profile_id == 'balanced'
+    assert sm.pacing.profile_id == 'natural'
 
 
 def test_update_config_reresolves_pacing_profile():
@@ -51,6 +51,6 @@ def test_update_config_reresolves_pacing_profile():
     assert sm.pacing.profile_id == 'careful'
     for _ in range(30):
         assert 8 <= sm.get_delay_between_actions() <= 24
-    # dropping the profile reverts to balanced
+    # dropping the profile reverts to the default 'natural'
     sm.update_config({'session_settings': {}})
-    assert sm.pacing.profile_id == 'balanced'
+    assert sm.pacing.profile_id == 'natural'

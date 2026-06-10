@@ -1,4 +1,5 @@
-"""Pacing profiles — 'balanced' reproduces today; variants are slower/faster; safe resolve."""
+"""Pacing profiles — 'natural' (default) has no inter-step pause; 'balanced' keeps the former
+5-15s; variants are slower/faster; safe resolve."""
 
 from taktik.core.shared.behavior.profiles import (
     PacingProfile,
@@ -9,7 +10,7 @@ from taktik.core.shared.behavior.profiles import (
 
 def test_balanced_reproduces_current_values():
     p = PACING_PROFILES["balanced"]
-    # The historical hardcoded numbers — making 'balanced' the default must be a no-op.
+    # The FORMER default's hardcoded numbers — still available by explicit id.
     assert (p.action_delay_min, p.action_delay_max) == (5.0, 15.0)
     assert (p.fatigue_base, p.fatigue_per_minute, p.fatigue_cap) == (1.0, 0.6, 1.5)
     assert (p.short_break_every_min, p.short_break_every_max) == (8, 15)
@@ -18,10 +19,21 @@ def test_balanced_reproduces_current_values():
     assert (p.long_break_min_s, p.long_break_max_s) == (60.0, 180.0)
 
 
-def test_resolve_defaults_to_balanced():
-    assert resolve_pacing_profile(None).profile_id == "balanced"
-    assert resolve_pacing_profile("does_not_exist").profile_id == "balanced"
+def test_natural_is_default_with_no_inter_step_pause():
+    p = PACING_PROFILES["natural"]
+    # The new default: essentially no systematic inter-step delay (a tiny varied gap)…
+    assert p.action_delay_min == 0.0 and p.action_delay_max <= 1.0
+    # …but the occasional real breaks are KEPT (same as balanced) — those are human.
+    b = PACING_PROFILES["balanced"]
+    assert (p.short_break_min_s, p.short_break_max_s) == (b.short_break_min_s, b.short_break_max_s)
+    assert (p.long_break_every_min, p.long_break_every_max) == (b.long_break_every_min, b.long_break_every_max)
+
+
+def test_resolve_defaults_to_natural():
+    assert resolve_pacing_profile(None).profile_id == "natural"
+    assert resolve_pacing_profile("does_not_exist").profile_id == "natural"
     assert resolve_pacing_profile("careful").profile_id == "careful"
+    assert resolve_pacing_profile("balanced").profile_id == "balanced"
 
 
 def test_careful_is_slower_than_balanced():

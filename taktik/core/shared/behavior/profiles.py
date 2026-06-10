@@ -2,17 +2,19 @@
 
 A human's pace (delay between actions, how fast fatigue builds, how often they take a break)
 is a *style*, not a number the operator should tune in seconds. `PacingProfile` resolves a
-profile id ('balanced' / 'careful' / 'fast_debug' / 'slow_reader' / 'strict_test') into the
-concrete pacing numbers the engine uses.
+profile id ('natural' / 'balanced' / 'careful' / 'fast' / … ) into the concrete pacing
+numbers the engine uses.
 
-`balanced` reproduces TODAY's behaviour exactly (delay 5-15s, fatigue 1.0→×1.5 over an hour,
-short break every 8-15 interactions for 5-15s, long break every 30-50 for 60-180s) so making
-it the default is a no-op. The variants are slower ('careful', 'slow_reader') or faster
-('fast_debug') around that baseline.
+DEFAULT is `natural` (since 2026-06-10): NO systematic inter-step pause — the bot is already
+slow from real work (UI nav, AI analysis, scrolling), so the old 5-15s gap was superfluous
+and read as robotic (confirmed by run cadence measurement). `balanced` reproduces the FORMER
+default exactly (delay 5-15s, fatigue 1.0→×1.5/hour, breaks 5-15s/60-180s) and stays available
+by explicit id. Variants are slower ('careful', 'slow_reader') or faster ('fast', 'fast_debug').
 
-Wiring (Lot 3): `SessionManager.get_delay_between_actions` reads the profile's delay when no
-explicit user delay is set (back-compat: an explicit `delay_between_actions` still wins until
-the UI drops it in Lot 4). The fatigue/breaks fields are part of the model for completeness;
+Wiring: `SessionManager.get_delay_between_actions` reads the profile's delay when no explicit
+user delay is set (an explicit `delay_between_actions` still wins). The fatigue/breaks fields
+are part of the model for completeness (the small `_human_like_delay` hesitations and the
+`_maybe_take_break` occasional pauses are kept — they're human, not robotic);
 wiring them is deferred because `HumanBehavior` is a shared singleton (per-session injection
 would clobber across parallel devices — see the redesign spec).
 
@@ -54,7 +56,21 @@ _BALANCED = PacingProfile(
     long_break_every_min=30, long_break_every_max=50, long_break_min_s=60.0, long_break_max_s=180.0,
 )
 
+# 'natural' is the NEW DEFAULT (Kevin, 2026-06-10): the bot is already slow from real work
+# (UI nav, AI analysis, scrolling), so the systematic 5-15s inter-step pause was superfluous
+# and read as robotic. Near-zero inter-step delay (a tiny varied gap to avoid metronomic
+# regularity) — the small contextual `_human_like_delay` hesitations and the occasional real
+# breaks (kept identical to balanced below) provide the human texture instead.
+_NATURAL = PacingProfile(
+    profile_id="natural",
+    action_delay_min=0.0, action_delay_max=1.0,
+    fatigue_base=1.0, fatigue_per_minute=0.6, fatigue_cap=1.5,
+    short_break_every_min=8, short_break_every_max=15, short_break_min_s=5.0, short_break_max_s=15.0,
+    long_break_every_min=30, long_break_every_max=50, long_break_min_s=60.0, long_break_max_s=180.0,
+)
+
 PACING_PROFILES = {
+    "natural": _NATURAL,
     "balanced": _BALANCED,
     # Slower, more cautious: longer gaps, fatigue builds faster, breaks more often + longer.
     "careful": PacingProfile(
@@ -100,8 +116,11 @@ PACING_PROFILES = {
 
 
 def resolve_pacing_profile(profile_id) -> PacingProfile:
-    """Return the PacingProfile for an id, defaulting to 'balanced' for unknown/None."""
-    return PACING_PROFILES.get(profile_id or "balanced", _BALANCED)
+    """Return the PacingProfile for an id, defaulting to 'natural' for unknown/None.
+
+    'natural' (no systematic inter-step pause) is the default since 2026-06-10 — the old
+    5-15s 'balanced' pacing is still available by explicit id for callers that want it."""
+    return PACING_PROFILES.get(profile_id or "natural", _NATURAL)
 
 
 __all__ = ["PacingProfile", "PACING_PROFILES", "resolve_pacing_profile"]
