@@ -17,10 +17,14 @@ class WorkflowTestRequest:
     limits: dict
     probabilities: dict
     session_duration: int
-    delays: dict
+    # Explicit between-actions delay window. None when the run is rhythm-driven
+    # (the pacing profile from behavior_policy provides the delays instead).
+    delays: dict | None
     # Profile filters mirroring the real workflow config (None = permissive defaults).
     filters: dict | None = None
     max_consecutive_known: int | None = None
+    # Pacing/behaviour profile mirroring the real workflow ({"profileId": "balanced"|...}).
+    behavior_policy: dict | None = None
 
 
 def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
@@ -67,9 +71,12 @@ def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
         limits=limits,
         probabilities=probabilities,
         session_duration=config.get("session_duration", 30),
-        delays=config.get("delays", {"min": 3, "max": 8}),
+        # Absent delays => rhythm-driven; the automation builder omits the explicit
+        # delay window so the pacing profile takes over.
+        delays=config.get("delays"),
         filters=config.get("filters") or None,
         max_consecutive_known=config.get("maxConsecutiveKnownUsernames"),
+        behavior_policy=config.get("behaviorPolicy") or None,
     )
 
 

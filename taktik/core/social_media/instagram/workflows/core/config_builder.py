@@ -179,8 +179,12 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     min_posts = filters.get("minPosts", 5)
     max_followings = filters.get("maxFollowing", 7500)
     session_duration = session_config.get("durationMinutes", 60)
-    min_delay = session_config.get("minDelay", 5)
-    max_delay = session_config.get("maxDelay", 15)
+    # Explicit user delays are OPTIONAL now: when the UI sends a pacing profile instead
+    # (behaviorPolicy) it omits minDelay/maxDelay, and the SessionManager derives the
+    # between-actions delay from the profile. Only emit delay_between_actions when the
+    # operator set explicit seconds (back-compat for pages that still send them).
+    min_delay = session_config.get("minDelay")
+    max_delay = session_config.get("maxDelay")
     max_consecutive_known_usernames = session_config.get("maxConsecutiveKnownUsernames")
     if max_consecutive_known_usernames is not None:
         max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
@@ -244,21 +248,24 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
         else 0,
         "session_duration_minutes": session_duration,
         "skip_initial_restart": True,
-        "delay_between_actions": {
-            "min": min_delay,
-            "max": max_delay,
-        },
         "randomize_actions": True,
         "enable_screenshots": True,
         "screenshot_path": "screenshots",
     }
+
+    # Only honour explicit user delays; otherwise the pacing profile drives the rhythm.
+    if min_delay is not None or max_delay is not None:
+        session_settings["delay_between_actions"] = {
+            "min": min_delay if min_delay is not None else 5,
+            "max": max_delay if max_delay is not None else 15,
+        }
 
     if max_consecutive_known_usernames is not None:
         session_settings["max_consecutive_known_usernames"] = max_consecutive_known_usernames
     if max_no_new_usernames_scrolls is not None:
         session_settings["max_no_new_usernames_scrolls"] = max_no_new_usernames_scrolls
 
-    return {
+    built: Dict[str, Any] = {
         "filters": {
             "min_followers": min_followers,
             "max_followers": max_followers,
@@ -290,6 +297,14 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
         ],
     }
 
+    # Pass the pacing/behaviour profile through to the SessionManager (which reads
+    # config["behaviorPolicy"] via parse_behavior_policy) so the rhythm selector works.
+    behavior_policy = raw_config.get("behaviorPolicy")
+    if behavior_policy is not None:
+        built["behaviorPolicy"] = behavior_policy
+
+    return built
+
 
 def build_instagram_session_config_event(
     raw_config: Dict[str, Any],
@@ -305,9 +320,16 @@ def build_instagram_session_config_event(
 
     session_payload: Dict[str, Any] = {
         "durationMinutes": session_config.get("durationMinutes", 60),
-        "minDelay": session_config.get("minDelay", 5),
-        "maxDelay": session_config.get("maxDelay", 15),
     }
+    # Faithful to the rhythm model: only advertise explicit delays. When the run is
+    # rhythm-driven (no minDelay/maxDelay) the analyzer shows "Rythme" instead of a
+    # fake 5-15s window and skips delay-violation checks against bounds that don't apply.
+    min_delay = session_config.get("minDelay")
+    max_delay = session_config.get("maxDelay")
+    if min_delay is not None:
+        session_payload["minDelay"] = min_delay
+    if max_delay is not None:
+        session_payload["maxDelay"] = max_delay
     if session_config.get("maxConsecutiveKnownUsernames") is not None:
         session_payload["maxConsecutiveKnownUsernames"] = session_config.get(
             "maxConsecutiveKnownUsernames"
@@ -340,6 +362,11 @@ def build_instagram_session_config_event(
         },
         "session": session_payload,
     }
+
+    # Surface the pacing/rhythm profile so the UI can show "Rythme : prudent/équilibré/rapide".
+    behavior_policy = raw_config.get("behaviorPolicy")
+    if behavior_policy is not None:
+        payload["behaviorPolicy"] = behavior_policy
 
     if ai_enabled:
         payload["ai"] = {

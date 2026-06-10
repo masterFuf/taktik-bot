@@ -12,12 +12,18 @@ def build_workflow_config(
     delays: dict | None = None,
     filters: dict | None = None,
     max_consecutive_known: int | None = None,
+    behavior_policy: dict | None = None,
 ) -> dict:
     """Build a workflow config matching the format expected by InstagramAutomation.
 
     When ``filters`` is provided (mirroring the real workflow's profile-filter
     card) it is honoured verbatim, so a test run applies the exact same profile
     selection as production instead of a permissive stub.
+
+    Mirroring the real config surface (Lot 4): when ``delays`` is None the run is
+    rhythm-driven, so ``delay_between_actions`` is omitted and the SessionManager
+    derives the pace from ``behavior_policy`` (the pacing profile). When ``delays``
+    is provided it wins for back-compat, exactly like the production path.
     """
     max_profiles = limits.get("maxProfiles", 3)
     min_likes = limits.get("minLikesPerProfile", 1)
@@ -106,17 +112,24 @@ def build_workflow_config(
         "total_follows_limit": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
         "total_likes_limit": math.ceil(max_profiles * max_likes * like_pct / 100) if like_pct else 0,
         "session_duration_minutes": session_duration,
-        "delay_between_actions": delays or {"min": 3, "max": 8},
         "randomize_actions": False,
     }
+    # Explicit delays win for back-compat; absent => the pacing profile drives the rhythm.
+    if delays:
+        session_settings["delay_between_actions"] = delays
     if max_consecutive_known is not None:
         session_settings["max_consecutive_known_usernames"] = max_consecutive_known
 
-    return {
+    config = {
         "filters": filters_config,
         "session_settings": session_settings,
         "actions": [action_config],
     }
+    # Top-level behaviorPolicy mirrors the production config: SessionManager reads it to
+    # resolve the pacing profile (taktik/core/shared/behavior/profiles.py).
+    if behavior_policy:
+        config["behaviorPolicy"] = behavior_policy
+    return config
 
 
 def _resolve_workflow_types(workflow_type: str) -> tuple[str, str, str]:

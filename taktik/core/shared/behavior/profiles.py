@@ -72,7 +72,15 @@ PACING_PROFILES = {
         short_break_every_min=8, short_break_every_max=15, short_break_min_s=8.0, short_break_max_s=18.0,
         long_break_every_min=28, long_break_every_max=46, long_break_min_s=70.0, long_break_max_s=200.0,
     ),
-    # Faster, for debugging / low-risk accounts: tight gaps, little fatigue, rare short breaks.
+    # Faster real profile (user-facing 'Rapide'): tighter gaps, light fatigue, less frequent breaks.
+    "fast": PacingProfile(
+        profile_id="fast",
+        action_delay_min=2.0, action_delay_max=6.0,
+        fatigue_base=1.0, fatigue_per_minute=0.3, fatigue_cap=1.3,
+        short_break_every_min=18, short_break_every_max=30, short_break_min_s=4.0, short_break_max_s=10.0,
+        long_break_every_min=60, long_break_every_max=90, long_break_min_s=30.0, long_break_max_s=90.0,
+    ),
+    # Extreme/deterministic-ish for debugging: very tight gaps, almost no breaks.
     "fast_debug": PacingProfile(
         profile_id="fast_debug",
         action_delay_min=1.0, action_delay_max=4.0,

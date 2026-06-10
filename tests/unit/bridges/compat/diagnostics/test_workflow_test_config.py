@@ -66,3 +66,35 @@ def test_omitting_filters_keeps_permissive_defaults():
     assert f["privacy_relation"] == "public_and_private"
     # No consecutive-known cap when not supplied.
     assert "max_consecutive_known_usernames" not in cfg["session_settings"]
+
+
+def test_rhythm_driven_omits_explicit_delays_and_passes_behavior_policy():
+    """No explicit delays + a behaviorPolicy => the pacing profile drives the rhythm.
+
+    Mirrors the redesigned Instagram config surface (Lot 4): the SessionManager then
+    derives the between-actions delay from the profile instead of a fixed window.
+    """
+    cfg = build_workflow_config(
+        "target_followers", "natgeo", _base_limits(), _base_probs(),
+        session_duration=60, delays=None,
+        behavior_policy={"profileId": "fast"},
+    )
+    assert "delay_between_actions" not in cfg["session_settings"]
+    assert cfg["behaviorPolicy"] == {"profileId": "fast"}
+
+
+def test_explicit_delays_win_and_behavior_policy_passes_through():
+    cfg = build_workflow_config(
+        "target_followers", "natgeo", _base_limits(), _base_probs(),
+        session_duration=60, delays={"min": 7, "max": 20},
+        behavior_policy={"profileId": "careful"},
+    )
+    assert cfg["session_settings"]["delay_between_actions"] == {"min": 7, "max": 20}
+    assert cfg["behaviorPolicy"] == {"profileId": "careful"}
+
+
+def test_no_behavior_policy_leaves_config_without_top_level_key():
+    cfg = build_workflow_config(
+        "target_followers", "natgeo", _base_limits(), _base_probs(),
+    )
+    assert "behaviorPolicy" not in cfg

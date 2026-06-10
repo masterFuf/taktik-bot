@@ -20,6 +20,7 @@ PROFILE_IDS = {
     "balanced",
     "careful",
     "slow_reader",
+    "fast",
     "fast_debug",
 }
 

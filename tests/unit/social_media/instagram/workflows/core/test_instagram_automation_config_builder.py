@@ -183,3 +183,25 @@ def test_builds_session_config_event_with_optional_ai_payload():
             "postAnalysis": True,
         },
     }
+
+
+def test_session_config_event_is_rhythm_driven_when_no_explicit_delays():
+    """A rhythm-driven run advertises no delay window and surfaces the pacing profile,
+    so the analyzer shows "Rythme" instead of a misleading fixed window."""
+    payload = build_instagram_session_config_event(
+        {
+            "deviceId": "device-1",
+            "workflowType": "target_followers",
+            "target": "alpha",
+            "limits": {"maxProfiles": 9, "maxLikesPerProfile": 3},
+            "probabilities": {"like": 100, "follow": 15, "comment": 5, "watchStories": 100, "likeStories": 30},
+            "filters": {"minFollowers": 20, "maxFollowers": 2000, "minPosts": 2, "maxFollowing": 700},
+            "session": {"durationMinutes": 30},
+            "behaviorPolicy": {"profileId": "fast"},
+        }
+    )
+
+    assert "minDelay" not in payload["session"]
+    assert "maxDelay" not in payload["session"]
+    assert payload["session"]["durationMinutes"] == 30
+    assert payload["behaviorPolicy"] == {"profileId": "fast"}
