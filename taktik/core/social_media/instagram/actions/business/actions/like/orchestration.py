@@ -9,6 +9,8 @@ from ....core.base_business import BaseBusinessAction
 from ...management.profile import ProfileBusiness
 from .post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
+from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
+from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
@@ -171,12 +173,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
             self.logger.success("Entry post opened, starting sequential scroll")
 
-            # A human looks at the FIRST post too before acting — same reading beat
-            # (carousel + description + content-aware dwell) as every later advance.
-            try:
-                self.scroll_actions.human_reading_pause()
-            except Exception as e:
-                self.logger.debug(f"entry reading pause skipped: {e}")
+            # A human glances at the first post on arrival; the deliberate description
+            # read is handled per-post by the engagement sequence (engagement_sequence).
+            time.sleep(content_dwell(0))
 
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
@@ -228,61 +227,40 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     self.logger.success(f"Goal reached: {posts_liked}/{max_likes} posts liked - stopping scroll")
                     break
                 
-                # Use should_like parameter to determine if we should attempt to like
-                # This respects the user's like_probability setting from the workflow
+                # Decide whether to engage this post (probability gate kept — respects the
+                # user's like_probability + a position factor so not every post is liked).
                 if should_like:
-                    # Add some randomness to which posts we like (not all of them)
                     base_probability = 0.70
-                    position_factor = 1.0
-                    if unique_posts_seen <= 2:
-                        position_factor = 0.8
-                    elif unique_posts_seen <= 5:
-                        position_factor = 1.0
-                    else:
-                        position_factor = 1.2
-                    
+                    position_factor = 0.8 if unique_posts_seen <= 2 else (1.0 if unique_posts_seen <= 5 else 1.2)
                     final_probability = base_probability * position_factor
                     should_like_this_post = random.random() < final_probability
-                    self.logger.debug(f"Post #{posts_seen}: like_probability={final_probability:.2f} (base={base_probability:.2f}, position_factor={position_factor:.1f})")
+                    self.logger.debug(f"Post #{posts_seen}: like_probability={final_probability:.2f}")
                 else:
                     should_like_this_post = False
-                    final_probability = 0.0
-                    self.logger.debug(f"Post #{posts_seen}: liking disabled by config")
-                
+
                 if should_like_this_post and posts_liked < max_likes:
-                    # Vérifier d'abord si le post est déjà liké
                     if self._is_post_already_liked():
                         self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")
                         stats['already_liked'] = stats.get('already_liked', 0) + 1
-                    elif self.like_current_post():
-                        posts_liked += 1
-                        stats['posts_liked'] = posts_liked
-                        self.logger.success(f"Post #{posts_seen} liked successfully ({posts_liked}/{max_likes})")
-                        
-                        if should_comment and posts_commented < max_comments:
-                            try:
-                                from ..comment import CommentBusiness
-                                comment_business = CommentBusiness(self.device, self.session_manager, self.automation)
-                                comment_result = comment_business.comment_on_post(
-                                    custom_comments=custom_comments,
-                                    template_category=comment_template_category,
-                                    config=config,
-                                    username=username
-                                )
-                                if comment_result.get('commented'):
-                                    posts_commented += 1
-                                    stats['posts_commented'] = posts_commented
-                                    self.logger.success(f"✅ Comment posted: '{comment_result.get('comment_text')}' ({posts_commented}/{max_comments})")
-                                else:
-                                    self.logger.debug(f"Comment failed on post #{posts_seen}")
-                            except Exception as e:
-                                self.logger.error(f"Error commenting on post #{posts_seen}: {e}")
-                        elif should_comment and posts_commented >= max_comments:
-                            self.logger.debug(f"Max comments reached ({posts_commented}/{max_comments}) - skipping comment")
                     else:
-                        self.logger.warning(f"Failed to like post #{posts_seen}")
+                        do_comment_this = should_comment and posts_commented < max_comments
+                        # Vary the choreography: like / read description / comment in a
+                        # human, non-fixed order (A: like→read→comment, B: read→like→comment,
+                        # C: like+comment no read, D: read→like, …). See engagement_sequence.
+                        sequence = plan_engagement_sequence(True, do_comment_this)
+                        self.logger.debug(f"Post #{posts_seen}: engagement pattern {sequence}")
+                        liked_ok, commented_ok = self._run_engagement_sequence(
+                            sequence, username, custom_comments, comment_template_category, config
+                        )
+                        if liked_ok:
+                            posts_liked += 1
+                            stats['posts_liked'] = posts_liked
+                            self.logger.success(f"Post #{posts_seen} liked ({posts_liked}/{max_likes})")
+                        if commented_ok:
+                            posts_commented += 1
+                            stats['posts_commented'] = posts_commented
                 else:
-                    self.logger.debug(f"Post #{posts_seen} skipped (probability: {final_probability:.2f})")
+                    self.logger.debug(f"Post #{posts_seen} not engaged")
                 
                 if posts_seen < max_posts_to_see:
                     scroll_count = 1
@@ -345,6 +323,83 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
+            return False
+
+    def _current_post_signature(self) -> str:
+        """A cheap identity signature of the on-screen post (likes_comments_isreel) — used
+        to detect that a description read scrolled the frame onto a DIFFERENT post before we
+        act. Empty string if it can't be read."""
+        try:
+            is_reel = self._is_current_post_reel()
+            likes = self._extract_likes_count_from_ui(is_reel=is_reel)
+            comments = self._extract_comments_count_from_ui(is_reel=is_reel)
+            return f"{likes}_{comments}_{is_reel}"
+        except Exception:
+            return ""
+
+    def _run_engagement_sequence(self, sequence, username, custom_comments,
+                                 comment_template_category, config) -> tuple:
+        """Execute the ordered engagement steps (read / like / comment) for one post.
+
+        A failed like aborts the rest. CRUCIALLY: reading a description can scroll the
+        frame onto the NEXT post (the reframe is best-effort, see PostReadingMixin), so any
+        like/comment that FOLLOWS a read is guarded by a post-identity signature check —
+        without it, pattern E (read→comment→like) could post a comment on the wrong post.
+        On drift we abort the post's sequence rather than act on the wrong post."""
+        liked = commented = False
+        sig_before_read = None   # set after a read → the next action must re-verify identity
+
+        for step in sequence:
+            if step == 'read':
+                sig_before_read = self._current_post_signature()
+                self._read_post_description()
+            elif step in ('like', 'comment'):
+                # If a read just happened, confirm we're still on the same post.
+                if sig_before_read is not None:
+                    if self._current_post_signature() != sig_before_read:
+                        self.logger.warning("Frame drifted after reading the description — "
+                                            "aborting this post's sequence (wrong post)")
+                        break
+                    sig_before_read = None   # confirmed once; our own like changes the count
+                if step == 'like':
+                    if self.like_current_post():
+                        liked = True
+                    else:
+                        self.logger.warning("Failed to like — aborting this post's sequence")
+                        break
+                else:  # comment
+                    if self._comment_current_post(username, custom_comments,
+                                                  comment_template_category, config):
+                        commented = True
+        return liked, commented
+
+    def _read_post_description(self) -> None:
+        """Open + read the post's description like a human (carousel + caption expand +
+        content-aware dwell), then reframe the post so the next action (like/comment)
+        targets the right screen. Reuses the shared PostReadingMixin via scroll_actions."""
+        try:
+            self.scroll_actions.human_reading_pause()
+        except Exception as e:
+            self.logger.debug(f"read description skipped: {e}")
+
+    def _comment_current_post(self, username, custom_comments, comment_template_category, config) -> bool:
+        """Post a comment on the current post. Returns True if a comment was posted."""
+        try:
+            from ..comment import CommentBusiness
+            comment_business = CommentBusiness(self.device, self.session_manager, self.automation)
+            comment_result = comment_business.comment_on_post(
+                custom_comments=custom_comments,
+                template_category=comment_template_category,
+                config=config,
+                username=username,
+            )
+            if comment_result.get('commented'):
+                self.logger.success(f"✅ Comment posted: '{comment_result.get('comment_text')}'")
+                return True
+            self.logger.debug("Comment not posted")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error commenting: {e}")
             return False
 
     def _double_tap_like_image(self) -> bool:

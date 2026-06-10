@@ -295,14 +295,11 @@ class PostNavigationMixin:
                     advanced = self.scroll_actions._strong_flick(
                         direction="up", distance_px=random.uniform(0.55, 0.72) * height
                     )
-                # Read the revealed post like the feed does: browse a carousel's slides,
-                # expand & read a truncated description, then dwell proportionally to the
-                # caption's prose (PostReadingMixin via scroll_actions) — not a blind beat.
-                try:
-                    self.scroll_actions.human_reading_pause()
-                except Exception as e:
-                    self.logger.debug(f"reading pause fallback: {e}")
-                    time.sleep(content_dwell(0))
+                # A human GLANCES at each post while scrolling — a short, varied dwell.
+                # The deliberate "open + read the full description" is no longer done on
+                # every advance: it's now an engagement step (see engagement_sequence), so
+                # posts we act on get the full read+reframe and the rest get a glance.
+                time.sleep(content_dwell(0))
 
                 if advanced and self._is_in_post_view():
                     self.logger.debug(f"Navigation successful via human {mode}")
