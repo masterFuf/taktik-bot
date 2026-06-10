@@ -5,6 +5,7 @@ from loguru import logger
 
 from ...core.base_business import BaseBusinessAction
 from ..management.profile import ProfileBusiness
+from taktik.core.shared.behavior.interaction_plan import sample_story_like_slot
 
 
 class StoryBusiness(BaseBusinessAction):
@@ -25,6 +26,17 @@ class StoryBusiness(BaseBusinessAction):
             'skip_viewed_stories': True
         }
     
+    def _plan_story_engagement(self, config: Dict[str, Any], max_stories: int) -> tuple:
+        """Decide, ONCE per story session, whether to leave a single like / a single
+        reaction and on WHICH slide. A human likes/reacts to one slide that resonates,
+        never every slide — so the probability gates ONE engagement, not a per-slide roll.
+        Returns (like_slot, react_slot), each a 0-based slide index or -1 (none)."""
+        like_p = config.get('like_probability', 0.0)
+        react_p = config.get('reaction_probability', 0.0)
+        like_slot = sample_story_like_slot(max_stories) if random.random() < like_p else -1
+        react_slot = sample_story_like_slot(max_stories) if random.random() < react_p else -1
+        return like_slot, react_slot
+
     def view_profile_stories(self, username: str,
                            max_stories: int = 5,
                            config: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -67,7 +79,10 @@ class StoryBusiness(BaseBusinessAction):
                 max_stories = min(max_stories, total_stories)
             else:
                 self.logger.debug(f"Story count not detected, using max_stories={max_stories}")
-            
+
+            # Leave AT MOST one like on a single slide (varied position), not one per slide.
+            like_slot, _ = self._plan_story_engagement(config, max_stories)
+
             for i in range(max_stories):
                 try:
                     if not self.detection_actions.is_story_viewer_open():
@@ -96,23 +111,27 @@ class StoryBusiness(BaseBusinessAction):
                     time.sleep(view_duration)
                     
                     stats['stories_viewed'] += 1
-                    
+
                     # Record story view in database
                     self._record_action(username, 'STORY_WATCH', 1)
-                    
-                    if random.random() < config.get('like_probability', 0.3):
+
+                    # Like at most ONE slide, at the planned position.
+                    if like_slot >= 0 and stats['stories_liked'] == 0 and i == like_slot:
                         if self.click_actions.like_story():
                             stats['stories_liked'] += 1
                             self.logger.debug(f"Story {i+1} liked")
-                            
-                            # Record story like in database
                             self._record_action(username, 'STORY_LIKE', 1)
-                    
+
                     if i < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story():
                             self.logger.debug("No next story or end of stories")
+                            # Last slide reached early: leave the planned like here if missed.
+                            if like_slot >= 0 and stats['stories_liked'] == 0:
+                                if self.click_actions.like_story():
+                                    stats['stories_liked'] += 1
+                                    self._record_action(username, 'STORY_LIKE', 1)
                             break
-                        
+
                         delay = random.uniform(*config['navigation_delay_range'])
                         time.sleep(delay)
                 
@@ -206,6 +225,10 @@ class StoryBusiness(BaseBusinessAction):
 
                 stats['profiles_opened'] += 1
                 current_username = None
+                # Per friend's story: at most ONE like and ONE reaction, each on a single
+                # planned slide — not one per slide.
+                like_slot, react_slot = self._plan_story_engagement(config, max_stories)
+                liked_this = reacted_this = False
 
                 for story_index in range(max_stories):
                     if not self.detection_actions.is_story_viewer_open():
@@ -230,21 +253,31 @@ class StoryBusiness(BaseBusinessAction):
                     stats['stories_viewed'] += 1
                     self._record_action(current_username, 'STORY_WATCH', 1)
 
-                    if random.random() < config.get('like_probability', 0.0):
+                    # One like, on the planned slide only.
+                    if like_slot >= 0 and not liked_this and story_index == like_slot:
                         if self.click_actions.like_story():
+                            liked_this = True
                             stats['stories_liked'] += 1
                             self._record_action(current_username, 'STORY_LIKE', 1)
 
-                    if random.random() < config.get('reaction_probability', 0.0):
+                    # One reaction, on the planned slide only.
+                    if react_slot >= 0 and not reacted_this and story_index == react_slot:
                         if self.click_actions.react_to_story(
                             reaction=config.get('reaction'),
                             emoji_index=config.get('reaction_index'),
                         ):
+                            reacted_this = True
                             stats['stories_reacted'] += 1
                             self._record_action(current_username, 'STORY_REACTION', 1)
 
                     if story_index < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story():
+                            # Last slide early: leave the planned like here if missed.
+                            if like_slot >= 0 and not liked_this:
+                                if self.click_actions.like_story():
+                                    liked_this = True
+                                    stats['stories_liked'] += 1
+                                    self._record_action(current_username, 'STORY_LIKE', 1)
                             break
                         time.sleep(random.uniform(*config['navigation_delay_range']))
 

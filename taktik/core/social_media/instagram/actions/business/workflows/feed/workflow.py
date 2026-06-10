@@ -14,10 +14,9 @@ from ....core.base_business import BaseBusinessAction
 from ....core.stats import create_workflow_stats
 from ....core.ipc import IPCEmitter
 from .post_actions import FeedPostActionsMixin
-from .user_interactions import FeedUserInteractionsMixin
 
 
-class FeedBusiness(FeedPostActionsMixin, FeedUserInteractionsMixin, BaseBusinessAction):
+class FeedBusiness(FeedPostActionsMixin, BaseBusinessAction):
     """Business logic for interacting with users from the home feed."""
 
     # Consecutive "filler" advances (only ads/suggestions) before the followed feed is
