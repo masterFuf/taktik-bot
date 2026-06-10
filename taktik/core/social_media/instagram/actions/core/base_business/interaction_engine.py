@@ -11,6 +11,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_count,
     sample_story_like_slots,
 )
+from taktik.core.shared.telemetry import emit_step
 
 
 class InteractionEngineMixin:
@@ -108,6 +109,11 @@ class InteractionEngineMixin:
                     if like_meets_threshold and result['likes'] > 0:
                         self._emit_like_event(username, result['likes'], profile_data)
 
+                    # Telemetry: a comment was actually posted on this profile (so the Lab
+                    # metrics show comments, not just keystrokes).
+                    if result.get('comments', 0) > 0:
+                        emit_step("comment", action="posted", target=username, count=result['comments'])
+
             # === FOLLOW ===
             if plan.do_follow:
                 # Check if we already follow (avoids a wasted click)
@@ -125,6 +131,7 @@ class InteractionEngineMixin:
                         # Callers are responsible for stats tracking to avoid double-counting.
                         self._record_action(username, 'FOLLOW', 1)
                         self._emit_follow_event(username, profile_data)
+                        emit_step("follow", action="button", target=username)
                         self._handle_follow_suggestions_popup()
 
             # === STORIES ===
@@ -146,6 +153,8 @@ class InteractionEngineMixin:
                         self._emit_story_event(
                             username, result['stories'], result['stories_liked'], profile_data
                         )
+                        emit_step("story", action="watch", target=username,
+                                  watched=result['stories'], liked=result['stories_liked'])
 
             return result
 
