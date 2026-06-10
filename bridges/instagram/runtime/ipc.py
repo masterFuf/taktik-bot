@@ -48,7 +48,29 @@ def _register_core_ipc_emitter() -> None:
         logger.debug(f"Could not register core IPC emitter adapter: {exc}")
 
 
+def _register_telemetry_sink() -> None:
+    """Forward fine-grained step telemetry (keystrokes/taps/scrolls/follower decisions)
+    emitted by the shared primitives to stdout as `step_metric` JSON lines."""
+    try:
+        from taktik.core.shared.telemetry import configure_telemetry_sink
+
+        def _sink(metric) -> None:
+            _ipc.send(
+                "step_metric",
+                category=metric.category,
+                action=metric.action,
+                target=metric.target,
+                detail=metric.detail,
+                ts=metric.ts,
+            )
+
+        configure_telemetry_sink(_sink)
+    except Exception as exc:
+        logger.debug(f"Could not register telemetry sink: {exc}")
+
+
 _register_core_ipc_emitter()
+_register_telemetry_sink()
 
 
 __all__ = [

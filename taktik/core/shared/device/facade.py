@@ -12,6 +12,8 @@ import time
 import os
 from loguru import logger
 
+from taktik.core.shared.telemetry import emit_step
+
 
 class Direction(Enum):
     UP = "up"
@@ -304,6 +306,11 @@ class BaseDeviceFacade:
                 # A short, sub-threshold press (touch-down → wait → up) varies the contact
                 # time vs an instant click, while staying a tap (never a long-press).
                 self._device.long_click(x, y, down_s)
+            emit_step(
+                "tap", action="quick" if quick else "press",
+                x=x, y=y, bounds=list(bounds) if bounds is not None else None,
+                down_ms=None if quick else round(down_s * 1000),
+            )
             time.sleep(0.05)
             return (x, y)
         except Exception as e:
@@ -318,6 +325,7 @@ class BaseDeviceFacade:
             x, y = sample_tap_point(bounds, rng=rng)
             self.logger.debug(f"👆👆 Human double-tap ({x}, {y}) in {tuple(bounds)}")
             self._device.double_click(x, y)
+            emit_step("double_tap", x=x, y=y, bounds=list(bounds) if bounds is not None else None)
             time.sleep(0.1)
             return (x, y)
         except Exception as e:

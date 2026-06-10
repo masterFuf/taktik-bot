@@ -6,6 +6,7 @@ from typing import Dict, Any
 from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.telemetry import emit_step
 from ....common.followers_tracker import FollowersTracker
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
@@ -170,14 +171,20 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         if username.lower() == account_username.lower():
                             self.logger.info(f"⏭️ Skipping own account @{username}")
                             processed_usernames.add(username)
+                            emit_step("follower_decision", action="skipped", target=username,
+                                      reason="own_account", encounter_order=total_usernames_seen + 1,
+                                      source_type="FOLLOWERS")
                             continue
-                    
+
                     # Skip target account
                     if target_username and username.lower() == target_username.lower():
                         self.logger.info(f"⏭️ Skipping target account @{username}")
                         processed_usernames.add(username)
+                        emit_step("follower_decision", action="skipped", target=username,
+                                  reason="target_account", encounter_order=total_usernames_seen + 1,
+                                  source_type="FOLLOWERS")
                         continue
-                    
+
                     processed_usernames.add(username)
                     new_usernames_found += 1
                     total_usernames_seen += 1
@@ -199,6 +206,9 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                     stats['filtered'] += 1
                                     tracker.log_skipped_from_db(username, "already_filtered")
                                 stats['skipped'] += 1
+                                emit_step("follower_decision", action="skipped", target=username,
+                                          reason=skip_reason or "db_skip", encounter_order=total_usernames_seen,
+                                          source_type="FOLLOWERS", streak=known_usernames_streak)
                                 continue
                             known_usernames_streak = 0
                         except Exception as e:
@@ -225,10 +235,21 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     
                     if interaction_ok is None:
                         # Critical error — could not recover to list
+                        emit_step("follower_decision", action="error", target=username,
+                                  reason="processing_error", encounter_order=total_usernames_seen,
+                                  source_type="FOLLOWERS")
                         break
-                    
+
+                    # Outcome ledger: the rich reason (private/filtered/error) is recorded
+                    # inside _process_single_follower_direct; here we mark interacted vs not.
                     if interaction_ok:
                         did_interact_this_iteration = True
+                        emit_step("follower_decision", action="interacted", target=username,
+                                  encounter_order=total_usernames_seen, source_type="FOLLOWERS")
+                    else:
+                        emit_step("follower_decision", action="not_interacted", target=username,
+                                  reason="filtered_or_private", encounter_order=total_usernames_seen,
+                                  source_type="FOLLOWERS")
                     
                     # Retour à la liste des followers avec vérification robuste
                     # force_back=False: _process_single_follower_direct already calls

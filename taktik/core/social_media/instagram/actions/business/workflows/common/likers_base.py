@@ -15,6 +15,7 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from ....core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.telemetry import emit_step
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -54,6 +55,15 @@ class LikersWorkflowBase(BaseBusinessAction):
 
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
+
+        def _ledger(uname: str, outcome: str, reason: Optional[str] = None, **extra) -> None:
+            """One audit entry per UNIQUE encountered user → its outcome + reason. The
+            full ledger lets us verify we saw everyone and that every skip was intended."""
+            emit_step(
+                "follower_decision", action=outcome, target=uname,
+                reason=reason, encounter_order=stats['users_found'],
+                source_type=source_type, **extra,
+            )
 
         while stats['users_interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
             # Check session limits
@@ -98,6 +108,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                         stats['profiles_filtered'] += 1
                     stats['skipped'] += 1
                     self.stats_manager.increment('skipped')
+                    _ledger(username, "skipped", skip_reason or "db_skip", streak=known_usernames_streak)
 
                     if (
                         max_consecutive_known_usernames is not None
@@ -125,6 +136,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                 if not self.detection_actions.click_follower_in_list(username):
                     self.logger.warning(f"Could not click on @{username}")
                     stats['errors'] += 1
+                    _ledger(username, "error", "click_failed")
                     continue
 
                 self._human_like_delay('click')
@@ -132,6 +144,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                 # Verify profile screen
                 if not self.detection_actions.is_on_profile_screen():
                     self.logger.warning(f"Not on profile screen after clicking @{username}")
+                    _ledger(username, "error", "profile_screen_missing")
                     if not self._ensure_on_likers_popup():
                         self.logger.error("Could not recover to likers popup, stopping")
                         break
@@ -147,6 +160,7 @@ class LikersWorkflowBase(BaseBusinessAction):
 
                 if result.was_error:
                     stats['errors'] += 1
+                    _ledger(username, "error", "processing_error")
                     if not self._ensure_on_likers_popup(force_back=True):
                         self.logger.error("Could not recover to likers popup, stopping")
                         break
@@ -154,6 +168,7 @@ class LikersWorkflowBase(BaseBusinessAction):
 
                 if result.was_private:
                     stats['skipped'] += 1
+                    _ledger(username, "skipped", "private")
                     if not self._ensure_on_likers_popup(force_back=True):
                         self.logger.error("Could not recover to likers popup, stopping")
                         break
@@ -161,6 +176,8 @@ class LikersWorkflowBase(BaseBusinessAction):
 
                 if result.was_filtered:
                     stats['profiles_filtered'] += 1
+                    _ledger(username, "filtered", "filter_criteria",
+                            filters=getattr(result, "filter_reasons", None))
                     if not self._ensure_on_likers_popup(force_back=True):
                         self.logger.error("Could not recover to likers popup, stopping")
                         break
@@ -178,8 +195,13 @@ class LikersWorkflowBase(BaseBusinessAction):
                         username, result.interaction_result, account_id, session_id
                     )
                     self.stats_manager.display_stats(current_profile=username)
+                    _ledger(username, "interacted", None,
+                            likes=result.likes, follows=result.follows,
+                            comments=result.comments, stories=result.stories,
+                            stories_liked=result.stories_liked)
                 else:
                     stats['skipped'] += 1
+                    _ledger(username, "skipped", "no_interaction")
 
                 # Return to likers list
                 if not self._ensure_on_likers_popup(force_back=True):

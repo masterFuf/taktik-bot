@@ -23,6 +23,18 @@ def init_automation(app_name: str, conn, ipc):
 
     tracer = SelectorTracer(on_xpath_call=_on_xpath)
 
+    # Stream fine-grained step telemetry (keystrokes/taps/scrolls/follower decisions)
+    # through the harness IPC so the instrumented tester captures it too.
+    try:
+        from taktik.core.shared.telemetry import configure_telemetry_sink
+
+        configure_telemetry_sink(lambda m: ipc.send(
+            "step_metric", category=m.category, action=m.action,
+            target=m.target, detail=m.detail, ts=m.ts,
+        ))
+    except Exception:
+        pass
+
     try:
         from taktik.core.database import configure_db_service
 

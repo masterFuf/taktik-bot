@@ -21,6 +21,7 @@ import random
 from typing import Optional
 
 from .gesture import sample_swipe
+from taktik.core.shared.telemetry import emit_step
 
 
 class GestureMixin:
@@ -66,6 +67,11 @@ class GestureMixin:
             else:
                 self.device.swipe_coordinates(path[0][0], path[0][1], path[-1][0], path[-1][1],
                                               duration if controlled else self._fling_total(path))
+            emit_step(
+                "scroll", action="curve", target=direction,
+                distance_px=int(abs(path[-1][1] - path[0][1])), points=len(path),
+                controlled=controlled,
+            )
             time.sleep(0.1)
             return True
         except Exception as e:
@@ -95,6 +101,10 @@ class GestureMixin:
                 raw.swipe(sx, sy, ex, ey, duration=duration)
             else:
                 self.device.swipe_coordinates(sx, sy, ex, ey, duration)
+            emit_step(
+                "scroll", action="flick", target=direction,
+                distance_px=int(dy), duration_ms=round(duration * 1000),
+            )
             time.sleep(0.05)
             return True
         except Exception as e:
@@ -126,6 +136,10 @@ class GestureMixin:
                 raw.swipe_points(path, duration / max(1, len(path) - 1))
             else:
                 self.device.swipe_coordinates(sx, sy, ex, ey, duration)
+            emit_step(
+                "scroll", action="drag", target=direction,
+                distance_px=int(dy), duration_ms=round(duration * 1000),
+            )
             time.sleep(0.08)
             return True
         except Exception as e:

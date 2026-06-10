@@ -11,6 +11,7 @@ import time
 from loguru import logger
 
 from taktik.core.shared.device.adb import run_adb_shell
+from taktik.core.shared.telemetry import emit_step
 
 
 TAKTIK_KEYBOARD_PKG = "com.alexal1.adbkeyboard"
@@ -99,6 +100,12 @@ def type_with_taktik_keyboard(
                 f"Taktik Keyboard typing '{text[:20]}...' "
                 f"({typing_time:.1f}s, ack {ack_duration:.1f}s)"
             )
+            # Telemetry: never the text itself (passwords/2FA) — only length + cadence.
+            emit_step(
+                "keystroke", action="type",
+                length=len(text), delay_mean=delay_mean, delay_deviation=delay_deviation,
+                typing_s=round(typing_time, 3), ack_s=round(ack_duration, 3),
+            )
             _active_ime_cache[device_id] = time.time()
             time.sleep(typing_time + settle_buffer)
             return True
@@ -130,6 +137,7 @@ def _press_backspace(device_id: str, count: int = 1) -> bool:
         except Exception as exc:
             logger.debug(f"Backspace keyevent failed: {exc}")
             ok = False
+    emit_step("keystroke", action="backspace", count=max(0, count), success=ok)
     return ok
 
 

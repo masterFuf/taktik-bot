@@ -17,6 +17,7 @@ from loguru import logger
 from taktik.core.shared.device.adb import run_adb_shell
 from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.actions.utils import ActionUtils
+from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.input.taktik_keyboard import (
     TAKTIK_KEYBOARD_IME,
     IME_MESSAGE_B64,
@@ -101,9 +102,16 @@ class SharedBaseAction:
                         self.logger.debug(f"✅ Element found with selector #{i+1}: {selector[:50]}...")
                         # Tap a varied point inside the element (never its exact centre);
                         # fall back to a plain centre click if the bounds are unreadable.
-                        if not self._human_tap_element(element):
+                        tapped_human = self._human_tap_element(element)
+                        if not tapped_human:
                             element.click()
                         self._method_stats['clicks'] += 1
+                        emit_step(
+                            "button_click",
+                            action="human_tap" if tapped_human else "center_click",
+                            target=selector[:80], selector_index=i + 1,
+                            find_ms=round((time.time() - start_time) * 1000),
+                        )
 
                         if human_delay:
                             self._human_like_delay('click')
