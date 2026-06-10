@@ -672,9 +672,14 @@ No markdown formatting."""
         }
 
     def generate_smart_comment(self, post_description: str, username: str,
-                                niche: str = "general", language: str = "auto") -> Dict[str, Any]:
+                                niche: str = "general", language: str = "auto",
+                                post_caption: str = "") -> Dict[str, Any]:
         """
         Generate a contextual smart comment based on post analysis.
+        `post_description` is the vision model's description of the post image;
+        `post_caption` is the author's ACTUAL caption text (extracted from the UI after
+        expanding it) — when present it grounds the comment in the author's own words
+        (announcements, wordplay, questions the image alone can't show).
         Emits IPC events for the AgentPanel.
         """
         t0 = time.time()
@@ -690,10 +695,16 @@ Rules:
 - Maximum 1-2 emojis (optional)
 - Sound genuinely interested, not generic
 - Match the energy/tone of the post
+- If the author's caption is provided, react to what THEY said (their announcement, question or joke), not only the visual
 - {"Write in the same language as the post" if language == "auto" else f"Write in {language}"}
 Reply ONLY with the comment text, nothing else."""
 
-        user_prompt = f"Post content: \"{post_description}\"\n\nGenerate a natural, engaging comment."
+        parts = []
+        if post_description:
+            parts.append(f'What the post shows (vision analysis): "{post_description}"')
+        if post_caption:
+            parts.append(f'The author\'s caption: "{post_caption[:1000]}"')
+        user_prompt = "\n\n".join(parts) + "\n\nGenerate a natural, engaging comment."
 
         result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=100)
         duration_ms = int((time.time() - t0) * 1000)

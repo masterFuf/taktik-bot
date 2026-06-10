@@ -102,6 +102,19 @@ def install_instagram_ai_hooks(
                     img = crop_screenshot_to_post(device.screenshot(), device)
                     img.save(screenshot_path, format="PNG")
 
+                    # The author's ACTUAL caption: expand it ('… plus' / '… more') like a human
+                    # reading the post, then read its full text from the UI. The screenshot crop
+                    # stops at the button row, so this TEXT channel is the only way the model
+                    # sees what the author wrote (announcement, question, wordplay).
+                    post_caption = ""
+                    try:
+                        scroll = getattr(self_comment, "scroll_actions", None)
+                        if scroll is not None:
+                            scroll.expand_caption_if_truncated()
+                            post_caption = scroll.current_caption_text()
+                    except Exception as exc:
+                        log("warning", f"Caption read failed for @{username}: {exc}")
+
                     post_desc = ""
                     if ai_config.get("postAnalysis", False):
                         analysis = ai.analyze_post(screenshot_path, username=username)
@@ -113,8 +126,8 @@ def install_instagram_ai_hooks(
                                 f"Post analysis failed for @{username}: {analysis.get('error')}",
                             )
 
-                    if not post_desc:
-                        log("info", f"No post description for @{username}, skipping comment (AI mode)")
+                    if not post_desc and not post_caption:
+                        log("info", f"No post context for @{username} (no vision description, no caption), skipping comment (AI mode)")
                         return False
 
                     lang = language if language != "en" else "auto"
@@ -123,6 +136,7 @@ def install_instagram_ai_hooks(
                         username=username or "unknown",
                         niche="general",
                         language=lang,
+                        post_caption=post_caption,
                     )
                     if result.get("success") and result.get("comment"):
                         ai_comment = result["comment"]

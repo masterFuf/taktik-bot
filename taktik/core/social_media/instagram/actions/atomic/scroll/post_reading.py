@@ -194,13 +194,15 @@ class PostReadingMixin:
             self.logger.debug(f"🖼️ carousel: swiped {swiped} slide(s)")
         return swiped
 
-    def _caption_prose_length(self, root=None) -> int:
-        """Real prose length (chars) of the dominant on-screen post's caption — the tallest visible
-        `IgTextLayoutView` text, with the username / hashtags / mentions / URLs stripped (see
-        `caption_prose_chars`). 0 for an image with no real caption. Drives the reading dwell."""
+    def current_caption_text(self, root=None) -> str:
+        """Raw text of the dominant on-screen post's caption — the tallest visible
+        `IgTextLayoutView` text (username prefix included, as rendered). Empty string when the
+        post has no caption. Call `expand_caption_if_truncated()` first to get the FULL text of
+        a truncated caption. Used by the reading dwell and by the AI smart-comment hook (the
+        author's actual words, passed to the model alongside the vision description)."""
         root = root if root is not None else self._dump_root()
         if root is None:
-            return 0
+            return ""
         best_text, best_h = "", -1
         for node in root.iter():
             if node.get("class", "") != FS.caption_layout_class:
@@ -216,7 +218,13 @@ class PostReadingMixin:
                 continue
             if (bot - top) > best_h:
                 best_h, best_text = bot - top, t
-        return caption_prose_chars(best_text)
+        return best_text
+
+    def _caption_prose_length(self, root=None) -> int:
+        """Real prose length (chars) of the dominant on-screen post's caption, with the
+        username / hashtags / mentions / URLs stripped (see `caption_prose_chars`). 0 for an
+        image with no real caption. Drives the reading dwell."""
+        return caption_prose_chars(self.current_caption_text(root))
 
     def human_reading_pause(self, dwell_s: Optional[float] = None,
                             read_captions: bool = True, browse_carousels: bool = True) -> float:
