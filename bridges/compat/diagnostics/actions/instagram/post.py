@@ -45,3 +45,20 @@ def is_liked(a, p):
     logger.info(f"Post liked: {result}")
     return result
 
+
+@action("post.navigate_next")
+def navigate_next(a, p):
+    """Advance to the next post in the in-viewer sequence with the humanised swipe
+    (sampled geometry, randomised distance) instead of the old fixed 78%->21%
+    gesture. Must be run while a post is open."""
+    ok = a.like._navigate_to_next_post_in_sequence()
+    return {"success": bool(ok), "message": f"navigated to next post={ok}"}
+
+
+@action("post.return_to_profile")
+def return_to_profile(a, p):
+    """Return from an open post back to the profile grid (back button, else a
+    humanised downward swipe)."""
+    a.like._return_to_profile_from_post()
+    return {"success": True, "message": "returned to profile"}
+

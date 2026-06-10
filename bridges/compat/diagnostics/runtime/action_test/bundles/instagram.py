@@ -19,6 +19,7 @@ def build_instagram_action_bundle(device_facade):
     from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
     from taktik.core.social_media.instagram.actions.atomic.text import TextActions
     from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+    from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
     from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
     logger.info("Building action bundle...")
@@ -30,6 +31,9 @@ def build_instagram_action_bundle(device_facade):
     bundle.scroll = ScrollActions(device_facade)
     bundle.kb = TextActions(device_facade)
     bundle.comment = CommentAction(device_facade)
+    # Like orchestration carries the post-grid entry + in-viewer navigation helpers
+    # (PostNavigationMixin) exercised by the profile/post Lab actions.
+    bundle.like = LikeOrchestration(device_facade)
     bundle.popup = BaseBusinessAction(device_facade)
     logger.info("Action bundle ready")
     return bundle
