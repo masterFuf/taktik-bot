@@ -6,7 +6,11 @@ from typing import Optional, Dict, Any, List
 
 from ..ipc import IPCEmitter
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
+from taktik.core.shared.behavior.interaction_plan import (
+    build_interaction_plan,
+    sample_story_like_count,
+    sample_story_like_slots,
+)
 
 
 class InteractionEngineMixin:
@@ -127,7 +131,9 @@ class InteractionEngineMixin:
             if plan.do_watch_story:
                 story_result = self._view_stories_on_current_profile(
                     username,
-                    like_slot=plan.story_like_slot,   # the ONE slide to like (-1 = none)
+                    do_story_like=plan.do_story_like,        # like count resolved at open (∝ slides)
+                    max_story_likes=plan.max_story_likes,    # hard ceiling on the proportional count
+                    fallback_like_slot=plan.story_like_slot, # used only if the slide count is unreadable
                     max_stories=plan.max_story_slides
                 )
                 if story_result:
@@ -147,15 +153,40 @@ class InteractionEngineMixin:
             self.logger.error(f"Error performing interactions on @{username}: {e}")
             return result
 
+    def _read_story_slide_total(self) -> int:
+        """Best-effort number of slides in the just-opened story (0 = unknown).
+
+        Tries the viewer's 'story X of Y' content-desc (get_story_count_from_viewer); if that
+        doesn't parse (FR content-desc, clone APK), falls back to the segment-bar count in the
+        viewer metadata. Returns 0 when neither is available — the caller then keeps the safe
+        ≤1 like fallback. Never raises."""
+        try:
+            _, total = self.detection_actions.get_story_count_from_viewer()
+            if total and total > 0:
+                return int(total)
+        except Exception:
+            pass
+        try:
+            meta = self.detection_actions.get_story_viewer_metadata()
+            total = (meta or {}).get('total_stories', 0)
+            if total and total > 0:
+                return int(total)
+        except Exception:
+            pass
+        return 0
+
     def _view_stories_on_current_profile(
-        self, username: str, like_slot: int = -1, max_stories: int = 3
+        self, username: str, do_story_like: bool = False, max_story_likes: int = 3,
+        fallback_like_slot: int = -1, max_stories: int = 3
     ) -> Optional[Dict[str, int]]:
         """View stories when already on a profile page. No navigation.
 
-        `like_slot` is the 0-based index of the ONE slide to like (-1 = like none): a human
-        who likes a story likes a single slide that resonates, never all of them. If the real
-        story is shorter than `like_slot`, we like the last viewed slide instead (so a planned
-        story-like still happens) — capped at one like total."""
+        Story-likes are PROPORTIONAL to the number of slides the story has (read at open):
+        a human leaves a couple of likes on a long story, none/one on a short one — never
+        all of them. The like count + the (varied, distinct) slots to like are resolved once
+        the slide total is known. If the slide count can't be read (older/clone APK, FR
+        content-desc), we fall back to AT MOST ONE like at `fallback_like_slot` — the prior
+        safe behaviour, so there's no regression."""
         try:
             if not self.detection_actions.has_stories():
                 return None
@@ -165,9 +196,30 @@ class InteractionEngineMixin:
 
             self._human_like_delay('story_load')
 
+            # Resolve how many slides to like from the real slide total (known at open).
+            like_slots = set()
+            want_like = False
+            if do_story_like:
+                slides_total = self._read_story_slide_total()
+                if slides_total > 0:
+                    # We can only like slides we actually watch: bound the proportional count
+                    # and the sampled slots to the watch budget (max_stories).
+                    watchable = min(slides_total, max_stories)
+                    count = sample_story_like_count(watchable, max_story_likes)
+                    like_slots = set(sample_story_like_slots(watchable, count))
+                    want_like = bool(like_slots)
+                    self.logger.debug(
+                        f"Story @{username}: {slides_total} slides (watch {watchable}) → "
+                        f"like {len(like_slots)} at slots {sorted(like_slots)}"
+                    )
+                else:
+                    # Unknown slide count → safe legacy fallback: at most one like.
+                    if fallback_like_slot >= 0:
+                        like_slots = {fallback_like_slot}
+                        want_like = True
+
             stories_viewed = 0
             stories_liked = 0
-            want_like = like_slot >= 0
 
             for idx in range(max_stories):
                 if not self.detection_actions.is_story_viewer_open():
@@ -177,8 +229,8 @@ class InteractionEngineMixin:
                 time.sleep(view_duration)
                 stories_viewed += 1
 
-                # Like at most ONE slide, at the sampled position.
-                if want_like and stories_liked == 0 and idx == like_slot:
+                # Like this slide if it's one of the planned (varied) slots.
+                if want_like and idx in like_slots:
                     try:
                         if self.click_actions.like_story():
                             stories_liked += 1
@@ -188,8 +240,9 @@ class InteractionEngineMixin:
 
                 has_next = self.nav_actions.navigate_to_next_story()
                 if not has_next:
-                    # Last slide: if a like was planned but the story was shorter than the
-                    # sampled slot, leave the single like here (varied, still ≤ 1).
+                    # Last slide: if likes were planned but none landed yet (story shorter
+                    # than the sampled slots), leave a single like here so a planned
+                    # story-like still happens.
                     if want_like and stories_liked == 0:
                         try:
                             if self.click_actions.like_story():

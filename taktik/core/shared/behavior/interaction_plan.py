@@ -32,6 +32,8 @@ class InteractionPlan:
     do_watch_story: bool
     story_like_slot: int      # 0-based index of the ONE watched slide to like (-1 = none)
     max_story_slides: int
+    do_story_like: bool       # whether to like story slides at all (count resolved at open)
+    max_story_likes: int      # hard ceiling for the proportional story-like count
 
 
 def proportional_like_cap(posts_count: int, min_likes: int, max_likes: int) -> int:
@@ -84,6 +86,37 @@ def sample_story_like_slot(max_slides: int, *, rng=None) -> int:
     return r.randint(0, n - 1)
 
 
+def sample_story_like_count(slides_available: int, max_likes: int = 3, *, rng=None) -> int:
+    """How many story slides to like, PROPORTIONAL to how many slides the story has.
+
+    A human leaves a couple of likes on a long story and none/one on a short one — not a
+    flat "exactly one" regardless of length, nor "all of them". ~1 like per 5 slides with a
+    fractional jitter (so it varies), clamped to [0, min(max_likes, slides)]. Returns 0 when
+    the slide count is unknown/zero. Anchors: 2 slides -> 0-1, 6 -> 1-2, 12 -> 2-3."""
+    r = rng or random
+    n = int(slides_available or 0)
+    if n <= 0:
+        return 0
+    cap = max(0, int(max_likes))
+    if cap == 0:
+        return 0
+    expected = n / 5.0
+    base = int(expected)
+    count = base + (1 if r.random() < (expected - base) else 0)
+    return max(0, min(count, cap, n))
+
+
+def sample_story_like_slots(slides_available: int, count: int, *, rng=None) -> list:
+    """Pick `count` DISTINCT story slide indices (0-based, sorted) to like, varied across
+    the story. Returns [] when count<=0 or no slides. Caps count at the slide total."""
+    r = rng or random
+    n = max(0, int(slides_available or 0))
+    k = max(0, min(int(count or 0), n))
+    if k == 0:
+        return []
+    return sorted(r.sample(range(n), k))
+
+
 def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None, rng=None) -> InteractionPlan:
     """Resolve a per-profile `InteractionPlan` from the action config + the rolled
     `interactions_to_do` list (['like','follow','comment','story','story_like']).
@@ -101,8 +134,10 @@ def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None
     min_likes = config.get('min_likes_per_profile', 1)
     max_likes = config.get('max_likes_per_profile', 3)
     max_slides = config.get('max_stories_per_profile', 3)
+    max_story_likes = int(config.get('max_story_likes_per_profile', 3))
 
     like_target = sample_like_target(min_likes, max_likes, posts_count=posts_count, rng=rng) if do_like else 0
+    # Kept for back-compat (single-slot fallback when the slide count can't be read at open).
     story_slot = sample_story_like_slot(max_slides, rng=rng) if (do_watch and do_story_like) else -1
 
     return InteractionPlan(
@@ -113,6 +148,8 @@ def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None
         do_watch_story=do_watch,
         story_like_slot=story_slot,
         max_story_slides=int(max_slides),
+        do_story_like=(do_watch and do_story_like),
+        max_story_likes=max_story_likes,
     )
 
 
@@ -121,5 +158,7 @@ __all__ = [
     "proportional_like_cap",
     "sample_like_target",
     "sample_story_like_slot",
+    "sample_story_like_count",
+    "sample_story_like_slots",
     "build_interaction_plan",
 ]

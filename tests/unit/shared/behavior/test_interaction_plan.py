@@ -7,6 +7,8 @@ from taktik.core.shared.behavior.interaction_plan import (
     proportional_like_cap,
     sample_like_target,
     sample_story_like_slot,
+    sample_story_like_count,
+    sample_story_like_slots,
     build_interaction_plan,
 )
 
@@ -93,6 +95,41 @@ def test_story_slot_in_range():
 
 def test_story_slot_handles_min_one():
     assert sample_story_like_slot(0) == 0             # at least one slot
+
+
+# ─── sample_story_like_count / slots (proportional to slide count) ────────────
+
+def test_story_like_count_proportional_and_bounded():
+    rng = random.Random(4)
+    # Many samples per slide-count: the count must stay within [0, min(max, slides)].
+    for slides, expect_max in [(2, 1), (6, 2), (12, 3)]:
+        vals = {sample_story_like_count(slides, 3, rng=rng) for _ in range(300)}
+        assert min(vals) >= 0
+        assert max(vals) <= expect_max
+    # Longer stories yield more likes on average than short ones.
+    rng2 = random.Random(9)
+    avg = lambda n, mx: sum(sample_story_like_count(n, mx, rng=rng2) for _ in range(500)) / 500
+    assert avg(12, 5) > avg(2, 5)
+
+
+def test_story_like_count_zero_when_unknown_or_capped():
+    assert sample_story_like_count(0, 3) == 0          # unknown slide count
+    assert sample_story_like_count(10, 0) == 0         # max 0 disables
+    assert sample_story_like_count(8, 3) <= 3          # never exceeds the cap
+
+
+def test_story_like_slots_distinct_sorted_in_range():
+    rng = random.Random(2)
+    slots = sample_story_like_slots(10, 3, rng=rng)
+    assert len(slots) == 3 and len(set(slots)) == 3    # distinct
+    assert slots == sorted(slots)                      # sorted
+    assert all(0 <= s < 10 for s in slots)             # in range
+
+
+def test_story_like_slots_clamped_and_empty():
+    assert sample_story_like_slots(2, 5) and len(sample_story_like_slots(2, 5)) == 2  # capped at slides
+    assert sample_story_like_slots(5, 0) == []
+    assert sample_story_like_slots(0, 3) == []
 
 
 # ─── build_interaction_plan ──────────────────────────────────────────────────
