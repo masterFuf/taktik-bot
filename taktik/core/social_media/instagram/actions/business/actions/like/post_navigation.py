@@ -15,6 +15,12 @@ from ....core.ipc.emitter import IPCEmitter
 # old single fixed swipe that read as a robotic, identical scroll every post.
 _ADVANCE_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
 
+# Occasionally a human doesn't just swipe through the post viewer — they go BACK to the grid
+# and pick another post. Probability of taking that alternative advance, and the minimum
+# profile size for it to look natural (no point on a tiny grid).
+_GRID_RETURN_PROB = 0.25
+_GRID_RETURN_MIN_POSTS = 6
+
 # Grid cells expose their position in content-desc ("... à la ligne R, colonne C" /
 # "row R, column C"). Lets us narrate the real post position to the copilot.
 _GRID_POS_RE = re.compile(r'(?:ligne|row)\D*(\d+)\D+(?:colonne|column)\D*(\d+)', re.IGNORECASE)
@@ -353,7 +359,31 @@ class PostNavigationMixin:
         except Exception as e:
             self.logger.error(f"Error navigating to next post: {e}")
             return False
-    
+
+    def _return_to_grid_and_open_another_post(self, posts_count: int = 0, username: str = None) -> bool:
+        """Alternative human navigation: instead of swiping through the post viewer, go BACK to
+        the profile grid, (re-)scroll it and open ANOTHER post — the way a person sometimes
+        returns to the grid to pick a different post rather than always paging the feed view.
+
+        Reuses the humanised entry path (`_open_entry_post_of_profile`: adaptive grid pre-scroll
+        + top-weighted spread thumbnail + human tap). Returns True only if we ended up back in a
+        post view; the caller falls back to the in-viewer scroll otherwise (zero regression)."""
+        try:
+            self.logger.debug("Navigating via grid: back to profile → reopen another post")
+            self._return_to_profile_from_post()
+            time.sleep(random.uniform(0.6, 1.2))
+            if self._is_in_post_view():
+                # Back didn't land on the grid (still in a post) → let the caller scroll instead.
+                self.logger.debug("Grid-return: still in post view after back, aborting")
+                return False
+            opened = self._open_entry_post_of_profile(posts_count, username=username)
+            if opened:
+                self.logger.info("Navigated via grid (back → reopened another post)")
+            return bool(opened)
+        except Exception as e:
+            self.logger.debug(f"Grid-return navigation failed: {e}")
+            return False
+
     def _return_to_profile_from_post(self):
         try:
             self.logger.info("Returning to profile from post...")

@@ -7,7 +7,7 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from ...management.profile import ProfileBusiness
-from .post_navigation import PostNavigationMixin
+from .post_navigation import PostNavigationMixin, _GRID_RETURN_PROB, _GRID_RETURN_MIN_POSTS
 from taktik.core.shared.behavior.like_method import should_double_tap_like
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
 from taktik.core.shared.behavior.dwell import content_dwell
@@ -263,23 +263,37 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     self.logger.debug(f"Post #{posts_seen} not engaged")
                 
                 if posts_seen < max_posts_to_see:
-                    scroll_count = 1
-                    if posts_seen % 4 == 0:
-                        scroll_count = 2
-                        self.logger.debug(f"Double scroll at post #{posts_seen} for more variety")
-                    
-                    success = True
-                    for i in range(scroll_count):
-                        if not self._navigate_to_next_post_in_sequence():
-                            self.logger.warning("Unable to navigate to next post - end of scroll")
-                            success = False
+                    # Vary the navigation like a human: usually advance within the post viewer,
+                    # but sometimes go BACK to the grid and open a different post instead (only
+                    # once we've already liked one and on a big-enough profile, so it looks
+                    # natural). Falls back to the in-viewer scroll if the grid-return fails.
+                    use_grid = (
+                        posts_liked >= 1
+                        and total_posts_on_profile >= _GRID_RETURN_MIN_POSTS
+                        and random.random() < _GRID_RETURN_PROB
+                    )
+                    if use_grid and self._return_to_grid_and_open_another_post(
+                        total_posts_on_profile, username=username
+                    ):
+                        time.sleep(content_dwell(0))   # glance at the freshly opened post
+                    else:
+                        scroll_count = 1
+                        if posts_seen % 4 == 0:
+                            scroll_count = 2
+                            self.logger.debug(f"Double scroll at post #{posts_seen} for more variety")
+
+                        success = True
+                        for i in range(scroll_count):
+                            if not self._navigate_to_next_post_in_sequence():
+                                self.logger.warning("Unable to navigate to next post - end of scroll")
+                                success = False
+                                break
+                            if i < scroll_count - 1:
+                                time.sleep(0.3)
+
+                        if not success:
                             break
-                        if i < scroll_count - 1:
-                            time.sleep(0.3)
-                    
-                    if not success:
-                        break
-                
+
                 self._human_like_delay('scroll')
             
             self._return_to_profile_from_post()
