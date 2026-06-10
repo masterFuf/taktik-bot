@@ -23,6 +23,17 @@ class PostCommentsSelectors:
     comment_field_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comment_field_selectors)
     )
+    # Specific "is the comment composer already open?" indicators. Keyed off the composer
+    # field/parent ids (cross-language — no localized "Comments" text) and the hint; uses
+    # contains() so it matches version drift like `layout_comment_thread_edittext_multiline`
+    # (IG v410). Deliberately NOT the broad `comment_field_selectors` (those include a bare
+    # `//android.widget.EditText` that would false-positive on any screen with a text field).
+    comment_composer_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "layout_comment_thread_edittext")]',
+        '//*[contains(@resource-id, "comment_composer")]',
+        '//*[contains(@hint, "Ajouter un commentaire")]',
+        '//*[contains(@hint, "Add a comment")]',
+    ])
     post_comment_button_resource_ids: Tuple[str, ...] = (
         "com.instagram.android:id/layout_comment_thread_post_button_icon",
         "com.instagram.android:id/layout_comment_thread_post_button_click_area",

@@ -10,10 +10,17 @@ from bridges.compat.diagnostics.actions.instagram import action
 @action("comment.open_and_type")
 def comment_open_and_type(a, p):
     text = p.get("text", "Test comment \U0001f916")
-    if not a.click.click_comment_button():
+    # Mirror the production path: if the comment composer is already open (re-running the
+    # test, or we navigated straight into the thread) don't click the comment button — it
+    # isn't on that screen — just type. Otherwise open the box first (rich post-detail
+    # selectors via the business, not the 2-selector shell variant).
+    if a.comment._is_comment_composer_open():
+        logger.info("Comment composer already open — typing directly")
+    elif not a.comment._click_comment_button():
         logger.error("Could not open comment box")
         return False
-    time.sleep(1.5)
+    else:
+        time.sleep(1.5)
     if not a.comment._type_comment(text):
         logger.error("Could not type comment (field not found)")
         return False

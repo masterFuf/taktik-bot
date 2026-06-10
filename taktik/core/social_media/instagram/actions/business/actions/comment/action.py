@@ -51,13 +51,19 @@ class CommentAction(BaseBusinessAction):
                 return stats
             
             self.logger.info(f"Attempting to comment: '{comment_text}'")
-            
-            if not self._click_comment_button():
+
+            # Open the comment box — unless the composer is already on screen (e.g. the
+            # post already shows the inline composer, or we navigated straight into the
+            # comments thread). Clicking the comment button there would fail: that button
+            # isn't present once the composer is open.
+            if self._is_comment_composer_open():
+                self.logger.debug("Comment composer already open — skipping comment-button click")
+            elif not self._click_comment_button():
                 self.logger.error("Failed to click comment button")
                 stats['errors'] += 1
                 return stats
-            
-            time.sleep(random.uniform(2, 4))
+            else:
+                time.sleep(random.uniform(2, 4))
             
             if not self._type_comment(comment_text):
                 self.logger.error("Failed to type comment")
@@ -102,6 +108,22 @@ class CommentAction(BaseBusinessAction):
             stats['errors'] += 1
             return stats
     
+    def _is_comment_composer_open(self) -> bool:
+        """Whether the comment composer/edit field is already on screen.
+
+        Cross-language (keys off the composer field/parent ids, not localized 'Comments'
+        text) and version-drift tolerant (contains() matches v410's
+        `layout_comment_thread_edittext_multiline`). Lets the caller skip the
+        comment-button click when we're already in the composer."""
+        try:
+            indicators = getattr(self.post_selectors, 'comment_composer_indicators', None)
+            if not indicators:
+                return False
+            combined = ' | '.join(indicators)
+            return self.device.xpath(combined).exists
+        except Exception:
+            return False
+
     def _click_comment_button(self) -> bool:
         try:
             for selector in self.post_selectors.comment_button_selectors:
