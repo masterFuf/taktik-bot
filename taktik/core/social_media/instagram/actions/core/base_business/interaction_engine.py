@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List
 
 from ..ipc import IPCEmitter
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
 
 
 class InteractionEngineMixin:
@@ -39,33 +40,38 @@ class InteractionEngineMixin:
 
         try:
             interactions_to_do = self._determine_interactions_from_config(config)
-            self.logger.debug(f"🎯 Planned interactions for @{username}: {interactions_to_do}")
+            # Resolve the per-profile plan: turns the rolled intents into concrete
+            # quantities — a likes target SAMPLED in [min,max] (no longer "always the max")
+            # and the single story slide to like (a human likes one slide, not all).
+            plan = build_interaction_plan(config, interactions_to_do)
+            self.logger.debug(f"🎯 Plan for @{username}: {interactions_to_do} → "
+                              f"likes={plan.like_target}, story_slot={plan.story_like_slot}")
 
             # Pre-announce the plan to the live copilot (Taktik Agent) BEFORE acting:
             # "on va faire N likes, une story dispo…". Reuses the instagram_action
             # channel (action='plan'); no-op in standalone (no bridge adapter).
             IPCEmitter.emit_action('plan', username, {
-                'likes': config.get('max_likes_per_profile', 3) if 'like' in interactions_to_do else 0,
-                'story': ('story' in interactions_to_do) or ('story_like' in interactions_to_do),
-                'story_like': 'story_like' in interactions_to_do,
-                'follow': 'follow' in interactions_to_do,
-                'comment': config.get('max_comments_per_profile', 1) if 'comment' in interactions_to_do else 0,
+                'likes': plan.like_target,
+                'story': plan.do_watch_story,
+                'story_like': plan.story_like_slot >= 0,
+                'follow': plan.do_follow,
+                'comment': plan.max_comments if plan.do_comment else 0,
             })
 
             # === LIKE / COMMENT ===
             should_like = 'like' in interactions_to_do
-            should_comment = 'comment' in interactions_to_do
+            should_comment = plan.do_comment
             min_likes = config.get('min_likes_per_profile', 1)
 
             if should_like or should_comment:
                 likes_result = self.like_business.like_profile_posts(
                     username,
-                    max_likes=config.get('max_likes_per_profile', 3),
+                    max_likes=plan.like_target if should_like else 0,
                     config={'randomize_order': True},
                     should_comment=should_comment,
                     custom_comments=config.get('custom_comments', []),
                     comment_template_category=config.get('comment_template_category', 'generic'),
-                    max_comments=config.get('max_comments_per_profile', 1),
+                    max_comments=plan.max_comments,
                     navigate_to_profile=False,
                     profile_data=profile_data,
                     should_like=should_like
@@ -96,7 +102,7 @@ class InteractionEngineMixin:
                         self._emit_like_event(username, result['likes'], profile_data)
 
             # === FOLLOW ===
-            if 'follow' in interactions_to_do:
+            if plan.do_follow:
                 # Check if we already follow (avoids a wasted click)
                 follow_state = (profile_data or {}).get('follow_button_state', 'unknown')
                 if follow_state in ('following', 'requested'):
@@ -115,12 +121,11 @@ class InteractionEngineMixin:
                         self._handle_follow_suggestions_popup()
 
             # === STORIES ===
-            if 'story' in interactions_to_do or 'story_like' in interactions_to_do:
-                should_like_story = 'story_like' in interactions_to_do
+            if plan.do_watch_story:
                 story_result = self._view_stories_on_current_profile(
                     username,
-                    like_stories=should_like_story,
-                    max_stories=config.get('max_stories_per_profile', 3)
+                    like_slot=plan.story_like_slot,   # the ONE slide to like (-1 = none)
+                    max_stories=plan.max_story_slides
                 )
                 if story_result:
                     result['stories'] = story_result.get('stories_viewed', 0)
@@ -140,9 +145,14 @@ class InteractionEngineMixin:
             return result
 
     def _view_stories_on_current_profile(
-        self, username: str, like_stories: bool = False, max_stories: int = 3
+        self, username: str, like_slot: int = -1, max_stories: int = 3
     ) -> Optional[Dict[str, int]]:
-        """View stories when already on a profile page. No navigation."""
+        """View stories when already on a profile page. No navigation.
+
+        `like_slot` is the 0-based index of the ONE slide to like (-1 = like none): a human
+        who likes a story likes a single slide that resonates, never all of them. If the real
+        story is shorter than `like_slot`, we like the last viewed slide instead (so a planned
+        story-like still happens) — capped at one like total."""
         try:
             if not self.detection_actions.has_stories():
                 return None
@@ -154,8 +164,9 @@ class InteractionEngineMixin:
 
             stories_viewed = 0
             stories_liked = 0
+            want_like = like_slot >= 0
 
-            for _ in range(max_stories):
+            for idx in range(max_stories):
                 if not self.detection_actions.is_story_viewer_open():
                     break
 
@@ -163,15 +174,26 @@ class InteractionEngineMixin:
                 time.sleep(view_duration)
                 stories_viewed += 1
 
-                if like_stories:
+                # Like at most ONE slide, at the sampled position.
+                if want_like and stories_liked == 0 and idx == like_slot:
                     try:
                         if self.click_actions.like_story():
                             stories_liked += 1
-                            self.logger.debug("Story liked")
+                            self.logger.debug(f"Story slide #{idx + 1} liked")
                     except Exception:
                         pass
 
-                if not self.nav_actions.navigate_to_next_story():
+                has_next = self.nav_actions.navigate_to_next_story()
+                if not has_next:
+                    # Last slide: if a like was planned but the story was shorter than the
+                    # sampled slot, leave the single like here (varied, still ≤ 1).
+                    if want_like and stories_liked == 0:
+                        try:
+                            if self.click_actions.like_story():
+                                stories_liked += 1
+                                self.logger.debug(f"Story last slide (#{idx + 1}) liked (fallback)")
+                        except Exception:
+                            pass
                     break
 
             # Back to profile — robust close: swipe-down (a back press is unreliable

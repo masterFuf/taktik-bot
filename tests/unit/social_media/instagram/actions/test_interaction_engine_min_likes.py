@@ -74,7 +74,7 @@ class _Engine(InteractionEngineMixin, ConfigParsingMixin):
     def _handle_follow_suggestions_popup(self):
         self.popups += 1
 
-    def _view_stories_on_current_profile(self, username, like_stories=False, max_stories=3):
+    def _view_stories_on_current_profile(self, username, like_slot=-1, max_stories=3):
         return self._story_result
 
 
