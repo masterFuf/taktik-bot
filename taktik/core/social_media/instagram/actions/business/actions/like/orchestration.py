@@ -170,7 +170,14 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 return stats
 
             self.logger.success("Entry post opened, starting sequential scroll")
-            
+
+            # A human looks at the FIRST post too before acting — same reading beat
+            # (carousel + description + content-aware dwell) as every later advance.
+            try:
+                self.scroll_actions.human_reading_pause()
+            except Exception as e:
+                self.logger.debug(f"entry reading pause skipped: {e}")
+
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
             unique_posts_seen = 0
