@@ -4,6 +4,9 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 from loguru import logger
 
+from taktik.core.shared.behavior.policy import parse_behavior_policy
+from taktik.core.shared.behavior.profiles import resolve_pacing_profile
+
 
 log = logger.bind(module="session-manager")
 
@@ -39,6 +42,13 @@ class SessionManager:
         session_settings = self.config.get('session_settings', {})
         duration_minutes = session_settings.get('session_duration_minutes', 60)
         log.debug(f"Configuration received: duration={duration_minutes}min, settings={session_settings}")
+
+        # Pacing profile (rhythm = a style, not user-set seconds). Default 'balanced' reproduces
+        # today's behaviour. Drives the between-actions delay when no explicit user delay is set.
+        policy = parse_behavior_policy(self.config)
+        self.pacing = resolve_pacing_profile(policy.profile_id if policy else None)
+        if policy:
+            log.info(f"Pacing profile: {self.pacing.profile_id}")
 
     def should_continue(self) -> tuple[bool, str]:
         """Check if session should continue based on defined limits.
@@ -139,13 +149,17 @@ class SessionManager:
                     )
 
     def get_delay_between_actions(self) -> float:
-        """Return random delay between actions.
+        """Return the delay (seconds) between high-level workflow actions.
 
-        Returns:
-            float: Delay in seconds
+        An EXPLICIT user delay (`session_settings.delay_between_actions`) still wins for
+        back-compat (the UI sends it today); when it's absent — once the UI moves to the
+        pacing profile (Lot 4) — the active `PacingProfile` provides the range. Default
+        profile 'balanced' = the historical 5-15s, so behaviour is unchanged either way.
         """
-        delay_config = self.config.get('session_settings', {}).get('delay_between_actions', {'min': 5, 'max': 15})
-        return random.uniform(delay_config.get('min', 5), delay_config.get('max', 15))
+        delay_config = self.config.get('session_settings', {}).get('delay_between_actions')
+        if isinstance(delay_config, dict) and ('min' in delay_config or 'max' in delay_config):
+            return random.uniform(delay_config.get('min', 5), delay_config.get('max', 15))
+        return random.uniform(self.pacing.action_delay_min, self.pacing.action_delay_max)
 
     def get_session_stats(self) -> Dict:
         """Return current session statistics.
@@ -168,7 +182,12 @@ class SessionManager:
             new_config: New configuration to apply
         """
         self.config = new_config
-        
+
+        # Re-resolve the pacing profile so a mid-session behaviorPolicy change is picked up
+        # (update_config is called on every run_workflow); otherwise self.pacing stays stale.
+        policy = parse_behavior_policy(self.config)
+        self.pacing = resolve_pacing_profile(policy.profile_id if policy else None)
+
         session_settings = self.config.get('session_settings', {})
         duration_minutes = session_settings.get('session_duration_minutes', 60)
         log.debug(f"Configuration updated: duration={duration_minutes}min, settings={session_settings}")
