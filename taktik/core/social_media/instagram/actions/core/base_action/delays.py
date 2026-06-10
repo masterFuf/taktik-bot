@@ -13,23 +13,29 @@ class DelaysMixin:
         time.sleep(delay)
     
     def _human_like_delay(self, action_type: str = 'general') -> None:
-        """Délai humanisé selon le type d'action avec distribution gaussienne."""
+        """Délai humanisé selon le type d'action — micro-hésitations seulement.
+
+        Le bot est déjà lent du fait du travail réel (navigation, analyse IA ~2,5s, scroll), donc
+        les pauses d'OBSERVATION (lire la bio, regarder le profil, satisfaction après like) sont
+        redondantes et lisaient robotiques empilées par-dessus. On garde de vraies micro-hésitations
+        (< ~1s) ; seuls les délais FONCTIONNELS (regarder une story = vrai contenu, temps de
+        chargement IG) restent plus longs. (Décision Kevin 2026-06-10, cf. retrait du rythme.)"""
         delays = {
-            'click': (0.2, 0.5),
-            'navigation': (0.7, 1.5),
-            'scroll': (0.3, 0.7),
+            'click': (0.15, 0.4),
+            'navigation': (0.3, 0.8),
+            'scroll': (0.2, 0.5),
             'typing': (0.08, 0.15),
-            'reading_bio': (2.0, 5.0),      # Temps de lecture réaliste
-            'before_like': (0.5, 2.0),      # Hésitation avant like
-            'after_like': (1.0, 3.0),       # Satisfaction après like
-            'before_follow': (1.0, 3.0),    # Réflexion avant follow
-            'story_view': (2.0, 5.0),       # Regarder une story
-            'story_load': (1.0, 2.0),       # Chargement story
-            'load_more': (2.0, 4.0),        # Après clic load more (Instagram needs time to load)
-            'profile_view': (1.5, 4.0),     # Observer un profil
-            'default': (0.3, 0.8)
+            'reading_bio': (0.4, 1.2),      # l'analyse IA fournit déjà le temps de "lecture"
+            'before_like': (0.2, 0.7),      # courte hésitation avant like
+            'after_like': (0.3, 0.9),       # courte hésitation après like
+            'before_follow': (0.3, 1.0),    # courte hésitation avant follow
+            'story_view': (1.5, 4.0),       # FONCTIONNEL : on regarde vraiment la story
+            'story_load': (0.8, 1.5),       # FONCTIONNEL : chargement story
+            'load_more': (1.2, 2.2),        # FONCTIONNEL : Instagram doit charger plus
+            'profile_view': (0.4, 1.0),     # l'analyse IA couvre déjà l'observation du profil
+            'default': (0.2, 0.6)
         }
-        
+
         min_delay, max_delay = delays.get(action_type, delays['default'])
         self._random_sleep(min_delay, max_delay)
         
