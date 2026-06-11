@@ -7,6 +7,8 @@ and recording interactions in the database.
 import time
 import random
 
+from taktik.core.shared.telemetry.sink import emit_step
+
 
 class VideoInteractionMixin:
     """Methods for interacting with videos on a follower's profile."""
@@ -137,13 +139,15 @@ class VideoInteractionMixin:
                 if self.stats.likes < self.config.max_likes_per_session:
                     if self._try_like_video():
                         self.stats.likes += 1
+                        emit_step("like", action="button", target=self._current_profile_username)
                         self._send_action('like', self._current_profile_username)
                         self._record_interaction('LIKE', self._current_profile_username)
-        
+
         # Favorite
         if random.random() < self.config.favorite_probability:
             if self._try_favorite_video():
                 self.stats.favorites += 1
+                emit_step("favorite", action="button", target=self._current_profile_username)
                 self._send_action('favorite', self._current_profile_username)
                 self._record_interaction('FAVORITE', self._current_profile_username)
         
@@ -204,6 +208,7 @@ class VideoInteractionMixin:
             selectors = self.followers_selectors.profile_follow_button
             if self.click._find_and_click(selectors, timeout=2):
                 self.stats.follows += 1
+                emit_step("follow", action="button", target=self._current_profile_username)
                 self.logger.info(f"👤 Followed user ({self.stats.follows}/{self.config.max_follows_per_session})")
                 self._send_action('follow', self._current_profile_username)
                 self._record_interaction('FOLLOW', self._current_profile_username)

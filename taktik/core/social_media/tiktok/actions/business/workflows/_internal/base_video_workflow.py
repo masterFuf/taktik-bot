@@ -14,6 +14,7 @@ from loguru import logger
 import time
 import random
 
+from taktik.core.shared.telemetry.sink import emit_step
 from ....core.utils import parse_count
 from .base_workflow import BaseTikTokWorkflow
 from .models import VideoWorkflowStats
@@ -80,6 +81,7 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
 
         if self.click.click_like_button():
             self.stats.videos_liked += 1
+            emit_step("like", action="button", target=video_info.get('author'))
             self._send_stats_update()
 
             if self._on_like_callback:
@@ -96,6 +98,7 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
 
         if self.click.click_video_follow_button():
             self.stats.users_followed += 1
+            emit_step("follow", action="button", target=video_info.get('author'))
             self._send_stats_update()
 
             if self._on_follow_callback:
@@ -112,6 +115,7 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
 
         if self.click.click_favorite_button():
             self.stats.videos_favorited += 1
+            emit_step("favorite", action="button", target=video_info.get('author'))
             self._send_stats_update()
             return True
         return False
