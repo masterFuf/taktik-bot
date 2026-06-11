@@ -7,8 +7,10 @@ Each workflow handles navigation TO/FROM the profile itself.
 This mixin only handles what happens WHILE on the profile screen.
 """
 
+import time
 from typing import Optional, Dict, Any
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.telemetry.sink import emit_step
 from ..ipc import IPCEmitter
 
 
@@ -107,7 +109,13 @@ class ProfileProcessingMixin:
             ProfileProcessingResult with status, profile_data, interaction_result
         """
         result = ProfileProcessingResult('pending', username)
-        
+        # Cadence heartbeat: a profile's extract->filter->(AI)->interact phase is the
+        # main source of long silent gaps (tens of seconds with no tap/scroll). We
+        # stamp a start/done step_metric around it so the run log + cadence can
+        # attribute that time (and its outcome) instead of showing a mystery gap.
+        analysis_t0 = 0.0
+        analysis_started = False
+
         try:
             # === 1. Navigate if needed ===
             if navigate_if_needed:
@@ -123,6 +131,10 @@ class ProfileProcessingMixin:
             # Post Likers, post_url — not only Target. The Target-specific callers
             # used to emit this themselves; those duplicates have been removed.
             IPCEmitter.emit_profile_visit(username)
+
+            analysis_t0 = time.time()
+            analysis_started = True
+            emit_step("analysis", action="start", target=username, source_type=source_type)
 
             # === 2. Extract profile info ===
             profile_data = self.profile_business.get_complete_profile_info(
@@ -204,6 +216,16 @@ class ProfileProcessingMixin:
             result.error_message = str(e)
             self.logger.error(f"Error processing @{username}: {e}")
             return result
+        finally:
+            # One done-heartbeat per profile, carrying the elapsed time + the outcome
+            # (interacted / filtered_private / filtered_criteria / skipped / error), so
+            # the silent per-profile time is attributed in the cadence and run log.
+            if analysis_started:
+                emit_step(
+                    "analysis", action="done", target=username,
+                    duration_ms=int((time.time() - analysis_t0) * 1000),
+                    outcome=result.status,
+                )
 
     def _record_filtered_in_db(
         self, username: str, reason: str, source_type: str,
