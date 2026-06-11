@@ -26,6 +26,31 @@ from bridges.tiktok.runtime.ipc_video_events import (
 )
 
 
+def _register_telemetry_sink() -> None:
+    """Forward fine-grained step telemetry (keystrokes/taps/scrolls emitted by the shared
+    humanization primitives, which TikTok reuses) to stdout as `step_metric` JSON lines —
+    same contract as the Instagram bridge, so the Lab metrics work for TikTok too."""
+    try:
+        from taktik.core.shared.telemetry import configure_telemetry_sink
+
+        def _sink(metric) -> None:
+            _ipc.send(
+                "step_metric",
+                category=metric.category,
+                action=metric.action,
+                target=metric.target,
+                detail=metric.detail,
+                ts=metric.ts,
+            )
+
+        configure_telemetry_sink(_sink)
+    except Exception as exc:
+        logger.debug(f"Could not register telemetry sink: {exc}")
+
+
+_register_telemetry_sink()
+
+
 __all__ = [
     "_ipc",
     "logger",
