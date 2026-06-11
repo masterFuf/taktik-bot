@@ -155,7 +155,14 @@ class ButtonSelectors:
     like_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "J\'aime")]',
         '//*[contains(@content-desc, "Like")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]'
+        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
+        # Reel / clips player like button (dump 9CHAY1PNRW IG 410, 2026-06-11):
+        # ImageView resource-id "like_button", content-desc "J'aime" with a CURLY
+        # apostrophe (U+2019), which the straight-apostrophe content-desc selector above
+        # misses. The feed id row_feed_button_like is absent in the clips UI, so without
+        # this a Reel opened from a profile grid could never be liked (0/2 matched).
+        # resource-id is language-agnostic (survives the FR/EN selector optimization).
+        '//*[@resource-id="com.instagram.android:id/like_button"]',
     ])
     
     comment_button: List[str] = field(default_factory=lambda: [

@@ -324,7 +324,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
             # Alternate like methods like a human (telemetry showed the profile-posts
             # path always used the button): ~45% an image double-tap, else the button.
-            if should_double_tap_like() and self._double_tap_like_image():
+            # SKIP the image double-tap in the Reels player: its like-state verification
+            # doesn't match the clips UI, so a successful double-tap reads as a failure and
+            # we'd fall through to the (now Reel-aware) like button → toggling the like back
+            # OFF. On a Reel, go straight to the button. (Re-enable once a liked-Reel dump
+            # gives us the clips liked-state selector so the double-tap can be verified.)
+            if not self._is_current_post_reel() and should_double_tap_like() and self._double_tap_like_image():
                 self.logger.debug("Post liked via image double-tap")
                 return True
 
