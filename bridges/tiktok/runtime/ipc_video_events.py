@@ -59,4 +59,28 @@ def send_pause(duration: int) -> None:
     _ipc.pause(duration)
 
 
-__all__ = ["send_stats", "send_video_info", "send_action", "send_pause"]
+def send_relevance(
+    username: str,
+    *,
+    relevant: bool,
+    score=None,
+    reason: str = None,
+    follow: bool = False,
+    comment: bool = False,
+    like: bool = False,
+) -> None:
+    """Surface the AI engagement verdict for a profile (the WHY) to the desktop app —
+    platform-neutral `ai_relevance` message consumed by the Taktik Agent panel."""
+    _ipc.send(
+        "ai_relevance",
+        username=username,
+        relevant=bool(relevant),
+        score=score,
+        reason=reason,
+        follow=bool(follow),
+        comment=bool(comment),
+        like=bool(like),
+    )
+
+
+__all__ = ["send_stats", "send_video_info", "send_action", "send_pause", "send_relevance"]

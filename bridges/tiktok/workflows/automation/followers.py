@@ -22,6 +22,41 @@ from bridges.tiktok.workflows.automation.runtime.followers_target import run_fol
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 
 
+def _bridge_log(level: str, message: str) -> None:
+    getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
+
+
+def _install_followers_ai(config: Dict[str, Any]) -> None:
+    """When the run has AI enabled, create the AI service and install the TikTok profile
+    relevance hook so each visited profile gets an engagement verdict (surfaced to the UI)."""
+    ai_config = config.get("ai") or {}
+    if not ai_config.get("enabled"):
+        return
+    try:
+        from bridges.tiktok.workflows.automation.runtime.ai import create_tiktok_ai_service
+        from bridges.tiktok.runtime.ipc import send_relevance
+        from taktik.core.social_media.tiktok.workflows.core.ai_hooks import install_tiktok_ai_hooks
+
+        ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=_bridge_log)
+        if not ai_enabled:
+            return
+
+        def _emit(username: str, payload: dict) -> None:
+            send_relevance(
+                username,
+                relevant=payload.get("relevant"),
+                score=payload.get("score"),
+                reason=payload.get("reason"),
+                follow=payload.get("follow"),
+                comment=payload.get("comment"),
+                like=payload.get("like"),
+            )
+
+        install_tiktok_ai_hooks(ai_service, ai_config, log=_bridge_log, emit_relevance=_emit)
+    except Exception as exc:
+        logger.warning(f"Could not install TikTok AI hooks: {exc}")
+
+
 def run_followers_workflow(config: Dict[str, Any]):
     """Run the TikTok Followers workflow.
 
@@ -58,6 +93,9 @@ def run_followers_workflow(config: Dict[str, Any]):
 
         manager, fetched_bot_username = tiktok_startup(device_id, fetch_profile=True)
         effective_bot_username = fetched_bot_username or bot_username
+
+        # Optional AI: install the profile-relevance verdict hook when AI is enabled.
+        _install_followers_ai(config)
 
         total_stats = create_total_stats()
 

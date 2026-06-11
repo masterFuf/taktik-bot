@@ -21,6 +21,7 @@ from bridges.tiktok.runtime.ipc_dm_events import (
 from bridges.tiktok.runtime.ipc_video_events import (
     send_action,
     send_pause,
+    send_relevance,
     send_stats,
     send_video_info,
 )
@@ -66,6 +67,7 @@ __all__ = [
     "send_video_info",
     "send_action",
     "send_pause",
+    "send_relevance",
     "send_dm_conversation",
     "send_dm_progress",
     "send_dm_stats",
