@@ -139,12 +139,16 @@ def install_instagram_ai_hooks(
                         return False
 
                     lang = language if language != "en" else "auto"
+                    # Use OUR account persona (niche + brand voice), injected into the AI config
+                    # at launch from the account profile, so the comment is on-brand — not generic.
+                    account_persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
                     result = ai.generate_smart_comment(
                         post_description=post_desc,
                         username=username or "unknown",
-                        niche="general",
+                        niche=(account_persona or {}).get("niche") or "general",
                         language=lang,
                         post_caption=post_caption,
+                        account_persona=account_persona,
                     )
                     if result.get("success") and result.get("comment"):
                         ai_comment = result["comment"]

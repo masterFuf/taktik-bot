@@ -762,16 +762,40 @@ No markdown formatting."""
 
     def generate_smart_comment(self, post_description: str, username: str,
                                 niche: str = "general", language: str = "auto",
-                                post_caption: str = "") -> Dict[str, Any]:
+                                post_caption: str = "", account_persona: dict = None) -> Dict[str, Any]:
         """
         Generate a contextual smart comment based on post analysis.
         `post_description` is the vision model's description of the post image;
         `post_caption` is the author's ACTUAL caption text (extracted from the UI after
-        expanding it) — when present it grounds the comment in the author's own words
-        (announcements, wordplay, questions the image alone can't show).
+        expanding it) — when present it grounds the comment in the author's own words.
+        `account_persona` (optional) is OUR account's profile (niche/tone/objective/USP) so the
+        comment is in OUR brand voice — the operator sets it in the account profile. When absent
+        the comment is just a generic genuine reaction.
         Emits IPC events for the AgentPanel.
         """
         t0 = time.time()
+
+        # Our own account voice (from the injected persona) — use its niche, and a short
+        # brand-voice block so the comment sounds like US without becoming a sales pitch.
+        persona = account_persona if isinstance(account_persona, dict) else {}
+        if persona.get("niche"):
+            niche = persona["niche"]
+        brand_block = ""
+        if persona:
+            who = persona.get("displayName") or "our account"
+            voice_bits = []
+            if persona.get("tonePersonality"):
+                voice_bits.append(f"Voice/tone: {persona['tonePersonality']}")
+            if persona.get("objective"):
+                voice_bits.append(f"Our goal: {persona['objective']}")
+            if persona.get("uniqueSellingPoint"):
+                voice_bits.append(f"What sets us apart: {persona['uniqueSellingPoint']}")
+            voice = " ".join(voice_bits)
+            brand_block = (
+                f"\nYou are commenting AS {who} (a \"{niche}\" account). {voice}\n"
+                "Let that expertise/voice shine through ONLY where it's natural — the comment must "
+                "stay about THEIR post and feel like a genuine person, NEVER a sales pitch or self-promo.\n"
+            )
 
         if self.ipc:
             self.ipc.ai_comment_generating(username, prompt=f"Smart comment for @{username} ({niche})",
@@ -779,7 +803,7 @@ No markdown formatting."""
 
         system_prompt = f"""You are an Instagram engagement expert for the "{niche}" niche.
 Generate an authentic, short (1-2 sentences max), natural comment that matches the post content.
-Rules:
+{brand_block}Rules:
 - No hashtags
 - Maximum 1-2 emojis (optional)
 - Sound genuinely interested, not generic
