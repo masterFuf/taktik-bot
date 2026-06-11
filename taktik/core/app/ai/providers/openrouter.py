@@ -27,6 +27,14 @@ DEFAULT_VISION_MODEL = "google/gemini-2.5-flash"
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# Platform display label for prompts (so the provider is reusable across platforms,
+# not hardcoded to Instagram). Defaults keep the Instagram wording byte-equivalent.
+_PLATFORM_LABELS = {"instagram": "Instagram", "tiktok": "TikTok"}
+
+
+def _platform_label(platform: str) -> str:
+    return _PLATFORM_LABELS.get((platform or "instagram").lower(), (platform or "Instagram").title())
+
 
 class AIService:
     """Lightweight OpenRouter client for Bot AI operations."""
@@ -364,7 +372,8 @@ class AIService:
                                response_language: str = 'en',
                                include_engagement: bool = False,
                                account_niche: str = None,
-                               account_sub_niche: str = None) -> Dict[str, Any]:
+                               account_sub_niche: str = None,
+                               platform: str = "instagram") -> Dict[str, Any]:
         """
         Classify an Instagram profile from a screenshot into a niche (scraping mode).
         No relevance score — focus is on niche classification + profile summary.
@@ -407,9 +416,11 @@ class AIService:
                 context_lines.append(f"{len(known)} already-classified in DB")
         ipc_prompt = '\n'.join(context_lines) if context_lines else f"Classifying @{username}"
 
+        # Avatar crop coordinates are Instagram-Android-specific; skip on other platforms.
+        _plat_label = _platform_label(platform)
         if self.ipc:
             screenshot_thumb = self._image_to_thumbnail_url(screenshot_path)
-            avatar_thumb = self._extract_avatar_thumbnail(screenshot_path)
+            avatar_thumb = self._extract_avatar_thumbnail(screenshot_path) if platform == "instagram" else None
             self.ipc.ai_profile_analyzing(
                 username,
                 prompt=ipc_prompt,
@@ -452,7 +463,7 @@ class AIService:
             )
 
         system_prompt = (
-            "You are an Instagram profile classifier.\n"
+            f"You are a {_plat_label} profile classifier.\n"
             "Analyze this profile screenshot and identify the account's niche.\n"
             "Choose niche_category from the keys below, then choose niche from that category's sub-niches:\n"
             + niche_map + "\n"
@@ -483,7 +494,7 @@ class AIService:
         )
 
         # Build user prompt — include enriched text context when available
-        user_prompt = f"Classify this Instagram profile: @{username}"
+        user_prompt = f"Classify this {_plat_label} profile: @{username}"
         if profile_context:
             ctx_parts = []
             if profile_context.get('full_name'):
@@ -762,7 +773,8 @@ No markdown formatting."""
 
     def generate_smart_comment(self, post_description: str, username: str,
                                 niche: str = "general", language: str = "auto",
-                                post_caption: str = "", account_persona: dict = None) -> Dict[str, Any]:
+                                post_caption: str = "", account_persona: dict = None,
+                                platform: str = "instagram") -> Dict[str, Any]:
         """
         Generate a contextual smart comment based on post analysis.
         `post_description` is the vision model's description of the post image;
@@ -801,7 +813,7 @@ No markdown formatting."""
             self.ipc.ai_comment_generating(username, prompt=f"Smart comment for @{username} ({niche})",
                                            model=self.text_model)
 
-        system_prompt = f"""You are an Instagram engagement expert for the "{niche}" niche.
+        system_prompt = f"""You are a {_platform_label(platform)} engagement expert for the "{niche}" niche.
 Generate an authentic, short (1-2 sentences max), natural comment that matches the post content.
 {brand_block}Rules:
 - No hashtags
