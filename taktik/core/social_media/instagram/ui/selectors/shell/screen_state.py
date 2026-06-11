@@ -133,11 +133,17 @@ class DetectionSelectors:
     liked_button_indicators: List[str] = field(default_factory=lambda: [
         # === MÉTHODE 1: Attribut selected (le plus fiable, indépendant de la langue) ===
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
-        
+        # Reel / clips player: the like button keeps content-desc "J'aime" (U+2019)
+        # whether liked or not — only @selected flips (dump 9CHAY1PNRW IG 410, 2026-06-11:
+        # not-liked selected=false, liked selected=true). Without this the liked-state
+        # detection (is_post_liked) never matched on a Reel, so the double-tap could not
+        # be verified and the already-liked check was blind.
+        '//*[@resource-id="com.instagram.android:id/like_button" and @selected="true"]',
+
         # === MÉTHODE 2: Fallback content-desc multi-langue ===
         '//*[contains(@content-desc, "Unlike")]',
         '//*[contains(@content-desc, "Ne plus aimer")]',
-        
+
         # Variants supprimés 2026-03-07 (redondants, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
     
