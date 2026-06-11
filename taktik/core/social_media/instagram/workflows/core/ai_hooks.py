@@ -4,6 +4,7 @@ import os
 import tempfile
 from typing import Any, Callable, Mapping
 
+from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
 )
@@ -68,6 +69,18 @@ def install_instagram_ai_hooks(
     if not device:
         log("warning", "AI hooks: no device available, skipping")
         return
+
+    # The agent greets the operator with OUR account context at session start ("Bonjour
+    # <account>, votre niche est <X>, je cible <audience>…") so the copilot feels like it's
+    # talking to us and knows who it works for. Only when a persona was injected.
+    persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
+    if isinstance(persona, dict) and (persona.get("niche") or persona.get("displayName")):
+        IPCEmitter.emit_action("greeting", persona.get("displayName") or "votre compte", {
+            "displayName": persona.get("displayName"),
+            "niche": persona.get("niche"),
+            "audience": persona.get("targetAudience"),
+            "objective": persona.get("objective"),
+        })
 
     if ai_config.get("smartComments", False):
         try:
@@ -274,6 +287,16 @@ def install_instagram_ai_hooks(
                                     + (f" · {engagement['reason']}" if engagement.get("reason") else "")
                                 ),
                             )
+                            # Surface the WHY as a proper Agent card (prod + Lab), not just a log:
+                            # "is this profile worth engaging vs OUR niche, and why".
+                            IPCEmitter.emit_action("relevance", username, {
+                                "relevant": bool(engagement.get("relevant")),
+                                "score": engagement.get("score"),
+                                "reason": engagement.get("reason"),
+                                "follow": bool(engagement.get("follow")),
+                                "comment": bool(engagement.get("comment")),
+                                "like": bool(engagement.get("like")),
+                            })
                 except Exception as exc:
                     log("warning", f"AI profile analysis error for @{username}: {exc}")
 
