@@ -1,5 +1,6 @@
 """Navigation and recovery methods for the followers workflow."""
 
+import time
 from typing import Dict, Any
 
 
@@ -76,6 +77,19 @@ class FollowerNavigationMixin:
                     self.logger.debug(f"❌ Selector error: {e}")
                     continue
             return False
+
+        # Conditional wait: poll for the list instead of a fixed 2-2.5s sleep after a
+        # back press. The list usually reappears in <1s, so this returns as soon as it's
+        # there (no robotic systematic pause, no surfaced "Pause 2.5s") and only falls
+        # back to the full timeout when the screen genuinely lags.
+        def wait_for_followers_list(timeout: float = 2.5, interval: float = 0.25) -> bool:
+            deadline = time.monotonic() + timeout
+            while True:
+                if is_on_followers_list():
+                    return True
+                if time.monotonic() >= deadline:
+                    return False
+                time.sleep(interval)
         
         # Sélecteurs pour le bouton back UI d'Instagram (depuis selectors.py)
         back_button_selectors = self.navigation_selectors.back_buttons_action_bar
@@ -100,31 +114,21 @@ class FollowerNavigationMixin:
         # Premier back (on vient d'un profil)
         self.logger.info(f"🔄 Recovery - clicking back button (1st) to return to followers list")
         click_ui_back_button()
-        self.logger.info(f"⏳ Waiting 2s after 1st back...")
-        self._random_sleep(2.0, 2.5)
-        
-        self.logger.info(f"🔍 Checking if on followers list after 1st back...")
-        if is_on_followers_list():
+        if wait_for_followers_list():
             self.logger.info(f"✅ Recovered to followers list (1st back)")
             return True
-        
+
         # Si le premier back n'a pas suffi, on est peut-être sur le profil
         # (cas: post → profil après back, il faut un 2ème back pour la liste)
         self.logger.info(f"🔄 First back didn't reach list, trying 2nd back...")
         click_ui_back_button()
-        self.logger.info(f"⏳ Waiting 2s after 2nd back...")
-        self._random_sleep(2.0, 2.5)
-        
-        self.logger.info(f"🔍 Checking if on followers list after 2nd back...")
-        if is_on_followers_list():
+        if wait_for_followers_list():
             self.logger.info(f"✅ Recovered to followers list (2nd back)")
             return True
-        
-        # Attendre un peu plus et réessayer la détection
-        self.logger.info(f"🔄 Detection failed, waiting 1s more and retrying...")
-        self._random_sleep(1.0, 1.5)
-        
-        if is_on_followers_list():
+
+        # Dernier coup de pouce: laisser un peu plus de temps à l'écran et re-détecter
+        self.logger.info(f"🔄 Detection failed, waiting a bit more and retrying...")
+        if wait_for_followers_list(timeout=1.5):
             self.logger.info(f"✅ Recovered to followers list (after wait)")
             return True
         
