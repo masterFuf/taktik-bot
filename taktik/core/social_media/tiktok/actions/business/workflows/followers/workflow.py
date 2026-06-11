@@ -21,6 +21,8 @@ from typing import Optional, Dict, Any, List, Callable, Set
 import time
 import random
 
+from taktik.core.shared.telemetry.sink import emit_step
+
 from taktik.core.social_media.tiktok.services.followers.stop_policy import (
     KnownProfileDecision,
     KnownProfilesStopPolicy,
@@ -377,21 +379,35 @@ class FollowersWorkflow(
             self.stats.profiles_visited += 1
             self._send_stats_update()
             
-            # Extract and save profile data (followers, likes, bio, etc.)
-            self._extract_and_save_profile_data()
-            
-            # Send profile visit action for Live Activity
-            self._send_action('profile_visit', self._current_profile_username)
-            
-            self.logger.info(f"👤 Visiting profile @{self._current_profile_username} ({self.stats.profiles_visited}/{self.config.max_followers})")
-            
-            # Interact with posts on this profile
-            self._interact_with_profile_posts()
-            
-            # Optionally follow this user
-            if random.random() < self.config.follow_probability:
-                if self.stats.follows < self.config.max_follows_per_session:
-                    self._try_follow_current_profile()
+            # Heartbeat: attribute the per-profile processing time (extract → browse posts
+            # → interact → follow) in the cadence/run log.
+            _username = self._current_profile_username
+            _likes0 = getattr(self.stats, 'likes', 0)
+            _follows0 = getattr(self.stats, 'follows', 0)
+            _t0 = time.time()
+            emit_step("analysis", action="start", target=_username)
+            try:
+                # Extract and save profile data (followers, likes, bio, etc.)
+                self._extract_and_save_profile_data()
+
+                # Send profile visit action for Live Activity
+                self._send_action('profile_visit', self._current_profile_username)
+
+                self.logger.info(f"👤 Visiting profile @{self._current_profile_username} ({self.stats.profiles_visited}/{self.config.max_followers})")
+
+                # Interact with posts on this profile
+                self._interact_with_profile_posts()
+
+                # Optionally follow this user
+                if random.random() < self.config.follow_probability:
+                    if self.stats.follows < self.config.max_follows_per_session:
+                        self._try_follow_current_profile()
+            finally:
+                _acted = (getattr(self.stats, 'likes', 0) > _likes0
+                          or getattr(self.stats, 'follows', 0) > _follows0)
+                emit_step("analysis", action="done", target=_username,
+                          duration_ms=int((time.time() - _t0) * 1000),
+                          outcome="interacted" if _acted else "watched")
             
             # Safe return to followers list with verification
             if not self._safe_return_to_followers_list():

@@ -14,6 +14,8 @@ from typing import Optional, Dict, Any
 import time
 import random
 
+from taktik.core.shared.telemetry.sink import emit_step
+
 from .._internal import BaseVideoWorkflow, VideoWorkflowStats
 from .models import SearchConfig
 
@@ -110,14 +112,24 @@ class SearchWorkflow(BaseVideoWorkflow):
                     self._scroll_to_next()
                     continue
                 
-                # Watch video
+                # Watch + decide. Heartbeat: attribute the per-video processing time
+                # (watch + decide + act) in the cadence/run log.
+                _liked0 = getattr(self.stats, 'videos_liked', 0)
+                _follow0 = getattr(self.stats, 'users_followed', 0)
+                _fav0 = getattr(self.stats, 'videos_favorited', 0)
+                _t0 = time.time()
+                emit_step("analysis", action="start", target="search")
                 self._watch_video()
                 self.stats.videos_watched += 1
                 self._send_stats_update()
-                
-                # Decide and execute actions
                 self._decide_and_execute_actions(video_info)
-                
+                _acted = (getattr(self.stats, 'videos_liked', 0) > _liked0
+                          or getattr(self.stats, 'users_followed', 0) > _follow0
+                          or getattr(self.stats, 'videos_favorited', 0) > _fav0)
+                emit_step("analysis", action="done",
+                          duration_ms=int((time.time() - _t0) * 1000),
+                          outcome="interacted" if _acted else "watched")
+
                 # Check if pause needed
                 self._check_pause_needed()
                 
