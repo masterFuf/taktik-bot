@@ -75,6 +75,7 @@ from taktik.core.social_media.tiktok.workflows.runtime.notifier import (
     create_workflow_notifier_context,
 )
 from taktik.core.social_media.tiktok.ui.xpath import find_element, tap_element
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 _NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context(
@@ -290,9 +291,16 @@ class TikTokUploadWorkflow:
             dismiss_popups=lambda: dismiss_post_popups(self.device, log=_ipc.log),
             get_progress_percent=lambda: get_publish_progress_percent(self.device, log=_ipc.log),
             is_on_post_screen=lambda: is_post_screen(self.device),
-            has_success_indicator=lambda: find_element(
-                self.device, PUBLISH_PROGRESS_SELECTORS.success_indicator, timeout=1.0
-            ) is not None,
+            # "Published" signal: a success toast OR — far more reliable, since TikTok shows
+            # no lasting success text — being back on a main feed screen (the bottom nav bar
+            # reappears once we leave the composer). The loop only checks this AFTER we've left
+            # the post screen, so the nav bar here means the publish committed and TikTok
+            # redirected to the feed (verified on the 08_posted artifact). Lets the wait exit
+            # immediately instead of falling through to the slow "stabilized" fallback.
+            has_success_indicator=lambda: (
+                find_element(self.device, PUBLISH_PROGRESS_SELECTORS.success_indicator, timeout=0.5) is not None
+                or find_element(self.device, NAVIGATION_SELECTORS.bottom_nav_container, timeout=0.5) is not None
+            ),
         )
         return wait_for_publish_commit(callbacks, timeout=timeout, log=_ipc.log)
 
