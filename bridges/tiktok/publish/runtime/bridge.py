@@ -84,15 +84,19 @@ class TikTokPublishBridge:
         try:
             from taktik.core.social_media.tiktok.workflows.publish.upload_workflow import TikTokUploadWorkflow
 
-            workflow = TikTokUploadWorkflow(device, self.device_id, notifier=_ipc)
-            self._capture_phase(device, "before")
+            # Inject a per-step capture hook so each publish stage gets a screenshot + dump.
+            workflow = TikTokUploadWorkflow(
+                device, self.device_id, notifier=_ipc,
+                step_hook=lambda phase: self._capture_phase(device, phase),
+            )
+            self._capture_phase(device, "00_before")
             result = workflow.execute(
                 local_path=self.local_path,
                 caption=self.caption,
                 hashtags=self.hashtags,
                 package_name=self.package_name,
             )
-            self._capture_phase(device, "after")
+            self._capture_phase(device, "99_after")
 
             success = result.get("success", False)
             send_status("success" if success else "error", result.get("message", ""))

@@ -107,10 +107,21 @@ class TikTokUploadWorkflow:
     device_id   : ADB serial (e.g. "C57S00000032140")
     """
 
-    def __init__(self, device, device_id: str, notifier=None):
+    def __init__(self, device, device_id: str, notifier=None, step_hook=None):
         self.device = device
         self.device_id = device_id
         self._notifier = notifier or _NULL_NOTIFIER
+        # Optional injected callback (phase: str) -> None, called at each publish step so
+        # the bridge can capture a screenshot + UI dump per step (Lab observability). The
+        # core never touches the filesystem itself — no-op when not provided.
+        self._step_hook = step_hook
+
+    def _capture(self, phase: str) -> None:
+        if self._step_hook:
+            try:
+                self._step_hook(phase)
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Public entrypoint
@@ -168,6 +179,7 @@ class TikTokUploadWorkflow:
             time.sleep(4)
             wait_for_tiktok_home(self.device, timeout=30.0, log=_ipc.log)
             _ipc.status("navigating", "TikTok ready")
+            self._capture("01_home")
 
             # 5b. Detect app language and prune wrong-language selectors in-place.
             # Home/For-You screen exposes bottom-nav labels used by language detection.
@@ -188,6 +200,7 @@ class TikTokUploadWorkflow:
             time.sleep(1.0)
             if handle_permission_dialog(self.device, self.device_id, log=_ipc.log):
                 time.sleep(1.0)
+            self._capture("02_create")
 
             # 7. Taper le bouton Upload/Gallery dans le panneau de création caméra
             _ipc.status("navigating", "Tapping Upload/Gallery button...")
@@ -199,17 +212,20 @@ class TikTokUploadWorkflow:
                     return self._error("upload_btn_not_found", "Upload button not found in creation panel")
             if not ensure_gallery_picker_open(self.device, self.device_id, log=_ipc.log):
                 return self._error("gallery_not_opened", "TikTok gallery did not open after tapping Upload")
+            self._capture("03_gallery")
 
             # 8. Sélectionner le premier fichier de la galerie
             _ipc.status("selecting", "Selecting media from gallery...")
             if not select_first_gallery_item(self.device, log=_ipc.log):
                 return self._error("gallery_item_not_found", "Could not select media from gallery")
             time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
+            self._capture("04_media_selected")
 
             # 8. Taper "Next" jusqu'à l'écran de description (max 3 fois)
             _ipc.status("navigating", "Navigating to post screen...")
             if not advance_to_post_screen(self.device):
                 return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
+            self._capture("05_post_screen")
 
             # 9. Saisir la description
             full_caption = build_caption(caption, hashtags)
@@ -218,9 +234,11 @@ class TikTokUploadWorkflow:
                 if not self._fill_caption(caption, hashtags):
                     return self._error("caption_fill_failed", "Could not enter TikTok caption")
                 time.sleep(0.5)
+                self._capture("06_caption")
 
             # 10. Taper "Post"
             _ipc.status("publishing", "Publishing...")
+            self._capture("07_before_post")
             self._recover_from_video_edit_screen()
             if not tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=5.0):
                 self._recover_from_video_edit_screen()
@@ -229,6 +247,7 @@ class TikTokUploadWorkflow:
                     dismiss_post_popups(self.device, log=_ipc.log)
                     _ipc.status("success", "Post published successfully!")
                     _ipc.log("info", "âœ… TikTok post published")
+                    self._capture("08_posted")
                     force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
                     return {"success": True, "message": "Post published successfully", "error_type": None}
                 return self._error("post_btn_not_found", "Post button not found")
@@ -252,6 +271,7 @@ class TikTokUploadWorkflow:
             # 12. Vérification succès (best-effort)
             _ipc.status("success", "Post published successfully!")
             _ipc.log("info", "✅ TikTok post published")
+            self._capture("08_posted")
 
             # 13. Close TikTok after successful post
             force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
@@ -355,7 +375,8 @@ class TikTokUploadWorkflow:
     # Misc helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _error(error_type: str, message: str) -> dict:
+    def _error(self, error_type: str, message: str) -> dict:
+        # Capture the failing screen — the most useful artifact to see WHERE it broke.
+        self._capture(f"error_{error_type}")
         _ipc.log("error", f"❌ {message}")
         return {"success": False, "message": message, "error_type": error_type}
