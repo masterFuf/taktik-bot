@@ -43,8 +43,10 @@ class TikTokPublishBridge:
                 self._artifact_dir.mkdir(parents=True, exist_ok=True)
             png = self._artifact_dir / f"{phase}.png"
             xml = self._artifact_dir / f"{phase}.xml"
+            # `device` here is the raw uiautomator2 Device (not the DeviceFacade), so use its
+            # native methods: screenshot(filename) saves a PNG, dump_hierarchy() returns the XML.
             device.screenshot(str(png))
-            dump = device.get_xml_dump()
+            dump = device.dump_hierarchy()
             if dump:
                 xml.write_text(dump, encoding="utf-8")
             send_log("info", f"[artifact] {phase}: {png}")
