@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import signal
+from datetime import datetime, timezone
+from pathlib import Path
 
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
@@ -20,6 +22,7 @@ class TikTokPublishBridge:
         self.hashtags = config.get("hashtags", [])
         self.package_name = config.get("packageName")
         self._connection = None
+        self._artifact_dir = None
 
         setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._shutdown)
@@ -27,6 +30,26 @@ class TikTokPublishBridge:
 
     def _shutdown(self, signum, frame):
         send_status("stopping", "Received shutdown signal")
+
+    def _capture_phase(self, device, phase: str) -> None:
+        """Save a before/after screenshot + UI XML dump so a publish run can be reviewed
+        from disk, like the Cartography Lab action-test artifacts. Best-effort, never fatal."""
+        try:
+            if self._artifact_dir is None:
+                bot_root = Path(__file__).resolve().parents[4]
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+                safe = "".join(c for c in (self.device_id or "device") if c.isalnum() or c in "._-")
+                self._artifact_dir = bot_root / "debug_ui" / "cartography" / safe / "tiktok" / "publish-runs" / stamp
+                self._artifact_dir.mkdir(parents=True, exist_ok=True)
+            png = self._artifact_dir / f"{phase}.png"
+            xml = self._artifact_dir / f"{phase}.xml"
+            device.screenshot(str(png))
+            dump = device.get_xml_dump()
+            if dump:
+                xml.write_text(dump, encoding="utf-8")
+            send_log("info", f"[artifact] {phase}: {png}")
+        except Exception as e:
+            send_log("warning", f"Artifact capture ({phase}) failed: {e}")
 
     def run(self) -> int:
         if not self.device_id:
@@ -62,12 +85,14 @@ class TikTokPublishBridge:
             from taktik.core.social_media.tiktok.workflows.publish.upload_workflow import TikTokUploadWorkflow
 
             workflow = TikTokUploadWorkflow(device, self.device_id, notifier=_ipc)
+            self._capture_phase(device, "before")
             result = workflow.execute(
                 local_path=self.local_path,
                 caption=self.caption,
                 hashtags=self.hashtags,
                 package_name=self.package_name,
             )
+            self._capture_phase(device, "after")
 
             success = result.get("success", False)
             send_status("success" if success else "error", result.get("message", ""))
