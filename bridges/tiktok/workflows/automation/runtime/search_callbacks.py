@@ -37,6 +37,7 @@ def setup_search_workflow_callbacks(workflow, aggregate_stats: Dict[str, int], s
             hashtags=video_info.get("hashtags") or [],
             sound=video_info.get("sound"),
             author_pic=author_pic,
+            watch_time=video_info.get("watch_time"),
         )
 
     def on_like(video_info):

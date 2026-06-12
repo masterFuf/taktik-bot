@@ -26,7 +26,7 @@ class TikTokIpcMixin:
     def video_info(self, author: str, description: str = None, like_count: str = None,
                    is_liked: bool = False, is_followed: bool = False, is_ad: bool = False,
                    hashtags: list = None, sound: str = None,
-                   author_pic: str = None) -> None:
+                   author_pic: str = None, watch_time: float = None) -> None:
         """Send current TikTok video info."""
         video: dict = {
             "author": author,
@@ -42,6 +42,10 @@ class TikTokIpcMixin:
             video["sound"] = sound
         if author_pic:
             video["author_pic"] = author_pic
+        if watch_time is not None:
+            # Dwell the bot will spend on this video, in seconds (drawn pre-watch,
+            # slept verbatim) — shown on the per-video Agent card.
+            video["watch_time"] = round(float(watch_time), 1)
         self.send("video_info", video=video)
 
     def action(self, action: str, target: str = "") -> None:

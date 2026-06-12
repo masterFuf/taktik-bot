@@ -88,7 +88,16 @@ class SearchWorkflow(BaseVideoWorkflow):
                 # Detect stuck state
                 if self._handle_stuck_video(video_info):
                     continue
-                
+
+                # Plan the dwell BEFORE the callback so the front's per-video card shows
+                # the watch time (the bot then sleeps exactly this value). Here the ad/skip
+                # checks happen before watching, so only stamp a video that WILL be watched
+                # (both checks are pure reads of config + video_info).
+                if (not (self.config.skip_ads and video_info.get('is_ad', False))
+                        and not self._should_skip_video(video_info)):
+                    video_info['watch_time'] = round(
+                        random.uniform(self.config.min_watch_time, self.config.max_watch_time), 1)
+
                 # Send video info callback
                 if self._on_video_callback:
                     try:
@@ -119,7 +128,7 @@ class SearchWorkflow(BaseVideoWorkflow):
                 _fav0 = getattr(self.stats, 'videos_favorited', 0)
                 _t0 = time.time()
                 emit_step("analysis", action="start", target="search")
-                self._watch_video()
+                self._watch_video(video_info.get('watch_time'))
                 self.stats.videos_watched += 1
                 self._send_stats_update()
                 self._decide_and_execute_actions(video_info)
@@ -155,12 +164,14 @@ class SearchWorkflow(BaseVideoWorkflow):
         self.scroll.scroll_to_next_video()
         time.sleep(0.5)
     
-    def _watch_video(self):
-        """Watch current video for a random duration."""
-        watch_time = random.uniform(
-            self.config.min_watch_time,
-            self.config.max_watch_time
-        )
+    def _watch_video(self, watch_time: float = None):
+        """Watch the current video — honor the dwell planned (and emitted to the front)
+        pre-callback, drawing one only if none was planned."""
+        if not watch_time:
+            watch_time = random.uniform(
+                self.config.min_watch_time,
+                self.config.max_watch_time
+            )
         self.logger.debug(f"👀 Watching video for {watch_time:.1f}s")
         time.sleep(watch_time)
     

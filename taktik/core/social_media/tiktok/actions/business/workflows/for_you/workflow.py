@@ -94,14 +94,21 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 # Detect stuck state
                 if self._handle_stuck_video(video_info):
                     continue
-                
+
+                # Plan the dwell BEFORE the callback so the front's per-video card shows
+                # the watch time (the bot then sleeps exactly this value). Ads are skipped
+                # without watching, so they carry no watch_time.
+                if not (self.config.skip_ads and video_info.get('is_ad', False)):
+                    video_info['watch_time'] = round(
+                        random.uniform(self.config.min_watch_time, self.config.max_watch_time), 1)
+
                 # Send video info callback immediately (before any processing)
                 if self._on_video_callback:
                     try:
                         self._on_video_callback(video_info)
                     except Exception as e:
                         self.logger.warning(f"Video callback error: {e}")
-                
+
                 # Check if current video is an ad
                 if self.config.skip_ads and video_info.get('is_ad', False):
                     self.logger.info("📺 Skipping advertisement")
@@ -205,8 +212,10 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
         self.logger.debug(f"📹 Video: @{video_info.get('author')} - "
                          f"likes: {video_info.get('like_count')}")
         
-        # Watch video
-        watch_time = random.uniform(self.config.min_watch_time, self.config.max_watch_time)
+        # Watch video — honor the dwell planned (and emitted to the front) in the run
+        # loop; draw one only if this call fetched its own video_info.
+        watch_time = video_info.get('watch_time') or random.uniform(
+            self.config.min_watch_time, self.config.max_watch_time)
         self.scroll.watch_video(watch_time)
         
         self.stats.videos_watched += 1

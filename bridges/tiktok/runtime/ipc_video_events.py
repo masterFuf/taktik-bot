@@ -34,6 +34,7 @@ def send_video_info(
     hashtags: list = None,
     sound: str = None,
     author_pic: str = None,
+    watch_time: float = None,
 ) -> None:
     """Send current video info to desktop app."""
     _ipc.video_info(
@@ -46,6 +47,7 @@ def send_video_info(
         hashtags=hashtags,
         sound=sound,
         author_pic=author_pic,
+        watch_time=watch_time,
     )
 
 
