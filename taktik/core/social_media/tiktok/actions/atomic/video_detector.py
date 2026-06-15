@@ -202,16 +202,44 @@ class VideoDetector(BaseAction):
             if not bounds:
                 return None
 
+            # The "+" follow button (hi1) is painted OVER the bottom-center of the
+            # avatar on the feed, so a naive crop of the avatar bounds bakes it in.
+            # Detect it and clip the crop's bottom just above it so the captured
+            # profile picture comes out clean. Degrades to the full avatar when the
+            # button is absent (e.g. already-followed creators).
+            clip_bottom = bounds['bottom']
+            try:
+                for selector in self.video_selectors.follow_button:
+                    fb_elems = tree.xpath(selector)
+                    if not fb_elems:
+                        continue
+                    fb_str = fb_elems[0].get('bounds', '')
+                    if not fb_str:
+                        break
+                    fb_parts = fb_str.replace('][', ',').replace('[', '').replace(']', '').split(',')
+                    if len(fb_parts) != 4:
+                        break
+                    fb_left, fb_top, fb_right, fb_bottom = (int(p) for p in fb_parts)
+                    overlaps_x = fb_left < bounds['right'] and fb_right > bounds['left']
+                    covers_bottom = bounds['top'] < fb_top < bounds['bottom']
+                    if overlaps_x and covers_bottom:
+                        clip_bottom = min(clip_bottom, fb_top - 1)
+                    break
+            except Exception:
+                pass
+
             screenshot = self.device.screenshot_pil()
             if screenshot is None:
                 return None
 
             padding = 2
+            # Don't pad below the clipped bottom — that would re-include the "+".
+            bottom_px = clip_bottom if clip_bottom < bounds['bottom'] else bounds['bottom'] + padding
             crop_box = (
                 max(0, bounds['left'] - padding),
                 max(0, bounds['top'] - padding),
                 min(screenshot.size[0], bounds['right'] + padding),
-                min(screenshot.size[1], bounds['bottom'] + padding),
+                min(screenshot.size[1], bottom_px),
             )
             cropped = screenshot.crop(crop_box)
 
