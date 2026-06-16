@@ -43,6 +43,24 @@ class DMActions(BaseAction):
         """
         return extract_resource_id(selectors)
 
+    # Marques bidi / format invisibles dont TikTok entoure les usernames (o0f) :
+    # LRM/RLM, isolats FSI/PDI/LRI/RLI, embeddings/overrides, word-joiner.
+    _BIDI_FORMAT_CHARS = dict.fromkeys(
+        [0x200E, 0x200F, 0x2060, 0x2066, 0x2067, 0x2068, 0x2069,
+         0x202A, 0x202B, 0x202C, 0x202D, 0x202E],
+        None,
+    )
+
+    @staticmethod
+    def _clean_username(text: str) -> str:
+        """Retire les marques bidi/format invisibles d'un username TikTok (o0f).
+
+        Ex. '\\u200e\\u2068NK19\\u2069' -> 'NK19'. Indispensable pour l'affichage front ET pour
+        que le sélecteur `contains(@text, name)` (follow_back) matche (le texte du noeud garde
+        ces marques, donc on matche par `contains` sur le nom nettoyé).
+        """
+        return (text or '').translate(DMActions._BIDI_FORMAT_CHARS).strip()
+
     @staticmethod
     def _resource_id_pattern(selectors: List[str]) -> str:
         """Build a `resourceIdMatches` regex from a centralized resource-id selector.
@@ -259,15 +277,14 @@ class DMActions(BaseAction):
 
             for i in range(count):
                 try:
-                    name = username_elements[i].get_text()
+                    name = self._clean_username(username_elements[i].get_text())
                     if not name:
                         continue
-                    name = name.strip().replace('‎', '').replace('‏', '')
 
                     activity = ''
                     if i < activity_count:
                         try:
-                            activity = (activity_elements[i].get_text() or '').strip()
+                            activity = self._clean_username(activity_elements[i].get_text())
                         except Exception:
                             activity = ''
 
@@ -296,6 +313,7 @@ class DMActions(BaseAction):
         Sélecteur dynamique scopé à l'item (follow_back_for_username) -> ne tape jamais le
         bouton d'un autre follower.
         """
+        username = self._clean_username(username)
         if not username:
             return False
 

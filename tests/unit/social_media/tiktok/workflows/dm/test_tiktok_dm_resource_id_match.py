@@ -74,8 +74,8 @@ class _FakeDevice:
         self._followable = set(followable)
 
     def xpath(self, selector):
-        # selector = follow_back_for_username(name) -> on extrait le name pour décider l'existence
-        m = re.search(r'\[@text="([^"]+)"\]', selector)
+        # selector = follow_back_for_username(name) -> on extrait le name (forme contains)
+        m = re.search(r'contains\(@text, "([^"]+)"\)', selector)
         name = m.group(1) if m else ''
         return _FakeXPath(name in self._followable)
 
@@ -141,3 +141,24 @@ def test_get_new_followers_empty_when_no_usernames():
     device = _FakeDevice(usernames=[], activities=[], followable=[])
     dm = _make_actions(device)
     assert dm.get_new_followers(max_items=10) == []
+
+
+def test_clean_username_strips_bidi_marks():
+    # Texte réel capturé sur device : LRM (200e) + isolats FSI/PDI (2068/2069) autour du nom.
+    assert DMActions._clean_username('‎⁨NK19⁩') == 'NK19'
+    assert DMActions._clean_username('⁨Éric Langevingt Vignac⁩') == 'Éric Langevingt Vignac'
+    assert DMActions._clean_username(None) == ''
+
+
+def test_get_new_followers_cleans_bidi_and_matches_follow_back():
+    # Le bug device : username = '‎⁨NK19⁩' -> can_follow_back ratait (match exact).
+    # Après fix : username nettoyé ('NK19') + contains(@text) -> match OK.
+    device = _FakeDevice(
+        usernames=['‎⁨NK19⁩', '⁨Rafael⁩'],
+        activities=['a commencé à te suivre', 'a commencé à te suivre'],
+        followable=['NK19', 'Rafael'],
+    )
+    dm = _make_actions(device)
+    followers = dm.get_new_followers(max_items=50)
+    assert [f['username'] for f in followers] == ['NK19', 'Rafael']
+    assert all(f['can_follow_back'] for f in followers)

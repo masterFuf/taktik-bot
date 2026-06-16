@@ -317,18 +317,25 @@ class InboxSelectors:
         return f'{self.conversation_username[0]}[@text="{name}"]'
 
     def new_followers_username_by_text(self, name: str) -> str:
-        """Build the new-follower username selector for an exact visible name (page dédiée)."""
-        return f'//*[contains(@resource-id, ":id/o0f")][@text="{name}"]'
+        """Build the new-follower username selector for a visible name (page dédiée).
+
+        `contains` (pas `=`) car TikTok entoure le username de marques bidi invisibles
+        (LRM/FSI/PDI : ‎⁨…⁩) — un match exact échouerait ; `name` doit être
+        nettoyé de ces marques (cf. DMActions._clean_username).
+        """
+        return f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]'
 
     def follow_back_for_username(self, name: str) -> str:
         """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
 
         Sélecteur dynamique (composé des resource-ids centralisés o0v/o0f/rdh) : le bouton rdh
-        de l'item (o0v) dont le username (o0f) vaut `name`. Évite de taper le mauvais bouton.
+        de l'item (o0v) dont le username (o0f) contient `name`. `contains` car le texte o0f est
+        entouré de marques bidi invisibles (‎⁨…⁩) — `name` doit être nettoyé de
+        ces marques au préalable (DMActions._clean_username). Évite de taper le mauvais bouton.
         """
         return (
             '//*[contains(@resource-id, ":id/o0v")]'
-            f'[.//*[contains(@resource-id, ":id/o0f")][@text="{name}"]]'
+            f'[.//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]]'
             '//*[contains(@resource-id, ":id/rdh")]'
         )
 
