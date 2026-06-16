@@ -61,6 +61,11 @@ _FR_WORDS: Set[str] = {
     "Non", "Plus de", "Sponsorise", "Publicite",
     "J'aime", "Attribuer un", "Partager une vidÃ©o",
     "Lire ou ajouter des commentaires", "commentaires", "Son :",
+    # Inbox / Messages (sections, demandes, follow-back)
+    "Nouveaux followers", "Nouveaux abonnés", "Activité",
+    "Notifications système", "Demandes de messages", "Comptes suggérés",
+    "Suivre en retour", "Accepter", "Supprimer", "Tout voir", "Vu",
+    "Ajouter des personnes", "Statut d'activité", "a commencé à te suivre",
     # Errors / states
     "erreur", "réseau", "trop de", "fonctionnalités",
 }
@@ -103,6 +108,11 @@ _EN_WORDS: Set[str] = {
     "Like video", "Like this", "Liked", "Unlike",
     "Like", "Share video", "Read or add comments",
     "Add or remove this video from Favour",
+    # Inbox / Messages (sections, requests, follow-back)
+    "New followers", "Activity", "System notifications",
+    "Message requests", "Suggested accounts",
+    "Accept", "Delete", "Decline", "View all", "Seen",
+    "Add people", "Activity status", "started following you",
     # Errors / states
     "error", "network", "too many", "Something went wrong",
     "Try again later", "No internet", "Cannot send message",

@@ -96,33 +96,36 @@ class DMActions(BaseAction):
         return items
     
     def _get_notification_sections(self) -> List[Dict[str, Any]]:
-        """Get notification sections (New followers, Activity, System)."""
+        """Get notification sections (New followers, Activity, System).
+
+        Utilise les sélecteurs langue-aware (FR/EN filtrés par detect_and_optimize) plutôt que
+        des titres en dur — sinon la détection échoue quand l'app n'est pas en anglais.
+        """
         notifications = []
-        
-        # Check for known notification sections by their text
+
+        # (sélecteurs langue-aware, notification_type, libellé stable)
         notification_types = [
-            ('New followers', 'new_followers'),
-            ('Activity', 'activity'),
-            ('System notifications', 'system'),
+            (self.inbox_selectors.new_followers_section, 'new_followers'),
+            (self.inbox_selectors.activity_section, 'activity'),
+            (self.inbox_selectors.system_notifications_section, 'system'),
         ]
-        
-        for title, notif_type in notification_types:
+
+        for selectors, notif_type in notification_types:
             try:
-                selector = self.inbox_selectors.section_title_by_text(title)
-                if self._element_exists([selector], timeout=1):
+                if self._element_exists(selectors, timeout=1):
                     notifications.append({
                         'type': 'notification',
                         'notification_type': notif_type,
-                        'name': title,
+                        'name': notif_type,
                         'subtitle': '',
                         'timestamp': '',
                         'is_group': False,
                         'unread_count': 0,
                     })
             except Exception as e:
-                self.logger.debug(f"Error checking notification {title}: {e}")
+                self.logger.debug(f"Error checking notification {notif_type}: {e}")
                 continue
-        
+
         return notifications
     
     def _get_conversations(self) -> List[Dict[str, Any]]:
