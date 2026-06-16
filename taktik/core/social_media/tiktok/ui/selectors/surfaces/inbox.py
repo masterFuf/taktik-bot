@@ -342,6 +342,17 @@ class InboxSelectors:
         """
         return f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]'
 
+    def message_request_by_username(self, name: str) -> str:
+        """Build the message-request item (t5a) selector for a visible username (page demandes).
+
+        `contains` car le username (z05) est entouré de marques bidi invisibles (cf.
+        DMActions._clean_username) ; on remonte à l'item t5a cliquable contenant ce username.
+        """
+        return (
+            '//*[contains(@resource-id, ":id/t5a")]'
+            f'[.//*[contains(@resource-id, ":id/z05")][contains(@text, "{name}")]]'
+        )
+
     def follow_back_for_username(self, name: str) -> str:
         """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
 

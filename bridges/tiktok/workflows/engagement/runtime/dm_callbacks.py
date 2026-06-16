@@ -9,7 +9,9 @@ from bridges.tiktok.runtime.ipc import (
     send_dm_sent,
     send_dm_stats,
     send_follow_back_result,
+    send_message_request,
     send_new_follower,
+    send_request_result,
     send_unreplied_conversation,
 )
 
@@ -83,10 +85,31 @@ def wire_unreplied_callbacks(workflow) -> None:
     workflow.set_on_unreplied_callback(on_conversation)
 
 
+def wire_message_requests_read_callbacks(workflow) -> None:
+    """Wire stdout events for message-requests scraping (inbox v2 phase 3)."""
+
+    def on_request(request):
+        send_message_request(request)
+        logger.info(f"📥 Message request: {request.get('username', 'unknown')}")
+
+    workflow.set_on_message_request_callback(on_request)
+
+
+def wire_request_decision_callbacks(workflow) -> None:
+    """Wire stdout events for message-request decisions (accept/decline/reply, inbox v2 phase 3)."""
+
+    def on_result(result):
+        send_request_result(result)
+
+    workflow.set_on_request_result_callback(on_result)
+
+
 __all__ = [
     "wire_dm_read_callbacks",
     "wire_dm_send_callbacks",
     "wire_new_followers_read_callbacks",
     "wire_follow_back_callbacks",
     "wire_unreplied_callbacks",
+    "wire_message_requests_read_callbacks",
+    "wire_request_decision_callbacks",
 ]

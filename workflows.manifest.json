@@ -51,6 +51,8 @@
       "dm_read",
       "dm_send",
       "new_followers",
+      "dm_unreplied",
+      "dm_requests",
       "scraping"
     ],
     "account": [

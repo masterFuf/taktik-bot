@@ -55,6 +55,9 @@ class DMWorkflow(BaseTikTokWorkflow):
         self._on_follow_back_result_callback: Optional[Callable] = None
         # Inbox v2 (conversations non-répondues) callback
         self._on_unreplied_callback: Optional[Callable] = None
+        # Inbox v2 (demandes de messages) callbacks
+        self._on_message_request_callback: Optional[Callable] = None
+        self._on_request_result_callback: Optional[Callable] = None
         
         # DM-specific state
         self._conversations: List[ConversationData] = []
@@ -615,3 +618,100 @@ class DMWorkflow(BaseTikTokWorkflow):
         except Exception as e:
             self.logger.error(f"Erreur lecture non-répondus: {e}")
             return []
+
+    # ==========================================================================
+    # DEMANDES DE MESSAGES (Phase 3 inbox v2) — scrape + accepter/refuser/répondre
+    # ==========================================================================
+
+    def set_on_message_request_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback appelé pour chaque demande de message scrapée."""
+        self._on_message_request_callback = callback
+
+    def set_on_request_result_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback appelé pour chaque résultat (accept/decline/reply)."""
+        self._on_request_result_callback = callback
+
+    def read_message_requests(self, max_items: int = 30) -> List[Dict[str, Any]]:
+        """Ouvre la page « Demandes de messages » et liste les demandes SANS agir.
+
+        Returns:
+            Liste de {username, preview, timestamp}
+        """
+        self._running = True
+        self.logger.info("📥 Lecture des demandes de messages")
+        try:
+            self._handle_popups(skip_inbox_escape=True)
+            if not self.dm.open_message_requests_page():
+                self.logger.error("Impossible d'ouvrir la page des demandes")
+                return []
+
+            requests = self.dm.get_message_requests(max_items)
+            for req in requests:
+                if self._on_message_request_callback:
+                    try:
+                        self._on_message_request_callback(req)
+                    except Exception as e:
+                        self.logger.warning(f"Callback message_request erreur: {e}")
+
+            self.logger.info(f"✅ {len(requests)} demande(s) listée(s)")
+            return requests
+        except Exception as e:
+            self.logger.error(f"Erreur lecture demandes: {e}")
+            return []
+
+    def process_message_requests(self, decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Exécute les décisions sur les demandes sélectionnées.
+
+        Args:
+            decisions: liste de {username, action: 'accept'|'decline', message?: str}.
+                'accept' + message non vide → accepte puis répond (flux conversation).
+
+        Returns:
+            Liste de {username, action, success, replied}
+        """
+        self._running = True
+        results: List[Dict[str, Any]] = []
+        if not decisions:
+            return results
+
+        self.logger.info(f"📥 Traitement de {len(decisions)} demande(s)")
+        for decision in decisions:
+            if not self._running:
+                break
+            username = decision.get('username', '')
+            action = decision.get('action', 'accept')
+            message = (decision.get('message') or '').strip()
+            success = False
+            replied = False
+            try:
+                # Ré-ouvre la liste avant chaque demande (état UI propre)
+                if not self.dm.open_message_requests_page():
+                    raise RuntimeError('requests_page_unavailable')
+                if not self.dm.open_request(username):
+                    raise RuntimeError('request_not_found')
+
+                if action == 'decline':
+                    success = self.dm.decline_request()
+                else:  # accept (+ éventuelle réponse)
+                    success = self.dm.accept_request()
+                    if success and message:
+                        # Après acceptation, on est dans la conversation → répondre
+                        if self.dm.is_in_conversation():
+                            replied = self.dm.send_text_message(message)
+                        else:
+                            self.logger.warning(f"Pas dans la conversation après accept: {username}")
+            except Exception as e:
+                self.logger.warning(f"Demande {username} erreur: {e}")
+
+            res = {'username': username, 'action': action, 'success': bool(success), 'replied': bool(replied)}
+            results.append(res)
+            if self._on_request_result_callback:
+                try:
+                    self._on_request_result_callback(res)
+                except Exception as e:
+                    self.logger.warning(f"Callback request_result erreur: {e}")
+            time.sleep(self.config.delay_between_conversations)
+
+        done = sum(1 for r in results if r.get('success'))
+        self.logger.info(f"✅ Demandes traitées: {done}/{len(decisions)}")
+        return results

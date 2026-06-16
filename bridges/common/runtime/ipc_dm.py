@@ -31,3 +31,11 @@ class DMIpcMixin:
     def unreplied_conversation(self, conversation: dict) -> None:
         """Send a scraped conversation with its unreplied flag (inbox v2 phase 2)."""
         self.send("unreplied_conversation", conversation=conversation)
+
+    def message_request(self, request: dict) -> None:
+        """Send a scraped message request (inbox v2 phase 3)."""
+        self.send("message_request", request=request)
+
+    def request_result(self, result: dict) -> None:
+        """Send a message-request decision result (accept/decline/reply) (inbox v2 phase 3)."""
+        self.send("request_result", result=result)

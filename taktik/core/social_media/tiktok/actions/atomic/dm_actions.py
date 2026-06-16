@@ -390,6 +390,96 @@ class DMActions(BaseAction):
 
         return conversations
 
+    # ==========================================================================
+    # DEMANDES DE MESSAGES (Phase 3 inbox v2)
+    # ==========================================================================
+
+    def open_message_requests_page(self) -> bool:
+        """Ouvre la page dédiée « Demandes de messages » depuis l'onglet Messages."""
+        if not self.navigate_to_inbox():
+            self.logger.warning("Inbox inatteignable -> demandes de messages")
+            return False
+
+        if self._find_and_click(self.inbox_selectors.message_requests_section, timeout=3):
+            time.sleep(1)
+            return self._is_on_message_requests_page()
+
+        self.logger.warning("Entrée « Demandes de messages » introuvable")
+        return False
+
+    def _is_on_message_requests_page(self) -> bool:
+        """Heuristique : page demandes si le titre dédié OU des items de demande sont présents."""
+        return (
+            self._element_exists(self.inbox_selectors.message_requests_page_title, timeout=2)
+            or self._element_exists(self.inbox_selectors.message_request_item, timeout=1)
+        )
+
+    def get_message_requests(self, max_items: int = 30) -> List[Dict[str, Any]]:
+        """Scrape les demandes de messages (page dédiée) SANS agir.
+
+        Returns:
+            Liste de {username, preview, timestamp}
+        """
+        requests: List[Dict[str, Any]] = []
+        try:
+            username_elements = self._find_all_by_rid(self.inbox_selectors.message_request_username)
+            if username_elements is None or not username_elements.exists:
+                self.logger.debug("Aucune demande de message trouvée")
+                return requests
+
+            preview_elements = self._find_all_by_rid(self.inbox_selectors.message_request_preview)
+            preview_count = (
+                preview_elements.count if preview_elements is not None and preview_elements.exists else 0
+            )
+            ts_elements = self._find_all_by_rid(self.inbox_selectors.message_request_timestamp)
+            ts_count = ts_elements.count if ts_elements is not None and ts_elements.exists else 0
+
+            count = min(username_elements.count, max_items)
+            for i in range(count):
+                try:
+                    name = self._clean_username(username_elements[i].get_text())
+                    if not name:
+                        continue
+                    preview = self._clean_username(preview_elements[i].get_text()) if i < preview_count else ''
+                    timestamp = self._clean_username(ts_elements[i].get_text()) if i < ts_count else ''
+                    requests.append({'username': name, 'preview': preview, 'timestamp': timestamp})
+                except Exception as e:
+                    self.logger.debug(f"Erreur parsing demande {i}: {e}")
+                    continue
+        except Exception as e:
+            self.logger.warning(f"Erreur scrape demandes: {e}")
+        return requests
+
+    def open_request(self, username: str) -> bool:
+        """Ouvre la demande de message du `username` (tape l'item t5a scopé au username)."""
+        username = self._clean_username(username)
+        if not username:
+            return False
+        selector = self.inbox_selectors.message_request_by_username(username)
+        if self._find_and_click([selector], timeout=3):
+            time.sleep(1)
+            return True
+        self.logger.warning(f"Demande introuvable pour {username}")
+        return False
+
+    def accept_request(self) -> bool:
+        """Accepte la demande ouverte (bouton c6b « Accepter »)."""
+        if self._find_and_click(self.inbox_selectors.accept_request_button, timeout=3):
+            self.logger.info("Demande acceptée")
+            time.sleep(1)
+            return True
+        self.logger.warning("Bouton « Accepter » introuvable")
+        return False
+
+    def decline_request(self) -> bool:
+        """Refuse/supprime la demande ouverte (bouton c8q « Supprimer »)."""
+        if self._find_and_click(self.inbox_selectors.decline_request_button, timeout=3):
+            self.logger.info("Demande refusée")
+            time.sleep(1)
+            return True
+        self.logger.warning("Bouton « Supprimer/Refuser » introuvable")
+        return False
+
     def click_conversation(self, name: str) -> bool:
         """Click on a conversation by name.
         

@@ -26,3 +26,33 @@ def follow_back(a, p):
 def get_unreplied(a, p):
     """Liste les conversations + indice non-répondu (phase 2)."""
     return a.dm.get_inbox_conversations(int(p.get("max_items", 30)))
+
+
+@action("tt.inbox.open_message_requests")
+def open_message_requests(a, p):
+    """Ouvre la page « Demandes de messages » (phase 3)."""
+    return a.dm.open_message_requests_page()
+
+
+@action("tt.inbox.get_requests")
+def get_requests(a, p):
+    """Liste les demandes de messages (phase 3)."""
+    return a.dm.get_message_requests(int(p.get("max_items", 30)))
+
+
+@action("tt.inbox.open_request")
+def open_request(a, p):
+    """Ouvre la demande du username donné (phase 3)."""
+    return a.dm.open_request(p.get("username", ""))
+
+
+@action("tt.inbox.accept_request")
+def accept_request(a, p):
+    """Accepte la demande ouverte (c6b)."""
+    return a.dm.accept_request()
+
+
+@action("tt.inbox.decline_request")
+def decline_request(a, p):
+    """Refuse/supprime la demande ouverte (c8q)."""
+    return a.dm.decline_request()
