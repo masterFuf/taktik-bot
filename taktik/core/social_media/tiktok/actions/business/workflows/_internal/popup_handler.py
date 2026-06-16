@@ -100,7 +100,7 @@ class PopupHandler:
     # Main entry point
     # ------------------------------------------------------------------
 
-    def close_all(self) -> bool:
+    def close_all(self, skip_inbox_escape: bool = False) -> bool:
         """Run through the full popup chain. Returns True if any popup was closed.
 
         Fast path: a single dump_hierarchy() + lxml XPath scan is used to
@@ -110,12 +110,16 @@ class PopupHandler:
 
         Falls back transparently to sequential polling when lxml is
         unavailable or when the hierarchy dump fails.
+
+        ``skip_inbox_escape``: ne PAS quitter la page Inbox même si elle est
+        détectée. Indispensable pour le workflow DM read, dont l'Inbox est la
+        cible (sinon le handler de popup la fuit et on lit 0 conversation).
         """
         detected = self._fast_detect()
 
         # ── Fallback: lxml unavailable or dump failed ─────────────────
         if '_fallback' in detected:
-            return self._close_all_slow()
+            return self._close_all_slow(skip_inbox_escape=skip_inbox_escape)
 
         # ── Fast exit: screen is clean ────────────────────────────────
         if not detected:
@@ -137,8 +141,8 @@ class PopupHandler:
                 time.sleep(0.5)
                 return True
 
-        # Accidentally on Inbox page
-        if 'inbox_page' in detected:
+        # Accidentally on Inbox page (sauf si l'Inbox est la cible — ex. DM read)
+        if 'inbox_page' in detected and not skip_inbox_escape:
             self.click.escape_inbox_page()
             self.logger.info("✅ Escaped from Inbox page")
             time.sleep(1.0)  # Samsung needs extra time to complete the transition
@@ -193,7 +197,7 @@ class PopupHandler:
     # Slow fallback (original sequential polling)
     # ------------------------------------------------------------------
 
-    def _close_all_slow(self) -> bool:
+    def _close_all_slow(self, skip_inbox_escape: bool = False) -> bool:
         """Original sequential-polling implementation used as fallback."""
         from .....ui.selectors.shell.popups import POPUP_SELECTORS
 
@@ -209,8 +213,8 @@ class PopupHandler:
             time.sleep(0.5)
             return True
 
-        # Accidentally on Inbox page
-        if self.detection.is_on_inbox_page():
+        # Accidentally on Inbox page (sauf si l'Inbox est la cible — ex. DM read)
+        if not skip_inbox_escape and self.detection.is_on_inbox_page():
             self.click.escape_inbox_page()
             self.logger.info("✅ Escaped from Inbox page")
             time.sleep(0.5)

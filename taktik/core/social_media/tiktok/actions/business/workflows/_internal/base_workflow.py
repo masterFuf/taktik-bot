@@ -122,6 +122,10 @@ class BaseTikTokWorkflow:
     # Popup handling
     # ------------------------------------------------------------------
 
-    def _handle_popups(self):
-        """Check for and close any popups that might block interaction."""
-        return self._popup_handler.close_all()
+    def _handle_popups(self, skip_inbox_escape: bool = False):
+        """Check for and close any popups that might block interaction.
+
+        ``skip_inbox_escape``: ne pas quitter la page Inbox même si détectée
+        (à utiliser quand l'Inbox est la cible du workflow, ex. DM read).
+        """
+        return self._popup_handler.close_all(skip_inbox_escape=skip_inbox_escape)

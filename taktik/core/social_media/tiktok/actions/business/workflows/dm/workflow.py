@@ -107,8 +107,9 @@ class DMWorkflow(BaseTikTokWorkflow):
             no_new_items_count = 0
             
             while self.stats.conversations_read < target_count and self._running:
-                # Handle any popups that might block interaction
-                self._handle_popups()
+                # Handle any popups that might block interaction — mais NE PAS quitter l'Inbox :
+                # c'est la cible du DM read (sinon close_all la fuit -> 0 conversation lue).
+                self._handle_popups(skip_inbox_escape=True)
                 
                 # Get visible inbox items
                 inbox_items = self.dm.get_inbox_items()
