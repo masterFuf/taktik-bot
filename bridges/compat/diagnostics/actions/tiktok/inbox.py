@@ -20,3 +20,9 @@ def get_new_followers(a, p):
 @action("tt.inbox.follow_back")
 def follow_back(a, p):
     return a.dm.follow_back(p.get("username", ""))
+
+
+@action("tt.inbox.get_unreplied")
+def get_unreplied(a, p):
+    """Liste les conversations + indice non-répondu (phase 2)."""
+    return a.dm.get_inbox_conversations(int(p.get("max_items", 30)))

@@ -53,6 +53,8 @@ class DMWorkflow(BaseTikTokWorkflow):
         # Inbox v2 (nouveaux followers) callbacks
         self._on_new_follower_callback: Optional[Callable] = None
         self._on_follow_back_result_callback: Optional[Callable] = None
+        # Inbox v2 (conversations non-répondues) callback
+        self._on_unreplied_callback: Optional[Callable] = None
         
         # DM-specific state
         self._conversations: List[ConversationData] = []
@@ -538,3 +540,78 @@ class DMWorkflow(BaseTikTokWorkflow):
                 self._on_follow_back_result_callback(result)
             except Exception as e:
                 self.logger.warning(f"Callback follow_back_result erreur: {e}")
+
+    # ==========================================================================
+    # CONVERSATIONS NON-RÉPONDUES (Phase 2 inbox v2) — scrape + classer
+    # ==========================================================================
+
+    def set_on_unreplied_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback appelé pour chaque conversation listée (avec l'indice `unreplied`)."""
+        self._on_unreplied_callback = callback
+
+    def read_unreplied_conversations(
+        self, max_items: int = 30, only_unreplied: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Liste les conversations de l'inbox en marquant celles non-répondues (dernier message
+        = eux), SANS répondre. La réponse aux sélectionnées réutilise `send_bulk_messages`.
+
+        Args:
+            max_items: nombre max de conversations à parcourir.
+            only_unreplied: ne remonter/émettre que les non-répondues (sinon toutes, avec le flag).
+
+        Returns:
+            Liste de {username, preview, unreplied}
+        """
+        self._running = True
+        self.logger.info("📨 Lecture des conversations (non-répondues)")
+
+        try:
+            self._handle_popups(skip_inbox_escape=True)
+            if not self._ensure_on_inbox():
+                self.logger.error("Inbox inatteignable -> non-répondus")
+                return []
+
+            seen: set = set()
+            collected: List[Dict[str, Any]] = []
+            scroll_budget = 10
+            no_new = 0
+
+            while len(collected) < max_items and self._running:
+                added = 0
+                for convo in self.dm.get_inbox_conversations(max_items):
+                    name = convo.get('username', '')
+                    if not name or name in seen:
+                        continue
+                    seen.add(name)
+                    if only_unreplied and not convo.get('unreplied'):
+                        continue
+                    collected.append(convo)
+                    added += 1
+                    if self._on_unreplied_callback:
+                        try:
+                            self._on_unreplied_callback(convo)
+                        except Exception as e:
+                            self.logger.warning(f"Callback unreplied erreur: {e}")
+                    if len(collected) >= max_items:
+                        break
+
+                if added == 0:
+                    no_new += 1
+                    if no_new >= 3:
+                        break
+                else:
+                    no_new = 0
+
+                if len(collected) < max_items:
+                    self.dm.scroll_inbox('down')
+                    time.sleep(1)
+                    scroll_budget -= 1
+                    if scroll_budget <= 0:
+                        break
+
+            self.logger.info(f"✅ {len(collected)} conversation(s) listée(s)")
+            return collected
+
+        except Exception as e:
+            self.logger.error(f"Erreur lecture non-répondus: {e}")
+            return []

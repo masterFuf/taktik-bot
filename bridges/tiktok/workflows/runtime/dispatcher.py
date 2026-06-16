@@ -76,6 +76,11 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_new_followers_workflow(config), workflow_type
 
+    if workflow_type == "dm_unreplied":
+        from bridges.tiktok.workflows.engagement.unreplied import run_unreplied_workflow
+
+        return run_unreplied_workflow(config), workflow_type
+
     if workflow_type == "scraping":
         from bridges.tiktok.scraping.scraping import run_scraping_workflow
 

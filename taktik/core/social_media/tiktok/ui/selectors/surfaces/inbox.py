@@ -312,6 +312,23 @@ class InboxSelectors:
         """
         return f'{self.section_title[0]}[@text="{title}"]'
 
+    @property
+    def we_sent_last_markers(self) -> List[str]:
+        """Préfixes de l'aperçu (l35) indiquant que NOUS avons parlé en dernier → conversation
+        considérée comme répondue de notre côté (détection « non-répondu », phase 2).
+
+        Combiné FR+EN volontairement (property, donc non filtré par detect_and_optimize) : robuste
+        quelle que soit la langue détectée. Capturé sur device : « Envoyé il y a 5 j », « Vu ».
+        """
+        return ['Envoyé', 'Sent', 'Vu', 'Seen']
+
+    @property
+    def message_requests_row_markers(self) -> List[str]:
+        """Sous-chaînes (minuscules) identifiant la ligne « Demandes de messages » dans la liste
+        des conversations (réutilise l'item t5a/z05) — à exclure des conversations (relève de la
+        phase 3). Capturé : z05="Demandes de messages" / l35="Tu as reçu N demandes"."""
+        return ['demande', 'request']
+
     def conversation_username_by_text(self, name: str) -> str:
         """Build the conversation username selector for an exact visible name."""
         return f'{self.conversation_username[0]}[@text="{name}"]'

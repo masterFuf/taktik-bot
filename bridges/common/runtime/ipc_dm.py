@@ -27,3 +27,7 @@ class DMIpcMixin:
     def follow_back_result(self, result: dict) -> None:
         """Send a follow-back execution result (inbox v2)."""
         self.send("follow_back_result", result=result)
+
+    def unreplied_conversation(self, conversation: dict) -> None:
+        """Send a scraped conversation with its unreplied flag (inbox v2 phase 2)."""
+        self.send("unreplied_conversation", conversation=conversation)

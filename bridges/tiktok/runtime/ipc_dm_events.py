@@ -37,6 +37,11 @@ def send_follow_back_result(result: Dict[str, Any]) -> None:
     _ipc.follow_back_result(result)
 
 
+def send_unreplied_conversation(conversation: Dict[str, Any]) -> None:
+    """Send a scraped conversation + unreplied flag to desktop app (inbox v2 phase 2)."""
+    _ipc.unreplied_conversation(conversation)
+
+
 __all__ = [
     "send_dm_conversation",
     "send_dm_progress",
@@ -44,4 +49,5 @@ __all__ = [
     "send_dm_sent",
     "send_new_follower",
     "send_follow_back_result",
+    "send_unreplied_conversation",
 ]

@@ -326,6 +326,70 @@ class DMActions(BaseAction):
         self.logger.warning(f"« Suivre en retour » introuvable pour {username}")
         return False
 
+    # ==========================================================================
+    # CONVERSATIONS NON-RÉPONDUES (Phase 2 inbox v2)
+    # ==========================================================================
+
+    def get_inbox_conversations(self, max_items: int = 30) -> List[Dict[str, Any]]:
+        """Scrape les conversations de l'inbox avec l'indice « non-répondu ».
+
+        Lit le username (z05) + l'aperçu du dernier message (l35), appariés par index. Classe
+        `unreplied=True` quand l'aperçu n'indique PAS qu'on a parlé en dernier (préfixes
+        Envoyé/Sent/Vu/Seen). Exclut la ligne « Demandes de messages » (phase 3).
+
+        Returns:
+            Liste de {username, preview, unreplied}
+        """
+        conversations: List[Dict[str, Any]] = []
+
+        try:
+            username_elements = self._find_all_by_rid(self.inbox_selectors.conversation_username)
+            if username_elements is None or not username_elements.exists:
+                self.logger.debug("Aucune conversation trouvée")
+                return conversations
+
+            preview_elements = self._find_all_by_rid(self.inbox_selectors.conversation_last_message)
+            preview_count = (
+                preview_elements.count if preview_elements is not None and preview_elements.exists else 0
+            )
+
+            sent_markers = self.inbox_selectors.we_sent_last_markers
+            request_markers = self.inbox_selectors.message_requests_row_markers
+            count = min(username_elements.count, max_items)
+
+            for i in range(count):
+                try:
+                    name = self._clean_username(username_elements[i].get_text())
+                    if not name:
+                        continue
+
+                    # Exclure la ligne « Demandes de messages » (relève de la phase 3)
+                    low_name = name.lower()
+                    if any(m in low_name for m in request_markers):
+                        continue
+
+                    preview = ''
+                    if i < preview_count:
+                        try:
+                            preview = self._clean_username(preview_elements[i].get_text())
+                        except Exception:
+                            preview = ''
+
+                    we_sent_last = any(preview.startswith(m) for m in sent_markers)
+                    conversations.append({
+                        'username': name,
+                        'preview': preview,
+                        'unreplied': not we_sent_last,
+                    })
+                except Exception as e:
+                    self.logger.debug(f"Erreur parsing conversation {i}: {e}")
+                    continue
+
+        except Exception as e:
+            self.logger.warning(f"Erreur scrape conversations: {e}")
+
+        return conversations
+
     def click_conversation(self, name: str) -> bool:
         """Click on a conversation by name.
         
