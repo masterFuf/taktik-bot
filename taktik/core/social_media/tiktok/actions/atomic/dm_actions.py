@@ -173,9 +173,113 @@ class DMActions(BaseAction):
             
         except Exception as e:
             self.logger.warning(f"Error getting conversations: {e}")
-        
+
         return conversations
-    
+
+    # ==========================================================================
+    # NEW FOLLOWERS (page dédiée — onglet Messages -> « Nouveaux followers »)
+    # ==========================================================================
+
+    def open_new_followers_page(self) -> bool:
+        """Ouvre la page dédiée « Nouveaux followers » depuis l'onglet Messages.
+
+        Navigue vers l'inbox, puis tape la section « Nouveaux followers » (ou « Tout voir »).
+        Sélecteurs langue-aware (FR/EN filtrés au démarrage par detect_and_optimize).
+        """
+        if not self.navigate_to_inbox():
+            self.logger.warning("Inbox inatteignable -> nouveaux followers")
+            return False
+
+        # La section et le « Tout voir » mènent à la même page dédiée
+        if self._find_and_click(self.inbox_selectors.new_followers_section, timeout=3):
+            time.sleep(1)
+            return self._is_on_new_followers_page()
+
+        if self._find_and_click(self.inbox_selectors.see_all_button, timeout=2):
+            time.sleep(1)
+            return self._is_on_new_followers_page()
+
+        self.logger.warning("Section « Nouveaux followers » introuvable")
+        return False
+
+    def _is_on_new_followers_page(self) -> bool:
+        """Heuristique : page dédiée présente si des items de followers sont rendus."""
+        return self._element_exists(self.inbox_selectors.new_followers_page_item, timeout=2)
+
+    def get_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
+        """Scrape la liste des nouveaux followers (page dédiée) SANS agir.
+
+        Returns:
+            Liste de {username, activity, can_follow_back}
+        """
+        followers: List[Dict[str, Any]] = []
+
+        try:
+            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
+
+            username_rid = self._extract_resource_id(self.inbox_selectors.new_followers_page_username)
+            activity_rid = self._extract_resource_id(self.inbox_selectors.new_followers_page_activity)
+
+            username_elements = raw_device(resourceId=username_rid)
+            if not username_elements.exists:
+                self.logger.debug("Aucun nouveau follower trouvé")
+                return followers
+
+            count = min(username_elements.count, max_items)
+            activity_elements = raw_device(resourceId=activity_rid)
+            activity_count = activity_elements.count if activity_elements.exists else 0
+
+            for i in range(count):
+                try:
+                    name = username_elements[i].get_text()
+                    if not name:
+                        continue
+                    name = name.strip().replace('‎', '').replace('‏', '')
+
+                    activity = ''
+                    if i < activity_count:
+                        try:
+                            activity = (activity_elements[i].get_text() or '').strip()
+                        except Exception:
+                            activity = ''
+
+                    # Le bouton « Suivre en retour » n'existe que si on ne le suit pas déjà
+                    can_follow_back = self.device.xpath(
+                        self.inbox_selectors.follow_back_for_username(name)
+                    ).exists
+
+                    followers.append({
+                        'username': name,
+                        'activity': activity,
+                        'can_follow_back': bool(can_follow_back),
+                    })
+                except Exception as e:
+                    self.logger.debug(f"Erreur parsing nouveau follower {i}: {e}")
+                    continue
+
+        except Exception as e:
+            self.logger.warning(f"Erreur scrape nouveaux followers: {e}")
+
+        return followers
+
+    def follow_back(self, username: str) -> bool:
+        """Tape « Suivre en retour » sur l'item du follower `username`.
+
+        Sélecteur dynamique scopé à l'item (follow_back_for_username) -> ne tape jamais le
+        bouton d'un autre follower.
+        """
+        if not username:
+            return False
+
+        selector = self.inbox_selectors.follow_back_for_username(username)
+        if self._find_and_click([selector], timeout=3):
+            self.logger.info(f"Suivi en retour : {username}")
+            time.sleep(0.5)
+            return True
+
+        self.logger.warning(f"« Suivre en retour » introuvable pour {username}")
+        return False
+
     def click_conversation(self, name: str) -> bool:
         """Click on a conversation by name.
         

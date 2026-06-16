@@ -316,5 +316,21 @@ class InboxSelectors:
         """Build the conversation username selector for an exact visible name."""
         return f'{self.conversation_username[0]}[@text="{name}"]'
 
+    def new_followers_username_by_text(self, name: str) -> str:
+        """Build the new-follower username selector for an exact visible name (page dédiée)."""
+        return f'//*[contains(@resource-id, ":id/o0f")][@text="{name}"]'
+
+    def follow_back_for_username(self, name: str) -> str:
+        """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
+
+        Sélecteur dynamique (composé des resource-ids centralisés o0v/o0f/rdh) : le bouton rdh
+        de l'item (o0v) dont le username (o0f) vaut `name`. Évite de taper le mauvais bouton.
+        """
+        return (
+            '//*[contains(@resource-id, ":id/o0v")]'
+            f'[.//*[contains(@resource-id, ":id/o0f")][@text="{name}"]]'
+            '//*[contains(@resource-id, ":id/rdh")]'
+        )
+
 
 INBOX_SELECTORS = InboxSelectors()

@@ -19,3 +19,11 @@ class DMIpcMixin:
     def dm_sent(self, conversation: str, success: bool, error: str = None) -> None:
         """Send DM sent result."""
         self.send("dm_sent", conversation=conversation, success=success, error=error)
+
+    def new_follower(self, follower: dict) -> None:
+        """Send a scraped new-follower item (inbox v2)."""
+        self.send("new_follower", follower=follower)
+
+    def follow_back_result(self, result: dict) -> None:
+        """Send a follow-back execution result (inbox v2)."""
+        self.send("follow_back_result", result=result)

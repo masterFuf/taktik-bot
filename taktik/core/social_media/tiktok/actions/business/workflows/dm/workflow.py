@@ -50,6 +50,9 @@ class DMWorkflow(BaseTikTokWorkflow):
         self._on_conversation_callback: Optional[Callable] = None
         self._on_message_sent_callback: Optional[Callable] = None
         self._on_progress_callback: Optional[Callable] = None
+        # Inbox v2 (nouveaux followers) callbacks
+        self._on_new_follower_callback: Optional[Callable] = None
+        self._on_follow_back_result_callback: Optional[Callable] = None
         
         # DM-specific state
         self._conversations: List[ConversationData] = []
@@ -406,3 +409,132 @@ class DMWorkflow(BaseTikTokWorkflow):
     def get_stats(self) -> DMStats:
         """Get current stats."""
         return self.stats
+
+    # ==========================================================================
+    # NEW FOLLOWERS (Phase 1 inbox v2) — scrape liste + follow-back sélectionnés
+    # ==========================================================================
+
+    def set_on_new_follower_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback appelé pour chaque nouveau follower scrapé (streaming front)."""
+        self._on_new_follower_callback = callback
+
+    def set_on_follow_back_result_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback appelé pour chaque résultat de follow-back."""
+        self._on_follow_back_result_callback = callback
+
+    def read_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
+        """Ouvre la page « Nouveaux followers » et scrape la liste SANS agir.
+
+        Scrolle pour charger davantage jusqu'à `max_items` (ou épuisement). Émet chaque
+        follower via le callback.
+
+        Returns:
+            Liste de {username, activity, can_follow_back}
+        """
+        self._running = True
+        self.logger.info("👥 Lecture des nouveaux followers")
+
+        try:
+            self._handle_popups(skip_inbox_escape=True)
+
+            if not self.dm.open_new_followers_page():
+                self.logger.error("Impossible d'ouvrir la page des nouveaux followers")
+                return []
+
+            seen: set = set()
+            collected: List[Dict[str, Any]] = []
+            scroll_budget = 10
+            no_new = 0
+
+            while len(collected) < max_items and self._running:
+                added_this_pass = 0
+                for fol in self.dm.get_new_followers(max_items):
+                    name = fol.get('username', '')
+                    if not name or name in seen:
+                        continue
+                    seen.add(name)
+                    collected.append(fol)
+                    added_this_pass += 1
+                    if self._on_new_follower_callback:
+                        try:
+                            self._on_new_follower_callback(fol)
+                        except Exception as e:
+                            self.logger.warning(f"Callback new_follower erreur: {e}")
+                    if len(collected) >= max_items:
+                        break
+
+                if added_this_pass == 0:
+                    no_new += 1
+                    if no_new >= 3:
+                        break
+                else:
+                    no_new = 0
+
+                if len(collected) < max_items:
+                    self.dm.scroll_inbox('down')
+                    time.sleep(1)
+                    scroll_budget -= 1
+                    if scroll_budget <= 0:
+                        break
+
+            self.logger.info(f"✅ {len(collected)} nouveaux followers listés")
+            return collected
+
+        except Exception as e:
+            self.logger.error(f"Erreur lecture nouveaux followers: {e}")
+            return []
+
+    def follow_back_users(self, usernames: List[str]) -> List[Dict[str, Any]]:
+        """Suit en retour les followers sélectionnés (par username).
+
+        Ré-ouvre la page dédiée puis tape « Suivre en retour » pour chaque username.
+        Émet un résultat par username via le callback.
+
+        Returns:
+            Liste de {username, success}
+        """
+        self._running = True
+        results: List[Dict[str, Any]] = []
+
+        if not usernames:
+            return results
+
+        self.logger.info(f"➕ Follow-back de {len(usernames)} follower(s)")
+
+        try:
+            self._handle_popups(skip_inbox_escape=True)
+            if not self.dm.open_new_followers_page():
+                self.logger.error("Impossible d'ouvrir la page des nouveaux followers")
+                for name in usernames:
+                    res = {'username': name, 'success': False, 'error': 'page_unavailable'}
+                    results.append(res)
+                    self._emit_follow_back_result(res)
+                return results
+
+            for name in usernames:
+                if not self._running:
+                    break
+                ok = False
+                try:
+                    ok = self.dm.follow_back(name)
+                except Exception as e:
+                    self.logger.warning(f"Follow-back {name} erreur: {e}")
+                res = {'username': name, 'success': bool(ok)}
+                results.append(res)
+                self._emit_follow_back_result(res)
+                time.sleep(self.config.delay_between_conversations)
+
+            done = sum(1 for r in results if r.get('success'))
+            self.logger.info(f"✅ Follow-back: {done}/{len(usernames)} réussis")
+            return results
+
+        except Exception as e:
+            self.logger.error(f"Erreur follow-back: {e}")
+            return results
+
+    def _emit_follow_back_result(self, result: Dict[str, Any]):
+        if self._on_follow_back_result_callback:
+            try:
+                self._on_follow_back_result_callback(result)
+            except Exception as e:
+                self.logger.warning(f"Callback follow_back_result erreur: {e}")

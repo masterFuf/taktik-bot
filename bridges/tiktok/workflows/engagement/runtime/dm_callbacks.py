@@ -8,6 +8,8 @@ from bridges.tiktok.runtime.ipc import (
     send_dm_progress,
     send_dm_sent,
     send_dm_stats,
+    send_follow_back_result,
+    send_new_follower,
 )
 
 
@@ -50,4 +52,28 @@ def wire_dm_send_callbacks(workflow) -> None:
     workflow.set_on_progress_callback(on_progress)
 
 
-__all__ = ["wire_dm_read_callbacks", "wire_dm_send_callbacks"]
+def wire_new_followers_read_callbacks(workflow) -> None:
+    """Wire stdout events for new-followers scraping (inbox v2)."""
+
+    def on_new_follower(follower):
+        send_new_follower(follower)
+        logger.info(f"👥 New follower listed: {follower.get('username', 'unknown')}")
+
+    workflow.set_on_new_follower_callback(on_new_follower)
+
+
+def wire_follow_back_callbacks(workflow) -> None:
+    """Wire stdout events for follow-back execution (inbox v2)."""
+
+    def on_result(result):
+        send_follow_back_result(result)
+
+    workflow.set_on_follow_back_result_callback(on_result)
+
+
+__all__ = [
+    "wire_dm_read_callbacks",
+    "wire_dm_send_callbacks",
+    "wire_new_followers_read_callbacks",
+    "wire_follow_back_callbacks",
+]

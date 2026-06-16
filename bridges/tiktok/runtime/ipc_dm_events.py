@@ -27,4 +27,21 @@ def send_dm_sent(conversation: str, success: bool, error: str = None) -> None:
     _ipc.dm_sent(conversation, success, error)
 
 
-__all__ = ["send_dm_conversation", "send_dm_progress", "send_dm_stats", "send_dm_sent"]
+def send_new_follower(follower: Dict[str, Any]) -> None:
+    """Send a scraped new-follower item to desktop app (inbox v2)."""
+    _ipc.new_follower(follower)
+
+
+def send_follow_back_result(result: Dict[str, Any]) -> None:
+    """Send a follow-back execution result to desktop app (inbox v2)."""
+    _ipc.follow_back_result(result)
+
+
+__all__ = [
+    "send_dm_conversation",
+    "send_dm_progress",
+    "send_dm_stats",
+    "send_dm_sent",
+    "send_new_follower",
+    "send_follow_back_result",
+]
