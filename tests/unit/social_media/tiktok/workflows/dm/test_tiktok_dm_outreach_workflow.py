@@ -132,6 +132,66 @@ def test_tiktok_dm_outreach_runs_with_injected_notifier_and_dedup():
     ) in notifier.calls
 
 
+def test_tiktok_dm_outreach_uses_message_provider_in_ai_mode():
+    """Mode IA : le message_provider genere le message par destinataire (texte = OpenRouter)."""
+    FakeManager.instances = []
+    records = []
+
+    workflow = TikTokDMOutreachWorkflow(
+        "device-1",
+        duplicate_checker=lambda account_id, recipient, platform: False,
+        sent_dm_recorder=lambda *args: records.append(args),
+        manager_factory=FakeManager,
+        navigation_factory=FakeNavigation,
+        dm_actions_factory=FakeDMActions,
+        base_action_factory=FakeBaseAction,
+        rng=FakeRng(),
+        sleeper=lambda duration: None,
+    )
+
+    assert workflow.connect() is True
+    result = workflow.run(
+        ["creator"],
+        [],  # pas de liste statique : le mode IA doit quand meme tourner
+        account_id=7,
+        session_id="session-1",
+        message_provider=lambda recipient: f"Salut @{recipient} !",
+    )
+
+    assert result["success"] is True
+    assert result["dms_success"] == 1
+    assert records == [(7, "creator", "Salut @creator !", True, None, "session-1", "tiktok")]
+
+
+def test_tiktok_dm_outreach_falls_back_to_static_when_provider_empty():
+    """Si le provider IA renvoie vide (echec OpenRouter), repli sur la liste statique."""
+    records = []
+
+    workflow = TikTokDMOutreachWorkflow(
+        "device-1",
+        duplicate_checker=lambda account_id, recipient, platform: False,
+        sent_dm_recorder=lambda *args: records.append(args),
+        manager_factory=FakeManager,
+        navigation_factory=FakeNavigation,
+        dm_actions_factory=FakeDMActions,
+        base_action_factory=FakeBaseAction,
+        rng=FakeRng(),
+        sleeper=lambda duration: None,
+    )
+
+    assert workflow.connect() is True
+    result = workflow.run(
+        ["creator"],
+        ["message statique"],
+        account_id=7,
+        session_id="session-1",
+        message_provider=lambda recipient: "",
+    )
+
+    assert result["dms_success"] == 1
+    assert records == [(7, "creator", "message statique", True, None, "session-1", "tiktok")]
+
+
 def test_tiktok_dm_outreach_returns_success_when_every_recipient_is_duplicate():
     workflow = TikTokDMOutreachWorkflow(
         "device-1",

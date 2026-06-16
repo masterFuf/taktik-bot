@@ -163,13 +163,20 @@ class TikTokDMOutreachWorkflow:
         max_dms: int = 50,
         account_id: int = 1,
         session_id: str | None = None,
+        message_provider: Callable[[str], str] | None = None,
     ) -> dict[str, Any]:
-        """Run the cold DM outreach workflow."""
+        """Run the cold DM outreach workflow.
+
+        ``message_provider`` (optionnel) génère un message personnalisé par destinataire
+        (mode IA, injecté par le bridge — le core ne dépend d'aucun provider). En son absence,
+        ou s'il renvoie un message vide, on retombe sur la liste ``messages`` statique.
+        """
         logger.info(
-            f"Starting TikTok DM Outreach: {len(recipients)} recipients, {len(messages)} messages"
+            f"Starting TikTok DM Outreach: {len(recipients)} recipients, "
+            f"{len(messages)} messages, AI mode: {bool(message_provider)}"
         )
 
-        if not messages:
+        if not messages and not message_provider:
             return {"success": False, "error": "No messages provided"}
         if not recipients:
             return {"success": False, "error": "No recipients provided"}
@@ -220,7 +227,7 @@ class TikTokDMOutreachWorkflow:
             _notify(self.notifier, "status", status="processing", message=f"Processing @{recipient}")
 
             try:
-                should_delay = self._process_recipient(recipient, messages, account_id, session_id)
+                should_delay = self._process_recipient(recipient, messages, account_id, session_id, message_provider)
                 self._send_stats()
                 self.go_home()
 
@@ -255,6 +262,7 @@ class TikTokDMOutreachWorkflow:
         messages: list[str],
         account_id: int,
         session_id: str | None,
+        message_provider: Callable[[str], str] | None = None,
     ) -> bool:
         if not self.navigate_to_user_profile(recipient):
             logger.warning(f"Could not find user: @{recipient}")
@@ -281,7 +289,28 @@ class TikTokDMOutreachWorkflow:
             )
             return False
 
-        message = self.rng.choice(messages)
+        # Mode IA : message personnalisé par destinataire (provider injecté) ; repli sur la
+        # liste statique si le provider est absent ou renvoie vide (robuste + standalone-safe).
+        message = ""
+        if message_provider:
+            try:
+                message = (message_provider(recipient) or "").strip()
+            except Exception as exc:
+                logger.warning(f"AI message generation failed for @{recipient}: {exc}")
+        if not message:
+            message = self.rng.choice(messages) if messages else ""
+        if not message:
+            logger.warning(f"No message available for @{recipient}")
+            self.dms_failed += 1
+            _notify(
+                self.notifier,
+                "dm_result",
+                username=recipient,
+                success=False,
+                error="No message available",
+            )
+            return False
+
         send_result = self.send_dm(message)
 
         if send_result == "privacy_blocked":

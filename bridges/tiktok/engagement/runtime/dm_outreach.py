@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from bridges.common.persistence.database import SentDMService
+from bridges.tiktok.engagement.runtime.dm_outreach_ai import generate_ai_message
 from bridges.tiktok.runtime.ipc import logger, send_error, send_message, send_status, set_workflow
 from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach import (
     TikTokDMOutreachWorkflow,
@@ -92,9 +93,28 @@ def run_dm_outreach_workflow(config: Dict[str, Any]):
     account_id = config.get("accountId", config.get("account_id", 1))
     session_id = config.get("sessionId", config.get("session_id", device_id))
 
-    logger.info(f"Config: {len(recipients)} recipients, {len(messages)} messages, max {max_dms} DMs")
+    # Mode IA : génération de message par destinataire via OpenRouter (texte = OpenRouter,
+    # jamais fal.ai). Injecté dans le core comme callback ; repli sur la liste statique si KO.
+    message_mode = config.get("messageMode", config.get("message_mode", "manual"))
+    ai_prompt = config.get("aiPrompt", config.get("ai_prompt", ""))
+    openrouter_api_key = config.get("openrouterApiKey", config.get("openrouter_api_key", ""))
+    use_ai = message_mode == "ai" and bool(ai_prompt and openrouter_api_key)
+    if message_mode == "ai" and not openrouter_api_key:
+        logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
+    message_provider = (
+        (lambda recipient: generate_ai_message(recipient, ai_prompt, openrouter_api_key))
+        if use_ai
+        else None
+    )
 
-    result = workflow.run(recipients, messages, delay_min, delay_max, max_dms, account_id, session_id)
+    logger.info(
+        f"Config: {len(recipients)} recipients, {len(messages)} messages, max {max_dms} DMs, AI mode: {use_ai}"
+    )
+
+    result = workflow.run(
+        recipients, messages, delay_min, delay_max, max_dms, account_id, session_id,
+        message_provider=message_provider,
+    )
     send_status(
         "completed",
         f"Completed: {result.get('dms_success', 0)} sent, {result.get('dms_failed', 0)} failed",
