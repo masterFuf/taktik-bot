@@ -9,6 +9,7 @@ Basé sur les UI dumps:
 - ui_dump_20260107_231534.xml (Conversation groupe)
 """
 
+import re
 import time
 from typing import Dict, Any, List
 from loguru import logger
@@ -37,10 +38,42 @@ class DMActions(BaseAction):
     @staticmethod
     def _extract_resource_id(selectors: List[str]) -> str:
         """Extract resource-id value from the first xpath selector.
-        
+
         e.g. '//*[@resource-id="com.zhiliaoapp.musically:id/z05"]' → 'com.zhiliaoapp.musically:id/z05'
         """
         return extract_resource_id(selectors)
+
+    @staticmethod
+    def _resource_id_pattern(selectors: List[str]) -> str:
+        """Build a `resourceIdMatches` regex from a centralized resource-id selector.
+
+        Les sélecteurs inbox/conversation sont en forme xpath `contains(@resource-id, ":id/xxx")`
+        (token partiel, sans le package) → un match EXACT `resourceId="..."` échoue. On extrait le
+        token et on construit une regex full-match pour `resourceIdMatches` :
+        - forme exacte `@resource-id="com...:id/x"` → `com\\.\\.\\.:id/x` (échappé)
+        - forme contains `contains(@resource-id, ":id/x")` → `.*:id/x.*` (réplique le « contains »)
+        """
+        for sel in selectors:
+            m = re.search(r'@resource-id\s*=\s*"([^"]+)"', sel)
+            if m:
+                return re.escape(m.group(1))
+            m = re.search(r'@resource-id\s*,\s*"([^"]+)"', sel)
+            if m:
+                return '.*' + re.escape(m.group(1)) + '.*'
+        return ''
+
+    def _find_all_by_rid(self, selectors: List[str]):
+        """Return the uiautomator2 UiObject collection for a centralized resource-id selector.
+
+        Robuste à la forme `contains(...)` (cf. _resource_id_pattern) — remplace l'ancien
+        `raw_device(resourceId=extract(...))` qui renvoyait `resourceId=''` (0 match) pour les
+        sélecteurs en forme contains. API UiObject identique (.exists/.count/[i]/.get_text()).
+        """
+        pattern = self._resource_id_pattern(selectors)
+        if not pattern:
+            return None
+        raw_device = self.device._device if hasattr(self.device, '_device') else self.device
+        return raw_device(resourceIdMatches=pattern)
     
     # ==========================================================================
     # INBOX NAVIGATION
@@ -133,14 +166,11 @@ class DMActions(BaseAction):
         conversations = []
         
         try:
-            # Get the underlying uiautomator2 device for advanced queries
-            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-            
             # Find all username elements via centralized conversation_username resource-id
-            username_rid = self._extract_resource_id(self.inbox_selectors.conversation_username)
-            username_elements = raw_device(resourceId=username_rid)
-            
-            if not username_elements.exists:
+            # (resourceIdMatches : robuste à la forme contains, cf. _find_all_by_rid)
+            username_elements = self._find_all_by_rid(self.inbox_selectors.conversation_username)
+
+            if username_elements is None or not username_elements.exists:
                 self.logger.debug("No conversation usernames found")
                 return conversations
             
@@ -215,19 +245,17 @@ class DMActions(BaseAction):
         followers: List[Dict[str, Any]] = []
 
         try:
-            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-
-            username_rid = self._extract_resource_id(self.inbox_selectors.new_followers_page_username)
-            activity_rid = self._extract_resource_id(self.inbox_selectors.new_followers_page_activity)
-
-            username_elements = raw_device(resourceId=username_rid)
-            if not username_elements.exists:
+            # resourceIdMatches : robuste à la forme contains des sélecteurs (cf. _find_all_by_rid)
+            username_elements = self._find_all_by_rid(self.inbox_selectors.new_followers_page_username)
+            if username_elements is None or not username_elements.exists:
                 self.logger.debug("Aucun nouveau follower trouvé")
                 return followers
 
             count = min(username_elements.count, max_items)
-            activity_elements = raw_device(resourceId=activity_rid)
-            activity_count = activity_elements.count if activity_elements.exists else 0
+            activity_elements = self._find_all_by_rid(self.inbox_selectors.new_followers_page_activity)
+            activity_count = (
+                activity_elements.count if activity_elements is not None and activity_elements.exists else 0
+            )
 
             for i in range(count):
                 try:
@@ -292,14 +320,11 @@ class DMActions(BaseAction):
         self.logger.debug(f"💬 Opening conversation: {name}")
         
         try:
-            # Get the underlying uiautomator2 device for better Unicode handling
-            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-            
             # Find all username elements and match by text
-            username_rid = self._extract_resource_id(self.inbox_selectors.conversation_username)
-            username_elements = raw_device(resourceId=username_rid)
-            
-            if username_elements.exists:
+            # (resourceIdMatches : robuste à la forme contains, cf. _find_all_by_rid)
+            username_elements = self._find_all_by_rid(self.inbox_selectors.conversation_username)
+
+            if username_elements is not None and username_elements.exists:
                 count = username_elements.count
                 for i in range(count):
                     try:
@@ -400,14 +425,11 @@ class DMActions(BaseAction):
         messages = []
         
         try:
-            # Get the underlying uiautomator2 device
-            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-            
             # Find all text message elements via centralized message_text resource-id
-            text_rid = self._extract_resource_id(self.conversation_selectors.message_text)
-            text_elements = raw_device(resourceId=text_rid)
-            
-            if text_elements.exists:
+            # (resourceIdMatches : robuste à la forme contains, cf. _find_all_by_rid)
+            text_elements = self._find_all_by_rid(self.conversation_selectors.message_text)
+
+            if text_elements is not None and text_elements.exists:
                 count = min(text_elements.count, limit)
                 self.logger.debug(f"Found {count} text messages")
                 
@@ -428,10 +450,9 @@ class DMActions(BaseAction):
                         continue
             
             # Also check for stickers/GIFs
-            sticker_rid = self._extract_resource_id(self.conversation_selectors.message_sticker)
-            sticker_elements = raw_device(resourceId=sticker_rid)
-            
-            if sticker_elements.exists:
+            sticker_elements = self._find_all_by_rid(self.conversation_selectors.message_sticker)
+
+            if sticker_elements is not None and sticker_elements.exists:
                 sticker_count = min(sticker_elements.count, limit - len(messages))
                 for i in range(sticker_count):
                     messages.append({

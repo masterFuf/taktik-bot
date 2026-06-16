@@ -94,6 +94,18 @@ NON_RUNTIME_SIGNATURES = (
         '@resource-id="([^"]+)"',
         "Regex parser for catalog-provided XPath, not a selector used against the UI.",
     ),
+    AllowlistEntry(
+        "taktik/core/social_media/tiktok/actions/atomic/dm_actions.py",
+        "selector-string",
+        r'@resource-id\s*=\s*"([^"]+)"',
+        "Regex builder for resourceIdMatches (contains-form XPath -> regex), not a runtime selector.",
+    ),
+    AllowlistEntry(
+        "taktik/core/social_media/tiktok/actions/atomic/dm_actions.py",
+        "selector-string",
+        r'@resource-id\s*,\s*"([^"]+)"',
+        "Regex builder for resourceIdMatches (contains-form XPath -> regex), not a runtime selector.",
+    ),
 )
 
 
