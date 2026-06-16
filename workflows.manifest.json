@@ -50,6 +50,7 @@
       "followers",
       "dm_read",
       "dm_send",
+      "new_followers",
       "scraping"
     ],
     "account": [

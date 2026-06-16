@@ -15,6 +15,7 @@ def build_tiktok_action_bundle(device_facade):
     """Instantiate TikTok atomic action classes for compat diagnostics."""
     from taktik.core.social_media.tiktok.actions.atomic.click_actions import ClickActions
     from taktik.core.social_media.tiktok.actions.atomic.detection_actions import DetectionActions
+    from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
     from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
     from taktik.core.social_media.tiktok.actions.atomic.popup_actions import PopupActions
     from taktik.core.social_media.tiktok.actions.atomic.popup_detector import PopupDetector
@@ -35,6 +36,7 @@ def build_tiktok_action_bundle(device_facade):
     bundle.search = SearchActions(device_facade)
     bundle.video = VideoActions(device_facade)
     bundle.video_detector = VideoDetector(device_facade)
+    bundle.dm = DMActions(device_facade)
     logger.info("TikTok action bundle ready")
     return bundle
 
