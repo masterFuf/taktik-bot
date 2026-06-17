@@ -1,5 +1,6 @@
 """Deep link navigation via ADB (profile + post URLs)."""
 
+import re
 import time
 import subprocess
 from typing import Optional
@@ -8,11 +9,22 @@ from loguru import logger
 from ...core.base_action import BaseAction
 from taktik.core.clone import get_active_package
 
+# Sécurité : username/URL viennent de profils scrapés (attaquables) et sont interpolés dans une
+# commande shell (`device.shell(f'am start ... "{url}" ...')`). On valide strictement avant usage
+# pour neutraliser toute injection shell (", ', `, $, ;, &, |, <, >, (), espaces...).
+_IG_USERNAME_RE = re.compile(r'[A-Za-z0-9._]{1,30}')  # charset Instagram strict
+_SHELL_UNSAFE_RE = re.compile(r'[\s"\'`$;&|<>(){}\\]')  # interdits dans l'URL passee a am start
+
 
 class DeepLinkNavigationMixin(BaseAction):
     """Mixin: navigate to profiles and posts via ADB deep links."""
 
     def _navigate_via_deep_link(self, username: str, max_attempts: int = 3) -> bool:
+        # Garde anti-injection : username interpole dans device.shell() (cf. note en tete de module).
+        if not username or not _IG_USERNAME_RE.fullmatch(username):
+            self.logger.warning(f"Deep link refusé : username invalide ({len(username or '')} chars)")
+            return False
+
         device_serial = self._get_device_serial()
         self.logger.debug(f"🔧 Using device: {device_serial}")
         
@@ -97,7 +109,12 @@ class DeepLinkNavigationMixin(BaseAction):
             clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
             if clean_url != post_url:
                 self.logger.debug(f"Cleaned URL: {clean_url}")
-            
+
+            # Garde anti-injection : l'URL est interpolee dans device.shell() (cf. note en tete).
+            if _SHELL_UNSAFE_RE.search(clean_url) or not clean_url.startswith('https://www.instagram.com/'):
+                self.logger.error("Deep link post refusé : URL non sûre")
+                return False
+
             device_serial = self._get_device_serial()
             
             # Use adbutils (same pattern as navigate_to_profile deep link)
