@@ -35,6 +35,7 @@ def run_action_session_bridge() -> None:
     mode = config.get("mode", "lab")
     capture_artifacts = config.get("capture_artifacts", True)
     perf_fast = config.get("perf_fast", False)
+    language_override = config.get("language") or None
 
     if not device_id:
         emit({"type": "error", "success": False, "message": "Missing device_id"})
@@ -57,7 +58,7 @@ def run_action_session_bridge() -> None:
 
         device_facade = create_device_facade(device_manager.device)
         bundle = build_action_bundle(device_facade)
-        language_optimization = _detect_and_optimize_selectors(platform, device_facade)
+        language_optimization = _detect_and_optimize_selectors(platform, device_facade, override=language_override)
         tracer = _install_selector_tracer(device_facade, app=platform)
         session_context_cache = _SessionContextCache()
     except Exception as exc:

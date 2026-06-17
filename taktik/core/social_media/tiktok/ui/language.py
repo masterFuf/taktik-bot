@@ -337,21 +337,27 @@ def optimize_selector_dataclass(instance, lang: str) -> int:
 # Point d'entrée principal
 # ──────────────────────────────────────────────────────────────
 
-def detect_and_optimize(device) -> str:
+def detect_and_optimize(device, override: Optional[str] = None) -> str:
     """
-    Détecte la langue de l'app TikTok ET optimise tous les singletons
-    de sélecteurs connus.
+    Détecte la langue de l'app TikTok (ou la force via `override`) ET optimise
+    tous les singletons de sélecteurs connus.
 
     À appeler une fois, tôt dans un workflow, après connexion au device
     et ouverture de TikTok (n'importe quel écran exposant le bottom nav suffit).
 
     Args:
         device: DeviceFacade.
+        override: Force une langue ('en'/'fr', ex. depuis le Cartography Lab) au
+            lieu de la détecter ; une valeur inconnue retombe sur 'unknown'.
 
     Returns:
-        Langue détectée ('en', 'fr', 'unknown').
+        Langue active ('en', 'fr', 'unknown').
     """
-    lang = detect_language(device)
+    if override:
+        lang = override if override in ("en", "fr") else "unknown"
+        log.info(f"🌐 Language override: {override!r} -> {lang}")
+    else:
+        lang = detect_language(device)
 
     if lang == "unknown":
         log.info("Language unknown — keeping all selectors (no optimization)")

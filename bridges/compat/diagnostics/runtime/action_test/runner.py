@@ -51,6 +51,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
     mode = config.get("mode", "manual")
     capture_artifacts = _should_capture_artifacts(config)
     perf_fast = _is_perf_fast(config)
+    language_override = config.get("language") or None
 
     if not device_id:
         emit({"type": "result", "success": False, "message": "Missing device_id"})
@@ -93,7 +94,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         emit({"type": "result", "success": False, "message": f"Action init failed: {exc}\n{traceback.format_exc()}"})
         sys.exit(1)
 
-    language_optimization = _detect_and_optimize_selectors(platform, device_facade)
+    language_optimization = _detect_and_optimize_selectors(platform, device_facade, override=language_override)
     tracer = _install_selector_tracer(device_facade, app=platform)
     _execute_action(
         action_registry,
@@ -386,7 +387,7 @@ def _resolve_artifact_context(
     )
 
 
-def _detect_and_optimize_selectors(platform: str, device_facade) -> dict:
+def _detect_and_optimize_selectors(platform: str, device_facade, override: str | None = None) -> dict:
     started_at = time.perf_counter()
     try:
         if platform == "instagram":
@@ -402,7 +403,9 @@ def _detect_and_optimize_selectors(platform: str, device_facade) -> dict:
                 "timingMs": 0,
             }
 
-        language = detect_and_optimize(device_facade)
+        # `override` (Cartography Lab language picker) forces the language instead
+        # of auto-detecting it from the UI dump.
+        language = detect_and_optimize(device_facade, override=override)
         payload = {
             "platform": platform,
             "language": language,
