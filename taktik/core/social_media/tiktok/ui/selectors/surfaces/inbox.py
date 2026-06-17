@@ -323,6 +323,22 @@ class InboxSelectors:
         return ['Envoyé', 'Sent', 'Vu', 'Seen']
 
     @property
+    def activity_title_markers(self) -> List[str]:
+        """Sous-chaînes (minuscules) du titre `b8h` de la section Activité (FR+EN, phase 4)."""
+        return ['activité', 'activity']
+
+    @property
+    def system_title_markers(self) -> List[str]:
+        """Sous-chaînes (minuscules) du titre `b8h` des Notifications système (FR+EN, phase 4)."""
+        return ['système', 'system']
+
+    @property
+    def new_followers_title_markers(self) -> List[str]:
+        """Sous-chaînes (minuscules) du titre `b8h` des Nouveaux followers (FR+EN) — exclu de la
+        phase 4 (a sa propre phase 1)."""
+        return ['nouveaux followers', 'nouveaux abonnés', 'new followers']
+
+    @property
     def message_requests_row_markers(self) -> List[str]:
         """Sous-chaînes (minuscules) identifiant la ligne « Demandes de messages » dans la liste
         des conversations (réutilise l'item t5a/z05) — à exclure des conversations (relève de la

@@ -39,3 +39,7 @@ class DMIpcMixin:
     def request_result(self, result: dict) -> None:
         """Send a message-request decision result (accept/decline/reply) (inbox v2 phase 3)."""
         self.send("request_result", result=result)
+
+    def activity_notification(self, notification: dict) -> None:
+        """Send a read-only activity/system notification section (inbox v2 phase 4)."""
+        self.send("activity_notification", notification=notification)

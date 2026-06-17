@@ -480,6 +480,59 @@ class DMActions(BaseAction):
         self.logger.warning("Bouton « Supprimer/Refuser » introuvable")
         return False
 
+    # ==========================================================================
+    # ACTIVITÉ / NOTIFICATIONS SYSTÈME (Phase 4 inbox v2) — lecture seule
+    # ==========================================================================
+
+    def get_inbox_notifications(self, max_items: int = 20) -> List[Dict[str, Any]]:
+        """Scrape les sections Activité / Notifications système sur l'inbox (LECTURE SEULE).
+
+        Chaque section est un item `s28` : titre `b8h` + aperçu `ln_`. Exclut « Nouveaux followers »
+        (phase 1). Aucune action device.
+
+        Returns:
+            Liste de {title, preview, category} (category: 'activity'|'system'|'other')
+        """
+        notifications: List[Dict[str, Any]] = []
+        try:
+            title_elements = self._find_all_by_rid(self.inbox_selectors.section_title)
+            if title_elements is None or not title_elements.exists:
+                self.logger.debug("Aucune section de notification trouvée")
+                return notifications
+
+            preview_elements = self._find_all_by_rid(self.inbox_selectors.notification_subtitle)
+            preview_count = (
+                preview_elements.count if preview_elements is not None and preview_elements.exists else 0
+            )
+
+            nf_markers = self.inbox_selectors.new_followers_title_markers
+            act_markers = self.inbox_selectors.activity_title_markers
+            sys_markers = self.inbox_selectors.system_title_markers
+            count = min(title_elements.count, max_items)
+
+            for i in range(count):
+                try:
+                    title = self._clean_username(title_elements[i].get_text())
+                    if not title:
+                        continue
+                    low = title.lower()
+                    if any(m in low for m in nf_markers):
+                        continue  # nouveaux followers -> phase 1
+                    if any(m in low for m in act_markers):
+                        category = 'activity'
+                    elif any(m in low for m in sys_markers):
+                        category = 'system'
+                    else:
+                        category = 'other'
+                    preview = self._clean_username(preview_elements[i].get_text()) if i < preview_count else ''
+                    notifications.append({'title': title, 'preview': preview, 'category': category})
+                except Exception as e:
+                    self.logger.debug(f"Erreur parsing notification {i}: {e}")
+                    continue
+        except Exception as e:
+            self.logger.warning(f"Erreur scrape notifications: {e}")
+        return notifications
+
     def click_conversation(self, name: str) -> bool:
         """Click on a conversation by name.
         

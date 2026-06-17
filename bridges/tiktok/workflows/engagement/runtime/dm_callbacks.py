@@ -7,6 +7,7 @@ from bridges.tiktok.runtime.ipc import (
     send_dm_conversation,
     send_dm_progress,
     send_dm_sent,
+    send_activity_notification,
     send_dm_stats,
     send_follow_back_result,
     send_message_request,
@@ -104,6 +105,16 @@ def wire_request_decision_callbacks(workflow) -> None:
     workflow.set_on_request_result_callback(on_result)
 
 
+def wire_notifications_read_callbacks(workflow) -> None:
+    """Wire stdout events for activity/system notifications reading (inbox v2 phase 4)."""
+
+    def on_notification(notification):
+        send_activity_notification(notification)
+        logger.info(f"🔔 Notification: {notification.get('category')} - {notification.get('title', '')}")
+
+    workflow.set_on_notification_callback(on_notification)
+
+
 __all__ = [
     "wire_dm_read_callbacks",
     "wire_dm_send_callbacks",
@@ -112,4 +123,5 @@ __all__ = [
     "wire_unreplied_callbacks",
     "wire_message_requests_read_callbacks",
     "wire_request_decision_callbacks",
+    "wire_notifications_read_callbacks",
 ]

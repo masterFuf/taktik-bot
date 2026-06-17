@@ -56,3 +56,9 @@ def accept_request(a, p):
 def decline_request(a, p):
     """Refuse/supprime la demande ouverte (c8q)."""
     return a.dm.decline_request()
+
+
+@action("tt.inbox.get_notifications")
+def get_notifications(a, p):
+    """Lit les sections Activité / Notifications système (phase 4, lecture seule)."""
+    return a.dm.get_inbox_notifications(int(p.get("max_items", 20)))

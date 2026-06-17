@@ -17,6 +17,7 @@ from bridges.tiktok.runtime.ipc_dm_events import (
     send_dm_progress,
     send_dm_sent,
     send_dm_stats,
+    send_activity_notification,
     send_follow_back_result,
     send_message_request,
     send_new_follower,
@@ -82,4 +83,5 @@ __all__ = [
     "send_unreplied_conversation",
     "send_message_request",
     "send_request_result",
+    "send_activity_notification",
 ]

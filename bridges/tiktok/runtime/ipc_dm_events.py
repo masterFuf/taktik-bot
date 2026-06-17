@@ -52,6 +52,11 @@ def send_request_result(result: Dict[str, Any]) -> None:
     _ipc.request_result(result)
 
 
+def send_activity_notification(notification: Dict[str, Any]) -> None:
+    """Send a read-only activity/system notification to desktop app (inbox v2 phase 4)."""
+    _ipc.activity_notification(notification)
+
+
 __all__ = [
     "send_dm_conversation",
     "send_dm_progress",
@@ -62,4 +67,5 @@ __all__ = [
     "send_unreplied_conversation",
     "send_message_request",
     "send_request_result",
+    "send_activity_notification",
 ]

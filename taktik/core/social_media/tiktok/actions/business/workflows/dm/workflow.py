@@ -58,6 +58,8 @@ class DMWorkflow(BaseTikTokWorkflow):
         # Inbox v2 (demandes de messages) callbacks
         self._on_message_request_callback: Optional[Callable] = None
         self._on_request_result_callback: Optional[Callable] = None
+        # Inbox v2 (activité / notifs système, lecture) callback
+        self._on_notification_callback: Optional[Callable] = None
         
         # DM-specific state
         self._conversations: List[ConversationData] = []
@@ -715,3 +717,39 @@ class DMWorkflow(BaseTikTokWorkflow):
         done = sum(1 for r in results if r.get('success'))
         self.logger.info(f"✅ Demandes traitées: {done}/{len(decisions)}")
         return results
+
+    # ==========================================================================
+    # ACTIVITÉ / NOTIFICATIONS SYSTÈME (Phase 4 inbox v2) — lecture seule
+    # ==========================================================================
+
+    def set_on_notification_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback appelé pour chaque section de notification (activité/système) lue."""
+        self._on_notification_callback = callback
+
+    def read_notifications(self, max_items: int = 20) -> List[Dict[str, Any]]:
+        """Lit les sections Activité / Notifications système de l'inbox (LECTURE SEULE).
+
+        Returns:
+            Liste de {title, preview, category}
+        """
+        self._running = True
+        self.logger.info("🔔 Lecture activité / notifications système")
+        try:
+            self._handle_popups(skip_inbox_escape=True)
+            if not self._ensure_on_inbox():
+                self.logger.error("Inbox inatteignable -> notifications")
+                return []
+
+            notifications = self.dm.get_inbox_notifications(max_items)
+            for notif in notifications:
+                if self._on_notification_callback:
+                    try:
+                        self._on_notification_callback(notif)
+                    except Exception as e:
+                        self.logger.warning(f"Callback notification erreur: {e}")
+
+            self.logger.info(f"✅ {len(notifications)} notification(s) lue(s)")
+            return notifications
+        except Exception as e:
+            self.logger.error(f"Erreur lecture notifications: {e}")
+            return []

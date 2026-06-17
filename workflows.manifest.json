@@ -53,6 +53,7 @@
       "new_followers",
       "dm_unreplied",
       "dm_requests",
+      "dm_activity",
       "scraping"
     ],
     "account": [

@@ -88,6 +88,11 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_message_requests_workflow(config), workflow_type
 
+    if workflow_type == "dm_activity":
+        from bridges.tiktok.workflows.engagement.activity import run_activity_workflow
+
+        return run_activity_workflow(config), workflow_type
+
     if workflow_type == "scraping":
         from bridges.tiktok.scraping.scraping import run_scraping_workflow
 
