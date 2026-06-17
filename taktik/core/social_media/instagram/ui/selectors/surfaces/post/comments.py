@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
 from .detail import POST_SELECTORS
+from ...locales import L
 
 
 @dataclass
@@ -28,12 +29,14 @@ class PostCommentsSelectors:
     # contains() so it matches version drift like `layout_comment_thread_edittext_multiline`
     # (IG v410). Deliberately NOT the broad `comment_field_selectors` (those include a bare
     # `//android.widget.EditText` that would false-positive on any screen with a text field).
-    comment_composer_indicators: List[str] = field(default_factory=lambda: [
+    _comment_composer_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "layout_comment_thread_edittext")]',
         '//*[contains(@resource-id, "comment_composer")]',
-        '//*[contains(@hint, "Ajouter un commentaire")]',
-        '//*[contains(@hint, "Add a comment")]',
     ])
+
+    @property
+    def comment_composer_indicators(self) -> List[str]:
+        return self._comment_composer_indicators_base + L("post_comments.comment_composer_indicators")
     post_comment_button_resource_ids: Tuple[str, ...] = (
         "com.instagram.android:id/layout_comment_thread_post_button_icon",
         "com.instagram.android:id/layout_comment_thread_post_button_click_area",

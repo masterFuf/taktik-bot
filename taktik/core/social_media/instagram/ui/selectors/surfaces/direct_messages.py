@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 @dataclass
 class DirectMessageSelectors:
     """Sélecteurs pour les messages directs."""
@@ -9,32 +11,41 @@ class DirectMessageSelectors:
     # Bouton DM dans la tab bar (depuis le profil ou le feed)
     direct_tab_resource_id: str = "com.instagram.android:id/direct_tab"
     direct_tab: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]'
-    direct_tab_content_desc: List[str] = field(default_factory=lambda: [
+    _direct_tab_content_desc_base: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Message"]',
-        '//*[@content-desc="Envoyer un message"]',
         '//*[@content-desc="Direct"]',
         '//*[@content-desc="Messages"]',
         '//*[@content-desc="Messenger"]'
     ])
 
-    direct_tab_content_descriptions: List[str] = field(default_factory=lambda: [
-        "Envoyer un message",
+    @property
+    def direct_tab_content_desc(self) -> List[str]:
+        return self._direct_tab_content_desc_base + L("direct_message.direct_tab_content_desc")
+
+    _direct_tab_content_descriptions_base: List[str] = field(default_factory=lambda: [
         "Direct",
         "Messages",
     ])
+
+    @property
+    def direct_tab_content_descriptions(self) -> List[str]:
+        return self._direct_tab_content_descriptions_base + L("direct_message.direct_tab_content_descriptions")
     dm_inbox_button_descriptions: List[str] = field(default_factory=lambda: [
         "Message",
         "Messages",
         "Direct",
         "Messenger",
     ])
-    dm_inbox_description_contains: List[str] = field(default_factory=lambda: [
+    _dm_inbox_description_contains_base: List[str] = field(default_factory=lambda: [
         "Message",
         "Messenger",
         "Inbox",
         "Boîte de réception",
-        "Envoyer un message",
     ])
+
+    @property
+    def dm_inbox_description_contains(self) -> List[str]:
+        return self._dm_inbox_description_contains_base + L("direct_message.dm_inbox_description_contains")
     action_bar_inbox_button_resource_id: str = "com.instagram.android:id/action_bar_inbox_button"
     
     # Badge de notification sur l'onglet DM
@@ -47,26 +58,30 @@ class DirectMessageSelectors:
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
     inbox_header_messages_text: str = "Messages"
     inbox_header_requests_text: str = "Requests"
-    inbox_top_visible_texts: List[str] = field(default_factory=lambda: [
+    _inbox_top_visible_texts_base: List[str] = field(default_factory=lambda: [
         "Messages",
         "Requests",
         "Demandes",
-        "Search or ask Meta AI",
-        "Search",
-        "Rechercher",
         "Your note",
         "Votre note",
         "Map",
         "Carte",
     ])
-    inbox_recommendation_texts: List[str] = field(default_factory=lambda: [
+
+    @property
+    def inbox_top_visible_texts(self) -> List[str]:
+        return self._inbox_top_visible_texts_base + L("direct_message.inbox_top_visible_texts")
+
+    _inbox_recommendation_texts_base: List[str] = field(default_factory=lambda: [
         "Accounts to follow",
-        "Suggested for you",
         "See all",
         "Comptes à suivre",
-        "Suggestions pour vous",
         "Voir tout",
     ])
+
+    @property
+    def inbox_recommendation_texts(self) -> List[str]:
+        return self._inbox_recommendation_texts_base + L("direct_message.inbox_recommendation_texts")
     text_view_class_name: str = "android.widget.TextView"
     image_view_class_name: str = "android.widget.ImageView"
     bottom_tab_resource_ids: List[str] = field(default_factory=lambda: [
@@ -116,24 +131,28 @@ class DirectMessageSelectors:
     ])
     
     # === Actions dans l'inbox ===
-    new_message_button: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Créer une publicité Envoyer un message"]',
+    _new_message_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Nouveau message")]',
         '//*[contains(@content-desc, "New message")]',
         '//*[contains(@content-desc, "New Message")]',
         '//*[contains(@content-desc, "Compose")]'
     ])
+
+    @property
+    def new_message_button(self) -> List[str]:
+        return self._new_message_button_base + L("direct_message.new_message_button")
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
     
     # === Navigation dans une conversation ===
     conversation_back_button_resource_id: str = 'com.instagram.android:id/header_left_button'
-    conversation_back_descriptions: List[str] = field(default_factory=lambda: [
-        "Back",
-    ])
-    conversation_back_description_contains: List[str] = field(default_factory=lambda: [
-        "Retour",
-    ])
+    @property
+    def conversation_back_descriptions(self) -> List[str]:
+        return L("direct_message.conversation_back_descriptions")
+
+    @property
+    def conversation_back_description_contains(self) -> List[str]:
+        return L("direct_message.conversation_back_description_contains")
     conversation_header_title_resource_id: str = "com.instagram.android:id/header_title"
     conversation_header_subtitle_resource_id: str = "com.instagram.android:id/header_subtitle"
     conversation_group_member_pattern: str = r"\d+\.?\d*k?\s*(membres|members)"
@@ -159,27 +178,25 @@ class DirectMessageSelectors:
         '//android.widget.EditText[@clickable="true"]'
     ])
     
-    send_button: List[str] = field(default_factory=lambda: [
+    _send_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_thread_composer_button_send"]',
-        '//*[contains(@content-desc, "Envoyer")]',
-        '//*[contains(@content-desc, "Send")]',
-        '//android.widget.ImageButton[contains(@content-desc, "Envoyer")]',
-        '//android.widget.ImageButton[contains(@content-desc, "Send")]'
     ])
+
+    @property
+    def send_button(self) -> List[str]:
+        return self._send_button_base + L("direct_message.send_button")
     send_button_resource_ids: List[str] = field(default_factory=lambda: [
         "com.instagram.android:id/row_thread_composer_send_button_container",
         "com.instagram.android:id/row_thread_composer_send_button",
         "com.instagram.android:id/send_button",
     ])
-    send_button_descriptions: List[str] = field(default_factory=lambda: [
-        "Envoyer",
-        "Send",
-        "Send message",
-    ])
-    send_button_content_descriptions: List[str] = field(default_factory=lambda: [
-        "Send",
-        "Envoyer",
-    ])
+    @property
+    def send_button_descriptions(self) -> List[str]:
+        return L("direct_message.send_button_descriptions")
+
+    @property
+    def send_button_content_descriptions(self) -> List[str]:
+        return L("direct_message.send_button_content_descriptions")
     
     # Liste des messages dans une conversation
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'

@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 @dataclass
 class ContentCreationSelectors:
     """Sélecteurs pour la création de contenu (posts, stories, reels)."""
@@ -15,7 +17,9 @@ class ContentCreationSelectors:
         '//*[contains(@resource-id, "creation_tab")]',
         '//*[contains(@resource-id, "action_bar_buttons_container_left")]//android.widget.ImageView[@clickable="true"]',
     ])
-    create_button_texts: List[str] = field(default_factory=lambda: ["Create", "Créer"])
+    @property
+    def create_button_texts(self) -> List[str]:
+        return L("content_creation.create_button_texts")
     
     # === Galerie ===
     gallery_grid_item: str = 'com.instagram.android:id/gallery_grid_item_thumbnail'
@@ -58,56 +62,52 @@ class ContentCreationSelectors:
     cam_dest_clips: str = 'com.instagram.android:id/cam_dest_clips'
     cam_dest_story: str = 'com.instagram.android:id/cam_dest_story'
 
-    next_texts: List[str] = field(default_factory=lambda: [
-        "Next",
-        "Suivant",
-    ])
+    @property
+    def next_texts(self) -> List[str]:
+        return L("content_creation.next_texts")
 
-    publish_texts: List[str] = field(default_factory=lambda: [
-        "Share",
-        "Partager",
-        "Publier",
-    ])
+    @property
+    def publish_texts(self) -> List[str]:
+        return L("content_creation.publish_texts")
 
-    story_publish_texts: List[str] = field(default_factory=lambda: [
-        "Share",
-        "Your story",
-    ])
+    @property
+    def story_publish_texts(self) -> List[str]:
+        return L("content_creation.story_publish_texts")
 
-    popup_button_texts: List[str] = field(default_factory=lambda: [
+    # "OK" est identique en EN/FR -> neutre.
+    _popup_button_texts_base: List[str] = field(default_factory=lambda: [
         "OK",
-        "Got it",
-        "Continue",
-        "Not now",
-        "Skip",
     ])
 
-    caption_placeholder_texts: List[str] = field(default_factory=lambda: [
-        "Write a caption...",
-    ])
+    @property
+    def popup_button_texts(self) -> List[str]:
+        return self._popup_button_texts_base + L("content_creation.popup_button_texts")
 
-    location_button_texts: List[str] = field(default_factory=lambda: [
-        "Add location",
-    ])
+    @property
+    def caption_placeholder_texts(self) -> List[str]:
+        return L("content_creation.caption_placeholder_texts")
+
+    @property
+    def location_button_texts(self) -> List[str]:
+        return L("content_creation.location_button_texts")
     edit_text_class_name: str = "android.widget.EditText"
     text_view_class_name: str = "android.widget.TextView"
 
-    next_descriptions: List[str] = field(default_factory=lambda: [
-        "Next",
-        "Suivant",
-    ])
+    @property
+    def next_descriptions(self) -> List[str]:
+        return L("content_creation.next_descriptions")
 
-    edit_video_indicators: List[str] = field(default_factory=lambda: [
-        "Edit video",
-        "Modifier la vidéo",
-    ])
-    
+    @property
+    def edit_video_indicators(self) -> List[str]:
+        return L("content_creation.edit_video_indicators")
+
     edit_video_next_to_clips_pattern: str = r'content-desc="next".{0,400}clips_right_action_button'
 
-    post_type_texts: List[str] = field(default_factory=lambda: [
-        "POST",
-    ])
+    @property
+    def post_type_texts(self) -> List[str]:
+        return L("content_creation.post_type_texts")
 
+    # "REEL"/"Reels"/"REELS" et "STORY" = termes de marque identiques EN/FR -> neutres.
     reel_type_texts: List[str] = field(default_factory=lambda: [
         "REEL",
         "Reels",
@@ -118,20 +118,17 @@ class ContentCreationSelectors:
         "STORY",
     ])
 
-    reel_draft_headlines: List[str] = field(default_factory=lambda: [
-        "Keep editing your draft?",
-        "Continuer la modification de votre brouillon ?",
-    ])
+    @property
+    def reel_draft_headlines(self) -> List[str]:
+        return L("content_creation.reel_draft_headlines")
 
-    reel_draft_bodies: List[str] = field(default_factory=lambda: [
-        "If you start a new video, this draft will be saved.",
-        "Si vous commencez une nouvelle vidÃ©o, ce brouillon sera enregistrÃ©.",
-    ])
+    @property
+    def reel_draft_bodies(self) -> List[str]:
+        return L("content_creation.reel_draft_bodies")
 
-    reel_draft_start_new_texts: List[str] = field(default_factory=lambda: [
-        "Start new video",
-        "Commencer une nouvelle vidÃ©o",
-    ])
+    @property
+    def reel_draft_start_new_texts(self) -> List[str]:
+        return L("content_creation.reel_draft_start_new_texts")
 
     # === Champs de texte ===
     caption_text_view: str = 'com.instagram.android:id/caption_text_view'

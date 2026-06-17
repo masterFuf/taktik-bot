@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, List
 
+from ..locales import L
+
 
 @dataclass
 class WatchdogSelectors:
@@ -92,13 +94,17 @@ class WatchdogSelectors:
         "Following list": ['text="Following"', 'text="Abonnements"'],
         "Home feed": ['content-desc="Home"', 'content-desc="Accueil"'],
     })
-    ok_button_texts: List[str] = field(default_factory=lambda: [
+    # === Boutons "OK/Fermer" — labels langue-dependants (overlay locales/) ===
+    _ok_button_texts_base: List[str] = field(default_factory=lambda: [
+        # "OK"/"Ok"/"Got it" sont neutres (communs EN/FR ou hors vocabulaire).
         "OK",
         "Ok",
-        "Dismiss",
-        "Fermer",
         "Got it",
     ])
+
+    @property
+    def ok_button_texts(self) -> List[str]:
+        return self._ok_button_texts_base + L("watchdog.ok_button_texts")
 
     def clickable_text_selector(self, text: str) -> str:
         """Build a clickable exact-text selector for recovery buttons."""

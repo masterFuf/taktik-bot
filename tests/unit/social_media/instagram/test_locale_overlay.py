@@ -15,7 +15,14 @@ known-language path) is exercised by the Cartography Lab lot, not here.
 """
 import pytest
 
-from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors import (
+    PROFILE_SELECTORS,
+    AUTH_SELECTORS,
+    NAVIGATION_SELECTORS,
+    POPUP_SELECTORS,
+    POST_SELECTORS,
+)
+import taktik.core.social_media.instagram.ui.selectors as IG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import (
     set_active_locale,
     active_locale,
@@ -125,3 +132,51 @@ def test_detect_and_optimize_unknown_override_is_safe_keep_all():
     assert active_locale() is None
     follow = _joined(PROFILE_SELECTORS.follow_button)
     assert "Suivre" in follow and "Follow" in follow
+
+
+# ── Sweep coverage (lot 3): representative migrated fields across files ──────
+
+
+def test_sweep_auth_login_button_localized():
+    set_active_locale("fr")
+    assert any("Se connecter" in s for s in AUTH_SELECTORS.login_button)
+    assert not any("Log in" in s for s in AUTH_SELECTORS.login_button)
+    set_active_locale("en")
+    assert any("Log in" in s for s in AUTH_SELECTORS.login_button)
+    assert not any("Se connecter" in s for s in AUTH_SELECTORS.login_button)
+
+
+def test_sweep_navigation_neutral_rid_present_in_every_locale():
+    for loc in (None, "fr", "en"):
+        set_active_locale(loc)
+        assert any("feed_tab" in s for s in NAVIGATION_SELECTORS.home_tab)
+
+
+def test_sweep_popup_suggestions_neutral_present_in_every_locale():
+    # "Suggestions" is a substring of both FR ("Suggestions pour vous") and EN
+    # ("Suggestions for you") -> neutral, kept in every locale.
+    for loc in (None, "fr", "en"):
+        set_active_locale(loc)
+        assert any('contains(@text, "Suggestions")' in s for s in POPUP_SELECTORS.follow_suggestions_indicators)
+
+
+def test_sweep_post_like_count_localized():
+    set_active_locale("fr")
+    assert any("J'aime" in s for s in POST_SELECTORS.like_count_selectors)
+    set_active_locale("en")
+    assert not any("J'aime" in s for s in POST_SELECTORS.like_count_selectors)
+
+
+def test_sweep_all_ig_selectors_evaluate_under_every_locale():
+    # Guard: every public attribute of every IG selector singleton must evaluate
+    # without raising under each locale (catches a broken property / missing key).
+    for loc in (None, "fr", "en"):
+        set_active_locale(loc)
+        for name in dir(IG_SELECTORS):
+            if not name.endswith("_SELECTORS"):
+                continue
+            inst = getattr(IG_SELECTORS, name)
+            for attr in dir(inst):
+                if attr.startswith("_"):
+                    continue
+                getattr(inst, attr)  # must not raise

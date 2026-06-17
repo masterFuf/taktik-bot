@@ -1,120 +1,88 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 @dataclass
 class AuthSelectors:
     """Sélecteurs pour l'authentification et le login Instagram."""
-    
+
     # === Champs de saisie (multilingue) ===
-    username_field: List[str] = field(default_factory=lambda: [
-        # Sélecteur par content-desc (anglais)
-        '//android.widget.EditText[contains(@content-desc, "Username, email or mobile number")]',
-        # Sélecteur par content-desc (français)
-        '//android.widget.EditText[contains(@content-desc, "Nom de profil, e-mail ou numéro de mobile")]',
+    _username_field_base: List[str] = field(default_factory=lambda: [
         # Sélecteur générique par classe (exclut le champ password pour éviter faux positifs)
         '//android.widget.EditText[@password="false" and @clickable="true"][1]',
     ])
 
+    @property
+    def username_field(self) -> List[str]:
+        return self._username_field_base + L("auth.username_field")
+
     # Bouton X/effacer qui apparaît à côté du champ username quand il est focalisé et pré-rempli
-    username_clear_button: List[str] = field(default_factory=lambda: [
-        # Anglais
-        '//android.widget.ImageView[@content-desc="Clear Username, email or mobile number text"]',
-        '//android.widget.ImageView[contains(@content-desc, "Clear") and contains(@content-desc, "Username")]',
-        # Français
-        '//android.widget.ImageView[contains(@content-desc, "Vider") and contains(@content-desc, "Nom de profil")]',
-        '//android.widget.ImageView[contains(@content-desc, "Effacer") and contains(@content-desc, "Nom de profil")]',
-    ])
-    
-    password_field: List[str] = field(default_factory=lambda: [
-        # Sélecteur par content-desc (anglais)
-        '//android.widget.EditText[contains(@content-desc, "Password")]',
-        # Sélecteur par content-desc (français)
-        '//android.widget.EditText[contains(@content-desc, "Mot de passe")]',
+    @property
+    def username_clear_button(self) -> List[str]:
+        return L("auth.username_clear_button")
+
+    _password_field_base: List[str] = field(default_factory=lambda: [
         # Sélecteur par attribut password
         '//android.widget.EditText[@password="true"]',
         # Fallback par position (second EditText)
         '(//android.widget.EditText)[2]'
     ])
-    
+
+    @property
+    def password_field(self) -> List[str]:
+        return self._password_field_base + L("auth.password_field")
+
     # === Boutons d'action (multilingue) ===
-    login_button: List[str] = field(default_factory=lambda: [
-        # Sélecteur par content-desc (anglais)
-        '//android.widget.Button[@content-desc="Log in"]',
-        # Sélecteur par content-desc (français)
-        '//android.widget.Button[@content-desc="Se connecter"]',
-        # Sélecteur par texte visible (anglais)
-        '//android.widget.Button[.//android.view.View[@content-desc="Log in"]]',
-        # Sélecteur par texte visible (français)
-        '//android.widget.Button[.//android.view.View[@content-desc="Se connecter"]]',
+    _login_button_base: List[str] = field(default_factory=lambda: [
         # Fallback générique (premier bouton cliquable après les champs)
         '(//android.widget.Button[@clickable="true"])[1]'
     ])
-    
-    create_account_button: List[str] = field(default_factory=lambda: [
-        # Sur l'écran d'accueil (non connecté), c'est un View et non un Button
-        '//android.view.View[@content-desc="Create new account"]',
-        '//android.view.View[@content-desc="Créer un compte"]',
-        # Fallback Button (ancienne version de l'app)
-        '//android.widget.Button[@content-desc="Create new account"]',
-        '//android.widget.Button[@content-desc="Créer un compte"]',
-        # Sélecteur par texte visible imbriqué
-        '//*[.//android.view.View[@content-desc="Create new account"]]',
-        '//*[.//android.view.View[@content-desc="Créer un compte"]]'
-    ])
-    
-    forgot_password_button: List[str] = field(default_factory=lambda: [
-        # Sélecteur par content-desc (anglais)
-        '//android.widget.Button[@content-desc="Forgot password?"]',
-        # Sélecteur par content-desc (français)
-        '//android.widget.Button[@content-desc="Mot de passe oublié ?"]',
-        # Sélecteur par texte visible (anglais)
-        '//android.widget.Button[.//android.view.View[@content-desc="Forgot password?"]]',
-        # Sélecteur par texte visible (français)
-        '//android.widget.Button[.//android.view.View[@content-desc="Mot de passe oublié ?"]]'
-    ])
-    
+
+    @property
+    def login_button(self) -> List[str]:
+        return self._login_button_base + L("auth.login_button")
+
+    @property
+    def create_account_button(self) -> List[str]:
+        return L("auth.create_account_button")
+
+    @property
+    def forgot_password_button(self) -> List[str]:
+        return L("auth.forgot_password_button")
+
     # === Détection de la page de login ===
     clickable_visible_elements: str = '//*[@clickable="true" and @visible-to-user="true"]'
 
-    login_screen_indicators: List[str] = field(default_factory=lambda: [
-        # Logo Instagram
-        '//android.widget.ImageView[@content-desc="Instagram from Meta"]',
-        # Sélecteur de langue
-        '//android.widget.Button[contains(@content-desc, "English") or contains(@content-desc, "Français")]',
+    _login_screen_indicators_base: List[str] = field(default_factory=lambda: [
         # Présence simultanée des champs username et password
         '//android.widget.EditText[@password="false"]/following-sibling::*//android.widget.EditText[@password="true"]',
-        # Écran password-only (compte pré-rempli) : bouton "Log in" + "Forgot password?"
-        '//android.widget.Button[@content-desc="Log in"]',
-        '//android.widget.Button[@content-desc="Se connecter"]',
     ])
+
+    @property
+    def login_screen_indicators(self) -> List[str]:
+        return self._login_screen_indicators_base + L("auth.login_screen_indicators")
 
     # === Écran "mot de passe seulement" (username pré-rempli, non éditable) ===
     # Apparaît quand Instagram a déjà le compte enregistré et demande juste le mot de passe
-    password_only_screen_indicators: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@content-desc="Forgot password?"]',
-        '//android.widget.Button[@content-desc="Mot de passe oublié ?"]',
-    ])
-    
+    @property
+    def password_only_screen_indicators(self) -> List[str]:
+        return L("auth.password_only_screen_indicators")
+
     # === Écran de sélection de profil (comptes enregistrés) ===
-    profile_selection_screen: List[str] = field(default_factory=lambda: [
-        # Boutons toujours présents sur l'écran de sélection de profil
-        '//android.widget.Button[@content-desc="Use another profile"]',
-        '//android.widget.Button[@content-desc="Utiliser un autre profil"]',
-        '//android.widget.Button[@content-desc="Create new account"]',
-        '//android.widget.Button[@content-desc="Créer un compte"]',
-        '//*[contains(@text, "Use another profile")]',
-        '//*[contains(@text, "Utiliser un autre profil")]',
+    _profile_selection_screen_base: List[str] = field(default_factory=lambda: [
         # L'écran a également un bouton Settings en haut à droite
         '//android.widget.Button[@content-desc="Settings" and @package="com.instagram.android"]',
     ])
-    
+
+    @property
+    def profile_selection_screen(self) -> List[str]:
+        return self._profile_selection_screen_base + L("auth.profile_selection_screen")
+
     # === Écran de sélection de profil ===
-    use_another_profile_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@content-desc="Use another profile"]',
-        '//android.widget.Button[@content-desc="Utiliser un autre profil"]',
-        '//*[contains(@text, "Use another profile")]',
-        '//*[contains(@text, "Utiliser un autre profil")]'
-    ])
+    @property
+    def use_another_profile_button(self) -> List[str]:
+        return L("auth.use_another_profile_button")
 
     def saved_profile_tile_selectors(self, target_username: str, clean_username: str) -> List[str]:
         return [
@@ -135,46 +103,29 @@ class AuthSelectors:
         ]
 
     # === Messages d'erreur et états ===
-    error_message_selectors: List[str] = field(default_factory=lambda: [
-        # Messages d'erreur génériques
-        '//android.widget.TextView[contains(@text, "incorrect")]',
-        '//android.widget.TextView[contains(@text, "Incorrect")]',
-        '//android.widget.TextView[contains(@text, "incorrecte")]',
-        '//android.widget.TextView[contains(@text, "Incorrecte")]',
-        # Compte bloqué/suspendu
-        '//android.widget.TextView[contains(@text, "suspended")]',
-        '//android.widget.TextView[contains(@text, "blocked")]',
-        '//android.widget.TextView[contains(@text, "suspendu")]',
-        '//android.widget.TextView[contains(@text, "bloqué")]',
-        # Trop de tentatives
-        '//android.widget.TextView[contains(@text, "too many")]',
-        '//android.widget.TextView[contains(@text, "trop de")]',
-        '//android.widget.TextView[contains(@text, "Try again")]',
-        '//android.widget.TextView[contains(@text, "Réessayer")]'
-    ])
-    
+    @property
+    def error_message_selectors(self) -> List[str]:
+        return L("auth.error_message_selectors")
+
     # === 2FA et vérification ===
-    two_factor_indicators: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@text, "security code")]',
-        '//android.widget.TextView[contains(@text, "code de sécurité")]',
-        '//android.widget.TextView[contains(@text, "verification")]',
-        '//android.widget.TextView[contains(@text, "vérification")]',
+    _two_factor_indicators_base: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[contains(@hint, "code")]'
     ])
-    
+
+    @property
+    def two_factor_indicators(self) -> List[str]:
+        return self._two_factor_indicators_base + L("auth.two_factor_indicators")
+
     two_factor_code_field: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[contains(@hint, "code")]',
         '//android.widget.EditText[contains(@hint, "Code")]',
         '(//android.widget.EditText)[1]'
     ])
-    
-    two_factor_confirm_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[contains(@text, "Confirm")]',
-        '//android.widget.Button[contains(@text, "Confirmer")]',
-        '//android.widget.Button[contains(@text, "Next")]',
-        '//android.widget.Button[contains(@text, "Suivant")]'
-    ])
-    
+
+    @property
+    def two_factor_confirm_button(self) -> List[str]:
+        return L("auth.two_factor_confirm_button")
+
     # === Suspicious login / Vérification supplémentaire ===
     suspicious_login_indicators: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[contains(@text, "We detected")]',
@@ -186,46 +137,43 @@ class AuthSelectors:
     ])
     
     # === Popups post-login (Save login info, Turn on notifications, etc.) ===
-    save_login_info_popup: List[str] = field(default_factory=lambda: [
-        # Titre sous forme de View avec content-desc (dump réel)
-        '//android.view.View[@content-desc="Save your login info?"]',
-        '//android.view.View[@content-desc="Enregistrer vos informations de connexion ?"]',
+    _save_login_info_popup_base: List[str] = field(default_factory=lambda: [
         '//android.view.View[contains(@content-desc, "login info")]',
         '//android.view.View[contains(@content-desc, "informations de connexion")]',
-        # Fallback resource-id (versions antérieures)
-        '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and contains(@text, "Save")]',
-        '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and contains(@text, "Enregistrer")]',
-    ])
-    
-    save_login_info_success_popup: List[str] = field(default_factory=lambda: [
-        '//android.view.View[@content-desc="Save your login info?"]',
-        '//android.view.View[contains(@content-desc, "Save your login info")]',
-        '//android.view.View[contains(@text, "Save your login info")]',
-        '//android.view.View[contains(@content-desc, "Enregistrer vos informations")]',
-        '//android.view.View[contains(@text, "Enregistrer vos informations")]'
     ])
 
-    notification_popup: List[str] = field(default_factory=lambda: [
+    @property
+    def save_login_info_popup(self) -> List[str]:
+        return self._save_login_info_popup_base + L("auth.save_login_info_popup")
+
+    @property
+    def save_login_info_success_popup(self) -> List[str]:
+        return L("auth.save_login_info_success_popup")
+
+    _notification_popup_base: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[contains(@text, "Turn on Notifications")]',
         '//android.widget.TextView[contains(@text, "Activer les notifications")]',
         '//android.widget.Button[contains(@text, "Turn On")]',
         '//android.widget.Button[contains(@text, "Activer")]',
-        '//android.widget.Button[contains(@text, "Not Now")]',
-        '//android.widget.Button[contains(@text, "Pas maintenant")]'
     ])
-    
+
+    @property
+    def notification_popup(self) -> List[str]:
+        return self._notification_popup_base + L("auth.notification_popup")
+
     # === Popup contacts (Find friends) ===
-    contacts_sync_popup: List[str] = field(default_factory=lambda: [
+    _contacts_sync_popup_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Autorisez l\'accès à vos contacts")]',
-        '//*[contains(@text, "Allow access to your contacts")]',
         '//*[contains(@text, "Find friends")]',
         '//*[contains(@text, "Trouver des amis")]',
-        '//android.widget.Button[@content-desc="Autoriser"]',
-        '//android.widget.Button[@content-desc="Allow"]',
         '//android.widget.Button[@content-desc="Ignorer"]',
-        '//android.widget.Button[@content-desc="Skip"]'
+        '//android.widget.Button[@content-desc="Skip"]',
     ])
-    
+
+    @property
+    def contacts_sync_popup(self) -> List[str]:
+        return self._contacts_sync_popup_base + L("auth.contacts_sync_popup")
+
     # === Popup localisation (Location services) ===
     location_services_popup: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Pour utiliser les Services de localisation")]',
@@ -237,9 +185,8 @@ class AuthSelectors:
     ])
     
     # === Permission système localisation (Android system dialog) ===
-    location_permission_dialog: List[str] = field(default_factory=lambda: [
+    _location_permission_dialog_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "Permettre à Instagram d\'accéder à la position")]',
-        '//*[contains(@text, "Allow Instagram to access this device\'s location")]',
         '//android.widget.Button[@resource-id="com.android.packageinstaller:id/permission_allow_button"]',
         '//android.widget.Button[@resource-id="com.android.packageinstaller:id/permission_deny_button"]',
         '//android.widget.Button[@text="AUTORISER"]',
@@ -247,22 +194,25 @@ class AuthSelectors:
         '//android.widget.Button[@text="REFUSER"]',
         '//android.widget.Button[@text="DENY"]'
     ])
-    
+
+    @property
+    def location_permission_dialog(self) -> List[str]:
+        return self._location_permission_dialog_base + L("auth.location_permission_dialog")
+
     # === Boutons génériques pour popups ===
-    save_button_selectors: List[str] = field(default_factory=lambda: [
+    @property
+    def save_button_selectors(self) -> List[str]:
         # Bouton "Save" de la popup Save Your Login Info (content-desc exact, sans resource-id)
-        '//android.widget.Button[@content-desc="Save"]',
-        '//android.widget.Button[@content-desc="Enregistrer"]',
-        '//android.widget.Button[.//android.view.View[@content-desc="Save"]]',
-        '//android.widget.Button[.//android.view.View[@content-desc="Enregistrer"]]',
-    ])
-    
-    save_login_info_not_now_buttons: List[str] = field(default_factory=lambda: [
+        return L("auth.save_button_selectors")
+
+    _save_login_info_not_now_buttons_base: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Not now"]',
-        '//android.widget.Button[@content-desc="Pas maintenant"]',
         '//android.widget.Button[.//android.view.View[@content-desc="Not now"]]',
-        '//android.widget.Button[.//android.view.View[@content-desc="Pas maintenant"]]',
     ])
+
+    @property
+    def save_login_info_not_now_buttons(self) -> List[str]:
+        return self._save_login_info_not_now_buttons_base + L("auth.save_login_info_not_now_buttons")
 
     skip_button_selectors: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Ignorer"]',
@@ -289,23 +239,14 @@ class AuthSelectors:
     # =========================================================
 
     # Bouton "Log into another account" sur l'écran d'accueil
-    log_into_another_account_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@content-desc="Log into another account"]',
-        '//android.widget.Button[@content-desc="Se connecter avec un autre compte"]',
-        '//android.view.View[@content-desc="Log into another account"]',
-        '//*[contains(@content-desc, "Log into another account")]',
-        '//*[contains(@content-desc, "Se connecter avec un autre compte")]'
-    ])
+    @property
+    def log_into_another_account_button(self) -> List[str]:
+        return L("auth.log_into_another_account_button")
 
     # Indicateurs de l'écran d'accueil non-connecté
-    home_logged_out_screen_indicators: List[str] = field(default_factory=lambda: [
-        # Présence du bouton "Log into another account" (accueil avec compte WhatsApp suggéré)
-        '//android.widget.Button[@content-desc="Log into another account"]',
-        # Présence du lien "Create new account"
-        '//android.view.View[@content-desc="Create new account"]',
-        # Logo Instagram + bouton "Log into another account"
-        '//android.widget.ImageView[@content-desc="Instagram from Meta"]',
-    ])
+    @property
+    def home_logged_out_screen_indicators(self) -> List[str]:
+        return L("auth.home_logged_out_screen_indicators")
 
     # =========================================================
     # === INSCRIPTION / CRÉATION DE COMPTE ===
@@ -348,12 +289,9 @@ class AuthSelectors:
     ])
 
     # --- Bouton "Next" (inscription) ---
-    signup_next_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@content-desc="Next"]',
-        '//android.widget.Button[@content-desc="Suivant"]',
-        '//android.view.View[@content-desc="Next"]',
-        '//android.view.View[@content-desc="Suivant"]',
-    ])
+    @property
+    def signup_next_button(self) -> List[str]:
+        return L("auth.signup_next_button")
 
     # --- Basculer vers inscription par email ---
     signup_switch_to_email_button: List[str] = field(default_factory=lambda: [
@@ -397,16 +335,18 @@ class AuthSelectors:
     ])
 
     # Bouton dismiss du Google Account Picker / Autofill popup
-    google_autofill_dismiss_button: List[str] = field(default_factory=lambda: [
+    _google_autofill_dismiss_button_base: List[str] = field(default_factory=lambda: [
         # Bouton X du bottom sheet "Sélectionner un compte" (com.google.android.gms)
         '//*[@resource-id="com.google.android.gms:id/cancel"]',
-        '//android.widget.ImageView[@content-desc="Annuler"]',
-        '//android.widget.ImageView[@content-desc="Cancel"]',
         # Bouton "Non, merci" de l'autofill dialog classique
         '//*[@resource-id="android:id/autofill_dialog_no"]',
         '//android.widget.Button[@text="Non, merci"]',
         '//android.widget.Button[@text="No, thanks"]',
     ])
+
+    @property
+    def google_autofill_dismiss_button(self) -> List[str]:
+        return self._google_autofill_dismiss_button_base + L("auth.google_autofill_dismiss_button")
 
     # =========================================================
     # === GOOGLE SAVE PASSWORD DIALOG (après login réussi) ===
@@ -444,11 +384,13 @@ class AuthSelectors:
     # =========================================================
 
     # Onglet Profile dans la barre de navigation
-    profile_tab_button: List[str] = field(default_factory=lambda: [
+    _profile_tab_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_tab"]',
-        '//android.widget.FrameLayout[@content-desc="Profile"]',
-        '//android.widget.FrameLayout[@content-desc="Profil"]',
     ])
+
+    @property
+    def profile_tab_button(self) -> List[str]:
+        return self._profile_tab_button_base + L("auth.profile_tab_button")
 
     # Bouton "Options" (hamburger menu) en haut à droite de la page Profile
     profile_options_button: List[str] = field(default_factory=lambda: [
@@ -483,18 +425,24 @@ class AuthSelectors:
     ])
 
     # Indicateur du dialogue "Save your login info?" (apparaît juste avant la confirmation)
-    save_login_info_dialog_indicators: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and @text="Save your login info?"]',
+    _save_login_info_dialog_indicators_base: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and contains(@text, "login info")]',
         '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and contains(@text, "connexion")]',
     ])
 
+    @property
+    def save_login_info_dialog_indicators(self) -> List[str]:
+        return self._save_login_info_dialog_indicators_base + L("auth.save_login_info_dialog_indicators")
+
     # Bouton "Not now" dans le dialogue "Save your login info?"
-    save_login_info_not_now_button: List[str] = field(default_factory=lambda: [
+    _save_login_info_not_now_button_base: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@resource-id="com.instagram.android:id/negative_button" and @text="Not now"]',
-        '//android.widget.Button[@resource-id="com.instagram.android:id/negative_button" and @text="Pas maintenant"]',
         '//android.widget.Button[@resource-id="com.instagram.android:id/negative_button"]',
     ])
+
+    @property
+    def save_login_info_not_now_button(self) -> List[str]:
+        return self._save_login_info_not_now_button_base + L("auth.save_login_info_not_now_button")
 
     # Indicateur du dialogue "Log out of your account?"
     logout_confirm_dialog_indicators: List[str] = field(default_factory=lambda: [

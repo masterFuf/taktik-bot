@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
+from ...locales import L
+
 @dataclass
 class PostSelectors:
     """Sélecteurs pour les publications (posts et reels)."""
@@ -64,7 +66,7 @@ class PostSelectors:
     )
     author_from_media_description_pattern: str = r"by\s+([\w][\w.]{0,29})"
     
-    username_extraction_selectors: List[str] = field(default_factory=lambda: [
+    _username_extraction_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
         '//*[@resource-id="com.instagram.android:id/username"]',
         '//*[@resource-id="com.instagram.android:id/profile_name"]',
@@ -73,11 +75,14 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/clips_author_info"]//android.widget.TextView',
         # Sélecteurs génériques
         '//android.widget.TextView[starts-with(@text, "@")]',
-        '//android.widget.TextView[contains(@content-desc, "nom d\'utilisateur")]'
     ])
+
+    @property
+    def username_extraction_selectors(self) -> List[str]:
+        return self._username_extraction_selectors_base + L("post.username_extraction_selectors")
     
     # === Détection et extraction de likes ===
-    like_count_selectors: List[str] = field(default_factory=lambda: [
+    _like_count_selectors_base: List[str] = field(default_factory=lambda: [
         # PRIORITY 1: Reel-specific selector (most specific, check first)
         '//*[@resource-id="com.instagram.android:id/like_count"]',
         # PRIORITY 2: Regular post selectors
@@ -88,9 +93,12 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/*[@resource-id="com.instagram.android:id/row_feed_button_like"]/parent::*/following-sibling::android.widget.Button[@text][1]',
         # Autres fallbacks pour compatibilité
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/android.widget.Button[@text and @clickable="true"][1]',
-        '//*[contains(@content-desc, "J\'aime")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_like_count_facepile"]'
+        '//*[@resource-id="com.instagram.android:id/row_feed_like_count_facepile"]',
     ])
+
+    @property
+    def like_count_selectors(self) -> List[str]:
+        return self._like_count_selectors_base + L("post.like_count_selectors")
     
     button_like_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]//android.widget.Button[@text and @clickable="true"]',
@@ -98,102 +106,108 @@ class PostSelectors:
         '//android.widget.Button[@clickable="true" and string-length(@text) > 0 and string-length(@text) < 10]'
     ])
     
-    photo_like_selectors: List[str] = field(default_factory=lambda: [
-        # Sélecteur spécifique pour l'élément avec content-desc contenant les métadonnées
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview" and contains(@content-desc, "J\'aime")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview" and contains(@content-desc, "likes")]',
-        # Fallback plus général
-        '//*[contains(@content-desc, "J\'aime") and contains(@content-desc, "commentaire")]',
-        '//*[contains(@content-desc, "likes") and contains(@content-desc, "comment")]',
+    _photo_like_selectors_base: List[str] = field(default_factory=lambda: [
         # Ancien sélecteur générique en dernier recours
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]'
+        '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]',
     ])
+
+    @property
+    def photo_like_selectors(self) -> List[str]:
+        return self._photo_like_selectors_base + L("post.photo_like_selectors")
     
     # === Reels spécifiques ===
-    reel_like_selectors: List[str] = field(default_factory=lambda: [
+    _reel_like_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/like_count"]',
         '//*[@resource-id="com.instagram.android:id/likes_count"]',
-        '//android.widget.TextView[contains(@text, "J\'aime")]',
-        '//android.widget.TextView[contains(@text, "likes")]',
         # Sélecteurs pour Reels en mode feed (bouton sans resource-id)
         '//android.widget.Button[@clickable="true" and string-length(@text) > 0 and string-length(@text) < 10]',
         '//android.widget.Button[contains(@text, ",")]',  # Ex: "1,561"
         '//android.widget.Button[contains(@text, "K")]',  # Ex: "15K"
         '//android.widget.Button[contains(@text, "M")]'   # Ex: "1.5M"
     ])
+
+    @property
+    def reel_like_selectors(self) -> List[str]:
+        return self._reel_like_selectors_base + L("post.reel_like_selectors")
     
-    reel_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Reel de")]',
-        '//*[contains(@content-desc, "Reel by")]',
-        # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
-    ])
+    # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
+    @property
+    def reel_indicators(self) -> List[str]:
+        return L("post.reel_indicators")
     
     # === Sélecteurs automation.py ===
-    automation_reel_specific_indicators: List[str] = field(default_factory=lambda: [
+    _automation_reel_specific_indicators_base: List[str] = field(default_factory=lambda: [
         "//android.widget.TextView[@text='Reel']",
         "//android.widget.TextView[contains(@text, 'reel')]",
         "//android.view.ViewGroup[@content-desc='Reel']",
-        "//android.widget.Button[@content-desc='Like this reel']",
-        "//android.widget.Button[@content-desc='Share this reel']",
-        "//android.widget.TextView[contains(@text, 'Original audio')]",
-        "//android.widget.TextView[contains(@text, 'Audio original')]"
     ])
+
+    @property
+    def automation_reel_specific_indicators(self) -> List[str]:
+        return self._automation_reel_specific_indicators_base + L("post.automation_reel_specific_indicators")
     
-    video_controls: List[str] = field(default_factory=lambda: [
-        "//android.widget.Button[@content-desc='Play']",
-        "//android.widget.Button[@content-desc='Pause']"
-    ])
+    @property
+    def video_controls(self) -> List[str]:
+        return L("post.video_controls")
     
-    classic_post_indicators: List[str] = field(default_factory=lambda: [
-        "//android.widget.TextView[contains(@text, 'View all') and contains(@text, 'comment')]",
-        "//android.widget.TextView[contains(@text, 'Voir les') and contains(@text, 'commentaire')]",
-        "//android.widget.Button[@content-desc='Comment']",
-        "//android.widget.Button[@content-desc='Commenter']"
-    ])
+    @property
+    def classic_post_indicators(self) -> List[str]:
+        return L("post.classic_post_indicators")
     
-    post_elements: List[str] = field(default_factory=lambda: [
+    _post_elements_base: List[str] = field(default_factory=lambda: [
+        # Combo bilingue (EN "like" + FR "J'aime") -> neutre, gardé pour toutes les
+        # langues ; bytes d'origine conservés (échappement single-quote historique).
         "//android.widget.TextView[contains(@text, 'like') or contains(@text, 'J\\'aime')]",
-        "//android.widget.Button[@content-desc='Like']",
-        "//android.widget.Button[@content-desc='Comment']"
     ])
-    
-    automation_like_indicators: List[str] = field(default_factory=lambda: [
+
+    @property
+    def post_elements(self) -> List[str]:
+        return self._post_elements_base + L("post.post_elements")
+
+    _automation_like_indicators_base: List[str] = field(default_factory=lambda: [
         "//android.widget.Button[contains(@text, '1') or contains(@text, '2') or contains(@text, '3') or contains(@text, '4') or contains(@text, '5') or contains(@text, '6') or contains(@text, '7') or contains(@text, '8') or contains(@text, '9')]",
         "//android.widget.TextView[contains(@text, 'like') and (contains(@text, '1') or contains(@text, '2') or contains(@text, '3') or contains(@text, '4') or contains(@text, '5') or contains(@text, '6') or contains(@text, '7') or contains(@text, '8') or contains(@text, '9'))]",
-        "//android.widget.TextView[contains(@text, 'J\'aime') and (contains(@text, '1') or contains(@text, '2') or contains(@text, '3') or contains(@text, '4') or contains(@text, '5') or contains(@text, '6') or contains(@text, '7') or contains(@text, '8') or contains(@text, '9'))]",
-        "//android.view.ViewGroup[@content-desc='Like']/following-sibling::android.widget.Button[contains(@text, '1') or contains(@text, '2') or contains(@text, '3') or contains(@text, '4') or contains(@text, '5') or contains(@text, '6') or contains(@text, '7') or contains(@text, '8') or contains(@text, '9')]"
     ])
+
+    @property
+    def automation_like_indicators(self) -> List[str]:
+        return self._automation_like_indicators_base + L("post.automation_like_indicators")
     
-    automation_like_count_selectors: List[str] = field(default_factory=lambda: [
-        "//android.view.ViewGroup[@content-desc='Like']/following-sibling::android.widget.Button[1]",
+    _automation_like_count_selectors_base: List[str] = field(default_factory=lambda: [
         "//android.widget.Button[matches(@text, '^[0-9]+$')]",
         "//android.view.ViewGroup[@resource-id='com.instagram.android:id/row_feed_button_like']/parent::*/following-sibling::android.widget.Button",
-        "//android.widget.TextView[contains(@text, 'like') and not(contains(@text, 'comment'))]",
-        "//android.widget.TextView[contains(@text, 'J\'aime')]",
         "//android.widget.TextView[@resource-id='com.instagram.android:id/row_feed_textview_likes']"
     ])
+
+    @property
+    def automation_like_count_selectors(self) -> List[str]:
+        return self._automation_like_count_selectors_base + L("post.automation_like_count_selectors")
     
     heart_icon_selector: str = "//android.view.ViewGroup[@content-desc='Like'] | //android.view.ViewGroup[@resource-id='com.instagram.android:id/row_feed_button_like']"
     
     # === Sélecteurs like_business.py ===
-    like_button_advanced_selectors: List[str] = field(default_factory=lambda: [
+    _like_button_advanced_selectors_base: List[str] = field(default_factory=lambda: [
         # ViewGroup cliquable qui contient le bouton like
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]/parent::*[@clickable="true"]',
         # Fallback sur le ViewGroup parent
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]/../..',
-        # Sélecteurs génériques
-        '//*[contains(@content-desc, "Like")][@clickable="true"]',
-        '//*[contains(@content-desc, "J\'aime")][@clickable="true"]'
     ])
+
+    @property
+    def like_button_advanced_selectors(self) -> List[str]:
+        # Sélecteurs génériques (localisés)
+        return self._like_button_advanced_selectors_base + L("post.like_button_advanced_selectors")
     
-    post_view_indicators: List[str] = field(default_factory=lambda: [
+    _post_view_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_share"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]',
-        '//*[contains(@content-desc, "Like")]',
-        '//*[contains(@content-desc, "Comment")]'
     ])
+
+    @property
+    def post_view_indicators(self) -> List[str]:
+        return self._post_view_indicators_base + L("post.post_view_indicators")
 
     ai_crop_header_selectors: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "row_feed_profile_header")]',
@@ -207,26 +221,30 @@ class PostSelectors:
         '//*[contains(@resource-id, "row_feed_button_comment")]',
     ])
     
-    next_post_button_selectors: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[contains(@content-desc, "Next")]',
-        '//android.widget.ImageView[contains(@content-desc, "Next")]'
-    ])
+    @property
+    def next_post_button_selectors(self) -> List[str]:
+        return L("post.next_post_button_selectors")
     
-    back_button_selectors: List[str] = field(default_factory=lambda: [
+    _back_button_selectors_base: List[str] = field(default_factory=lambda: [
         '//android.widget.ImageView[@resource-id="com.instagram.android:id/action_bar_button_back"]',
-        '//android.widget.ImageView[@content-desc="Back"]',
-        '//*[@content-desc="Back"]'
     ])
+
+    @property
+    def back_button_selectors(self) -> List[str]:
+        return self._back_button_selectors_base + L("post.back_button_selectors")
     
     photo_imageview_selector: str = '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]'
     
     # === Post Metadata Extraction (for hashtag workflow) ===
     # Auteur du post (Reel view)
-    reel_author_username_selectors: List[str] = field(default_factory=lambda: [
+    _reel_author_username_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/clips_author_username"]',
         '//*[@resource-id="com.instagram.android:id/clips_author_info_component"]//android.widget.Button',
-        '//*[contains(@content-desc, "Profile picture of")]/..//android.widget.Button[@text]',
     ])
+
+    @property
+    def reel_author_username_selectors(self) -> List[str]:
+        return self._reel_author_username_selectors_base + L("post.reel_author_username_selectors")
     
     # Caption du post (Reel view)
     # La caption est dans un ViewGroup imbriqué avec content-desc contenant le texte + hashtags
@@ -286,15 +304,14 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/image_preview"]'
     ])
     
-    reel_player_indicators: List[str] = field(default_factory=lambda: [
+    _reel_player_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Audio"]',
-        '//*[@content-desc="Couper le son"]',
-        '//*[@content-desc="Activer le son"]',
-        '//*[contains(@content-desc, "Turn sound on")]',
-        '//*[contains(@content-desc, "Turn sound off")]',
-        '//*[contains(@content-desc, "Musique")]',
         '//*[@resource-id="com.instagram.android:id/clips_video_player"]'
     ])
+
+    @property
+    def reel_player_indicators(self) -> List[str]:
+        return self._reel_player_indicators_base + L("post.reel_player_indicators")
     
     carousel_indicators: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/carousel_media_group"]',
@@ -302,52 +319,54 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/carousel_video_media_group"]'
     ])
     
-    post_detail_indicators: List[str] = field(default_factory=lambda: [
+    _post_detail_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]',
-        '//*[@content-desc="J\'aime"]',
-        '//*[@content-desc="Like"]',
-        '//*[@content-desc="Commenter"]',
-        '//*[@content-desc="Comment"]',
-        '//*[contains(@content-desc, "aime")]'
     ])
+
+    @property
+    def post_detail_indicators(self) -> List[str]:
+        return self._post_detail_indicators_base + L("post.post_detail_indicators")
     
-    like_button_indicators: List[str] = field(default_factory=lambda: [
+    _like_button_indicators_base: List[str] = field(default_factory=lambda: [
         "//android.widget.Button[contains(@content-desc, 'J')]",  # "J'aime"
-        "//android.widget.Button[contains(@content-desc, 'aime')]",
         "//android.widget.Button[contains(@content-desc, 'like')]",
-        "//android.widget.ImageView[contains(@content-desc, 'aime')]",  # Corrigé : évite l'apostrophe
         "//*[contains(@resource-id, 'row_feed_button_like')]"
     ])
+
+    @property
+    def like_button_indicators(self) -> List[str]:
+        return self._like_button_indicators_base + L("post.like_button_indicators")
     
-    comment_button_indicators: List[str] = field(default_factory=lambda: [
-        "//android.widget.Button[contains(@content-desc, 'Comment')]",
-        "//android.widget.Button[contains(@content-desc, 'commentaire')]",
+    _comment_button_indicators_base: List[str] = field(default_factory=lambda: [
         "//*[contains(@resource-id, 'row_feed_button_comment')]"
     ])
+
+    @property
+    def comment_button_indicators(self) -> List[str]:
+        return self._comment_button_indicators_base + L("post.comment_button_indicators")
     
     # === Commentaires ===
-    photo_comment_selectors: List[str] = field(default_factory=lambda: [
-        # Sélecteur spécifique pour l'élément avec content-desc contenant les métadonnées
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview" and contains(@content-desc, "commentaire")]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview" and contains(@content-desc, "comment")]',
-        # Fallback plus général
-        '//*[contains(@content-desc, "J\'aime") and contains(@content-desc, "commentaire")]',
-        '//*[contains(@content-desc, "likes") and contains(@content-desc, "comment")]',
+    _photo_comment_selectors_base: List[str] = field(default_factory=lambda: [
         # Ancien sélecteur générique en dernier recours
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]'
     ])
+
+    @property
+    def photo_comment_selectors(self) -> List[str]:
+        return self._photo_comment_selectors_base + L("post.photo_comment_selectors")
     
-    comment_button_selectors: List[str] = field(default_factory=lambda: [
+    _comment_button_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]/parent::*[@clickable="true"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
-        '//*[contains(@content-desc, "Comment") and @clickable="true"]',
-        '//android.widget.ImageView[contains(@content-desc, "Commenter")]',
-        '//android.widget.ImageView[contains(@content-desc, "Comment")]'
     ])
+
+    @property
+    def comment_button_selectors(self) -> List[str]:
+        return self._comment_button_selectors_base + L("post.comment_button_selectors")
     
     comment_field_selector: str = '//*[contains(@resource-id, "layout_comment_thread_edittext")]'
-    comment_field_selectors: List[str] = field(default_factory=lambda: [
+    _comment_field_selectors_base: List[str] = field(default_factory=lambda: [
         # IG v410's composer field is an AutoCompleteTextView with id
         # `layout_comment_thread_edittext_multiline` (not plain EditText, not the un-suffixed
         # id) and the hint "Rejoindre la conversation…" — so the old EditText/exact-id/hint
@@ -357,8 +376,6 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/comment_box_text"]',
         '//*[@resource-id="com.instagram.android:id/inline_compose_box"]',
         '//*[contains(@resource-id, "comment_box")]',
-        '//*[contains(@hint, "Add a comment")]',
-        '//*[contains(@hint, "Ajouter un commentaire")]',
         '//*[contains(@hint, "Rejoindre la conversation")]',
         '//*[contains(@hint, "Join the conversation")]',
         '//*[contains(@resource-id, "comment_edittext")]',
@@ -369,22 +386,28 @@ class PostSelectors:
         '//android.widget.EditText[@clickable="true"]',
         '//android.widget.EditText',
     ])
-    post_comment_button_selectors: List[str] = field(default_factory=lambda: [
+
+    @property
+    def comment_field_selectors(self) -> List[str]:
+        return self._comment_field_selectors_base + L("post.comment_field_selectors")
+    _post_comment_button_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_icon"]',
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',
-        '//*[@text="Post" and @clickable="true"]',
-        '//*[@text="Publier" and @clickable="true"]',
         '//*[@text="Pubblicare" and @clickable="true"]',
-        '//*[contains(@content-desc, "Post") and @clickable="true"]',
-        '//*[contains(@content-desc, "Publier") and @clickable="true"]',
     ])
+
+    @property
+    def post_comment_button_selectors(self) -> List[str]:
+        return self._post_comment_button_selectors_base + L("post.post_comment_button_selectors")
     
     # === "Liked by" text selectors (for opening likers list from post view) ===
-    liked_by_selectors: List[str] = field(default_factory=lambda: [
-        '//*[starts-with(@text, "Liked by")]',
-        '//*[starts-with(@text, "Aimé par")]',
+    _liked_by_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[starts-with(@text, "liked by")]',
     ])
+
+    @property
+    def liked_by_selectors(self) -> List[str]:
+        return self._liked_by_selectors_base + L("post.liked_by_selectors")
     
     # === Comments list & username extraction ===
     comments_list_resource_id: str = 'com.instagram.android:id/sticky_header_list'
@@ -397,42 +420,49 @@ class PostSelectors:
         '//*[contains(@resource-id, "sticky_header_list")]//android.widget.Button[@content-desc="" and @text!=""]',
     ])
     
-    comments_view_indicators: List[str] = field(default_factory=lambda: [
+    _comments_view_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/sticky_header_list"]',
-        '//*[contains(@text, "Comments")]',
-        '//*[contains(@content-desc, "Add a comment")]',
     ])
+
+    @property
+    def comments_view_indicators(self) -> List[str]:
+        return self._comments_view_indicators_base + L("post.comments_view_indicators")
     
     comment_sort_button: str = '//*[@content-desc="For you"]'
     
     expand_replies_selector: str = '//*[contains(@content-desc, "View") and contains(@content-desc, "more repl")]'
     
     # === Autres éléments posts ===
-    video_player_selectors: List[str] = field(default_factory=lambda: [
+    _video_player_selectors_base: List[str] = field(default_factory=lambda: [
         '//android.widget.VideoView',
         '//android.view.TextureView',
-        '//android.widget.ImageView[contains(@content-desc, "vidéo")]',
-        '//android.widget.ImageView[contains(@content-desc, "video")]'
     ])
+
+    @property
+    def video_player_selectors(self) -> List[str]:
+        return self._video_player_selectors_base + L("post.video_player_selectors")
     
     media_elements_selector: str = '//android.widget.ImageView | //android.widget.VideoView'
     
-    timestamp_selectors: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@content-desc, "heure")]',
+    _timestamp_selectors_base: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[contains(@content-desc, "min")]',
         '//android.widget.TextView[contains(@content-desc, "h")]',
-        '//android.widget.TextView[contains(@content-desc, "jour")]',
         '//android.widget.TextView[contains(@content-desc, "week")]',
         '//android.widget.TextView[contains(@content-desc, "month")]',
-        '//*[contains(@content-desc, "heure")]',
         '//*[contains(@content-desc, "min")]'
     ])
+
+    @property
+    def timestamp_selectors(self) -> List[str]:
+        return self._timestamp_selectors_base + L("post.timestamp_selectors")
     
-    save_button_selectors: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[contains(@content-desc, "Enregistrer")]',
-        '//android.widget.ImageView[contains(@content-desc, "Save")]',
+    _save_button_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "row_feed_button_save")]'
     ])
+
+    @property
+    def save_button_selectors(self) -> List[str]:
+        return self._save_button_selectors_base + L("post.save_button_selectors")
     
     # Share button (feed post & reel) — used to open the share sheet and retrieve the post URL.
     # Uses contains(@resource-id) so the selector remains valid for clone APKs whose
@@ -441,28 +471,27 @@ class PostSelectors:
         "com.instagram.android:id/row_feed_button_share",
         "com.instagram.android:id/row_feed_button_send",
     ])
-    share_button_selectors: List[str] = field(default_factory=lambda: [
+    _share_button_selectors_base: List[str] = field(default_factory=lambda: [
         # Reels: clips/direct share button (resource-id ends in "direct_share_button")
         '//*[contains(@resource-id, "direct_share_button")]',
         # Regular feed posts: action-bar share button (resource-id ends in "row_feed_button_share")
         '//*[contains(@resource-id, "row_feed_button_share")]',
-        # Content-desc fallbacks (FR + EN)
-        '//*[@content-desc="Send Post"]',
         '//*[@content-desc="Envoyer le post"]',
-        '//android.widget.ImageView[contains(@content-desc, "Partager")]',
-        '//android.widget.ImageView[contains(@content-desc, "Share")]',
     ])
 
-    # "Copy link" action inside Instagram's share sheet (FR + EN)
-    copy_link_labels: List[str] = field(default_factory=lambda: [
-        "Copy link",
-        "Copier le lien",
-        "Copy Link",
-    ])
-    copy_link_description_labels: List[str] = field(default_factory=lambda: [
-        "Copy link",
-        "Copier le lien",
-    ])
+    @property
+    def share_button_selectors(self) -> List[str]:
+        # Content-desc fallbacks (FR + EN) via overlay
+        return self._share_button_selectors_base + L("post.share_button_selectors")
+
+    # "Copy link" action inside Instagram's share sheet (FR + EN) — via overlay
+    @property
+    def copy_link_labels(self) -> List[str]:
+        return L("post.copy_link_labels")
+
+    @property
+    def copy_link_description_labels(self) -> List[str]:
+        return L("post.copy_link_description_labels")
     copy_link_selectors: List[str] = field(default_factory=lambda: [
         '//*[@text="Copy link"]',
         '//*[@content-desc="Copy link"]',
@@ -493,20 +522,17 @@ class PostSelectors:
     ])
     
     # === Likes count selectors (for opening likers list) ===
-    likes_count_click_selectors: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "J\'aime")]',
-        '//*[contains(@text, "likes")]',
+    _likes_count_click_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "like_count")]'
     ])
+
+    @property
+    def likes_count_click_selectors(self) -> List[str]:
+        return self._likes_count_click_selectors_base + L("post.likes_count_click_selectors")
     
     # === Send/Post button selectors ===
-    send_post_button_selectors: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Publier")]',
-        '//*[contains(@content-desc, "Post")]',
-        '//*[contains(@text, "Publier")]',
-        '//*[contains(@text, "Post")]',
-        '//*[contains(@content-desc, "Share")]',
-        '//*[contains(@text, "Share")]'
-    ])
+    @property
+    def send_post_button_selectors(self) -> List[str]:
+        return L("post.send_post_button_selectors")
 
 POST_SELECTORS = PostSelectors()

@@ -1,80 +1,78 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 @dataclass
 class DetectionSelectors:
-    """Sélecteurs pour la détection d'écrans, d'états et d'erreurs."""
-    
+    """Sélecteurs pour la détection d'écrans, d'états et d'erreurs.
+
+    Multi-langue (modele overlay) : les selecteurs langue-neutres (resource-id /
+    classe / position) vivent ici comme champs ``_*_base`` ; les fragments
+    dependants de la langue (@text / @content-desc / libelles) vivent dans
+    ``ui/selectors/locales/<lang>.py`` et sont injectes via ``L("detection.<champ>")``
+    selon la locale active (cf. ``ui/language.detect_and_optimize``). Les champs
+    langue-dependants sont exposes en ``@property`` = base neutre + fragments de
+    la locale active (base neutre d'abord, puis les fragments localises).
+    """
+
     # === Détection d'écrans ===
-    home_screen_indicators: List[str] = field(default_factory=lambda: [
+    _home_screen_indicators_base: List[str] = field(default_factory=lambda: [
         # Neutral and resilient across mixed-language dumps (observed on IG 410:
         # FR app can still expose the bottom feed tab as content-desc="Home").
         '//*[@resource-id="com.instagram.android:id/feed_tab" and @selected="true"]',
-        '//*[contains(@content-desc, "Accueil") and @selected="true"]',
-        '//*[contains(@content-desc, "Home") and @selected="true"]',
         '//*[contains(@resource-id, "feed_timeline")]'
     ])
-    
-    search_screen_indicators: List[str] = field(default_factory=lambda: [
-        # Tab selected indicators
-        '//*[contains(@content-desc, "Rechercher") and @selected="true"]',
-        '//*[contains(@content-desc, "Search") and @selected="true"]',
+
+    @property
+    def home_screen_indicators(self) -> List[str]:
+        return self._home_screen_indicators_base + L("detection.home_screen_indicators")
+
+    _search_screen_indicators_base: List[str] = field(default_factory=lambda: [
         # Search bar (when active)
         '//*[contains(@resource-id, "search_edit_text")]',
         # Explore page specific indicators
         '//*[@resource-id="com.instagram.android:id/clips_tab" and @selected="true"]',
         '//*[@resource-id="com.instagram.android:id/search_tab" and @selected="true"]',
-        # Search bar on Explore page (clickable text "Search" or "Rechercher")
-        '//android.widget.TextView[@package="com.instagram.android" and (contains(@text, "Search") or contains(@text, "Rechercher"))]'
     ])
-    
-    profile_screen_indicators: List[str] = field(default_factory=lambda: [
+
+    @property
+    def search_screen_indicators(self) -> List[str]:
+        return self._search_screen_indicators_base + L("detection.search_screen_indicators")
+
+    _profile_screen_indicators_base: List[str] = field(default_factory=lambda: [
         # Keep profile detection scoped to the profile surface. Broad selectors
         # like row_feed_profile_header/action_bar_title/Follow also match feed posts.
         '//*[@resource-id="com.instagram.android:id/profile_header_container"]',
         '//*[@resource-id="com.instagram.android:id/row_profile_header"]',
         '//*[contains(@resource-id, "profile_header_full_name")]',
-        '//*[@content-desc="Modifier le profil"]',
-        '//*[contains(@text, "Modifier le profil")]',
-        '//*[@content-desc="Edit profile"]',
-        '//*[contains(@text, "Edit profile")]',
-        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Follow")]',
-        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Suivre")]',
-        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Following")]',
-        '//*[@resource-id="com.instagram.android:id/profile_header_follow_button" and contains(@text, "Abonné")]'
     ])
-    
+
+    @property
+    def profile_screen_indicators(self) -> List[str]:
+        return self._profile_screen_indicators_base + L("detection.profile_screen_indicators")
+
     profile_surface_indicators: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_header_container"]',
         '//*[@resource-id="com.instagram.android:id/row_profile_header"]',
         '//*[contains(@resource-id, "profile_header_full_name")]'
     ])
 
-    own_profile_indicators: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Modifier le profil"]',
-        '//*[contains(@text, "Modifier le profil")]',
-        '//*[@content-desc="Edit profile"]',
-        '//*[contains(@text, "Edit profile")]',
-        '//*[contains(@text, "Partager le profil")]',
-        '//*[contains(@text, "Share profile")]',
-        '//*[@resource-id="com.instagram.android:id/button_container" and @content-desc="Modifier le profil"]'
-    ])
-    
+    @property
+    def own_profile_indicators(self) -> List[str]:
+        return L("detection.own_profile_indicators")
+
     story_viewer_indicators: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "reel_viewer_root")]',
         '//*[contains(@resource-id, "reel_viewer_text_container")]',
         '//*[contains(@resource-id, "reel_viewer")]',
         '//*[contains(@resource-id, "story_viewer")]'
     ])
-    
-    post_screen_indicators: List[str] = field(default_factory=lambda: [
-        # PRIORITY 1: Generic selectors (work for BOTH Reels and Posts) - CHECK FIRST
-        '//*[contains(@content-desc, "Like")]',  # Works for both! Fast detection
-        '//*[contains(@content-desc, "Comment")]',  # Works for both! Fast detection
-        
+
+    _post_screen_indicators_base: List[str] = field(default_factory=lambda: [
         # PRIORITY 2: Reel-specific selectors (if generic fails)
         '//*[@resource-id="com.instagram.android:id/like_button"]',  # Reel like button
-        
+
         # PRIORITY 3: Regular post selectors (fallback for posts only)
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
@@ -82,40 +80,32 @@ class DetectionSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]'
         # clips_single_media_component supprimé 2026-03-07 (0/30 sur v417)
     ])
-    
-    reel_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Reel de")]',
-        '//*[contains(@content-desc, "Reel by")]',
+
+    @property
+    def post_screen_indicators(self) -> List[str]:
+        # PRIORITY 1: Generic content-desc selectors (Like / Comment) are
+        # language-dependent and injected first via the overlay; the neutral
+        # resource-id fallbacks follow.
+        return L("detection.post_screen_indicators") + self._post_screen_indicators_base
+
+    @property
+    def reel_indicators(self) -> List[str]:
         # clips_* resource-ids supprimés 2026-03-07 (0/30 trouvés sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
-    ])
-    
+        return L("detection.reel_indicators")
+
     # === Messages d'erreur ===
-    error_message_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Erreur")]',
-        '//*[contains(@text, "Error")]',
-        '//*[contains(@text, "Impossible")]',
-        '//*[contains(@text, "Failed")]',
-        '//*[contains(@text, "Échec")]',
-        '//*[contains(@text, "Retry")]',
-        '//*[contains(@text, "Réessayer")]'
-    ])
-    
-    rate_limit_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Trop de tentatives")]',
-        '//*[contains(@text, "Too many requests")]',
-        '//*[contains(@text, "Veuillez patienter")]',
-        '//*[contains(@text, "Please wait")]',
-        '//*[contains(@text, "Action bloquée")]',
-        '//*[contains(@text, "Action blocked")]'
-    ])
-    
-    login_required_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Se connecter")]',
-        '//*[contains(@text, "Log in")]',
-        '//*[contains(@text, "Connexion")]',
-        '//*[contains(@text, "Login")]'
-    ])
-    
+    @property
+    def error_message_indicators(self) -> List[str]:
+        return L("detection.error_message_indicators")
+
+    @property
+    def rate_limit_indicators(self) -> List[str]:
+        return L("detection.rate_limit_indicators")
+
+    @property
+    def login_required_indicators(self) -> List[str]:
+        return L("detection.login_required_indicators")
+
     # === Détection de popups ===
     popup_types: Dict[str, str] = field(default_factory=lambda: {
         "En commun": '//*[contains(@text, "En commun")]',
@@ -124,13 +114,13 @@ class DetectionSelectors:
         "Permission": '//*[contains(@text, "Permission")]',
         "Update": '//*[contains(@text, "Mise à jour")]'
     })
-    
+
     # === État du post (liked) ===
     # Quand un post est déjà liké, plusieurs indicateurs possibles selon version/langue:
     # - FR: content-desc = "J'aime déjà" ou "Ne plus aimer"
     # - EN: content-desc = "Unlike" ou "Liked"
     # - Universel: selected = "true" sur le bouton like
-    liked_button_indicators: List[str] = field(default_factory=lambda: [
+    _liked_button_indicators_base: List[str] = field(default_factory=lambda: [
         # === MÉTHODE 1: Attribut selected (le plus fiable, indépendant de la langue) ===
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
         # Reel / clips player: the like button keeps content-desc "J'aime" (U+2019)
@@ -140,43 +130,43 @@ class DetectionSelectors:
         # be verified and the already-liked check was blind.
         '//*[@resource-id="com.instagram.android:id/like_button" and @selected="true"]',
 
-        # === MÉTHODE 2: Fallback content-desc multi-langue ===
-        '//*[contains(@content-desc, "Unlike")]',
-        '//*[contains(@content-desc, "Ne plus aimer")]',
-
         # Variants supprimés 2026-03-07 (redondants, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
     ])
-    
+
+    @property
+    def liked_button_indicators(self) -> List[str]:
+        # === MÉTHODE 2: Fallback content-desc multi-langue (overlay locales/) ===
+        return self._liked_button_indicators_base + L("detection.liked_button_indicators")
+
     # === Navigation - Search bars ===
-    search_bar_selectors: List[str] = field(default_factory=lambda: [
+    _search_bar_selectors_base: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
-        '//android.widget.EditText[contains(@text, "Rechercher")]',
-        '//android.widget.EditText[contains(@text, "Search")]',
         '//android.widget.EditText[@clickable="true"]'
     ])
-    
-    hashtag_search_bar_selectors: List[str] = field(default_factory=lambda: [
+
+    @property
+    def search_bar_selectors(self) -> List[str]:
+        return self._search_bar_selectors_base + L("detection.search_bar_selectors")
+
+    _hashtag_search_bar_selectors_base: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
-        '//android.widget.EditText[contains(@text, "Rechercher")]',
-        '//android.widget.EditText[contains(@text, "Search")]',
         '//android.widget.EditText[@clickable="true"]'
     ])
-    
-    hashtag_page_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "publications")]',
-        '//*[contains(@text, "posts")]',
-        '//*[contains(@text, "Recent")]',
-        '//*[contains(@text, "Top")]'
-    ])
-    
+
+    @property
+    def hashtag_search_bar_selectors(self) -> List[str]:
+        return self._hashtag_search_bar_selectors_base + L("detection.hashtag_search_bar_selectors")
+
+    @property
+    def hashtag_page_indicators(self) -> List[str]:
+        return L("detection.hashtag_page_indicators")
+
     # === Post errors (unavailable, private, not found) ===
-    post_error_indicators: List[str] = field(default_factory=lambda: [
-        # Optimized: Most common error patterns first (faster detection)
-        '//*[contains(@text, "Sorry") or contains(@text, "Désolé")]',
-        '//*[contains(@text, "not found") or contains(@text, "introuvable")]',
-        '//*[contains(@text, "unavailable") or contains(@text, "indisponible")]',
-        '//*[contains(@text, "private") or contains(@text, "privé")]'
-        
+    @property
+    def post_error_indicators(self) -> List[str]:
+        # Optimized: Most common error patterns first (faster detection).
+        # Fragments langue-dependants (overlay locales/).
+        #
         # Old approach (8 separate checks = 16s timeout if no error):
         # '//*[contains(@text, "Sorry")]',
         # '//*[contains(@text, "Désolé")]',
@@ -186,7 +176,7 @@ class DetectionSelectors:
         # '//*[contains(@text, "indisponible")]',
         # '//*[contains(@text, "private")]',
         # '//*[contains(@text, "privé")]'
-    ])
+        return L("detection.post_error_indicators")
     
     # === Followers/Following list ===
     # Sélecteurs SPÉCIFIQUES à la liste des followers/following
@@ -206,52 +196,43 @@ class DetectionSelectors:
     ])
     
     # Sélecteurs pour détecter la section suggestions (à éviter)
-    suggestions_section_indicators: List[str] = field(default_factory=lambda: [
+    _suggestions_section_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_recommended_user_username"]',
-        '//*[contains(@text, "Voir toutes les suggestions")]',
-        '//*[contains(@text, "See all suggestions")]',
-        '//*[contains(@text, "Suggestions pour vous")]',
-        '//*[contains(@text, "Suggestions for you")]',
         '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]',
-        # "Suggested for you" header in followers list (indicates end of real followers)
-        '//*[@resource-id="com.instagram.android:id/row_header_textview" and contains(@text, "Suggested for you")]',
-        '//*[@resource-id="com.instagram.android:id/row_header_textview" and contains(@text, "Suggestions pour vous")]'
     ])
-    
+
+    @property
+    def suggestions_section_indicators(self) -> List[str]:
+        # "Suggested for you" header in followers list (indicates end of real
+        # followers) lives in the overlay alongside the other localized labels.
+        return self._suggestions_section_indicators_base + L("detection.suggestions_section_indicators")
+
     # === Limited followers list detection (Meta Verified / Business accounts) ===
     # Instagram limits the number of followers shown for certain accounts
-    limited_followers_indicators: List[str] = field(default_factory=lambda: [
-        # English message
-        '//*[@resource-id="com.instagram.android:id/row_text_textview" and contains(@text, "We limit the number of followers")]',
-        '//*[contains(@text, "We limit the number of followers shown")]',
-        # French message
-        '//*[contains(@text, "Nous limitons le nombre")]',
-        '//*[contains(@text, "nombre de followers affiché")]'
-    ])
-    
+    @property
+    def limited_followers_indicators(self) -> List[str]:
+        return L("detection.limited_followers_indicators")
+
     # === End of followers list indicators ===
     # "And X others" message indicates there are more followers but they're hidden
-    followers_list_end_indicators: List[str] = field(default_factory=lambda: [
-        # "And 12.1K others" pattern (English)
-        '//*[@resource-id="com.instagram.android:id/row_text_textview" and contains(@text, "And ") and contains(@text, " others")]',
-        # "Et X autres" pattern (French)
-        '//*[@resource-id="com.instagram.android:id/row_text_textview" and contains(@text, "Et ") and contains(@text, " autres")]',
-        # Generic pattern
-        '//*[contains(@text, " others") and @resource-id="com.instagram.android:id/row_text_textview"]'
-    ])
-    
+    @property
+    def followers_list_end_indicators(self) -> List[str]:
+        return L("detection.followers_list_end_indicators")
+
     # Sélecteurs pour détecter le spinner de chargement Instagram
-    loading_spinner_indicators: List[str] = field(default_factory=lambda: [
+    _loading_spinner_indicators_base: List[str] = field(default_factory=lambda: [
         # Instagram's "Load more" button with loading animation
         '//*[@resource-id="com.instagram.android:id/row_load_more_button"]',
-        # Loading indicator with content-desc
-        '//*[contains(@content-desc, "Loading")]',
-        '//*[contains(@content-desc, "Chargement")]',
         # Generic progress indicators
         '//android.widget.ProgressBar',
         '//*[@class="android.widget.ProgressBar"]',
         '//*[contains(@resource-id, "progress")]'
     ])
+
+    @property
+    def loading_spinner_indicators(self) -> List[str]:
+        # Loading indicator with content-desc (overlay locales/).
+        return self._loading_spinner_indicators_base + L("detection.loading_spinner_indicators")
     
     # === Post grid visibility ===
     post_grid_visibility_indicators: List[str] = field(default_factory=lambda: [
@@ -279,76 +260,69 @@ class DetectionSelectors:
         )
     
     # === Private account detection ===
-    private_account_indicators: List[str] = field(default_factory=lambda: [
+    _private_account_indicators_base: List[str] = field(default_factory=lambda: [
         # New Instagram UI (2024+): private_profile_empty_state container
         '//*[@resource-id="com.instagram.android:id/private_profile_empty_state"]',
-        # New Instagram UI: emphasized headline with private text
-        '//*[@resource-id="com.instagram.android:id/igds_headline_emphasized_headline" and contains(@text, "private")]',
-        '//*[@resource-id="com.instagram.android:id/igds_headline_emphasized_headline" and contains(@text, "privé")]',
-        # Old Instagram UI (kept for backward compat)
-        '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="This account is private"]',
-        '//*[@resource-id="com.instagram.android:id/row_profile_header_empty_profile_notice_title" and @text="Ce compte est privé"]',
-        # Generic text fallback
-        '//*[contains(@text, "This account is private")]',
-        '//*[contains(@text, "Ce compte est privé")]',
-        '//*[contains(@content-desc, "This account is private")]',
-        '//*[contains(@content-desc, "Ce compte est privé")]'
     ])
-    
+
+    @property
+    def private_account_indicators(self) -> List[str]:
+        # Localized variants (emphasized headline, legacy notice title, generic
+        # text/content-desc fallbacks) live in the overlay (locales/).
+        return self._private_account_indicators_base + L("detection.private_account_indicators")
+
     # === Verified account detection (Meta Verified / Blue badge) ===
-    verified_account_indicators: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Verified")]',
-        '//*[contains(@content-desc, "Vérifié")]',
+    _verified_account_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/verified_badge"]',
         '//*[@resource-id="com.instagram.android:id/action_bar_title_verified_badge"]'
     ])
-    
+
+    @property
+    def verified_account_indicators(self) -> List[str]:
+        return self._verified_account_indicators_base + L("detection.verified_account_indicators")
+
     # === Business account detection ===
-    business_account_indicators: List[str] = field(default_factory=lambda: [
+    _business_account_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "profile_header_business_category")]',
-        '//*[contains(@text, "Professional")]',
-        '//*[contains(@text, "Professionnel")]'
     ])
-    
+
+    @property
+    def business_account_indicators(self) -> List[str]:
+        return self._business_account_indicators_base + L("detection.business_account_indicators")
+
     # === Load more / End of list ===
-    # Consolidé 2026-03-07: 12 → 5 sélecteurs (//* couvre tous les types d'éléments)
-    load_more_selectors: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Voir plus") or contains(@text, "voir plus")]',
-        '//*[contains(@text, "See more") or contains(@text, "see more")]',
-        '//*[contains(@content-desc, "Voir plus") or contains(@content-desc, "See more")]',
-        '//*[contains(@text, "Load more") or contains(@text, "Show more")]',
-        '//*[@content-desc="Load more" or @content-desc="Show more"]',
-    ])
-    
+    @property
+    def load_more_selectors(self) -> List[str]:
+        # Consolidé 2026-03-07: 12 → 5 sélecteurs (//* couvre tous les types
+        # d'éléments). Fragments langue-dependants (overlay locales/).
+        return L("detection.load_more_selectors")
+
     # Consolidé 2026-03-07: 7 → 4 sélecteurs
-    end_of_list_indicators: List[str] = field(default_factory=lambda: [
+    _end_of_list_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/see_all_button"]',
-        '//*[contains(@text, "See all suggestions") or contains(@text, "Voir toutes les suggestions")]',
-        '//*[contains(@text, "caught up") or contains(@text, "No more suggestions") or contains(@text, "End of list")]',
-        '//*[contains(@text, "No more") or contains(@text, "That\'s all") or contains(@text, "Aucun autre")]',
     ])
-    
+
+    @property
+    def end_of_list_indicators(self) -> List[str]:
+        return self._end_of_list_indicators_base + L("detection.end_of_list_indicators")
+
     # === Hashtag & Grid Navigation ===
     post_grid_selector: str = '//*[@resource-id="com.instagram.android:id/image_button"]'
-    
-    recent_tab_selectors: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@text="Recent"]',
-        '//android.widget.TextView[@text="Récent"]',
-        '//*[contains(@text, "Recent")]',
-        '//*[contains(@text, "Récent")]',
-        '//android.widget.TextView[contains(@content-desc, "Recent")]'
-    ])
-    
+
+    @property
+    def recent_tab_selectors(self) -> List[str]:
+        return L("detection.recent_tab_selectors")
+
     # === Likes count (to open likers list) ===
-    likes_count_selectors: List[str] = field(default_factory=lambda: [
+    _likes_count_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/like_count"]',
-        '//*[contains(@content-desc, "Nombre de J\'aime")]',
-        '//*[contains(@content-desc, "likes")]',
         '//*[@resource-id="com.instagram.android:id/row_feed_like_count_facepile"]',
-        '//android.widget.TextView[contains(@text, "J\'aime")]',
-        '//android.widget.TextView[contains(@text, "likes")]'
     ])
-    
+
+    @property
+    def likes_count_selectors(self) -> List[str]:
+        return self._likes_count_selectors_base + L("detection.likes_count_selectors")
+
     # === Post grid selectors (for clicking specific posts) ===
     post_grid_selectors: List[str] = field(default_factory=lambda: [
         '//android.widget.ImageView[@clickable="true"]',
@@ -356,13 +330,16 @@ class DetectionSelectors:
         '//android.view.ViewGroup[@clickable="true"]//android.widget.ImageView',
         '//android.widget.ImageButton[@resource-id="com.instagram.android:id/image_button"]'
     ])
-    
+
     # === Carousel selectors (for atomic extraction) ===
-    carousel_selectors: List[str] = field(default_factory=lambda: [
+    _carousel_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "carousel_video_media_group")]',
         '//*[contains(@resource-id, "carousel_media_group")]',
-        '//*[contains(@content-desc, "likes") and contains(@content-desc, "comment")]'
     ])
+
+    @property
+    def carousel_selectors(self) -> List[str]:
+        return self._carousel_selectors_base + L("detection.carousel_selectors")
     
     # === Reel like/comment count selectors ===
     reel_like_count_selector: str = '//*[@resource-id="com.instagram.android:id/like_count"]'
