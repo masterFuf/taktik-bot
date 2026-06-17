@@ -65,7 +65,7 @@ def generate_ai_message(username: str, ai_prompt: str, openrouter_api_key: str) 
             message = choice.get("message", {}).get("content", "").strip()
             if message.startswith('"') and message.endswith('"'):
                 message = message[1:-1]
-            logger.info(f"AI generated TikTok DM for @{username}: {message[:50]}...")
+            logger.info(f"AI generated TikTok DM for @{username} ({len(message)} chars)")
             return message
     except Exception as e:
         logger.error(f"AI message generation failed for @{username}: {e}")

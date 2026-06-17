@@ -24,7 +24,7 @@ def comment_open_and_type(a, p):
     if not a.comment._type_comment(text):
         logger.error("Could not type comment (field not found)")
         return False
-    logger.info(f"Typed comment: '{text}'")
+    logger.info(f"Typed comment ({len(text)} chars)")
     return True
 
 

@@ -55,7 +55,7 @@ Le message doit Ãªtre unique et personnalisÃ©. RÃ©ponds uniquement avec le
             message = choice.get("message", {}).get("content", "").strip()
             if message.startswith('"') and message.endswith('"'):
                 message = message[1:-1]
-            logger.info(f"AI generated message for @{username}: {message[:50]}...")
+            logger.info(f"AI generated message for @{username} ({len(message)} chars)")
             return message
     except Exception as e:
         logger.error(f"AI message generation failed for @{username}: {e}")

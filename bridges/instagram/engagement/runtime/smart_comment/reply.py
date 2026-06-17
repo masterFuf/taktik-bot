@@ -29,7 +29,7 @@ class SmartCommentReplyMixin(SmartCommentReplySenderMixin, SmartCommentReplyFind
         3. Type the reply
         4. Send it
         """
-        logger.info(f"Replying to @{username}: {reply_text[:50]}...")
+        logger.info(f"Replying to @{username} ({len(reply_text)} chars)")
 
         if not self._find_and_click_reply(username, comment_content_prefix):
             logger.error(f"Could not find Reply button for @{username}")
@@ -98,7 +98,7 @@ class SmartCommentReplyMixin(SmartCommentReplySenderMixin, SmartCommentReplyFind
             )
 
             if dry_run:
-                logger.info(f"[DRY RUN] Would reply to @{username}: {reply}")
+                logger.info(f"[DRY RUN] Would reply to @{username} ({len(reply)} chars)")
                 send_event("reply_dry_run", username=username, reply=reply)
                 replies_sent += 1
                 replied_usernames.add(username.lower())
