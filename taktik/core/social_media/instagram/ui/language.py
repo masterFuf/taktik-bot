@@ -396,23 +396,42 @@ def optimize_selector_dataclass(instance, lang: str) -> int:
 # Main entry point
 # ──────────────────────────────────────────────────────────────
 
-def detect_and_optimize(device) -> str:
+def detect_and_optimize(device, override: Optional[str] = None) -> str:
     """
-    Detect app language and optimize ALL known selector dataclass instances.
+    Detect app language (or honor ``override``) and activate the matching locale.
 
-    This should be called once, early in the workflow, after the device
-    is connected and Instagram is open.
+    Called once, early in the workflow, after the device is connected and
+    Instagram is open. Sets the active locale so migrated selectors inject the
+    right language via ``L()`` (see ``ui/selectors/locales/``), and additionally
+    runs the legacy in-place filter as a fallback for selector dataclasses not
+    yet migrated to the overlay.
 
     Args:
-        device: DeviceFacade instance
+        device: DeviceFacade instance.
+        override: Force a language code (e.g. from the Cartography Lab language
+            picker) instead of auto-detecting. Unknown codes fall back to
+            'unknown' (keep-all). When None, the language is auto-detected.
 
     Returns:
-        Detected language string ('en', 'fr', 'unknown')
+        Active language string ('en', 'fr', 'unknown').
     """
-    lang = detect_language(device)
+    global _detected_lang
+
+    # Locale overlay: migrated selectors read their language fragments from the
+    # active locale set here.
+    from .selectors.locales import set_active_locale, available_locales
+
+    if override:
+        lang = override if override in available_locales() else 'unknown'
+        _detected_lang = lang
+        log.info(f"🌐 Language override: {override!r} -> {lang}")
+    else:
+        lang = detect_language(device)
+
+    set_active_locale(lang if lang != 'unknown' else None)
 
     if lang == 'unknown':
-        log.info("Language unknown — keeping all selectors (no optimization)")
+        log.info("Language unknown — overlay union + no in-place filtering")
         return lang
 
     # Import all selector singletons from the centralized selectors package
