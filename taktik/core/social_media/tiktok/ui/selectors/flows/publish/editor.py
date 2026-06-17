@@ -3,39 +3,31 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from ...locales import L
+
 
 @dataclass
 class PublishEditorSelectors:
     """Selectors for editor screens and dismissable publish dialogs."""
 
-    _popup_cancel_buttons: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="CANCEL"]',
-        '//android.widget.Button[contains(@text, "Cancel")]',
-        '//android.widget.Button[contains(@text, "Annuler")]',
-        '//android.widget.Button[contains(@text, "Not now")]',
-        '//android.widget.Button[contains(@text, "Non merci")]',
-    ])
     _video_edit_xml_markers: List[str] = field(default_factory=lambda: [
         'text="annuler"',
         'text="enregistrer"',
-        'text="aper\u00e7u"',
+        'text="aperçu"',
         'text="importer"',
         'id/xay',
     ])
-    _video_edit_cancel_btn: List[str] = field(default_factory=lambda: [
+    _video_edit_cancel_btn_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/xay")]',
-        '//android.widget.Button[@text="Annuler"]',
-        '//android.widget.TextView[@text="Annuler"]',
-        '//android.widget.Button[contains(@text, "Cancel")]',
     ])
 
     @property
     def popup_cancel_buttons(self) -> List[str]:
-        return self._popup_cancel_buttons
+        return L("publish_editor.popup_cancel_buttons")
 
     @property
     def video_edit_cancel_btn(self) -> List[str]:
-        return self._video_edit_cancel_btn
+        return self._video_edit_cancel_btn_base + L("publish_editor.video_edit_cancel_btn")
 
     def has_video_edit_screen_marker(self, xml: str) -> bool:
         lowered_xml = xml.lower()

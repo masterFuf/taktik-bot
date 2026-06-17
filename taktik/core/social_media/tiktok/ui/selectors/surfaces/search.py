@@ -3,6 +3,8 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 
 @dataclass
 class SearchSelectors:
@@ -22,30 +24,30 @@ class SearchSelectors:
     - spd: More button (3 dots)
     """
     
-    # === Search icon on For You page (header) ===
-    search_icon: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[@content-desc="Search"]',
-        '//*[@content-desc="Search"]',
-        '//*[contains(@content-desc, "Rechercher")]',
-    ])
-    
-    # === Search input field ===
-    search_input: List[str] = field(default_factory=lambda: [
+    # === Search icon on For You page (header) — langue-dependant (overlay locales/) ===
+    @property
+    def search_icon(self) -> List[str]:
+        return L("search.search_icon")
+
+    # === Search input field — base neutre (resource-id) + overlay locales/ ===
+    _search_input_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/giv")]',
         '//android.widget.EditText[contains(@resource-id, ":id/giv")]',
-        '//android.widget.EditText[contains(@hint, "Search")]',
-        '//android.widget.EditText[contains(@hint, "Rechercher")]',
-        '//android.widget.EditText[contains(@content-desc, "Search")]',
     ])
-    
-    # === Search submit button ===
-    search_submit_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/y61")][@text="Search"]',
+
+    @property
+    def search_input(self) -> List[str]:
+        return self._search_input_base + L("search.search_input")
+
+    # === Search submit button — base neutre (resource-id) + overlay locales/ ===
+    _search_submit_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/y61")]',
-        '//android.widget.Button[@text="Search"]',
-        '//android.widget.Button[@text="Rechercher"]',
     ])
-    
+
+    @property
+    def search_submit_button(self) -> List[str]:
+        return self._search_submit_button_base + L("search.search_submit_button")
+
     # === Back button in search page ===
     search_back_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b9c")]',
@@ -64,19 +66,23 @@ class SearchSelectors:
         '//android.widget.ImageView[@content-desc="More"]',
     ])
     
-    # Legacy selectors for compatibility
-    search_bar: List[str] = field(default_factory=lambda: [
+    # Legacy selectors for compatibility — base neutre (resource-id) + overlay locales/
+    _search_bar_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/giv")]',
-        '//android.widget.EditText[contains(@content-desc, "Search")]',
-        '//android.widget.EditText[contains(@content-desc, "Rechercher")]',
     ])
-    
-    search_button: List[str] = field(default_factory=lambda: [
+
+    @property
+    def search_bar(self) -> List[str]:
+        return self._search_bar_base + L("search.search_bar")
+
+    _search_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/y61")]',
-        '//android.widget.Button[contains(@content-desc, "Search")]',
-        '//android.widget.Button[contains(@content-desc, "Rechercher")]',
     ])
-    
+
+    @property
+    def search_button(self) -> List[str]:
+        return self._search_button_base + L("search.search_button")
+
     # === Filtres de recherche (tabs on results page) ===
     top_tab: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@text="Top"]',
@@ -87,25 +93,26 @@ class SearchSelectors:
         '//android.widget.TextView[@text="Utilisateurs"]',
     ])
     
-    videos_tab: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@text="Videos"]',
-        '//android.widget.TextView[@text="Vidéos"]',
-    ])
-    
+    @property
+    def videos_tab(self) -> List[str]:
+        return L("search.videos_tab")
+
     photos_tab: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@text="Photos"]',
     ])
-    
-    shop_tab: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@text="Shop"]',
+
+    _shop_tab_base: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@text="Boutique"]',
     ])
-    
-    sounds_tab: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@text="Sounds"]',
-        '//android.widget.TextView[@text="Sons"]',
-    ])
-    
+
+    @property
+    def shop_tab(self) -> List[str]:
+        return self._shop_tab_base + L("search.shop_tab")
+
+    @property
+    def sounds_tab(self) -> List[str]:
+        return L("search.sounds_tab")
+
     hashtags_tab: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@text="Hashtags"]',
     ])
@@ -139,14 +146,15 @@ class SearchSelectors:
         '//*[contains(@resource-id, ":id/xf0")]',
     ])
     
-    # Follow button in search results
-    user_result_follow_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/rdh")][@text="Follow"]',
+    # Follow button in search results — base neutre (resource-id) + overlay locales/
+    _user_result_follow_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/rdh")]',
-        '//android.widget.Button[@text="Follow"]',
-        '//android.widget.Button[@text="Following"]',
     ])
-    
+
+    @property
+    def user_result_follow_button(self) -> List[str]:
+        return self._user_result_follow_button_base + L("search.user_result_follow_button")
+
     # Video thumbnail in search results
     video_thumbnail: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/cover")]',
@@ -159,12 +167,11 @@ class SearchSelectors:
         '//android.widget.FrameLayout[contains(@resource-id, ":id/sq1")]',
     ])
     
-    # View all button
-    view_all_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/sm6")][@text="View all"]',
-        '//android.widget.TextView[@text="View all"]',
-    ])
-    
+    # View all button — langue-dependant (overlay locales/)
+    @property
+    def view_all_button(self) -> List[str]:
+        return L("search.view_all_button")
+
     # First search result (generic fallback)
     first_search_result: List[str] = field(default_factory=lambda: [
         '(//androidx.recyclerview.widget.RecyclerView//android.view.ViewGroup)[1]',

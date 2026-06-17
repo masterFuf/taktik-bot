@@ -1,11 +1,11 @@
 """Sélecteurs UI pour la boîte de réception TikTok (Messages, notifications, demandes).
 
-i18n : les sections/boutons dépendant de la langue sont déclarés en champs `_xxx_en` /
-`_xxx_fr` (+ `_xxx_rids` pour les resource-ids langue-agnostiques) et exposés via une
-`@property` qui les combine. `detect_and_optimize()` (ui/language.py) filtre in-place les
-champs `_en`/`_fr` de la mauvaise langue ; les properties (non-fields) restent intactes et
-combinent ce qui reste. NE JAMAIS hardcoder un texte FR/EN dans un workflow/action : passer
-par ces properties.
+i18n (modèle overlay) : les sélecteurs langue-neutres (resource-id / classe / position)
+vivent ici comme champs ; les fragments dépendant de la langue (`@text` / `@content-desc`)
+vivent dans `ui/selectors/locales/<lang>.py` et sont injectés via `L("inbox.<champ>")` selon
+la locale active (cf. `ui/language.detect_and_optimize`). Les champs langue-dépendants sont
+donc exposés en `@property` = base neutre (resource-id) + fragments de la locale active. NE
+JAMAIS hardcoder un texte FR/EN dans un workflow/action : passer par ces properties.
 
 Resource-IDs (dumps device réel) :
 - Inbox : ehp (add people), j6u (search), jlc (activity status), jla (RecyclerView),
@@ -23,34 +23,42 @@ Resource-IDs (dumps device réel) :
 from typing import List
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 
 @dataclass
 class InboxSelectors:
     """Sélecteurs pour la boîte de réception et messages TikTok."""
 
     # === Header Inbox ===
-    add_people_button: List[str] = field(default_factory=lambda: [
+    _add_people_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ehp")]',
-        '//android.widget.ImageView[@content-desc="Add people"]',
-        '//android.widget.ImageView[@content-desc="Ajouter des personnes"]',
     ])
 
-    inbox_title: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/title")][@text="Inbox"]',
+    @property
+    def add_people_button(self) -> List[str]:
+        return self._add_people_button_base + L("inbox.add_people_button")
+
+    @property
+    def inbox_title(self) -> List[str]:
         # NOTE: do NOT use '//*[@text="Inbox"]' — it matches the nav tab label on all pages
-    ])
+        return L("inbox.inbox_title")
 
-    activity_status: List[str] = field(default_factory=lambda: [
+    _activity_status_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jlc")]',
-        '//*[contains(@content-desc, "Activity status")]',
-        '//*[contains(@content-desc, "Statut d\'activité")]',
     ])
 
-    search_inbox_button: List[str] = field(default_factory=lambda: [
+    @property
+    def activity_status(self) -> List[str]:
+        return self._activity_status_base + L("inbox.activity_status")
+
+    _search_inbox_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/j6u")]',
-        '//android.widget.ImageView[@content-desc="Search"]',
-        '//android.widget.ImageView[@content-desc="Rechercher"]',
     ])
+
+    @property
+    def search_inbox_button(self) -> List[str]:
+        return self._search_inbox_button_base + L("inbox.search_inbox_button")
 
     # === Liste des messages ===
     message_list: List[str] = field(default_factory=lambda: [
@@ -61,49 +69,6 @@ class InboxSelectors:
     # === Sections de notification (titre partagé b8h -> texte requis pour distinguer) ===
     section_title: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b8h")]',
-    ])
-
-    _new_followers_section_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/b8h")][@text="New followers"]',
-        '//*[@text="New followers"]',
-    ])
-    _new_followers_section_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/b8h")][@text="Nouveaux followers"]',
-        '//*[contains(@resource-id, ":id/b8h")][@text="Nouveaux abonnés"]',
-        '//*[@text="Nouveaux followers"]',
-        '//*[@text="Nouveaux abonnés"]',
-    ])
-
-    _activity_section_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/b8h")][@text="Activity"]',
-        '//*[@text="Activity"]',
-    ])
-    _activity_section_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/b8h")][@text="Activité"]',
-        '//*[@text="Activité"]',
-    ])
-
-    _system_notifications_section_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/b8h")][@text="System notifications"]',
-        '//*[@text="System notifications"]',
-    ])
-    _system_notifications_section_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/b8h")][@text="Notifications système"]',
-        '//*[@text="Notifications système"]',
-    ])
-
-    _message_requests_section_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Message requests")]',
-    ])
-    _message_requests_section_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Demandes de messages")]',
-    ])
-
-    _suggested_accounts_section_en: List[str] = field(default_factory=lambda: [
-        '//*[@text="Suggested accounts"]',
-    ])
-    _suggested_accounts_section_fr: List[str] = field(default_factory=lambda: [
-        '//*[@text="Comptes suggérés"]',
     ])
 
     # === Conversations ===
@@ -133,16 +98,6 @@ class InboxSelectors:
         '//*[contains(@resource-id, ":id/ydj")]',
     ])
 
-    # === "Vu" (dernier message lu par nous, pas de réponse) — détection non-répondu ===
-    _seen_marker_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/l35")][@text="Seen"]',
-        '//*[contains(@resource-id, ":id/l35")][starts-with(@text, "Seen")]',
-    ])
-    _seen_marker_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/l35")][@text="Vu"]',
-        '//*[contains(@resource-id, ":id/l35")][starts-with(@text, "Vu")]',
-    ])
-
     # === Stories row ===
     stories_row: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/tsb")]',
@@ -168,16 +123,8 @@ class InboxSelectors:
     ])
 
     # === Suivre en retour (comptes suggérés / nouveaux followers) ===
-    _follow_back_button_rids: List[str] = field(default_factory=lambda: [
+    _follow_back_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/rdh")]',
-    ])
-    _follow_back_button_en: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Follow back"]',
-        '//*[@text="Follow back"]',
-    ])
-    _follow_back_button_fr: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Suivre en retour"]',
-        '//*[@text="Suivre en retour"]',
     ])
 
     # === Page Nouveaux followers (dédiée) ===
@@ -193,14 +140,8 @@ class InboxSelectors:
     new_followers_page_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nzy")]',
     ])
-    _see_all_rids: List[str] = field(default_factory=lambda: [
+    _see_all_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/y6h")]',
-    ])
-    _see_all_en: List[str] = field(default_factory=lambda: [
-        '//*[@text="View all"]',
-    ])
-    _see_all_fr: List[str] = field(default_factory=lambda: [
-        '//*[@text="Tout voir"]',
     ])
 
     # === Page Demandes de messages (dédiée) — liste ===
@@ -219,90 +160,65 @@ class InboxSelectors:
     message_request_unread_badge: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ydj")]',
     ])
-    _message_requests_page_title_rids: List[str] = field(default_factory=lambda: [
+    _message_requests_page_title_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nmh")]',
-    ])
-    _message_requests_page_title_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/nmh")][contains(@text, "Message requests")]',
-    ])
-    _message_requests_page_title_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/nmh")][contains(@text, "Demandes de messages")]',
     ])
 
     # === Demande de messages OUVERTE : accepter / refuser ===
-    _accept_request_button_rids: List[str] = field(default_factory=lambda: [
+    _accept_request_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/c6b")]',
     ])
-    _accept_request_button_en: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Accept"]',
-        '//*[@text="Accept"]',
-    ])
-    _accept_request_button_fr: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Accepter"]',
-        '//*[@text="Accepter"]',
-    ])
-    _decline_request_button_rids: List[str] = field(default_factory=lambda: [
+    _decline_request_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/c8q")]',
-    ])
-    _decline_request_button_en: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Delete"]',
-        '//android.widget.Button[@text="Decline"]',
-    ])
-    _decline_request_button_fr: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Supprimer"]',
     ])
 
     # ------------------------------------------------------------------
-    # Properties langue-aware (combinent _rids + _en + _fr filtrés)
+    # Properties langue-aware (base neutre + fragments localisés via L())
     # ------------------------------------------------------------------
 
     @property
     def new_followers_section(self) -> List[str]:
-        return self._new_followers_section_en + self._new_followers_section_fr
+        return L("inbox.new_followers_section")
 
     @property
     def activity_section(self) -> List[str]:
-        return self._activity_section_en + self._activity_section_fr
+        return L("inbox.activity_section")
 
     @property
     def system_notifications_section(self) -> List[str]:
-        return self._system_notifications_section_en + self._system_notifications_section_fr
+        return L("inbox.system_notifications_section")
 
     @property
     def message_requests_section(self) -> List[str]:
-        return self._message_requests_section_en + self._message_requests_section_fr
+        return L("inbox.message_requests_section")
 
     @property
     def suggested_accounts_section(self) -> List[str]:
-        return self._suggested_accounts_section_en + self._suggested_accounts_section_fr
+        return L("inbox.suggested_accounts_section")
 
     @property
     def seen_marker(self) -> List[str]:
-        return self._seen_marker_en + self._seen_marker_fr
+        return L("inbox.seen_marker")
 
     @property
     def follow_back_button(self) -> List[str]:
-        return self._follow_back_button_rids + self._follow_back_button_en + self._follow_back_button_fr
+        return self._follow_back_button_base + L("inbox.follow_back_button")
 
     @property
     def see_all_button(self) -> List[str]:
-        return self._see_all_rids + self._see_all_en + self._see_all_fr
+        return self._see_all_base + L("inbox.see_all_button")
 
     @property
     def message_requests_page_title(self) -> List[str]:
-        return (
-            self._message_requests_page_title_en
-            + self._message_requests_page_title_fr
-            + self._message_requests_page_title_rids
-        )
+        return self._message_requests_page_title_base + L("inbox.message_requests_page_title")
 
     @property
     def accept_request_button(self) -> List[str]:
-        return self._accept_request_button_rids + self._accept_request_button_en + self._accept_request_button_fr
+        return self._accept_request_button_base + L("inbox.accept_request_button")
 
     @property
     def decline_request_button(self) -> List[str]:
-        return self._decline_request_button_rids + self._decline_request_button_en + self._decline_request_button_fr
+        return self._decline_request_button_base + L("inbox.decline_request_button")
 
     def section_title_by_text(self, title: str) -> str:
         """Build the notification section title selector for a visible title.

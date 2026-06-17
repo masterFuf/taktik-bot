@@ -4,17 +4,20 @@ from dataclasses import dataclass, field
 from typing import List
 
 from ._shared import resource_ids, resource_ids_with
+from ...locales import L
 
 
 @dataclass
 class VideoMediaSelectors:
     """Selectors for playable media and descriptive metadata."""
 
-    sound_button: List[str] = field(default_factory=lambda: [
+    _sound_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("nhe"),
-        '//android.widget.Button[contains(@content-desc, "Sound:")]',
-        '//android.widget.Button[contains(@content-desc, "Son :")]',
     ])
+
+    @property
+    def sound_button(self) -> List[str]:
+        return self._sound_button_base + L("video_media.sound_button")
 
     video_description: List[str] = field(default_factory=lambda: [*resource_ids("desc")])
 

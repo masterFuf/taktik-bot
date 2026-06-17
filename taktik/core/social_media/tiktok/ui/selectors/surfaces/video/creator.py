@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from ...locales import L
 from ._shared import resource_ids
 
 
@@ -14,18 +15,22 @@ class VideoCreatorSelectors:
         default_factory=lambda: [*resource_ids("yx4")]
     )
 
-    creator_profile_image: List[str] = field(default_factory=lambda: [
+    _creator_profile_image_base: List[str] = field(default_factory=lambda: [
         *resource_ids("yx4"),
         '//android.widget.ImageView[contains(@content-desc, "profile")]',
-        '//android.widget.ImageView[contains(@content-desc, "Profil")]',
     ])
 
-    follow_button: List[str] = field(default_factory=lambda: [
+    @property
+    def creator_profile_image(self) -> List[str]:
+        return self._creator_profile_image_base + L("video_creator.creator_profile_image")
+
+    _follow_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("hi1"),
-        '//android.widget.Button[contains(@content-desc, "Follow")]',
-        '//android.widget.Button[contains(@content-desc, "Suivre")]',
-        '//*[contains(@content-desc, "Follow") and not(contains(@content-desc, "Following"))]',
     ])
+
+    @property
+    def follow_button(self) -> List[str]:
+        return self._follow_button_base + L("video_creator.follow_button")
 
     author_username: List[str] = field(default_factory=lambda: [
         *resource_ids("yx4"),

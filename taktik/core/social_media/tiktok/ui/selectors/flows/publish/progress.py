@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from ...locales import L
 from ._shared import resource_ids
 
 
@@ -13,15 +14,6 @@ class PublishProgressSelectors:
     _publish_progress_rids: List[str] = field(default_factory=lambda: resource_ids("x44"))
     _publish_progress_text_nodes: List[str] = field(default_factory=lambda: [
         '//*[@text and @bounds]',
-    ])
-    _success_en: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "successfully")]',
-        '//*[contains(@text, "published")]',
-        '//*[contains(@content-desc, "Posted")]',
-    ])
-    _success_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "publi\u00e9")]',
-        '//*[contains(@text, "succ\u00e8s")]',
     ])
 
     @property
@@ -34,7 +26,7 @@ class PublishProgressSelectors:
 
     @property
     def success_indicator(self) -> List[str]:
-        return self._success_en + self._success_fr
+        return L("publish_progress.success_indicator")
 
 
 PUBLISH_PROGRESS_SELECTORS = PublishProgressSelectors()

@@ -3,6 +3,8 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ...locales import L
+
 # ---------------------------------------------------------------------------
 # Sélecteurs pour le sélecteur de pays (country picker)
 # ---------------------------------------------------------------------------
@@ -27,25 +29,25 @@ class CountryPickerSelectors:
 
     # Indicateur de l'écran
     # resource-id: com.zhiliaoapp.musically:id/title  text="Select country/region"
-    screen_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@resource-id, ":id/title") and @text="Select country/region"]',
-        '//android.widget.TextView[@text="Select country/region"]',
-    ])
+    @property
+    def screen_indicator(self) -> List[str]:
+        return L("country_picker.screen_indicator")
 
     # Bouton fermer (croix en haut à gauche)
     # resource-id: com.zhiliaoapp.musically:id/be6  content-desc="Close"
-    close_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[contains(@resource-id, ":id/be6") and @content-desc="Close"]',
-        '//*[@content-desc="Close"]',
-    ])
+    @property
+    def close_button(self) -> List[str]:
+        return L("country_picker.close_button")
 
     # Champ de recherche des pays
     # resource-id: com.zhiliaoapp.musically:id/tlr  hint="Search countries and regions"
-    search_input: List[str] = field(default_factory=lambda: [
+    _search_input_base: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[contains(@resource-id, ":id/tlr")]',
-        '//android.widget.EditText[@hint="Search countries and regions"]',
-        '//android.widget.EditText[contains(@hint, "countries")]',
     ])
+
+    @property
+    def search_input(self) -> List[str]:
+        return self._search_input_base + L("country_picker.search_input")
 
     # Premier élément de la liste des pays (après filtrage par recherche)
     # resource-id: com.zhiliaoapp.musically:id/eqo  (LinearLayout cliquable)

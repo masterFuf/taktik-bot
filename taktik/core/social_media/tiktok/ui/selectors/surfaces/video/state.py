@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from ...locales import L
 from ._shared import resource_id_with_descendant, resource_ids_with
 
 
@@ -10,79 +11,88 @@ from ._shared import resource_id_with_descendant, resource_ids_with
 class VideoStateSelectors:
     """Selectors for stateful video-page detection and toggles."""
 
-    video_liked_indicator: List[str] = field(default_factory=lambda: [
+    _video_liked_indicator_base: List[str] = field(default_factory=lambda: [
         *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
         *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f57", xpath_filter='[@checked="true"]'),
-        '//android.widget.ImageView[contains(@content-desc, "Unlike")]',
-        '//*[contains(@content-desc, "Retirer") and contains(@content-desc, "J\'aime")]',
-        '//*[contains(@content-desc, "Supprimer") and contains(@content-desc, "J\'aime")]',
     ])
 
-    unlike_indicator: List[str] = field(default_factory=lambda: [
+    @property
+    def video_liked_indicator(self) -> List[str]:
+        return self._video_liked_indicator_base + L("video_state.video_liked_indicator")
+
+    _unlike_indicator_base: List[str] = field(default_factory=lambda: [
         *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
         *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f57", xpath_filter='[@checked="true"]'),
-        '//*[contains(@content-desc, "Unlike")]',
-        '//*[contains(@content-desc, "Liked")]',
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Unlike")]'),
-        '//*[contains(@content-desc, "Retirer") and contains(@content-desc, "J\'aime")]',
-        '//*[contains(@content-desc, "Supprimer") and contains(@content-desc, "J\'aime")]',
     ])
 
-    video_favorited_indicator: List[str] = field(default_factory=lambda: [
+    @property
+    def unlike_indicator(self) -> List[str]:
+        return self._unlike_indicator_base + L("video_state.unlike_indicator")
+
+    _video_favorited_indicator_base: List[str] = field(default_factory=lambda: [
         *resource_ids_with("gtn", xpath_filter='[@selected="true"]'),
-        '//*[contains(@content-desc, "Remove from Favourites")]',
-        '//*[contains(@content-desc, "Retirer des favoris")]',
     ])
 
-    user_followed_indicator: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Following"]',
-        '//android.widget.Button[contains(@text, "Friends")]',
-        '//*[contains(@content-desc, "Unfollow")]',
-    ])
+    @property
+    def video_favorited_indicator(self) -> List[str]:
+        return self._video_favorited_indicator_base + L("video_state.video_favorited_indicator")
 
-    video_page_indicator: List[str] = field(default_factory=lambda: [
+    @property
+    def user_followed_indicator(self) -> List[str]:
+        return L("video_state.user_followed_indicator")
+
+    _video_page_indicator_base: List[str] = field(default_factory=lambda: [
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Video"]'),
-        *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Vid\u00e9o"]'),
+        *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Vidéo"]'),
         *resource_id_with_descendant("f57", "f4u"),
         *resource_id_with_descendant("f57", "t_j"),
-        '//*[contains(@content-desc, "Share video")]',
-        '//*[contains(@content-desc, "Partager une vid\u00e9o")]',
+        '//*[contains(@content-desc, "Partager une vidéo")]',
     ])
 
-    video_already_liked: List[str] = field(default_factory=lambda: [
+    @property
+    def video_page_indicator(self) -> List[str]:
+        return self._video_page_indicator_base + L("video_state.video_page_indicator")
+
+    _video_already_liked_base: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Video liked"]',
         *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
         *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f57", xpath_filter='[@checked="true"]'),
-        '//*[contains(@content-desc, "Retirer") and contains(@content-desc, "J\'aime")]',
-        '//*[contains(@content-desc, "Supprimer") and contains(@content-desc, "J\'aime")]',
     ])
 
-    like_button_unliked: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Like video"]',
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Like video")]'),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Attribuer un")]'),
-        '//*[contains(@content-desc, "Attribuer un")]',
+    @property
+    def video_already_liked(self) -> List[str]:
+        return self._video_already_liked_base + L("video_state.video_already_liked")
+
+    _like_button_unliked_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "f4u"),
     ])
 
-    ad_label: List[str] = field(default_factory=lambda: [
+    @property
+    def like_button_unliked(self) -> List[str]:
+        return self._like_button_unliked_base + L("video_state.like_button_unliked")
+
+    _ad_label_base: List[str] = field(default_factory=lambda: [
         *resource_ids_with("ru3", xpath_filter='[@text="Ad"]'),
         '//android.widget.TextView[@text="Ad"]',
-        '//android.widget.TextView[@text="Sponsorise"]',
-        '//android.widget.TextView[@text="Publicite"]',
     ])
 
-    subscribe_button: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[contains(@text, "Subscribe")]',
-        '//android.widget.Button[contains(@text, "Shop now")]',
+    @property
+    def ad_label(self) -> List[str]:
+        return self._ad_label_base + L("video_state.ad_label")
+
+    _subscribe_button_base: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[contains(@text, "Learn more")]',
     ])
+
+    @property
+    def subscribe_button(self) -> List[str]:
+        return self._subscribe_button_base + L("video_state.subscribe_button")
 
 
 VIDEO_STATE_SELECTORS = VideoStateSelectors()

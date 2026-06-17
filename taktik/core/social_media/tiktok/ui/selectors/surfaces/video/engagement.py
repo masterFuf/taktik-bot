@@ -4,71 +4,75 @@ from dataclasses import dataclass, field
 from typing import List
 
 from ._shared import resource_id_with_descendant, resource_ids, resource_ids_with
+from ...locales import L
 
 
 @dataclass
 class VideoEngagementSelectors:
     """Selectors for like, comment, favorite, and share controls."""
 
-    like_button: List[str] = field(default_factory=lambda: [
+    _like_button_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "f4u"),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Like video")]'),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Attribuer un")]'),
-        '//android.widget.Button[contains(@content-desc, "Like video")]',
-        '//android.widget.Button[contains(@content-desc, "Attribuer un")]',
-        '//*[contains(@content-desc, "Like video")]',
-        '//*[contains(@content-desc, "Attribuer un")]',
     ])
 
-    like_button_content_desc_fallbacks: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Like video")]',
-        '//*[contains(@content-desc, "Attribuer un")]',
+    @property
+    def like_button(self) -> List[str]:
+        return self._like_button_base + L("video_engagement.like_button")
+
+    @property
+    def like_button_content_desc_fallbacks(self) -> List[str]:
+        return L("video_engagement.like_button_content_desc_fallbacks")
+
+    _like_button_for_count_base: List[str] = field(default_factory=lambda: [
+        *resource_id_with_descendant("f57", "f4u"),
     ])
 
-    like_button_for_count: List[str] = field(default_factory=lambda: [
-        *resource_id_with_descendant("f57", "f4u"),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Like video")]'),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Attribuer un")]'),
-        '//*[contains(@content-desc, "Like video")]',
-        '//*[contains(@content-desc, "Attribuer un")]',
-    ])
+    @property
+    def like_button_for_count(self) -> List[str]:
+        return self._like_button_for_count_base + L("video_engagement.like_button_for_count")
 
     like_count: List[str] = field(default_factory=lambda: [*resource_ids("f4z")])
 
-    comment_button: List[str] = field(default_factory=lambda: [
+    _comment_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("dtv"),
         '//android.widget.Button[contains(@content-desc, "comments")]',
-        '//*[contains(@content-desc, "Read or add comments")]',
-        '//*[contains(@content-desc, "Lire ou ajouter des commentaires")]',
     ])
 
-    comment_button_for_count: List[str] = field(default_factory=lambda: [
+    @property
+    def comment_button(self) -> List[str]:
+        return self._comment_button_base + L("video_engagement.comment_button")
+
+    _comment_button_for_count_base: List[str] = field(default_factory=lambda: [
         *resource_ids("dtv"),
         '//*[contains(@content-desc, "comments")]',
-        '//*[contains(@content-desc, "commentaires")]',
     ])
+
+    @property
+    def comment_button_for_count(self) -> List[str]:
+        return self._comment_button_for_count_base + L("video_engagement.comment_button_for_count")
 
     comment_count: List[str] = field(default_factory=lambda: [*resource_ids("dp6", "dp9")])
 
-    favorite_button: List[str] = field(default_factory=lambda: [
+    _favorite_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("guh"),
-        '//android.widget.Button[contains(@content-desc, "Favourites")]',
-        '//android.widget.Button[contains(@content-desc, "Favorites")]',
-        '//*[contains(@content-desc, "Add or remove this video from Favour")]',
-        '//*[contains(@content-desc, "Ajoute ou supprime cette vid\u00e9o de tes Favoris")]',
     ])
+
+    @property
+    def favorite_button(self) -> List[str]:
+        return self._favorite_button_base + L("video_engagement.favorite_button")
 
     favorite_count: List[str] = field(default_factory=lambda: [*resource_ids("gtv")])
 
-    share_button: List[str] = field(default_factory=lambda: [
+    _share_button_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "t_j"),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Share video")]'),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Partager une vid\u00e9o")]'),
-        '//android.widget.Button[contains(@content-desc, "Share video")]',
-        '//android.widget.Button[contains(@content-desc, "Partager une vid\u00e9o")]',
-        '//*[contains(@content-desc, "Share video")]',
-        '//*[contains(@content-desc, "Partager une vid\u00e9o")]',
+        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Partager une vidéo")]'),
+        '//android.widget.Button[contains(@content-desc, "Partager une vidéo")]',
+        '//*[contains(@content-desc, "Partager une vidéo")]',
     ])
+
+    @property
+    def share_button(self) -> List[str]:
+        return self._share_button_base + L("video_engagement.share_button")
 
     share_count: List[str] = field(default_factory=lambda: [*resource_ids("t_2")])
 

@@ -3,30 +3,26 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 
 @dataclass
 class DetectionSelectors:
     """Sélecteurs pour la détection d'états et debug TikTok."""
-    
+
     # === Détection de pages problématiques ===
-    error_message: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@text, "error")]',
-        '//android.widget.TextView[contains(@text, "erreur")]',
-        '//android.widget.TextView[contains(@text, "Something went wrong")]'
-    ])
-    
-    network_error: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@text, "network")]',
-        '//android.widget.TextView[contains(@text, "réseau")]',
-        '//android.widget.TextView[contains(@text, "No internet")]'
-    ])
-    
+    @property
+    def error_message(self) -> List[str]:
+        return L("detection.error_message")
+
+    @property
+    def network_error(self) -> List[str]:
+        return L("detection.network_error")
+
     # === Détection de restrictions ===
-    rate_limit: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@text, "too many")]',
-        '//android.widget.TextView[contains(@text, "trop de")]',
-        '//android.widget.TextView[contains(@text, "Try again later")]'
-    ])
+    @property
+    def rate_limit(self) -> List[str]:
+        return L("detection.rate_limit")
 
 
 DETECTION_SELECTORS = DetectionSelectors()

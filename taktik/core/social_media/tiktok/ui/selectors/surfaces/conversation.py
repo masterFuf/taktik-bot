@@ -3,6 +3,8 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 
 @dataclass
 class ConversationSelectors:
@@ -33,11 +35,13 @@ class ConversationSelectors:
     """
     
     # === Header ===
-    back_button: List[str] = field(default_factory=lambda: [
+    _back_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/lep")]',
-        '//*[contains(@resource-id, ":id/nmy")][@content-desc="Back"]',
-        '//android.widget.ImageView[@content-desc="Back"]',
     ])
+
+    @property
+    def back_button(self) -> List[str]:
+        return self._back_button_base + L("conversation.back_button")
     
     conversation_name: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/h4a")]',
@@ -121,10 +125,13 @@ class ConversationSelectors:
     ])
     
     # === Reply button (for specific message) ===
-    reply_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/rh_")][@text="Reply"]',
+    _reply_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/j8j")]',
     ])
+
+    @property
+    def reply_button(self) -> List[str]:
+        return self._reply_button_base + L("conversation.reply_button")
     
     # === Quick reactions bar ===
     reactions_bar: List[str] = field(default_factory=lambda: [
@@ -183,9 +190,9 @@ class ConversationSelectors:
         '//*[contains(@resource-id, ":id/q14")]',
     ])
     
-    close_sticker_suggestion: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/dgd")][@content-desc="Close"]',
-    ])
+    @property
+    def close_sticker_suggestion(self) -> List[str]:
+        return L("conversation.close_sticker_suggestion")
     
     # === Games/Cards buttons ===
     games_button: List[str] = field(default_factory=lambda: [

@@ -359,8 +359,12 @@ def detect_and_optimize(device, override: Optional[str] = None) -> str:
     else:
         lang = detect_language(device)
 
+    # Overlay : les sélecteurs migrés lisent L() depuis la locale active.
+    from .selectors.locales import set_active_locale
+    set_active_locale(lang if lang != "unknown" else None)
+
     if lang == "unknown":
-        log.info("Language unknown — keeping all selectors (no optimization)")
+        log.info("Language unknown — overlay union + no in-place filtering")
         return lang
 
     # Import tous les singletons depuis le barrel selectors/

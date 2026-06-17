@@ -3,102 +3,119 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 
 @dataclass
 class PopupSelectors:
     """Sélecteurs pour les popups et modales TikTok."""
     
     # === Boutons de fermeture ===
-    close_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/dga")][@content-desc="Close"]',
-        '//*[contains(@resource-id, ":id/jyh")][@content-desc="Close"]',
+    _close_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/fac")]',
-        '//android.widget.ImageView[@content-desc="Close"]',
-        '//android.widget.ImageButton[@content-desc="Close"]',
-        '//android.widget.ImageButton[@content-desc="Fermer"]',
-        '//android.widget.Button[@content-desc="Close"]',
-    ])
-    
-    # === Popup "Follow your friends" ===
-    follow_friends_popup: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/w4h")]',
-        '//*[contains(@text, "Follow your friends")]',
-        '//*[contains(@text, "Suivez vos amis")]',
-    ])
-    
-    follow_friends_close: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[contains(@resource-id, ":id/dga")]',
-        '//*[contains(@resource-id, ":id/dga")]',
-        '//android.widget.ImageView[@content-desc="Close"][@clickable="true"]',
     ])
 
+    @property
+    def close_button(self) -> List[str]:
+        return self._close_button_base + L("popup.close_button")
+
+    # === Popup "Follow your friends" ===
+    _follow_friends_popup_base: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/w4h")]',
+    ])
+
+    @property
+    def follow_friends_popup(self) -> List[str]:
+        return self._follow_friends_popup_base + L("popup.follow_friends_popup")
+
+    _follow_friends_close_base: List[str] = field(default_factory=lambda: [
+        '//android.widget.ImageView[contains(@resource-id, ":id/dga")]',
+        '//*[contains(@resource-id, ":id/dga")]',
+    ])
+
+    @property
+    def follow_friends_close(self) -> List[str]:
+        return self._follow_friends_close_base + L("popup.follow_friends_close")
+
     follow_friends_close_description: str = "Close"
-    
-    dismiss_button: List[str] = field(default_factory=lambda: [
+
+    _dismiss_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ny9")]',
         '//android.widget.Button[@content-desc="Dismiss"]',
-        '//android.widget.Button[@text="Not now"]',
-        '//android.widget.Button[contains(@text, "Not now")]',
-        '//android.widget.Button[contains(@text, "Pas maintenant")]',
-        '//android.widget.Button[contains(@text, "Skip")]',
     ])
-    
+
+    @property
+    def dismiss_button(self) -> List[str]:
+        return self._dismiss_button_base + L("popup.dismiss_button")
+
     # === Popup "Create shared collections" ===
-    collections_popup: List[str] = field(default_factory=lambda: [
+    _collections_popup_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jzb")]',
-        '//*[contains(@text, "Create shared collections")]',
         '//*[contains(@text, "collections with a friend")]',
     ])
-    
-    collections_not_now: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/ny9")][@text="Not now"]',
-    ])
-    
-    collections_close: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/jyh")][@content-desc="Close"]',
-    ])
-    
+
+    @property
+    def collections_popup(self) -> List[str]:
+        return self._collections_popup_base + L("popup.collections_popup")
+
+    @property
+    def collections_not_now(self) -> List[str]:
+        return L("popup.collections_not_now")
+
+    @property
+    def collections_close(self) -> List[str]:
+        return L("popup.collections_close")
+
     # === Popups spécifiques ===
-    age_verification_popup: List[str] = field(default_factory=lambda: [
+    _age_verification_popup_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "age")]',
-        '//*[contains(@text, "âge")]',
-        '//*[contains(@text, "birthday")]',
     ])
-    
-    notification_popup: List[str] = field(default_factory=lambda: [
+
+    @property
+    def age_verification_popup(self) -> List[str]:
+        return self._age_verification_popup_base + L("popup.age_verification_popup")
+
+    _notification_popup_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "notification")]',
-        '//*[contains(@text, "Allow")]',
-        '//*[contains(@text, "Autoriser")]',
     ])
-    
+
+    @property
+    def notification_popup(self) -> List[str]:
+        return self._notification_popup_base + L("popup.notification_popup")
+
     # === Bannières promotionnelles (comme "Hatch a Streak Pet") ===
     promo_banner: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/faf")]',
     ])
-    
-    promo_close_button: List[str] = field(default_factory=lambda: [
+
+    _promo_close_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/fad")]',
-        '//*[contains(@resource-id, ":id/fac")][@content-desc="Close"]',
     ])
-    
+
+    @property
+    def promo_close_button(self) -> List[str]:
+        return self._promo_close_button_base + L("popup.promo_close_button")
+
     # === Notification banner (messages from users) ===
-    notification_banner: List[str] = field(default_factory=lambda: [
+    _notification_banner_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@text, "sent you new messages")]',
         '//*[contains(@text, "sent you a message")]',
         '//*[contains(@text, "vous a envoyé")]',
-        '//*[contains(@text, "Reply")][@clickable="true"]',
-        '//*[contains(@text, "Répondre")][@clickable="true"]',
     ])
-    
+
+    @property
+    def notification_banner(self) -> List[str]:
+        return self._notification_banner_base + L("popup.notification_banner")
+
     # === Inbox page detection ===
-    inbox_page_indicator: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/title")][@text="Inbox"]',
+    _inbox_page_indicator_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jld")]',
-        '//*[@text="New followers"]',
-        '//*[@text="Activity"]',
-        '//*[@text="System notifications"]',
     ])
-    
+
+    @property
+    def inbox_page_indicator(self) -> List[str]:
+        return self._inbox_page_indicator_base + L("popup.inbox_page_indicator")
+
     # === Link email popup ===
     link_email_popup: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/w4m")][@text="Link email"]',
@@ -106,11 +123,9 @@ class PopupSelectors:
         '//*[contains(@text, "linking your Android email")]',
     ])
     
-    link_email_not_now: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Not now"]',
-        '//*[@text="Not now"][@clickable="true"]',
-        '//*[@text="Pas maintenant"][@clickable="true"]',
-    ])
+    @property
+    def link_email_not_now(self) -> List[str]:
+        return L("popup.link_email_not_now")
 
     # === GDPR / EEA data transfer modal ===
     gdpr_popup: List[str] = field(default_factory=lambda: [
@@ -140,23 +155,25 @@ class PopupSelectors:
         '//*[contains(@resource-id, ":id/bjl")]',
     ])
     
-    suggestion_not_interested: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/bjl")][@text="Not interested"]',
-        '//android.widget.Button[@text="Not interested"]',
-    ])
-    
-    suggestion_follow_back: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/bjk")][@text="Follow back"]',
-        '//*[contains(@resource-id, ":id/bjk")][@text="Follow"]',
+    @property
+    def suggestion_not_interested(self) -> List[str]:
+        return L("popup.suggestion_not_interested")
+
+    _suggestion_follow_back_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/bjk")]',
-        '//android.widget.Button[@text="Follow back"]',
-        '//android.widget.Button[@text="Follow"]',
     ])
-    
-    suggestion_close: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/bjr")][@content-desc="Close"]',
+
+    @property
+    def suggestion_follow_back(self) -> List[str]:
+        return self._suggestion_follow_back_base + L("popup.suggestion_follow_back")
+
+    _suggestion_close_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/bjr")]',
     ])
+
+    @property
+    def suggestion_close(self) -> List[str]:
+        return self._suggestion_close_base + L("popup.suggestion_close")
     
     # === Comments Section (opened accidentally during scroll) ===
     comments_section_indicator: List[str] = field(default_factory=lambda: [
@@ -168,17 +185,22 @@ class PopupSelectors:
         '//android.widget.EditText[@focused="true"][contains(@hint, "Message")]',
     ])
     
-    comments_close_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/dqh")][@content-desc="Close"]',
+    _comments_close_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/dqh")]',
-        '//android.widget.ImageView[@content-desc="Close"]',
     ])
-    
+
+    @property
+    def comments_close_button(self) -> List[str]:
+        return self._comments_close_button_base + L("popup.comments_close_button")
+
     # Comment input area on video
-    comment_input_area: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/xi_")][@text="Comment..."]',
+    _comment_input_area_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/dzd")]',
     ])
+
+    @property
+    def comment_input_area(self) -> List[str]:
+        return self._comment_input_area_base + L("popup.comment_input_area")
     
     # Keyboard/EditText detection
     keyboard_indicator: List[str] = field(default_factory=lambda: [
@@ -187,21 +209,17 @@ class PopupSelectors:
     ])
     
     # === Android System Popups ===
-    system_deny_button: List[str] = field(default_factory=lambda: [
+    _system_deny_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.android.packageinstaller:id/permission_deny_button"]',
         '//*[@resource-id="com.android.permissioncontroller:id/permission_deny_button"]',
         '//*[@resource-id="com.google.android.permissioncontroller:id/permission_deny_button"]',
-        '//*[@text="REFUSER"][@clickable="true"]',
-        '//*[@text="Refuser"][@clickable="true"]',
-        '//*[@text="Ne pas autoriser"][@clickable="true"]',
-        '//*[@text="Non"][@clickable="true"]',
-        '//*[@text="DENY"][@clickable="true"]',
-        '//*[@text="Deny"][@clickable="true"]',
-        "//*[@text=\"Don't allow\"][@clickable=\"true\"]",
         "//*[@text=\"DON'T ALLOW\"][@clickable=\"true\"]",
-        '//*[@text="No"][@clickable="true"]',
         '//*[@text="NO"][@clickable="true"]',
     ])
+
+    @property
+    def system_deny_button(self) -> List[str]:
+        return self._system_deny_button_base + L("popup.system_deny_button")
     
     system_input_method_popup: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="android:id/alertTitle"][contains(@text, "saisie")]',

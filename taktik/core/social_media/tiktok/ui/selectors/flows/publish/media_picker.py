@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import List
 
+from ...locales import L
 from ._shared import resource_ids
 
 
@@ -10,22 +11,11 @@ from ._shared import resource_ids
 class PublishMediaPickerSelectors:
     """Selectors for camera/gallery entry and next-step picking."""
 
-    _upload_btn_rids: List[str] = field(default_factory=lambda: [
+    _upload_btn_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ymg") and @clickable="true"]',
         '//*[contains(@resource-id, ":id/ce9") and @clickable="true"]',
         '//*[contains(@resource-id, ":id/cl2") and @clickable="true"]',
         *resource_ids("ymg", "ce9", "cl2"),
-    ])
-    _upload_btn_en: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Upload"]',
-        '//*[contains(@content-desc, "Upload")]',
-        '//*[@text="Upload"]',
-        '//*[contains(@text, "Upload")]',
-        '//*[contains(@text, "Gallery")]',
-    ])
-    _upload_btn_fr: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "Importer")]',
-        '//*[contains(@text, "Galerie")]',
     ])
     _upload_dump_resource_ids: List[str] = field(default_factory=lambda: [
         "ymg",
@@ -60,20 +50,11 @@ class PublishMediaPickerSelectors:
         ":id/d8a",
         ":id/v5w",
     ])
-    _next_btn_rids: List[str] = field(default_factory=lambda: resource_ids("uyb", "ooo", "w51", "next_btn"))
-    _next_btn_en: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@text="Next"]',
-        '//android.widget.Button[contains(@text, "Next")]',
-        '//android.widget.TextView[contains(@text, "Next")]',
-    ])
-    _next_btn_fr: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[contains(@text, "Suivant")]',
-        '//android.widget.TextView[contains(@text, "Suivant")]',
-    ])
+    _next_btn_base: List[str] = field(default_factory=lambda: resource_ids("uyb", "ooo", "w51", "next_btn"))
 
     @property
     def upload_btn(self) -> List[str]:
-        return self._upload_btn_rids + self._upload_btn_en + self._upload_btn_fr
+        return self._upload_btn_base + L("publish_media_picker.upload_btn")
 
     @property
     def upload_dump_resource_ids(self) -> List[str]:
@@ -102,7 +83,7 @@ class PublishMediaPickerSelectors:
 
     @property
     def next_btn(self) -> List[str]:
-        return self._next_btn_rids + self._next_btn_en + self._next_btn_fr
+        return self._next_btn_base + L("publish_media_picker.next_btn")
 
 
 PUBLISH_MEDIA_PICKER_SELECTORS = PublishMediaPickerSelectors()

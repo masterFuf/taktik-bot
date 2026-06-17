@@ -3,20 +3,21 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ..locales import L
+
 
 @dataclass
 class ScrollSelectors:
     """Sélecteurs pour le scroll et le chargement TikTok."""
-    
+
     loading_indicator: List[str] = field(default_factory=lambda: [
         '//android.widget.ProgressBar',
         '//android.view.View[contains(@content-desc, "Loading")]'
     ])
-    
-    end_of_list: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[contains(@text, "No more")]',
-        '//android.widget.TextView[contains(@text, "Plus de")]'
-    ])
+
+    @property
+    def end_of_list(self) -> List[str]:
+        return L("scroll.end_of_list")
 
 
 SCROLL_SELECTORS = ScrollSelectors()

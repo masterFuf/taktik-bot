@@ -3,6 +3,8 @@
 from typing import List
 from dataclasses import dataclass, field
 
+from ...locales import L
+
 # ---------------------------------------------------------------------------
 # Sélecteurs pour la déconnexion (logout)
 # ---------------------------------------------------------------------------
@@ -28,19 +30,21 @@ class LogoutSelectors:
 
     # Onglet "Profile" dans la barre de navigation du bas
     # resource-id: com.zhiliaoapp.musically:id/nce  content-desc="Profile"
-    profile_tab: List[str] = field(default_factory=lambda: [
+    _profile_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nce")]',
-        '//*[@content-desc="Profile"][contains(@resource-id, ":id/nce")]',
-        '//*[@content-desc="Profile" and @clickable="true"]',
     ])
+
+    @property
+    def profile_tab(self) -> List[str]:
+        return self._profile_tab_base + L("logout.profile_tab")
 
     # ── Page de profil ────────────────────────────────────────────────
 
     # Bouton burger ≡ en haut à droite de la page profil
     # content-desc="Profile menu"
-    profile_menu_button: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Profile menu"]',
-    ])
+    @property
+    def profile_menu_button(self) -> List[str]:
+        return L("logout.profile_menu_button")
 
     # ── Menu burger (panneau latéral) ─────────────────────────────────
 
@@ -62,11 +66,9 @@ class LogoutSelectors:
 
     # Bouton "Log out" dans la page Settings (section "Login", tout en bas)
     # Pas de resource-id – seulement le text
-    logout_button: List[str] = field(default_factory=lambda: [
-        '//*[@text="Log out"]',
-        '//*[@text="Se déconnecter"]',
-        '//*[@text="Déconnexion"]',
-    ])
+    @property
+    def logout_button(self) -> List[str]:
+        return L("logout.logout_button")
 
     # ── Popup de confirmation (bottom sheet) ──────────────────────────
 
@@ -79,10 +81,9 @@ class LogoutSelectors:
 
     # Bouton "Log out" dans la popup (en rouge) — confirme la déconnexion
     # Dans la popup : content-desc="Log out" (différent de la page settings qui n'a que @text)
-    logout_confirm_button: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Log out"]',
-        '//*[contains(@resource-id, ":id/wk") and @text="Log out"]',
-    ])
+    @property
+    def logout_confirm_button(self) -> List[str]:
+        return L("logout.logout_confirm_button")
 
     # Bouton "Cancel" dans la popup
     # content-desc="Cancel", resource-id: com.zhiliaoapp.musically:id/wk
