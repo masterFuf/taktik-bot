@@ -58,7 +58,7 @@ class KeyboardControlMixin(BaseAction):
     def paste_text(self, text: str = None) -> bool:
         try:
             if text:
-                self.logger.debug(f"📋 Pasting text: '{text[:30]}...'")
+                self.logger.debug(f"📋 Pasting text ({len(text)} chars)")
                 return self.type_text(text)
             else:
                 self.logger.debug("📋 Pasting from clipboard")

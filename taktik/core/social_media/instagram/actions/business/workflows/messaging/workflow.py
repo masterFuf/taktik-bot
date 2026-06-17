@@ -95,7 +95,7 @@ class MessagingBusiness(BaseAction):
                     time.sleep(0.3)
                     # Use send_keys or type_with_taktik_keyboard
                     self._type_text_human_like(message)
-                    self.logger.debug(f"✅ Typed message: {message[:30]}...")
+                    self.logger.debug(f"✅ Typed message ({len(message)} chars)")
                     return True
             except Exception:
                 continue

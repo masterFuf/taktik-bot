@@ -82,7 +82,7 @@ class TextInputMixin(BaseAction):
         Returns:
             True if successful, False otherwise
         """
-        self.logger.debug(f"{emoji} Typing {field_name}: '{text[:30]}...'")
+        self.logger.debug(f"{emoji} Typing {field_name} ({len(text)} chars)")
         
         if not self._find_and_click(field_selectors, timeout=5):
             self.logger.error(f"Cannot find field {field_name}")

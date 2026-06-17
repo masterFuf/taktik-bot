@@ -705,7 +705,7 @@ class DMActions(BaseAction):
         Returns:
             True if text was entered successfully
         """
-        self.logger.debug(f"⌨️ Typing message: {text[:50]}...")
+        self.logger.debug(f"⌨️ Typing message ({len(text)} chars)...")
         
         # Click on input field first
         if not self._find_and_click(self.conversation_selectors.message_input_field, timeout=3):

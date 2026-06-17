@@ -18,7 +18,7 @@ class TypingMixin:
             min_delay: Délai minimum entre les caractères (en secondes)
             max_delay: Délai maximum entre les caractères (en secondes)
         """
-        self.logger.debug(f"⌨️ Typing '{text}' with human-like delays")
+        self.logger.debug(f"⌨️ Typing {len(text)} chars with human-like delays")
         
         for i, char in enumerate(text):
             # Taper le caractère
@@ -44,7 +44,7 @@ class TypingMixin:
             
             time.sleep(delay)
         
-        self.logger.debug(f"✅ Finished typing '{text}'")
+        self.logger.debug(f"✅ Finished typing {len(text)} chars")
 
     def _is_taktik_keyboard_active(self) -> bool:
         """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
@@ -87,7 +87,7 @@ class TypingMixin:
             device_serial = self._get_device_serial()
             safe_text = text.replace(' ', '%s').replace("'", "\\'").replace('"', '\\"')
             self._run_adb_shell(device_serial, f'input text "{safe_text}"')
-            self.logger.debug(f"⌨️ Typed via adb input text: '{text[:20]}...'")
+            self.logger.debug(f"⌨️ Typed via adb input text ({len(text)} chars)")
             return True
         except Exception as e:
             self.logger.error(f"❌ adb input text failed: {e}")
@@ -137,7 +137,7 @@ class TypingMixin:
             if result and 'error' not in result.lower():
                 # Wait for typing to complete
                 typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-                self.logger.debug(f"⌨️ Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
+                self.logger.debug(f"⌨️ Taktik Keyboard typing {len(text)} chars ({typing_time:.1f}s)")
                 time.sleep(typing_time + 0.5)  # Add small buffer
                 return True
             else:

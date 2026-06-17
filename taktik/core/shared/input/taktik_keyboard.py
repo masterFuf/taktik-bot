@@ -97,7 +97,7 @@ def type_with_taktik_keyboard(
             typing_time = (delay_mean * len(text) + delay_deviation) / 1000
             settle_buffer = 0.15 if len(text) <= 24 else 0.3
             logger.debug(
-                f"Taktik Keyboard typing '{text[:20]}...' "
+                f"Taktik Keyboard typing {len(text)} chars "
                 f"({typing_time:.1f}s, ack {ack_duration:.1f}s)"
             )
             # Telemetry: never the text itself (passwords/2FA) — only length + cadence.

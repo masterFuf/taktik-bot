@@ -49,7 +49,7 @@ class CredentialsMixin:
             if actual.strip() == text.strip() or text.strip() in actual:
                 self.logger.success(f"✅ {field_name} filled via set_text")
                 return True
-            self.logger.debug(f"set_text check: got '{actual[:30]}' (expected '{text[:30]}') — trying tap approach")
+            self.logger.debug(f"set_text check: got {len(actual)} chars (expected {len(text)} chars) — trying tap approach")
         except Exception as e:
             self.logger.debug(f"Direct set_text failed for {field_name}: {e}")
 
@@ -91,7 +91,7 @@ class CredentialsMixin:
             pass
 
         if existing_text:
-            self.logger.debug(f"Clearing pre-filled text '{existing_text[:20]}'...")
+            self.logger.debug(f"Clearing pre-filled text ({len(existing_text)} chars)...")
             cleared = False
             try:
                 element.set_text("")
@@ -180,7 +180,7 @@ class CredentialsMixin:
             pass
 
         if existing_text:
-            self.logger.info(f"🧹 Pre-filled username detected: '{existing_text}' — clearing with X button...")
+            self.logger.info(f"🧹 Pre-filled username detected ({len(existing_text)} chars) — clearing with X button...")
             cleared = False
 
             # Essayer le bouton X/effacer (apparaît quand le champ est focalisé)

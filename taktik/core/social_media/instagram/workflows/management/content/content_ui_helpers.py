@@ -315,7 +315,7 @@ class ContentUIHelpersMixin:
             
             if caption:
                 full_text = caption
-                self.logger.debug(f"Adding caption: {caption[:50]}...")
+                self.logger.debug(f"Adding caption ({len(caption)} chars)...")
             
             if hashtags:
                 hashtag_text = " ".join([f"#{tag.lstrip('#')}" for tag in hashtags])

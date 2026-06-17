@@ -46,11 +46,11 @@ class CommentAction(BaseBusinessAction):
                     self.logger.debug(f"Using template comment from category: {template_category}")
             
             if not validate_comment(comment_text, config, self.logger):
-                self.logger.warning(f"Invalid comment text: {comment_text}")
+                self.logger.warning(f"Invalid comment text ({len(comment_text)} chars)")
                 stats['errors'] += 1
                 return stats
             
-            self.logger.info(f"Attempting to comment: '{comment_text}'")
+            self.logger.info(f"Attempting to comment ({len(comment_text)} chars)")
 
             # Open the comment box — unless the composer is already on screen (e.g. the
             # post already shows the inline composer, or we navigated straight into the
@@ -77,7 +77,7 @@ class CommentAction(BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
-            self.logger.info(f"✅ Comment posted successfully: '{comment_text}'")
+            self.logger.info(f"✅ Comment posted successfully ({len(comment_text)} chars)")
             stats['commented'] = True
             stats['comment_text'] = comment_text
             stats['success'] = True
@@ -179,7 +179,7 @@ class CommentAction(BaseBusinessAction):
             if not self._type_with_taktik_keyboard(comment_text):
                 self.logger.warning("Taktik Keyboard failed, falling back to set_text")
                 comment_field.set_text(comment_text)
-            self.logger.debug(f"Comment text typed: '{comment_text}'")
+            self.logger.debug(f"Comment text typed ({len(comment_text)} chars)")
             
             return True
             

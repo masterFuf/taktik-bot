@@ -316,7 +316,7 @@ class SharedBaseAction:
             if result and 'error' not in result.lower():
                 # Wait for typing to complete
                 typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-                self.logger.debug(f"⌨️ Taktik Keyboard typing '{text[:20]}...' ({typing_time:.1f}s)")
+                self.logger.debug(f"⌨️ Taktik Keyboard typing {len(text)} chars ({typing_time:.1f}s)")
                 time.sleep(typing_time + 0.5)  # Add small buffer
                 return True
             else:

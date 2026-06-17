@@ -33,7 +33,7 @@ class ContentInputMixin(BaseAction):
         return self._type_in_field(bio_text, self.text_selectors.bio_field_selectors, "bio", "👤")
     
     def send_message(self, message_text: str) -> bool:
-        self.logger.debug(f"💌 Sending message: '{message_text[:30]}...'")
+        self.logger.debug(f"💌 Sending message ({len(message_text)} chars)")
         
         if not self._find_and_click(self.text_selectors.message_field_selectors, timeout=5):
             self.logger.error("Cannot find field message")

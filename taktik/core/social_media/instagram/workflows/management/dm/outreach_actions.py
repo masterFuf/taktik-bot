@@ -152,7 +152,7 @@ class OutreachActionsMixin:
             True si envoyé avec succès
         """
         try:
-            self.logger.debug(f"Sending message: {message[:50]}...")
+            self.logger.debug(f"Sending message ({len(message)} chars)...")
             
             # Trouver le champ de saisie avec les nouveaux sélecteurs
             message_input = None

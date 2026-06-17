@@ -73,7 +73,7 @@ class DMLLMIntegrationMixin:
             Réponse générée ou None
         """
         try:
-            self.logger.debug(f"Generating reply with LLM for: {message[:50]}...")
+            self.logger.debug(f"Generating reply with LLM ({len(message)} chars incoming)...")
             
             # Construire les messages pour l'API OpenRouter
             messages = [
@@ -104,7 +104,7 @@ class DMLLMIntegrationMixin:
                 # Nettoyer la réponse
                 reply = self._clean_llm_response(reply)
                 
-                self.logger.debug(f"LLM generated: {reply[:50]}...")
+                self.logger.debug(f"LLM generated ({len(reply)} chars)...")
                 return reply
                     
         except urllib.error.HTTPError as e:
