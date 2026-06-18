@@ -346,14 +346,18 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.explore_search_bar_texts": [],
     "navigation.home_tab": [
-        "//*[contains(@content-desc, \"Accueil\")]",
+        # not(systemui): le bouton Accueil de la barre de navigation Android
+        # (com.android.systemui:id/home_button) a aussi content-desc "Accueil" ;
+        # sans ce garde, en story plein ecran (pas de barre IG) le bot tapait le
+        # bouton Home systeme -> sortie de l'app vers le launcher Android.
+        "//*[contains(@content-desc, \"Accueil\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.home_tab_description_contains": [],
     "navigation.home_tab_descriptions": [],
     "navigation.posts_tab_options": [],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profil\") and contains(@class, \"ImageView\")]",
-        "//*[contains(@content-desc, \"Profil\")]",
+        "//*[contains(@content-desc, \"Profil\") and contains(@class, \"ImageView\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Profil\") and not(@package=\"com.android.systemui\")]",
         "//*[contains(@resource-id, \"tab_bar_icon\") and contains(@content-desc, \"Profil\")]",
     ],
     "navigation.recent_tab_selectors": [
@@ -361,7 +365,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Récents\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Rechercher\")]",
+        "//*[contains(@content-desc, \"Rechercher\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.search_tab_description_contains": [],
     "navigation.search_tab_descriptions": [],

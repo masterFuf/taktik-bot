@@ -377,7 +377,11 @@ STRINGS: Dict[str, List[str]] = {
         "Search",
     ],
     "navigation.home_tab": [
-        "//*[contains(@content-desc, \"Home\")]",
+        # not(systemui): the Android navigation bar Home button
+        # (com.android.systemui:id/home_button) also has content-desc "Home";
+        # without this guard, in a fullscreen story (no IG bottom bar) the bot
+        # tapped the system Home button -> dropped out to the Android launcher.
+        "//*[contains(@content-desc, \"Home\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.home_tab_description_contains": [
         "Home",
@@ -391,15 +395,15 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.ImageView[@content-desc=\"Grid view\"]",
     ],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profile\") and contains(@class, \"ImageView\")]",
-        "//*[contains(@content-desc, \"Profile\")]",
+        "//*[contains(@content-desc, \"Profile\") and contains(@class, \"ImageView\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Profile\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.recent_tab_selectors": [
         "//*[contains(@text, \"Recent\")]",
         "//*[contains(@content-desc, \"Recent\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Search\")]",
+        "//*[contains(@content-desc, \"Search\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.search_tab_description_contains": [
         "Search",
