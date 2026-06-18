@@ -33,9 +33,16 @@ class TabNavigationMixin(BaseAction):
     def navigate_to_home(self) -> bool:
         if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
             return True
-        
-        self.logger.debug("Fallback: using back button")
-        self._press_back(3)
+
+        # Incremental fallback: press Back ONE at a time and stop the instant we reach the
+        # feed. A blind 3× back can close a story → land on the feed → exit the feed → leave
+        # Instagram entirely (ending on the Android launcher), from which the home tab is gone.
+        # Early-return as soon as we're home avoids backing out of the app.
+        self.logger.debug("Fallback: using back button (incremental, stop at home)")
+        for _ in range(3):
+            self._press_back(1)
+            if self._is_home_screen():
+                return True
         return self._is_home_screen()
     
     def navigate_to_search(self) -> bool:
