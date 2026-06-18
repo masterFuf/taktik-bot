@@ -21,10 +21,12 @@ def launch(a, p):
     """
     mgr = TikTokManager()
     mgr.device_manager.device = a.device  # reuse connected device, skip reconnect
-    if not mgr.launch():
+    # Clean restart (force-stop + launch) so a cold start always lands on the home feed,
+    # never resuming a trapped sub-screen — keeps the auto-test self-healing.
+    if not mgr.restart():
         logger.error("app.launch: failed to start TikTok")
         return False
-    for _ in range(10):
+    for _ in range(16):
         time.sleep(0.6)
         try:
             if a.device.app_current().get("package") in TIKTOK_PACKAGES:

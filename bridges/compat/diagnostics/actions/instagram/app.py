@@ -23,11 +23,15 @@ def launch(a, p):
     pkg = get_active_package()
     dm = DeviceManager()
     dm.device = a.device  # facade proxies app_start/shell/app_current to the raw device
-    if not dm.launch_app(pkg):
+    # Force-stop then start: a CLEAN cold start always lands on the feed. A plain resume
+    # would reopen the app wherever it was left (e.g. a fullscreen story viewer), so the
+    # auto-test's recovery could never escape that screen. Clean start = deterministic +
+    # self-healing from any trapped sub-screen (story viewer, off-app launcher, etc.).
+    if not dm.launch_app(pkg, stop_first=True):
         logger.error(f"app.launch: failed to start {pkg}")
         return False
-    # Wait for the app to reach the foreground, then verify (selectors load lazily).
-    for _ in range(10):
+    # Wait for the app to reach the foreground, then verify (cold start + lazy selectors).
+    for _ in range(16):
         time.sleep(0.6)
         try:
             if a.device.app_current().get("package") == pkg:
