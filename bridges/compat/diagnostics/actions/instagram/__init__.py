@@ -10,6 +10,7 @@ action = _registry.action
 
 def register_actions() -> None:
     """Import action families so decorators populate the registry."""
+    from bridges.compat.diagnostics.actions.instagram import app  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import comment  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import detection  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import keyboard  # noqa: F401

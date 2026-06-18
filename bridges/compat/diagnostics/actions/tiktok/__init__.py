@@ -10,6 +10,7 @@ action = _registry.action
 
 def register_actions() -> None:
     """Import action families so decorators populate the registry."""
+    from bridges.compat.diagnostics.actions.tiktok import app  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import detection  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import inbox  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import navigation  # noqa: F401
