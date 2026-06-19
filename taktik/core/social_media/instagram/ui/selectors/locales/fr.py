@@ -403,6 +403,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Fermer\")]",
     ],
     "notification.follow_requests_header": [
+        "//*[contains(@resource-id, \"activity_feed_newsfeed_story_row\")][.//*[contains(@text, \"Demandes de suivi\")]]",
         "//*[contains(@text, \"Demandes de suivi\")]",
     ],
     "notification.follow_requests_section": [

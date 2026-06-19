@@ -446,6 +446,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Dismiss\")]",
     ],
     "notification.follow_requests_header": [
+        "//*[contains(@resource-id, \"activity_feed_newsfeed_story_row\")][.//*[contains(@text, \"Follow requests\")]]",
         "//*[contains(@text, \"Follow requests\")]",
     ],
     "notification.follow_requests_section": [
