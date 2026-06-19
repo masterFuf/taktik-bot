@@ -229,9 +229,6 @@ class WorkflowHelpers:
                 elif action_type == 'post_url':
                     target_type = "POST_URL"
                     target = action_override.get('post_url', 'unknown')
-                elif action_type == 'place':
-                    target_type = "PLACE"
-                    target = action_override.get('place_name', 'unknown')
             else:
                 # Try to get from config (check both 'steps' and 'actions' for compatibility)
                 steps_or_actions = self.automation.config.get('steps') or self.automation.config.get('actions', [])
@@ -251,11 +248,6 @@ class WorkflowHelpers:
                         elif action.get('type') == 'post_url':
                             target_type = "POST_URL"
                             target = action.get('post_url', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                        elif action.get('type') == 'place':
-                            target_type = "PLACE"
-                            target = action.get('place_name', 'unknown')
                             self.logger.debug(f"Session target determined: {target_type} = {target}")
                             break
                 

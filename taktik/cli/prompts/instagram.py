@@ -18,7 +18,6 @@ def select_target_type():
         "1": current_translations['target_option_target'],
         "2": current_translations['target_option_hashtags'],
         "3": current_translations['target_option_post_url'],
-        # "4": current_translations['target_option_place']  # Temporarily disabled
     }
     
     for key, value in target_options.items():
@@ -36,9 +35,7 @@ def select_target_type():
         return "hashtags"
     elif choice == "3":
         return "post_url"
-    # elif choice == "4":  # Temporarily disabled
-    #     return "place"
-    
+
     return None
 
 def generate_dynamic_workflow(target_type):
@@ -48,9 +45,7 @@ def generate_dynamic_workflow(target_type):
         return generate_hashtags_workflow()
     elif target_type == "post_url":
         return generate_post_url_workflow()
-    # elif target_type == "place":  # Temporarily disabled
-    #     return generate_place_workflow()
-    
+
     return None
 
 def generate_target_workflow():
@@ -335,78 +330,6 @@ def generate_post_url_workflow():
     display_estimates(max_profiles, max_likes_per_profile, probas, current_translations)
     
     console.print(f"\n[green]{current_translations['post_url_workflow_success'].format(post_url)}[/green]")
-    
-    return workflow_config
-
-def generate_place_workflow():
-    console.print("\n[green]🏙️ Configuration du workflow Place[/green]")
-    
-    place_name = Prompt.ask("[cyan]Nom du lieu à cibler[/cyan]", default="Paris, France")
-    
-    max_users = Prompt.ask("[cyan]Nombre maximum d'utilisateurs à traiter[/cyan]", default="20")
-    
-    max_posts_check = Prompt.ask("[cyan]Nombre maximum de posts à vérifier dans le lieu[/cyan]", default="10")
-    
-    like_percentage = Prompt.ask("[cyan]Probabilité de like (%)[/cyan]", default="70")
-    follow_percentage = Prompt.ask("[cyan]Probabilité de follow (%)[/cyan]", default="30")
-    comment_percentage = Prompt.ask("[cyan]Probabilité de commentaire (%)[/cyan]", default="10")
-    story_view_percentage = Prompt.ask("[cyan]Probabilité de regarder les stories (%)[/cyan]", default="40")
-    story_like_percentage = Prompt.ask("[cyan]Probabilité de liker les stories (%)[/cyan]", default="60")
-    
-    console.print("\n[yellow]🔍 Configuration des filtres[/yellow]")
-    min_followers = Prompt.ask("[cyan]Nombre minimum de followers[/cyan]", default="100")
-    max_followers = Prompt.ask("[cyan]Nombre maximum de followers[/cyan]", default="10000")
-    min_posts = Prompt.ask("[cyan]Nombre minimum de posts[/cyan]", default="5")
-    
-    workflow_config = {
-        'target_type': 'place',
-        'actions': [
-            {
-                'type': 'place',
-                'place_name': place_name,
-                'max_users': int(max_users),
-                'max_posts_to_check': int(max_posts_check),
-                'like_percentage': int(like_percentage),
-                'follow_percentage': int(follow_percentage),
-                'comment_percentage': int(comment_percentage),
-                'story_view_percentage': int(story_view_percentage),
-                'story_like_percentage': int(story_like_percentage),
-                'filters': {
-                    'min_followers': int(min_followers),
-                    'max_followers': int(max_followers),
-                    'min_posts': int(min_posts)
-                }
-            }
-        ]
-    }
-    
-    console.print("\n[green]📋 Résumé de la configuration Place :[/green]")
-    
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Paramètre", style="cyan")
-    table.add_column("Valeur", style="yellow") 
-    
-    table.add_row("Lieu cible", place_name)
-    table.add_row("Max utilisateurs", str(max_users))
-    table.add_row("Max posts à vérifier", str(max_posts_check))
-    table.add_row("Probabilité like", f"{like_percentage}%")
-    table.add_row("Probabilité follow", f"{follow_percentage}%")
-    table.add_row("Probabilité commentaire", f"{comment_percentage}%")
-    table.add_row("Probabilité stories", f"{story_view_percentage}%")
-    table.add_row("Probabilité like stories", f"{story_like_percentage}%")
-    
-    console.print(table)
-    
-    console.print(f"\n[green]📊 Estimations de session :[/green]")
-    estimated_likes = int(int(max_users) * (int(like_percentage) / 100))
-    estimated_follows = int(int(max_users) * (int(follow_percentage) / 100))
-    estimated_comments = int(int(max_users) * (int(comment_percentage) / 100))
-    
-    console.print(f"• Likes estimés : {estimated_likes}")
-    console.print(f"• Follows estimés : {estimated_follows}")
-    console.print(f"• Commentaires estimés : {estimated_comments}")
-    
-    console.print(f"\n[green]✅ Workflow place configuré pour {place_name}[/green]")
     
     return workflow_config
 

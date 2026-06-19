@@ -33,10 +33,7 @@ class WorkflowRunner:
                 
             elif action_type == 'post_url':
                 return self._run_post_url_workflow(action)
-                
-            elif action_type == 'place':
-                return self._run_place_workflow_handler(action)
-            
+
             elif action_type == 'notifications':
                 return self._run_notifications_workflow(action)
             
@@ -144,135 +141,6 @@ class WorkflowRunner:
         
         # Return True only if we actually interacted with users
         return result.get('users_interacted', 0) > 0
-    
-    def _run_place_workflow_handler(self, action: Dict[str, Any]) -> bool:
-        result = self._run_place_workflow_impl(action)
-        
-        self.automation.stats['likes'] += result.get('likes_made', 0)
-        self.automation.stats['follows'] += result.get('follows_made', 0)
-        self.automation.stats['comments'] += result.get('comments_made', 0)
-        self.automation.stats['interactions'] += result.get('users_interacted', 0)
-        
-        # Return True only if we actually interacted with users
-        return result.get('users_interacted', 0) > 0
-    
-    def _run_place_workflow_impl(self, action: Dict[str, Any]) -> Dict[str, int]:
-        import time
-        import os
-        
-        place_name = action.get('place_name', '')
-        max_users = action.get('max_users', 20)
-        max_posts_check = int(action.get('max_posts_to_check', 5))
-        like_percentage = float(action.get('like_percentage', 0)) / 100
-        follow_percentage = float(action.get('follow_percentage', 0)) / 100
-        filters = action.get('filters', {})
-        
-        stats = {
-            "likes_made": 0,
-            "follows_made": 0,
-            "comments_made": 0,
-            "users_interacted": 0,
-            "posts_processed": 0
-        }
-        
-        try:
-            if not self.automation.nav_actions.navigate_to_search():
-                self.logger.error("❌ Impossible de naviguer vers la recherche")
-                return stats
-                
-            if not self.automation.nav_actions.search_place(place_name):
-                self.logger.error(f"❌ Impossible de rechercher le lieu '{place_name}'")
-                return stats
-                
-            if not self.automation.nav_actions.click_search_suggestion(place_name):
-                self.logger.error("❌ Impossible de cliquer sur la suggestion de recherche")
-                return stats
-                
-            if not self.automation.nav_actions.navigate_to_places_tab():
-                self.logger.error("❌ Impossible de naviguer vers l'onglet Places")
-                return stats
-                
-            if not self.automation.nav_actions.select_first_place_result():
-                self.logger.error("❌ Impossible de sélectionner le premier résultat")
-                return stats
-                
-            from ..views.place_view import PlaceView
-            place_view = PlaceView(self.automation.device)
-            
-            if not place_view.switch_to_top_posts():
-                self.logger.warning("⚠️ Impossible de basculer vers Top posts, continuons...")
-                
-            self.logger.info("🎯 New strategy: Navigating feed instead of grid")
-            
-            posts = place_view.get_visible_posts()
-            if not posts:
-                self.logger.error("❌ Aucun post trouvé dans le lieu")
-                return stats
-            
-            first_post = posts[0]
-            self.logger.info("📱 Opening first post to access feed")
-            first_post['element'].click()
-            time.sleep(3)
-            
-            processed_posts = 0
-            posts_checked = 0
-            
-            while processed_posts < max_users and posts_checked < max_posts_check:
-                try:
-                    posts_checked += 1
-                    self.logger.info(f"📱 Analyzing post {posts_checked}/{max_posts_check}")
-                    
-                    is_reel = self.automation.ui_helpers.is_current_post_reel()
-                    if is_reel:
-                        self.logger.info("🎬 Post detected as Reel - moving to next")
-                        self.automation.ui_helpers.scroll_to_next_post()
-                        time.sleep(2)
-                        continue
-                    
-                    if self.automation.ui_helpers.has_likes_on_current_post():
-                        self.logger.info("❤️ Post with likes detected - opening list")
-                        
-                        if self.automation.ui_helpers.open_likes_list():
-                            self.logger.info("✅ Likers list opened")
-                            time.sleep(2)
-                            
-                            try:
-                                interactions = self.automation.ui_helpers.interact_with_likers(
-                                    max_interactions=min(5, max_users - processed_posts),
-                                    like_percentage=like_percentage,
-                                    follow_percentage=follow_percentage,
-                                    filters=filters
-                                )
-                                stats["users_interacted"] += interactions
-                                processed_posts += interactions
-                                stats["posts_processed"] += 1
-                                
-                                self.logger.info(f"✅ {interactions} interactions performed on this post")
-                                
-                            except Exception as e:
-                                self.logger.error(f"❌ Error interacting with likers: {e}")
-                            
-                            self.automation.ui_helpers.close_likes_popup()
-                            time.sleep(1)
-                        else:
-                            self.logger.warning("❌ Unable to open likes list")
-                    else:
-                        self.logger.info("💭 No likes on this post - moving to next")
-                    
-                    self.automation.ui_helpers.scroll_to_next_post()
-                    time.sleep(2)
-                    
-                except Exception as e:
-                    self.logger.error(f"❌ Error processing post in feed: {e}")
-                    self.automation.ui_helpers.scroll_to_next_post()
-                    time.sleep(2)
-            
-            self.logger.info(f"🎉 Workflow completed: {processed_posts} interactions on {stats['posts_processed']} posts")
-            return stats
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error in place workflow: {e}")
-            return stats
     
     def _run_notifications_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the notifications workflow."""

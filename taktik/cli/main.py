@@ -21,7 +21,7 @@ from taktik.utils.version_checker import check_version
 from taktik.cli.context import update_language_state
 from taktik.cli.prompts.instagram import (
     select_target_type, generate_dynamic_workflow, generate_target_workflow,
-    generate_hashtags_workflow, generate_post_url_workflow, generate_place_workflow,
+    generate_hashtags_workflow, generate_post_url_workflow,
     _validate_instagram_url, _extract_post_id_from_url,
 )
 from taktik.cli.prompts.scraping import (

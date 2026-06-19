@@ -56,10 +56,8 @@ TRANSLATIONS = {
     "target_selection_title": "Sélection du type de cible",
     "target_option_target": "Target (nom d'utilisateur/profil)",
     "target_option_hashtags": "Hashtags",
-    "target_option_place": "Place (géolocalisation)",
     "choose_target_type": "Choisissez le type de cible",
     "hashtags_dev_message": "Module Hashtags en cours de développement...",
-    "place_dev_message": "Module Place en cours de développement...",
     
     # Target workflow configuration
     "target_workflow_title": "🎯 Configuration du workflow Target/Followers",
@@ -131,15 +129,7 @@ TRANSLATIONS = {
     "post_id_not_detected": "Non détecté",
     "interaction_type_likers": "post-likers",
     "post_url_workflow_success": "✅ Workflow URL de post configuré pour {}",
-    
-    # Workflow Place
-    "place_workflow_config": "🏙️ Configuration du workflow Place",
-    "enter_place_name": "Nom du lieu à cibler",
-    "place_name_required": "Nom du lieu requis !",
-    "place_workflow_summary": "📋 Résumé de la configuration Place :",
-    "place_name": "Nom du lieu",
-    "place_workflow_success": "✅ Workflow Place configuré pour {}",
-    
+
     # Instagram manager
     "launching_instagram_title": "Lancement d'Instagram",
     "instagram_not_installed_device": "Instagram n'est pas installé sur cet appareil.",
