@@ -487,6 +487,48 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@resource-id=\"com.instagram.android:id/row_header_action\" and contains(@text, \"See all\")]",
         "//*[contains(@text, \"See all\")]",
     ],
+    # --- notification classifier text fragments (plain substrings, matched
+    # case-insensitively via `contains` against an activity-feed row's text).
+    # NOT XPath: these are the localized phrases that identify the row TYPE.
+    # EN strings are confirmed from real device dumps. ---
+    "notification.type_comment_mention": [
+        "mentioned you in a comment",
+    ],
+    "notification.type_comment_reply": [
+        "replied to your comment",
+    ],
+    "notification.type_comment_like": [
+        "liked your comment",
+    ],
+    "notification.type_post_comment": [
+        "commented on your post",
+        "commented on your photo",
+        "commented on your video",
+        "commented",
+    ],
+    "notification.type_post_like": [
+        "liked your photo",
+        "liked your post",
+        "liked your video",
+        "liked your reel",
+    ],
+    "notification.type_new_follower": [
+        "started following you",
+    ],
+    "notification.type_follow_request": [
+        "requested to follow you",
+        "wants to follow you",
+    ],
+    "notification.type_message": [
+        "you have a message from",
+        "message from",
+    ],
+    "notification.type_shared": [
+        "shared a photo",
+        "published a thread",
+        "shared a post",
+        "shared",
+    ],
     # --- popup ---
     "popup.automation_popup_indicators": [
         "//android.widget.TextView[@text='Likes']",

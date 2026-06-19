@@ -10,10 +10,10 @@ History: the previous layout keyed everything on ``row_news_text`` /
 ``activity_feed_*`` ids; those are now the primary signatures and the old
 ``row_news_*`` ids are kept ONLY as fallbacks at the tail of each list.
 """
-from typing import List
+from typing import Dict, List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from ..locales import L, L_all
 
 
 @dataclass
@@ -190,6 +190,43 @@ class NotificationSelectors:
     @property
     def see_all_header(self) -> List[str]:
         return self._see_all_header_base + L("notification.see_all_header")
+
+    # =========================================================================
+    # NOTIFICATION TYPE CLASSIFIER (plain text fragments, not XPath)
+    # =========================================================================
+
+    # Order = classification PRIORITY. The more specific comment_* phrases are
+    # checked before the bare post_comment / post_like ones so a "replied to
+    # your comment" row is never mis-stolen by a "commented"/"liked" substring.
+    _classifier_types_in_priority: List[str] = field(default_factory=lambda: [
+        "comment_mention",
+        "comment_reply",
+        "comment_like",
+        "post_comment",
+        "post_like",
+        "new_follower",
+        "follow_request",
+        "message",
+        "shared",
+    ])
+
+    @property
+    def classifier_fragments(self) -> "Dict[str, List[str]]":
+        """Per-type localized text fragments for classifying an activity-feed row.
+
+        Returns an ordered dict ``type -> [fragment, ...]`` where each fragment
+        list is the UNION of FR + EN strings (via ``L_all``), so a row can be
+        classified regardless of the device language: a notification line may be
+        in any locale, independently of the locale the selector layer was
+        optimized for. Dict insertion order is the classification PRIORITY order
+        (more specific comment_* before bare post_comment / post_like). The
+        ``"other"`` fallback is intentionally NOT included — the caller treats an
+        unmatched row as ``other``.
+        """
+        return {
+            type_name: L_all(f"notification.type_{type_name}")
+            for type_name in self._classifier_types_in_priority
+        }
 
 
 NOTIFICATION_SELECTORS = NotificationSelectors()

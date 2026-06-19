@@ -9,8 +9,10 @@ Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog
 resource-id / text / content-desc lives here.
 """
 
+import re
 import time
 
+from lxml import etree
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
@@ -134,3 +136,100 @@ def reply_mention(a, p):
 def open_filter(a, p):
     """Tap the Filter button on the notifications screen."""
     return _tap_first(a, N.filter_button, "notifications.open_filter")
+
+
+# =============================================================================
+# Read-only classifier — the engagement workflow's "read" backbone
+# =============================================================================
+
+# Time tokens like "54m", "10 h", "2 j", "1w", "3 d" trailing a row.
+_TIME_RE = re.compile(r"\b(\d+\s*(?:min|mois|sem|[smhjdwy]))\b", re.IGNORECASE)
+# Inline action affordances that mark a row as actionable (FR + EN).
+_ACTION_WORDS = ("confirmer", "confirm", "répondre", "repondre", "reply",
+                 "follow back", "se réabonner", "message", "supprimer", "remove")
+
+
+def _classify_row(full: str, fragments) -> "tuple[str, str]":
+    """Return (type, username) for a row's concatenated text.
+
+    Username is the text BEFORE the matched type phrase (where the actor leads,
+    e.g. "<user> a commencé à vous suivre"); for `message`/`shared` the phrase
+    leads, so we fall back to the token AFTER it. Best-effort — the Lab cares
+    most about the type + counts.
+    """
+    low = full.lower()
+    for type_name, frags in fragments.items():
+        for frag in frags:
+            if not frag:
+                continue
+            idx = low.find(frag.lower())
+            if idx == -1:
+                continue
+            if idx > 0:
+                user = full[:idx]
+            else:
+                # Phrase leads (message/shared "... from <user>"): take what follows.
+                after = full[idx + len(frag):]
+                user = after.split(".")[0]
+            user = _TIME_RE.sub("", user).strip(" :·-—· ")
+            return type_name, user
+    return "other", ""
+
+
+def _row_has_action(text_low: str) -> bool:
+    return any(w in text_low for w in _ACTION_WORDS)
+
+
+@action("notifications.scan")
+def scan(a, p):
+    """READ-ONLY: classify every notification on the activity screen by type +
+    metadata (username, time, snippet, has_action). Backbone of the engagement
+    workflow's read pass. Scans the currently visible screen (no scroll, no
+    side effects)."""
+    fragments = N.classifier_fragments  # ordered dict type -> [FR+EN fragments]
+    items: list = []
+    seen: set = set()
+
+    xml = a.device.get_xml_dump()
+    if not xml:
+        return {"success": False, "count": 0, "by_type": {}, "items": [],
+                "message": "notifications.scan: empty XML dump (not on the notifications screen?)"}
+    try:
+        root = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
+    except Exception as exc:
+        logger.error(f"notifications.scan: XML parse failed: {exc}")
+        return {"success": False, "count": 0, "by_type": {}, "items": [],
+                "message": f"notifications.scan: XML parse failed: {str(exc)[:120]}"}
+
+    for row in root.xpath('//node[contains(@resource-id, "activity_feed_newsfeed_story_row")]'):
+        parts: list = []
+        for node in row.iter():
+            for attr in ("text", "content-desc"):
+                val = node.get(attr)
+                if val and val.strip():
+                    parts.append(val.strip())
+        full = " ".join(dict.fromkeys(parts)).strip()  # join, drop exact dupes, keep order
+        if not full:
+            continue
+        key = full.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ntype, username = _classify_row(full, fragments)
+        time_match = _TIME_RE.findall(full)
+        ts = time_match[-1].strip() if time_match else ""
+        items.append({
+            "type": ntype,
+            "username": username,
+            "time": ts,
+            "text": full[:200],
+            "has_action": _row_has_action(key),
+        })
+
+    by_type: dict = {}
+    for it in items:
+        by_type[it["type"]] = by_type.get(it["type"], 0) + 1
+    summary = ", ".join(f"{k}={v}" for k, v in sorted(by_type.items())) or "none"
+    msg = f"notifications.scan: {len(items)} notifications [{summary}]"
+    logger.info(msg)
+    return {"success": True, "count": len(items), "by_type": by_type, "items": items, "message": msg}

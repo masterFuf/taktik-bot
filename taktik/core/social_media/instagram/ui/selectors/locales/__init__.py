@@ -62,6 +62,18 @@ def L(key: str) -> List[str]:
     """
     if _active is not None:
         return list(_LOCALES[_active].get(key, []))
+    return L_all(key)
+
+
+def L_all(key: str) -> List[str]:
+    """Union of ``key`` fragments across EVERY registered locale, regardless of
+    the active locale (dedup, stable order).
+
+    Use this when a consumer must match against ALL locales at once — e.g. the
+    notifications classifier, which reads activity-feed rows whose visible text
+    can be in any language the device runs, independently of the locale the
+    selector layer has been optimized for.
+    """
     seen: Set[str] = set()
     union: List[str] = []
     for strings in _LOCALES.values():

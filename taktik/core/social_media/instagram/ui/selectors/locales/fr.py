@@ -444,6 +444,53 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@resource-id=\"com.instagram.android:id/row_header_action\" and contains(@text, \"Voir tout\")]",
         "//*[contains(@text, \"Voir tout\")]",
     ],
+    # --- notification classifier text fragments (plain substrings, matched
+    # case-insensitively via `contains` against an activity-feed row's text).
+    # NOT XPath: these are the localized phrases that identify the row TYPE.
+    # FR strings are best-known Instagram wording, to VALIDATE on device. ---
+    "notification.type_comment_mention": [
+        "a mentionné votre nom dans un commentaire",
+        "vous a mentionné dans un commentaire",
+        "vous a identifié dans un commentaire",
+    ],
+    "notification.type_comment_reply": [
+        "a répondu à votre commentaire",
+        "a répondu à votre comm",
+    ],
+    "notification.type_comment_like": [
+        "a aimé votre commentaire",
+    ],
+    "notification.type_post_comment": [
+        "a commenté votre publication",
+        "a commenté votre photo",
+        "a commenté votre vidéo",
+        "a commenté",
+    ],
+    "notification.type_post_like": [
+        "a aimé votre photo",
+        "a aimé votre publication",
+        "a aimé votre vidéo",
+        "a aimé votre",
+    ],
+    "notification.type_new_follower": [
+        "a commencé à vous suivre",
+        "a commencé à suivre",
+    ],
+    "notification.type_follow_request": [
+        "a demandé à suivre votre compte",
+        "veut suivre votre compte",
+        "a demandé à vous suivre",
+    ],
+    "notification.type_message": [
+        "vous avez un message de",
+        "message de",
+    ],
+    "notification.type_shared": [
+        "a partagé une photo",
+        "a publié un thread",
+        "a partagé une publication",
+        "a partagé",
+    ],
     # --- popup ---
     "popup.automation_popup_indicators": [
         "//android.widget.TextView[@text='J'aime']",
