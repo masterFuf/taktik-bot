@@ -1,35 +1,134 @@
-from typing import Dict, List, Optional, Any, Union
+"""Selectors for the Instagram notifications / activity surface.
+
+Provenance: real device dumps (FR + EN), Instagram modern "Notifications" UI.
+The resource-ids are language-neutral and confirmed identical across locales;
+visible TEXT / content-desc fragments live in the per-language overlays
+(``locales/fr.py`` + ``locales/en.py``) and are pulled via ``L("notification.<key>")``.
+
+History: the previous layout keyed everything on ``row_news_text`` /
+``row_news_container``. Instagram migrated the activity screen to
+``activity_feed_*`` ids; those are now the primary signatures and the old
+``row_news_*`` ids are kept ONLY as fallbacks at the tail of each list.
+"""
+from typing import List
 from dataclasses import dataclass, field
 
 from ..locales import L
 
+
 @dataclass
 class NotificationSelectors:
-    """Sélecteurs pour le workflow notifications/activité."""
+    """Selectors for the notifications/activity screen and the follow-requests sub-screen."""
 
-    # === Onglet activité ===
-    _activity_tab_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Notifications")]'
+    # =========================================================================
+    # ENTRY / SCREEN (main notifications screen)
+    # =========================================================================
+
+    # --- Activity / heart entry (top action bar of the feed) ---
+    # Primary: the language-neutral resource-id of the heart entry; fallback:
+    # any node whose content-desc contains the localized "Notifications" word.
+    _activity_entry_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/notification"]',
     ])
 
     @property
-    def activity_tab(self) -> List[str]:
-        return self._activity_tab_base + L("notification.activity_tab")
+    def activity_entry(self) -> List[str]:
+        return self._activity_entry_base + L("notification.activity_entry")
 
-    # === Éléments de notification ===
-    notification_item: List[str] = field(default_factory=lambda: [
+    # Backwards-compatible alias for legacy callers expecting `activity_tab`.
+    @property
+    def activity_tab(self) -> List[str]:
+        return self.activity_entry + L("notification.activity_tab")
+
+    # --- Notifications screen signal (action_bar_title + list container) ---
+    _notifications_screen_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/activity_feed_list"]',
+    ])
+
+    @property
+    def notifications_screen_indicators(self) -> List[str]:
+        return self._notifications_screen_base + L("notification.notifications_screen_indicators")
+
+    # Legacy alias.
+    @property
+    def activity_screen_indicators(self) -> List[str]:
+        return self.notifications_screen_indicators + L("notification.activity_screen_indicators")
+
+    # --- A single notification row ---
+    notification_row: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/activity_feed_newsfeed_story_row"]',
+        # Legacy fallbacks (stale ids, kept only as a safety net):
         '//*[@resource-id="com.instagram.android:id/row_news_text"]',
         '//*[@resource-id="com.instagram.android:id/row_news_container"]',
-        '//android.widget.LinearLayout[contains(@resource-id, "news")]'
     ])
 
-    # === Username dans une notification ===
-    notification_username: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/row_news_text"]//android.widget.TextView[1]',
-        '//android.widget.TextView[contains(@text, "@")]'
+    # Legacy alias.
+    @property
+    def notification_item(self) -> List[str]:
+        return self.notification_row
+
+    # --- Filter button (top action bar) ---
+    _filter_button_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar_button_action"]',
     ])
 
-    # === Texte d'action de notification ===
+    @property
+    def filter_button(self) -> List[str]:
+        return self._filter_button_base + L("notification.filter_button")
+
+    # =========================================================================
+    # INLINE FAMILIES (inside an activity_feed_newsfeed_story_row, main screen)
+    # =========================================================================
+
+    # --- Follow-request inline phrase (row text) ---
+    @property
+    def inline_follow_request_text(self) -> List[str]:
+        return L("notification.inline_follow_request_text")
+
+    # --- Inline Confirm button on a follow-request story row ---
+    _inline_confirm_button_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/igds_button"]',
+    ])
+
+    @property
+    def inline_confirm_button(self) -> List[str]:
+        return self._inline_confirm_button_base + L("notification.inline_confirm_button")
+
+    # --- Inline dismiss (close) on a follow-request story row ---
+    @property
+    def inline_dismiss_button(self) -> List[str]:
+        return L("notification.inline_dismiss_button")
+
+    # --- Follow-requests GROUPED header row (opens the sub-screen) ---
+    @property
+    def follow_requests_header(self) -> List[str]:
+        return L("notification.follow_requests_header")
+
+    # Legacy alias.
+    @property
+    def follow_requests_section(self) -> List[str]:
+        return self.follow_requests_header + L("notification.follow_requests_section")
+
+    # --- Comment-mention row + Reply button ---
+    @property
+    def comment_mention_text(self) -> List[str]:
+        return L("notification.comment_mention_text")
+
+    @property
+    def reply_button(self) -> List[str]:
+        return L("notification.reply_button")
+
+    # --- Comment reply / like row text ---
+    @property
+    def comment_like_text(self) -> List[str]:
+        return L("notification.comment_like_text")
+
+    # --- Message row text ---
+    @property
+    def message_row_text(self) -> List[str]:
+        return L("notification.message_row_text")
+
+    # Generic notification action text (legacy keep-all).
     _notification_action_text_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_news_text"]',
     ])
@@ -38,20 +137,59 @@ class NotificationSelectors:
     def notification_action_text(self) -> List[str]:
         return self._notification_action_text_base + L("notification.notification_action_text")
 
-    # === Section demandes d'abonnement ===
     @property
-    def follow_requests_section(self) -> List[str]:
-        return L("notification.follow_requests_section")
+    def notification_username(self) -> List[str]:
+        return L("notification.notification_username")
 
-    # === Détection écran activité ===
-    _activity_screen_indicators_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, "news")]',
-        '//*[contains(@resource-id, "activity")]',
-        '//*[contains(@resource-id, "notification_inbox")]'
+    # =========================================================================
+    # FOLLOW-REQUESTS SUB-SCREEN ("Contacts a decouvrir" / "Discover people")
+    # =========================================================================
+
+    # --- Sub-screen signal (action_bar_title + accept resource-id present) ---
+    _follow_requests_screen_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/recycler_view"]',
+        '//*[@resource-id="com.instagram.android:id/row_requested_user_accept_secondary"]',
     ])
 
     @property
-    def activity_screen_indicators(self) -> List[str]:
-        return self._activity_screen_indicators_base + L("notification.activity_screen_indicators")
+    def follow_requests_screen_indicators(self) -> List[str]:
+        return self._follow_requests_screen_base + L("notification.follow_requests_screen_indicators")
+
+    # --- A request row + username ---
+    request_row: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_container"]',
+    ])
+
+    request_username: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
+    ])
+
+    # --- Accept button (Confirmer / Confirm) ---
+    _request_accept_button_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_requested_user_accept_secondary"]',
+    ])
+
+    @property
+    def request_accept_button(self) -> List[str]:
+        return self._request_accept_button_base + L("notification.request_accept_button")
+
+    # --- Ignore button (Supprimer / Remove) ---
+    _request_ignore_button_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_requested_user_ignore"]',
+    ])
+
+    @property
+    def request_ignore_button(self) -> List[str]:
+        return self._request_ignore_button_base + L("notification.request_ignore_button")
+
+    # --- Section "See all" / "Voir tout" header ---
+    _see_all_header_base: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_header_action"]',
+    ])
+
+    @property
+    def see_all_header(self) -> List[str]:
+        return self._see_all_header_base + L("notification.see_all_header")
+
 
 NOTIFICATION_SELECTORS = NotificationSelectors()

@@ -416,19 +416,76 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Top\")]",
     ],
     # --- notification ---
-    "notification.activity_screen_indicators": [
-        "//*[contains(@text, \"Activity\")]",
+    "notification.activity_entry": [
+        "//*[contains(@content-desc, \"Notifications\")]",
     ],
     "notification.activity_tab": [
         "//*[contains(@content-desc, \"Activity\")]",
     ],
+    "notification.notifications_screen_indicators": [
+        "//*[@resource-id=\"com.instagram.android:id/action_bar_title\" and @text=\"Notifications\"]",
+    ],
+    "notification.activity_screen_indicators": [
+        "//*[contains(@text, \"Activity\")]",
+    ],
+    "notification.filter_button": [
+        "//*[@resource-id=\"com.instagram.android:id/action_bar_button_action\" and @content-desc=\"Filter\"]",
+        "//*[contains(@content-desc, \"Filter\")]",
+        "//*[contains(@text, \"Filter\")]",
+    ],
+    "notification.inline_follow_request_text": [
+        "//android.widget.TextView[contains(@text, \"requested to follow you\")]",
+        "//android.widget.TextView[contains(@text, \"wants to follow you\")]",
+    ],
+    "notification.inline_confirm_button": [
+        "//*[@resource-id=\"com.instagram.android:id/igds_button\" and @text=\"Confirm\"]",
+        "//*[@resource-id=\"com.instagram.android:id/igds_button\" and contains(@text, \"Confirm\")]",
+    ],
+    "notification.inline_dismiss_button": [
+        "//android.widget.ImageView[@content-desc=\"Dismiss\"]",
+        "//*[contains(@content-desc, \"Dismiss\")]",
+    ],
+    "notification.follow_requests_header": [
+        "//*[contains(@text, \"Follow requests\")]",
+    ],
     "notification.follow_requests_section": [
         "//*[contains(@text, \"Follow requests\")]",
+    ],
+    "notification.comment_mention_text": [
+        "//android.widget.TextView[contains(@text, \"mentioned you in a comment\")]",
+    ],
+    "notification.reply_button": [
+        "//android.widget.Button[@text=\"Reply\"]",
+        "//*[contains(@text, \"Reply\")]",
+    ],
+    "notification.comment_like_text": [
+        "//android.widget.TextView[contains(@text, \"liked your comment\")]",
+    ],
+    "notification.message_row_text": [
+        "//android.widget.TextView[contains(@text, \"You have a message from\")]",
     ],
     "notification.notification_action_text": [
         "//android.widget.TextView[contains(@text, \"liked\")]",
         "//android.widget.TextView[contains(@text, \"started following\")]",
         "//android.widget.TextView[contains(@text, \"commented\")]",
+    ],
+    "notification.notification_username": [
+        "//android.widget.TextView[contains(@text, \"@\")]",
+    ],
+    "notification.follow_requests_screen_indicators": [
+        "//*[@resource-id=\"com.instagram.android:id/action_bar_title\" and @text=\"Discover people\"]",
+    ],
+    "notification.request_accept_button": [
+        "//*[@resource-id=\"com.instagram.android:id/row_requested_user_accept_secondary\" and @text=\"Confirm\"]",
+        "//*[@resource-id=\"com.instagram.android:id/row_requested_user_accept_secondary\" and contains(@text, \"Confirm\")]",
+    ],
+    "notification.request_ignore_button": [
+        "//*[@resource-id=\"com.instagram.android:id/row_requested_user_ignore\" and @text=\"Remove\"]",
+        "//*[@resource-id=\"com.instagram.android:id/row_requested_user_ignore\" and contains(@text, \"Remove\")]",
+    ],
+    "notification.see_all_header": [
+        "//*[@resource-id=\"com.instagram.android:id/row_header_action\" and contains(@text, \"See all\")]",
+        "//*[contains(@text, \"See all\")]",
     ],
     # --- popup ---
     "popup.automation_popup_indicators": [
