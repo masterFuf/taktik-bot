@@ -640,22 +640,38 @@ class LocalDatabaseService:
             logger.debug(f"Error updating scraping session count: {e}")
             return False
     
+    @staticmethod
+    def _parse_stored_utc(value, default):
+        """Parse a stored timestamp as aware UTC. Stored timestamps are UTC
+        (SQLite datetime('now')); naive strings are treated as UTC, not local, so
+        durations are not offset by the machine's timezone."""
+        from datetime import datetime, timezone
+        if not value:
+            return default
+        try:
+            dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        except ValueError:
+            return default
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
     def cancel_scraping_session(self, scraping_id: int, total_scraped: int) -> bool:
         """Mark a scraping session as cancelled (user stopped it)."""
-        from datetime import datetime
-        
+        from datetime import datetime, timezone
+
         session = self.get_scraping_session(scraping_id)
         if not session:
             return False
-        
-        start_time = datetime.fromisoformat(session['start_time'].replace('Z', '+00:00')) if session.get('start_time') else datetime.now()
-        end_time = datetime.now()
-        duration = int((end_time - start_time).total_seconds())
-        
+
+        # start_time is stored UTC (SQLite datetime('now')); compute the duration as a
+        # UTC delta (mixing local now() with a UTC start added the user's offset).
+        end_time = datetime.now(timezone.utc)
+        start_time = self._parse_stored_utc(session.get('start_time'), end_time)
+        duration = max(0, int((end_time - start_time).total_seconds()))
+
         return self.update_scraping_session(
             scraping_id,
             total_scraped=total_scraped,
-            end_time=end_time.isoformat(),
+            end_time=end_time.strftime('%Y-%m-%d %H:%M:%S'),
             duration_seconds=duration,
             status='CANCELLED'
         )
@@ -745,24 +761,25 @@ class LocalDatabaseService:
                                    csv_path: Optional[str] = None,
                                    error_message: Optional[str] = None) -> bool:
         """Mark a scraping session as completed."""
-        from datetime import datetime
-        
+        from datetime import datetime, timezone
+
         # Get session to calculate duration
         session = self.get_scraping_session(scraping_id)
         if not session:
             return False
-        
-        start_time = datetime.fromisoformat(session['start_time'].replace('Z', '+00:00')) if session.get('start_time') else datetime.now()
-        end_time = datetime.now()
-        duration = int((end_time - start_time).total_seconds())
-        
+
+        # start_time is stored UTC (SQLite datetime('now')); compute a UTC delta.
+        end_time = datetime.now(timezone.utc)
+        start_time = self._parse_stored_utc(session.get('start_time'), end_time)
+        duration = max(0, int((end_time - start_time).total_seconds()))
+
         status = 'COMPLETED' if not error_message else 'ERROR'
-        
+
         return self.update_scraping_session(
             scraping_id,
             total_scraped=total_scraped,
             csv_path=csv_path,
-            end_time=end_time.isoformat(),
+            end_time=end_time.strftime('%Y-%m-%d %H:%M:%S'),
             duration_seconds=duration,
             status=status,
             error_message=error_message

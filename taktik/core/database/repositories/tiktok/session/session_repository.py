@@ -1,7 +1,7 @@
 """TikTok session lifecycle repository methods."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -89,14 +89,20 @@ class TikTokSessionRepositoryMixin:
                 (session_id,),
             )
 
+            # start_time is stored UTC (SQLite datetime('now')); compute the duration
+            # as a UTC delta. Mixing datetime.now() (local) with a UTC start added the
+            # user's offset (e.g. +2h in CEST) to every duration.
             duration = 0
+            now_utc = datetime.now(timezone.utc)
             if row and row['start_time']:
                 start = datetime.fromisoformat(row['start_time'].replace('Z', '+00:00'))
-                duration = int((datetime.now() - start.replace(tzinfo=None)).total_seconds())
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=timezone.utc)
+                duration = max(0, int((now_utc - start).total_seconds()))
 
             update_data = {
                 'status': status,
-                'end_time': datetime.now().isoformat(),
+                'end_time': now_utc.strftime('%Y-%m-%d %H:%M:%S'),
                 'duration_seconds': duration,
                 'error_message': error_message,
             }
