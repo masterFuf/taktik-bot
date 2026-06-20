@@ -412,7 +412,10 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 username=username,
             )
             if comment_result.get('commented'):
-                self.logger.success(f"✅ Comment posted: '{comment_result.get('comment_text')}'")
+                # Text-only log: CommentBusiness already logged the "Comment posted"
+                # marker (and recorded the COMMENT). A second "Comment posted" line
+                # here was double-counted by the front's log parser (4 shown for 2).
+                self.logger.success(f"💬 Comment text: '{comment_result.get('comment_text')}'")
                 return True
             self.logger.debug("Comment not posted")
             return False
