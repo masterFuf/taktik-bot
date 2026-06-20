@@ -111,17 +111,24 @@ def sync_aliases(stats: Dict[str, Any], workflow_type: str) -> None:
     Call this before returning stats to callers that may read either key name.
     """
     if workflow_type == 'followers_direct':
-        stats['interacted'] = stats.get('users_interacted', stats.get('interacted', 0))
+        # profile_processing increments the ALIAS keys (interacted, visited, liked,
+        # followed, stories_viewed, story_likes, filtered); the canonical keys are
+        # never touched. Mirror the non-zero side both ways. Reading the canonical
+        # key first (the old behaviour) overwrote the real counts back to 0 — which
+        # is what produced "Workflow completed (0 interactions)" despite real activity.
+        stats['interacted'] = stats.get('interacted', 0) or stats.get('users_interacted', 0)
         stats['users_interacted'] = stats['interacted']
-        stats['visited'] = stats.get('profiles_visited', stats.get('visited', 0))
+        stats['visited'] = stats.get('visited', 0) or stats.get('profiles_visited', 0)
         stats['profiles_visited'] = stats['visited']
-        stats['liked'] = stats.get('likes_made', stats.get('liked', 0))
+        stats['liked'] = stats.get('liked', 0) or stats.get('likes_made', 0)
         stats['likes_made'] = stats['liked']
-        stats['followed'] = stats.get('follows_made', stats.get('followed', 0))
+        stats['followed'] = stats.get('followed', 0) or stats.get('follows_made', 0)
         stats['follows_made'] = stats['followed']
-        stats['story_likes'] = stats.get('stories_liked', stats.get('story_likes', 0))
+        stats['stories_viewed'] = stats.get('stories_viewed', 0) or stats.get('stories_watched', 0)
+        stats['stories_watched'] = stats['stories_viewed']
+        stats['story_likes'] = stats.get('story_likes', 0) or stats.get('stories_liked', 0)
         stats['stories_liked'] = stats['story_likes']
-        stats['filtered'] = stats.get('profiles_filtered', stats.get('filtered', 0))
+        stats['filtered'] = stats.get('filtered', 0) or stats.get('profiles_filtered', 0)
         stats['profiles_filtered'] = stats['filtered']
         stats['processed'] = stats['interacted']
     
