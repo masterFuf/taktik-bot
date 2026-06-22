@@ -87,6 +87,7 @@ AGENTS.md
 .agent_config_*.json
 .workflow_config_*.json
 .session_config_*.json
+.instagram_publish_config_*.json
 
 # Audit & security reports (internal, not versioned)
 AUDIT_REPORT.md
