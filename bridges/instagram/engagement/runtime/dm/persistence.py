@@ -128,8 +128,9 @@ def _messages_payload(conv: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "direction": "sent" if message.get("is_sent") else "received",
                 "text": message.get("text"),
                 "msg_type": message.get("type", "text"),
-                # Raw IG date/time label (e.g. "Jun 12, 10:29 AM"); None when not captured.
-                "sent_at": message.get("timestamp"),
+                # Raw IG date/time label (e.g. "Jun 12, 10:29 AM") -> displayed_at for display
+                # only; the message's sent_at keeps its sortable insertion-time default.
+                "displayed_at": message.get("timestamp"),
             }
         )
     return payload

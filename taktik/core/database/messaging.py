@@ -123,7 +123,8 @@ class DmConversationService:
                 is_group=is_group,
                 can_reply=can_reply,
                 last_message_text=last.get("text"),
-                last_message_at=last.get("sent_at"),
+                # Raw IG label of the last message (display); sortable order stays on updated_at.
+                last_message_at=last.get("displayed_at"),
                 last_message_is_ours=last_message_is_ours,
                 unread_count=unread_count,
                 message_count=len(messages),
@@ -138,7 +139,9 @@ class DmConversationService:
                     text=message.get("text"),
                     msg_type=message.get("msg_type", "text"),
                     seq=index,
-                    sent_at=message.get("sent_at"),
+                    # sent_at left to its insertion-time default (sortable); the raw IG label
+                    # goes to displayed_at for display only.
+                    displayed_at=message.get("displayed_at"),
                     ai_model=message.get("ai_model"),
                     ai_cost_usd=message.get("ai_cost_usd"),
                 )

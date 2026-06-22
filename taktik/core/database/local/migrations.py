@@ -35,6 +35,7 @@ from .migration_steps.scraped_profiles import run_scraped_profiles_unification_m
 from .migration_steps.accounts import run_accounts_unification_migrations
 from .migration_steps.gmail import run_gmail_accounts_fold
 from .migration_steps.social_profiles import run_social_profiles_unification_migrations
+from .migration_steps.messaging import run_messaging_migrations
 
 
 def run_migrations(conn: sqlite3.Connection) -> None:
@@ -59,6 +60,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_accounts_unification_migrations(cursor)
     run_social_profiles_unification_migrations(cursor)
     run_gmail_accounts_fold(cursor)  # Vague F2: gmail_accounts -> accounts + compat view
+    run_messaging_migrations(cursor)  # additive: dm_messages.displayed_at (raw IG date label)
     drop_legacy_discovery_tables(cursor)
     # Lot 4 (audit): runs last so every scraping_sessions column-add (platform) is already
     # applied; only acts on front-touched DBs that still carry the dead discovery column.

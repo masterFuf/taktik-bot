@@ -38,18 +38,23 @@ class DmMessageRepository(BaseRepository):
         msg_type: str = "text",
         seq: int = 0,
         sent_at: Optional[str] = None,
+        displayed_at: Optional[str] = None,
         ai_model: Optional[str] = None,
         ai_cost_usd: Optional[float] = None,
     ) -> bool:
-        """Insert one message (idempotent on re-read). Return True if a new row was written."""
+        """Insert one message (idempotent on re-read). Return True if a new row was written.
+
+        ``sent_at`` stays a sortable datetime (insertion time fallback / sync delta cursor);
+        ``displayed_at`` is the raw IG date/time label kept only for display.
+        """
         self.ensure_table()
         cursor = self.execute(
             """
             INSERT OR IGNORE INTO dm_messages (
                 platform, thread_sync_id, account_id, partner_username, direction, msg_type,
-                text, content_hash, seq, sent_at, ai_model, ai_cost_usd, sync_id
+                text, content_hash, seq, sent_at, displayed_at, ai_model, ai_cost_usd, sync_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, lower(hex(randomblob(16))))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?, lower(hex(randomblob(16))))
             """,
             (
                 platform,
@@ -62,6 +67,7 @@ class DmMessageRepository(BaseRepository):
                 _content_hash(direction, text),
                 seq,
                 sent_at,
+                displayed_at,
                 ai_model,
                 ai_cost_usd,
             ),

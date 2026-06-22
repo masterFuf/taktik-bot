@@ -98,3 +98,20 @@ def test_message_carries_ai_metadata(conn):
     row = messages.query_one("SELECT * FROM dm_messages")
     assert row["ai_model"] == "google/gemini-2.5-flash-lite"
     assert row["thread_sync_id"] == thread_sync_id
+
+
+def test_displayed_at_holds_the_raw_label_while_sent_at_stays_sortable(conn):
+    threads = DmThreadRepository(conn)
+    messages = DmMessageRepository(conn)
+    thread_sync_id = threads.upsert(platform="instagram", account_id=1, partner_username="bob")
+
+    messages.add_message(
+        platform="instagram", thread_sync_id=thread_sync_id, direction="received",
+        text="Coucou", displayed_at="Jun 12, 10:29 AM",
+    )
+
+    row = messages.query_one("SELECT * FROM dm_messages")
+    # The raw IG label is kept for display...
+    assert row["displayed_at"] == "Jun 12, 10:29 AM"
+    # ...while sent_at stays a sortable insertion datetime (the sync delta cursor), not the label.
+    assert row["sent_at"] and "Jun" not in row["sent_at"]
