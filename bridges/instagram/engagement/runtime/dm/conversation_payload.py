@@ -40,6 +40,36 @@ def is_already_processed(username_base: str, processed_usernames: set[str]) -> b
     return False
 
 
+def is_outgoing_last_message(content_desc: str, username: str, outgoing_prefixes) -> bool:
+    """True when the inbox row shows WE sent the last message (no incoming preview).
+
+    IG renders the row digest as "Sent <time>" / "Envoyé il y a <time>" when our message is
+    the last one, vs the interlocutor's message text when they wrote last. Detecting this from
+    the row's content-desc lets us skip re-opening conversations we already answered.
+    """
+    if not content_desc:
+        return False
+    rest = content_desc
+    if username and content_desc.startswith(username):
+        rest = content_desc[len(username):]
+    rest = rest.lstrip(", ").strip()
+    return any(rest.startswith(prefix) for prefix in outgoing_prefixes if prefix)
+
+
+def build_answered_conversation(*, real_username: str, inbox_username: str) -> dict:
+    """A lightweight 'already answered' conversation (we sent the last message) — emitted
+    without opening the thread. The full history (if any) is restored from the DB on the
+    front side; here we only flag it as answered so the inbox triage stays accurate."""
+    return {
+        "username": real_username,
+        "inbox_username": inbox_username,
+        "messages": [],
+        "is_group": False,
+        "can_reply": False,
+        "last_message_is_ours": True,
+    }
+
+
 def build_conversation_payload(
     *,
     real_username: str,
@@ -60,9 +90,11 @@ def build_conversation_payload(
 
 
 __all__ = [
+    "build_answered_conversation",
     "build_conversation_payload",
     "extract_inbox_username",
     "is_already_processed",
+    "is_outgoing_last_message",
     "normalize_inbox_username",
     "sort_threads_by_top",
 ]

@@ -112,6 +112,15 @@ class DirectMessageSelectors:
         '//*[contains(@content-desc, "non lu")]',
         '//*[contains(@content-desc, "unread")]'
     ])
+
+    # Prefixes IG met devant l'apercu d'une ligne d'inbox quand le DERNIER message est de NOUS
+    # (ex content-desc: "username, Sent 49m ago" / "username, Envoye il y a 49 min"). Sert au tri
+    # "deja repondu" sans ouvrir le fil. Base EN+FR ; autres langues via locales.
+    _outgoing_digest_prefixes_base: List[str] = field(default_factory=lambda: ["Sent", "Envoyé"])
+
+    @property
+    def outgoing_digest_prefixes(self) -> List[str]:
+        return self._outgoing_digest_prefixes_base + L("direct_message.outgoing_digest_prefixes")
     
     # === Barre de recherche DM ===
     search_bar: str = '//*[@resource-id="com.instagram.android:id/search_row"]'

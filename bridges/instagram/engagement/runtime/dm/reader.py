@@ -5,9 +5,11 @@ from __future__ import annotations
 import time
 
 from bridges.instagram.engagement.runtime.dm.conversation_payload import (
+    build_answered_conversation,
     build_conversation_payload,
     extract_inbox_username,
     is_already_processed,
+    is_outgoing_last_message,
     normalize_inbox_username,
     sort_threads_by_top,
 )
@@ -55,6 +57,27 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     username_lower, username_base = normalize_inbox_username(username)
                     if is_already_processed(username_base, processed_usernames):
                         logger.debug(f"Skipping already processed: {username}")
+                        continue
+
+                    # Smart triage: if WE sent the last message (row digest "Sent…"/"Envoyé…"),
+                    # don't reopen the thread — emit a lightweight "answered" conv (the front
+                    # restores the full history from the DB). Faster re-reads + accurate triage.
+                    if is_outgoing_last_message(content_desc, username, DM_SELECTORS.outgoing_digest_prefixes):
+                        processed_usernames.add(username_lower)
+                        conv = build_answered_conversation(real_username=username, inbox_username=username)
+                        conversations.append(conv)
+                        conversations_read += 1
+                        new_conversations_in_scroll += 1
+                        emit_dm_json(
+                            {
+                                "type": "conversation",
+                                "current": conversations_read,
+                                "total": max(limit, 0),
+                                "conversation": conv,
+                            },
+                            flush=True,
+                        )
+                        logger.info(f"Skipping (already answered, we sent last): {username}")
                         continue
 
                     logger.info(f"Opening conversation: {username}")
