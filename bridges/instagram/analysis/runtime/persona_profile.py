@@ -23,7 +23,10 @@ class PersonaProfileMixin:
         time.sleep(2)
 
         _ipc.status("detecting_account", "D\u00e9tection du compte connect\u00e9\u2026")
-        own_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=True)
+        # enrich=False: the "About this account" enrichment clicks the username header, which
+        # opens the account-switcher popup and pollutes the persona screenshot. We only copy
+        # basic fields (name/bio/website/counts) below, none of which need enrichment.
+        own_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=False)
         own_username = (own_info.get("username") or "").lower() if own_info else ""
 
         if own_username == self.target_username:
@@ -47,7 +50,8 @@ class PersonaProfileMixin:
             return None, {"success": False, "error": f"Cannot navigate to @{self.target_username}"}
 
         time.sleep(2)
-        profile_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=True)
+        # enrich=False: avoid the username-header click that opens the account switcher (see above).
+        profile_info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=False)
         self._copy_profile_info(profile_info, collected)
         return nav, None
 
