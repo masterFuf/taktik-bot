@@ -192,6 +192,9 @@ class DmConversationService:
                 partner_profile_id=partner_profile_id,
                 last_message_text=text,
                 last_message_is_ours=True,
+                # We just answered → the thread is no longer awaiting a reply from us. Without
+                # this, upsert's can_reply default (True) left answered threads "replyable".
+                can_reply=False,
             )
             msg_repo.add_message(
                 platform=platform,
