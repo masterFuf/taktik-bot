@@ -26,6 +26,17 @@ class DmMessageRepository(BaseRepository):
         create_messaging_indexes(cursor)
         self._conn.commit()
 
+    def next_seq(self, platform: str, thread_sync_id: str) -> int:
+        """Next display index for a thread (MAX(seq)+1) so an appended reply sorts last."""
+        self.ensure_table()
+        row = self.query_one(
+            "SELECT MAX(seq) AS max_seq FROM dm_messages "
+            "WHERE platform = ? AND thread_sync_id = ?",
+            (platform, thread_sync_id),
+        )
+        current = row["max_seq"] if row and row["max_seq"] is not None else -1
+        return int(current) + 1
+
     def add_message(
         self,
         *,

@@ -200,6 +200,8 @@ class DmConversationService:
                 partner_username=partner_username,
                 direction="sent",
                 text=text,
+                # Append after the existing thread messages (else seq=0 would sort it first).
+                seq=msg_repo.next_seq(platform, thread_sync_id),
                 ai_model=ai_model,
                 ai_cost_usd=ai_cost_usd,
             )

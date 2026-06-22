@@ -115,3 +115,17 @@ def test_displayed_at_holds_the_raw_label_while_sent_at_stays_sortable(conn):
     assert row["displayed_at"] == "Jun 12, 10:29 AM"
     # ...while sent_at stays a sortable insertion datetime (the sync delta cursor), not the label.
     assert row["sent_at"] and "Jun" not in row["sent_at"]
+
+
+def test_next_seq_appends_after_existing_messages(conn):
+    threads = DmThreadRepository(conn)
+    messages = DmMessageRepository(conn)
+    thread_sync_id = threads.upsert(platform="instagram", account_id=1, partner_username="bob")
+    messages.add_message(platform="instagram", thread_sync_id=thread_sync_id, direction="received", text="a", seq=0)
+    messages.add_message(platform="instagram", thread_sync_id=thread_sync_id, direction="received", text="b", seq=1)
+
+    # A reply must sort AFTER the read history (else seq=0 would place it first).
+    assert messages.next_seq("instagram", thread_sync_id) == 2
+    # An empty thread starts at 0.
+    empty = threads.upsert(platform="instagram", account_id=1, partner_username="alice")
+    assert messages.next_seq("instagram", empty) == 0
