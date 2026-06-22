@@ -35,6 +35,9 @@ def _account_id_for(bridge, username: str) -> Optional[int]:
     configure_db_service()
     account_id, _ = get_db_service().get_or_create_account(username, is_bot=True)
     bridge._dm_account_id = account_id
+    # Cache the handle too so the read result can tell the front which account this inbox
+    # belongs to (front loads that account's AI persona for reply generation).
+    bridge._dm_account_username = username
     return account_id
 
 

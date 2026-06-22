@@ -62,6 +62,9 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
             "success": True,
             "conversations": conversations,
             "total": len(conversations),
+            # Which of our accounts owns this inbox (read from the inbox header). Lets the
+            # front load that account's AI persona/tone for reply generation.
+            "account_username": getattr(bridge, "_dm_account_username", None),
         }
     )
 
