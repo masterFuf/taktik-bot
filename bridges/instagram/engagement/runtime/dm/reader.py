@@ -22,15 +22,16 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
     """Read DM conversations and extract visible message history."""
 
     def read_conversations(self, limit: int) -> list:
-        """Read DM conversations."""
+        """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom)."""
         conversations = []
         processed_usernames = set()
         processed_real_usernames = set()
         conversations_read = 0
         scroll_count = 0
-        max_scrolls = 10
+        read_all = limit <= 0
+        max_scrolls = 30 if read_all else 10
 
-        while conversations_read < limit and scroll_count < max_scrolls:
+        while (read_all or conversations_read < limit) and scroll_count < max_scrolls:
             threads = self.device.xpath(DM_SELECTORS.thread_container).all()
 
             if not threads:
@@ -42,7 +43,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             new_conversations_in_scroll = 0
 
             for thread_top, thread in threads_with_pos:
-                if conversations_read >= limit:
+                if not read_all and conversations_read >= limit:
                     break
 
                 try:
@@ -97,7 +98,8 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         {
                             "type": "conversation",
                             "current": conversations_read,
-                            "total": limit,
+                            # 0 total signals "all" to the front (indeterminate progress).
+                            "total": max(limit, 0),
                             "conversation": conv,
                         },
                         flush=True,
@@ -110,7 +112,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     self._return_to_inbox_if_needed()
                     continue
 
-            if conversations_read >= limit:
+            if not read_all and conversations_read >= limit:
                 break
 
             if self._is_accounts_to_follow_visible():
