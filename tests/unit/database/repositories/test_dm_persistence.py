@@ -74,6 +74,17 @@ def test_messages_dedup_on_reread_by_content(conn):
     assert rows[1]["direction"] == "sent"
 
 
+def test_find_account_id_by_partner(conn):
+    repo = DmThreadRepository(conn)
+    assert repo.find_account_id("instagram", "bob") is None
+
+    repo.upsert(platform="instagram", account_id=42, partner_username="Bob")
+
+    # The send path reuses this to attribute a reply without re-visiting our profile.
+    assert repo.find_account_id("instagram", "bob") == 42
+    assert repo.find_account_id("tiktok", "bob") is None
+
+
 def test_message_carries_ai_metadata(conn):
     threads = DmThreadRepository(conn)
     messages = DmMessageRepository(conn)

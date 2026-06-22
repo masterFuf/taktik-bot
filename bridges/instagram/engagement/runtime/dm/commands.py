@@ -7,6 +7,12 @@ import time
 
 from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_error, emit_dm_json
+from bridges.instagram.engagement.runtime.dm.persistence import (
+    account_id_for_send,
+    record_conversations,
+    record_reply,
+    resolve_account_id,
+)
 from bridges.instagram.engagement.runtime.dm.session import ensure_dm_inbox, return_to_inbox
 from bridges.instagram.runtime.ipc import logger
 
@@ -20,6 +26,10 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
         sys.exit(1)
 
     bridge.restart_instagram()
+
+    # Identify which of our accounts owns this inbox (visits our profile once) so the
+    # persisted threads link to the right account. Best-effort: None -> persistence skipped.
+    account_id = resolve_account_id(bridge)
 
     if not bridge.navigate_to_dm_inbox():
         emit_dm_error("Cannot navigate to DM inbox")
@@ -35,6 +45,9 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
         bridge._reset_inbox_to_top(strategy="auto")
     except Exception as exc:
         logger.warning(f"Could not reset DM inbox to top after read: {exc}")
+
+    # Persist the conversations (threads + messages). Best-effort, never blocks the result.
+    record_conversations(account_id, conversations)
 
     emit_dm_json(
         {
@@ -71,6 +84,9 @@ def cmd_send(device_id: str, username: str, message: str, package_name: str = No
 
     if bridge.send_message(message):
         return_to_inbox(bridge)
+        # Persist the reply (best-effort). Reuses the account of the thread read earlier;
+        # only resolves identity (profile visit) if this conversation was never read.
+        record_reply(account_id_for_send(bridge, username), username, message)
         emit_dm_json(
             {
                 "success": True,

@@ -30,6 +30,20 @@ class DmThreadRepository(BaseRepository):
         )
         return row["sync_id"] if row else None
 
+    def find_account_id(self, platform: str, partner_username: str) -> Optional[int]:
+        """Account that owns the most recent thread with this interlocutor (if known).
+
+        Lets the send path reuse the account resolved during a prior read instead of
+        re-visiting our own profile on every reply.
+        """
+        row = self.query_one(
+            "SELECT account_id FROM dm_threads "
+            "WHERE platform = ? AND partner_username = ? "
+            "ORDER BY updated_at DESC LIMIT 1",
+            (platform, partner_username.lower()),
+        )
+        return row["account_id"] if row else None
+
     def upsert(
         self,
         *,

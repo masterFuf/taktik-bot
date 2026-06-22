@@ -149,6 +149,20 @@ class DmConversationService:
             conn.close()
 
     @staticmethod
+    def lookup_account_id(platform: str, partner_username: str) -> Optional[int]:
+        """Return the account that owns an existing thread with this interlocutor, if any."""
+        conn = DmConversationService._open()
+        if conn is None:
+            return None
+        try:
+            return DmThreadRepository(conn).find_account_id(platform, partner_username)
+        except Exception as exc:
+            logger.warning(f"Error looking up DM account: {exc}")
+            return None
+        finally:
+            conn.close()
+
+    @staticmethod
     def record_sent_message(
         *,
         platform: str,
