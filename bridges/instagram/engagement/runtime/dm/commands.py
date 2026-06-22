@@ -37,6 +37,13 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
     # visit only if the header is unreadable. Best-effort: None -> persistence skipped.
     account_id = account_id_from_inbox_header(bridge)
 
+    # Announce the connected account as soon as the inbox opens, BEFORE reading the threads:
+    # the front uses it to load THIS account's history (and only this one — the page stays
+    # empty until the actually-connected account is known).
+    detected_account = getattr(bridge, "_dm_account_username", None)
+    if detected_account:
+        emit_dm_json({"type": "account_detected", "account_username": detected_account}, flush=True)
+
     time.sleep(2)
     conversations = bridge.read_conversations(limit)
 
