@@ -25,24 +25,23 @@ class DMMessageExtractionMixin:
 
         A conversation opens scrolled to the bottom (newest message). We capture the
         visible screen, then scroll UP a few times to load older messages for context,
-        accumulating de-duplicated messages until we have ``max_messages`` recent ones
-        or reach the top. Order stays oldest-first so the last item remains the newest
-        (``last_message_is_ours`` and the reply context rely on this).
+        merging each older screen onto the accumulator by SEQUENCE overlap until we have
+        ``max_messages`` recent ones or reach the top. Order stays oldest-first so the
+        last item remains the newest (``last_message_is_ours`` and the reply context rely
+        on this). Sequence-overlap (not per-message dedup) is what lets two messages with
+        identical text — "ok", "merci", ... — survive without being conflated.
         """
         collected = self._collect_current_screen()
-        seen = {self._message_key(message) for message in collected}
 
         for _ in range(max_scrolls):
             if len(collected) >= max_messages:
                 break
             self._scroll_to_older_messages()
-            screen = self._collect_current_screen()
-            fresh = [m for m in screen if self._message_key(m) not in seen]
-            if not fresh:
-                break  # no new messages above -> reached the top of the thread
-            seen.update(self._message_key(m) for m in fresh)
-            # Older messages sit above the overlap -> prepend them, preserving order.
-            collected = fresh + collected
+            older = self._collect_current_screen()
+            merged = self._merge_older(older, collected)
+            if len(merged) == len(collected):
+                break  # nothing new revealed -> reached the top of the thread
+            collected = merged
 
         if len(collected) > max_messages:
             collected = collected[-max_messages:]  # keep the most recent context
@@ -56,9 +55,28 @@ class DMMessageExtractionMixin:
             for message in collected
         ]
 
+    def _merge_older(self, older: list[dict], collected: list[dict]) -> list[dict]:
+        """Prepend an older screen to the accumulator by largest sequence overlap.
+
+        Both lists are oldest-first. The older screen overlaps the TOP (oldest part) of
+        ``collected`` at its own BOTTOM (newest part): find the largest k such that the
+        last k of ``older`` equal the first k of ``collected``, then prepend the
+        non-overlapping head ``older[:-k]``. Matching a contiguous block (rather than a
+        per-message set) keeps repeated identical messages distinct. If no overlap is
+        found (a swipe that overshot a full screen), prepend the whole older screen — a
+        gap is possible but bounded, and the swipe distance keeps overlap likely.
+        """
+        older_keys = [self._message_key(m) for m in older]
+        collected_keys = [self._message_key(m) for m in collected]
+        max_k = min(len(older), len(collected))
+        for k in range(max_k, 0, -1):
+            if older_keys[len(older) - k:] == collected_keys[:k]:
+                return older[: len(older) - k] + collected
+        return older + collected
+
     @staticmethod
     def _message_key(message: dict) -> tuple:
-        """Dedup key across scroll steps (a re-read of the same screen overlaps)."""
+        """Identity of a message for sequence matching across overlapping screens."""
         return (message["is_sent"], message["text"])
 
     def _collect_current_screen(self) -> list[dict]:
@@ -70,7 +88,13 @@ class DMMessageExtractionMixin:
         return all_items
 
     def _scroll_to_older_messages(self) -> None:
-        """Swipe down so the conversation reveals older messages above the viewport."""
+        """Reveal older messages above the viewport.
+
+        In a chat the newest message is at the bottom, so older history lives ABOVE.
+        Dragging the finger DOWNWARD (y 0.35h -> 0.78h) scrolls the list content down,
+        bringing older messages into view. The ~43% travel keeps part of the previous
+        screen visible so consecutive captures overlap (needed by ``_merge_older``).
+        """
         try:
             x = self.screen_width // 2
             self.device.swipe(

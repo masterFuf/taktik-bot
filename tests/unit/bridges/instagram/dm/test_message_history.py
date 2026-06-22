@@ -17,11 +17,11 @@ class FakeConversation(DMMessageExtractionMixin):
     """Simulates a chat: full history oldest->newest, a viewport that starts at the
     bottom (newest) and moves up by ``step`` on each scroll, with overlap."""
 
-    def __init__(self, total: int, screen_size: int = 8, step: int = 5):
-        self._full = [_msg(i) for i in range(total)]
+    def __init__(self, total: int = 0, screen_size: int = 8, step: int = 5, full: list | None = None):
+        self._full = full if full is not None else [_msg(i) for i in range(total)]
         self._screen_size = screen_size
         self._step = step
-        self._start = max(0, total - screen_size)
+        self._start = max(0, len(self._full) - screen_size)
 
     def _collect_current_screen(self) -> list[dict]:
         return list(self._full[self._start : self._start + self._screen_size])
@@ -62,6 +62,24 @@ def test_overlap_across_screens_is_deduplicated():
     # No duplicates despite overlapping viewports, full history recovered in order.
     assert texts == [f"m{i}" for i in range(12)]
     assert len(texts) == len(set(texts))
+
+
+def test_identical_text_messages_are_not_lost():
+    # Repeated identical texts (e.g. "ok" twice) must survive: a per-message dedup would
+    # conflate them; sequence-overlap matching keeps them distinct.
+    full = [
+        {"type": "text", "text": "ok", "is_sent": False},
+        {"type": "text", "text": "B", "is_sent": True},
+        {"type": "text", "text": "ok", "is_sent": False},
+        {"type": "text", "text": "C", "is_sent": True},
+    ]
+    convo = FakeConversation(full=full, screen_size=3, step=2)
+
+    messages = convo._collect_messages(max_messages=50, max_scrolls=10)
+
+    assert [(m["text"], m["is_sent"]) for m in messages] == [
+        ("ok", False), ("B", True), ("ok", False), ("C", True),
+    ]
 
 
 def test_stops_scrolling_when_no_new_messages_appear():
