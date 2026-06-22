@@ -9,6 +9,7 @@ from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_error, emit_dm_json
 from bridges.instagram.engagement.runtime.dm.persistence import (
     account_id_for_send,
+    account_id_from_inbox_header,
     record_conversations,
     record_reply,
     resolve_account_id,
@@ -27,13 +28,14 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
 
     bridge.restart_instagram()
 
-    # Identify which of our accounts owns this inbox (visits our profile once) so the
-    # persisted threads link to the right account. Best-effort: None -> persistence skipped.
-    account_id = resolve_account_id(bridge)
-
     if not bridge.navigate_to_dm_inbox():
         emit_dm_error("Cannot navigate to DM inbox")
         sys.exit(1)
+
+    # Identify which of our accounts owns this inbox so the persisted threads link to the
+    # right account. Read it from the inbox header (no navigation); fall back to a profile
+    # visit only if the header is unreadable. Best-effort: None -> persistence skipped.
+    account_id = account_id_from_inbox_header(bridge)
 
     time.sleep(2)
     conversations = bridge.read_conversations(limit)
@@ -45,6 +47,11 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
         bridge._reset_inbox_to_top(strategy="auto")
     except Exception as exc:
         logger.warning(f"Could not reset DM inbox to top after read: {exc}")
+
+    # Fallback: if the inbox header was unreadable, resolve our identity via a profile visit
+    # (navigates away, but reading is done). Cheap path is the header read above.
+    if account_id is None:
+        account_id = resolve_account_id(bridge)
 
     # Persist the conversations (threads + messages). Best-effort, never blocks the result.
     record_conversations(account_id, conversations)

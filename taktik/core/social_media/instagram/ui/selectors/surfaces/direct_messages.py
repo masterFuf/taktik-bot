@@ -220,6 +220,8 @@ class DirectMessageSelectors:
     inbox_action_bar_resource_id: str = "com.instagram.android:id/action_bar_container"
     inbox_action_bar: str = '//*[@resource-id="com.instagram.android:id/action_bar_container"]'
     inbox_title: str = '//*[@resource-id="com.instagram.android:id/igds_action_bar_title"]'
+    # Holds the logged-in account username (the "username v" switcher at the top of the inbox).
+    inbox_title_resource_id: str = "com.instagram.android:id/igds_action_bar_title"
     instagram_open_probe_resource_ids: List[str] = field(default_factory=lambda: [
         "com.instagram.android:id/action_bar_container",
         "com.instagram.android:id/tab_bar",

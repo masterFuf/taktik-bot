@@ -7,6 +7,7 @@ Security (AGENTS): never log DM content — only usernames / counts.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -16,10 +17,57 @@ from taktik.core.database.messaging import DmConversationService
 
 _PLATFORM = "instagram"
 
+# A real Instagram @handle: letters/digits/dot/underscore only. The DM inbox sometimes
+# shows a display name (spaces, emoji) instead — we won't link those to social_profiles
+# (a profile visit, deferred, is needed to resolve the real handle).
+_HANDLE_RE = re.compile(r"^[a-zA-Z0-9._]{1,30}$")
+
+
+def _looks_like_handle(value: str) -> bool:
+    return bool(value) and bool(_HANDLE_RE.match(value))
+
+
+def _account_id_for(bridge, username: str) -> Optional[int]:
+    """Map a detected logged-in username to an account id (created if needed) + cache it."""
+    username = (username or "").strip().lower()
+    if not _looks_like_handle(username):
+        return None
+    configure_db_service()
+    account_id, _ = get_db_service().get_or_create_account(username, is_bot=True)
+    bridge._dm_account_id = account_id
+    return account_id
+
+
+def account_id_from_inbox_header(bridge) -> Optional[int]:
+    """Identify the logged-in account by reading the inbox header (no navigation).
+
+    The DM inbox shows the account's @handle in the "username v" switcher at the top
+    (resource-id ``igds_action_bar_title``). Must be called while on the inbox. Returns
+    None if the header is unreadable, so the caller can fall back to a profile visit.
+    """
+    cached = getattr(bridge, "_dm_account_id", None)
+    if cached is not None:
+        return cached
+    try:
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+
+        element = bridge.device(resourceId=DM_SELECTORS.inbox_title_resource_id)
+        if not element.exists(timeout=2):
+            return None
+        username = (element.get_text() or "").strip()
+        account_id = _account_id_for(bridge, username)
+        if account_id is not None:
+            logger.info(f"[DM] Account from inbox header @{username.lower()} (id={account_id})")
+        return account_id
+    except Exception as exc:
+        logger.warning(f"[DM] Could not read account from inbox header: {exc}")
+        return None
+
 
 def resolve_account_id(bridge) -> Optional[int]:
     """Identify the logged-in account by visiting our own profile (cached on the bridge).
 
+    Fallback used only when the inbox header could not be read.
     Returns None on failure — persistence is then skipped, the DM flow continues.
     """
     cached = getattr(bridge, "_dm_account_id", None)
@@ -29,21 +77,18 @@ def resolve_account_id(bridge) -> Optional[int]:
         from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
         from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 
-        configure_db_service()
         nav = NavigationActions(bridge.device_manager)
         profile_biz = ProfileBusiness(bridge.device_manager)
 
         nav.navigate_to_profile_tab()
         time.sleep(1.5)
         info = profile_biz.get_complete_profile_info(navigate_if_needed=False, enrich=False)
-        username = (info.get("username") or "").strip().lower() if info else ""
-        if not username:
+        username = (info.get("username") or "").strip() if info else ""
+        account_id = _account_id_for(bridge, username)
+        if account_id is None:
             logger.warning("[DM] Could not detect the logged-in account; DM persistence skipped")
             return None
-
-        account_id, _ = get_db_service().get_or_create_account(username, is_bot=True)
-        bridge._dm_account_id = account_id
-        logger.info(f"[DM] Resolved logged-in account @{username} (id={account_id})")
+        logger.info(f"[DM] Resolved logged-in account @{username.lower()} (id={account_id})")
         return account_id
     except Exception as exc:
         logger.warning(f"[DM] Account identity resolution failed: {exc}")
@@ -59,15 +104,16 @@ def account_id_for_send(bridge, partner_username: str) -> Optional[int]:
     return resolve_account_id(bridge)
 
 
-def _get_or_create_partner_profile_id(username: str) -> Optional[int]:
-    """Register the interlocutor as a social_profiles row (username is enough to link)."""
+def _get_or_create_partner_profile_id(handle: str) -> Optional[int]:
+    """Register the interlocutor as a social_profiles row and return its id.
+
+    Only call with a real @handle (the repo is Instagram-scoped, platform implied).
+    """
     try:
-        profile_id, _ = get_db_service().get_or_create_profile(
-            {"username": username, "platform": _PLATFORM}
-        )
+        profile_id, _ = get_db_service().get_or_create_profile({"username": handle})
         return profile_id
     except Exception as exc:
-        logger.warning(f"[DM] get_or_create_profile failed for @{username}: {exc}")
+        logger.warning(f"[DM] get_or_create_profile failed for @{handle}: {exc}")
         return None
 
 
@@ -95,16 +141,23 @@ def record_conversations(account_id: Optional[int], conversations: List[Dict[str
 
     saved = 0
     for conv in conversations:
+        # Same identifier the front uses to reply (open_conversation) -> thread key matches send.
         username = (conv.get("username") or conv.get("inbox_username") or "").strip()
-        if not username:
+        messages = _messages_payload(conv)
+        # Skip non-conversations (e.g. the "your note" row at the top of the IG inbox has no messages).
+        if not username or not messages:
             continue
         try:
-            partner_profile_id = _get_or_create_partner_profile_id(username.lower())
+            # Only link to social_profiles when we have a real @handle; a display name
+            # (spaces/emoji) would pollute the table. Real-handle resolution via a profile
+            # visit is deferred.
+            link_handle = username.lower() if _looks_like_handle(username) else None
+            partner_profile_id = _get_or_create_partner_profile_id(link_handle) if link_handle else None
             DmConversationService.record_conversation(
                 platform=_PLATFORM,
                 account_id=account_id,
                 partner_username=username,
-                messages=_messages_payload(conv),
+                messages=messages,
                 partner_profile_id=partner_profile_id,
                 external_thread_id=conv.get("inbox_username"),
                 is_group=bool(conv.get("is_group")),
@@ -123,7 +176,8 @@ def record_reply(account_id: Optional[int], partner_username: str, message: str)
     if not account_id or not partner_username:
         return
     try:
-        partner_profile_id = _get_or_create_partner_profile_id(partner_username.lower())
+        link_handle = partner_username.lower() if _looks_like_handle(partner_username) else None
+        partner_profile_id = _get_or_create_partner_profile_id(link_handle) if link_handle else None
         DmConversationService.record_sent_message(
             platform=_PLATFORM,
             account_id=account_id,
@@ -135,4 +189,10 @@ def record_reply(account_id: Optional[int], partner_username: str, message: str)
         logger.warning(f"[DM] Failed to persist sent reply to @{partner_username}: {exc}")
 
 
-__all__ = ["resolve_account_id", "account_id_for_send", "record_conversations", "record_reply"]
+__all__ = [
+    "account_id_from_inbox_header",
+    "resolve_account_id",
+    "account_id_for_send",
+    "record_conversations",
+    "record_reply",
+]
