@@ -58,6 +58,11 @@ class DirectMessageSelectors:
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
     inbox_header_messages_text: str = "Messages"
     inbox_header_requests_text: str = "Requests"
+    # Title of the message-requests sub-screen (action bar). Used to confirm we left the
+    # primary inbox (the thread-list recyclerview exists on BOTH screens). Case-robust
+    # substrings cover EN "Message requests", FR "Demandes de messages" / "Invitations".
+    action_bar_title_resource_id: str = "com.instagram.android:id/action_bar_title"
+    requests_title_fragments: List[str] = field(default_factory=lambda: ["equest", "emande", "nvitation"])
     _inbox_top_visible_texts_base: List[str] = field(default_factory=lambda: [
         "Messages",
         "Requests",

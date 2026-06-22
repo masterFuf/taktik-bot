@@ -106,9 +106,12 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
             return False
         button.click()
         time.sleep(2)
-        # The requests screen reuses the inbox thread list recyclerview.
-        if self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id).exists(timeout=3):
-            logger.info("Message requests folder opened")
+        # The thread-list recyclerview exists on BOTH the inbox and the requests screen, so
+        # confirm via the action-bar title (e.g. "Message requests" / "Demandes" / "Invitations").
+        title = self.device(resourceId=DM_SELECTORS.action_bar_title_resource_id)
+        title_text = (title.get_text() or "") if title.exists(timeout=3) else ""
+        if any(fragment in title_text for fragment in DM_SELECTORS.requests_title_fragments):
+            logger.info(f"Message requests folder opened (title: {title_text})")
             return True
-        logger.warning("Tapped the requests entry but the requests list did not appear")
+        logger.warning(f"Tapped the requests entry but did not reach the requests screen (title: '{title_text}')")
         return False

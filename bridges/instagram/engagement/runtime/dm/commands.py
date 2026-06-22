@@ -83,9 +83,17 @@ def cmd_read_requests(device_id: str, limit: int, package_name: str = None):
         emit_dm_error("Cannot navigate to DM inbox")
         sys.exit(1)
 
+    # Resolve the owning account from the inbox header while we are still on the inbox (parity
+    # with cmd_read): lets the front load this account's persona even for a requests read.
+    account_id_from_inbox_header(bridge)
+    account_username = getattr(bridge, "_dm_account_username", None)
+
     if not bridge.open_requests_folder():
         # No pending requests (or the folder could not be opened): return an empty result.
-        emit_dm_json({"type": "result", "success": True, "conversations": [], "total": 0, "is_requests": True})
+        emit_dm_json({
+            "type": "result", "success": True, "conversations": [], "total": 0,
+            "is_requests": True, "account_username": account_username,
+        })
         return
 
     time.sleep(2)
@@ -99,6 +107,7 @@ def cmd_read_requests(device_id: str, limit: int, package_name: str = None):
             "conversations": conversations,
             "total": len(conversations),
             "is_requests": True,
+            "account_username": account_username,
         }
     )
 
