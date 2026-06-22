@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
@@ -11,6 +12,12 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages im
 # the conversation). A short conversation triggers at most one extra (no-op) scroll.
 _MAX_HISTORY_MESSAGES = 20
 _MAX_HISTORY_SCROLLS = 4
+
+# IG inserts a centered, full-width date/time header between message groups (e.g.
+# "10:29", "12 juin, 10:29", "Jun 12, 10:29 AM"). These have no resource-id, so we detect
+# them by a UNIVERSAL clock pattern (HH:MM / HHhMM) on a near-full-width TextView — this is
+# language-agnostic (no hardcoded month/relative label) and we keep the raw text for display.
+_TIME_RE = re.compile(r"\b\d{1,2}\s?[:hH]\s?\d{2}\b")
 
 
 class DMMessageExtractionMixin:
@@ -51,6 +58,7 @@ class DMMessageExtractionMixin:
                 "type": message["type"],
                 "text": message["text"],
                 "is_sent": message["is_sent"],
+                **({"timestamp": message["timestamp"]} if message.get("timestamp") else {}),
             }
             for message in collected
         ]
@@ -85,7 +93,52 @@ class DMMessageExtractionMixin:
         all_items.extend(self._collect_text_messages())
         all_items.extend(self._collect_reel_messages())
         all_items.sort(key=lambda x: x["top"])
+        self._attach_timestamps(all_items)
         return all_items
+
+    def _collect_timestamp_separators(self) -> list[dict]:
+        """The centered, full-width date/time headers IG shows between message groups.
+
+        No resource-id is available, so a header is recognised by a universal clock pattern
+        on a near-full-width TextView (left < 25% and right > 75% of the screen) — this never
+        matches a left/right-aligned message bubble, even one that contains a time. The raw
+        label is kept as-is (already localised by IG) for display.
+        """
+        seps: list[dict] = []
+        try:
+            text_views = self.device(className="android.widget.TextView")
+            for j in range(text_views.count):
+                try:
+                    element = text_views[j]
+                    label = (element.get_text() or "").strip()
+                    if not label or not _TIME_RE.search(label):
+                        continue
+                    bounds = element.info.get("bounds", {})
+                    left = bounds.get("left", 0)
+                    right = bounds.get("right", 0)
+                    if left < self.screen_width * 0.25 and right > self.screen_width * 0.75:
+                        seps.append({"top": bounds.get("top", 0), "label": label})
+                except Exception:
+                    continue
+        except Exception:
+            return []
+        seps.sort(key=lambda s: s["top"])
+        return seps
+
+    def _attach_timestamps(self, items: list[dict]) -> None:
+        """Tag each message with the nearest date/time header above it (raw label)."""
+        seps = self._collect_timestamp_separators()
+        if not seps:
+            return
+        for item in items:
+            label = None
+            for sep in seps:
+                if sep["top"] <= item["top"]:
+                    label = sep["label"]
+                else:
+                    break
+            if label:
+                item["timestamp"] = label
 
     def _scroll_to_older_messages(self) -> None:
         """Reveal older messages above the viewport.

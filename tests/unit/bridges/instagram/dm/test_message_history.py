@@ -98,3 +98,80 @@ def test_stops_scrolling_when_no_new_messages_appear():
     assert [m["text"] for m in messages] == ["m0", "m1", "m2", "m3"]
     # One probe scroll reveals nothing new -> we stop instead of scrolling max times.
     assert calls["scrolls"] == 1
+
+
+# ── Per-message timestamp capture (C1) ───────────────────────────────────────
+
+
+class _FakeElement:
+    def __init__(self, text: str, bounds: dict):
+        self._text = text
+        self._bounds = bounds
+
+    def get_text(self) -> str:
+        return self._text
+
+    @property
+    def info(self) -> dict:
+        return {"bounds": self._bounds}
+
+
+class _FakeQuery:
+    def __init__(self, elements: list):
+        self._elements = elements
+
+    @property
+    def count(self) -> int:
+        return len(self._elements)
+
+    def __getitem__(self, index: int):
+        return self._elements[index]
+
+
+class _SeparatorConversation(DMMessageExtractionMixin):
+    """Drives only the timestamp helpers with a faked TextView query + screen width."""
+
+    def __init__(self, elements: list, screen_width: int = 1080):
+        self._elements = elements
+        self.screen_width = screen_width
+
+    def device(self, className: str | None = None):
+        return _FakeQuery(self._elements)
+
+
+def test_separator_detection_keeps_only_full_width_clock_headers():
+    elements = [
+        _FakeElement("Jun 12, 10:29 AM", {"left": 0, "right": 1080, "top": 100}),   # header -> kept
+        _FakeElement("see you at 10:30", {"left": 60, "right": 600, "top": 200}),    # message bubble -> excluded
+        _FakeElement("Active now", {"left": 0, "right": 1080, "top": 50}),           # no clock -> excluded
+    ]
+    convo = _SeparatorConversation(elements)
+
+    seps = convo._collect_timestamp_separators()
+
+    assert [s["label"] for s in seps] == ["Jun 12, 10:29 AM"]
+
+
+def test_attach_timestamps_tags_each_message_with_nearest_header_above():
+    convo = _SeparatorConversation([])
+    convo._collect_timestamp_separators = lambda: [  # type: ignore[method-assign]
+        {"top": 100, "label": "12 juin, 10:29"},
+        {"top": 500, "label": "10:45"},
+    ]
+    items = [{"top": 120, "text": "a"}, {"top": 480, "text": "b"}, {"top": 600, "text": "c"}]
+
+    convo._attach_timestamps(items)
+
+    assert items[0]["timestamp"] == "12 juin, 10:29"
+    assert items[1]["timestamp"] == "12 juin, 10:29"  # 480 is still below the 10:45 header
+    assert items[2]["timestamp"] == "10:45"
+
+
+def test_attach_timestamps_leaves_messages_above_the_first_header_untagged():
+    convo = _SeparatorConversation([])
+    convo._collect_timestamp_separators = lambda: [{"top": 300, "label": "10:45"}]  # type: ignore[method-assign]
+    items = [{"top": 100, "text": "a"}]
+
+    convo._attach_timestamps(items)
+
+    assert "timestamp" not in items[0]

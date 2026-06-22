@@ -128,6 +128,8 @@ def _messages_payload(conv: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "direction": "sent" if message.get("is_sent") else "received",
                 "text": message.get("text"),
                 "msg_type": message.get("type", "text"),
+                # Raw IG date/time label (e.g. "Jun 12, 10:29 AM"); None when not captured.
+                "sent_at": message.get("timestamp"),
             }
         )
     return payload
