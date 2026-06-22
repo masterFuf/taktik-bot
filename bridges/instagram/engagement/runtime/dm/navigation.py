@@ -90,3 +90,25 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
 
         logger.error("Cannot find DM button - all methods failed")
         return False
+
+    def open_requests_folder(self) -> bool:
+        """From the DM inbox, open the message-requests folder (Requests/Demandes/Invitations).
+
+        The entry is the inbox header action button (resource-id ``header_action_button``).
+        Request rows reuse the same ``row_inbox_container`` structure as the primary inbox, so
+        the existing read loop can read them once we are on this screen. Returns False when
+        there is no requests entry (no pending requests) or the screen did not open.
+        """
+        logger.info("Opening message requests folder...")
+        button = self.device(resourceId=DM_SELECTORS.inbox_header_action_button_resource_id)
+        if not button.exists(timeout=3):
+            logger.info("No message-requests entry in the inbox header (no pending requests?)")
+            return False
+        button.click()
+        time.sleep(2)
+        # The requests screen reuses the inbox thread list recyclerview.
+        if self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id).exists(timeout=3):
+            logger.info("Message requests folder opened")
+            return True
+        logger.warning("Tapped the requests entry but the requests list did not appear")
+        return False

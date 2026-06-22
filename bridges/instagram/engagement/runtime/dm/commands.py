@@ -69,6 +69,40 @@ def cmd_read(device_id: str, limit: int, package_name: str = None):
     )
 
 
+def cmd_read_requests(device_id: str, limit: int, package_name: str = None):
+    """Read DM message requests (the Requests / Demandes folder). ``limit <= 0`` = all."""
+    bridge = DMBridge(device_id, package_name=package_name)
+
+    if not bridge.connect():
+        emit_dm_error("Failed to connect to device")
+        sys.exit(1)
+
+    bridge.restart_instagram()
+
+    if not bridge.navigate_to_dm_inbox():
+        emit_dm_error("Cannot navigate to DM inbox")
+        sys.exit(1)
+
+    if not bridge.open_requests_folder():
+        # No pending requests (or the folder could not be opened): return an empty result.
+        emit_dm_json({"type": "result", "success": True, "conversations": [], "total": 0, "is_requests": True})
+        return
+
+    time.sleep(2)
+    # Request rows reuse the inbox row structure, so the standard reader handles them.
+    conversations = bridge.read_conversations(limit)
+
+    emit_dm_json(
+        {
+            "type": "result",
+            "success": True,
+            "conversations": conversations,
+            "total": len(conversations),
+            "is_requests": True,
+        }
+    )
+
+
 def cmd_send(device_id: str, username: str, message: str, package_name: str = None):
     """Send a DM message. Ensures Instagram is open and we're in DM inbox before sending."""
     bridge = DMBridge(device_id, package_name=package_name)
@@ -135,13 +169,19 @@ def run_dm_cli(args: list[str]) -> None:
                 sys.exit(1)
             cmd_read(args[1], int(args[2]), package_name=package_name)
 
+        elif command == "read_requests":
+            if len(args) < 3:
+                emit_dm_error("Usage: dm_bridge.py read_requests <device_id> <limit>")
+                sys.exit(1)
+            cmd_read_requests(args[1], int(args[2]), package_name=package_name)
+
         elif command == "send":
             if len(args) < 4:
                 emit_dm_error("Usage: dm_bridge.py send <device_id> <username> <message>")
                 sys.exit(1)
             cmd_send(args[1], args[2], args[3], package_name=package_name)
 
-        elif command not in ["read", "send"] and len(args) >= 1:
+        elif command not in ["read", "read_requests", "send"] and len(args) >= 1:
             try:
                 limit = int(args[1]) if len(args) > 1 else 10
                 cmd_read(command, limit, package_name=package_name)
