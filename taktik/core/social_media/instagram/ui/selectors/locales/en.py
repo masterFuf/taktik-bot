@@ -783,6 +783,15 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Load more\"]",
         "//*[@content-desc=\"Show more\"]",
     ],
+    # --- settings (Settings and activity -> Language and translations) ---
+    "settings.language_and_translations_row": [
+        "//*[@text=\"Language and translations\"]",
+        "//*[contains(@text, \"Language and translations\")]",
+    ],
+    "settings.set_language_row": [
+        "//*[@resource-id=\"com.instagram.android:id/row_simple_text_title\" and @text=\"Set language\"]",
+        "//*[@text=\"Set language\"]",
+    ],
     # --- text_input ---
     "text_input.bio_field_selectors": [
         "//*[contains(@hint, \"Bio\")]",

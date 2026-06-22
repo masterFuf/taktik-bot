@@ -1,6 +1,11 @@
 """Instagram UI selectors organized by UI scope."""
 
-from .flows import UnfollowSelectors, UNFOLLOW_SELECTORS
+from .flows import (
+    SettingsSelectors,
+    SETTINGS_SELECTORS,
+    UnfollowSelectors,
+    UNFOLLOW_SELECTORS,
+)
 from .shell import (
     AuthSelectors,
     AUTH_SELECTORS,
@@ -73,6 +78,7 @@ __all__ = [
     "CONTENT_CREATION_SELECTORS",
     "DEBUG_SELECTORS",
     "FEED_SELECTORS",
+    "SETTINGS_SELECTORS",
     "UNFOLLOW_SELECTORS",
     "NOTIFICATION_SELECTORS",
     "HASHTAG_SELECTORS",
@@ -98,6 +104,7 @@ __all__ = [
     "ContentCreationSelectors",
     "DebugSelectors",
     "FeedSelectors",
+    "SettingsSelectors",
     "UnfollowSelectors",
     "NotificationSelectors",
     "HashtagSelectors",

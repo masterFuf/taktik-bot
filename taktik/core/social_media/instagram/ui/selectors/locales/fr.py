@@ -712,6 +712,15 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"voir plus\")]",
         "//*[contains(@content-desc, \"Voir plus\")]",
     ],
+    # --- settings (Paramètres et activité -> Langue et traduction) ---
+    "settings.language_and_translations_row": [
+        "//*[@text=\"Langue et traduction\"]",
+        "//*[contains(@text, \"Langue et traduction\")]",
+    ],
+    "settings.set_language_row": [
+        "//*[@resource-id=\"com.instagram.android:id/row_simple_text_title\" and @text=\"Définir la langue\"]",
+        "//*[@text=\"Définir la langue\"]",
+    ],
     # --- text_input ---
     "text_input.bio_field_selectors": [
         "//*[contains(@hint, \"Biographie\")]",

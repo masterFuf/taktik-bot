@@ -19,7 +19,8 @@
     "account": [
       "login",
       "register",
-      "logout"
+      "logout",
+      "change_language"
     ],
     "engagement": [
       "dm_read",
