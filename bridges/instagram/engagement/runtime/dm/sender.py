@@ -99,8 +99,62 @@ class DMSenderMixin:
         except Exception:
             pass
 
+    @staticmethod
+    def _normalize_message(text: str) -> str:
+        """Whitespace-collapsed, lowercased form for resilient bubble matching."""
+        return " ".join((text or "").split()).lower()
+
+    def _message_appears_as_last_sent(self, message: str) -> bool:
+        """True if ``message`` is the newest OUTGOING bubble of the open conversation.
+
+        A successful send drops our text at the bottom of the thread as an outgoing
+        bubble. Matching the bottom-most (newest) bubble — rather than "any bubble
+        with this text" — avoids a false positive when an identical message was sent
+        earlier in the same thread.
+        """
+        target = self._normalize_message(message)
+        if not target:
+            return False
+        bubbles = self._collect_text_messages()
+        if not bubbles:
+            return False
+        last = max(bubbles, key=lambda bubble: bubble["top"])
+        if not last["is_sent"]:
+            return False
+        actual = self._normalize_message(last["text"])
+        if not actual:
+            return False
+        if actual == target:
+            return True
+        # IG may elide a very long bubble; accept a prefix either way (guarded by a
+        # minimum length so short messages still require an exact match).
+        shorter = min(len(actual), len(target))
+        return shorter >= 12 and (
+            actual.startswith(target[:shorter]) or target.startswith(actual[:shorter])
+        )
+
+    def _verify_message_sent(self, message: str, attempts: int = 4, delay: float = 0.8) -> bool:
+        """Poll the thread until our message shows up as the last outgoing bubble.
+
+        The bubble appears a beat after the send round-trips, so we retry a few times
+        before giving up. Returning False here means the caller must NOT persist the
+        reply — the message never actually landed in the conversation.
+        """
+        for attempt in range(attempts):
+            if self._message_appears_as_last_sent(message):
+                return True
+            if attempt < attempts - 1:
+                time.sleep(delay)
+        return False
+
     def send_message(self, message: str) -> bool:
-        """Send a message in the current conversation with human-like timing."""
+        """Send a message in the current conversation with human-like timing.
+
+        Returns True ONLY once the message is confirmed as the newest outgoing bubble
+        in the thread. A click that does not actually submit (empty composer,
+        mis-targeted button, IG hiccup) returns False so the caller never persists a
+        phantom reply that was never delivered.
+        """
         logger.info("Sending message...")
 
         msg_input = self._find_message_input()
@@ -119,13 +173,18 @@ class DMSenderMixin:
         time.sleep(random.uniform(0.3, 0.5))
 
         send_btn = self._find_send_button()
-        if send_btn and send_btn.exists:
-            logger.info(f"Clicking send button: {send_btn.info}")
-            send_btn.click()
-            time.sleep(1)
-            logger.info("Message sent!")
-            return True
+        if not (send_btn and send_btn.exists):
+            logger.error("Send button not found - dumping UI elements for debugging")
+            self._log_clickable_elements_for_send_debug()
+            return False
 
-        logger.error("Send button not found - dumping UI elements for debugging")
-        self._log_clickable_elements_for_send_debug()
-        return False
+        logger.info(f"Clicking send button: {send_btn.info}")
+        send_btn.click()
+        time.sleep(1)
+
+        if not self._verify_message_sent(message):
+            logger.error("Send not confirmed: message did not appear in the conversation")
+            return False
+
+        logger.info("Message sent and confirmed in the conversation")
+        return True
