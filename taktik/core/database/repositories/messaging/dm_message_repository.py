@@ -1,0 +1,72 @@
+"""Repository for DM messages (append-only, linked to a thread)."""
+
+from __future__ import annotations
+
+import hashlib
+from typing import Optional
+
+from taktik.core.database.repositories._base.base_repository import BaseRepository
+from taktik.core.database.local.schemas.messaging import (
+    create_messaging_tables,
+    create_messaging_indexes,
+)
+
+
+def _content_hash(direction: str, text: Optional[str]) -> str:
+    """Stable per-message key for re-read dedup (no server message id available)."""
+    return hashlib.sha256(f"{direction}\n{text or ''}".encode()).hexdigest()
+
+
+class DmMessageRepository(BaseRepository):
+    """Append DM messages. Dedup by (thread, direction, content) on re-read."""
+
+    def ensure_table(self) -> None:
+        cursor = self._conn.cursor()
+        create_messaging_tables(cursor)
+        create_messaging_indexes(cursor)
+        self._conn.commit()
+
+    def add_message(
+        self,
+        *,
+        platform: str,
+        thread_sync_id: str,
+        direction: str,
+        text: Optional[str],
+        account_id: Optional[int] = None,
+        partner_username: Optional[str] = None,
+        msg_type: str = "text",
+        seq: int = 0,
+        sent_at: Optional[str] = None,
+        ai_model: Optional[str] = None,
+        ai_cost_usd: Optional[float] = None,
+    ) -> bool:
+        """Insert one message (idempotent on re-read). Return True if a new row was written."""
+        self.ensure_table()
+        cursor = self.execute(
+            """
+            INSERT OR IGNORE INTO dm_messages (
+                platform, thread_sync_id, account_id, partner_username, direction, msg_type,
+                text, content_hash, seq, sent_at, ai_model, ai_cost_usd, sync_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, lower(hex(randomblob(16))))
+            """,
+            (
+                platform,
+                thread_sync_id,
+                account_id,
+                partner_username.lower() if partner_username else None,
+                direction,
+                msg_type,
+                text,
+                _content_hash(direction, text),
+                seq,
+                sent_at,
+                ai_model,
+                ai_cost_usd,
+            ),
+        )
+        return cursor.rowcount > 0
+
+
+__all__ = ["DmMessageRepository"]
