@@ -12,8 +12,10 @@ legacy NotificationsBusiness "treat-notifications-as-a-profile-source" automatio
 
 Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog
 (language-neutral resource-ids + FR/EN locale overlay); no selector literal lives
-here (AGENTS invariant). Text classification is delegated to the pure
-``classifier`` module; per-row control pairing to ``row_layout``.
+here (AGENTS invariant). Rows are matched in a raw XML dump by SUBSTRING of the
+bare resource-id (IG renders feed rows bare, follow-requests qualified — a bare
+substring matches both). Text classification is delegated to ``classifier``; XML
+extraction to ``dump_parsing``; per-row geometry to ``row_layout``.
 
 Live step narration is emitted through an OPTIONAL injected ``notifier`` callback
 (Dependency Inversion: this core workflow never imports the bridge layer); it is a
@@ -22,6 +24,7 @@ no-op when run standalone.
 
 from __future__ import annotations
 
+import random
 import time
 from typing import Any, Callable, Dict, List, Optional
 
@@ -29,8 +32,7 @@ from loguru import logger
 from lxml import etree
 
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
-from .classifier import classify_row, extract_time, row_has_action
-from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
+from .dump_parsing import parse_feed_rows, parse_request_rows
 
 StepNotifier = Callable[..., None]
 
@@ -57,7 +59,7 @@ class NotificationsEngagementWorkflow:
             self.logger.debug(f"step notifier failed: {exc}")
 
     # ------------------------------------------------------------------
-    # Low-level UI helpers (mirror ChangeLanguageWorkflow)
+    # Low-level UI helpers
     # ------------------------------------------------------------------
     def _find_element(self, selectors: List[str]):
         for selector in selectors:
@@ -111,33 +113,37 @@ class NotificationsEngagementWorkflow:
                 self.logger.warning(f"Swipe failed: {exc}")
                 break
 
-    @staticmethod
-    def _element_bounds(element) -> Optional[tuple]:
-        """Best-effort bounds 4-tuple from a uiautomator2 XPath element."""
+    def _dump_root(self):
+        """Full (uncompressed) hierarchy dump parsed to an lxml root, or None."""
+        xml = None
         try:
-            bounds = element.bounds
-        except Exception:
-            bounds = None
-        if bounds and len(tuple(bounds)) == 4:
-            return tuple(bounds)
+            xml = self.device.dump_hierarchy(compressed=False)
+        except TypeError:
+            try:
+                xml = self.device.dump_hierarchy()
+            except Exception as exc:
+                self.logger.error(f"dump_hierarchy failed: {exc}")
+        except Exception as exc:
+            self.logger.error(f"dump_hierarchy failed: {exc}")
+        if not xml:
+            return None
         try:
-            return parse_bounds(element.attrib.get("bounds", ""))
-        except Exception:
+            return etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
+        except Exception as exc:
+            self.logger.error(f"XML parse failed: {exc}")
             return None
 
-    @staticmethod
-    def _element_text(element) -> str:
-        for getter in ("text",):
-            try:
-                value = getattr(element, getter)
-                if value:
-                    return str(value).strip()
-            except Exception:
-                continue
+    def _tap_point(self, point: Optional[tuple], name: str) -> bool:
+        if not point:
+            self.logger.warning(f"{name}: no tap point")
+            return False
         try:
-            return (element.attrib.get("text") or "").strip()
-        except Exception:
-            return ""
+            self.device.click(point[0], point[1])
+            self.logger.success(f"{name}: tapped @ {point}")
+            return True
+        except Exception as exc:
+            self.logger.error(f"{name}: tap failed: {exc}")
+            return False
 
     # ------------------------------------------------------------------
     # Navigation
@@ -146,7 +152,10 @@ class NotificationsEngagementWorkflow:
         return self._element_exists(self.selectors.notifications_screen_indicators)
 
     def _on_follow_requests_screen(self) -> bool:
-        return self._element_exists(self.selectors.follow_requests_screen_indicators)
+        if self._element_exists(self.selectors.follow_requests_screen_indicators):
+            return True
+        root = self._dump_root()
+        return root is not None and len(self._parse_requests(root)) > 0
 
     def ensure_notifications_screen(self) -> bool:
         """Open the notifications screen (tap the activity/heart entry) if needed."""
@@ -180,44 +189,26 @@ class NotificationsEngagementWorkflow:
     # Read pass — classify the activity feed (all families)
     # ------------------------------------------------------------------
     def _rows_on_screen(self) -> List[Dict[str, Any]]:
-        """Classify every story row currently rendered (one XML dump, no scroll)."""
-        try:
-            xml = self.device.dump_hierarchy()
-        except Exception as exc:
-            self.logger.error(f"dump_hierarchy failed: {exc}")
+        root = self._dump_root()
+        if root is None:
             return []
-        if not xml:
-            return []
-        try:
-            root = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
-        except Exception as exc:
-            self.logger.error(f"XML parse failed: {exc}")
-            return []
+        return parse_feed_rows(root, self.selectors.notification_row_resource_id,
+                               self.selectors.classifier_fragments)
 
-        fragments = self.selectors.classifier_fragments
-        row_rid = self.selectors.notification_row_resource_id
-        rows: List[Dict[str, Any]] = []
-        for node in root.iter("node"):
-            if row_rid not in (node.get("resource-id") or ""):
-                continue
-            parts: List[str] = []
-            for descendant in node.iter():
-                for attr in ("text", "content-desc"):
-                    val = descendant.get(attr)
-                    if val and val.strip():
-                        parts.append(val.strip())
-            full = " ".join(dict.fromkeys(parts)).strip()
-            if not full:
-                continue
-            ntype, username = classify_row(full, fragments)
-            rows.append({
-                "type": ntype,
-                "username": username,
-                "time": extract_time(full),
-                "text": full[:200],
-                "has_action": row_has_action(full),
-            })
-        return rows
+    def _parse_requests(self, root) -> List[Dict[str, Any]]:
+        return parse_request_rows(
+            root,
+            self.selectors.follow_request_row_resource_id,
+            self.selectors.follow_request_username_resource_id,
+            self.selectors.follow_request_accept_resource_id,
+            self.selectors.follow_request_ignore_resource_id,
+        )
+
+    def _request_rows(self) -> List[Dict[str, Any]]:
+        root = self._dump_root()
+        if root is None:
+            return []
+        return self._parse_requests(root)
 
     def scan(self, max_scrolls: int = 3) -> Dict[str, Any]:
         """Read + classify the activity feed across a few screens (all families).
@@ -230,13 +221,18 @@ class NotificationsEngagementWorkflow:
                     "has_grouped_requests": False, "message": "Notifications screen not reachable"}
 
         self._notify("scan", "running", "Reading notifications")
+        time.sleep(1.0)  # let the feed settle before the first dump
         has_grouped = self._element_exists(self.selectors.follow_requests_header)
 
         items: List[Dict[str, Any]] = []
         seen: set = set()
         for attempt in range(max_scrolls + 1):
+            rows = self._rows_on_screen()
+            if not rows and attempt == 0:
+                time.sleep(1.2)  # feed may still be rendering
+                rows = self._rows_on_screen()
             new_count = 0
-            for row in self._rows_on_screen():
+            for row in rows:
                 key = row["text"].lower()
                 if key in seen:
                     continue
@@ -261,41 +257,6 @@ class NotificationsEngagementWorkflow:
     # ------------------------------------------------------------------
     # Follow requests — sub-screen, row-scoped
     # ------------------------------------------------------------------
-    def _request_rows(self) -> List[Dict[str, Any]]:
-        """Pending requests on the sub-screen: ``[{username, y, accept?, ignore?}]``.
-
-        Each entry pairs a username with the Confirm/Delete button on its row by
-        vertical-center proximity (the controls live on the same horizontal band).
-        ``accept``/``ignore`` are tap points ``(x, y)`` when resolvable.
-        """
-        usernames = self._all_matches(self.selectors.request_username)
-        accepts = self._all_matches(self.selectors.request_accept_button)
-        ignores = self._all_matches(self.selectors.request_ignore_button)
-
-        accept_boxes = [self._element_bounds(e) for e in accepts]
-        ignore_boxes = [self._element_bounds(e) for e in ignores]
-        accept_ys = [vertical_center(b) for b in accept_boxes if b]
-        ignore_ys = [vertical_center(b) for b in ignore_boxes if b]
-        accept_valid = [b for b in accept_boxes if b]
-        ignore_valid = [b for b in ignore_boxes if b]
-
-        rows: List[Dict[str, Any]] = []
-        for element in usernames:
-            name = self._element_text(element)
-            box = self._element_bounds(element)
-            if not name or not box:
-                continue
-            y = vertical_center(box)
-            entry: Dict[str, Any] = {"username": name, "y": y, "accept": None, "ignore": None}
-            ai = index_of_closest_row(y, accept_ys)
-            if ai is not None:
-                entry["accept"] = center(accept_valid[ai])
-            ii = index_of_closest_row(y, ignore_ys)
-            if ii is not None:
-                entry["ignore"] = center(ignore_valid[ii])
-            rows.append(entry)
-        return rows
-
     def list_requests(self, max_requests: int = 50) -> Dict[str, Any]:
         """Enumerate pending follow requests (usernames) on the sub-screen."""
         if not self.ensure_follow_requests_screen():
@@ -305,37 +266,25 @@ class NotificationsEngagementWorkflow:
         seen: set = set()
         requests: List[Dict[str, str]] = []
         for _ in range(8):  # bounded scroll
+            added = False
             for row in self._request_rows():
                 name = row["username"]
                 if name in seen:
                     continue
                 seen.add(name)
                 requests.append({"username": name})
+                added = True
                 if len(requests) >= max_requests:
                     break
             if len(requests) >= max_requests:
                 break
-            before = len(seen)
             self._scroll_down(1)
-            # If a scroll revealed nothing new, we have reached the bottom.
-            if len(set(r["username"] for r in self._request_rows()) - seen) == 0 and len(seen) == before:
-                break
+            if not added and not any(r["username"] not in seen for r in self._request_rows()):
+                break  # nothing new after a scroll -> reached the bottom
 
         msg = f"{len(requests)} pending follow request(s)"
         self.logger.info(f"list_requests: {msg}")
         return {"success": True, "count": len(requests), "requests": requests, "message": msg}
-
-    def _tap_point(self, point: Optional[tuple], name: str) -> bool:
-        if not point:
-            self.logger.warning(f"{name}: no tap point")
-            return False
-        try:
-            self.device.click(point[0], point[1])
-            self.logger.success(f"{name}: tapped @ {point}")
-            return True
-        except Exception as exc:
-            self.logger.error(f"{name}: tap failed: {exc}")
-            return False
 
     def _act_on_request(self, username: str, action: str) -> Dict[str, Any]:
         """Confirm or delete the follow request of ``username`` (sub-screen)."""
@@ -347,8 +296,7 @@ class NotificationsEngagementWorkflow:
         # The row may be off-screen; scroll until the username is visible.
         target = None
         for _ in range(8):
-            rows = self._request_rows()
-            target = next((r for r in rows if r["username"] == username), None)
+            target = next((r for r in self._request_rows() if r["username"] == username), None)
             if target:
                 break
             self._scroll_down(1)
@@ -383,8 +331,6 @@ class NotificationsEngagementWorkflow:
         remaining request and re-read between taps. Stops at ``max_requests`` or
         when no request remains.
         """
-        import random
-
         if not self.ensure_follow_requests_screen():
             return {"success": False, "count": 0, "accepted": [],
                     "message": "Follow requests screen not reachable"}
@@ -392,8 +338,7 @@ class NotificationsEngagementWorkflow:
         accepted: List[str] = []
         self._notify("accept_all", "running", "Confirming follow requests")
         for _ in range(max_requests):
-            rows = self._request_rows()
-            row = next((r for r in rows if r.get("accept")), None)
+            row = next((r for r in self._request_rows() if r.get("accept")), None)
             if not row:
                 break
             username = row["username"]
@@ -415,9 +360,9 @@ class NotificationsEngagementWorkflow:
     def open_mention(self, username: str = "") -> Dict[str, Any]:
         """Tap the Reply affordance on a comment-mention row to open its thread.
 
-        v1 opens the reply UI on the device (the first mention row, or the one
-        whose text contains ``username``). Typing the reply text is staged for a
-        later increment (needs a reply-content source: templates or AI).
+        v1 opens the reply UI on the device (the first reply affordance found).
+        Typing the reply text is staged for a later increment (needs a
+        reply-content source: templates or AI).
         """
         result = {"success": False, "username": username, "message": ""}
         if not self.ensure_notifications_screen():

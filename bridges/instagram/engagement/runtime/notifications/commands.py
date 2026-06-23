@@ -9,18 +9,22 @@ from bridges.instagram.engagement.runtime.notifications.events import emit_notif
 from bridges.instagram.runtime.ipc import logger
 
 
-def _connect(device_id: str, package_name: str = None) -> NotificationsBridge:
+def _connect(device_id: str, package_name: str = None, *, restart: bool = True) -> NotificationsBridge:
     bridge = NotificationsBridge(device_id, package_name=package_name)
     if not bridge.connect():
         emit_notif_error("Failed to connect to device")
         sys.exit(1)
-    bridge.restart_instagram()
+    # Only the scan entry point restarts Instagram (fresh state). Per-row actions
+    # (accept/ignore/reply) operate on the screen the user just scanned, so they
+    # skip the costly force-stop + relaunch and just navigate from the current state.
+    if restart:
+        bridge.restart_instagram()
     return bridge
 
 
 def cmd_scan(device_id: str, limit: int, package_name: str = None) -> None:
     """Read + classify the activity feed (all notification families)."""
-    bridge = _connect(device_id, package_name)
+    bridge = _connect(device_id, package_name, restart=True)
     # `limit` is interpreted as how many extra screens to scroll (0 = visible only).
     workflow = bridge.build_workflow()
     result = workflow.scan(max_scrolls=max(0, limit))
@@ -38,7 +42,7 @@ def cmd_scan(device_id: str, limit: int, package_name: str = None) -> None:
 
 def cmd_list_requests(device_id: str, limit: int, package_name: str = None) -> None:
     """Enumerate pending follow requests (usernames) on the sub-screen."""
-    bridge = _connect(device_id, package_name)
+    bridge = _connect(device_id, package_name, restart=False)
     workflow = bridge.build_workflow()
     result = workflow.list_requests(max_requests=limit if limit > 0 else 50)
     emit_notif_json({
@@ -52,19 +56,19 @@ def cmd_list_requests(device_id: str, limit: int, package_name: str = None) -> N
 
 
 def cmd_accept(device_id: str, username: str, package_name: str = None) -> None:
-    bridge = _connect(device_id, package_name)
+    bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().accept_request(username)
     emit_notif_json({"type": "result", "command": "accept", **result}, flush=True)
 
 
 def cmd_ignore(device_id: str, username: str, package_name: str = None) -> None:
-    bridge = _connect(device_id, package_name)
+    bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().ignore_request(username)
     emit_notif_json({"type": "result", "command": "ignore", **result}, flush=True)
 
 
 def cmd_accept_all(device_id: str, limit: int, package_name: str = None) -> None:
-    bridge = _connect(device_id, package_name)
+    bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().accept_all_requests(max_requests=limit if limit > 0 else 50)
     emit_notif_json({
         "type": "result",
@@ -77,7 +81,7 @@ def cmd_accept_all(device_id: str, limit: int, package_name: str = None) -> None
 
 
 def cmd_reply(device_id: str, username: str, package_name: str = None) -> None:
-    bridge = _connect(device_id, package_name)
+    bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().open_mention(username)
     emit_notif_json({"type": "result", "command": "reply", **result}, flush=True)
 

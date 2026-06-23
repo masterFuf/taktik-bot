@@ -62,10 +62,16 @@ class NotificationSelectors:
         '//*[@resource-id="com.instagram.android:id/row_news_container"]',
     ])
 
-    # Bare resource-id of a story row (for raw-XML scanning where a full XPath is
-    # not usable, e.g. concatenating every descendant text of a row). Centralized
-    # here so scan code carries no hardcoded resource-id literal.
-    notification_row_resource_id: str = "com.instagram.android:id/activity_feed_newsfeed_story_row"
+    # BARE resource-ids (no package prefix) for raw-XML scanning, where matching
+    # is done by SUBSTRING. IG renders activity-feed rows with a bare id and the
+    # follow-requests rows fully-qualified; a bare substring matches BOTH forms,
+    # so scan/parse code stays robust across screens and IG versions. Centralized
+    # here so that code carries no hardcoded resource-id literal.
+    notification_row_resource_id: str = "activity_feed_newsfeed_story_row"
+    follow_request_row_resource_id: str = "follow_list_container"
+    follow_request_username_resource_id: str = "follow_list_username"
+    follow_request_accept_resource_id: str = "row_requested_user_accept_secondary"
+    follow_request_ignore_resource_id: str = "row_requested_user_ignore"
 
     # Legacy alias.
     @property
