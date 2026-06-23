@@ -211,13 +211,16 @@ class NotificationsEngagementWorkflow:
         return self._parse_requests(root)
 
     def scan(self, max_scrolls: int = 3) -> Dict[str, Any]:
-        """Read + classify the activity feed across a few screens (all families).
+        """Read + classify the activity feed across a few screens (all families),
+        AND navigate into the follow-requests sub-screen to enumerate the pending
+        requests in the same pass (so the page gets the actionable list directly).
 
-        Returns ``{success, count, by_type, items, has_grouped_requests}``. Items
-        are de-duplicated by text and kept in chronological (top-to-bottom) order.
+        Returns ``{success, count, by_type, items, requests, has_grouped_requests}``.
+        Items are de-duplicated by text, top-to-bottom; the grouped "follow requests"
+        digest row is dropped from ``items`` since it is surfaced via ``requests``.
         """
         if not self.ensure_notifications_screen():
-            return {"success": False, "count": 0, "by_type": {}, "items": [],
+            return {"success": False, "count": 0, "by_type": {}, "items": [], "requests": [],
                     "has_grouped_requests": False, "message": "Notifications screen not reachable"}
 
         self._notify("scan", "running", "Reading notifications")
@@ -244,25 +247,41 @@ class NotificationsEngagementWorkflow:
             elif attempt < max_scrolls and not new_count:
                 break  # nothing new revealed -> reached the bottom
 
+        # Drop the grouped "follow requests" digest row from the feed: it is not a
+        # real activity item, it is the entry to the requests sub-screen (surfaced
+        # via `requests`). Heuristic, locale-aware (matches the header fragments).
+        header_frags = [f.lower() for f in self.selectors.follow_requests_header_text]
+        items = [it for it in items
+                 if not (it["type"] in ("follow_request", "other")
+                         and any(f in it["text"].lower() for f in header_frags))]
+
+        # Navigate INTO the follow requests (same pass) so the page can act on them.
+        requests: List[Dict[str, str]] = []
+        if has_grouped or any(it["type"] == "follow_request" for it in items):
+            self._notify("open_requests", "running", "Opening follow requests")
+            requests = self._collect_requests(max_requests=50)
+
         by_type: Dict[str, int] = {}
         for item in items:
             by_type[item["type"]] = by_type.get(item["type"], 0) + 1
         summary = ", ".join(f"{k}={v}" for k, v in sorted(by_type.items())) or "none"
-        msg = f"{len(items)} notifications [{summary}]"
+        msg = f"{len(items)} notifications [{summary}], {len(requests)} request(s)"
         self.logger.info(f"scan: {msg}")
         self._notify("scan", "done", msg)
-        return {"success": True, "count": len(items), "by_type": by_type,
-                "items": items, "has_grouped_requests": has_grouped, "message": msg}
+        return {"success": True, "count": len(items), "by_type": by_type, "items": items,
+                "requests": requests, "has_grouped_requests": has_grouped, "message": msg}
 
     # ------------------------------------------------------------------
     # Follow requests — sub-screen, row-scoped
     # ------------------------------------------------------------------
-    def list_requests(self, max_requests: int = 50) -> Dict[str, Any]:
-        """Enumerate pending follow requests (usernames) on the sub-screen."""
-        if not self.ensure_follow_requests_screen():
-            return {"success": False, "count": 0, "requests": [],
-                    "message": "Follow requests screen not reachable"}
+    def _collect_requests(self, max_requests: int = 50) -> List[Dict[str, str]]:
+        """Open the follow-requests sub-screen and enumerate pending usernames.
 
+        Returns ``[]`` if the sub-screen is unreachable. Scrolls (bounded) to gather
+        requests beyond the first screen.
+        """
+        if not self.ensure_follow_requests_screen():
+            return []
         seen: set = set()
         requests: List[Dict[str, str]] = []
         for _ in range(8):  # bounded scroll
@@ -281,7 +300,11 @@ class NotificationsEngagementWorkflow:
             self._scroll_down(1)
             if not added and not any(r["username"] not in seen for r in self._request_rows()):
                 break  # nothing new after a scroll -> reached the bottom
+        return requests
 
+    def list_requests(self, max_requests: int = 50) -> Dict[str, Any]:
+        """Enumerate pending follow requests (usernames) on the sub-screen."""
+        requests = self._collect_requests(max_requests)
         msg = f"{len(requests)} pending follow request(s)"
         self.logger.info(f"list_requests: {msg}")
         return {"success": True, "count": len(requests), "requests": requests, "message": msg}

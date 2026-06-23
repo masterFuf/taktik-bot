@@ -35,6 +35,7 @@ def cmd_scan(device_id: str, limit: int, package_name: str = None) -> None:
         "count": result.get("count", 0),
         "by_type": result.get("by_type", {}),
         "items": result.get("items", []),
+        "requests": result.get("requests", []),
         "has_grouped_requests": result.get("has_grouped_requests", False),
         "message": result.get("message", ""),
     }, flush=True)

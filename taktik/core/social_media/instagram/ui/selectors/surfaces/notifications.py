@@ -115,6 +115,12 @@ class NotificationSelectors:
     def follow_requests_header(self) -> List[str]:
         return L("notification.follow_requests_header")
 
+    # Raw text fragments of the grouped digest row (NOT xpath) — to drop that row
+    # from the classified feed. Union FR+EN so it works whatever the row language.
+    @property
+    def follow_requests_header_text(self) -> List[str]:
+        return L_all("notification.follow_requests_digest")
+
     # Legacy alias.
     @property
     def follow_requests_section(self) -> List[str]:

@@ -407,6 +407,11 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \"activity_feed_newsfeed_story_row\")][.//*[contains(@text, \"Demandes de suivi\")]]",
         "//*[contains(@text, \"Demandes de suivi\")]",
     ],
+    # Raw text of the grouped follow-requests digest row (NOT an xpath) — used to
+    # drop that digest row from the classified feed since requests are surfaced apart.
+    "notification.follow_requests_digest": [
+        "Demandes de suivi",
+    ],
     "notification.follow_requests_section": [
         "//*[contains(@text, \"Demandes d'abonnement\")]",
     ],
