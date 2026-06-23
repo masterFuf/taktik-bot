@@ -233,3 +233,93 @@ def scan(a, p):
     msg = f"notifications.scan: {len(items)} notifications [{summary}]"
     logger.info(msg)
     return {"success": True, "count": len(items), "by_type": by_type, "items": items, "message": msg}
+
+
+# =============================================================================
+# Engagement workflow — REAL methods (scroll, username-targeting, OCR, click-in).
+# Each builds the production NotificationsEngagementWorkflow on the warm Lab device
+# (no notifier/relauncher: narration + self-heal are no-ops for an isolated unit).
+# =============================================================================
+
+def _workflow(a):
+    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+        NotificationsEngagementWorkflow,
+    )
+    device_id = getattr(a.device, "device_id", None) or "lab"
+    return NotificationsEngagementWorkflow(a.device, device_id)
+
+
+@action("notifications.scan_full")
+def scan_full(a, p):
+    """FULL engagement read: scroll + 'Show more' + OCR-expand truncated rows +
+    emoji recovery + follow-requests collection (vs the read-only notifications.scan
+    probe). Param: max_scrolls (int, default 3). The workflow self-navigates."""
+    max_scrolls = int(p.get("max_scrolls") or 3)
+    return _workflow(a).scan(max_scrolls=max_scrolls)
+
+
+@action("notifications.list_requests")
+def list_requests(a, p):
+    """Enumerate pending follow-request usernames on the sub-screen (progressive-render
+    polling + scroll). Param: max_requests (int, default 50)."""
+    max_requests = int(p.get("max_requests") or 50)
+    return _workflow(a).list_requests(max_requests=max_requests)
+
+
+@action("notifications.accept_request")
+def accept_request(a, p):
+    """Confirm ONE follow request BY USERNAME (row-targeted, scrolls to find it).
+    Param: username (required)."""
+    username = (p.get("username") or "").strip()
+    if not username:
+        return {"success": False, "message": "username param is required"}
+    return _workflow(a).accept_request(username)
+
+
+@action("notifications.ignore_request")
+def ignore_request(a, p):
+    """Delete ONE follow request BY USERNAME (row-targeted). Param: username (required)."""
+    username = (p.get("username") or "").strip()
+    if not username:
+        return {"success": False, "message": "username param is required"}
+    return _workflow(a).ignore_request(username)
+
+
+@action("notifications.accept_all_requests")
+def accept_all_requests(a, p):
+    """Batch-confirm pending follow requests (top-of-list, re-read between taps).
+    Param: max_requests (int, default 50)."""
+    max_requests = int(p.get("max_requests") or 50)
+    return _workflow(a).accept_all_requests(max_requests=max_requests)
+
+
+@action("notifications.like_comment")
+def like_comment(a, p):
+    """Tap the inline 'Like' on the comment/mention row of ``username`` (scrolls to
+    reveal it). Param: username (optional → likes the first likeable row)."""
+    return _workflow(a).like_comment((p.get("username") or "").strip())
+
+
+@action("notifications.open_mention")
+def open_mention(a, p):
+    """Open the comment thread of ``username``'s row WITHOUT typing (row-scoped).
+    Param: username (optional → first reply affordance)."""
+    return _workflow(a).open_mention((p.get("username") or "").strip())
+
+
+@action("notifications.reply_to_comment")
+def reply_to_comment(a, p):
+    """Full reply: click-in the row → type → send → back. Params: username, text
+    (empty text → just opens the reply UI)."""
+    return _workflow(a).reply_to_comment((p.get("username") or "").strip(), (p.get("text") or "").strip())
+
+
+@action("notifications.expand_more")
+def expand_more(a, p):
+    """Expand ONE truncated comment/mention row in view via OCR ('… more'/'… suite').
+    Device must be on the notifications screen with a truncated row visible."""
+    wf = _workflow(a)
+    wf._expanded_keys = set()
+    tried = wf._expand_one_more()
+    return {"success": bool(tried),
+            "message": "expanded a truncated row" if tried else "no truncated row in view (or OCR unavailable)"}

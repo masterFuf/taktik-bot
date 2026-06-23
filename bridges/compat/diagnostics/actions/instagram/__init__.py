@@ -16,6 +16,7 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.instagram import keyboard  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import navigation  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import notifications  # noqa: F401
+    from bridges.compat.diagnostics.actions.instagram import ocr  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import popups  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import post  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import profile  # noqa: F401

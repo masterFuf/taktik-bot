@@ -96,3 +96,45 @@ def scroll_grid(a, p):
     ok = a.scroll._strong_flick("up")
     return {"success": bool(ok), "message": f"grid flick done={ok}"}
 
+
+# =============================================================================
+# Bio / enrichment reads (ProfileExtractionMixin via a.detection). Device must be
+# on a PROFILE screen. No hardcoded selectors (PROFILE_SELECTORS catalog).
+# =============================================================================
+
+@action("profile.get_biography")
+def get_biography(a, p):
+    """Read the bio text of the current profile (single value)."""
+    bio = a.detection.get_biography_from_profile()
+    return {"success": bool(bio), "message": (bio or "")[:200], "details": {"biography": bio}}
+
+
+@action("profile.get_text_batch")
+def get_text_batch(a, p):
+    """Read username + full_name + biography in a single XML dump."""
+    data = a.detection.get_profile_text_batch() or {}
+    return {"success": bool(data.get("username") or data.get("biography")),
+            "message": f"@{data.get('username')} — bio={(data.get('biography') or '')[:60]}",
+            "details": data}
+
+
+@action("profile.get_enriched")
+def get_enriched(a, p):
+    """Read the ENRICHED profile: username/full_name/bio/category/website/linked +
+    the bio_truncated flag (whether a '… more'/'… plus' expander is present)."""
+    data = a.detection.get_enriched_profile_data() or {}
+    return {"success": bool(data.get("username") or data.get("biography")),
+            "message": (f"@{data.get('username')} | bio_truncated={data.get('bio_truncated')} | "
+                        f"bio={(data.get('biography') or '')[:50]}"),
+            "details": data}
+
+
+@action("profile.expand_bio_more")
+def expand_bio_more(a, p):
+    """Expand a TRUNCATED bio via OCR (locate '… more'/'… plus'/'… suite' in the bio
+    region and tap it). No-op if the bio isn't truncated or OCR is unavailable. Device
+    must be on a profile screen whose bio is truncated."""
+    ok = a.detection.click_bio_more_button()
+    return {"success": bool(ok),
+            "message": "bio expanded via OCR" if ok else "bio not truncated / expander not located"}
+
