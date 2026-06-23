@@ -34,6 +34,50 @@ def row_has_action(text: str) -> bool:
     return any(word in low for word in _ACTION_WORDS)
 
 
+# Trailing affordance labels (button captions) that leak into a row's concatenated
+# text and should be stripped from the DISPLAY label (FR + EN).
+# Distinct button captions only — bare words like "suivre"/"follow"/"like" are
+# intentionally excluded because they also end the type phrases ("à vous suivre",
+# "liked your photo").
+_TRAILING_AFFORDANCES = (
+    "suivre en retour", "follow back", "envoyer un message", "send a message", "send message",
+    "bouton j'aime", "bouton jaime", "like button", "répondre", "repondre", "reply",
+    "confirmer", "confirm", "supprimer", "delete", "remove", "télécharger", "telecharger",
+    "download", "voir plus", "afficher plus", "show more", "see more", "se réabonner",
+    "se reabonner",
+)
+_TRUNCATION_RE = re.compile(r"(?:…|\.\.\.)\s*(?:suite|more|plus)\b", re.IGNORECASE)
+_TRAILING_TIME_RE = re.compile(r"\b\d+\s*(?:min|mois|sem|[smhjdwy])\s*$", re.IGNORECASE)
+_TRIM_CHARS = " ·-—:•."
+
+
+def clean_label(full: str) -> str:
+    """Human display label for a notification row: drop the truncation marker, the
+    trailing affordance captions (Reply/Like/Follow back/…) and the trailing time
+    token that leak into the concatenated row text. Pure, locale-aware (FR+EN)."""
+    text = full or ""
+    match = _TRUNCATION_RE.search(text)
+    if match:
+        text = text[:match.start()]  # keep only the content before "… suite/more"
+    text = " ".join(text.split())
+    changed = True
+    while changed and text:
+        changed = False
+        stripped = text.rstrip(_TRIM_CHARS)
+        low = stripped.lower()
+        for affordance in _TRAILING_AFFORDANCES:
+            if low == affordance or low.endswith(" " + affordance):
+                stripped = stripped[: len(stripped) - len(affordance)].rstrip(_TRIM_CHARS)
+                changed = True
+                break
+        time_match = _TRAILING_TIME_RE.search(stripped)
+        if time_match:
+            stripped = stripped[: time_match.start()].rstrip(_TRIM_CHARS)
+            changed = True
+        text = stripped
+    return text.strip(_TRIM_CHARS)
+
+
 def classify_row(full: str, fragments: Dict[str, List[str]]) -> Tuple[str, str]:
     """Return ``(type, username)`` for a row's concatenated text.
 
@@ -62,4 +106,4 @@ def classify_row(full: str, fragments: Dict[str, List[str]]) -> Tuple[str, str]:
     return "other", ""
 
 
-__all__ = ["classify_row", "extract_time", "row_has_action", "_TIME_RE", "_ACTION_WORDS"]
+__all__ = ["classify_row", "clean_label", "extract_time", "row_has_action", "_TIME_RE", "_ACTION_WORDS"]

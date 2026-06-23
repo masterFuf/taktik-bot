@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from .classifier import classify_row, extract_time, row_has_action
+from .classifier import classify_row, clean_label, extract_time, row_has_action
 from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
 
 
@@ -47,6 +47,7 @@ def parse_feed_rows(root, row_bare_id: str, fragments: Dict[str, List[str]]) -> 
             "username": username,
             "time": extract_time(full),
             "text": full[:200],
+            "label": clean_label(full),  # display label, trailing affordances/time/"…suite" stripped
             "has_action": row_has_action(full),
         })
     return rows
