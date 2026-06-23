@@ -263,7 +263,6 @@ class NotificationsEngagementWorkflow:
     def _parse_requests(self, root) -> List[Dict[str, Any]]:
         return parse_request_rows(
             root,
-            self.selectors.follow_request_row_resource_id,
             self.selectors.follow_request_username_resource_id,
             self.selectors.follow_request_accept_resource_id,
             self.selectors.follow_request_ignore_resource_id,
@@ -389,6 +388,18 @@ class NotificationsEngagementWorkflow:
             self._scroll_down(1)
             if not added and not any(r["username"] not in seen for r in self._request_rows()):
                 break  # nothing new after a scroll -> reached the bottom
+
+        if not requests:
+            # Diagnostic: we reached the sub-screen but parsed nothing. Log the raw
+            # node counts so a 'sparse dump / wrong id' case is distinguishable from
+            # a pairing bug without needing another device dump.
+            root = self._dump_root()
+            if root is not None:
+                u = sum(1 for n in root.iter("node")
+                        if self.selectors.follow_request_username_resource_id in (n.get("resource-id") or ""))
+                a = sum(1 for n in root.iter("node")
+                        if self.selectors.follow_request_accept_resource_id in (n.get("resource-id") or ""))
+                self.logger.warning(f"collect_requests: 0 parsed (dump has {u} username, {a} accept nodes)")
         return requests
 
     def list_requests(self, max_requests: int = 50) -> Dict[str, Any]:

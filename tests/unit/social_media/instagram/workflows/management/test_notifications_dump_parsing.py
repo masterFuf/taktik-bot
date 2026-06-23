@@ -30,18 +30,30 @@ FEED_XML = """<hierarchy>
   </node>
 </hierarchy>"""
 
-# Follow-requests sub-screen: FULLY-QUALIFIED resource-ids, buttons carry bounds.
+# Follow-requests sub-screen, WITH containers (usernames + buttons carry bounds on
+# the same horizontal band).
 REQUESTS_XML = """<hierarchy>
   <node resource-id="com.instagram.android:id/follow_list_container">
-    <node resource-id="com.instagram.android:id/follow_list_username" text="samir.akarioh" />
+    <node resource-id="com.instagram.android:id/follow_list_username" text="samir.akarioh" bounds="[200,455][500,520]" />
     <node resource-id="com.instagram.android:id/row_requested_user_accept_secondary" bounds="[523,442][769,530]" />
     <node resource-id="com.instagram.android:id/row_requested_user_ignore" bounds="[780,442][1036,530]" />
   </node>
   <node resource-id="com.instagram.android:id/follow_list_container">
-    <node resource-id="com.instagram.android:id/follow_list_username" text="dj_syl_" />
+    <node resource-id="com.instagram.android:id/follow_list_username" text="dj_syl_" bounds="[200,658][500,720]" />
     <node resource-id="com.instagram.android:id/row_requested_user_accept_secondary" bounds="[523,645][769,733]" />
     <node resource-id="com.instagram.android:id/row_requested_user_ignore" bounds="[780,645][1036,733]" />
   </node>
+</hierarchy>"""
+
+# Same rows but FLATTENED (no containers) — simulates a compressed live dump where
+# the layout containers are collapsed. The parser must still pair by proximity.
+REQUESTS_XML_FLAT = """<hierarchy>
+  <node resource-id="com.instagram.android:id/follow_list_username" text="samir.akarioh" bounds="[200,455][500,520]" />
+  <node resource-id="com.instagram.android:id/row_requested_user_accept_secondary" bounds="[523,442][769,530]" />
+  <node resource-id="com.instagram.android:id/row_requested_user_ignore" bounds="[780,442][1036,530]" />
+  <node resource-id="com.instagram.android:id/follow_list_username" text="dj_syl_" bounds="[200,658][500,720]" />
+  <node resource-id="com.instagram.android:id/row_requested_user_accept_secondary" bounds="[523,645][769,733]" />
+  <node resource-id="com.instagram.android:id/row_requested_user_ignore" bounds="[780,645][1036,733]" />
 </hierarchy>"""
 
 
@@ -63,7 +75,6 @@ def test_parse_feed_rows_matches_bare_resource_id():
 def test_parse_request_rows_username_and_tap_points():
     rows = parse_request_rows(
         _root(REQUESTS_XML),
-        "follow_list_container",
         "follow_list_username",
         "row_requested_user_accept_secondary",
         "row_requested_user_ignore",
@@ -75,8 +86,22 @@ def test_parse_request_rows_username_and_tap_points():
     assert rows[1]["accept"] == (646, 689)
 
 
-def test_parse_request_rows_empty_when_no_container():
-    rows = parse_request_rows(_root(FEED_XML), "follow_list_container",
-                              "follow_list_username", "row_requested_user_accept_secondary",
+def test_parse_request_rows_container_independent():
+    # A compressed dump drops the containers; pairing by vertical proximity must
+    # still resolve each username to the Confirm/Delete button on its row.
+    rows = parse_request_rows(
+        _root(REQUESTS_XML_FLAT),
+        "follow_list_username",
+        "row_requested_user_accept_secondary",
+        "row_requested_user_ignore",
+    )
+    assert [r["username"] for r in rows] == ["samir.akarioh", "dj_syl_"]
+    assert rows[0]["accept"] == (646, 486)
+    assert rows[1]["accept"] == (646, 689)
+
+
+def test_parse_request_rows_empty_when_no_requests():
+    rows = parse_request_rows(_root(FEED_XML), "follow_list_username",
+                              "row_requested_user_accept_secondary",
                               "row_requested_user_ignore")
     assert rows == []

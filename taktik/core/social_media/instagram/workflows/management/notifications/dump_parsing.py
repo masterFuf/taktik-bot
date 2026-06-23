@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from .classifier import classify_row, extract_time, row_has_action
-from .row_layout import center, parse_bounds
+from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
 
 
 def _iter_rows(root, bare_id: str):
@@ -52,43 +52,58 @@ def parse_feed_rows(root, row_bare_id: str, fragments: Dict[str, List[str]]) -> 
     return rows
 
 
-def _center_of(node, bare_id: str) -> Optional[Tuple[int, int]]:
-    for descendant in node.iter():
-        if bare_id in (descendant.get("resource-id") or ""):
-            box = parse_bounds(descendant.get("bounds", ""))
-            if box:
-                return center(box)
-    return None
+def _vcenter(node) -> Optional[float]:
+    box = parse_bounds(node.get("bounds", ""))
+    return vertical_center(box) if box else None
 
 
-def _text_of(node, bare_id: str) -> str:
-    for descendant in node.iter():
-        if bare_id in (descendant.get("resource-id") or ""):
-            return (descendant.get("text") or "").strip()
-    return ""
+def _collect_buttons(root, bare_id: str) -> List[Tuple[Tuple[int, int], float]]:
+    """``[(center_xy, vertical_center)]`` for every node matching ``bare_id``."""
+    out: List[Tuple[Tuple[int, int], float]] = []
+    for node in root.iter("node"):
+        if bare_id not in (node.get("resource-id") or ""):
+            continue
+        box = parse_bounds(node.get("bounds", ""))
+        if box:
+            out.append((center(box), vertical_center(box)))
+    return out
 
 
 def parse_request_rows(
     root,
-    container_bare_id: str,
     username_bare_id: str,
     accept_bare_id: str,
     ignore_bare_id: str,
 ) -> List[Dict[str, Any]]:
     """Pending follow-request rows: ``[{username, accept:(x,y)|None, ignore:(x,y)|None}]``.
 
-    Username + Confirm/Delete tap points are resolved WITHIN each request
-    container, so a tap always targets the right row (no cross-row mismatch).
+    Container-INDEPENDENT: a compressed live ``dump_hierarchy`` collapses the
+    layout containers (``follow_list_container``), but the username TextView and
+    the Confirm/Delete buttons survive (text / clickable). So we collect every
+    username node and every Confirm/Delete button across the tree and pair them by
+    vertical-center proximity (each request row sits on its own horizontal band).
+    ``follow_list_username`` is request-only (suggestions use a different id), so
+    there is no cross-section contamination.
     """
+    accepts = _collect_buttons(root, accept_bare_id)
+    ignores = _collect_buttons(root, ignore_bare_id)
+    accept_ys = [y for _, y in accepts]
+    ignore_ys = [y for _, y in ignores]
+
     rows: List[Dict[str, Any]] = []
-    for container in _iter_rows(root, container_bare_id):
-        username = _text_of(container, username_bare_id)
-        if not username:
+    for node in root.iter("node"):
+        if username_bare_id not in (node.get("resource-id") or ""):
             continue
+        username = (node.get("text") or "").strip()
+        y = _vcenter(node)
+        if not username or y is None:
+            continue
+        ai = index_of_closest_row(y, accept_ys)
+        ii = index_of_closest_row(y, ignore_ys)
         rows.append({
             "username": username,
-            "accept": _center_of(container, accept_bare_id),
-            "ignore": _center_of(container, ignore_bare_id),
+            "accept": accepts[ai][0] if ai is not None else None,
+            "ignore": ignores[ii][0] if ii is not None else None,
         })
     return rows
 
