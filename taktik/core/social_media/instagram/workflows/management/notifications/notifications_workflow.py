@@ -40,7 +40,6 @@ from ....ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .dump_parsing import (
     concat_text,
     find_inline_like_target,
-    find_more_targets,
     find_row_reply_target,
     node_bounds_deep,
     node_text_deep,
@@ -362,35 +361,6 @@ class NotificationsEngagementWorkflow:
         headers = parse_section_headers(root, self.selectors.notification_section_header_resource_id)
         return rows, headers
 
-    def _expand_one_more(self) -> bool:
-        """Tap the inline "… more" / "… suite" expander on ONE not-yet-tried truncated
-        row so its full text is captured. Returns True if a row was tapped (caller
-        re-reads, then calls again to expand the next one).
-
-        Best-effort: the expander is a ClickableSpan with no bounds, so the tap point
-        is estimated; if it misses and opens the post instead, we recover (back to the
-        feed). Each row is tried at most once (tracked by its truncated text) so a miss
-        never loops. Comment/mention/like text on this surface contains an `@mention`
-        span (line 1) that would navigate — the estimate targets the LAST line, away
-        from it.
-        """
-        root = self._dump_root()
-        if root is None:
-            return False
-        for target in find_more_targets(root, self.selectors.notification_row_resource_id):
-            if target["key"] in self._expanded_keys:
-                continue
-            self._expanded_keys.add(target["key"])
-            self._notify("expand", "running", "Expanding a comment")
-            self._tap_point(target["point"], "expand more")
-            time.sleep(0.7)
-            if not self._on_notifications_screen():
-                # Missed the span and opened the post — recover back to the feed.
-                self.logger.info("expand more: missed span (opened post), recovering")
-                self._return_to_notifications()
-            return True
-        return False
-
     def _parse_requests(self, root) -> List[Dict[str, Any]]:
         return parse_request_rows(
             root,
@@ -445,23 +415,12 @@ class NotificationsEngagementWorkflow:
         items: List[Dict[str, Any]] = []
         seen: set = set()
         seen_sections: set = set()
-        self._expanded_keys: set = set()
         stale = 0
         iteration_cap = max(max_scrolls + 1, 12)
         for index in range(iteration_cap):
             rows, headers = self._dump_screen()
             if not rows and not items and index == 0:
                 time.sleep(1.2)  # feed may still be rendering
-                rows, headers = self._dump_screen()
-            # Expand any truncated comment/mention/like rows in view ("… more" / "… suite")
-            # so the FULL text is captured, then re-read. Bounded + best-effort.
-            expanded_any = False
-            for _ in range(4):
-                if not self._expand_one_more():
-                    break
-                expanded_any = True
-                time.sleep(0.4)
-            if expanded_any:
                 rows, headers = self._dump_screen()
             # Narrate each newly-revealed time bucket ("Today", "Yesterday", "Last 7
             # days"…) as the scroll uncovers it (Taktik Agent live card).

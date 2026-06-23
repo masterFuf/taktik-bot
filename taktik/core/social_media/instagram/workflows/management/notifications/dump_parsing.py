@@ -13,7 +13,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from .classifier import classify_row, clean_label, extract_time, row_has_action
-from .classifier import _TRUNCATION_RE
 from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
 
 
@@ -147,43 +146,6 @@ def _find_row_control(
     return None
 
 
-# Estimated location of the inline "… more" / "… suite" expander WITHIN its text node.
-# The expander is a ClickableSpan (no node of its own), appended just before the trailing
-# time at the END of the (truncated, hence near-full) last line. We estimate it relative to
-# the text node bounds so it scales across font sizes / devices: ~18% of the width in from
-# the right edge, ~12% of the height up from the bottom (last line).
-_MORE_FRAC_X = 0.18
-_MORE_FRAC_Y = 0.12
-
-
-def find_more_targets(root, row_bare_id: str) -> List[Dict[str, Any]]:
-    """Estimated tap points for the inline "more"/"suite" expander on truncated rows.
-
-    Returns ``[{key, point:(x,y)}]`` — ``key`` is the truncated text (used to detect
-    expansion by growth / avoid re-tapping). Best-effort: the marker is a span with no
-    bounds, so ``point`` is an estimate from the text node geometry (caller verifies the
-    tap by re-reading, and recovers if it accidentally opened the post).
-    """
-    out: List[Dict[str, Any]] = []
-    for row in _iter_rows(root, row_bare_id):
-        text_node = None
-        text_val = ""
-        for descendant in row.iter():
-            value = descendant.get("text") or ""
-            if value and _TRUNCATION_RE.search(value):
-                text_node, text_val = descendant, value
-                break
-        if text_node is None:
-            continue
-        box = parse_bounds(text_node.get("bounds", ""))
-        if not box:
-            continue
-        x1, y1, x2, y2 = box
-        point = (int(x2 - _MORE_FRAC_X * (x2 - x1)), int(y2 - _MORE_FRAC_Y * (y2 - y1)))
-        out.append({"key": text_val, "point": point})
-    return out
-
-
 def parse_section_headers(root, header_bare_id: str) -> List[str]:
     """Visible time-section headers, top-to-bottom (deduped, order-preserving).
 
@@ -274,5 +236,5 @@ def parse_request_rows(
 
 __all__ = [
     "concat_text", "parse_feed_rows", "parse_request_rows", "parse_section_headers",
-    "find_inline_like_target", "find_row_reply_target", "find_more_targets",
+    "find_inline_like_target", "find_row_reply_target",
 ]
