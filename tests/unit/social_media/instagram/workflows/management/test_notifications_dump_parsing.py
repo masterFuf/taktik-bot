@@ -10,6 +10,7 @@ from lxml import etree
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     find_inline_like_target,
     find_row_reply_target,
+    find_truncated_targets,
     parse_feed_rows,
     parse_request_rows,
 )
@@ -167,5 +168,28 @@ def test_find_row_reply_none_when_row_has_no_reply():
     point = find_row_reply_target(_root(REPLY_XML), "activity_feed_newsfeed_story_row",
                                   ["Répondre", "Reply"], "bob")
     assert point is None
+
+
+# Truncated rows ("… more" / "… suite") -> the OCR region = the text node's REAL bounds.
+TRUNC_XML = """<hierarchy>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,800][1080,1000]">
+    <node text="alice a commenté : blah blah… suite 1 sem" bounds="[253,820][893,990]" />
+  </node>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,1000][1080,1100]">
+    <node text="bob a aimé votre photo. 4 j" bounds="[253,1020][893,1090]" />
+  </node>
+</hierarchy>"""
+
+
+def test_find_truncated_targets_returns_text_node_region():
+    targets = find_truncated_targets(_root(TRUNC_XML), "activity_feed_newsfeed_story_row")
+    assert len(targets) == 1  # only the truncated row
+    assert targets[0]["region"] == (253, 820, 893, 990)  # REAL text-node bounds, no estimate
+    assert "suite" in targets[0]["key"].lower()
+
+
+def test_find_truncated_targets_skips_untruncated():
+    xml = TRUNC_XML.replace("blah blah… suite 1 sem", "short comment 1 sem")
+    assert find_truncated_targets(_root(xml), "activity_feed_newsfeed_story_row") == []
 
 

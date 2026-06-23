@@ -445,6 +445,12 @@ STRINGS: Dict[str, List[str]] = {
     "notification.reply_label": [
         "Répondre",
     ],
+    # MOT d'expansion de troncature inline (« … suite » / « … plus »). ClickableSpan sans
+    # nœud → localisé par OCR sur le crop de la ligne (pas un xpath) puis tapé pour
+    # afficher le commentaire complet.
+    "notification.expander_words": [
+        "suite", "plus",
+    ],
     "notification.comment_like_text": [
         "//android.widget.TextView[contains(@text, \"a aimé votre commentaire\")]",
     ],

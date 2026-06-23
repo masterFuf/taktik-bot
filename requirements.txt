@@ -15,6 +15,11 @@ pyyaml>=6.0
 schedule>=1.2.0
 requests>=2.30.0
 pillow>=10.0.0
+# Local OCR (free) — locate on-screen UI text that has no accessibility node
+# (e.g. the "more"/"suite"/"plus" inline expanders on IG/TikTok). Requires the
+# tesseract binary installed on the host (UB-Mannheim build on Windows); the OCR
+# service degrades gracefully (logs + no-op) when it is absent.
+pytesseract>=0.3.10
 loguru>=0.7.0
 
 # ORM pilot (Vague D) - SQLAlchemy maps existing tables only (never owns the

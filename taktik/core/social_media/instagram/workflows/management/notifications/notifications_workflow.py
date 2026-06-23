@@ -33,6 +33,7 @@ from lxml import etree
 
 from taktik.core.shared.behavior.gesture import sample_swipe
 from taktik.core.shared.input.taktik_keyboard import type_text_human
+from taktik.core.shared.vision import locate_text_on_screen
 
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
@@ -41,6 +42,7 @@ from .dump_parsing import (
     concat_text,
     find_inline_like_target,
     find_row_reply_target,
+    find_truncated_targets,
     node_bounds_deep,
     node_text_deep,
     parse_feed_rows,
@@ -361,6 +363,40 @@ class NotificationsEngagementWorkflow:
         headers = parse_section_headers(root, self.selectors.notification_section_header_resource_id)
         return rows, headers
 
+    def _expand_one_more(self) -> bool:
+        """Expand ONE not-yet-tried truncated row (reveal its full comment/mention text).
+
+        The "… more" / "… suite" expander is a ClickableSpan with NO accessibility node,
+        so its position cannot come from the dump. We take the row's REAL text-node bounds
+        (from the dump) as an OCR region and let OCR find the word's true on-screen
+        position, then tap it. Returns True if a row was tried (caller re-reads). Each row
+        is tried once (tracked by its truncated text) so a miss never loops; if the tap
+        misses and opens the post, we recover (back to the feed). No-op (returns False)
+        when OCR is unavailable — the scan keeps the truncated text.
+        """
+        root = self._dump_root()
+        if root is None:
+            return False
+        for target in find_truncated_targets(root, self.selectors.notification_row_resource_id):
+            if target["key"] in self._expanded_keys:
+                continue
+            self._expanded_keys.add(target["key"])
+            matches = locate_text_on_screen(
+                self.device, self.selectors.expander_words, region=target["region"],
+            )
+            if not matches:
+                return True  # tried this row (no OCR hit / OCR unavailable); move on
+            self._notify("expand", "running", "Expanding a comment")
+            # Lowest match = the expander sits on the last line of the truncated text.
+            point = max(matches, key=lambda m: m.top).center
+            self._tap_point(point, "expand more (ocr)")
+            time.sleep(0.7)
+            if not self._on_notifications_screen():
+                self.logger.info("expand more: tap opened the post, recovering")
+                self._return_to_notifications()
+            return True
+        return False
+
     def _parse_requests(self, root) -> List[Dict[str, Any]]:
         return parse_request_rows(
             root,
@@ -415,12 +451,23 @@ class NotificationsEngagementWorkflow:
         items: List[Dict[str, Any]] = []
         seen: set = set()
         seen_sections: set = set()
+        self._expanded_keys: set = set()
         stale = 0
         iteration_cap = max(max_scrolls + 1, 12)
         for index in range(iteration_cap):
             rows, headers = self._dump_screen()
             if not rows and not items and index == 0:
                 time.sleep(1.2)  # feed may still be rendering
+                rows, headers = self._dump_screen()
+            # Reveal truncated comment/mention text in view ("… more" / "… suite") via OCR,
+            # then re-read so the FULL text is captured. Bounded + best-effort.
+            expanded_any = False
+            for _ in range(4):
+                if not self._expand_one_more():
+                    break
+                expanded_any = True
+                time.sleep(0.4)
+            if expanded_any:
                 rows, headers = self._dump_screen()
             # Narrate each newly-revealed time bucket ("Today", "Yesterday", "Last 7
             # days"…) as the scroll uncovers it (Taktik Agent live card).

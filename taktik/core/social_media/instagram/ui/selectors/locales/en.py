@@ -487,6 +487,11 @@ STRINGS: Dict[str, List[str]] = {
     "notification.reply_label": [
         "Reply",
     ],
+    # Inline truncation-expander WORD ("… more"). A ClickableSpan with no node, so it is
+    # located by OCR on the row crop (not an xpath) and tapped to reveal the full comment.
+    "notification.expander_words": [
+        "more",
+    ],
     "notification.comment_like_text": [
         "//android.widget.TextView[contains(@text, \"liked your comment\")]",
     ],

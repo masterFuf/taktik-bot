@@ -169,6 +169,14 @@ class NotificationSelectors:
     def reply_label(self) -> List[str]:
         return L_all("notification.reply_label")
 
+    # --- Inline "… more" / "… suite" truncation-expander words (for OCR) ---
+    # Plain words (NOT xpath): located by OCR on the row crop (the expander is a span
+    # with no node). Union FR+EN via L_all so the on-screen word matches whatever the
+    # device language renders.
+    @property
+    def expander_words(self) -> List[str]:
+        return L_all("notification.expander_words")
+
     # --- Comment reply / like row text ---
     @property
     def comment_like_text(self) -> List[str]:

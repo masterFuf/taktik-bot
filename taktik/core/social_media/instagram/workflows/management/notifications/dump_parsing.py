@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from .classifier import classify_row, clean_label, extract_time, row_has_action
+from .classifier import _TRUNCATION_RE
 from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
 
 
@@ -146,6 +147,25 @@ def _find_row_control(
     return None
 
 
+def find_truncated_targets(root, row_bare_id: str) -> List[Dict[str, Any]]:
+    """Truncated comment/mention rows whose text ends with "… more" / "… suite".
+
+    Returns ``[{key, region}]`` where ``region`` is the REAL bounds of the row's text
+    node (from the dump — no coordinate estimate) to constrain the OCR that locates the
+    "more"/"suite" expander word; ``key`` is the truncated text (dedup / re-tap guard).
+    """
+    out: List[Dict[str, Any]] = []
+    for row in _iter_rows(root, row_bare_id):
+        for descendant in row.iter():
+            value = descendant.get("text") or ""
+            if value and _TRUNCATION_RE.search(value):
+                box = parse_bounds(descendant.get("bounds", ""))
+                if box:
+                    out.append({"key": value, "region": box})
+                break
+    return out
+
+
 def parse_section_headers(root, header_bare_id: str) -> List[str]:
     """Visible time-section headers, top-to-bottom (deduped, order-preserving).
 
@@ -236,5 +256,5 @@ def parse_request_rows(
 
 __all__ = [
     "concat_text", "parse_feed_rows", "parse_request_rows", "parse_section_headers",
-    "find_inline_like_target", "find_row_reply_target",
+    "find_inline_like_target", "find_row_reply_target", "find_truncated_targets",
 ]
