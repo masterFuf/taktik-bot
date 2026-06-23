@@ -430,7 +430,7 @@ class NotificationsEngagementWorkflow:
         seen: set = set()
         requests: List[Dict[str, str]] = []
         stale = 0
-        for _ in range(12):
+        for _ in range(20):
             added = False
             for row in self._request_rows():
                 name = row["username"]
@@ -443,29 +443,36 @@ class NotificationsEngagementWorkflow:
                     break
             if len(requests) >= max_requests:
                 break
+            stale = 0 if added else stale + 1
             at_bottom = self._element_exists(self.selectors.suggested_for_you)
-            if not added:
-                stale += 1
-                if at_bottom or stale >= 3:
-                    break  # fully rendered (bottom reached) or nothing new 3x
-                self._scroll_down(1)
-            else:
-                stale = 0
-                if not at_bottom:
-                    self._scroll_down(1)  # more requests below the fold
-            time.sleep(0.8)  # let progressively-loading rows render
+            # Done only once we HAVE requests, the bottom marker is visible, and the
+            # last re-parse added nothing. Crucially we do NOT break on at_bottom while
+            # requests is still empty: the rows render progressively and the "Suggested
+            # for you" header is already on screen from the start (all requests fit
+            # above it), so an early break would return 0 before they appear.
+            if at_bottom and requests and not added:
+                break
+            if not requests and stale >= 6:
+                break  # nothing ever rendered after patient retries -> give up
+            if not at_bottom:
+                self._scroll_down(1)  # reveal more requests (never past the bottom marker)
+            time.sleep(0.9)  # let progressively-loading rows render
 
         if not requests:
-            # Diagnostic: we reached the sub-screen but parsed nothing. Log the raw
-            # node counts so a 'sparse dump / wrong id' case is distinguishable from
-            # a pairing bug without needing another device dump.
+            # Diagnostic: reached the sub-screen but parsed nothing. Report whether the
+            # username nodes carry text/bounds so a render-timing case is distinguishable
+            # from a parse issue without another device dump.
             root = self._dump_root()
             if root is not None:
-                u = sum(1 for n in root.iter("node")
-                        if self.selectors.follow_request_username_resource_id in (n.get("resource-id") or ""))
-                a = sum(1 for n in root.iter("node")
-                        if self.selectors.follow_request_accept_resource_id in (n.get("resource-id") or ""))
-                self.logger.warning(f"collect_requests: 0 parsed (dump has {u} username, {a} accept nodes)")
+                uid = self.selectors.follow_request_username_resource_id
+                unodes = [n for n in root.iter("node") if uid in (n.get("resource-id") or "")]
+                with_text = sum(1 for n in unodes if (n.get("text") or "").strip())
+                with_bounds = sum(1 for n in unodes if n.get("bounds"))
+                acc = sum(1 for n in root.iter("node")
+                          if self.selectors.follow_request_accept_resource_id in (n.get("resource-id") or ""))
+                self.logger.warning(
+                    f"collect_requests: 0 parsed ({len(unodes)} username [{with_text} text, "
+                    f"{with_bounds} bounds], {acc} accept)")
         return requests
 
     def list_requests(self, max_requests: int = 50) -> Dict[str, Any]:
