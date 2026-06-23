@@ -35,7 +35,7 @@ from taktik.core.shared.behavior.gesture import sample_swipe
 
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
-from .dump_parsing import concat_text, parse_feed_rows, parse_request_rows
+from .dump_parsing import concat_text, node_bounds_deep, node_text_deep, parse_feed_rows, parse_request_rows
 from .row_layout import parse_bounds
 
 StepNotifier = Callable[..., None]
@@ -460,21 +460,21 @@ class NotificationsEngagementWorkflow:
                 self._scroll_down(1)  # reveal more requests (never past the bottom marker)
             time.sleep(0.9)  # let progressively-loading rows render
 
-        if not requests:
-            # Diagnostic: reached the sub-screen but parsed nothing. Report whether the
-            # username nodes carry text/bounds so a render-timing case is distinguishable
-            # from a parse issue without another device dump.
-            root = self._dump_root()
-            if root is not None:
-                uid = self.selectors.follow_request_username_resource_id
-                unodes = [n for n in root.iter("node") if uid in (n.get("resource-id") or "")]
-                with_text = sum(1 for n in unodes if (n.get("text") or "").strip())
-                with_bounds = sum(1 for n in unodes if n.get("bounds"))
-                acc = sum(1 for n in root.iter("node")
-                          if self.selectors.follow_request_accept_resource_id in (n.get("resource-id") or ""))
-                self.logger.warning(
-                    f"collect_requests: 0 parsed ({len(unodes)} username [{with_text} text, "
-                    f"{with_bounds} bounds], {acc} accept)")
+        # Always log the parse breakdown: lets us see, from a normal run's logs,
+        # whether a missing request is a render-timing issue or the username node
+        # lacking self/descendant text or bounds (no extra device dump needed).
+        root = self._dump_root()
+        if root is not None:
+            uid = self.selectors.follow_request_username_resource_id
+            unodes = [n for n in root.iter("node") if uid in (n.get("resource-id") or "")]
+            self_text = sum(1 for n in unodes if (n.get("text") or "").strip())
+            deep_text = sum(1 for n in unodes if node_text_deep(n))
+            deep_bounds = sum(1 for n in unodes if node_bounds_deep(n))
+            acc = sum(1 for n in root.iter("node")
+                      if self.selectors.follow_request_accept_resource_id in (n.get("resource-id") or ""))
+            self.logger.info(
+                f"requests parse: {len(requests)} collected | dump now: {len(unodes)} username "
+                f"[{self_text} self-text, {deep_text} deep-text, {deep_bounds} bounds], {acc} accept")
         return requests
 
     def list_requests(self, max_requests: int = 50) -> Dict[str, Any]:

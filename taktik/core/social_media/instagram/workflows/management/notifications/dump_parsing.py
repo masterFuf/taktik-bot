@@ -52,8 +52,37 @@ def parse_feed_rows(root, row_bare_id: str, fragments: Dict[str, List[str]]) -> 
     return rows
 
 
-def _vcenter(node) -> Optional[float]:
+def node_text_deep(node) -> str:
+    """Text of ``node`` or, if empty, of its first descendant that has text.
+
+    A live (compressed) dump may put the text on a child TextView while the
+    resource-id sits on the parent container, so reading only the parent's text
+    misses it.
+    """
+    text = (node.get("text") or "").strip()
+    if text:
+        return text
+    for descendant in node.iter():
+        dt = (descendant.get("text") or "").strip()
+        if dt:
+            return dt
+    return ""
+
+
+def node_bounds_deep(node):
+    """Bounds of ``node`` or its first descendant that has bounds."""
     box = parse_bounds(node.get("bounds", ""))
+    if box:
+        return box
+    for descendant in node.iter():
+        db = parse_bounds(descendant.get("bounds", ""))
+        if db:
+            return db
+    return None
+
+
+def _vcenter(node) -> Optional[float]:
+    box = node_bounds_deep(node)
     return vertical_center(box) if box else None
 
 
@@ -94,7 +123,7 @@ def parse_request_rows(
     for node in root.iter("node"):
         if username_bare_id not in (node.get("resource-id") or ""):
             continue
-        username = (node.get("text") or "").strip()
+        username = node_text_deep(node)   # text may live on a child TextView
         y = _vcenter(node)
         if not username or y is None:
             continue
