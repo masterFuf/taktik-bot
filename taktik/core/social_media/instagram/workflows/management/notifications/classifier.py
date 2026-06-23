@@ -50,6 +50,17 @@ _TRUNCATION_RE = re.compile(r"(?:…|\.\.\.)\s*(?:suite|more|plus)\b", re.IGNORE
 _TRAILING_TIME_RE = re.compile(r"\b\d+\s*(?:min|mois|sem|[smhjdwy])\s*$", re.IGNORECASE)
 _TRIM_CHARS = " ·-—:•."
 
+# Glyphs that pollute extracted text: the U+FFFD replacement char (the device's
+# accessibility dump emits it for some username badges/emojis — e.g. "atelier_lc_<U+FFFD>"),
+# zero-width and bidirectional control marks. NBSP is normalized to a plain space.
+_BAD_CHARS_RE = re.compile("[�​-‏‪-‮⁦-⁩﻿]")
+
+
+def sanitize_text(text: str) -> str:
+    """Strip undisplayable replacement / zero-width / bidi chars and normalize whitespace."""
+    cleaned = _BAD_CHARS_RE.sub("", text or "")
+    return " ".join(cleaned.split())
+
 
 def clean_label(full: str) -> str:
     """Human display label for a notification row: drop the truncation marker, the
@@ -75,7 +86,7 @@ def clean_label(full: str) -> str:
             stripped = stripped[: time_match.start()].rstrip(_TRIM_CHARS)
             changed = True
         text = stripped
-    return text.strip(_TRIM_CHARS)
+    return sanitize_text(text).strip(_TRIM_CHARS)
 
 
 def classify_row(full: str, fragments: Dict[str, List[str]]) -> Tuple[str, str]:
@@ -101,9 +112,9 @@ def classify_row(full: str, fragments: Dict[str, List[str]]) -> Tuple[str, str]:
                 # Phrase leads (message/shared "... from <user>"): take what follows.
                 after = full[idx + len(frag):]
                 user = after.split(".")[0]
-            user = _TIME_RE.sub("", user).strip(" :·-—· ")
+            user = sanitize_text(_TIME_RE.sub("", user)).strip(" :·-—· ")
             return type_name, user
     return "other", ""
 
 
-__all__ = ["classify_row", "clean_label", "extract_time", "row_has_action", "_TIME_RE", "_ACTION_WORDS"]
+__all__ = ["classify_row", "clean_label", "extract_time", "row_has_action", "sanitize_text", "_TIME_RE", "_ACTION_WORDS"]
