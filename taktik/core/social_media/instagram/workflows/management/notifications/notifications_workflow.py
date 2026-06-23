@@ -484,6 +484,20 @@ class NotificationsEngagementWorkflow:
         self.logger.info(f"list_requests: {msg}")
         return {"success": True, "count": len(requests), "requests": requests, "message": msg}
 
+    def _wait_for_request_rows(self, timeout_s: float = 6.0) -> List[Dict[str, Any]]:
+        """Poll the sub-screen until the request rows have rendered (or timeout).
+
+        The rows load progressively after navigating in, so an action that parses
+        once immediately finds nothing — every action (accept/ignore/accept_all)
+        must wait for them, exactly like the scan's collect loop does."""
+        rows = self._request_rows()
+        waited = 0.0
+        while not rows and waited < timeout_s:
+            time.sleep(0.9)
+            waited += 0.9
+            rows = self._request_rows()
+        return rows
+
     def _act_on_request(self, username: str, action: str) -> Dict[str, Any]:
         """Confirm or delete the follow request of ``username`` (sub-screen)."""
         result = {"success": False, "username": username, "action": action, "message": ""}
@@ -491,11 +505,12 @@ class NotificationsEngagementWorkflow:
             result["message"] = "Follow requests screen not reachable"
             return result
 
-        # The row may be off-screen; scroll until the username is visible.
+        # Wait for rows to render, then scroll if the username is off-screen.
         target = None
         for _ in range(8):
-            target = next((r for r in self._request_rows() if r["username"] == username), None)
-            if target:
+            rows = self._wait_for_request_rows()
+            target = next((r for r in rows if r["username"] == username), None)
+            if target or not rows:
                 break
             self._scroll_down(1)
         if not target:
@@ -536,7 +551,8 @@ class NotificationsEngagementWorkflow:
         accepted: List[str] = []
         self._notify("accept_all", "running", "Confirming follow requests")
         for _ in range(max_requests):
-            row = next((r for r in self._request_rows() if r.get("accept")), None)
+            rows = self._wait_for_request_rows()  # rows render progressively after each accept
+            row = next((r for r in rows if r.get("accept")), None)
             if not row:
                 break
             username = row["username"]
