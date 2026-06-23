@@ -62,3 +62,33 @@ def decline_request(a, p):
 def get_notifications(a, p):
     """Lit les sections Activité / Notifications système (phase 4, lecture seule)."""
     return a.dm.get_inbox_notifications(int(p.get("max_items", 20)))
+
+
+@action("tt.inbox.open_conversation")
+def open_conversation(a, p):
+    """Ouvre la conversation de ``name`` (gateway lecture/réponse DM). Param: name (requis)."""
+    name = (p.get("name") or p.get("username") or "").strip()
+    if not name:
+        return {"success": False, "message": "name param is required"}
+    ok = a.dm.click_conversation(name)
+    return {"success": bool(ok), "message": f"conversation '{name}' open={ok}"}
+
+
+@action("tt.inbox.get_messages")
+def get_messages(a, p):
+    """Lit les messages du fil ouvert (base de l'intelligence de réponse DM). Param: limit
+    (défaut 20). Les corps de message ne sont PAS journalisés."""
+    msgs = a.dm.get_messages(int(p.get("limit") or 20)) or []
+    return {"success": bool(msgs), "count": len(msgs), "messages": msgs,
+            "message": f"{len(msgs)} message(s)"}
+
+
+@action("tt.inbox.send_message")
+def send_message(a, p):
+    """Envoie un message texte dans le fil ouvert (write d'engagement : tape + send/Enter
+    fallback). Param: text (requis)."""
+    text = (p.get("text") or "").strip()
+    if not text:
+        return {"success": False, "message": "text param is required"}
+    ok = a.dm.send_text_message(text)
+    return {"success": bool(ok), "message": f"message sent={ok}"}

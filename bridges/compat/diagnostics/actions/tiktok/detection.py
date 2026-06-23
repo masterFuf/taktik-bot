@@ -46,3 +46,21 @@ def get_video_info(a, p):
     logger.info(f"Video info: {info}")
     return bool(info)
 
+
+@action("tt.detection.get_video_author")
+def get_video_author(a, p):
+    """Read the current video's author username (scraping/targeting join key, hidden by the
+    bundled get_video_info)."""
+    author = a.video_detector.get_video_author()
+    logger.info(f"Video author: @{author}" if author else "Video author: none")
+    return {"success": bool(author), "message": f"@{author}" if author else "no author", "details": {"author": author}}
+
+
+@action("tt.detection.get_video_description")
+def get_video_description(a, p):
+    """Read the current video's FULL description (taps '...more' to expand). The AGENTS
+    coverage rule requires 'more' expansions to be testable."""
+    desc = a.video_detector.get_video_description_full()
+    logger.info(f"Video description: {len(desc or '')} chars")
+    return {"success": bool(desc), "message": f"{len(desc or '')} chars", "details": {"description": desc}}
+

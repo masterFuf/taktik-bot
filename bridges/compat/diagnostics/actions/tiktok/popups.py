@@ -55,3 +55,11 @@ def has_comments(a, p):
     logger.info(f"Has comments open: {result}")
     return result
 
+
+@action("tt.popups.click_follow_back")
+def click_follow_back(a, p):
+    """Tap the real Follow back button on the suggestion/interstitial popup."""
+    ok = a.popup.click_follow_back()
+    logger.info(f"Follow back clicked: {ok}")
+    return {"success": bool(ok), "message": f"follow back clicked={ok}"}
+
