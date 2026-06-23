@@ -170,8 +170,14 @@ class NotificationsEngagementWorkflow:
         self._notify("open_notifications", "done" if ok else "failed")
         return ok
 
-    def ensure_follow_requests_screen(self) -> bool:
-        """Open the follow-requests sub-screen from the notifications screen."""
+    def ensure_follow_requests_screen(self, load_timeout_s: float = 10.0) -> bool:
+        """Open the follow-requests sub-screen from the notifications screen.
+
+        The sub-screen loads its rows over the network, so after tapping the
+        grouped header we POLL until the request rows actually appear (up to
+        ``load_timeout_s``) instead of giving up after a fixed sleep — a 1.5s wait
+        landed on the empty transition screen and reported "no pending request".
+        """
         if self._on_follow_requests_screen():
             return True
         if not self.ensure_notifications_screen():
@@ -180,10 +186,16 @@ class NotificationsEngagementWorkflow:
         if not self._click_first_match(self.selectors.follow_requests_header, "Follow requests header"):
             self._notify("open_requests", "failed", "Follow requests section not found")
             return False
-        time.sleep(1.5)
-        ok = self._on_follow_requests_screen()
-        self._notify("open_requests", "done" if ok else "failed")
-        return ok
+        deadline = load_timeout_s
+        waited = 0.0
+        while waited < deadline:
+            time.sleep(1.0)
+            waited += 1.0
+            if self._on_follow_requests_screen():
+                self._notify("open_requests", "done")
+                return True
+        self._notify("open_requests", "failed", "Follow requests screen did not load")
+        return False
 
     # ------------------------------------------------------------------
     # Read pass — classify the activity feed (all families)
