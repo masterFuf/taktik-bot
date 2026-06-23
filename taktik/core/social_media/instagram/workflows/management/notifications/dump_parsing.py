@@ -99,6 +99,51 @@ def _collect_buttons(root, bare_id: str) -> List[Tuple[Tuple[int, int], float]]:
     return out
 
 
+def find_inline_like_target(
+    root,
+    row_bare_id: str,
+    like_content_descs: List[str],
+    username: str,
+) -> Optional[Tuple[int, int]]:
+    """Tap center of the inline "Like button" on the feed row for ``username``, or None.
+
+    Comment and mention rows expose a CLICKABLE node whose ``content-desc`` is the
+    localized "Like button" (empty resource-id, on the left of the row), so the
+    comment can be liked directly from the notifications feed — no click-in. We pair
+    that button with the target row by **bounds containment**: the button's vertical
+    center sits inside the matched row's vertical band. Matching is by EXACT
+    content-desc (case-insensitive) so the already-liked state ("Unlike button" /
+    "Bouton Je n'aime plus") never matches and we never re-unlike.
+
+    With an empty ``username`` the first row that owns a like button is returned.
+    """
+    wanted = {d.strip().lower() for d in like_content_descs if d and d.strip()}
+    if not wanted:
+        return None
+    like_buttons: List[Tuple[Tuple[int, int], float]] = []
+    for node in root.iter("node"):
+        desc = (node.get("content-desc") or "").strip().lower()
+        if desc in wanted:
+            box = parse_bounds(node.get("bounds", ""))
+            if box:
+                like_buttons.append((center(box), vertical_center(box)))
+    if not like_buttons:
+        return None
+
+    target = (username or "").strip().lower()
+    for node in _iter_rows(root, row_bare_id):
+        if target and target not in concat_text(node).lower():
+            continue
+        box = node_bounds_deep(node)
+        if not box:
+            continue
+        top, bottom = box[1], box[3]
+        for center_xy, vcenter in like_buttons:
+            if top <= vcenter <= bottom:
+                return center_xy
+    return None
+
+
 def parse_request_rows(
     root,
     username_bare_id: str,
@@ -138,4 +183,4 @@ def parse_request_rows(
     return rows
 
 
-__all__ = ["concat_text", "parse_feed_rows", "parse_request_rows"]
+__all__ = ["concat_text", "parse_feed_rows", "parse_request_rows", "find_inline_like_target"]

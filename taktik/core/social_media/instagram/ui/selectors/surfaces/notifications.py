@@ -148,6 +148,15 @@ class NotificationSelectors:
     def reply_button(self) -> List[str]:
         return L("notification.reply_button")
 
+    # --- Inline "Like button" content-desc on a comment / mention row ---
+    # Returned as plain content-desc strings (NOT xpath): the parse matches a node's
+    # content-desc by EXACT equality so the already-liked "Unlike button" / "Bouton
+    # Je n'aime plus" state never matches. Union FR+EN via L_all so it resolves even
+    # when language detection ties to 'unknown' on the notifications screen.
+    @property
+    def inline_like_button(self) -> List[str]:
+        return L_all("notification.inline_like_button")
+
     # --- Comment reply / like row text ---
     @property
     def comment_like_text(self) -> List[str]:

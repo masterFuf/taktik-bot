@@ -8,6 +8,7 @@ substring must match both.
 from lxml import etree
 
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
+    find_inline_like_target,
     parse_feed_rows,
     parse_request_rows,
 )
@@ -105,3 +106,37 @@ def test_parse_request_rows_empty_when_no_requests():
                               "row_requested_user_accept_secondary",
                               "row_requested_user_ignore")
     assert rows == []
+
+
+# Comment / mention rows expose a CLICKABLE inline "Like button" (content-desc, empty
+# resource-id) on the left of the row. The already-liked row shows "Unlike button".
+LIKE_XML = """<hierarchy>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,400][1080,560]">
+    <node content-desc="Like button" bounds="[40,440][130,520]" />
+    <node text="alice a commenté : top !" bounds="[150,440][1000,520]" />
+  </node>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,560][1080,720]">
+    <node content-desc="Unlike button" bounds="[40,600][130,680]" />
+    <node text="bob a commenté : déjà aimé" bounds="[150,600][1000,680]" />
+  </node>
+</hierarchy>"""
+
+
+def test_find_inline_like_returns_button_center_for_username():
+    point = find_inline_like_target(_root(LIKE_XML), "activity_feed_newsfeed_story_row",
+                                    ["Like button"], "alice")
+    assert point == (85, 480)  # center of [40,440][130,520]
+
+
+def test_find_inline_like_skips_already_liked_unlike_button():
+    # "Unlike button" must NOT match "Like button" (exact content-desc), so liking
+    # bob's already-liked row finds no fresh Like button -> None.
+    point = find_inline_like_target(_root(LIKE_XML), "activity_feed_newsfeed_story_row",
+                                    ["Like button"], "bob")
+    assert point is None
+
+
+def test_find_inline_like_none_when_username_absent():
+    point = find_inline_like_target(_root(LIKE_XML), "activity_feed_newsfeed_story_row",
+                                    ["Like button"], "carol")
+    assert point is None

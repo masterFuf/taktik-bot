@@ -87,6 +87,13 @@ def cmd_reply(device_id: str, username: str, package_name: str = None) -> None:
     emit_notif_json({"type": "result", "command": "reply", **result}, flush=True)
 
 
+def cmd_like(device_id: str, username: str, package_name: str = None) -> None:
+    """Like the comment / mention of ``username`` inline from the feed."""
+    bridge = _connect(device_id, package_name, restart=False)
+    result = bridge.build_workflow().like_comment(username)
+    emit_notif_json({"type": "result", "command": "like", **result}, flush=True)
+
+
 def run_notifications_cli(args: list[str]) -> None:
     """Parse notifications bridge CLI args and dispatch the selected command."""
     package_name = None
@@ -104,7 +111,8 @@ def run_notifications_cli(args: list[str]) -> None:
             "  accept <device_id> <username>\n"
             "  ignore <device_id> <username>\n"
             "  accept_all <device_id> [max]\n"
-            "  reply <device_id> <username>"
+            "  reply <device_id> <username>\n"
+            "  like <device_id> <username>"
         )
         sys.exit(1)
 
@@ -146,6 +154,12 @@ def run_notifications_cli(args: list[str]) -> None:
                 emit_notif_error("Usage: notifications.py reply <device_id> <username>")
                 sys.exit(1)
             cmd_reply(args[1], args[2], package_name=package_name)
+
+        elif command == "like":
+            if len(args) < 3:
+                emit_notif_error("Usage: notifications.py like <device_id> <username>")
+                sys.exit(1)
+            cmd_like(args[1], args[2], package_name=package_name)
 
         else:
             emit_notif_error(f"Unknown command: {command}")

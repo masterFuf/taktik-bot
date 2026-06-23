@@ -433,6 +433,12 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Répondre\"]",
         "//*[contains(@text, \"Répondre\")]",
     ],
+    # Bouton "J'aime" inline sur une ligne commentaire / mention (content-desc, PAS
+    # un xpath — apparié par égalité EXACTE avec le content-desc d'un noeud pour que
+    # l'état déjà-aimé "Bouton Je n'aime plus" ne matche pas et ne dé-like pas).
+    "notification.inline_like_button": [
+        "Bouton J'aime",
+    ],
     "notification.comment_like_text": [
         "//android.widget.TextView[contains(@text, \"a aimé votre commentaire\")]",
     ],

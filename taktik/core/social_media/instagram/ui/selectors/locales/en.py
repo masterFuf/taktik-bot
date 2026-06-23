@@ -475,6 +475,12 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Reply\"]",
         "//*[contains(@text, \"Reply\")]",
     ],
+    # Inline "Like button" affordance on a comment / mention row (content-desc,
+    # NOT an xpath — matched by EXACT equality against a node's content-desc so the
+    # already-liked state "Unlike button" never matches and re-unlikes).
+    "notification.inline_like_button": [
+        "Like button",
+    ],
     "notification.comment_like_text": [
         "//android.widget.TextView[contains(@text, \"liked your comment\")]",
     ],

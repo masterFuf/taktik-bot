@@ -35,7 +35,14 @@ from taktik.core.shared.behavior.gesture import sample_swipe
 
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
-from .dump_parsing import concat_text, node_bounds_deep, node_text_deep, parse_feed_rows, parse_request_rows
+from .dump_parsing import (
+    concat_text,
+    find_inline_like_target,
+    node_bounds_deep,
+    node_text_deep,
+    parse_feed_rows,
+    parse_request_rows,
+)
 from .row_layout import parse_bounds
 
 StepNotifier = Callable[..., None]
@@ -594,6 +601,60 @@ class NotificationsEngagementWorkflow:
         self.logger.success(f"accept_all_requests: {msg}")
         self._notify("accept_all", "done", msg, accepted_count=len(accepted))
         return {"success": True, "count": len(accepted), "accepted": accepted, "message": msg}
+
+    # ------------------------------------------------------------------
+    # Inline like — like a comment / mention directly from the feed
+    # ------------------------------------------------------------------
+    def _find_inline_like(self, username: str) -> Optional[tuple]:
+        root = self._dump_root()
+        if root is None:
+            return None
+        return find_inline_like_target(
+            root,
+            self.selectors.notification_row_resource_id,
+            self.selectors.inline_like_button,
+            username,
+        )
+
+    def like_comment(self, username: str = "") -> Dict[str, Any]:
+        """Like the comment / mention of ``username`` inline, from the feed.
+
+        Comment and mention rows carry a clickable inline "Like button" (content-desc),
+        so we tap it directly — no click-in. Navigation self-heals like the other
+        per-row actions (re-open notifications, relaunch IG if it drifted). The target
+        row may be below the fold, so we scroll a few times to reveal it.
+        """
+        result = {"success": False, "username": username, "message": ""}
+        if not self.ensure_notifications_screen():
+            result["message"] = "Notifications screen not reachable"
+            self._notify("like", "failed", result["message"], username=username)
+            return result
+        self._optimize_locale()  # the "Like button" content-desc is localized
+        self._notify("like", "running", username or "comment", username=username)
+
+        point = self._find_inline_like(username)
+        for _ in range(4):
+            if point:
+                break
+            if not self._human_scroll("up"):
+                break
+            time.sleep(0.7)
+            point = self._find_inline_like(username)
+        if not point:
+            result["message"] = (f"No inline like for: {username}" if username
+                                 else "No likeable row on screen")
+            self._notify("like", "failed", result["message"], username=username)
+            return result
+
+        if not self._tap_point(point, f"like {username}".strip()):
+            result["message"] = f"Could not tap like for {username}"
+            self._notify("like", "failed", result["message"], username=username)
+            return result
+        time.sleep(0.8)
+        result["success"] = True
+        result["message"] = (f"Liked {username}" if username else "Liked comment")
+        self._notify("like", "done", result["message"], username=username)
+        return result
 
     # ------------------------------------------------------------------
     # Comment mentions — open the reply UI (best-effort; typed reply staged)
