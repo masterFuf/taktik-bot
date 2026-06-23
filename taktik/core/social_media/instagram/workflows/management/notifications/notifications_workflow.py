@@ -44,10 +44,16 @@ StepNotifier = Callable[..., None]
 class NotificationsEngagementWorkflow:
     """Engagement workflow over the Instagram notifications/activity surface."""
 
-    def __init__(self, device, device_id: str, notifier: Optional[StepNotifier] = None):
+    def __init__(self, device, device_id: str, notifier: Optional[StepNotifier] = None,
+                 relauncher: Optional[Callable[[], None]] = None):
         self.device = device
         self.device_id = device_id
         self._notify_cb = notifier
+        # Optional callback that restarts Instagram to a clean home state. Injected
+        # by the bridge so a per-row action can SELF-HEAL when Instagram has drifted
+        # to another screen (or was closed) since the scan — the action re-navigates
+        # from scratch instead of being "lost". DIP: the core never imports the bridge.
+        self._relauncher = relauncher
         self.logger = logger.bind(module="instagram-notifications")
         self.selectors = NOTIFICATION_SELECTORS
         self._locale_ready = False
@@ -222,18 +228,39 @@ class NotificationsEngagementWorkflow:
         root = self._dump_root()
         return root is not None and len(self._parse_requests(root)) > 0
 
+    def _tap_activity_and_check(self) -> bool:
+        if not self._click_first_match(self.selectors.activity_entry, "Activity entry"):
+            return False
+        time.sleep(1.5)
+        return self._on_notifications_screen()
+
     def ensure_notifications_screen(self) -> bool:
-        """Open the notifications screen (tap the activity/heart entry) if needed."""
+        """Open the notifications screen (tap the activity/heart entry) if needed.
+
+        Self-healing: if the activity entry is not reachable from the current screen
+        (Instagram drifted elsewhere or was closed since the scan), restart Instagram
+        to a clean home state via the injected relauncher and retry — so a per-row
+        action triggered later still works without being "lost"."""
         if self._on_notifications_screen():
             return True
         self._notify("open_notifications", "running", "Opening notifications")
-        if not self._click_first_match(self.selectors.activity_entry, "Activity entry"):
-            self._notify("open_notifications", "failed", "Activity entry not found")
-            return False
-        time.sleep(1.5)
-        ok = self._on_notifications_screen()
-        self._notify("open_notifications", "done" if ok else "failed")
-        return ok
+        if self._tap_activity_and_check():
+            self._notify("open_notifications", "done")
+            return True
+        if self._relauncher is not None:
+            self.logger.info("Activity entry unreachable — relaunching Instagram to recover")
+            try:
+                self._relauncher()
+            except Exception as exc:
+                self.logger.warning(f"relauncher failed: {exc}")
+            time.sleep(2.0)
+            self._locale_ready = False  # re-detect language on the fresh home screen
+            self._optimize_locale()
+            if self._tap_activity_and_check():
+                self._notify("open_notifications", "done")
+                return True
+        self._notify("open_notifications", "failed", "Activity entry not found")
+        return False
 
     def _open_grouped_requests(self) -> bool:
         """Open the follow-requests sub-screen by tapping the grouped digest row.

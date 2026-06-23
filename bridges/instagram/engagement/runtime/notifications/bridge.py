@@ -22,7 +22,13 @@ class NotificationsBridge(InstagramBridgeBase):
         super().__init__(device_id, package_name=package_name)
 
     def build_workflow(self) -> NotificationsEngagementWorkflow:
-        return NotificationsEngagementWorkflow(self.device, self.device_id, notifier=emit_notif_step)
+        # relauncher lets a per-row action self-heal (restart IG + re-navigate) when
+        # Instagram has drifted away from the notifications screen since the scan.
+        return NotificationsEngagementWorkflow(
+            self.device, self.device_id,
+            notifier=emit_notif_step,
+            relauncher=self.restart_instagram,
+        )
 
 
 __all__ = ["NotificationsBridge"]
