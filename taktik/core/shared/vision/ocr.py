@@ -79,12 +79,21 @@ class OcrService:
             if base:
                 folder = os.path.join(base, "tesseract")
                 candidates.append((os.path.join(folder, exe_name), os.path.join(folder, "tessdata")))
+        # Standard host install locations (dev machines / a system-installed tesseract) —
+        # so it's found even when the install's PATH update hasn't reached this process.
+        if os.name == "nt":
+            for root in (os.environ.get("ProgramFiles", r"C:\Program Files"),
+                         os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+                         os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs")):
+                if root:
+                    folder = os.path.join(root, "Tesseract-OCR")
+                    candidates.append((os.path.join(folder, exe_name), os.path.join(folder, "tessdata")))
         for cmd, tessdata in candidates:
             if cmd and os.path.exists(cmd):
                 pytesseract.pytesseract.tesseract_cmd = cmd
                 if os.path.isdir(tessdata):
                     os.environ["TESSDATA_PREFIX"] = tessdata
-                logger.debug(f"OCR: using bundled tesseract at {cmd}")
+                logger.debug(f"OCR: using tesseract at {cmd}")
                 return
         # else: fall back to a system-installed tesseract on PATH (dev machines).
 
