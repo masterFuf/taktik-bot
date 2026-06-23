@@ -9,6 +9,7 @@ from lxml import etree
 
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     find_inline_like_target,
+    find_more_targets,
     find_row_reply_target,
     parse_feed_rows,
     parse_request_rows,
@@ -167,3 +168,29 @@ def test_find_row_reply_none_when_row_has_no_reply():
     point = find_row_reply_target(_root(REPLY_XML), "activity_feed_newsfeed_story_row",
                                   ["Répondre", "Reply"], "bob")
     assert point is None
+
+
+# A truncated comment/mention row: text ends with "… more <time>"; the expander has no
+# node, so the tap point is estimated from the text node bounds (last line, near right).
+MORE_XML = """<hierarchy>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,834][1080,1132]">
+    <node text="alice mentioned you: blah blah blah… more 1w" bounds="[253,857][893,1053]" />
+  </node>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,1132][1080,1300]">
+    <node text="bob a aimé votre photo. 4 j" bounds="[253,1160][893,1230]" />
+  </node>
+</hierarchy>"""
+
+
+def test_find_more_targets_estimates_point_on_last_line():
+    targets = find_more_targets(_root(MORE_XML), "activity_feed_newsfeed_story_row")
+    assert len(targets) == 1  # only the truncated row
+    x, y = targets[0]["point"]
+    # ~18% of width (640) in from the right edge (893); ~12% of height (196) up from bottom (1053)
+    assert (x, y) == (int(893 - 0.18 * 640), int(1053 - 0.12 * 196))
+    assert 253 < x < 893 and 857 < y < 1053  # inside the text node bounds, last line, right side
+
+
+def test_find_more_targets_skips_untruncated():
+    xml = MORE_XML.replace("blah blah blah… more 1w", "short comment 1w")
+    assert find_more_targets(_root(xml), "activity_feed_newsfeed_story_row") == []
