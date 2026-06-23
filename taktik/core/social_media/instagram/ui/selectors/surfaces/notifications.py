@@ -111,9 +111,13 @@ class NotificationSelectors:
         return L("notification.inline_dismiss_button")
 
     # --- Follow-requests GROUPED header row (opens the sub-screen) ---
+    # The grouped digest row has an EMPTY resource-id, so it can only be matched by
+    # TEXT — which means the match must be locale-agnostic: the row is in the DEVICE
+    # language, independent of the locale the selector layer was optimized for. Hence
+    # L_all (union FR+EN) and not L, so a scan on an English device still detects it.
     @property
     def follow_requests_header(self) -> List[str]:
-        return L("notification.follow_requests_header")
+        return L_all("notification.follow_requests_header")
 
     # Raw text fragments of the grouped digest row (NOT xpath) — to drop that row
     # from the classified feed. Union FR+EN so it works whatever the row language.
@@ -133,7 +137,9 @@ class NotificationSelectors:
 
     @property
     def reply_button(self) -> List[str]:
-        return L("notification.reply_button")
+        # Text-based affordance with no stable resource-id -> union FR+EN so a
+        # reply works whatever the device language.
+        return L_all("notification.reply_button")
 
     # --- Comment reply / like row text ---
     @property
