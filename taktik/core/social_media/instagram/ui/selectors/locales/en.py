@@ -796,6 +796,10 @@ STRINGS: Dict[str, List[str]] = {
     "profile.private_text_contains": [
         "account is private",
     ],
+    # Bio truncation-expander word (plain text for OCR matching, NOT an xpath).
+    "profile.bio_more_words": [
+        "more",
+    ],
     "profile.zero_posts_indicators": [],
     # --- scroll ---
     "scroll.end_of_list_indicators": [

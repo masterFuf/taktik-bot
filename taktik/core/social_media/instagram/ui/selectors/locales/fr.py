@@ -732,6 +732,10 @@ STRINGS: Dict[str, List[str]] = {
     "profile.private_text_contains": [
         "compte est privé",
     ],
+    # Mot d'expansion de troncature de bio (texte brut pour l'OCR, PAS un xpath).
+    "profile.bio_more_words": [
+        "plus", "suite",
+    ],
     "profile.zero_posts_indicators": [
         "//*[contains(@content-desc, \"0publications\")]",
         "//*[contains(@content-desc, \"0 publications\")]",

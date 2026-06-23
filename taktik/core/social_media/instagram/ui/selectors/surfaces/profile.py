@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
-from ..locales import L
+from ..locales import L, L_all
 
 @dataclass
 class ProfileSelectors:
@@ -214,6 +214,13 @@ class ProfileSelectors:
         '//*[contains(@text, "… more")]',
         '//*[contains(@text, "...more")]',
     ])
+
+    # Inline bio truncation-expander WORDS ("… more" / "… plus"). A ClickableSpan with no
+    # node, so it is located by OCR on the bio crop (not an xpath) and tapped to reveal the
+    # full biography. Union FR+EN so the on-screen word matches whatever the device renders.
+    @property
+    def bio_more_words(self) -> List[str]:
+        return L_all("profile.bio_more_words")
 
     # === Détection de profils privés ===
     _zero_posts_indicators_base: List[str] = field(default_factory=lambda: [

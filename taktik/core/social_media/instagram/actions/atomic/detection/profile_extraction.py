@@ -1,10 +1,14 @@
 """Profile detection, extraction, and enrichment (XML-based)."""
 
+import re
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.shared.vision import locate_text_on_screen
+
+_BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
 
 class ProfileExtractionMixin(BaseAction):
@@ -250,8 +254,10 @@ class ProfileExtractionMixin(BaseAction):
                         text = element.get('text', '').strip()
                         # Skip empty, "See translation", or very short texts that are likely not bio
                         if text and text != 'See translation' and len(text) > 3:
-                            # Check if bio is truncated (contains "more" or "… more")
-                            if 'more' in text.lower() and ('…' in text or '...' in text):
+                            # Truncation is flagged by the trailing ellipsis (language-neutral:
+                            # "… more" EN, "… plus"/"… suite" FR). A false positive is harmless —
+                            # click_bio_more_button no-ops when OCR finds no expander word.
+                            if '…' in text or '...' in text:
                                 results['bio_truncated'] = True
                             results['biography'] = text
                             self.logger.debug(f"Bio found: {text[:50]}...")
@@ -416,64 +422,58 @@ class ProfileExtractionMixin(BaseAction):
             self.logger.debug(f"Failed to extract avatar: {e}")
             return None
 
-    def click_bio_more_button(self) -> bool:
+    def _truncated_bio_region(self) -> Optional[tuple]:
+        """Bounds (x1,y1,x2,y2) of the truncated bio TextView, or None.
+
+        Language-neutral: finds the bio TextView (resource-id based) whose text carries
+        the truncation ellipsis "…"/"...". Used as the OCR region to locate the expander.
         """
-        Click on '… more' in bio to expand truncated biography.
+        from lxml import etree
+        xml = self.device.get_xml_dump()
+        if not xml:
+            return None
+        try:
+            tree = etree.fromstring(xml.encode("utf-8"))
+        except Exception:
+            return None
+        for selector in PROFILE_SELECTORS.enrichment_bio_selectors:
+            try:
+                elements = tree.xpath(selector)
+            except Exception:
+                continue
+            for element in elements:
+                text = element.get("text", "") or ""
+                if "…" in text or "..." in text:  # truncated bio
+                    match = _BOUNDS_RE.search(element.get("bounds", "") or "")
+                    if match:
+                        return tuple(int(g) for g in match.groups())
+        return None
 
-        Instagram renders the full bio + '… more' in a single non-clickable
-        TextView.  The '… more' is ALWAYS on the last line, so we:
-          1. Read the element text to count the actual number of lines.
-          2. Derive the line height dynamically: height / num_lines.
-          3. Click the center of the last line (Y) at the left quarter (X),
-             where '… more' starts regardless of screen resolution or bio length.
+    def click_bio_more_button(self) -> bool:
+        """Expand a truncated biography by OCR-locating its '… more' / '… plus' expander
+        and tapping its REAL position.
 
-        Returns:
-            True if button was found and clicked, False otherwise
+        The expander is a ClickableSpan inside a single non-clickable TextView — it has no
+        accessibility node, so its position can't be read from the dump (the previous
+        coordinate estimate missed, and the old text="more" selector failed on FR "plus").
+        Instead we OCR the bio TextView's region (its real bounds, language-neutral) and
+        tap the located word. No-op (returns False) if the bio isn't truncated or OCR is
+        unavailable — the bio simply stays as-is.
         """
         try:
-            more_selectors = PROFILE_SELECTORS.enrichment_bio_more_selectors
-
-            for selector in more_selectors:
-                element = self.device.xpath(selector)
-                if not element.exists:
-                    continue
-
-                info = element.info
-                bounds = info.get('bounds', {})
-                text = info.get('text', '')
-
-                if not bounds:
-                    # No bounds info — fall back to element center click
-                    element.click()
-                    self.logger.debug("Clicked 'more' (no bounds, center fallback)")
-                    return True
-
-                left   = bounds.get('left', 0)
-                right  = bounds.get('right', 0)
-                top    = bounds.get('top', 0)
-                bottom = bounds.get('bottom', 0)
-
-                # Count lines from actual text (strip to ignore leading/trailing \n)
-                num_lines = max(len(text.strip().split('\n')), 1)
-                height = bottom - top
-                line_height = height / num_lines
-
-                # '… more' is the last line → click its vertical center
-                click_y = int(bottom - line_height / 2)
-                # '… more' starts near the left edge of the last line
-                click_x = left + int((right - left) * 0.25)
-
-                self.logger.debug(
-                    f"Clicking '… more': ({click_x}, {click_y}), "
-                    f"bounds=[{left},{top}][{right},{bottom}], "
-                    f"lines={num_lines}, line_height={line_height:.0f}px"
-                )
-                self.device.click_coordinates(click_x, click_y)
-                self._human_like_delay('click')
-                return True
-
-            return False
-
+            region = self._truncated_bio_region()
+            if region is None:
+                return False
+            matches = locate_text_on_screen(self.device, PROFILE_SELECTORS.bio_more_words, region=region)
+            if not matches:
+                self.logger.debug("Bio 'more': no OCR match (truncated bio not expanded)")
+                return False
+            # The expander is on the LAST line of the bio -> the lowest match.
+            point = max(matches, key=lambda m: m.top).center
+            self.logger.debug(f"Bio 'more' expander located by OCR @ {point} (region={region})")
+            self.device.click_coordinates(point[0], point[1])
+            self._human_like_delay('click')
+            return True
         except Exception as e:
-            self.logger.error(f"Error clicking bio more button: {e}")
+            self.logger.error(f"Error expanding bio: {e}")
             return False
