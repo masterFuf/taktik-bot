@@ -146,6 +146,22 @@ def _find_row_control(
     return None
 
 
+def parse_section_headers(root, header_bare_id: str) -> List[str]:
+    """Visible time-section headers, top-to-bottom (deduped, order-preserving).
+
+    Language-agnostic: matches the bare resource-id and returns whatever text the
+    device shows ("Highlights" / "Today" / "Yesterday" / "Last 7 days" / "Aujourd'hui"
+    …) so the narration speaks the user's own labels.
+    """
+    headers: List[str] = []
+    for node in root.iter("node"):
+        if header_bare_id in (node.get("resource-id") or ""):
+            text = (node.get("text") or "").strip()
+            if text and text not in headers:
+                headers.append(text)
+    return headers
+
+
 def find_inline_like_target(
     root,
     row_bare_id: str,
@@ -219,6 +235,6 @@ def parse_request_rows(
 
 
 __all__ = [
-    "concat_text", "parse_feed_rows", "parse_request_rows",
+    "concat_text", "parse_feed_rows", "parse_request_rows", "parse_section_headers",
     "find_inline_like_target", "find_row_reply_target",
 ]

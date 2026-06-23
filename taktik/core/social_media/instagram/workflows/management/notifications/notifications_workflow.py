@@ -45,6 +45,7 @@ from .dump_parsing import (
     node_text_deep,
     parse_feed_rows,
     parse_request_rows,
+    parse_section_headers,
 )
 from .row_layout import parse_bounds
 
@@ -192,6 +193,7 @@ class NotificationsEngagementWorkflow:
         try:
             element.click()
             self.logger.info("Tapped 'Show more'")
+            self._notify("show_more", "running", "Loading older notifications")
             return True
         except Exception as exc:
             self.logger.debug(f"Show more tap failed: {exc}")
@@ -337,7 +339,7 @@ class NotificationsEngagementWorkflow:
             time.sleep(1.0)
             waited += 1.0
             if self._on_follow_requests_screen():
-                self._notify("open_requests", "done")
+                self._notify("open_requests", "done", "Follow requests opened")
                 return True
         self._notify("open_requests", "failed", "Follow requests screen did not load")
         return False
@@ -346,11 +348,18 @@ class NotificationsEngagementWorkflow:
     # Read pass — classify the activity feed (all families)
     # ------------------------------------------------------------------
     def _rows_on_screen(self) -> List[Dict[str, Any]]:
+        rows, _ = self._dump_screen()
+        return rows
+
+    def _dump_screen(self) -> tuple:
+        """One dump -> (classified feed rows, visible time-section header texts)."""
         root = self._dump_root()
         if root is None:
-            return []
-        return parse_feed_rows(root, self.selectors.notification_row_resource_id,
+            return [], []
+        rows = parse_feed_rows(root, self.selectors.notification_row_resource_id,
                                self.selectors.classifier_fragments)
+        headers = parse_section_headers(root, self.selectors.notification_section_header_resource_id)
+        return rows, headers
 
     def _parse_requests(self, root) -> List[Dict[str, Any]]:
         return parse_request_rows(
@@ -405,13 +414,20 @@ class NotificationsEngagementWorkflow:
         # after two consecutive empty rounds (reached the bottom).
         items: List[Dict[str, Any]] = []
         seen: set = set()
+        seen_sections: set = set()
         stale = 0
         iteration_cap = max(max_scrolls + 1, 12)
         for index in range(iteration_cap):
-            rows = self._rows_on_screen()
+            rows, headers = self._dump_screen()
             if not rows and not items and index == 0:
                 time.sleep(1.2)  # feed may still be rendering
-                rows = self._rows_on_screen()
+                rows, headers = self._dump_screen()
+            # Narrate each newly-revealed time bucket ("Today", "Yesterday", "Last 7
+            # days"…) as the scroll uncovers it (Taktik Agent live card).
+            for header in headers:
+                if header not in seen_sections:
+                    seen_sections.add(header)
+                    self._notify("section", "running", header, section=header)
             new_count = 0
             for row in rows:
                 key = row["text"].lower()

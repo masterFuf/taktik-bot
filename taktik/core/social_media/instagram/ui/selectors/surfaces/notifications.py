@@ -68,6 +68,10 @@ class NotificationSelectors:
     # so scan/parse code stays robust across screens and IG versions. Centralized
     # here so that code carries no hardcoded resource-id literal.
     notification_row_resource_id: str = "activity_feed_newsfeed_story_row"
+    # Time-section header row ("Highlights" / "Today" / "Yesterday" / "Last 7 days" /
+    # "Last 30 days"…). A bare-id TextView; its text is read as-is (language-agnostic)
+    # to narrate which time bucket the scan is currently reading.
+    notification_section_header_resource_id: str = "activity_feed_header_row"
     follow_request_row_resource_id: str = "follow_list_container"
     follow_request_username_resource_id: str = "follow_list_username"
     follow_request_accept_resource_id: str = "row_requested_user_accept_secondary"

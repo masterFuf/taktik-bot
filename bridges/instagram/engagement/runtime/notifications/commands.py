@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
-from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json
+from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json, emit_notif_step
 from bridges.instagram.engagement.runtime.notifications.persistence import record_scan_notifications
 from bridges.instagram.runtime.ipc import logger
 
@@ -38,8 +38,21 @@ def cmd_scan(device_id: str, limit: int, account_username: str = None, package_n
         flags = record_scan_notifications(account_username, items)
         for item, is_new in zip(items, flags):
             item["is_new"] = is_new
+        # Narrate the dedup outcome in the Taktik Agent panel (only when persistence
+        # actually ran, i.e. the owning account was known).
+        if account_username:
+            new_count = sum(1 for flag in flags if flag)
+            if items and new_count == 0:
+                emit_notif_step(step="result", status="running",
+                                message="No new notifications — all already seen", new_count=0)
+            elif new_count:
+                emit_notif_step(step="result", status="running",
+                                message=f"{new_count} new notification(s)", new_count=new_count)
     except Exception as exc:  # never break the scan on persistence
         logger.warning(f"notifications persistence skipped: {exc}")
+
+    # Terminal narration: closes the live notifications card in the Agent panel.
+    emit_notif_step(step="session_end", status="done", message="Notifications session complete")
 
     emit_notif_json({
         "type": "result",
