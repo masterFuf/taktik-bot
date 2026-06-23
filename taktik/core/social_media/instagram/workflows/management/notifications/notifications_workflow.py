@@ -445,12 +445,14 @@ class NotificationsEngagementWorkflow:
                 break
             stale = 0 if added else stale + 1
             at_bottom = self._element_exists(self.selectors.suggested_for_you)
-            # Done only once we HAVE requests, the bottom marker is visible, and the
-            # last re-parse added nothing. Crucially we do NOT break on at_bottom while
-            # requests is still empty: the rows render progressively and the "Suggested
-            # for you" header is already on screen from the start (all requests fit
-            # above it), so an early break would return 0 before they appear.
-            if at_bottom and requests and not added:
+            # Done once we HAVE requests, the bottom marker is visible, and TWO
+            # consecutive re-parses added nothing. We require two (not one) empty rounds
+            # because rows render progressively and a slow one (e.g. a verified account
+            # whose badge loads late) can be absent on a single re-parse — breaking on
+            # the first empty round dropped the top request. We never break on at_bottom
+            # while requests is still empty (the "Suggested for you" header is on screen
+            # from the start, all requests fitting above it).
+            if at_bottom and requests and stale >= 2:
                 break
             if not requests and stale >= 6:
                 break  # nothing ever rendered after patient retries -> give up
