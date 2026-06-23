@@ -27,6 +27,16 @@ datas = [
     (str(BRIDGES_DIR), "bridges"),
     (str(U2_ASSETS), "uiautomator2/assets"),
 ]
+
+# Bundle a portable tesseract (tesseract.exe + DLLs + tessdata for the languages we
+# support) so OCR ships WITH the app — clients never install it. Drop the portable build
+# under bot/assets/tesseract/ ; the OCR service resolves it from _MEIPASS at runtime
+# (OcrService._configure). Guarded: the build still works if the folder is absent (OCR
+# then degrades gracefully = truncated text kept).
+_TESSERACT_DIR = BOT_DIR / "assets" / "tesseract"
+if _TESSERACT_DIR.exists():
+    datas.append((str(_TESSERACT_DIR), "tesseract"))
+
 binaries = []
 hiddenimports = [
     "taktik",
@@ -46,6 +56,7 @@ hiddenimports = [
     "rich",
     "typer",
     "pydantic",
+    "pytesseract",  # lazy import in taktik.core.shared.vision.ocr
     *load_bridge_modules(),
 ]
 hiddenimports += collect_submodules("bridges.tiktok")

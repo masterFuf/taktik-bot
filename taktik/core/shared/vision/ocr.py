@@ -13,7 +13,8 @@ OCR-driven action (no crash). Pure: takes an image in, returns matches; no devic
 
 from __future__ import annotations
 
-import re
+import os
+import sys
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
 
@@ -56,21 +57,51 @@ class OcrService:
     """Locate text in an image via tesseract. Stateless; methods are classmethods."""
 
     _unavailable_warned = False
+    _configured = False
+
+    @classmethod
+    def _configure(cls, pytesseract) -> None:
+        """Point pytesseract at a BUNDLED tesseract so it ships with the app (clients
+        never install it). Resolution order: ``TAKTIK_TESSERACT_CMD`` env → a `tesseract/`
+        folder bundled next to the frozen exe / in the PyInstaller _MEIPASS → PATH (dev).
+        Also sets ``TESSDATA_PREFIX`` to the bundled ``tessdata`` when present.
+        """
+        if cls._configured:
+            return
+        cls._configured = True
+        exe_name = "tesseract.exe" if os.name == "nt" else "tesseract"
+        candidates = []
+        env_cmd = os.environ.get("TAKTIK_TESSERACT_CMD")
+        if env_cmd:
+            candidates.append((env_cmd, os.path.join(os.path.dirname(env_cmd), "tessdata")))
+        for base in (getattr(sys, "_MEIPASS", None),
+                     os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else None):
+            if base:
+                folder = os.path.join(base, "tesseract")
+                candidates.append((os.path.join(folder, exe_name), os.path.join(folder, "tessdata")))
+        for cmd, tessdata in candidates:
+            if cmd and os.path.exists(cmd):
+                pytesseract.pytesseract.tesseract_cmd = cmd
+                if os.path.isdir(tessdata):
+                    os.environ["TESSDATA_PREFIX"] = tessdata
+                logger.debug(f"OCR: using bundled tesseract at {cmd}")
+                return
+        # else: fall back to a system-installed tesseract on PATH (dev machines).
 
     @classmethod
     def _pytesseract(cls):
         """Return the pytesseract module if usable, else None (logged once)."""
         try:
             import pytesseract  # noqa: PLC0415 (lazy: optional dep)
-            return pytesseract
         except Exception:
             if not cls._unavailable_warned:
                 cls._unavailable_warned = True
                 logger.warning(
-                    "OCR unavailable: `pip install pytesseract` and install the tesseract "
-                    "binary (UB-Mannheim build on Windows). OCR-driven taps are skipped."
+                    "OCR unavailable: pytesseract not importable. OCR-driven taps are skipped."
                 )
             return None
+        cls._configure(pytesseract)
+        return pytesseract
 
     @classmethod
     def available(cls) -> bool:
