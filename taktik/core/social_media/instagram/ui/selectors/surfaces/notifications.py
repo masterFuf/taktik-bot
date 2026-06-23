@@ -78,6 +78,11 @@ class NotificationSelectors:
     def notification_item(self) -> List[str]:
         return self.notification_row
 
+    # --- "Show more" / "Voir plus" button (loads older notifications) ---
+    @property
+    def show_more_button(self) -> List[str]:
+        return L("notification.show_more")
+
     # --- Filter button (top action bar) ---
     _filter_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/action_bar_button_action"]',

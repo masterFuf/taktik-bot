@@ -136,6 +136,23 @@ class NotificationsEngagementWorkflow:
                 self.logger.warning(f"Swipe failed: {exc}")
                 break
 
+    def _tap_show_more(self) -> bool:
+        """Tap the 'Show more' / 'Voir plus' button to load older notifications.
+
+        The button's text node is not clickable itself, but tapping its bounds
+        center lands on the clickable parent. Returns False when absent.
+        """
+        element = self._find_element(self.selectors.show_more_button)
+        if element is None:
+            return False
+        try:
+            element.click()
+            self.logger.info("Tapped 'Show more'")
+            return True
+        except Exception as exc:
+            self.logger.debug(f"Show more tap failed: {exc}")
+            return False
+
     def _dump_root(self):
         """Full (uncompressed) hierarchy dump parsed to an lxml root, or None."""
         xml = None
@@ -192,6 +209,18 @@ class NotificationsEngagementWorkflow:
         ok = self._on_notifications_screen()
         self._notify("open_notifications", "done" if ok else "failed")
         return ok
+
+    def _return_to_notifications(self, attempts: int = 3) -> bool:
+        """Back out of the follow-requests sub-screen to the notifications feed."""
+        for _ in range(attempts):
+            if self._on_notifications_screen():
+                return True
+            try:
+                self.device.press("back")
+            except Exception:
+                pass
+            time.sleep(1.0)
+        return self._on_notifications_screen()
 
     def ensure_follow_requests_screen(self, load_timeout_s: float = 10.0) -> bool:
         """Open the follow-requests sub-screen from the notifications screen.
@@ -264,6 +293,16 @@ class NotificationsEngagementWorkflow:
         self._optimize_locale()  # align selectors to the device language (EN/FR/…)
         has_grouped = self._element_exists(self.selectors.follow_requests_header)
 
+        # Collect follow requests FIRST, while the grouped header is still at the TOP
+        # of the feed. Scrolling the feed for activity (below) would push the header
+        # off-screen and the tap into the sub-screen would miss it.
+        requests: List[Dict[str, str]] = []
+        if has_grouped:
+            requests = self._collect_requests(max_requests=50)
+            self._return_to_notifications()
+
+        # Now scroll the activity feed and classify it, tapping "Show more" to load
+        # older notifications when a screen reveals nothing new.
         items: List[Dict[str, Any]] = []
         seen: set = set()
         for attempt in range(max_scrolls + 1):
@@ -279,10 +318,14 @@ class NotificationsEngagementWorkflow:
                 seen.add(key)
                 items.append(row)
                 new_count += 1
-            if attempt < max_scrolls and new_count:
+            if attempt >= max_scrolls:
+                break
+            if new_count:
                 self._scroll_down(1)
-            elif attempt < max_scrolls and not new_count:
-                break  # nothing new revealed -> reached the bottom
+            elif self._tap_show_more():
+                time.sleep(1.5)  # let older notifications load
+            else:
+                break  # nothing new + no "Show more" -> reached the bottom
 
         # Drop the grouped "follow requests" digest row from the feed: it is not a
         # real activity item, it is the entry to the requests sub-screen (surfaced
@@ -291,12 +334,6 @@ class NotificationsEngagementWorkflow:
         items = [it for it in items
                  if not (it["type"] in ("follow_request", "other")
                          and any(f in it["text"].lower() for f in header_frags))]
-
-        # Navigate INTO the follow requests (same pass) so the page can act on them.
-        requests: List[Dict[str, str]] = []
-        if has_grouped or any(it["type"] == "follow_request" for it in items):
-            self._notify("open_requests", "running", "Opening follow requests")
-            requests = self._collect_requests(max_requests=50)
 
         by_type: Dict[str, int] = {}
         for item in items:

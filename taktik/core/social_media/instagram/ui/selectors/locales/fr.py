@@ -412,6 +412,12 @@ STRINGS: Dict[str, List[str]] = {
     "notification.follow_requests_digest": [
         "Demandes de suivi",
     ],
+    # "Voir plus" button that loads older notifications (exact text to avoid the
+    # inline "… plus" comment expander).
+    "notification.show_more": [
+        "//*[@text=\"Voir plus\"]",
+        "//*[@text=\"Afficher plus\"]",
+    ],
     "notification.follow_requests_section": [
         "//*[contains(@text, \"Demandes d'abonnement\")]",
     ],
