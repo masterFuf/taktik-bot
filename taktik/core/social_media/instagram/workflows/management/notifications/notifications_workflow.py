@@ -38,6 +38,7 @@ from taktik.core.shared.vision import locate_text_on_screen
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
 from ....ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
+from .classifier import clean_label, longest_clean_run
 from .dump_parsing import (
     concat_text,
     find_inline_like_target,
@@ -49,6 +50,10 @@ from .dump_parsing import (
     parse_request_rows,
     parse_section_headers,
 )
+
+# Families whose row text carries USER-written content that may contain emojis the XML
+# dump corrupts (so we re-read them via the element API to recover the real text).
+_EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "comment_like"}
 from .row_layout import parse_bounds
 
 StepNotifier = Callable[..., None]
@@ -363,6 +368,33 @@ class NotificationsEngagementWorkflow:
         headers = parse_section_headers(root, self.selectors.notification_section_header_resource_id)
         return rows, headers
 
+    def _resolve_emoji_text(self, parsed_text: str) -> Optional[str]:
+        """Re-read a comment row's REAL text via uiautomator2's element API to recover
+        emojis the XML dump corrupted into "."/"…" placeholders.
+
+        The XML hierarchy dump mangles supplementary-plane emojis; ``UiObject.get_text()``
+        (JSON-RPC) does not. We anchor on the longest clean run of the parsed text
+        (``textContains``) to find the on-screen node, then return its real text. Returns
+        None (caller keeps the dump text) if there's no usable anchor, the node isn't
+        found, or the re-read doesn't actually contain the anchor (wrong node guard).
+        """
+        anchor = longest_clean_run(parsed_text)
+        if not anchor:
+            return None
+        raw = getattr(self.device, "_device", None) or self.device
+        try:
+            element = raw(textContains=anchor)
+            if not element.exists(timeout=0.4):
+                return None
+            real = (element.get_text() or "").strip()
+        except Exception as exc:
+            self.logger.debug(f"emoji re-read failed: {exc}")
+            return None
+        # Guard against a wrong-node match; only use a re-read that is actually richer.
+        if real and anchor in real and real != parsed_text:
+            return real
+        return None
+
     def _expand_one_more(self) -> bool:
         """Expand ONE not-yet-tried truncated row (reveal its full comment/mention text).
 
@@ -481,6 +513,13 @@ class NotificationsEngagementWorkflow:
                 if key in seen:
                     continue
                 seen.add(key)
+                # Recover emojis the XML dump corrupted: re-read comment rows via the
+                # element API (preserves emojis) while the row is still on screen.
+                if row["type"] in _EMOJI_TEXT_TYPES:
+                    real = self._resolve_emoji_text(row["text"])
+                    if real:
+                        row["text"] = real[:200]
+                        row["label"] = clean_label(real)
                 items.append(row)
                 new_count += 1
             if new_count:

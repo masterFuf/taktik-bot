@@ -62,6 +62,25 @@ def sanitize_text(text: str) -> str:
     return " ".join(cleaned.split())
 
 
+# Emoji-placeholder noise the XML dump leaves where a supplementary-plane emoji was
+# (runs of 2+ dots, the ellipsis, the U+FFFD replacement char).
+_EMOJI_NOISE_RE = re.compile(r"\.{2,}|…|�")
+
+
+def longest_clean_run(text: str, min_len: int = 12) -> str:
+    """Longest substring of ``text`` free of emoji-placeholder noise, or "".
+
+    The XML UI dump corrupts modern emojis into "."/"…"/"" placeholders, so a clean
+    run (e.g. the actor + type phrase, or the words around the emoji) makes a reliable
+    ``textContains`` anchor to RE-READ the node's real text via uiautomator2's element
+    API (which preserves emojis). Returns "" if no run reaches ``min_len`` (too short
+    to anchor uniquely).
+    """
+    segments = _EMOJI_NOISE_RE.split(text or "")
+    best = max((seg.strip() for seg in segments), key=len, default="")
+    return best if len(best) >= min_len else ""
+
+
 def clean_label(full: str) -> str:
     """Human display label for a notification row: drop the truncation marker, the
     trailing affordance captions (Reply/Like/Follow back/…) and the trailing time
@@ -117,4 +136,5 @@ def classify_row(full: str, fragments: Dict[str, List[str]]) -> Tuple[str, str]:
     return "other", ""
 
 
-__all__ = ["classify_row", "clean_label", "extract_time", "row_has_action", "sanitize_text", "_TIME_RE", "_ACTION_WORDS"]
+__all__ = ["classify_row", "clean_label", "extract_time", "row_has_action", "sanitize_text",
+           "longest_clean_run", "_TIME_RE", "_ACTION_WORDS"]

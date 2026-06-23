@@ -2,6 +2,7 @@
 
 from taktik.core.social_media.instagram.workflows.management.notifications.classifier import (
     clean_label,
+    longest_clean_run,
     sanitize_text,
 )
 
@@ -47,6 +48,18 @@ def test_sanitize_strips_replacement_char_and_normalizes_nbsp():
 def test_clean_label_drops_replacement_char():
     assert clean_label("atelier_lc_� a commencé à vous suivre. 3 j") \
         == "atelier_lc_ a commencé à vous suivre"
+
+
+def test_longest_clean_run_anchors_before_emoji_placeholder():
+    # The XML dump corrupted "🙏🙏🙏" into ".. ...." — the anchor is the clean run.
+    text = "alexbeatsr a répondu à votre commentaire : @sandra.lelit merci .. .... bravo à elle"
+    anchor = longest_clean_run(text)
+    assert anchor == "alexbeatsr a répondu à votre commentaire : @sandra.lelit merci"
+    assert anchor in text
+
+
+def test_longest_clean_run_empty_when_no_long_clean_run():
+    assert longest_clean_run("a .. b … c") == ""  # every run is too short to anchor
 
 
 def test_idempotent_and_clean_input_untouched():
