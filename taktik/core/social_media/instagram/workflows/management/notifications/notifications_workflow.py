@@ -31,6 +31,8 @@ from typing import Any, Callable, Dict, List, Optional
 from loguru import logger
 from lxml import etree
 
+from taktik.core.shared.behavior.gesture import sample_swipe
+
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
 from .dump_parsing import concat_text, parse_feed_rows, parse_request_rows
@@ -121,21 +123,43 @@ class NotificationsEngagementWorkflow:
                 return matches
         return []
 
-    def _scroll_down(self, times: int = 1) -> None:
+    def _human_scroll(self, direction: str = "up") -> bool:
+        """One humanized scroll using the shared calibration engine (real swipe
+        trajectories via ``sample_swipe`` + ``swipe_points``), not a fixed straight
+        swipe. Falls back to a plain swipe along the sampled endpoints, then to a
+        centred straight swipe."""
         try:
             width, height = self.device.window_size()
         except Exception:
-            width, height = 720, 1280
-        x = width // 2
-        y_start = int(height * 0.75)
-        y_end = int(height * 0.30)
-        for _ in range(times):
+            width, height = 1080, 2220
+        try:
+            path, duration = sample_swipe(int(width), int(height), direction=direction)
+        except Exception as exc:
+            self.logger.debug(f"sample_swipe failed: {exc}")
+            path, duration = None, 0.4
+        if path:
+            raw = getattr(self.device, "_device", None) or self.device
             try:
-                self.device.swipe(x, y_start, x, y_end, duration=0.4)
-                time.sleep(0.7)
+                if hasattr(raw, "swipe_points"):
+                    raw.swipe_points(path, duration / max(1, len(path) - 1))
+                    return True
+                self.device.swipe(path[0][0], path[0][1], path[-1][0], path[-1][1], duration=duration)
+                return True
             except Exception as exc:
-                self.logger.warning(f"Swipe failed: {exc}")
+                self.logger.debug(f"human swipe exec failed: {exc}")
+        try:
+            x = int(width) // 2
+            self.device.swipe(x, int(height * 0.72), x, int(height * 0.32), duration=0.4)
+            return True
+        except Exception as exc:
+            self.logger.warning(f"Swipe failed: {exc}")
+            return False
+
+    def _scroll_down(self, times: int = 1) -> None:
+        for _ in range(times):
+            if not self._human_scroll("up"):
                 break
+            time.sleep(0.7)
 
     def _tap_show_more(self) -> bool:
         """Tap the 'Show more' / 'Voir plus' button to load older notifications.
@@ -398,9 +422,15 @@ class NotificationsEngagementWorkflow:
         """
         if not self.ensure_follow_requests_screen():
             return []
+        # The request rows render progressively over the network and usually all fit
+        # on one screen ABOVE the "Suggested for you" header. So we RE-PARSE with a
+        # short settle between rounds to catch late-rendering rows, scroll only while
+        # the bottom marker is not yet visible, and stop once it is (everything below
+        # is recommendations, not requests).
         seen: set = set()
         requests: List[Dict[str, str]] = []
-        for _ in range(8):  # bounded scroll
+        stale = 0
+        for _ in range(12):
             added = False
             for row in self._request_rows():
                 name = row["username"]
@@ -413,9 +443,17 @@ class NotificationsEngagementWorkflow:
                     break
             if len(requests) >= max_requests:
                 break
-            self._scroll_down(1)
-            if not added and not any(r["username"] not in seen for r in self._request_rows()):
-                break  # nothing new after a scroll -> reached the bottom
+            at_bottom = self._element_exists(self.selectors.suggested_for_you)
+            if not added:
+                stale += 1
+                if at_bottom or stale >= 3:
+                    break  # fully rendered (bottom reached) or nothing new 3x
+                self._scroll_down(1)
+            else:
+                stale = 0
+                if not at_bottom:
+                    self._scroll_down(1)  # more requests below the fold
+            time.sleep(0.8)  # let progressively-loading rows render
 
         if not requests:
             # Diagnostic: we reached the sub-screen but parsed nothing. Log the raw

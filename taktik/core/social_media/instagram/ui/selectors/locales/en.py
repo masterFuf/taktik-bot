@@ -460,6 +460,11 @@ STRINGS: Dict[str, List[str]] = {
     "notification.show_more": [
         "//*[@text=\"Show more\"]",
     ],
+    # Header that marks the END of the pending follow-requests list on the
+    # sub-screen (everything below is recommendations, not requests).
+    "notification.suggested_for_you": [
+        "//*[contains(@text, \"Suggested for you\")]",
+    ],
     "notification.follow_requests_section": [
         "//*[contains(@text, \"Follow requests\")]",
     ],

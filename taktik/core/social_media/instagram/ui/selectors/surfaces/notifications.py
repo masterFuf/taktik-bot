@@ -83,6 +83,11 @@ class NotificationSelectors:
     def show_more_button(self) -> List[str]:
         return L("notification.show_more")
 
+    # --- "Suggested for you" header = bottom of the follow-requests list ---
+    @property
+    def suggested_for_you(self) -> List[str]:
+        return L("notification.suggested_for_you")
+
     # --- Filter button (top action bar) ---
     _filter_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/action_bar_button_action"]',
