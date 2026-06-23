@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Optional
 from loguru import logger
 from lxml import etree
 
+from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
 from .dump_parsing import parse_feed_rows, parse_request_rows
 
@@ -46,6 +47,28 @@ class NotificationsEngagementWorkflow:
         self._notify_cb = notifier
         self.logger = logger.bind(module="instagram-notifications")
         self.selectors = NOTIFICATION_SELECTORS
+        self._locale_ready = False
+
+    # ------------------------------------------------------------------
+    # Language detection (same service as the other workflows)
+    # ------------------------------------------------------------------
+    def _optimize_locale(self) -> None:
+        """Detect the app language and filter selectors to it (once per run).
+
+        Mirrors every other Instagram workflow (runtime_setup / change_language):
+        the notifications/activity surface mixes language-neutral resource-ids with
+        a few TEXT-only signatures (e.g. the grouped follow-requests digest, which
+        has no resource-id). Aligning the active locale to the device makes those
+        text selectors resolve in the right language. Best-effort / non-fatal.
+        """
+        if self._locale_ready:
+            return
+        self._locale_ready = True
+        try:
+            lang = detect_and_optimize(self.device)
+            self.logger.info(f"App language detected: {lang}")
+        except Exception as exc:  # never block the flow on detection
+            self.logger.warning(f"Language detection failed (non-fatal): {exc}")
 
     # ------------------------------------------------------------------
     # Step narration (no-op when no notifier is injected)
@@ -182,6 +205,7 @@ class NotificationsEngagementWorkflow:
             return True
         if not self.ensure_notifications_screen():
             return False
+        self._optimize_locale()  # the grouped header is text-only -> needs the right locale
         self._notify("open_requests", "running", "Opening follow requests")
         if not self._click_first_match(self.selectors.follow_requests_header, "Follow requests header"):
             self._notify("open_requests", "failed", "Follow requests section not found")
@@ -237,6 +261,7 @@ class NotificationsEngagementWorkflow:
 
         self._notify("scan", "running", "Reading notifications")
         time.sleep(1.0)  # let the feed settle before the first dump
+        self._optimize_locale()  # align selectors to the device language (EN/FR/…)
         has_grouped = self._element_exists(self.selectors.follow_requests_header)
 
         items: List[Dict[str, Any]] = []
@@ -403,6 +428,7 @@ class NotificationsEngagementWorkflow:
         if not self.ensure_notifications_screen():
             result["message"] = "Notifications screen not reachable"
             return result
+        self._optimize_locale()  # the Reply affordance is text-only -> needs the right locale
 
         replies = self._all_matches(self.selectors.reply_button)
         if not replies:
