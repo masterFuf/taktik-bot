@@ -13,6 +13,7 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.instagram import app  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import comment  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import detection  # noqa: F401
+    from bridges.compat.diagnostics.actions.instagram import dm  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import engagement  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import keyboard  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import navigation  # noqa: F401
