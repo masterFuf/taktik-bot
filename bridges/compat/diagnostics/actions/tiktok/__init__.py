@@ -16,6 +16,7 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.tiktok import inbox  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import navigation  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import popups  # noqa: F401
+    from bridges.compat.diagnostics.actions.tiktok import publish  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import scroll  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import search  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import video  # noqa: F401
