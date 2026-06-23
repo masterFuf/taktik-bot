@@ -33,7 +33,8 @@ from lxml import etree
 
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
-from .dump_parsing import parse_feed_rows, parse_request_rows
+from .dump_parsing import concat_text, parse_feed_rows, parse_request_rows
+from .row_layout import parse_bounds
 
 StepNotifier = Callable[..., None]
 
@@ -210,6 +211,33 @@ class NotificationsEngagementWorkflow:
         self._notify("open_notifications", "done" if ok else "failed")
         return ok
 
+    def _open_grouped_requests(self) -> bool:
+        """Open the follow-requests sub-screen by tapping the grouped digest row.
+
+        Tapping the row CENTER lands on the text and often does not trigger
+        navigation (confirmed flaky even by hand); the profile-picture cluster on
+        the LEFT is the reliable hit target. We locate the digest story row in the
+        dump (text matches the localized header) and tap its left avatar zone.
+        Falls back to the plain element click if the row bounds are unavailable.
+        """
+        root = self._dump_root()
+        if root is not None:
+            frags = [f.lower() for f in self.selectors.follow_requests_header_text]
+            row_id = self.selectors.notification_row_resource_id
+            for node in root.iter("node"):
+                if row_id not in (node.get("resource-id") or ""):
+                    continue
+                if not any(f in concat_text(node).lower() for f in frags):
+                    continue
+                box = parse_bounds(node.get("bounds", ""))
+                if box:
+                    x1, y1, x2, y2 = box
+                    x = x1 + max(70, int((x2 - x1) * 0.08))  # left avatar cluster
+                    y = (y1 + y2) // 2
+                    return self._tap_point((x, y), "Follow requests (avatars)")
+        # Fallback: whole-row element click.
+        return self._click_first_match(self.selectors.follow_requests_header, "Follow requests header")
+
     def _return_to_notifications(self, attempts: int = 3) -> bool:
         """Back out of the follow-requests sub-screen to the notifications feed."""
         for _ in range(attempts):
@@ -236,7 +264,7 @@ class NotificationsEngagementWorkflow:
             return False
         self._optimize_locale()  # the grouped header is text-only -> needs the right locale
         self._notify("open_requests", "running", "Opening follow requests")
-        if not self._click_first_match(self.selectors.follow_requests_header, "Follow requests header"):
+        if not self._open_grouped_requests():
             self._notify("open_requests", "failed", "Follow requests section not found")
             return False
         deadline = load_timeout_s
