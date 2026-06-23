@@ -6,6 +6,7 @@ import sys
 
 from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json
+from bridges.instagram.engagement.runtime.notifications.persistence import record_scan_notifications
 from bridges.instagram.runtime.ipc import logger
 
 
@@ -22,19 +23,31 @@ def _connect(device_id: str, package_name: str = None, *, restart: bool = True) 
     return bridge
 
 
-def cmd_scan(device_id: str, limit: int, package_name: str = None) -> None:
+def cmd_scan(device_id: str, limit: int, account_username: str = None, package_name: str = None) -> None:
     """Read + classify the activity feed (all notification families)."""
     bridge = _connect(device_id, package_name, restart=True)
     # `limit` is interpreted as how many extra screens to scroll (0 = visible only).
     workflow = bridge.build_workflow()
     result = workflow.scan(max_scrolls=max(0, limit))
+    items = result.get("items", [])
+
+    # Persist + dedup (best-effort): annotate each item with `is_new` so the front can
+    # skip already-processed notifications. The activity screen has no account header, so
+    # the owning account is passed in by the front (resolved via getLatestDeviceAccounts).
+    try:
+        flags = record_scan_notifications(account_username, items)
+        for item, is_new in zip(items, flags):
+            item["is_new"] = is_new
+    except Exception as exc:  # never break the scan on persistence
+        logger.warning(f"notifications persistence skipped: {exc}")
+
     emit_notif_json({
         "type": "result",
         "command": "scan",
         "success": result.get("success", False),
         "count": result.get("count", 0),
         "by_type": result.get("by_type", {}),
-        "items": result.get("items", []),
+        "items": items,
         "requests": result.get("requests", []),
         "has_grouped_requests": result.get("has_grouped_requests", False),
         "message": result.get("message", ""),
@@ -107,9 +120,18 @@ def run_notifications_cli(args: list[str]) -> None:
             package_name = args[idx + 1]
             args = args[:idx] + args[idx + 2:]
 
+    # The owning account (the front resolves it via getLatestDeviceAccounts) — used by
+    # `scan` to persist + dedup notifications, since the activity screen has no header.
+    account_username = None
+    if "--account" in args:
+        idx = args.index("--account")
+        if idx + 1 < len(args):
+            account_username = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+
     if not args:
         emit_notif_error(
-            "Usage: notifications.py <command> [args] [--package <pkg>]\n"
+            "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
             "  scan <device_id> [scroll]\n"
             "  list_requests <device_id> [limit]\n"
             "  accept <device_id> <username>\n"
@@ -125,9 +147,10 @@ def run_notifications_cli(args: list[str]) -> None:
     try:
         if command == "scan":
             if len(args) < 2:
-                emit_notif_error("Usage: notifications.py scan <device_id> [scroll]")
+                emit_notif_error("Usage: notifications.py scan <device_id> [scroll] [--account <username>]")
                 sys.exit(1)
-            cmd_scan(args[1], int(args[2]) if len(args) > 2 else 3, package_name=package_name)
+            cmd_scan(args[1], int(args[2]) if len(args) > 2 else 3,
+                     account_username=account_username, package_name=package_name)
 
         elif command == "list_requests":
             if len(args) < 2:
