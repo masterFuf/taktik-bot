@@ -284,13 +284,21 @@ class NotificationsEngagementWorkflow:
         Items are de-duplicated by text, top-to-bottom; the grouped "follow requests"
         digest row is dropped from ``items`` since it is surfaced via ``requests``.
         """
+        # Detect the app language on the HOME feed FIRST (Instagram just launched):
+        # the bottom nav carries strong EN/FR content-desc signal there (Home/Profile/
+        # Search vs Accueil/Profil/Rechercher), whereas the notifications screen has
+        # almost none and ties FR=EN -> 'unknown'. Detecting before navigating gives a
+        # confident locale (L() then resolves the right language for the text-only
+        # follow-requests header).
+        time.sleep(1.5)  # let the home feed render before detection
+        self._optimize_locale()
+
         if not self.ensure_notifications_screen():
             return {"success": False, "count": 0, "by_type": {}, "items": [], "requests": [],
                     "has_grouped_requests": False, "message": "Notifications screen not reachable"}
 
         self._notify("scan", "running", "Reading notifications")
         time.sleep(1.0)  # let the feed settle before the first dump
-        self._optimize_locale()  # align selectors to the device language (EN/FR/…)
         has_grouped = self._element_exists(self.selectors.follow_requests_header)
 
         # Collect follow requests FIRST, while the grouped header is still at the TOP
@@ -301,13 +309,16 @@ class NotificationsEngagementWorkflow:
             requests = self._collect_requests(max_requests=50)
             self._return_to_notifications()
 
-        # Now scroll the activity feed and classify it, tapping "Show more" to load
-        # older notifications when a screen reveals nothing new.
+        # Scroll the activity feed and classify it. When a screen reveals nothing new,
+        # tap "Show more" to load older notifications THEN scroll to reveal them; stop
+        # after two consecutive empty rounds (reached the bottom).
         items: List[Dict[str, Any]] = []
         seen: set = set()
-        for attempt in range(max_scrolls + 1):
+        stale = 0
+        iteration_cap = max(max_scrolls + 1, 12)
+        for index in range(iteration_cap):
             rows = self._rows_on_screen()
-            if not rows and attempt == 0:
+            if not rows and not items and index == 0:
                 time.sleep(1.2)  # feed may still be rendering
                 rows = self._rows_on_screen()
             new_count = 0
@@ -318,14 +329,18 @@ class NotificationsEngagementWorkflow:
                 seen.add(key)
                 items.append(row)
                 new_count += 1
-            if attempt >= max_scrolls:
-                break
             if new_count:
+                stale = 0
                 self._scroll_down(1)
             elif self._tap_show_more():
-                time.sleep(1.5)  # let older notifications load
+                time.sleep(1.5)       # let older notifications load
+                self._scroll_down(1)  # reveal the freshly-loaded rows
+                stale = 0
             else:
-                break  # nothing new + no "Show more" -> reached the bottom
+                stale += 1
+                if stale >= 2:
+                    break  # nothing new + no "Show more" twice -> reached the bottom
+                self._scroll_down(1)
 
         # Drop the grouped "follow requests" digest row from the feed: it is not a
         # real activity item, it is the entry to the requests sub-screen (surfaced
