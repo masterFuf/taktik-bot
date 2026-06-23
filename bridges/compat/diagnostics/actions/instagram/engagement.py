@@ -115,3 +115,38 @@ def unfollow_from_list(a, p):
     (UnfollowBusiness.run_simple_unfollow_from_list). DESTRUCTIVE — unfollows accounts. Uses
     the default config; run on a test account."""
     return _dict_result(a.unfollow.run_simple_unfollow_from_list(), "unfollow-from-list done", "unfollow-from-list failed")
+
+
+def _ui_helpers(a):
+    # UIHelpers reads only automation.device + automation.logger (verified): give it the warm
+    # facade so the REAL interact_with_likers/has_likes prod code runs (not a Lab-only path).
+    from types import SimpleNamespace
+    from taktik.core.social_media.instagram.workflows.support.ui_helpers import UIHelpers
+    return UIHelpers(SimpleNamespace(device=a.device, logger=logger))
+
+
+@action("engagement.engage_likers")
+def engage_likers(a, p):
+    """Engage the likers of the OPEN post via the production loop
+    (UIHelpers.interact_with_likers): read likers popup + follow a share of them. The likers
+    popup must be open. Params: max_interactions (default 5), follow_percentage (0-1, default
+    1.0), like_percentage (0-1, default 0)."""
+    def _f(key, default):
+        try:
+            return float(p.get(key))
+        except (TypeError, ValueError):
+            return default
+    try:
+        max_interactions = int(p.get("max_interactions") or 5)
+    except (TypeError, ValueError):
+        max_interactions = 5
+    count = _ui_helpers(a).interact_with_likers(max_interactions, _f("like_percentage", 0.0),
+                                                _f("follow_percentage", 1.0), {})
+    return {"success": bool(count), "message": f"{count} liker(s) engaged", "details": {"interactions": count}}
+
+
+@action("engagement.has_likes")
+def has_likes(a, p):
+    """Detection: does the OPEN post have likes (gate before opening the likers popup)?"""
+    v = _ui_helpers(a).has_likes_on_current_post()
+    return {"success": True, "found": bool(v), "message": f"has_likes={bool(v)}"}
