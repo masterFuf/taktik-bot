@@ -81,9 +81,13 @@ def cmd_accept_all(device_id: str, limit: int, package_name: str = None) -> None
     }, flush=True)
 
 
-def cmd_reply(device_id: str, username: str, package_name: str = None) -> None:
+def cmd_reply(device_id: str, username: str, text: str = "", package_name: str = None) -> None:
+    """Reply to ``username``'s comment/mention with ``text`` (click-in + type + send).
+
+    Empty ``text`` opens the reply UI only (operator types by hand on the device).
+    """
     bridge = _connect(device_id, package_name, restart=False)
-    result = bridge.build_workflow().open_mention(username)
+    result = bridge.build_workflow().reply_to_comment(username, text)
     emit_notif_json({"type": "result", "command": "reply", **result}, flush=True)
 
 
@@ -111,7 +115,7 @@ def run_notifications_cli(args: list[str]) -> None:
             "  accept <device_id> <username>\n"
             "  ignore <device_id> <username>\n"
             "  accept_all <device_id> [max]\n"
-            "  reply <device_id> <username>\n"
+            "  reply <device_id> <username> [text]\n"
             "  like <device_id> <username>"
         )
         sys.exit(1)
@@ -151,9 +155,10 @@ def run_notifications_cli(args: list[str]) -> None:
 
         elif command == "reply":
             if len(args) < 3:
-                emit_notif_error("Usage: notifications.py reply <device_id> <username>")
+                emit_notif_error("Usage: notifications.py reply <device_id> <username> [text]")
                 sys.exit(1)
-            cmd_reply(args[1], args[2], package_name=package_name)
+            reply_text = " ".join(args[3:]) if len(args) > 3 else ""
+            cmd_reply(args[1], args[2], reply_text, package_name=package_name)
 
         elif command == "like":
             if len(args) < 3:

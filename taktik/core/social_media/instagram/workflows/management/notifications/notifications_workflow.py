@@ -32,12 +32,15 @@ from loguru import logger
 from lxml import etree
 
 from taktik.core.shared.behavior.gesture import sample_swipe
+from taktik.core.shared.input.taktik_keyboard import type_text_human
 
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
+from ....ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .dump_parsing import (
     concat_text,
     find_inline_like_target,
+    find_row_reply_target,
     node_bounds_deep,
     node_text_deep,
     parse_feed_rows,
@@ -63,6 +66,9 @@ class NotificationsEngagementWorkflow:
         self._relauncher = relauncher
         self.logger = logger.bind(module="instagram-notifications")
         self.selectors = NOTIFICATION_SELECTORS
+        # Comment-thread surface (click-in lands on the standard comments composer):
+        # reused as-is so the notifications reply carries zero hardcoded selector.
+        self.comment_selectors = POST_COMMENTS_SELECTORS
         self._locale_ready = False
 
     # ------------------------------------------------------------------
@@ -657,38 +663,187 @@ class NotificationsEngagementWorkflow:
         return result
 
     # ------------------------------------------------------------------
-    # Comment mentions — open the reply UI (best-effort; typed reply staged)
+    # Comment / mention reply — click-in + type + send (manual or AI text)
     # ------------------------------------------------------------------
-    def open_mention(self, username: str = "") -> Dict[str, Any]:
-        """Tap the Reply affordance on a comment-mention row to open its thread.
+    def _find_reply_in_row(self, username: str) -> Optional[tuple]:
+        root = self._dump_root()
+        if root is None:
+            return None
+        return find_row_reply_target(
+            root, self.selectors.notification_row_resource_id,
+            self.selectors.reply_label, username,
+        )
 
-        v1 opens the reply UI on the device (the first reply affordance found).
-        Typing the reply text is staged for a later increment (needs a
-        reply-content source: templates or AI).
+    def _open_reply_thread(self, username: str) -> bool:
+        """Open the comment thread for ``username``'s row (row-scoped).
+
+        Taps the Reply affordance INSIDE that row (paired by bounds), scrolling to
+        reveal it if below the fold. With a username we NEVER fall back to a
+        different row (that would reply to the wrong comment); with no username we
+        tap the first reply affordance on screen (open-only convenience).
+        """
+        if username:
+            point = self._find_reply_in_row(username)
+            for _ in range(4):
+                if point:
+                    break
+                if not self._human_scroll("up"):
+                    break
+                time.sleep(0.7)
+                point = self._find_reply_in_row(username)
+            if not point:
+                return False
+            return self._tap_point(point, f"reply {username}")
+        replies = self._all_matches(self.selectors.reply_button)
+        if not replies:
+            return False
+        try:
+            replies[0].click()
+            return True
+        except Exception as exc:
+            self.logger.error(f"reply open (fallback) failed: {exc}")
+            return False
+
+    def _on_comment_thread(self) -> bool:
+        """True once the standard comment-thread composer is on screen."""
+        return self._element_exists(self.comment_selectors.comment_composer_indicators)
+
+    def _type_into(self, field, text: str) -> bool:
+        """Type ``text`` into the open composer ``field``, mirroring the proven
+        Taktik-Keyboard -> set_text fallback, each verified by the field's text
+        growing. Uses the shared CORE keyboard (humanized cadence) so the workflow
+        never imports the bridge layer (DIP)."""
+        try:
+            before = field.get_text() or ""
+        except Exception:
+            before = ""
+        try:
+            field.click()  # focus the composer before the IME broadcast
+            time.sleep(0.3)
+        except Exception:
+            pass
+        # 1) Taktik Keyboard (humanized typing) into the focused composer.
+        try:
+            if type_text_human(self.device_id, text):
+                time.sleep(0.5)
+                after = field.get_text() or ""
+                if len(after) > len(before):
+                    return True
+                self.logger.warning("Taktik Keyboard ack OK but composer text not inserted")
+        except Exception as exc:
+            self.logger.warning(f"Taktik Keyboard typing failed: {exc}")
+        # 2) set_text rescue (reliable when the IME broadcast acks but text is absent).
+        try:
+            field.set_text(before + text)
+            time.sleep(0.5)
+            after = field.get_text() or ""
+            if len(after) > len(before):
+                return True
+        except Exception as exc:
+            self.logger.warning(f"set_text fallback failed: {exc}")
+        return False
+
+    def open_mention(self, username: str = "") -> Dict[str, Any]:
+        """Open the comment thread of a mention / comment row WITHOUT typing.
+
+        Row-scoped by ``username`` (falls back to the first reply affordance only
+        when no username is given). Used when the operator writes the reply by hand
+        on the device, or as the first half of ``reply_to_comment``.
         """
         result = {"success": False, "username": username, "message": ""}
         if not self.ensure_notifications_screen():
             result["message"] = "Notifications screen not reachable"
+            self._notify("reply", "failed", result["message"], username=username)
             return result
         self._optimize_locale()  # the Reply affordance is text-only -> needs the right locale
 
-        replies = self._all_matches(self.selectors.reply_button)
-        if not replies:
-            result["message"] = "No reply affordance on screen"
-            self._notify("reply", "failed", result["message"], username=username)
-            return result
-
         self._notify("reply", "running", username or "mention", username=username)
-        try:
-            replies[0].click()
-        except Exception as exc:
-            result["message"] = f"Could not open reply: {exc}"
+        if not self._open_reply_thread(username):
+            result["message"] = (f"No reply affordance for: {username}" if username
+                                 else "No reply affordance on screen")
             self._notify("reply", "failed", result["message"], username=username)
             return result
         time.sleep(1.0)
         result["success"] = True
         result["message"] = "Reply UI opened"
         self._notify("reply", "done", result["message"], username=username)
+        return result
+
+    def reply_to_comment(self, username: str = "", text: str = "") -> Dict[str, Any]:
+        """Reply to ``username``'s comment / mention with ``text`` (click-in + type + send).
+
+        Opens the SPECIFIC row's comment thread, types the reply into the standard
+        comment composer (``POST_COMMENTS_SELECTORS``), taps send, then backs out to
+        the feed. ``text`` is composed by the front (manual or AI); the bot is a dumb
+        type+send executor — no AI here. Empty ``text`` just opens the reply UI.
+        """
+        text = (text or "").strip()
+        if not text:
+            return self.open_mention(username)
+
+        result = {"success": False, "username": username, "action": "reply", "message": ""}
+        if not self.ensure_notifications_screen():
+            result["message"] = "Notifications screen not reachable"
+            self._notify("reply", "failed", result["message"], username=username)
+            return result
+        self._optimize_locale()  # composer / send labels are locale-dependent
+
+        self._notify("reply", "running", username or "comment", username=username)
+        if not self._open_reply_thread(username):
+            result["message"] = (f"No reply affordance for: {username}" if username
+                                 else "No reply affordance on screen")
+            self._notify("reply", "failed", result["message"], username=username)
+            return result
+
+        # The comment thread loads after the tap; poll for its composer.
+        field = None
+        for _ in range(6):
+            time.sleep(0.6)
+            if self._on_comment_thread():
+                field = self._find_element(self.comment_selectors.comment_composer_indicators)
+                if field is not None:
+                    break
+        if field is None:
+            result["message"] = "Comment composer did not open"
+            self._notify("reply", "failed", result["message"], username=username)
+            self._return_to_notifications()
+            return result
+
+        if not self._type_into(field, text):
+            result["message"] = "Could not type the reply"
+            self._notify("reply", "failed", result["message"], username=username)
+            self._return_to_notifications()
+            return result
+
+        send = self._find_element(self.comment_selectors.post_comment_button_xpaths)
+        if send is None:
+            result["message"] = "Send button not found"
+            self._notify("reply", "failed", result["message"], username=username)
+            self._return_to_notifications()
+            return result
+        try:
+            send.click()
+        except Exception as exc:
+            result["message"] = f"Send tap failed: {exc}"
+            self._notify("reply", "failed", result["message"], username=username)
+            self._return_to_notifications()
+            return result
+        time.sleep(1.2)
+
+        # Best-effort verification: the composer cleared (our text is no longer in it).
+        sent = True
+        try:
+            f2 = self._find_element(self.comment_selectors.comment_composer_indicators)
+            remaining = (f2.get_text() or "") if f2 is not None else ""
+            if text and text in remaining:
+                sent = False
+        except Exception:
+            pass
+
+        self._return_to_notifications()
+        result["success"] = sent
+        result["message"] = (f"Replied to {username}" if sent else "Reply may not have been sent")
+        self._notify("reply", "done" if sent else "failed", result["message"], username=username)
         return result
 
 

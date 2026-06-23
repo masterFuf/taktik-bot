@@ -102,6 +102,18 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.post_comments_count_selectors)
     )
 
+    @property
+    def post_comment_button_xpaths(self) -> List[str]:
+        """Send/Post button xpaths, derived from the catalog-owned ids + descriptions.
+
+        Lets callers that resolve selectors as xpath strings (e.g. a workflow's
+        ``_find_element``) reuse the same centralized send-button signatures without
+        re-declaring any literal id/text."""
+        return (
+            [f'//*[@resource-id="{rid}"]' for rid in self.post_comment_button_resource_ids]
+            + [f'//*[@content-desc="{desc}"]' for desc in self.post_comment_button_descriptions]
+        )
+
     def comments_list_selector(self) -> str:
         """Return the comments list selector from the catalog-owned resource id."""
         return f'//*[@resource-id="{self.comments_list_resource_id}"]'

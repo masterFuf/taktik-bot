@@ -9,6 +9,7 @@ from lxml import etree
 
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     find_inline_like_target,
+    find_row_reply_target,
     parse_feed_rows,
     parse_request_rows,
 )
@@ -139,4 +140,30 @@ def test_find_inline_like_skips_already_liked_unlike_button():
 def test_find_inline_like_none_when_username_absent():
     point = find_inline_like_target(_root(LIKE_XML), "activity_feed_newsfeed_story_row",
                                     ["Like button"], "carol")
+    assert point is None
+
+
+# Comment / mention rows carry a "Reply" / "Répondre" Button (text node) on the row.
+REPLY_XML = """<hierarchy>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,400][1080,560]">
+    <node text="alice a mentionné votre nom dans un commentaire" bounds="[150,420][1000,500]" />
+    <node text="Bouton J'aime" bounds="[40,510][130,555]" />
+    <node text="Répondre" bounds="[150,510][320,555]" />
+  </node>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,560][1080,720]">
+    <node text="bob a aimé votre photo" bounds="[150,580][1000,660]" />
+  </node>
+</hierarchy>"""
+
+
+def test_find_row_reply_returns_button_center_for_username():
+    point = find_row_reply_target(_root(REPLY_XML), "activity_feed_newsfeed_story_row",
+                                  ["Répondre", "Reply"], "alice")
+    assert point == (235, 532)  # center of [150,510][320,555]
+
+
+def test_find_row_reply_none_when_row_has_no_reply():
+    # bob's row (a like-only notification) has no Reply button -> None.
+    point = find_row_reply_target(_root(REPLY_XML), "activity_feed_newsfeed_story_row",
+                                  ["Répondre", "Reply"], "bob")
     assert point is None

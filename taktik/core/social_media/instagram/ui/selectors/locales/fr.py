@@ -439,6 +439,12 @@ STRINGS: Dict[str, List[str]] = {
     "notification.inline_like_button": [
         "Bouton J'aime",
     ],
+    # LIBELLÉ "Répondre" inline sur une ligne commentaire / mention (texte brut, PAS
+    # un xpath — apparié par égalité EXACTE du texte pour associer le bouton Répondre
+    # à sa ligne par bounds, puis tapé pour ouvrir le fil du commentaire ciblé).
+    "notification.reply_label": [
+        "Répondre",
+    ],
     "notification.comment_like_text": [
         "//android.widget.TextView[contains(@text, \"a aimé votre commentaire\")]",
     ],

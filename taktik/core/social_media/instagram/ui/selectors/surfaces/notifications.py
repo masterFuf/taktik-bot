@@ -157,6 +157,14 @@ class NotificationSelectors:
     def inline_like_button(self) -> List[str]:
         return L_all("notification.inline_like_button")
 
+    # --- Inline "Reply" label on a comment / mention row ---
+    # Plain text (NOT xpath): the parse matches a node's `text` by EXACT equality to
+    # pair the Reply Button with its row by bounds. Union FR+EN via L_all (robust even
+    # if language detection ties to 'unknown' on the notifications screen).
+    @property
+    def reply_label(self) -> List[str]:
+        return L_all("notification.reply_label")
+
     # --- Comment reply / like row text ---
     @property
     def comment_like_text(self) -> List[str]:

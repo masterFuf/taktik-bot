@@ -481,6 +481,12 @@ STRINGS: Dict[str, List[str]] = {
     "notification.inline_like_button": [
         "Like button",
     ],
+    # Inline "Reply" affordance LABEL on a comment / mention row (plain text, NOT an
+    # xpath — matched by EXACT text equality to pair the Reply Button with its row by
+    # bounds, then tapped to open the comment thread focused on that comment).
+    "notification.reply_label": [
+        "Reply",
+    ],
     "notification.comment_like_text": [
         "//android.widget.TextView[contains(@text, \"liked your comment\")]",
     ],
