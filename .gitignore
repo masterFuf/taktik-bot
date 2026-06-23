@@ -93,3 +93,6 @@ AGENTS.md
 AUDIT_REPORT.md
 *AUDIT_REPORT*.md
 *_AUDIT_REPORT*.md
+
+# Portable tesseract staged at build time by scripts/bundle_tesseract.py (binary, not versioned)
+assets/tesseract/

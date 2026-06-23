@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import PyInstaller.__main__
@@ -41,8 +42,23 @@ def pyinstaller_data_arg(source: Path, target: str) -> str:
     return f"--add-data={source}{os.pathsep}{target}"
 
 
+def stage_tesseract() -> Path | None:
+    """Stage a portable tesseract under assets/tesseract/ (best-effort) so it ships with
+    the launcher. Returns the folder if populated, else None."""
+    try:
+        import bundle_tesseract  # noqa: PLC0415 (sibling script in scripts/)
+    except ModuleNotFoundError:
+        sys.path.insert(0, str(SCRIPT_DIR))
+        import bundle_tesseract  # noqa: PLC0415
+    bundle_tesseract.main()
+    tesseract_dir = BASE_DIR / "assets" / "tesseract"
+    has_exe = (tesseract_dir / "tesseract.exe").exists() or (tesseract_dir / "tesseract").exists()
+    return tesseract_dir if has_exe else None
+
+
 def build_launcher() -> None:
     u2_assets = get_uiautomator2_assets_path()
+    tesseract_dir = stage_tesseract()
     hidden_imports = [
         "taktik",
         "taktik.core",
@@ -52,6 +68,7 @@ def build_launcher() -> None:
         "adbutils",
         "uiautomator2",
         "PIL",
+        "pytesseract",  # OCR (lazy import in taktik.core.shared.vision.ocr)
         "loguru",
         "requests",
         "httpx",
@@ -83,6 +100,10 @@ def build_launcher() -> None:
         pyinstaller_data_arg(BRIDGES_DIR, "bridges"),
         pyinstaller_data_arg(u2_assets, "uiautomator2/assets"),
     ]
+    # Bundle the portable tesseract (exe + DLLs + tessdata) when staged, so OCR ships with
+    # the launcher (clients install nothing). OcrService resolves _MEIPASS/tesseract at runtime.
+    if tesseract_dir:
+        args.append(pyinstaller_data_arg(tesseract_dir, "tesseract"))
     for module in hidden_imports:
         args.append(f"--hidden-import={module}")
 
