@@ -56,22 +56,26 @@ class PostPersistenceMixin:
                     if self.nav_actions.navigate_to_profile(profile.username):
                         time.sleep(1.5)
                         
-                        # Get profile info
+                        # Get profile info. enrich=True so a TRUNCATED bio is expanded
+                        # (OCR "… more"/"… plus" via click_bio_more_button) before we read it,
+                        # and so business_category/website are populated — otherwise we persist
+                        # a cut-off bio and empty website/category.
                         info = self.profile_manager.get_complete_profile_info(
                             username=profile.username,
-                            navigate_if_needed=False
+                            navigate_if_needed=False,
+                            enrich=True
                         )
-                        
+
                         if info:
                             profile.bio = info.get('biography', '')
-                            profile.website = info.get('external_url', '')
+                            profile.website = info.get('website', '')
                             profile.followers_count = info.get('followers_count', 0)
                             profile.following_count = info.get('following_count', 0)
                             profile.posts_count = info.get('posts_count', 0)
                             profile.is_private = info.get('is_private', False)
                             profile.is_verified = info.get('is_verified', False)
                             profile.is_business = info.get('is_business', False)
-                            profile.category = info.get('category', '')
+                            profile.category = info.get('business_category', '')
                             
                             # Check for Threads link
                             if profile.bio and 'threads' in profile.bio.lower():
