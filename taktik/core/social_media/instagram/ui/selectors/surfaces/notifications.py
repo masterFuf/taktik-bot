@@ -62,6 +62,11 @@ class NotificationSelectors:
         '//*[@resource-id="com.instagram.android:id/row_news_container"]',
     ])
 
+    # Bare resource-id of a story row (for raw-XML scanning where a full XPath is
+    # not usable, e.g. concatenating every descendant text of a row). Centralized
+    # here so scan code carries no hardcoded resource-id literal.
+    notification_row_resource_id: str = "com.instagram.android:id/activity_feed_newsfeed_story_row"
+
     # Legacy alias.
     @property
     def notification_item(self) -> List[str]:

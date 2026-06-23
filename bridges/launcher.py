@@ -33,6 +33,7 @@ BRIDGE_MODULES = {
     "scraping_bridge":      "bridges.instagram.scraping.scraping",
     "cold_dm_bridge":       "bridges.instagram.engagement.cold_dm",
     "smart_comment_bridge": "bridges.instagram.engagement.smart_comment",
+    "notifications_bridge": "bridges.instagram.engagement.notifications",
     "account_bridge":       "bridges.instagram.account.account",
     "taktik_agent_bridge":  "bridges.instagram.agent.taktik_agent",
     "persona_analysis_bridge": "bridges.instagram.analysis.persona",

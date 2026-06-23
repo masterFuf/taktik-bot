@@ -27,7 +27,8 @@
       "dm_send",
       "coldDm",
       "smart_comment",
-      "taktik_agent"
+      "taktik_agent",
+      "notifications"
     ],
     "panel": [
       "target",
