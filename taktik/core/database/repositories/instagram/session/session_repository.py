@@ -151,10 +151,14 @@ class SessionRepository(BaseRepository):
         """Create a new scraping session"""
         try:
             cursor = self.execute(
+                # sync_id is generated here (like sessions_unified above) so the row carries a
+                # stable cross-device key from creation. Without it the column stays NULL and the
+                # Turso push, which upserts on sync_id (PRIMARY KEY), re-inserts the row every
+                # cycle (SQLite treats NULL as distinct from NULL) -> runaway remote duplicates.
                 """INSERT INTO scraping_sessions (
                     account_id, scraping_type, source_type, source_name,
-                    max_profiles, export_csv, save_to_db, config_used, platform
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    max_profiles, export_csv, save_to_db, config_used, platform, sync_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, lower(hex(randomblob(16))))""",
                 (
                     account_id,
                     scraping_type,

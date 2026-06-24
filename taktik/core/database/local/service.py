@@ -555,10 +555,12 @@ class LocalDatabaseService:
             conn = self._get_connection()
             cursor = conn.cursor()
             
+            # sync_id generated at creation (stable cross-device key); a NULL sync_id makes the
+            # Turso push re-insert the row every cycle (NULL is distinct from NULL on the PK).
             cursor.execute("""
-                INSERT INTO scraping_sessions 
-                (account_id, scraping_type, source_type, source_name, max_profiles, export_csv, save_to_db, config_used)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO scraping_sessions
+                (account_id, scraping_type, source_type, source_name, max_profiles, export_csv, save_to_db, config_used, sync_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, lower(hex(randomblob(16))))
             """, (
                 account_id,
                 scraping_type,
