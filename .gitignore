@@ -96,3 +96,6 @@ AUDIT_REPORT.md
 
 # Portable tesseract staged at build time by scripts/bundle_tesseract.py (binary, not versioned)
 assets/tesseract/
+
+# Internal agent rules — kept local, NOT in the public repo (docs live in taktik-docs)
+/AGENTS.md
