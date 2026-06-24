@@ -1,7 +1,7 @@
 """`_find_and_click` taps a *varied* point inside the element (via `human_tap`) instead
 of its exact centre, and falls back to a plain centre click when the element bounds
 can't be read. This locks the P1-taps prod wiring
-(`taktik-docs/bot/security/humanization-master-plan.md`).
+(`internal docs`).
 """
 
 import types

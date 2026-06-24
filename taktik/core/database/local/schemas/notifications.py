@@ -6,7 +6,7 @@ accounts, deduplicated across re-scans by a synthesized content hash (notificati
 rows carry no stable server id, same constraint that forced ``content_hash`` on
 ``dm_messages``).
 
-The shape mirrors the shared spec ``taktik-docs/technical/notifications-persistence-spec.md``
+The shape mirrors the shared spec ``internal docs``
 and must stay aligned with the Electron mirror (``front/electron/database``) since the
 table is Turso-synced there. Kept additive + idempotent (CREATE IF NOT EXISTS).
 

@@ -10,7 +10,7 @@ primitives (`_strong_flick`/`_long_drag`, from the shared `GestureMixin`).
 Internal sections: PERCEPTION (read the feed state + recover to it) · ENGINE (advance to the next
 real post) · READING (caption/carousel + dwell) · SESSION (`browse_feed`). UI signatures come from
 the centralized `FeedScrollSelectors`; the humanized gesture/dwell toolkit lives in
-`taktik.core.shared.behavior`. Full design log: `taktik-docs/bot/security/feed-scroll-engineering.md`.
+`taktik.core.shared.behavior`. Full design log: `internal docs`.
 """
 
 import re

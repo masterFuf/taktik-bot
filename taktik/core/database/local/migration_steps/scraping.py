@@ -36,7 +36,7 @@ def drop_scraping_sessions_discovery_campaign_id(cursor: sqlite3.Cursor) -> None
     Idempotent: no-op once the column is gone (fresh installs never had it — the schema
     bootstrap CREATE does not declare it). Validated byte-for-byte on a copy of the real
     DB (262 rows preserved, kept-column hash identical, FK check clean) before shipping.
-    See ``taktik-docs/technical/schema-vague-F.md`` (section F-cleanup).
+    See ``internal docs`` (section F-cleanup).
     """
     cols = [row[1] for row in cursor.execute("PRAGMA table_info(scraping_sessions)").fetchall()]
     if not cols or "discovery_campaign_id" not in cols:

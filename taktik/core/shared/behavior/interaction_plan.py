@@ -1,7 +1,7 @@
 """Per-target interaction plan — the resolved INTENT for one profile/account.
 
 The seed of the platform-agnostic `InteractionPlan` model (see
-`taktik-docs/technical/interaction-model-redesign.md`): the engine turns a config + the
+`internal docs`): the engine turns a config + the
 rolled interactions into a concrete, per-profile plan, separating the WHAT (how many likes,
 which story slide to like) from the HOW (gestures/timing, handled by the humanization engine).
 

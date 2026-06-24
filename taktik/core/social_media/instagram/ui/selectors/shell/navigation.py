@@ -161,7 +161,7 @@ class ButtonSelectors:
     # === Boutons d'interaction posts (listes pour fallbacks) ===
     _like_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
-        # Reel / clips player like button (dump 9CHAY1PNRW IG 410, 2026-06-11):
+        # Reel / clips player like button (dump real-device IG 410, 2026-06-11):
         # ImageView resource-id "like_button", content-desc "J'aime" with a CURLY
         # apostrophe (U+2019), which the straight-apostrophe content-desc selector above
         # misses. The feed id row_feed_button_like is absent in the clips UI, so without

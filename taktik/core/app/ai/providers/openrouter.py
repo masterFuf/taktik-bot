@@ -387,7 +387,7 @@ class AIService:
                              {relevant, follow, comment, like, score, reason} judging whether
                              engaging this profile is worthwhile (opt-in so the scraping path,
                              which reuses this call, pays no extra tokens). See
-                             `taktik-docs/technical/ai-relevance-engagement-spec.md`.
+                             `internal docs`.
             account_niche / account_sub_niche: the niche of the account being automated, so the
                              engagement verdict is judged RELATIVE to it (adjacency-aware). When
                              absent the verdict falls back to a generic "is this a good engagement

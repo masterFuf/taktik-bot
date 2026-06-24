@@ -5,7 +5,7 @@ Two tables:
   - ``dm_threads``  : one row per conversation (our account x interlocutor).
   - ``dm_messages`` : the messages of those conversations (append-only).
 
-The shape mirrors the shared spec ``taktik-docs/technical/dm-persistence-spec.md``
+The shape mirrors the shared spec ``internal docs``
 and must stay aligned with the Electron mirror (``front/electron/database``) since
 the tables are Turso-synced there. Kept additive + idempotent (CREATE IF NOT EXISTS).
 """

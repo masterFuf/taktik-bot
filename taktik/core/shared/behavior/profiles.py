@@ -18,7 +18,7 @@ are part of the model for completeness (the small `_human_like_delay` hesitation
 wiring them is deferred because `HumanBehavior` is a shared singleton (per-session injection
 would clobber across parallel devices — see the redesign spec).
 
-See `taktik-docs/technical/interaction-model-redesign.md` §8 (Lot 3) and the humanization
+See `internal docs` §8 (Lot 3) and the humanization
 master plan §3.4.
 """
 

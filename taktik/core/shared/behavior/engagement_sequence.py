@@ -11,7 +11,7 @@ that order (read = open+read the description then reframe; like = like the post;
 post a comment). Pure + dependency-free (stdlib `random`) so it's unit-testable and reusable
 (Instagram now; the Taktik-Agent could later impose a pattern per target).
 
-See `taktik-docs/technical/interaction-model-redesign.md` §4.
+See `internal docs` §4.
 """
 
 import random

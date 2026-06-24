@@ -2,7 +2,7 @@
 (robotic), nor the dead centre, nor outside/on the rim of the target.
 
 This is the geometry half of the P1 "humanise taps" workstream
-(`taktik-docs/bot/security/humanization-master-plan.md`). The device execution lives
+(`internal docs`). The device execution lives
 in `shared/device/facade.py::human_tap`; the *where to tap* logic is here, pure and
 testable offline.
 """

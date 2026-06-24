@@ -99,3 +99,6 @@ assets/tesseract/
 
 # Internal agent rules — kept local, NOT in the public repo (docs live in taktik-docs)
 /AGENTS.md
+
+# Internal-only audit tool (depends on the private taktik-docs repo) — kept local
+scripts/audit_sqlite_schema_docs.py

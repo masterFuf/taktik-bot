@@ -4,7 +4,7 @@ Platform-agnostic (Instagram feed, TikTok caption, …): a human GLANCES at an i
 it") but READS a caption in proportion to its real PROSE length, and once in a while lingers. The
 prose length excludes hashtags / @mentions / URLs (a wall of `#tags` is not reading) so the count
 reflects what is actually read. A future vision / `post_analysis` layer can bypass this with its own
-relevance-based dwell. See `taktik-docs/bot/security/feed-scroll-engineering.md` (iteration #19).
+relevance-based dwell. See `internal docs` (iteration #19).
 """
 
 import re

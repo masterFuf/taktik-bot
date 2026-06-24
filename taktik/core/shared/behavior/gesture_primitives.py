@@ -13,7 +13,7 @@ scrolls a human feed (Instagram, TikTok, …).
 It is a pure mixin (no platform base): the host class must provide `self.device` (a device facade
 exposing `_device` = the raw u2 device, plus `swipe_coordinates`), `self.screen_width/height`, and
 `self.logger`. The engineering rationale (why `swipe_points` could not fling, why `raw.swipe` does)
-is documented in `taktik-docs/bot/security/feed-scroll-engineering.md`.
+is documented in `internal docs`.
 """
 
 import time

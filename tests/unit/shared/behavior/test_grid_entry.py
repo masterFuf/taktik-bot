@@ -2,7 +2,7 @@
 top-left (newest) post, and must adapt scrolling to how many posts exist.
 
 This is the "open post / grid scroll" entry half of the Profile humanisation work
-(`taktik-docs/bot/security/humanization-master-plan.md`, §3.3 + §7 checklist). The
+(`internal docs`, §3.3 + §7 checklist). The
 *where/how to enter* logic is here, pure and testable offline; the device
 execution (real thumbnails + human gesture) lives in the like workflow.
 """

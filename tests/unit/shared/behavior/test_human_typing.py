@@ -3,7 +3,7 @@ occasionally hit an adjacent key and correct it, and pause to think (after a sen
 before a word). The plan encodes that as type / backspace / pause ops; crucially,
 applying the ops always reproduces the *exact* target text (every typo is corrected).
 
-Part of P2 (typing) — `taktik-docs/bot/security/humanization-master-plan.md`. Pure and
+Part of P2 (typing) — `internal docs`. Pure and
 offline-testable; the device execution lives in `shared/input/taktik_keyboard.py`.
 """
 

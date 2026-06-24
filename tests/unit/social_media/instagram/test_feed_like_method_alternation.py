@@ -1,7 +1,7 @@
 """Liking a feed post alternates between the like button and an image double-tap
 (a human doesn't always use the same method), and never re-likes an already-liked
 post. Part of the P1-taps humanization
-(`taktik-docs/bot/security/humanization-master-plan.md`).
+(`internal docs`).
 """
 
 import random

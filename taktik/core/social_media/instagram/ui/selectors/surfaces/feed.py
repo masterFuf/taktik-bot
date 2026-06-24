@@ -96,7 +96,7 @@ class FeedScrollSelectors:
     """Signatures UI du SCROLL INTELLIGENT du feed, lues en fast-path sur le hierarchy dump
     (perception des ancres, lecture légende/carousel, récupération). Centralisées ici (regle
     AGENTS : pas de selector en dur dans l'action). Issues de dumps réels Instagram v410 — voir
-    `taktik-docs/bot/security/feed-scroll-engineering.md`."""
+    `internal docs`."""
 
     # --- Perception du feed : leaf resource-ids lus dans le dump ---
     header_id: str = "row_feed_photo_profile_name"      # header/auteur (1 par post plein-cadre)

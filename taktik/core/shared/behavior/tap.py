@@ -6,7 +6,7 @@ human hits *near* the middle, never the dead centre twice, with a short but vari
 finger-down time.
 
 This is the geometry half of the "humanise taps" workstream
-(`taktik-docs/bot/security/humanization-master-plan.md`). Pure functions, no device —
+(`internal docs`). Pure functions, no device —
 the device execution lives in `taktik/core/shared/device/facade.py::human_tap`.
 """
 
