@@ -26,8 +26,10 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
             error_message TEXT,
             config_used TEXT,
             platform TEXT DEFAULT 'instagram',
+            sync_id TEXT,
             created_at TEXT DEFAULT (datetime('now'))
             -- account_id FK to instagram_accounts dropped (Vague B: accounts unified/legacy dropped)
+            -- sync_id = stable cross-device key (Turso); NULL until assigned at row creation.
         )
     """)
 

@@ -84,12 +84,20 @@ def drop_scraping_sessions_discovery_campaign_id(cursor: sqlite3.Cursor) -> None
 
 
 def run_scraping_session_migrations(cursor: sqlite3.Cursor) -> None:
-    """Ensure scraping_sessions has platform fields."""
+    """Ensure scraping_sessions has platform + sync_id fields."""
     try:
         cursor.execute("SELECT platform FROM scraping_sessions LIMIT 1")
     except sqlite3.OperationalError:
         logger.info("Migration: Adding platform to scraping_sessions")
         cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN platform TEXT DEFAULT 'instagram'")
+
+    # sync_id = stable cross-device key (Turso). create_scraping_session writes it at row
+    # creation, so a base predating this column makes the INSERT fail. Idempotent ALTER.
+    try:
+        cursor.execute("SELECT sync_id FROM scraping_sessions LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migration: Adding sync_id to scraping_sessions")
+        cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN sync_id TEXT")
 
 
 def run_scraped_profile_migrations(cursor: sqlite3.Cursor) -> None:
