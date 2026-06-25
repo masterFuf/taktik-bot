@@ -54,27 +54,29 @@ class InteractionEngineMixin:
             self.logger.debug(f"🎯 Plan for @{username}: {interactions_to_do} → "
                               f"likes={plan.like_target}, story_slot={plan.story_like_slot}")
 
-            # Pre-announce the plan to the live copilot (Taktik Agent) BEFORE acting:
-            # "on va faire N likes, une story dispo…". Reuses the instagram_action
-            # channel (action='plan'); no-op in standalone (no bridge adapter).
-            IPCEmitter.emit_action('plan', username, {
-                'likes': plan.like_target,
-                'posts_count': posts_count or 0,
-                'story': plan.do_watch_story,
-                'story_like': plan.story_like_slot >= 0,
-                'follow': plan.do_follow,
-                'comment': plan.max_comments if plan.do_comment else 0,
-            })
-
-            # Detect the story ONCE on arrival: the profile header is visible and its avatar
-            # content-desc carries the reliable "unseen story" / "non vue" marker (the post-header
-            # avatar does NOT). A short settle retry rides out the ring animation (it spins on open,
-            # so an immediate check can miss a real story). We only schedule a story phase when a
-            # story actually exists, and remember it (`story_available`) so a later phase can open
-            # it from the post header too, without re-detecting.
+            # Detect the story ONCE on arrival, BEFORE announcing the plan: the profile header is
+            # visible and its avatar content-desc carries the reliable "unseen story" / "non vue"
+            # marker (the post-header avatar does NOT). A short settle retry rides out the ring
+            # animation (it spins on open, so an immediate check can miss a real story). We only
+            # schedule a story phase when a story actually exists, and remember it (`story_available`)
+            # so a later phase can open it from the post header too, without re-detecting.
             story_available = bool(plan.do_watch_story) and self.detection_actions.has_unseen_profile_story(
                 settle_attempts=3, settle_delay=0.35
             )
+
+            # Pre-announce the plan to the live copilot (Taktik Agent) BEFORE acting. The story /
+            # story-like intentions reflect a story that ACTUALLY exists on the profile (detected
+            # just above), NOT merely the rolled probability — so the panel never shows "story +
+            # like" on a profile that has no unseen story. Reuses the instagram_action channel
+            # (action='plan'); no-op in standalone (no bridge adapter).
+            IPCEmitter.emit_action('plan', username, {
+                'likes': plan.like_target,
+                'posts_count': posts_count or 0,
+                'story': story_available,
+                'story_like': story_available and plan.do_story_like,
+                'follow': plan.do_follow,
+                'comment': plan.max_comments if plan.do_comment else 0,
+            })
 
             # Human ordering of the header-dependent actions. The story sits right at the top on
             # arrival, so watch it FIRST most of the time; the follow is mixed early/late (a human
