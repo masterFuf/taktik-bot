@@ -17,14 +17,24 @@ class StorySelectors:
 
     # === Profile / highlights ===
     # Active profile-avatar story ring (NOT a highlight, NOT a feed-tray bubble).
-    # Scoped to the profile-header avatar imageview so highlights
-    # (highlights_reel_tray_recycler_view) and the home tray (reels_tray_container)
-    # can never be mistaken for a watchable profile story. The avatar carries the
-    # word "story" in its content-desc only while a story exists; "non vue"/"unseen"
-    # narrows it to an *unseen* story (seen ones read "vue"/"seen").
-    # Real dump 2026-06-08 (IG v410, FR): id=row_profile_header_imageview,
-    # content-desc="story de <user> non vue" (sibling reel_ring View carries no desc).
+    #
+    # IG v410 (real dump 2026-06-25, FR) reworked the profile header: the avatar story ring is now a
+    # dedicated `reel_ring` View INSIDE `profile_header_avatar_container_*`, and the old
+    # `row_profile_header_imageview` is gone — the clickable `avatar_on_profile_header_view` button's
+    # content-desc is an UNRESOLVED resource ref (e.g. "@2131954018"), so the "story"/"non vue"
+    # text marker no longer exists. We therefore detect the ring structurally via `reel_ring`,
+    # scoped to the avatar container so highlights (highlights_reel_tray_recycler_view) and the home
+    # feed tray (reels_tray_container) can never match. This is language-independent, and its centre
+    # coincides with the avatar so clicking it opens the story. Note: the a11y tree no longer
+    # exposes seen-vs-unseen, but a freshly-visited profile's ring is unseen in practice, and the
+    # caller verifies the story viewer actually opened (a no-story tap is a harmless no-op).
+    #
+    # The second branch keeps the older-IG path (row_profile_header_imageview + "story"+"non
+    # vue"/"unseen" content-desc) for cross-version coverage.
     profile_unseen_story_avatar: str = (
+        '//*[contains(@resource-id, "profile_header_avatar_container")]'
+        '//*[contains(@resource-id, "reel_ring")]'
+        ' | '
         '//*[contains(@resource-id, "row_profile_header_imageview")'
         ' and contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")'
         ' and (contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "non vue")'
