@@ -143,34 +143,34 @@ class ScrollEndDetector:
         return any(fast_scroll_conditions)
 
     def is_the_end(self) -> bool:
+        """Whether the END of the list has TRULY been reached.
+
+        End-of-list is detected ONLY by signals that mean the list genuinely cannot advance any
+        further: an empty screen several times, or the EXACT same page rendered identically several
+        times in a row (the scroll no longer reveals anything = stuck at the bottom).
+
+        We deliberately do NOT stop on "no NEW username for N scrolls" anymore (the former
+        `_repeat_count`/`_pages_without_new_users` conditions): a small scroll, an overlap, or the
+        list resumed after interacting with a profile can legitimately show no session-new username
+        without being the end — that produced FALSE end-of-list detections (sessions stopping after
+        a handful of profiles). Whether we have run out of followers WORTH interacting with is
+        decided separately by `max_consecutive_known_usernames` in the workflow loop (keep scrolling
+        while we still discover followers; stop only on a long run of already-interacted ones), with
+        the loop's `max_scroll_attempts` as a hard backstop.
         """
-        Détermine si la fin de la liste a été atteinte.
-        
-        Returns:
-            bool: True si la fin est atteinte
-        """
-        # Conditions multiples pour détecter la fin plus rapidement
         conditions = [
-            self._repeat_count >= self.repeats_to_end,  # Condition originale
-            self._consecutive_empty_pages >= 8,  # 8 pages vides consécutives
-            self._duplicate_page_count >= 5,  # 5 pages identiques consécutives
-            self._pages_without_new_users >= 15  # 15 pages sans nouveaux utilisateurs
+            self._consecutive_empty_pages >= 8,   # empty screen repeatedly -> nothing left to load
+            self._duplicate_page_count >= 5,       # exact same page repeated -> scroll is stuck
         ]
-        
+
         if any(conditions):
-            reason = ""
-            if self._repeat_count >= self.repeats_to_end:
-                reason = f"répétitions ({self._repeat_count}/{self.repeats_to_end})"
-            elif self._consecutive_empty_pages >= 8:
+            if self._consecutive_empty_pages >= 8:
                 reason = f"pages vides consécutives ({self._consecutive_empty_pages})"
-            elif self._duplicate_page_count >= 5:
+            else:
                 reason = f"pages identiques consécutives ({self._duplicate_page_count})"
-            elif self._pages_without_new_users >= 15:
-                reason = f"pages sans nouveaux utilisateurs ({self._pages_without_new_users})"
-            
-            self.logger.info(f"Fin détectée par: {reason}")
+            self.logger.info(f"Fin de liste réelle détectée par: {reason}")
             return True
-            
+
         return False
 
     def get_stats(self) -> dict:
