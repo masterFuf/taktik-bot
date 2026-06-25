@@ -33,7 +33,7 @@ class _ProfileBusiness:
     def __init__(self, private=False):
         self._private = private
 
-    def get_complete_profile_info(self, username=None, navigate_if_needed=False):
+    def get_complete_profile_info(self, username=None, navigate_if_needed=False, enrich=False, **kwargs):
         return {'username': username, 'is_private': self._private, 'followers_count': 100}
 
 

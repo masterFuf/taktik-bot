@@ -40,30 +40,34 @@ class ProfileExtraction(BaseBusinessAction):
             # Use batch detection for boolean flags (1 ADB call instead of 3)
             profile_flags = self.detection_actions.get_profile_flags_batch()
             
-            # Use enriched extraction if requested (gets more data: business_category, website, linked_accounts)
-            if enrich:
-                profile_text = self.detection_actions.get_enriched_profile_data()
-                original_username = profile_text.get('username')
-                
-                # If bio is truncated, click "more" to expand and re-extract
-                if profile_text.get('bio_truncated'):
-                    if self.detection_actions.click_bio_more_button():
-                        self._random_sleep(0.8, 1.2)
-                        # Re-extract with full bio
-                        new_profile_text = self.detection_actions.get_enriched_profile_data()
-                        
-                        # IMPORTANT: Verify we're still on the same profile
-                        # Clicking "more" might have navigated to a @username link in the bio
-                        new_username = new_profile_text.get('username')
-                        if new_username and original_username and new_username.lower() != original_username.lower():
-                            self.logger.warning(f"⚠️ Profile changed after 'more' click: {original_username} → {new_username}. Going back.")
-                            self.device.press("back")
-                            self._random_sleep(0.3, 0.5)
-                            # Keep original profile_text (truncated bio is better than wrong profile)
-                        else:
-                            profile_text = new_profile_text
-            else:
-                profile_text = self.detection_actions.get_profile_text_batch()
+            # Profile text in a single XML dump: bio, full name, website, business category,
+            # linked accounts + the bio-truncation flag. One dump — same cost as the old basic
+            # batch — but the website/category feed AI qualification on every profile read.
+            profile_text = self.detection_actions.get_enriched_profile_data()
+            original_username = profile_text.get('username')
+
+            # STANDARD per-profile behaviour (NOT "enrichment"): whenever the bio is truncated,
+            # ALWAYS click its "… more"/"… plus" expander so the FULL biography is captured. The
+            # bio lives on the profile itself — this is distinct from the About-account
+            # navigation below (which is the only thing the `enrich` flag now gates).
+            # click_bio_more_button no-ops when no truncated bio is on screen, so calls that
+            # only read counts pay nothing.
+            if profile_text.get('bio_truncated'):
+                if self.detection_actions.click_bio_more_button():
+                    self._random_sleep(0.8, 1.2)
+                    # Re-extract with the full bio.
+                    new_profile_text = self.detection_actions.get_enriched_profile_data()
+
+                    # IMPORTANT: clicking "more" might have navigated to a @username link in the
+                    # bio — verify we're still on the same profile.
+                    new_username = new_profile_text.get('username')
+                    if new_username and original_username and new_username.lower() != original_username.lower():
+                        self.logger.warning(f"⚠️ Profile changed after 'more' click: {original_username} → {new_username}. Going back.")
+                        self.device.press("back")
+                        self._random_sleep(0.3, 0.5)
+                        # Keep original profile_text (truncated bio is better than wrong profile)
+                    else:
+                        profile_text = new_profile_text
             
             # Get counts (these are fast, ~300ms each)
             followers_count = self._get_followers_count_robust()
@@ -94,21 +98,23 @@ class ProfileExtraction(BaseBusinessAction):
                 'visible_stories_count': 0  # Skipped — costs 13-20s per profile. Story viewing checks this separately.
             }
             
-            # Add enriched fields if available
+            # Website / business category / linked accounts come FREE from the enriched dump
+            # above (no extra navigation) — always included; they feed AI qualification.
+            profile_info['business_category'] = profile_text.get('business_category')
+            profile_info['website'] = profile_text.get('website')
+            profile_info['linked_accounts'] = profile_text.get('linked_accounts', [])
+
+            # enrich = the HEAVIER "About this account" navigation ONLY (date joined, account
+            # based in). Opt-in because it navigates to a separate screen and back (the back
+            # press may overshoot), for two fields that are otherwise derivable (e.g. country
+            # from the bio / AI). The bio/website/category above never navigate.
             if enrich:
-                profile_info['business_category'] = profile_text.get('business_category')
-                profile_info['website'] = profile_text.get('website')
-                profile_info['linked_accounts'] = profile_text.get('linked_accounts', [])
-                
-                # Get "About this account" info (date joined, account based in)
                 about_info = self.get_about_account_info()
                 if about_info:
                     profile_info['date_joined'] = about_info.get('date_joined')
                     profile_info['account_based_in'] = about_info.get('account_based_in')
 
                 # Safety: verify we're back on the profile page after About navigation.
-                # get_about_account_info navigates away and the back press may overshoot
-                # (e.g. returns to the followers list instead of the profile).
                 if not self.device.xpath(self.profile_selectors.profile_header_container).exists:
                     self.logger.warning("⚠️ Profile page lost after 'About this account' navigation, pressing back")
                     self.device.press("back")

@@ -137,6 +137,10 @@ class ProfileProcessingMixin:
             emit_step("analysis", action="start", target=username, source_type=source_type)
 
             # === 2. Extract profile info ===
+            # The FULL bio (auto-expanded if truncated) + website + business category now come
+            # from the STANDARD extraction (enrich gates only the heavier About-account
+            # navigation, which this path does not need). They feed bio keyword filtering and
+            # AI qualification — a truncated bio would silently degrade both.
             profile_data = self.profile_business.get_complete_profile_info(
                 username=username, navigate_if_needed=False
             )

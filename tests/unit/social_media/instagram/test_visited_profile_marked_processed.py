@@ -27,7 +27,7 @@ class _Logger:
 
 
 class _ProfileBusiness:
-    def get_complete_profile_info(self, username=None, navigate_if_needed=False):
+    def get_complete_profile_info(self, username=None, navigate_if_needed=False, enrich=False, **kwargs):
         # Public, suitable profile.
         return {'username': username, 'is_private': False, 'followers_count': 100}
 
