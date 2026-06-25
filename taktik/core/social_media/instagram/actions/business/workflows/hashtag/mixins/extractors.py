@@ -23,16 +23,11 @@ class HashtagExtractorsMixin:
                 return []
             
             current_index = 0
-            
-            # Get screen dimensions once for adaptive swipes
-            width, height = self.device.get_screen_size()
-            center_x = width // 2
-            start_y = int(height * 0.83)
-            end_y = int(height * 0.21)
-            
+
             for post in posts:
                 while current_index < post['index']:
-                    self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.6)
+                    # Humanized controlled advance to the next post (was fixed-centre swipe).
+                    self.device.human_scroll("down", distance_ratio=0.62)
                     time.sleep(2)
                     current_index += 1
                 

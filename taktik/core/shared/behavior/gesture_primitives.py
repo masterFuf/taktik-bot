@@ -146,15 +146,19 @@ class GestureMixin:
             self.logger.error(f"Error in long drag ({direction}): {e}")
             return False
 
-    def _human_horizontal_swipe(self, direction: str = "left", distance_ratio: float = 0.6) -> bool:
-        """Humanized HORIZONTAL swipe (carousels, story-advance). `sample_swipe` is vertical-only
-        (it hard-caps horizontal drift so a feed scroll never reads as a story-camera swipe), so
-        horizontal motion needs its own profile: a varied start point (never dead-centre), a small
-        vertical wobble, and a varied duration — instead of a fixed-coordinate robotic swipe.
-        `direction="left"` = finger moves left → next slide; `"right"` = previous."""
+    def _human_horizontal_swipe(self, direction: str = "left", distance_ratio: float = 0.6,
+                                y_ratio: Optional[float] = None) -> bool:
+        """Humanized HORIZONTAL swipe (carousels, story-advance, story/highlight trays).
+        `sample_swipe` is vertical-only (it hard-caps horizontal drift so a feed scroll never reads
+        as a story-camera swipe), so horizontal motion needs its own profile: a varied start point
+        (never dead-centre), a small vertical wobble, and a varied duration — instead of a
+        fixed-coordinate robotic swipe. `direction="left"` = finger moves left → next slide;
+        `"right"` = previous. `y_ratio` pins the swipe row (e.g. a top story tray at ~0.17h) when the
+        target is not mid-screen; default samples the mid band so a generic carousel still varies."""
         try:
             w, h = int(self.screen_width), int(self.screen_height)
-            sy = h * random.uniform(0.42, 0.58)
+            base_y = y_ratio if y_ratio is not None else random.uniform(0.42, 0.58)
+            sy = h * base_y
             ey = sy + h * random.uniform(-0.02, 0.02)          # slight vertical wobble
             dist = w * distance_ratio * random.uniform(0.9, 1.05)
             if direction == "left":

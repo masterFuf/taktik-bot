@@ -196,15 +196,10 @@ class FeedPostActionsMixin:
         """Scroll to the next post and align so the post header is near the top of the screen."""
         try:
             screen_height = self.device.info.get('displayHeight', 1920)
-            screen_width = self.device.info.get('displayWidth', 1080)
-            center_x = screen_width // 2
 
-            # Primary scroll: ~50% of screen height
-            self.device.swipe_coordinates(
-                center_x, int(screen_height * 0.72),
-                center_x, int(screen_height * 0.22),
-                duration=0.3,
-            )
+            # Primary scroll ~50% of screen height — humanized controlled (coast=False keeps the
+            # travel precise so the header-alignment micro-steps below stay reliable).
+            self.device.human_scroll("down", distance_ratio=0.5)
             time.sleep(0.4)
 
             # Align to the next post header (up to 4 micro-adjustments)
@@ -222,20 +217,12 @@ class FeedPostActionsMixin:
                         # Two consecutive misses → likely in Reel viewer or suggestions section
                         # Stop micro-scrolling to avoid drifting further
                         break
-                    # One bigger micro-scroll to skip suggestions / between-post gap
-                    self.device.swipe_coordinates(
-                        center_x, int(screen_height * 0.65),
-                        center_x, int(screen_height * 0.35),
-                        duration=0.25,
-                    )
+                    # One bigger micro-scroll to skip suggestions / between-post gap (humanized).
+                    self.device.human_scroll("down", distance_ratio=0.3)
                 else:
                     no_header_streak = 0
-                    # Header found but too low on screen → small scroll to bring it up
-                    self.device.swipe_coordinates(
-                        center_x, int(screen_height * 0.55),
-                        center_x, int(screen_height * 0.38),
-                        duration=0.2,
-                    )
+                    # Header found but too low on screen → small humanized scroll to bring it up.
+                    self.device.human_scroll("down", distance_ratio=0.17)
                 time.sleep(0.3)
 
         except Exception as e:

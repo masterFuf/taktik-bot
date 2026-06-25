@@ -177,12 +177,12 @@ class PopupHandlingMixin:
                     break
             
             if popup_detected:
-                # Swipe UP to scroll back to top of profile where posts are visible
-                from ..device.facade import Direction
+                # Scroll back UP to the top of the profile where posts are visible — humanized
+                # controlled scroll ("up" = content goes up toward the header).
                 self.logger.debug("📜 Scrolling up to hide suggestions section...")
-                self.device.swipe(Direction.DOWN, scale=0.5)  # DOWN = finger moves down = content goes UP
+                self.device.human_scroll("up", distance_ratio=0.5)
                 time.sleep(0.3)
-                self.device.swipe(Direction.DOWN, scale=0.5)  # Second swipe to ensure we're at top
+                self.device.human_scroll("up", distance_ratio=0.5)  # ensure we're at the top
                 time.sleep(0.3)
                 self.logger.debug("✅ Suggestions section hidden by scrolling up")
             else:

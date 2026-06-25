@@ -18,12 +18,9 @@ class ContextScrollMixin(BaseAction):
         self.logger.debug("👥 Scrolling followers list down")
 
         try:
-            center_x = self.screen_width // 2
-            start_y = int(self.screen_height * 0.70)
-            end_y = int(start_y - self.screen_height * distance_ratio)
-
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration)
-
+            # Humanized controlled scroll (varied start point / sampled curve) instead of a
+            # fixed-centre swipe — coast=False keeps the travel precise so we don't skip rows.
+            self.device.human_scroll("down", distance_ratio=distance_ratio)
             self._human_like_delay('scroll')
             return True
 
@@ -32,7 +29,13 @@ class ContextScrollMixin(BaseAction):
             return False
 
     def scroll_comments_down(self) -> bool:
-        """Scroll down in the comments bottom sheet view."""
+        """Scroll down in the comments bottom sheet view.
+
+        NOTE: kept on the bounds-scoped raw swipe (not device.human_scroll) on purpose — the
+        humanized sampler uses full-screen geometry and would start the gesture OUTSIDE the
+        comments sheet (on the post/nav behind it). Humanizing this needs a bounds-aware variant
+        (a start_band derived from the sheet bounds) — tracked as a deferred follow-up.
+        """
         self.logger.debug("💬 Scrolling comments list down")
 
         try:
@@ -83,12 +86,8 @@ class ContextScrollMixin(BaseAction):
         self.logger.debug("📸 Scrolling post grid down")
 
         try:
-            center_x = self.screen_width // 2
-            start_y = int(self.screen_height * 0.75)
-            end_y = int(self.screen_height * 0.25)
-
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.5)
-
+            # Humanized controlled scroll over the profile post grid (was a fixed-centre swipe).
+            self.device.human_scroll("down", distance_ratio=0.5)
             self._human_like_delay('scroll')
             return True
 
@@ -100,12 +99,8 @@ class ContextScrollMixin(BaseAction):
         self.logger.debug("📱 Scrolling feed down")
 
         try:
-            center_x = self.screen_width // 2
-            start_y = int(self.screen_height * 0.7)
-            end_y = int(self.screen_height * 0.3)
-
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.5)
-
+            # Humanized controlled scroll (was a fixed-centre swipe).
+            self.device.human_scroll("down", distance_ratio=0.4)
             self._human_like_delay('scroll')
             return True
 

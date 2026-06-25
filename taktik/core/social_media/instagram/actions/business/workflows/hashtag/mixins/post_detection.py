@@ -39,24 +39,17 @@ class HashtagPostDetectionMixin:
     
     def _reveal_reel_comments_section(self) -> bool:
         try:
-            screen_info = self.device.info
-            center_x = screen_info.get('displayWidth', 1080) // 2
-            
-            start_y = int(screen_info.get('displayHeight', 1920) * 0.80)
-            end_y = int(screen_info.get('displayHeight', 1920) * 0.20)
-            
-            self.logger.debug(f"Swipe to reveal comments: ({center_x}, {start_y}) -> ({center_x}, {end_y})")
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.5)
+            # Humanized controlled scroll to reveal the like/comment row (was a fixed-centre swipe).
+            self.logger.debug("Swipe to reveal comments")
+            self.device.human_scroll("down", distance_ratio=0.6)
             time.sleep(2)
-            
+
             if self._are_like_comment_elements_visible():
                 self.logger.debug("Like/comment elements detected after 1st swipe")
                 return True
-            
+
             self.logger.debug("Second swipe to finalize opening")
-            start_y = int(screen_info.get('displayHeight', 1920) * 0.70)
-            end_y = int(screen_info.get('displayHeight', 1920) * 0.30)
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.5)
+            self.device.human_scroll("down", distance_ratio=0.4)
             time.sleep(2)
             
             result = self._are_like_comment_elements_visible()
@@ -89,13 +82,9 @@ class HashtagPostDetectionMixin:
             return False
     
     def _swipe_to_next_post(self):
-        """Swipe vertical pour passer au post suivant."""
+        """Swipe vertical pour passer au post suivant (humanized controlled scroll)."""
         try:
-            width, height = self.device.get_screen_size()
-            center_x = width // 2
-            start_y = int(height * 0.75)
-            end_y = int(height * 0.25)
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.4)
+            self.device.human_scroll("down", distance_ratio=0.5)
             self.logger.debug("📜 Swiped to next post")
         except Exception as e:
             self.logger.debug(f"Error swiping to next post: {e}")

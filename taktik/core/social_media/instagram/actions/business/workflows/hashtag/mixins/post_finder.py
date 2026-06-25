@@ -65,11 +65,8 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                             # Swiper pour passer au suivant
                             posts_tested += 1
                             if posts_tested < max_attempts:
-                                width, height = self.device.get_screen_size()
-                                center_x = width // 2
-                                start_y = int(height * 0.83)
-                                end_y = int(height * 0.21)
-                                self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.6)
+                                # Humanized controlled advance to the next post (was fixed-centre).
+                                self.device.human_scroll("down", distance_ratio=0.62)
                                 time.sleep(3)
                                 is_reel = self._is_reel_post()
                             continue
@@ -96,12 +93,8 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 posts_tested += 1
                 
                 if posts_tested < max_attempts:
-                    # Adaptive swipe coordinates
-                    width, height = self.device.get_screen_size()
-                    center_x = width // 2
-                    start_y = int(height * 0.83)  # ~83% of height
-                    end_y = int(height * 0.21)    # ~21% of height
-                    self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.6)
+                    # Humanized controlled advance to the next post (was fixed-centre swipe).
+                    self.device.human_scroll("down", distance_ratio=0.62)
                     time.sleep(3)
                     is_reel = self._is_reel_post()
             
@@ -162,11 +155,8 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                     time.sleep(1.5)
                     
                     self.logger.debug("Scrolling in grid")
-                    screen_info = self.device.info
-                    center_x = screen_info.get('displayWidth', 1080) // 2
-                    start_y = int(screen_info.get('displayHeight', 1920) * 0.6)
-                    end_y = int(screen_info.get('displayHeight', 1920) * 0.4)
-                    self.device.swipe_coordinates(center_x, start_y, center_x, end_y, duration=0.4)
+                    # Humanized controlled scroll in the hashtag grid (was fixed-centre swipe).
+                    self.device.human_scroll("down", distance_ratio=0.2)
                     time.sleep(1)
                     
             except Exception as e:

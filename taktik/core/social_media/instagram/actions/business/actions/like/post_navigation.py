@@ -196,13 +196,13 @@ class PostNavigationMixin:
         posts = self.device.xpath(thumb_selector).all()
         if posts:
             return posts
-        from ....core.device.facade import Direction
-        self.device.swipe(Direction.UP, scale=0.3)
+        # Humanized controlled scroll to reveal the grid (was facade swipe_ext / Direction.UP).
+        self.device.human_scroll("down", distance_ratio=0.3)
         time.sleep(0.5)
         posts = self.device.xpath(thumb_selector).all()
         if posts:
             return posts
-        self.device.swipe(Direction.UP, scale=0.5)
+        self.device.human_scroll("down", distance_ratio=0.5)
         time.sleep(0.5)
         return self.device.xpath(thumb_selector).all()
 
@@ -228,16 +228,15 @@ class PostNavigationMixin:
             # This can happen after follow when suggestions popup was hidden by scrolling up
             if not posts:
                 self.logger.debug("No posts visible, scrolling down to reveal grid...")
-                from ....core.device.facade import Direction
-                self.device.swipe(Direction.UP, scale=0.3)  # UP = finger moves up = content goes DOWN
+                # Humanized controlled scroll to reveal the grid (was facade swipe_ext / Direction.UP).
+                self.device.human_scroll("down", distance_ratio=0.3)
                 time.sleep(0.5)
                 posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
-            
+
             if not posts:
                 # Try one more time with a bigger scroll
                 self.logger.debug("Still no posts, trying bigger scroll...")
-                from ....core.device.facade import Direction
-                self.device.swipe(Direction.UP, scale=0.5)
+                self.device.human_scroll("down", distance_ratio=0.5)
                 time.sleep(0.5)
                 posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
             
@@ -325,12 +324,8 @@ class PostNavigationMixin:
                 self.logger.debug(f"Vertical advance failed: {e}")
             
             try:
-                # Horizontal swipe: from 74% to 19% of width, center Y
-                start_x = int(width * 0.74)
-                end_x = int(width * 0.19)
-                center_y = height // 2
-                
-                self.device.swipe_coordinates(start_x, center_y, end_x, center_y, duration=0.3)
+                # Humanized horizontal swipe to the next post (was a fixed-coordinate swipe).
+                self.device.human_hswipe("left", distance_ratio=0.55)
                 time.sleep(1)
                 
                 if self._is_in_post_view():

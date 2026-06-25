@@ -111,31 +111,28 @@ class StoryInteractionMixin(BaseAction):
             self.logger.error(f"Error clicking highlight #{highlight_index}: {e}")
             return False
 
-    def scroll_highlights_left(self) -> bool:
-        """Swipe the highlights tray left to reveal highlights on the right."""
+    def _tray_y_ratio(self, recycler_selector, default_ratio: float) -> float:
+        """Mid-row (as a fraction of screen height) of a horizontally scrollable tray, read from
+        its recycler bounds — so the humanized horizontal swipe lands ON the tray, not mid-screen.
+        Falls back to `default_ratio` when the tray bounds are unreadable."""
         try:
-            tray = self.device.xpath(STORY_SELECTORS.highlight_recycler).get()
+            tray = self.device.xpath(recycler_selector).get()
             if tray:
                 bounds = tray.info.get('bounds', {})
-                left = bounds.get('left', 0)
-                right = bounds.get('right', 0)
-                top = bounds.get('top', 0)
-                bottom = bounds.get('bottom', 0)
-                if right > left and bottom > top:
-                    y = (top + bottom) // 2
-                    self.device.swipe_coordinates(
-                        int(left + (right - left) * 0.85),
-                        y,
-                        int(left + (right - left) * 0.15),
-                        y,
-                        duration=0.35,
-                    )
-                    self._human_like_delay('scroll')
-                    return True
+                top, bottom = bounds.get('top', 0), bounds.get('bottom', 0)
+                if bottom > top:
+                    _, height = self.device.get_screen_size()
+                    return ((top + bottom) / 2) / max(1, height)
+        except Exception:
+            pass
+        return default_ratio
 
-            width, height = self.device.get_screen_size()
-            y = int(height * 0.45)
-            self.device.swipe_coordinates(int(width * 0.82), y, int(width * 0.18), y, duration=0.35)
+    def scroll_highlights_left(self) -> bool:
+        """Swipe the highlights tray left to reveal highlights on the right (humanized horizontal
+        swipe pinned to the tray row — was a fixed-coordinate swipe)."""
+        try:
+            y_ratio = self._tray_y_ratio(STORY_SELECTORS.highlight_recycler, 0.45)
+            self.device.human_hswipe("left", y_ratio=y_ratio)
             self._human_like_delay('scroll')
             return True
         except Exception as e:
@@ -143,30 +140,11 @@ class StoryInteractionMixin(BaseAction):
             return False
 
     def scroll_feed_stories_left(self) -> bool:
-        """Swipe the home story tray left to reveal more friends' stories."""
+        """Swipe the home story tray left to reveal more friends' stories (humanized horizontal
+        swipe pinned to the top tray row — was a fixed-coordinate swipe)."""
         try:
-            tray = self.device.xpath(STORY_SELECTORS.feed_story_recycler).get()
-            if tray:
-                bounds = tray.info.get('bounds', {})
-                left = bounds.get('left', 0)
-                right = bounds.get('right', 0)
-                top = bounds.get('top', 0)
-                bottom = bounds.get('bottom', 0)
-                if right > left and bottom > top:
-                    y = (top + bottom) // 2
-                    self.device.swipe_coordinates(
-                        int(left + (right - left) * 0.85),
-                        y,
-                        int(left + (right - left) * 0.15),
-                        y,
-                        duration=0.35,
-                    )
-                    self._human_like_delay('scroll')
-                    return True
-
-            width, height = self.device.get_screen_size()
-            y = int(height * 0.17)
-            self.device.swipe_coordinates(int(width * 0.82), y, int(width * 0.18), y, duration=0.35)
+            y_ratio = self._tray_y_ratio(STORY_SELECTORS.feed_story_recycler, 0.17)
+            self.device.human_hswipe("left", y_ratio=y_ratio)
             self._human_like_delay('scroll')
             return True
         except Exception as e:
@@ -230,7 +208,13 @@ class StoryInteractionMixin(BaseAction):
             return False
 
     def close_story(self) -> bool:
-        """Close the story viewer with a swipe-down gesture (back press is unreliable)."""
+        """Close the story viewer with a swipe-down gesture (back press is unreliable).
+
+        NOTE: deliberately kept on the reliable full-travel centre swipe (not device.human_scroll):
+        this is a DISMISS, and a humanized down-swipe that samples a shorter travel / lower start
+        could fail to trigger the viewer close and leave the bot stuck in the story. Humanizing it
+        needs device QA to confirm the close still fires every time — tracked as a deferred follow-up.
+        """
         try:
             width, height = self.device.get_screen_size()
             self.device.swipe_coordinates(
