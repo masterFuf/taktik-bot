@@ -250,7 +250,11 @@ class InteractionEngineMixin:
                     # We can only like slides we actually watch: bound the proportional count
                     # and the sampled slots to the watch budget (max_stories).
                     watchable = min(slides_total, max_stories)
-                    count = sample_story_like_count(watchable, max_story_likes)
+                    # Story-like is enabled here (do_story_like) -> like AT LEAST one watched slide
+                    # (toggling "Like a story" ON means we like at least one of the story we watch),
+                    # and proportionally MORE on longer stories. The proportional sampler alone can
+                    # return 0 on a short story, which read as "watched but never liked".
+                    count = max(1, sample_story_like_count(watchable, max_story_likes))
                     like_slots = set(sample_story_like_slots(watchable, count))
                     want_like = bool(like_slots)
                     self.logger.debug(
