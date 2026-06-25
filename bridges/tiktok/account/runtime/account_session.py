@@ -45,13 +45,14 @@ class TikTokAccountSessionMixin:
         return device
 
     def _launch_tiktok(self) -> None:
-        send_status("initializing", "Launching TikTok...")
+        send_status("initializing", "Restarting TikTok...")
         app_service = AppService(
             self._connection,
             platform="tiktok",
             package_override=self.package_name,
         )
-        app_service.launch()
+        # Clean restart (force-stop + launch) for a consistent initial state, like every bridge.
+        app_service.restart()
         self._patch_clone_selectors(app_service.package)
         time.sleep(2)
 

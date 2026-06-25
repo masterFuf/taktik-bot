@@ -6,8 +6,9 @@ from bridges.instagram.agent.runtime.ai import build_agent_ai_service
 
 
 def run_agent_workflow(*, app, device_manager, config: dict, ipc) -> dict:
-    ipc.status("launching", "Launching Instagram\u2026")
-    if not app.launch():
+    ipc.status("launching", "Restarting Instagram\u2026")
+    # Clean restart (force-stop + launch) for a consistent initial state, like every other bridge.
+    if not app.restart():
         ipc.error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
         return {"success": False, "error": "Failed to launch Instagram"}
     ipc.status("instagram_ready", "Instagram launched successfully")

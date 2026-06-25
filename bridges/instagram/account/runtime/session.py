@@ -32,13 +32,15 @@ class AccountSessionLifecycleMixin:
             send_error("Device object unavailable after connection")
             return None
 
-        send_status("initializing", "Launching Instagram...")
+        send_status("initializing", "Restarting Instagram...")
         app_service = AppService(
             self._connection,
             platform="instagram",
             package_override=self.package_name,
         )
-        app_service.launch()
+        # Clean restart (force-stop + launch) for a consistent initial state — every bridge starts
+        # the app the same way, so we never resume on whatever screen a previous session left.
+        app_service.restart()
         time.sleep(2)
 
         return device

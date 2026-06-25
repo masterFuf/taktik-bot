@@ -34,12 +34,14 @@ def prepare_workflow_test_session(*, request, ipc) -> WorkflowTestSession:
     ipc.send("step", step="connect", status="done", message="Connected")
 
     platform_label = app_name.capitalize()
-    ipc.send("step", step="launch", status="running", message=f"Launching {platform_label}...")
+    ipc.send("step", step="launch", status="running", message=f"Restarting {platform_label}...")
     app_service = AppService(conn, platform=app_name)
     if not app_service.is_installed():
         ipc.send("error", error=f"{platform_label} is not installed", error_code="APP_NOT_INSTALLED")
         sys.exit(1)
-    if not app_service.launch():
+    # Clean restart (force-stop + launch) for a consistent initial state — the Lab workflow-test
+    # runs a real workflow, so it must start the app exactly the way production bridges do.
+    if not app_service.restart():
         ipc.send("error", error=f"Failed to launch {platform_label}", error_code="APP_LAUNCH_FAILED")
         sys.exit(1)
     ipc.send("step", step="launch", status="done", message=f"{platform_label} launched")
