@@ -161,10 +161,16 @@ class ProfileSelectors:
 
     # === Profile picture (for screenshot + crop extraction) ===
     profile_picture_imageview: List[str] = field(default_factory=lambda: [
+        # OLD layout: the header avatar ImageView.
         '//*[@resource-id="com.instagram.android:id/row_profile_header_imageview"]',
-        '//*[@resource-id="com.instagram.android:id/profile_header_avatar"]',
-        '//*[@resource-id="com.instagram.android:id/profile_header_avatar_image"]',
-        '//*[@resource-id="com.instagram.android:id/profile_pic"]',
+        # NEW v410 layout (server-gated): row_profile_header_imageview is gone; the header
+        # avatar image is `profilePic` (ImageView) nested in the clickable
+        # `avatar_on_profile_header_view` button. Scope profilePic to that button so it cannot
+        # match a suggestions-carousel avatar; fall back to the button bounds. The old
+        # `profile_header_avatar`/`profile_header_avatar_image`/`profile_pic` ids matched NO
+        # real dump (removed). Validated on real device dumps (both layouts → square avatar).
+        '//*[@resource-id="com.instagram.android:id/avatar_on_profile_header_view"]//*[contains(@resource-id, "profilePic")]',
+        '//*[@resource-id="com.instagram.android:id/avatar_on_profile_header_view"]',
     ])
 
     # Bottom navigation bar avatar (the logged-in user's own picture, last tab).
