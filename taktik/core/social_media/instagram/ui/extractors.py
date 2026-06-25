@@ -505,7 +505,11 @@ class InstagramUIExtractors:
                 else:
                     logger_to_use.debug(f"⚠️ No username detected, fallback")
             
-            # Faster scroll for better extraction speed (was 0.8s)
+            # NOTE: deliberately kept on the raw swipe (not the humanized helper) — start_y/end_y
+            # are ADAPTIVE (computed from the first username's Y so the next page resumes exactly
+            # where extraction left off). A fixed-distance humanized scroll would change the step
+            # and skip/duplicate likers. Humanizing needs a swipe-between-computed-endpoints variant
+            # (varied X / sampled curve over [start_y, end_y]) — tracked as a deferred follow-up.
             self.device.swipe(center_x, start_y, center_x, end_y, duration=0.5)
             
             if verbose_logs:

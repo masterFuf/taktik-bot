@@ -9,6 +9,7 @@ from ...core.base_action import BaseAction
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.clone import get_active_package
+from taktik.core.shared.behavior.gesture_primitives import human_hswipe_raw
 
 
 class SearchNavigationMixin(BaseAction):
@@ -284,8 +285,9 @@ class SearchNavigationMixin(BaseAction):
     def navigate_to_next_post(self) -> bool:
         try:
             self.logger.debug("➡️ Navigating to next post")
-            
-            self.device.swipe(0.8, 0.5, 0.2, 0.5, 0.3)
+
+            # Humanized horizontal swipe to the next post (was a fixed normalized-coord swipe).
+            human_hswipe_raw(self.device, "left", distance_ratio=0.6)
             self._human_like_delay('navigation')
             
             return True

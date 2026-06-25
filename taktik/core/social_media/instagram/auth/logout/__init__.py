@@ -16,6 +16,7 @@ from loguru import logger
 from ...ui.selectors.shell.auth import AUTH_SELECTORS
 from ...actions.atomic.interaction import ClickActions
 from ...actions.atomic.detection import DetectionActions
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 
 from .models import LogoutResult
 
@@ -62,19 +63,10 @@ class InstagramLogout:
         return self._find_element(selectors) is not None
 
     def _scroll_down(self, times: int = 1) -> None:
-        """Scroll down in the current scrollable view."""
-        try:
-            width, height = self.device.window_size()
-        except Exception:
-            width, height = 720, 1280
-
-        x = width // 2
-        y_start = int(height * 0.75)
-        y_end = int(height * 0.25)
-
+        """Scroll down in the current scrollable view (humanized controlled scroll)."""
         for _ in range(times):
             try:
-                self.device.swipe(x, y_start, x, y_end, duration=0.4)
+                human_scroll_raw(self.device, "down", distance_ratio=0.5)
                 time.sleep(0.6)
             except Exception as exc:
                 self.logger.warning(f"⚠️ Swipe failed: {exc}")

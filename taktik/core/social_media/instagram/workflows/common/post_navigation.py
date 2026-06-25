@@ -10,6 +10,7 @@ from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from ...ui.selectors.surfaces.post.grid import POST_GRID_SELECTORS
 from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
 from ...ui.selectors.surfaces.post.share_sheet import POST_SHARE_SHEET_SELECTORS
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from .detection import is_in_post_view, is_likers_popup_open
 
 
@@ -167,9 +168,9 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
                 break
 
         if copy_link is None:
-            # "Copy link" may be below the recipient grid — scroll down in the sheet.
-            # Endpoint y=600 stays safely within the share sheet (which starts at ~y=452).
-            device.swipe(288, 900, 288, 600, duration=0.3)
+            # "Copy link" may be below the recipient grid — reveal it with a small humanized
+            # scroll (was a hardcoded-coordinate swipe `288,900 -> 288,600`).
+            human_scroll_raw(device, "down", distance_ratio=0.2)
             time.sleep(0.5)
             for sel in POST_SHARE_SHEET_SELECTORS.copy_link_selectors:
                 elem = device.xpath(sel)

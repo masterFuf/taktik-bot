@@ -4,6 +4,8 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+
 
 class UnfollowActionsMixin:
     """Mixin: perform unfollow, extract accounts, scroll & sort the following list."""
@@ -139,18 +141,9 @@ class UnfollowActionsMixin:
         return accounts
     
     def _scroll_following_list(self):
-        """Scroll dans la liste des following."""
+        """Scroll the following list down (humanized controlled scroll, was fixed-centre swipe)."""
         try:
-            d = self.device.device
-            screen_width = d.info.get('displayWidth', 576)
-            screen_height = d.info.get('displayHeight', 1280)
-            
-            # Scroll du milieu vers le haut
-            start_y = int(screen_height * 0.7)
-            end_y = int(screen_height * 0.3)
-            x = screen_width // 2
-            
-            d.swipe(x, start_y, x, end_y, duration=0.3)
+            human_scroll_raw(self.device.device, "down", distance_ratio=0.4)
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
     

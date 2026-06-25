@@ -3,6 +3,7 @@ import random
 from typing import Optional
 from loguru import logger
 
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from ..common.detection import is_reel_post, is_likers_popup_open
 from ...ui.selectors.shell.popups import POPUP_SELECTORS
 from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
@@ -65,15 +66,11 @@ class UIHelpers:
     
     def scroll_to_next_post(self) -> bool:
         try:
-            screen_size = self.device.window_size()
-            start_y = int(screen_size[1] * 0.8)
-            end_y = int(screen_size[1] * 0.2)
-            center_x = screen_size[0] // 2
-            
-            self.device.swipe(center_x, start_y, center_x, end_y, duration=0.3)
+            # Humanized controlled advance to the next post (was a fixed-centre swipe).
+            human_scroll_raw(self.device, "down", distance_ratio=0.6)
             self._random_delay(0.5, 1.0)
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error scrolling to next post: {e}")
             return False
@@ -224,12 +221,8 @@ class UIHelpers:
     
     def _scroll_in_popup(self):
         try:
-            screen_size = self.device.window_size()
-            start_y = int(screen_size[1] * 0.7)
-            end_y = int(screen_size[1] * 0.3)
-            center_x = screen_size[0] // 2
-            
-            self.device.swipe(center_x, start_y, center_x, end_y, duration=0.3)
-            
+            # Humanized controlled scroll inside the likers/list popup (was a fixed-centre swipe).
+            human_scroll_raw(self.device, "down", distance_ratio=0.4)
+
         except Exception as e:
             self.logger.debug(f"Error scrolling popup: {e}")

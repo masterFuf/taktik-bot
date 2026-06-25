@@ -20,6 +20,8 @@ import time
 import random
 from typing import Optional
 
+from loguru import logger as _gesture_logger
+
 from .gesture import sample_swipe
 from taktik.core.shared.telemetry import emit_step
 
@@ -183,3 +185,77 @@ class GestureMixin:
         except Exception as e:
             self.logger.error(f"Error in horizontal swipe ({direction}): {e}")
             return False
+
+
+# =============================================================================
+# Module-level humanized scroll for call-sites that hold a BARE uiautomator2
+# device (no device facade). Same single engine as `GestureMixin` /
+# `BaseDeviceFacade.human_scroll` — a thin adapter lets the bare device satisfy
+# the mixin's host contract, so there is still ONE humanization source.
+# =============================================================================
+
+_PAGE_TO_GESTURE = {"down": "up", "up": "down"}
+
+
+class _RawDeviceAdapter:
+    """Wraps a bare uiautomator2 device so it looks like a device facade to `GestureMixin`
+    (which reaches `self.device._device` for the raw API and `self.device.swipe_coordinates`)."""
+
+    def __init__(self, raw):
+        self._device = raw
+
+    def swipe_coordinates(self, x1, y1, x2, y2, duration: float = 0.5):
+        self._device.swipe(x1, y1, x2, y2, duration=duration)
+
+
+class _RawGestureHost(GestureMixin):
+    pass
+
+
+def _raw_host(device, logger=None) -> _RawGestureHost:
+    """Build a GestureMixin host from EITHER a device facade (already exposes `_device` +
+    `swipe_coordinates`) OR a bare uiautomator2 device (wrapped in the adapter) — so the raw
+    helpers are safe to call whatever device type a surface happens to hold."""
+    host = _RawGestureHost()
+    if hasattr(device, "swipe_coordinates") and hasattr(device, "_device"):
+        host.device = device          # a device facade
+        raw = device._device
+    else:
+        host.device = _RawDeviceAdapter(device)   # a bare u2 device
+        raw = device
+    host.logger = logger or _gesture_logger
+    w = h = None
+    try:
+        if hasattr(device, "get_screen_size"):
+            w, h = device.get_screen_size()
+        else:
+            w, h = raw.window_size()
+    except Exception:
+        try:
+            info = raw.info
+            w, h = info['displayWidth'], info['displayHeight']
+        except Exception:
+            w, h = 1080, 1920
+    host.screen_width, host.screen_height = int(w), int(h)
+    return host
+
+
+def human_scroll_raw(raw_device, direction: str = "down", distance_ratio: Optional[float] = None,
+                     coast: bool = False, logger=None) -> bool:
+    """Humanized VERTICAL scroll for a bare u2 device. `direction='down'` advances (reveals the
+    NEXT content), `'up'` goes back. `coast=True` flings; `coast=False` (default) is a 1:1
+    controlled curve that preserves a precise travel distance. Mirrors `device.human_scroll`."""
+    host = _raw_host(raw_device, logger)
+    g_dir = _PAGE_TO_GESTURE.get(direction, "up")
+    distance_px = (distance_ratio * host.screen_height) if distance_ratio else None
+    if coast:
+        return host._strong_flick(direction=g_dir, distance_px=distance_px)
+    return host._human_swipe(direction=g_dir, distance_px=distance_px)
+
+
+def human_hswipe_raw(raw_device, direction: str = "left", distance_ratio: float = 0.6,
+                     y_ratio: Optional[float] = None, logger=None) -> bool:
+    """Humanized HORIZONTAL swipe for a bare u2 device. `direction='left'` reveals the NEXT slide,
+    `'right'` the previous. Mirrors `device.human_hswipe`."""
+    return _raw_host(raw_device, logger)._human_horizontal_swipe(direction, distance_ratio,
+                                                                 y_ratio=y_ratio)
