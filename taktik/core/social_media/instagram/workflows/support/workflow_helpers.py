@@ -135,8 +135,13 @@ class WorkflowHelpers:
         skip_initial_restart = bool(session_settings.get('skip_initial_restart', False))
 
         if skip_initial_restart:
+            # The bridge already did the CLEAN restart (force-stop + launch) for a consistent
+            # initial state, so the bot must NOT restart again — but Instagram is freshly started,
+            # so still dismiss any post-restart popup (ad consent, "what's new", etc.) before we try
+            # to detect the account. Otherwise an interstitial covers the nav and detection fails.
             pkg = self._get_package()
-            self.logger.info(f"Skipping initial Instagram restart ({pkg}); already launched by bridge")
+            self.logger.info(f"Instagram restarted by the bridge ({pkg}); dismissing any post-restart popups")
+            self._handle_post_restart_popups()
         else:
             # Keep the clean restart for standalone bot runs.
             pkg = self._get_package()

@@ -86,9 +86,15 @@ class InstagramDesktopRuntime:
         perform_network_reset(self.device_id, method=self.network_reset_method, ipc=ipc)
 
     def launch_instagram(self) -> bool:
-        """Launch Instagram on the connected device."""
+        """Restart Instagram on the connected device for a clean, consistent initial state.
+
+        A clean restart (force-stop + launch) — the same way every other bridge starts the app —
+        guarantees we land on the home feed instead of resuming wherever a previous session left
+        Instagram (a foreign profile / a story / an interstitial), which made account detection
+        fail and waste ~45s. The bot honours `skip_initial_restart=True` (it must NOT restart
+        again) but still dismisses any post-restart popup."""
         try:
-            send_status("launching", "Launching Instagram...")
+            send_status("launching", "Restarting Instagram...")
 
             atx_result = self.connection.check_atx_health(repair=True, max_retries=3)
             if not atx_result["atx_healthy"]:
@@ -106,7 +112,7 @@ class InstagramDesktopRuntime:
                 send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
                 return False
 
-            if not self.app_service.launch():
+            if not self.app_service.restart():
                 send_error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
                 return False
 
