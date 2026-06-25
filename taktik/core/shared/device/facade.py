@@ -253,7 +253,60 @@ class BaseDeviceFacade:
             swipe_method(scale)
         else:
             self.logger.error(f"Unknown swipe direction: {direction}")
-    
+
+    # =========================================================================
+    # Humanized scroll — the SHARED entry point. Every workflow/action should scroll
+    # through here, never a raw fixed-coordinate swipe. Reuses the single calibrated
+    # gesture engine (`GestureMixin`, geometry sampled from real human trajectories)
+    # via a thin adapter, so IG + TikTok + every surface share one humanization source.
+    # =========================================================================
+
+    # Page direction -> finger gesture direction: advancing the feed ("down" / reveal the NEXT
+    # content) is a finger swipe UP; going back ("up") is a finger swipe DOWN.
+    _PAGE_TO_GESTURE = {"down": "up", "up": "down"}
+
+    def _gesture_host(self):
+        """Lazily build (and cache) the `GestureMixin` host bound to THIS facade. Screen size is
+        re-read each call so the gesture follows rotation. Cheap; avoids duplicating the engine."""
+        from taktik.core.shared.behavior.gesture_primitives import GestureMixin
+
+        host = self.__dict__.get("_gesture_host_obj")
+        if host is None:
+            class _FacadeGestureHost(GestureMixin):
+                """Adapter: GestureMixin expects `self.device` to be the facade (so
+                `self.device._device` is the raw u2 and `self.device.swipe_coordinates` exists)."""
+                pass
+            host = _FacadeGestureHost()
+            host.device = self
+            host.logger = self.logger
+            self.__dict__["_gesture_host_obj"] = host
+        try:
+            host.screen_width, host.screen_height = self.get_screen_size()
+        except Exception:
+            host.screen_width, host.screen_height = 1080, 1920
+        return host
+
+    def human_scroll(self, direction: str = "down", distance_ratio: Optional[float] = None,
+                     coast: bool = False) -> bool:
+        """Humanized VERTICAL scroll — the single entry point for human-like feed/list/grid
+        scrolling. `direction='down'` advances (reveals the NEXT content), `'up'` goes back.
+        `coast=True` fires a real Android fling (`_strong_flick`, content coasts ~2.5-4x — a natural
+        feed advance); `coast=False` (default) is a 1:1 controlled curve (`_human_swipe`) that
+        preserves a precise travel distance (safe drop-in for detection/extraction loops, no
+        overshoot). `distance_ratio` = gesture magnitude as a fraction of screen height."""
+        host = self._gesture_host()
+        g_dir = self._PAGE_TO_GESTURE.get(direction, "up")
+        distance_px = (distance_ratio * host.screen_height) if distance_ratio else None
+        if coast:
+            return host._strong_flick(direction=g_dir, distance_px=distance_px)
+        return host._human_swipe(direction=g_dir, distance_px=distance_px)
+
+    def human_hswipe(self, direction: str = "left", distance_ratio: float = 0.6) -> bool:
+        """Humanized HORIZONTAL swipe (stories, carousels). `direction='left'` reveals the NEXT
+        slide, `'right'` the previous. Dedicated horizontal profile (varied start point, vertical
+        wobble, varied duration) — never a fixed-coordinate robotic swipe."""
+        return self._gesture_host()._human_horizontal_swipe(direction, distance_ratio)
+
     # =========================================================================
     # Click & Press
     # =========================================================================
