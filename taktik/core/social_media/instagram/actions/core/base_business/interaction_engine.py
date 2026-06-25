@@ -66,11 +66,21 @@ class InteractionEngineMixin:
                 'comment': plan.max_comments if plan.do_comment else 0,
             })
 
+            # Detect the story ONCE on arrival: the profile header is visible and its avatar
+            # content-desc carries the reliable "unseen story" / "non vue" marker (the post-header
+            # avatar does NOT). A short settle retry rides out the ring animation (it spins on open,
+            # so an immediate check can miss a real story). We only schedule a story phase when a
+            # story actually exists, and remember it (`story_available`) so a later phase can open
+            # it from the post header too, without re-detecting.
+            story_available = bool(plan.do_watch_story) and self.detection_actions.has_unseen_profile_story(
+                settle_attempts=3, settle_delay=0.35
+            )
+
             # Human ordering of the header-dependent actions. The story sits right at the top on
             # arrival, so watch it FIRST most of the time; the follow is mixed early/late (a human
             # often follows AFTER browsing the posts). Whatever is deferred to 'end' runs after a
             # humanized scroll back to the top (see PHASE END below).
-            story_phase = ('start' if random.random() < 0.75 else 'end') if plan.do_watch_story else None
+            story_phase = ('start' if random.random() < 0.75 else 'end') if story_available else None
             follow_phase = ('start' if random.random() < 0.35 else 'end') if plan.do_follow else None
 
             # === PHASE START — the profile header is visible on arrival ===

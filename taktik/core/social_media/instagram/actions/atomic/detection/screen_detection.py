@@ -289,14 +289,25 @@ class ScreenDetectionMixin(BaseAction):
             self.logger.debug(f"Error reading feed tray total: {e}")
             return 0
 
-    def has_unseen_profile_story(self) -> bool:
-        """Detect the active profile-avatar story ring, excluding highlight bubbles."""
-        try:
-            element = self.device.xpath(STORY_SELECTORS.profile_unseen_story_avatar)
-            return bool(element and element.exists)
-        except Exception as e:
-            self.logger.debug(f"Error checking profile story avatar: {e}")
-            return False
+    def has_unseen_profile_story(self, settle_attempts: int = 1, settle_delay: float = 0.0) -> bool:
+        """Detect the active profile-avatar story ring, excluding highlight bubbles.
+
+        The avatar's content-desc only gains the "unseen story" / "non vue" marker once the ring
+        animation SETTLES (it spins for a moment when the profile opens), so a single immediate
+        check can miss a real story on arrival. `settle_attempts`/`settle_delay` re-poll a few
+        times to ride out that animation, returning as soon as the ring appears. Defaults
+        (1 attempt / no wait) preserve the prior immediate behaviour for metadata callers."""
+        attempts = max(1, settle_attempts)
+        for attempt in range(attempts):
+            try:
+                element = self.device.xpath(STORY_SELECTORS.profile_unseen_story_avatar)
+                if element and element.exists:
+                    return True
+            except Exception as e:
+                self.logger.debug(f"Error checking profile story avatar: {e}")
+            if attempt < attempts - 1 and settle_delay > 0:
+                time.sleep(settle_delay)
+        return False
     
     def get_story_count_from_viewer(self) -> tuple[int, int]:
         try:

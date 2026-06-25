@@ -60,6 +60,18 @@ class _ScrollActions:
         return True
 
 
+class _DetectionActions:
+    """Story detection stub: the engine detects an unseen profile story (with a settle retry)
+    on arrival before scheduling a story phase. `has_story` drives whether a story exists."""
+    def __init__(self, has_story=True):
+        self.has_story = has_story
+        self.detect_calls = 0
+
+    def has_unseen_profile_story(self, *a, **k):
+        self.detect_calls += 1
+        return self.has_story
+
+
 class _Engine(InteractionEngineMixin, ConfigParsingMixin):
     """Minimal harness: real decision (ConfigParsingMixin) + real engine, stubbed device IO."""
 
@@ -68,6 +80,7 @@ class _Engine(InteractionEngineMixin, ConfigParsingMixin):
         self.like_business = like_business
         self.click_actions = click_actions
         self.scroll_actions = _ScrollActions()
+        self.detection_actions = _DetectionActions(has_story=story_result is not None)
         self._story_result = story_result
         self.follow_events = []
         self.like_events = []
