@@ -22,6 +22,9 @@ class RecordingAdapter:
     def send_post_skipped(self, **payload):
         self.calls.append(("post_skipped", payload))
 
+    def send_profile_skipped(self, username, reason="already in DB", detail=None):
+        self.calls.append(("profile_skipped", username, reason, detail))
+
     def send_feed_decision(self, author, action, reason=None, comment=None, visit_profile=False):
         self.calls.append(("feed_decision", author, action, reason, comment, visit_profile))
 
@@ -75,3 +78,25 @@ def test_emit_feed_decision_is_noop_without_bridge_adapter():
     IPCEmitter.clear_bridge_adapter()
     # Must not raise when no bridge is injected (standalone/CLI runs).
     IPCEmitter.emit_feed_decision("alice", "like", reason="Liké")
+
+
+def test_emit_profile_skipped_forwards_reason_token():
+    # The followers workflow surfaces a pre-click DB skip (60-day cooldown /
+    # already-filtered) as a profile_skipped event; the reason TOKEN must reach the
+    # bridge unchanged so the desktop can localize it on the SkippedProfileCard.
+    adapter = RecordingAdapter()
+    IPCEmitter.configure_bridge_adapter(adapter)
+
+    IPCEmitter.emit_profile_skipped("carol", reason="already_processed")
+    IPCEmitter.emit_profile_skipped("dave", reason="already_filtered", detail="not enough posts")
+
+    assert adapter.calls == [
+        ("profile_skipped", "carol", "already_processed", None),
+        ("profile_skipped", "dave", "already_filtered", "not enough posts"),
+    ]
+
+
+def test_emit_profile_skipped_is_noop_without_bridge_adapter():
+    IPCEmitter.clear_bridge_adapter()
+    # Must not raise when no bridge is injected (standalone/CLI runs).
+    IPCEmitter.emit_profile_skipped("carol", reason="already_processed")

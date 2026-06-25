@@ -218,5 +218,47 @@ class InstagramWorkflowStateService:
 
         return False, ""
 
+    @staticmethod
+    def get_skip_detail(
+        username: str,
+        account_id: Optional[int],
+        skip_reason: str,
+    ) -> Optional[str]:
+        """Best-effort human detail for a pre-click DB skip, for live display only.
+
+        - ``already_filtered`` -> the ORIGINAL stored filter reason (e.g. "not enough
+          posts"), so the live card explains WHY the profile was filtered before.
+        - ``already_processed`` -> the age in WHOLE DAYS since the last interaction, as a
+          plain digit string (the desktop formats "X days ago" in the user's language).
+
+        Returns ``None`` when unavailable. Never raises (a missing detail just falls back
+        to the generic localized label on the front).
+        """
+        if not account_id:
+            return None
+        try:
+            if skip_reason == "already_filtered":
+                reason = InstagramWorkflowStateService._db().get_filter_reason(username, account_id)
+                return reason or None
+            if skip_reason == "already_processed":
+                from datetime import datetime
+
+                info = InstagramWorkflowStateService._db().check_profile_processed(
+                    account_id, username, 24 * 60
+                )
+                ts = (info or {}).get("last_interaction")
+                if not ts:
+                    return None
+                # Stored as "YYYY-MM-DD HH:MM:SS" (SQLite datetime). A coarse day count is
+                # enough for a live label; tolerate microseconds / 'T' separators.
+                text = str(ts).replace("T", " ").split(".")[0]
+                last = datetime.strptime(text, "%Y-%m-%d %H:%M:%S")
+                days = (datetime.now() - last).days
+                return str(days) if days >= 0 else None
+        except Exception as exc:
+            log.debug("get_skip_detail(@{}, {}) failed: {}", username, skip_reason, exc)
+            return None
+        return None
+
 
 __all__ = ["InstagramWorkflowStateService"]

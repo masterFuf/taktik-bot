@@ -9,6 +9,8 @@ class _FakeDbService:
         self.processed_result = False
         self.filtered_result = False
         self.interaction_results = []
+        self.filter_reason_result = None
+        self.processed_record = {'processed': False}
 
     def record_interaction(self, **kwargs):
         self.interaction_calls.append(kwargs)
@@ -29,6 +31,12 @@ class _FakeDbService:
 
     def is_profile_filtered(self, username, account_id):
         return self.filtered_result
+
+    def get_filter_reason(self, username, account_id):
+        return self.filter_reason_result
+
+    def check_profile_processed(self, account_id, username, hours_limit=24):
+        return self.processed_record
 
 
 def test_record_individual_actions_delegates_and_counts(monkeypatch):
@@ -141,3 +149,34 @@ def test_is_profile_skippable_returns_false_when_unknown(monkeypatch):
         False,
         "",
     )
+
+
+def test_get_skip_detail_already_filtered_returns_stored_reason(monkeypatch):
+    fake_db = _FakeDbService()
+    fake_db.filter_reason_result = "not enough posts"
+    monkeypatch.setattr(InstagramWorkflowStateService, "_db", staticmethod(lambda: fake_db))
+
+    assert (
+        InstagramWorkflowStateService.get_skip_detail("target", 3, "already_filtered")
+        == "not enough posts"
+    )
+
+
+def test_get_skip_detail_already_processed_returns_day_count(monkeypatch):
+    from datetime import datetime, timedelta
+
+    fake_db = _FakeDbService()
+    last = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    fake_db.processed_record = {"processed": True, "last_interaction": last}
+    monkeypatch.setattr(InstagramWorkflowStateService, "_db", staticmethod(lambda: fake_db))
+
+    assert (
+        InstagramWorkflowStateService.get_skip_detail("target", 3, "already_processed") == "7"
+    )
+
+
+def test_get_skip_detail_none_without_account(monkeypatch):
+    fake_db = _FakeDbService()
+    monkeypatch.setattr(InstagramWorkflowStateService, "_db", staticmethod(lambda: fake_db))
+
+    assert InstagramWorkflowStateService.get_skip_detail("target", None, "already_filtered") is None

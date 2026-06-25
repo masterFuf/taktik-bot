@@ -15,10 +15,15 @@ from taktik.core.social_media.instagram.actions.core.stats.workflow_stats import
     sync_aliases,
 )
 
-# Keys that direct/profile_processing.py mutates with `+=` (must be pre-initialized).
+# Keys that direct/main_loop.py + profile_processing.py mutate with `+=` (must be
+# pre-initialized). Includes the pre-click DB-skip buckets `already_processed`
+# (60-day cooldown) and `already_filtered` (filtered in a prior session): main_loop
+# increments these instead of folding them into skipped/filtered, so the factory must
+# provide them or `+=` raises KeyError on the first already-known follower.
 _INCREMENTED_KEYS = [
-    'errors', 'filtered', 'followed', 'interacted', 'liked',
-    'processed', 'skipped', 'stories_viewed', 'story_likes', 'visited',
+    'already_filtered', 'already_processed', 'errors', 'filtered', 'followed',
+    'interacted', 'liked', 'processed', 'skipped', 'stories_viewed', 'story_likes',
+    'visited',
 ]
 
 

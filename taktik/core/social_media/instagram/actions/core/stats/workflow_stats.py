@@ -16,6 +16,10 @@ _BASE_STATS = {
     'profiles_visited': 0,
     'profiles_filtered': 0,
     'skipped': 0,
+    # Pre-click DB skips (kept SEPARATE from skipped/filtered — "already known" is not a
+    # this-session rejection). Shared across every workflow that runs the DB skip check.
+    'already_processed': 0,  # 60-day cooldown (already interacted)
+    'already_filtered': 0,   # filtered in a PRIOR session
     'likes_made': 0,
     'follows_made': 0,
     'comments_made': 0,
@@ -44,8 +48,8 @@ _TYPE_EXTRAS: Dict[str, Dict[str, Any]] = {
         'followed': 0,      # alias of follows_made
         'stories_viewed': 0,  # alias of stories_watched — required by profile_processing
         'story_likes': 0,   # alias of stories_liked
-        'filtered': 0,      # alias of profiles_filtered
-        'already_processed': 0,
+        'filtered': 0,      # alias of profiles_filtered (this-session quality filters only)
+        # already_processed / already_filtered now live in _BASE_STATS (shared skip check).
         'processed': 0,     # alias of interacted (legacy compat)
     },
     'followers_legacy': {

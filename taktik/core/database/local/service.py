@@ -415,6 +415,10 @@ class LocalDatabaseService:
     def is_profile_filtered(self, username: str, account_id: int) -> bool:
         """Check if a profile is filtered for an account."""
         return self.interactions.is_filtered(username, account_id)
+
+    def get_filter_reason(self, username: str, account_id: int) -> Optional[str]:
+        """Most recent stored filter reason for a profile (None if not filtered)."""
+        return self.interactions.get_filter_reason(username, account_id)
     
     def check_filtered_profiles_batch(self, usernames: List[str], account_id: int) -> List[str]:
         """Check multiple profiles at once, return list of filtered usernames."""

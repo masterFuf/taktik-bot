@@ -16,6 +16,7 @@ from ....core.base_business import BaseBusinessAction
 from ....core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -101,14 +102,23 @@ class LikersWorkflowBase(BaseBusinessAction):
                 )
                 if should_skip:
                     known_usernames_streak += 1
+                    # "Already known" is its OWN outcome — not a this-session rejection, so it
+                    # must NOT land in skipped/profiles_filtered (mirror of the followers fix).
+                    # Dedicated buckets + action="already_known" telemetry + a live SkippedProfileCard
+                    # keep it separate and visible everywhere it is tallied.
                     if skip_reason == "already_processed":
                         self.logger.info(f"🔄 @{username} already processed")
+                        stats['already_processed'] += 1
                     elif skip_reason == "already_filtered":
                         self.logger.info(f"🚫 @{username} already filtered")
-                        stats['profiles_filtered'] += 1
-                    stats['skipped'] += 1
-                    self.stats_manager.increment('skipped')
-                    _ledger(username, "skipped", skip_reason or "db_skip", streak=known_usernames_streak)
+                        stats['already_filtered'] += 1
+                    _ledger(username, "already_known", skip_reason or "db_skip", streak=known_usernames_streak)
+                    skip_detail = InstagramWorkflowStateService.get_skip_detail(
+                        username, account_id, skip_reason
+                    )
+                    IPCEmitter.emit_profile_skipped(
+                        username, reason=skip_reason or "already in DB", detail=skip_detail
+                    )
 
                     if (
                         max_consecutive_known_usernames is not None

@@ -13,6 +13,7 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from ....core.stats import create_workflow_stats
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from .extraction import NotificationExtractionMixin
 from .interactions import NotificationInteractionsMixin
 
@@ -97,8 +98,13 @@ class NotificationsBusiness(NotificationExtractionMixin, NotificationInteraction
                 account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
                 if InstagramWorkflowStateService.is_profile_already_processed(username, account_id):
                     self.logger.info(f"Profile @{username} already processed, skipped")
-                    stats['skipped'] += 1
-                    self.stats_manager.increment('skipped')
+                    # "Already known" kept separate from skipped + surfaced live as a
+                    # SkippedProfileCard (mirror of followers/likers).
+                    stats['already_processed'] += 1
+                    skip_detail = InstagramWorkflowStateService.get_skip_detail(
+                        username, account_id, "already_processed"
+                    )
+                    IPCEmitter.emit_profile_skipped(username, reason="already_processed", detail=skip_detail)
                     continue
                 
                 interaction_result = self._interact_with_user(username, effective_config)

@@ -194,6 +194,14 @@ class LocalDatabaseClient:
         except Exception as e:
             logger.error(f"Error checking profile {username}: {e}")
             return False
+
+    def check_profile_processed(self, account_id: int, username: str, hours_limit: int = 24) -> dict:
+        """Full recent-processing record (includes last_interaction time)."""
+        try:
+            return self.local_db.check_profile_processed(account_id, username, hours_limit) or {'processed': False}
+        except Exception as e:
+            logger.error(f"Error checking profile {username}: {e}")
+            return {'processed': False}
     
     def mark_profile_as_processed(self, account_id: int, username: str, 
                                    notes: str = None, session_id: int = None,
@@ -232,6 +240,10 @@ class LocalDatabaseClient:
     def is_profile_filtered(self, username: str, account_id: int) -> bool:
         """Check if a profile is filtered."""
         return self.local_db.is_profile_filtered(username, account_id)
+
+    def get_filter_reason(self, username: str, account_id: int):
+        """Most recent stored filter reason for a profile (None if not filtered)."""
+        return self.local_db.get_filter_reason(username, account_id)
     
     def check_filtered_profiles_batch(self, usernames: list, account_id: int) -> list:
         """Check multiple profiles for filtering."""

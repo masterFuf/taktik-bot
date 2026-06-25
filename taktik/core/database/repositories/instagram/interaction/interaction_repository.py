@@ -190,6 +190,14 @@ class InteractionRepository(BaseRepository):
         )
         return (row['count'] if row else 0) > 0
 
+    def get_filter_reason(self, username: str, account_id: int) -> Optional[str]:
+        """Most recent stored filter reason for a profile (None if not filtered / no reason)."""
+        row = self.query_one(
+            "SELECT reason FROM filtered_profiles WHERE platform = 'instagram' AND username = ? AND account_id = ? ORDER BY filtered_at DESC LIMIT 1",
+            (username, account_id)
+        )
+        return (row['reason'] if row and row['reason'] else None)
+
     def get_filtered_usernames(self, usernames: List[str], account_id: int) -> List[str]:
         """Check multiple profiles at once (batch)"""
         if not usernames:

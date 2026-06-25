@@ -114,14 +114,19 @@ class IPCEmitter:
             log.debug(f"IPC profile_captured event error: {exc}")
 
     @staticmethod
-    def emit_profile_skipped(username: str, reason: str = "already in DB") -> None:
-        """Emit a profile_skipped event to the Taktik Agent panel."""
+    def emit_profile_skipped(username: str, reason: str = "already in DB", detail: Optional[str] = None) -> None:
+        """Emit a profile_skipped event to the Taktik Agent panel.
+
+        ``detail`` carries an optional human hint the desktop appends to the localized
+        reason (e.g. the original filter reason for ``already_filtered``, or the day count
+        since the last interaction for ``already_processed``). Optional / backward-compatible.
+        """
         bridge = _get_bridge()
         if not bridge:
             return
         try:
             if hasattr(bridge, "send_profile_skipped"):
-                bridge.send_profile_skipped(username, reason=reason)
+                bridge.send_profile_skipped(username, reason=reason, detail=detail)
         except Exception as exc:
             log.debug(f"IPC profile_skipped event error: {exc}")
 
