@@ -145,3 +145,37 @@ class GestureMixin:
         except Exception as e:
             self.logger.error(f"Error in long drag ({direction}): {e}")
             return False
+
+    def _human_horizontal_swipe(self, direction: str = "left", distance_ratio: float = 0.6) -> bool:
+        """Humanized HORIZONTAL swipe (carousels, story-advance). `sample_swipe` is vertical-only
+        (it hard-caps horizontal drift so a feed scroll never reads as a story-camera swipe), so
+        horizontal motion needs its own profile: a varied start point (never dead-centre), a small
+        vertical wobble, and a varied duration — instead of a fixed-coordinate robotic swipe.
+        `direction="left"` = finger moves left → next slide; `"right"` = previous."""
+        try:
+            w, h = int(self.screen_width), int(self.screen_height)
+            sy = h * random.uniform(0.42, 0.58)
+            ey = sy + h * random.uniform(-0.02, 0.02)          # slight vertical wobble
+            dist = w * distance_ratio * random.uniform(0.9, 1.05)
+            if direction == "left":
+                sx = w * random.uniform(0.78, 0.88)
+                ex = sx - dist
+            else:
+                sx = w * random.uniform(0.12, 0.22)
+                ex = sx + dist
+            ex = min(max(ex, 0.05 * w), 0.95 * w)
+            duration = random.uniform(0.22, 0.38)
+            raw = getattr(self.device, "_device", None)
+            if raw is not None and hasattr(raw, "swipe"):
+                raw.swipe(int(sx), int(sy), int(ex), int(ey), duration=duration)
+            else:
+                self.device.swipe_coordinates(int(sx), int(sy), int(ex), int(ey), duration)
+            emit_step(
+                "scroll", action="hswipe", target=direction,
+                distance_px=int(abs(ex - sx)), duration_ms=round(duration * 1000),
+            )
+            time.sleep(0.05)
+            return True
+        except Exception as e:
+            self.logger.error(f"Error in horizontal swipe ({direction}): {e}")
+            return False
