@@ -40,8 +40,10 @@ class ProfileInteractionMixin(BaseAction):
         try:
             self.logger.info(f"👤 Attempting to follow @{username}")
             
+            # follow_button is a List[str] property — spread it (a bare entry would nest a list
+            # inside follow_selectors and make device.xpath() raise "Invalid attr").
             follow_selectors = PROFILE_SELECTORS.advanced_follow_selectors + [
-                PROFILE_SELECTORS.follow_button,
+                *PROFILE_SELECTORS.follow_button,
                 PROFILE_SELECTORS.follow_buttons,
                 PROFILE_SELECTORS.suivre_buttons
             ]

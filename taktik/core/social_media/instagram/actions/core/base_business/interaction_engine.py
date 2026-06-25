@@ -66,6 +66,19 @@ class InteractionEngineMixin:
                 'comment': plan.max_comments if plan.do_comment else 0,
             })
 
+            # Human ordering of the header-dependent actions. The story sits right at the top on
+            # arrival, so watch it FIRST most of the time; the follow is mixed early/late (a human
+            # often follows AFTER browsing the posts). Whatever is deferred to 'end' runs after a
+            # humanized scroll back to the top (see PHASE END below).
+            story_phase = ('start' if random.random() < 0.75 else 'end') if plan.do_watch_story else None
+            follow_phase = ('start' if random.random() < 0.35 else 'end') if plan.do_follow else None
+
+            # === PHASE START — the profile header is visible on arrival ===
+            if story_phase == 'start':
+                self._do_watch_story(username, plan, profile_data, result)
+            if follow_phase == 'start':
+                self._do_follow(username, plan, profile_data, result)
+
             # === LIKE / COMMENT ===
             should_like = 'like' in interactions_to_do
             should_comment = plan.do_comment
@@ -114,53 +127,66 @@ class InteractionEngineMixin:
                     if result.get('comments', 0) > 0:
                         emit_step("comment", action="posted", target=username, count=result['comments'])
 
-            # === FOLLOW ===
-            if plan.do_follow:
-                # Check if we already follow (avoids a wasted click)
-                follow_state = (profile_data or {}).get('follow_button_state', 'unknown')
-                if follow_state in ('following', 'requested'):
-                    self.logger.info(f"⏭️ Already following @{username} (button: {follow_state}) - skipping follow")
-                else:
-                    follow_success = self.click_actions.follow_user(username)
-                    if follow_success:
-                        result['follows'] = 1
-                        result['actually_interacted'] = True
-                        self.logger.info(f"✅ Followed @{username}")
-                        
-                        # NOTE: stats_manager.increment('follows') is NOT called here.
-                        # Callers are responsible for stats tracking to avoid double-counting.
-                        self._record_action(username, 'FOLLOW', 1)
-                        self._emit_follow_event(username, profile_data)
-                        emit_step("follow", action="button", target=username)
-                        self._handle_follow_suggestions_popup()
-
-            # === STORIES ===
-            if plan.do_watch_story:
-                story_result = self._view_stories_on_current_profile(
-                    username,
-                    do_story_like=plan.do_story_like,        # like count resolved at open (∝ slides)
-                    max_story_likes=plan.max_story_likes,    # hard ceiling on the proportional count
-                    fallback_like_slot=plan.story_like_slot, # used only if the slide count is unreadable
-                    max_stories=plan.max_story_slides
-                )
-                if story_result:
-                    result['stories'] = story_result.get('stories_viewed', 0)
-                    result['stories_liked'] = story_result.get('stories_liked', 0)
-                    if result['stories'] > 0:
-                        result['actually_interacted'] = True
-                        # IPC event for stories (live panel + WorkflowAnalyzer),
-                        # mirroring the like/follow events.
-                        self._emit_story_event(
-                            username, result['stories'], result['stories_liked'], profile_data
-                        )
-                        emit_step("story", action="watch", target=username,
-                                  watched=result['stories'], liked=result['stories_liked'])
+            # === PHASE END — header-dependent actions, after a humanized return to the top ===
+            # The like flow above scrolls the post grid down, leaving the profile HEADER (the avatar
+            # story ring + the follow button) off-screen — which silently made BOTH follow and story
+            # fail. So anything deferred to the end first scrolls back to the top (humanized).
+            if story_phase == 'end' or follow_phase == 'end':
+                if should_like or should_comment:
+                    self.scroll_actions.scroll_to_top()
+                if story_phase == 'end':
+                    self._do_watch_story(username, plan, profile_data, result)
+                if follow_phase == 'end':
+                    self._do_follow(username, plan, profile_data, result)
 
             return result
 
         except Exception as e:
             self.logger.error(f"Error performing interactions on @{username}: {e}")
             return result
+
+    def _do_follow(self, username, plan, profile_data, result) -> None:
+        """Follow the user if planned and not already following/requested. Needs the profile HEADER
+        visible (call only from a phase where the header is on screen). Idempotent within a profile
+        via the result['follows'] guard."""
+        if not plan.do_follow or result.get('follows'):
+            return
+        follow_state = (profile_data or {}).get('follow_button_state', 'unknown')
+        if follow_state in ('following', 'requested'):
+            self.logger.info(f"⏭️ Already following @{username} (button: {follow_state}) - skipping follow")
+            return
+        if self.click_actions.follow_user(username):
+            result['follows'] = 1
+            result['actually_interacted'] = True
+            self.logger.info(f"✅ Followed @{username}")
+            # NOTE: stats_manager.increment('follows') is NOT called here (callers track stats to
+            # avoid double-counting).
+            self._record_action(username, 'FOLLOW', 1)
+            self._emit_follow_event(username, profile_data)
+            emit_step("follow", action="button", target=username)
+            self._handle_follow_suggestions_popup()
+
+    def _do_watch_story(self, username, plan, profile_data, result) -> None:
+        """Watch the profile's unseen story if planned and not already watched this profile. Needs
+        the profile HEADER (avatar story ring) visible."""
+        if not plan.do_watch_story or result.get('stories'):
+            return
+        story_result = self._view_stories_on_current_profile(
+            username,
+            do_story_like=plan.do_story_like,        # like count resolved at open (∝ slides)
+            max_story_likes=plan.max_story_likes,    # hard ceiling on the proportional count
+            fallback_like_slot=plan.story_like_slot, # used only if the slide count is unreadable
+            max_stories=plan.max_story_slides,
+        )
+        if story_result:
+            result['stories'] = story_result.get('stories_viewed', 0)
+            result['stories_liked'] = story_result.get('stories_liked', 0)
+            if result['stories'] > 0:
+                result['actually_interacted'] = True
+                # IPC event for stories (live panel + WorkflowAnalyzer), mirroring like/follow.
+                self._emit_story_event(username, result['stories'], result['stories_liked'], profile_data)
+                emit_step("story", action="watch", target=username,
+                          watched=result['stories'], liked=result['stories_liked'])
 
     def _read_story_slide_total(self) -> int:
         """Best-effort number of slides in the just-opened story (0 = unknown).

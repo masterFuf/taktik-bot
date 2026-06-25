@@ -49,6 +49,17 @@ class _ClickActions:
         return self.follow_ok
 
 
+class _ScrollActions:
+    """Humanized scroll stub: the engine scrolls back to the profile header (scroll_to_top)
+    before any END-phase follow/story so the header isn't off-screen after the like flow."""
+    def __init__(self):
+        self.to_top_calls = 0
+
+    def scroll_to_top(self, *a, **k):
+        self.to_top_calls += 1
+        return True
+
+
 class _Engine(InteractionEngineMixin, ConfigParsingMixin):
     """Minimal harness: real decision (ConfigParsingMixin) + real engine, stubbed device IO."""
 
@@ -56,6 +67,7 @@ class _Engine(InteractionEngineMixin, ConfigParsingMixin):
         self.logger = _Logger()
         self.like_business = like_business
         self.click_actions = click_actions
+        self.scroll_actions = _ScrollActions()
         self._story_result = story_result
         self.follow_events = []
         self.like_events = []
