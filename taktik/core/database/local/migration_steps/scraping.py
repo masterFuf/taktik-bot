@@ -95,9 +95,33 @@ def run_scraping_session_migrations(cursor: sqlite3.Cursor) -> None:
     # creation, so a base predating this column makes the INSERT fail. Idempotent ALTER.
     try:
         cursor.execute("SELECT sync_id FROM scraping_sessions LIMIT 1")
+        has_sync_id = True
     except sqlite3.OperationalError:
         logger.info("Migration: Adding sync_id to scraping_sessions")
         cursor.execute("ALTER TABLE scraping_sessions ADD COLUMN sync_id TEXT")
+        has_sync_id = False
+
+    # Collapse duplicate rows (same scraping_id, divergent sync_ids — pulled from a Turso table
+    # that ballooned via the NULL-key re-insert bug) down to ONE row per scraping_id, keeping the
+    # SMALLEST sync_id. Every device shares the same pulled (scraping_id, sync_id) set, so this MIN
+    # is chosen identically everywhere -> locals converge and stop re-pushing duplicates (root-cause
+    # fix for the recurring scraping_sessions blow-up). Idempotent.
+    if has_sync_id:
+        try:
+            cursor.execute(
+                """
+                DELETE FROM scraping_sessions
+                WHERE scraping_id IN (SELECT scraping_id FROM scraping_sessions WHERE sync_id IS NOT NULL AND sync_id != '')
+                  AND sync_id IS NOT (
+                    SELECT MIN(s2.sync_id) FROM scraping_sessions s2
+                    WHERE s2.scraping_id = scraping_sessions.scraping_id AND s2.sync_id IS NOT NULL AND s2.sync_id != ''
+                  )
+                """
+            )
+            if cursor.rowcount:
+                logger.info("Migration: collapsed %s duplicate scraping_sessions rows", cursor.rowcount)
+        except sqlite3.OperationalError as exc:
+            logger.warning("scraping_sessions dedup skipped: %s", exc)
 
 
 def run_scraped_profile_migrations(cursor: sqlite3.Cursor) -> None:
