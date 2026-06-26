@@ -838,7 +838,7 @@ No markdown formatting."""
         # fr"). "auto" is handled separately (match the post's language).
         _comment_lang_label = {
             'fr': 'French', 'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese',
-            'it': 'Italian', 'de': 'German', 'nl': 'Dutch',
+            'it': 'Italian', 'de': 'German', 'nl': 'Dutch', 'ar': 'Arabic',
         }.get(language, language)
 
         system_prompt = f"""You are a {_platform_label(platform)} engagement expert for the "{niche}" niche.

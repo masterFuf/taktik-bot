@@ -70,19 +70,30 @@ def test_install_ai_hooks_without_device_is_noop_and_logs_warning():
 
 
 @pytest.mark.parametrize(
-    "app_lang, post_language, expected",
+    "base_lang, post_language, expected",
     [
-        # Allowed = {app/APK language, English}.
-        ("fr", "French", "fr"),           # post in APK language -> comment in it
+        # base_lang = account preferred language (fallback app). Allowed = {base_lang, English}.
+        ("fr", "French", "fr"),           # post in base language -> comment in it
         ("fr", "english", "en"),          # English always allowed (case-insensitive)
         ("fr", "Spanish", None),          # other language -> skip
         ("fr", "Chinese", None),
-        ("fr", None, "fr"),               # undetected -> default to APK language
+        ("fr", None, "fr"),               # undetected -> default to base language
         ("fr", "", "fr"),
         ("en", "English", "en"),
-        ("en", "French", None),           # EN operator: French is NOT allowed (only English)
+        ("en", "French", None),           # EN account: French is NOT allowed (only English)
         ("en", None, "en"),
         ("en", "Mandarin", None),
+        # Account targeting a non-FR/EN audience (preferred_language beyond fr/en).
+        ("es", "Spanish", "es"),
+        ("es", "español", "es"),
+        ("es", "Castellano", "es"),
+        ("es", "English", "en"),          # English still allowed for a Spanish account
+        ("es", "French", None),           # Spanish account, French post -> skip
+        ("es", None, "es"),
+        ("de", "German", "de"),
+        ("ar", "Arabic", "ar"),
+        ("it", "Italian", "it"),
+        ("pt", "Portuguese", "pt"),
         # Robustness: a name that merely CONTAINS "en" must not be read as English.
         ("fr", "Slovenian", None),
         # The model may emit a code instead of a name.
@@ -92,5 +103,5 @@ def test_install_ai_hooks_without_device_is_noop_and_logs_warning():
         ("fr", "French (Français)", "fr"),
     ],
 )
-def test_resolve_comment_language_policy(app_lang, post_language, expected):
-    assert _resolve_comment_language(app_lang, post_language) == expected
+def test_resolve_comment_language_policy(base_lang, post_language, expected):
+    assert _resolve_comment_language(base_lang, post_language) == expected

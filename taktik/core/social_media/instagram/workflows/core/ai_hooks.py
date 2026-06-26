@@ -16,32 +16,48 @@ def _noop_log(_level: str, _message: str) -> None:
     return None
 
 
-def _resolve_comment_language(app_lang: str, post_language: Any) -> "str | None":
+# Account/app language aliases → a single code, so the detected POST language (an English name
+# like "Spanish") can be compared against the account's preferred language (a code like "es").
+# Codes match only exactly; full names match by prefix (so "Slovenian" is never read as English).
+_COMMENT_LANG_ALIASES = {
+    "fr": ("french", "français", "francais"),
+    "en": ("english", "anglais"),
+    "es": ("spanish", "español", "espanol", "castellano"),
+    "de": ("german", "deutsch", "allemand"),
+    "it": ("italian", "italiano", "italien"),
+    "pt": ("portuguese", "português", "portugues"),
+    "ar": ("arabic", "arabe"),
+}
+
+
+def _detect_language_code(detected_lower: str) -> str:
+    for code, names in _COMMENT_LANG_ALIASES.items():
+        if detected_lower == code or any(detected_lower.startswith(n) for n in names):
+            return code
+    return "other"
+
+
+def _resolve_comment_language(base_lang: str, post_language: Any) -> "str | None":
     """Decide which language to comment in, or None to SKIP the comment entirely.
 
-    A comment is read by real people, so it follows the POST's language — but only within
-    languages we can credibly write: the app/APK language and English (the universal 2nd
-    language for everyone). Policy (Kevin):
-      - post in the app/APK language      -> comment in it
-      - post in English                   -> comment in English (always allowed)
-      - post in ANY other detected language (e.g. Chinese for a FR/EN operator) -> None (skip):
-        commenting in a language we're not supposed to speak isn't credible
-      - language undetected                -> default to the app/APK language
+    `base_lang` is the ACCOUNT's preferred language (the operated account can target an audience
+    different from the operator's app UI), falling back to the app language. A comment is read by
+    real people, so it follows the POST's language — but only within {base_lang, English}:
+      - post in base_lang                 -> comment in base_lang
+      - post in English                   -> comment in English (universal 2nd language)
+      - post in ANY other detected language -> None (skip): commenting a language we don't claim
+        to speak isn't credible
+      - language undetected                -> default to base_lang
     """
-    app = (app_lang or "en").lower()
+    base = (base_lang or "en").lower()
     if not post_language:
-        return app  # undetected → default to the app/APK language
-    detected = str(post_language).strip().lower()
-    fr_names = ("french", "français", "francais")
-    en_names = ("english", "anglais")
-    is_fr = detected == "fr" or any(detected.startswith(n) for n in fr_names)
-    is_en = detected == "en" or any(detected.startswith(n) for n in en_names)
-    detected_code = "fr" if is_fr else ("en" if is_en else "other")
-    if detected_code == app:
-        return app
-    if detected_code == "en":
+        return base  # undetected → default to the account/app language
+    detected = _detect_language_code(str(post_language).strip().lower())
+    if detected == base:
+        return base
+    if detected == "en":
         return "en"  # English is always allowed as a second language
-    return None  # neither the APK language nor English → don't comment
+    return None  # neither the account language nor English → don't comment
 
 
 def crop_screenshot_to_post(img: Any, device: Any) -> Any:
@@ -181,20 +197,21 @@ def install_instagram_ai_hooks(
                         log("info", f"No post context for @{username} (no vision description, no caption), skipping comment (AI mode)")
                         return False
 
-                    # Comment in the POST's language, but only within {app/APK language, English};
-                    # a post in any other language → don't comment at all (not credible). Undetected
-                    # → default to the app language. (Replaces the old "always the app language" rule.)
-                    comment_lang = _resolve_comment_language(language, post_language)
+                    # The comment's BASE language is the ACCOUNT's preferred language (the operated
+                    # account can target an audience different from the operator's app UI language),
+                    # falling back to the app language. The comment then follows the POST's language
+                    # but only within {base, English}; any other language → skip (not credible).
+                    # Persona (niche + brand voice) is injected into the AI config at launch.
+                    account_persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
+                    base_lang = (account_persona or {}).get("language") or language
+                    comment_lang = _resolve_comment_language(base_lang, post_language)
                     if comment_lang is None:
                         log(
                             "info",
                             f"Skipping comment for @{username}: post language "
-                            f"'{post_language}' is outside {{{language}, english}}",
+                            f"'{post_language}' is outside {{{base_lang}, english}}",
                         )
                         return False
-                    # Use OUR account persona (niche + brand voice), injected into the AI config
-                    # at launch from the account profile, so the comment is on-brand — not generic.
-                    account_persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
                     result = ai.generate_smart_comment(
                         post_description=post_desc,
                         username=username or "unknown",
