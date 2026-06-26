@@ -183,8 +183,12 @@ class DetectionSelectors:
     # IMPORTANT: Les éléments comme follow_list_container existent AUSSI sur les profils privés
     # avec des suggestions. On doit utiliser des éléments VRAIMENT uniques.
     followers_list_indicators: List[str] = field(default_factory=lambda: [
-        # PRIORITÉ 1: Tab layout avec onglets - N'EXISTE QUE sur la liste des followers
+        # PRIORITÉ 1: Tab layout avec onglets - N'EXISTE QUE sur la liste des followers, MAIS
+        # défile hors écran dès qu'on scrolle → insuffisant seul pour une liste déjà scrollée.
         '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
+        # PRIORITÉ 2: lignes de followers — présentes même scrollé (fix du retour-back qui ratait
+        # la liste scrollée et déclenchait une fausse "LOOP DETECTED", device 2026-06-26).
+        '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
         # Supprimés 2026-03-07: view_pager (0/15), mutual (0/15), followers (0/12) — voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md
     ])
     
