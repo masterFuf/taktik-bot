@@ -96,7 +96,11 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             self.logger.info(f"🚀 Starting direct interactions (max: {max_interactions})")
             
             session_stop_reason = None
-            
+            # Consecutive "back at the top of the list" detections WITHOUT progress. Reset on any
+            # non-loop scan, so scattered re-tops over a long session don't accumulate into a false
+            # stop — only a list genuinely stuck at the top (scrolling never advances) ends it.
+            consecutive_top_loops = 0
+
             while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
                 # Vérifier si on doit prendre une pause
                 took_break = self._maybe_take_break()
@@ -123,16 +127,26 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     visible_usernames_for_tracking = [f['username'] for f in visible_followers]
                     loop_detected = tracker.log_visible_followers(visible_usernames_for_tracking, "scan")
                     if loop_detected:
-                        self.logger.warning("⚠️ LOOP DETECTED: Back to start of followers list!")
-                        if tracker.loop_detected_count >= 3:
-                            self.logger.error("🛑 Too many loops detected (3+), stopping to avoid infinite loop")
+                        # Back at the TOP of the list (visible page ~= the first page seen). NOT a
+                        # reason to end the session — a back/recovery just landed us at the top. We
+                        # already remember every username seen this session, so the right move is to
+                        # SCROLL DOWN past the already-seen region and resume discovery; the loop
+                        # clears as soon as we move past the first page. Only stop if we stay stuck at
+                        # the top for many CONSECUTIVE scans despite scrolling (genuine cycling).
+                        consecutive_top_loops += 1
+                        if consecutive_top_loops >= 8:
+                            self.logger.error("🛑 Stuck at top of followers list (8 scans, scrolling does not advance) — stopping")
                             break
-                        else:
-                            self.logger.info("🔄 Trying to scroll past the loop...")
-                            for _ in range(3):
-                                self.scroll_actions.scroll_followers_list_down()
-                                self._human_like_delay('scroll')
-                            continue
+                        self.logger.info(
+                            f"🔄 Back at top of followers list — scrolling past the already-seen region "
+                            f"({consecutive_top_loops}/8)"
+                        )
+                        for _ in range(3):
+                            self.scroll_actions.scroll_followers_list_down()
+                            self._human_like_delay('scroll')
+                            scroll_attempts += 1
+                        continue
+                    consecutive_top_loops = 0
                 
                 if not visible_followers:
                     # Gérer la fin de liste / suggestions / scroll
