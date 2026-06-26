@@ -1,9 +1,12 @@
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
 )
+import pytest
+
 from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
     crop_screenshot_to_post,
     install_instagram_ai_hooks,
+    _resolve_comment_language,
 )
 
 
@@ -64,3 +67,30 @@ def test_install_ai_hooks_without_device_is_noop_and_logs_warning():
     )
 
     assert logs == [("warning", "AI hooks: no device available, skipping")]
+
+
+@pytest.mark.parametrize(
+    "app_lang, post_language, expected",
+    [
+        # Allowed = {app/APK language, English}.
+        ("fr", "French", "fr"),           # post in APK language -> comment in it
+        ("fr", "english", "en"),          # English always allowed (case-insensitive)
+        ("fr", "Spanish", None),          # other language -> skip
+        ("fr", "Chinese", None),
+        ("fr", None, "fr"),               # undetected -> default to APK language
+        ("fr", "", "fr"),
+        ("en", "English", "en"),
+        ("en", "French", None),           # EN operator: French is NOT allowed (only English)
+        ("en", None, "en"),
+        ("en", "Mandarin", None),
+        # Robustness: a name that merely CONTAINS "en" must not be read as English.
+        ("fr", "Slovenian", None),
+        # The model may emit a code instead of a name.
+        ("fr", "fr", "fr"),
+        ("fr", "en", "en"),
+        # Decorated name (flag/extra) still resolves via startswith.
+        ("fr", "French (Français)", "fr"),
+    ],
+)
+def test_resolve_comment_language_policy(app_lang, post_language, expected):
+    assert _resolve_comment_language(app_lang, post_language) == expected

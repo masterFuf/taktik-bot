@@ -834,6 +834,13 @@ No markdown formatting."""
             self.ipc.ai_comment_generating(username, prompt=f"Smart comment for @{username} ({niche})",
                                            model=self.text_model)
 
+        # Render the target language as a full name in the prompt ("Write in French", not "Write in
+        # fr"). "auto" is handled separately (match the post's language).
+        _comment_lang_label = {
+            'fr': 'French', 'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese',
+            'it': 'Italian', 'de': 'German', 'nl': 'Dutch',
+        }.get(language, language)
+
         system_prompt = f"""You are a {_platform_label(platform)} engagement expert for the "{niche}" niche.
 Write a short, authentic comment that reacts to the post the way a REAL person scrolling {_platform_label(platform)} would — NOT a polished, literary or formal sentence.
 {brand_block}Rules:
@@ -844,7 +851,7 @@ Write a short, authentic comment that reacts to the post the way a REAL person s
 - Sound genuinely interested, not generic
 - Match the energy/tone of the post
 - If the author's caption is provided, react to what THEY said (their announcement, question or joke), not only the visual
-- {"Write in the same language as the post" if language == "auto" else f"Write in {language}"}
+- {"Write in the same language as the post" if language == "auto" else f"Write in {_comment_lang_label}"}
 Reply ONLY with the comment text, nothing else."""
 
         parts = []

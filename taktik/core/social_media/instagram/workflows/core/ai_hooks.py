@@ -16,6 +16,34 @@ def _noop_log(_level: str, _message: str) -> None:
     return None
 
 
+def _resolve_comment_language(app_lang: str, post_language: Any) -> "str | None":
+    """Decide which language to comment in, or None to SKIP the comment entirely.
+
+    A comment is read by real people, so it follows the POST's language — but only within
+    languages we can credibly write: the app/APK language and English (the universal 2nd
+    language for everyone). Policy (Kevin):
+      - post in the app/APK language      -> comment in it
+      - post in English                   -> comment in English (always allowed)
+      - post in ANY other detected language (e.g. Chinese for a FR/EN operator) -> None (skip):
+        commenting in a language we're not supposed to speak isn't credible
+      - language undetected                -> default to the app/APK language
+    """
+    app = (app_lang or "en").lower()
+    if not post_language:
+        return app  # undetected → default to the app/APK language
+    detected = str(post_language).strip().lower()
+    fr_names = ("french", "français", "francais")
+    en_names = ("english", "anglais")
+    is_fr = detected == "fr" or any(detected.startswith(n) for n in fr_names)
+    is_en = detected == "en" or any(detected.startswith(n) for n in en_names)
+    detected_code = "fr" if is_fr else ("en" if is_en else "other")
+    if detected_code == app:
+        return app
+    if detected_code == "en":
+        return "en"  # English is always allowed as a second language
+    return None  # neither the APK language nor English → don't comment
+
+
 def crop_screenshot_to_post(img: Any, device: Any) -> Any:
     """Crop a full-screen screenshot to the currently visible post area."""
     try:
@@ -137,10 +165,12 @@ def install_instagram_ai_hooks(
                         log("warning", f"Caption read failed for @{username}: {exc}")
 
                     post_desc = ""
+                    post_language = None
                     if ai_config.get("postAnalysis", False):
                         analysis = ai.analyze_post(screenshot_path, username=username, response_language=language)
                         if analysis.get("success"):
                             post_desc = analysis["description"]
+                            post_language = analysis.get("post_language")
                         else:
                             log(
                                 "warning",
@@ -151,7 +181,17 @@ def install_instagram_ai_hooks(
                         log("info", f"No post context for @{username} (no vision description, no caption), skipping comment (AI mode)")
                         return False
 
-                    lang = language if language != "en" else "auto"
+                    # Comment in the POST's language, but only within {app/APK language, English};
+                    # a post in any other language → don't comment at all (not credible). Undetected
+                    # → default to the app language. (Replaces the old "always the app language" rule.)
+                    comment_lang = _resolve_comment_language(language, post_language)
+                    if comment_lang is None:
+                        log(
+                            "info",
+                            f"Skipping comment for @{username}: post language "
+                            f"'{post_language}' is outside {{{language}, english}}",
+                        )
+                        return False
                     # Use OUR account persona (niche + brand voice), injected into the AI config
                     # at launch from the account profile, so the comment is on-brand — not generic.
                     account_persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
@@ -159,7 +199,7 @@ def install_instagram_ai_hooks(
                         post_description=post_desc,
                         username=username or "unknown",
                         niche=(account_persona or {}).get("niche") or "general",
-                        language=lang,
+                        language=comment_lang,
                         post_caption=post_caption,
                         account_persona=account_persona,
                     )
