@@ -478,7 +478,7 @@ class AIService:
             "For 'summary': write 2-3 sentences describing who this person is, their content style, typical audience, and likely purpose. Be specific and insightful — avoid generic descriptions.\n"
             "For 'following_insights': if a following sample was provided, write 1-2 sentences explaining what it reveals about this person (interests, community circles, cultural background, location signals, professional network, etc.). "
             "Be concrete: name specific patterns you observe. Set to null if no following data was provided.\n"
-            f"Write the 'summary' and 'following_insights' text fields in {_lang_full}. "
+            f"Write the human-readable text fields — 'summary', 'following_insights' and the engagement 'reason' — in {_lang_full} (they are shown to the user in the app). "
             "All structured fields (niche_category, niche, language, content_type, tags, cities, profession, profession_tags, gender, age_group) must remain in English.\n"
             "For 'gender': determine if this is a 'female', 'male', 'brand' (company/organization/product page), or 'unknown' account. Base this on profile photo, name, and bio cues.\n"
             "For 'age_group': estimate the person's age range as 'teen' (<18), 'young_adult' (18-24), 'adult' (25-34), 'mature' (35+), or 'unknown'. Use 'unknown' for brands or if unclear.\n"
@@ -722,10 +722,13 @@ class AIService:
             "duration_ms": duration_ms,
         }
 
-    def analyze_post(self, screenshot_path: str, username: str = None) -> Dict[str, Any]:
+    def analyze_post(self, screenshot_path: str, username: str = None, response_language: str = 'en') -> Dict[str, Any]:
         """
         Analyze a post screenshot to understand its content.
         Returns a text description of the post.
+        `response_language` is the APP language: the human-readable DESCRIPTION is written in it so
+        the desktop panel shows it in the user's language. The "Post language:" line stays in English
+        (a stable token) so the comment-language logic can parse the post's ACTUAL language.
         Emits IPC events for the AgentPanel.
         """
         t0 = time.time()
@@ -735,9 +738,11 @@ class AIService:
             self.ipc.ai_screenshot_analyzing(username, prompt="Analyzing post content", model=self.vision_model,
                                              image_url=screenshot_thumb)
 
-        system_prompt = """You are an expert at analyzing Instagram posts. Describe the post concisely (2-4 sentences).
+        _lang_full = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish',
+                      'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}.get(response_language, 'English')
+        system_prompt = f"""You are an expert at analyzing Instagram posts. Describe the post concisely (2-4 sentences) in {_lang_full}.
 Identify: main subject, visual style, mood, any visible text (quote it exactly).
-At the end, on a new line, write: "Post language: <language>" based on the text and context visible.
+At the end, on a new line, write in ENGLISH: "Post language: <language>" — the ACTUAL language of the post's text (e.g. "Post language: French"), regardless of the description language above.
 No markdown formatting."""
 
         user_prompt = "Describe this Instagram post. Be concise and precise."
@@ -753,6 +758,21 @@ No markdown formatting."""
 
         description = result["text"]
 
+        # The model appends a "Post language: <language>" trailer (always written in English) so the
+        # comment-language policy can read the POST's real language without it leaking into what the
+        # operator sees. Split it out: the displayed description stays in the app language; the
+        # detected language is returned as a separate, normalized field (lowercase English name).
+        import re
+        post_language = None
+        kept_lines = []
+        for line in description.splitlines():
+            match = re.match(r'\s*post\s+language\s*:\s*(.+?)\s*$', line, re.IGNORECASE)
+            if match:
+                post_language = match.group(1).strip().rstrip('.').strip().lower() or None
+            else:
+                kept_lines.append(line)
+        description = "\n".join(kept_lines).strip()
+
         if self.ipc:
             screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=600)
             self.ipc.ai_screenshot_analyzed(
@@ -765,6 +785,7 @@ No markdown formatting."""
         return {
             "success": True,
             "description": description,
+            "post_language": post_language,
             "model": result.get("model"),
             "provider": "openrouter",
             "cost_usd": result.get("cost_usd"),

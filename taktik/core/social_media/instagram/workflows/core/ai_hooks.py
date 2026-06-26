@@ -138,7 +138,7 @@ def install_instagram_ai_hooks(
 
                     post_desc = ""
                     if ai_config.get("postAnalysis", False):
-                        analysis = ai.analyze_post(screenshot_path, username=username)
+                        analysis = ai.analyze_post(screenshot_path, username=username, response_language=language)
                         if analysis.get("success"):
                             post_desc = analysis["description"]
                         else:
@@ -250,6 +250,7 @@ def install_instagram_ai_hooks(
                         include_engagement=True,
                         account_niche=account_niche,
                         account_sub_niche=account_sub_niche,
+                        response_language=language,
                     )
                     if result.get("success") and result.get("classification"):
                         classification = result["classification"]
@@ -322,7 +323,7 @@ def install_instagram_ai_hooks(
                     screenshot_path = os.path.join(tmp_dir, f"post_like_{id(self_like)}.png")
                     img = crop_screenshot_to_post(device.screenshot(), device)
                     img.save(screenshot_path, format="PNG")
-                    ai.analyze_post(screenshot_path)
+                    ai.analyze_post(screenshot_path, response_language=language)
                 except Exception as exc:
                     log("warning", f"AI post analysis before like error: {exc}")
                 return original_like_current(self_like)
