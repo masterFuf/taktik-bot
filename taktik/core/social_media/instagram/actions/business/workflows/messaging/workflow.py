@@ -93,8 +93,12 @@ class MessagingBusiness(BaseAction):
                 if element.exists:
                     element.click()
                     time.sleep(0.3)
-                    # Use send_keys or type_with_taktik_keyboard
-                    self._type_text_human_like(message)
+                    # Taktik Keyboard (own fallback chain: ADB keyboard -> adb input -> send_keys).
+                    # NB: the former call self._type_text_human_like did not exist on this class —
+                    # the AttributeError was swallowed by `except: continue` below, so the message
+                    # body was never typed. Use the real humanized typing method.
+                    if not self._type_with_taktik_keyboard(message):
+                        self._type_like_human(message)
                     self.logger.debug(f"✅ Typed message ({len(message)} chars)")
                     return True
             except Exception:
