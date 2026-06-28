@@ -75,7 +75,8 @@ class MessagingBusiness(BaseAction):
             try:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not self._human_tap_element(element):
+                        element.click()
                     self.logger.debug("✅ Clicked Message button")
                     return True
             except Exception:
@@ -91,7 +92,8 @@ class MessagingBusiness(BaseAction):
             try:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not self._human_tap_element(element):
+                        element.click()
                     time.sleep(0.3)
                     # Taktik Keyboard (own fallback chain: ADB keyboard -> adb input -> send_keys).
                     # NB: the former call self._type_text_human_like did not exist on this class —
@@ -114,7 +116,8 @@ class MessagingBusiness(BaseAction):
             try:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not self._human_tap_element(element):
+                        element.click()
                     self.logger.debug("✅ Clicked Send button")
                     return True
             except Exception:
