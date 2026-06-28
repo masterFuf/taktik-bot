@@ -15,6 +15,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_REELS_SELECTORS,
 )
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
+from taktik.core.shared.behavior.tap import tap_element_human
 from ..common.detection import is_reel_post, is_in_post_view
 from ..common.post_navigation import open_first_post_of_profile, get_post_url_from_share
 from .list_strategy import make_commenters_strategy
@@ -425,7 +426,9 @@ class ScrapingPostHelpersMixin:
 
                     if seen_positions is not None and pos_key:
                         seen_positions.add(pos_key)
-                    element.click()
+                    # Humanized tap within the grid thumbnail bounds, fallback to centre click.
+                    if not tap_element_human(self.device, element, logger=self.logger):
+                        element.click()
                     return True
 
                 # All visible elements for this selector were already seen

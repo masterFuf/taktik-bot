@@ -149,18 +149,12 @@ class SharedBaseAction:
     def _human_tap_bounds(self, element) -> bool:
         """Tap a human-sampled point within an ALREADY-RESOLVED element's bounds — e.g. an
         XMLElement returned by ``xpath(...).all()``, which has no ``.get()`` so
-        ``_human_tap_element`` (which calls ``.get()``) can't humanize it. Reads ``.bounds``
-        directly. Returns False if the bounds can't be read, so the caller can fall back to a
-        plain centre ``element.click()``."""
-        try:
-            bounds = tuple(element.bounds)  # (left, top, right, bottom)
-        except Exception as e:
-            self.logger.debug(f"human tap (resolved): bounds unreadable ({e}); centre-click fallback")
-            return False
-        if not bounds or len(bounds) != 4 or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
-            self.logger.debug(f"human tap (resolved): unusable bounds {bounds}; centre-click fallback")
-            return False
-        return bool(self.device.human_tap(bounds))
+        ``_human_tap_element`` (which calls ``.get()``) can't humanize it. Delegates to the
+        shared ``tap_element_human`` helper (handles both facade and raw devices, and both the
+        ``.bounds`` tuple and ``.info['bounds']`` dict shapes). Returns False if the bounds
+        can't be read, so the caller can fall back to a plain centre ``element.click()``."""
+        from taktik.core.shared.behavior.tap import tap_element_human
+        return tap_element_human(self.device, element, logger=self.logger)
 
     def _wait_for_element(self, selectors: Union[List[str], str], timeout: float = 10.0,
                          check_interval: float = 0.5, silent: bool = False) -> bool:

@@ -8,6 +8,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from taktik.core.shared.behavior.tap import tap_element_human
 from ..common.post_navigation import open_likers_list
 from ..common.detection import is_likers_popup_open
 from .list_strategy import (
@@ -247,8 +248,11 @@ class ScrapingListMixin(DeepQualifyMixin):
                     # If enriching on the fly, click on profile to get details
                     if enrich_on_the_fly and element:
                         try:
-                            # Click on the profile element to navigate
-                            element.click()
+                            # Humanized tap within the profile element bounds (anti-detection) —
+                            # this is the most frequent tap of the scrape. self.device is the raw
+                            # u2 device here, so go through the shared helper; fallback to centre.
+                            if not tap_element_human(self.device, element, logger=self.logger):
+                                element.click()
                             time.sleep(1.5)
                             
                             # Use get_complete_profile_info with enrich=True for full data

@@ -67,3 +67,58 @@ def sample_tap_down_ms(*, rng: Optional[random.Random] = None) -> float:
     if rng.random() < 0.10:
         ms += rng.uniform(40.0, 110.0)  # occasional deliberate, slightly longer press
     return float(min(max(ms, 30.0), 220.0))
+
+
+def _coerce_bounds(element) -> Optional[Bounds]:
+    """Read (left, top, right, bottom) from an already-resolved UI element, tolerating the
+    two uiautomator2 shapes: an XMLElement (``.bounds`` tuple, from ``xpath().all()``) and a
+    UiObject-style element (``.info['bounds']`` dict). Returns None if unreadable."""
+    try:
+        b = getattr(element, "bounds", None)
+        if b is not None and len(b) == 4:
+            return (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+    except Exception:
+        pass
+    try:
+        info = element.info
+        if callable(info):
+            info = info()
+        bd = info.get("bounds") if isinstance(info, dict) else None
+        if isinstance(bd, dict) and all(k in bd for k in ("left", "top", "right", "bottom")):
+            return (int(bd["left"]), int(bd["top"]), int(bd["right"]), int(bd["bottom"]))
+    except Exception:
+        pass
+    return None
+
+
+def tap_element_human(device, element, *, logger=None, quick: bool = False) -> bool:
+    """Human-tap an ALREADY-RESOLVED UI element at a sampled point within its bounds (never
+    the exact centre). Works with either a device FACADE (``device.human_tap(bounds)``) or a
+    RAW uiautomator2 device (replicates the facade geometry via ``long_click``/``click``) — so
+    it can be reused from workflows whose ``self.device`` is the raw device (scraping, agent…)
+    as well as BaseAction subclasses. Returns False if it couldn't tap (e.g. unreadable
+    bounds), so the caller falls back to a plain centre ``element.click()``."""
+    bounds = _coerce_bounds(element)
+    if not bounds or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+        if logger:
+            logger.debug("human tap: bounds unreadable; centre-click fallback")
+        return False
+    try:
+        human_tap = getattr(device, "human_tap", None)
+        if callable(human_tap):
+            return bool(human_tap(bounds, quick=quick))
+        # Raw device: mirror BaseDeviceFacade.human_tap geometry.
+        x, y = sample_tap_point(bounds)
+        if quick:
+            device.click(x, y)
+        else:
+            long_click = getattr(device, "long_click", None)
+            if callable(long_click):
+                long_click(x, y, sample_tap_down_ms() / 1000.0)
+            else:
+                device.click(x, y)
+        return True
+    except Exception as e:
+        if logger:
+            logger.debug(f"human tap failed ({e}); centre-click fallback")
+        return False
