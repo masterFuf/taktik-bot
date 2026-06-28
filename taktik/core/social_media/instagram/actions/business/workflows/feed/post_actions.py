@@ -141,7 +141,8 @@ class FeedPostActionsMixin:
             for selector in comment_button_selectors:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not self._human_tap_element(element):
+                        element.click()
                     self._human_like_delay('click')
                     break
             else:
@@ -155,7 +156,8 @@ class FeedPostActionsMixin:
             for selector in comment_input_selectors:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not self._human_tap_element(element):
+                        element.click()
                     time.sleep(0.5)
                     # Use Taktik Keyboard for reliable text input
                     if not self._type_with_taktik_keyboard(comment_text):
@@ -173,7 +175,8 @@ class FeedPostActionsMixin:
             for selector in send_button_selectors:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not self._human_tap_element(element):
+                        element.click()
                     self._human_like_delay('click')
                     time.sleep(1)
                     # Retourner au feed

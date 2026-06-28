@@ -695,15 +695,10 @@ class TaktikAgentWorkflow:
         return False
 
     def _simple_swipe_next_post(self):
-        """Single vertical swipe to the next post — used in hashtag burst (no smart alignment needed)."""
+        """Single vertical advance to the next post — used in hashtag burst (no smart alignment needed)."""
         try:
-            screen_h = self.device.info.get('displayHeight', 1920)
-            screen_w = self.device.info.get('displayWidth', 1080)
-            self.device.swipe_coordinates(
-                screen_w // 2, int(screen_h * 0.72),
-                screen_w // 2, int(screen_h * 0.22),
-                duration=0.3,
-            )
+            # Humanized fling (coast) to the next post instead of a fixed-coordinate swipe.
+            self.device.human_scroll("down", distance_ratio=0.5, coast=True)
         except Exception as exc:
             logger.debug(f"[TaktikAgent] _simple_swipe_next_post error: {exc}")
 

@@ -17,6 +17,7 @@ from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
+from taktik.core.shared.behavior.tap import tap_element_human
 from .mixins.decision import UnfollowDecisionMixin
 from .mixins.actions import UnfollowActionsMixin
 from .mixins.sync_following import SyncFollowingMixin
@@ -304,7 +305,8 @@ class UnfollowBusiness(
                 # Essayer de cliquer sur le bouton
                 try:
                     self.logger.info(f"[{unfollows_done + 1}/{max_unfollows}] Clicking 'Following' for @{username}")
-                    following_buttons[0].click()
+                    if not tap_element_human(self.device, following_buttons[0], logger=self.logger):
+                        following_buttons[0].click()
                     time.sleep(1)
                     
                     # Vérifier si une modal de confirmation apparaît (compte privé)
@@ -314,7 +316,8 @@ class UnfollowBusiness(
                     )
                     if confirm_button.exists(timeout=2):
                         self.logger.debug("Modal detected, clicking 'Unfollow' to confirm")
-                        confirm_button.click()
+                        if not tap_element_human(self.device, confirm_button, logger=self.logger):
+                            confirm_button.click()
                         time.sleep(0.5)
                     
                     unfollows_done += 1
