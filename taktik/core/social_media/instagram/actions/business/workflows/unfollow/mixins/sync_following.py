@@ -18,6 +18,7 @@ from typing import Dict, Any, List, Optional, Set
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
+from taktik.core.shared.behavior.tap import tap_element_human
 
 
 class SyncFollowingMixin:
@@ -181,7 +182,8 @@ class SyncFollowingMixin:
                     if mode == 'enriched' and profile_extractor:
                         try:
                             self.logger.debug(f"🔍 Enriching @{username}...")
-                            el.click()
+                            if not tap_element_human(self.device, el, logger=self.logger):
+                                el.click()
                             time.sleep(random.uniform(1.5, 2.5))
 
                             info = profile_extractor.get_complete_profile_info(
@@ -315,7 +317,8 @@ class SyncFollowingMixin:
                 self.logger.debug("Already in unified follow list view, switching to Followers tab")
                 followers_tab = d.xpath(UNFOLLOW_SELECTORS.unified_followers_tab_selector(active_package))
                 if followers_tab.exists:
-                    followers_tab.click()
+                    if not tap_element_human(self.device, followers_tab, logger=self.logger):
+                        followers_tab.click()
                 else:
                     self.logger.error("scrape_non_followers_category: Followers tab not found in unified view")
                     return stats
@@ -478,7 +481,8 @@ class SyncFollowingMixin:
                 el = d.xpath(xpath)
                 if el.exists:
                     self.logger.debug(f"_click_non_followers_category: matched xpath #{i+1}: {xpath}")
-                    el.click()
+                    if not tap_element_human(self.device, el, logger=self.logger):
+                        el.click()
                     return True
             self.logger.debug("_click_non_followers_category: no xpath matched")
             return False

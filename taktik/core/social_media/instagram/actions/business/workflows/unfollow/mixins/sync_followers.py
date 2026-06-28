@@ -20,6 +20,7 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
+from taktik.core.shared.behavior.tap import tap_element_human
 
 
 class SyncFollowersMixin:
@@ -174,7 +175,8 @@ class SyncFollowersMixin:
                     if mode == 'enriched' and profile_extractor:
                         try:
                             self.logger.debug(f"🔍 Enriching @{username}...")
-                            el.click()
+                            if not tap_element_human(self.device, el, logger=self.logger):
+                                el.click()
                             time.sleep(random.uniform(1.5, 2.5))
 
                             info = profile_extractor.get_complete_profile_info(

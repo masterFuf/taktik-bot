@@ -5,6 +5,7 @@ import random
 from typing import Dict, List, Any, Optional
 
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.behavior.tap import tap_element_human
 
 
 class UnfollowActionsMixin:
@@ -165,7 +166,8 @@ class UnfollowActionsMixin:
             for selector in self._unfollow_selectors['sort_button']:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not tap_element_human(self.device, element, logger=self.logger):
+                        element.click()
                     sort_button_clicked = True
                     self.logger.debug("Clicked sort button")
                     break
@@ -185,7 +187,8 @@ class UnfollowActionsMixin:
             for selector in self._unfollow_selectors[sort_selector_key]:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    element.click()
+                    if not tap_element_human(self.device, element, logger=self.logger):
+                        element.click()
                     self.logger.info(f"✅ Selected sort option: {sort_order}")
                     time.sleep(0.5)
                     return True

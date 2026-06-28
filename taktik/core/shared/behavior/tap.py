@@ -70,9 +70,10 @@ def sample_tap_down_ms(*, rng: Optional[random.Random] = None) -> float:
 
 
 def _coerce_bounds(element) -> Optional[Bounds]:
-    """Read (left, top, right, bottom) from an already-resolved UI element, tolerating the
-    two uiautomator2 shapes: an XMLElement (``.bounds`` tuple, from ``xpath().all()``) and a
-    UiObject-style element (``.info['bounds']`` dict). Returns None if unreadable."""
+    """Read (left, top, right, bottom) from a uiautomator2 element, tolerating the three shapes:
+    an XMLElement (``.bounds`` tuple, from ``xpath().all()``), a UiObject (``.info['bounds']``
+    dict, from ``d(...)``), and an unresolved XPath SELECTOR (``.get()`` -> XMLElement.bounds,
+    from ``device.xpath(sel)``). Returns None if unreadable."""
     try:
         b = getattr(element, "bounds", None)
         if b is not None and len(b) == 4:
@@ -86,6 +87,16 @@ def _coerce_bounds(element) -> Optional[Bounds]:
         bd = info.get("bounds") if isinstance(info, dict) else None
         if isinstance(bd, dict) and all(k in bd for k in ("left", "top", "right", "bottom")):
             return (int(bd["left"]), int(bd["top"]), int(bd["right"]), int(bd["bottom"]))
+    except Exception:
+        pass
+    # Unresolved XPath selector: resolve once, then read the resolved element's bounds.
+    try:
+        getter = getattr(element, "get", None)
+        if callable(getter):
+            resolved = getter(timeout=0.5)
+            rb = getattr(resolved, "bounds", None)
+            if rb is not None and len(rb) == 4:
+                return (int(rb[0]), int(rb[1]), int(rb[2]), int(rb[3]))
     except Exception:
         pass
     return None

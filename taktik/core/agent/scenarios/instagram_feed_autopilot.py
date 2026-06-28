@@ -20,6 +20,7 @@ import tempfile
 from typing import Dict, Any, Optional
 from loguru import logger
 
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.database import get_db_service
 from taktik.core.app.ai.comments.comment_ai import UserProfile
 from taktik.core.agent.decision.agent_ai import AgentAI
@@ -538,8 +539,10 @@ class TaktikAgentWorkflow:
 
             # Prefer "Recent" tab for fresh discovery
             for sel in DETECTION_SELECTORS.recent_tab_selectors:
-                if self.device.xpath(sel).exists:
-                    self.device.xpath(sel).click()
+                _recent = self.device.xpath(sel)
+                if _recent.exists:
+                    if not tap_element_human(self.device, _recent, logger=logger):
+                        _recent.click()
                     time.sleep(1.0)
                     break
 
@@ -687,7 +690,8 @@ class TaktikAgentWorkflow:
             if not posts:
                 posts = self.device.xpath(POST_SELECTORS.first_post_grid).all()
             if posts and index < len(posts):
-                posts[index].click()
+                if not tap_element_human(self.device, posts[index], logger=logger):
+                    posts[index].click()
                 time.sleep(2.5)
                 return True
         except Exception as exc:
