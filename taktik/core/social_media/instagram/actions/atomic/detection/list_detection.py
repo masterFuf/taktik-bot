@@ -121,7 +121,12 @@ class ListDetectionMixin(BaseAction):
                         if element_text:
                             clean_text = self._clean_username(element_text)
                             if clean_text == username:
-                                element.click()
+                                # Humanized tap (random point within bounds) instead of the exact
+                                # centre — this is the most frequent tap of target/hashtag/post-likers
+                                # (shared profile-open in followers/likers lists). Falls back to a
+                                # centre click if the bounds are unreadable.
+                                if not self._human_tap_bounds(element):
+                                    element.click()
                                 self.logger.debug(f"✅ Clicked on @{username} in list")
                                 return True
             
