@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import time
 
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 # How much conversation history to capture for context. Bounded so we stay fast and never
@@ -149,12 +150,7 @@ class DMMessageExtractionMixin:
         screen visible so consecutive captures overlap (needed by ``_merge_older``).
         """
         try:
-            x = self.screen_width // 2
-            self.device.swipe(
-                x, int(self.screen_height * 0.35),
-                x, int(self.screen_height * 0.78),
-                duration=0.3,
-            )
+            human_scroll_raw(self.device, "up", logger=None)
             time.sleep(1.0)
         except Exception:
             # Best-effort: a failed scroll just means we keep the messages we already have.

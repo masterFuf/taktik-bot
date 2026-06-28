@@ -7,6 +7,7 @@ import time
 
 from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -164,7 +165,8 @@ class DMSenderMixin:
 
         logger.info(f"Found message input: {msg_input.info}")
 
-        msg_input.click()
+        if not tap_element_human(self.device, msg_input, logger=logger):
+            msg_input.click()
         time.sleep(random.uniform(0.5, 0.8))
 
         if not self._type_dm_message(msg_input, message):
@@ -179,7 +181,8 @@ class DMSenderMixin:
             return False
 
         logger.info(f"Clicking send button: {send_btn.info}")
-        send_btn.click()
+        if not tap_element_human(self.device, send_btn, logger=logger):
+            send_btn.click()
         time.sleep(1)
 
         if not self._verify_message_sent(message):

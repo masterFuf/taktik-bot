@@ -17,6 +17,8 @@ from bridges.instagram.engagement.runtime.dm.conversation_state import DMConvers
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
 from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -81,7 +83,8 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         continue
 
                     logger.info(f"Opening conversation: {username}")
-                    thread.click()
+                    if not tap_element_human(self.device, thread, logger=logger):
+                        thread.click()
                     time.sleep(2)
 
                     header_title = self.device(resourceId=DM_SELECTORS.conversation_header_title_resource_id)
@@ -147,11 +150,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                 break
 
             scroll_count += 1
-            self.device.swipe(
-                self.screen_width // 2, int(self.screen_height * 0.7),
-                self.screen_width // 2, int(self.screen_height * 0.3),
-                duration=0.3,
-            )
+            human_scroll_raw(self.device, "down", logger=logger)
             time.sleep(1.5)
 
         return conversations

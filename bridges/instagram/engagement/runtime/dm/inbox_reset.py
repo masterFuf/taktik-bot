@@ -6,6 +6,8 @@ import random
 import time
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -18,14 +20,16 @@ class DMInboxResetMixin:
             primary_tab = self.device(textContains=text)
             if primary_tab.exists:
                 logger.info("Clicking Primary tab to ensure we're in the right section")
-                primary_tab.click()
+                if not tap_element_human(self.device, primary_tab, logger=logger):
+                    primary_tab.click()
                 time.sleep(1)
                 return True
 
             primary_tab = self.device(descriptionContains=text)
             if primary_tab.exists:
                 logger.info("Clicking Primary tab (via description)")
-                primary_tab.click()
+                if not tap_element_human(self.device, primary_tab, logger=logger):
+                    primary_tab.click()
                 time.sleep(1)
                 return True
 
@@ -67,13 +71,7 @@ class DMInboxResetMixin:
             if self._is_dm_inbox_top_visible():
                 logger.info(f"DM inbox top visible after {attempt} swipe(s)")
                 break
-            self.device.swipe(
-                self.screen_width // 2,
-                int(self.screen_height * 0.55),
-                self.screen_width // 2,
-                int(self.screen_height * 0.85),
-                duration=0.2,
-            )
+            human_scroll_raw(self.device, "up", logger=logger)
             time.sleep(0.3)
 
         time.sleep(0.5)
@@ -88,7 +86,8 @@ class DMInboxResetMixin:
             try:
                 tab = self.device(resourceId=resource_id)
                 if tab.exists(timeout=1):
-                    tab.click()
+                    if not tap_element_human(self.device, tab, logger=logger):
+                        tab.click()
                     time.sleep(random.uniform(0.8, 1.4))
                     if self.navigate_to_dm_inbox():
                         self._ensure_primary_tab()

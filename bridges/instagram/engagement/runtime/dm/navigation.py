@@ -7,6 +7,7 @@ import time
 from bridges.instagram.engagement.runtime.dm.conversation_navigation import DMConversationNavigationMixin
 from bridges.instagram.engagement.runtime.dm.inbox_reset import DMInboxResetMixin
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -20,7 +21,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         logger.info("Trying method 1: direct_tab resource-id (uiautomator2)...")
         dm_tab = self.device(resourceId=DM_SELECTORS.direct_tab_resource_id)
         if dm_tab.exists:
-            dm_tab.click()
+            if not tap_element_human(self.device, dm_tab, logger=logger):
+                dm_tab.click()
             time.sleep(2)
             logger.info("Navigated via direct_tab (uiautomator2)")
             return True
@@ -29,7 +31,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         for desc in DM_SELECTORS.dm_inbox_button_descriptions:
             btn = self.device(description=desc)
             if btn.exists:
-                btn.click()
+                if not tap_element_human(self.device, btn, logger=logger):
+                    btn.click()
                 time.sleep(2)
                 logger.info(f"Navigated via content-desc: {desc}")
                 return True
@@ -37,7 +40,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         logger.info("Trying method 3: direct_tab xpath...")
         dm_tab = self.device.xpath(DM_SELECTORS.direct_tab)
         if dm_tab.exists:
-            dm_tab.click()
+            if not tap_element_human(self.device, dm_tab, logger=logger):
+                dm_tab.click()
             time.sleep(2)
             logger.info("Navigated via direct_tab xpath")
             return True
@@ -46,7 +50,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         for selector in DM_SELECTORS.direct_tab_content_desc:
             dm_btn = self.device.xpath(selector)
             if dm_btn.exists:
-                dm_btn.click()
+                if not tap_element_human(self.device, dm_btn, logger=logger):
+                    dm_btn.click()
                 time.sleep(2)
                 logger.info(f"Navigated via content-desc xpath: {selector}")
                 return True
@@ -54,7 +59,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         logger.info("Trying method 5: action_bar_inbox_button...")
         messenger = self.device(resourceId=DM_SELECTORS.action_bar_inbox_button_resource_id)
         if messenger.exists:
-            messenger.click()
+            if not tap_element_human(self.device, messenger, logger=logger):
+                messenger.click()
             time.sleep(2)
             logger.info("Navigated via messenger icon")
             return True
@@ -63,7 +69,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         for desc in DM_SELECTORS.dm_inbox_description_contains:
             btn = self.device(descriptionContains=desc)
             if btn.exists:
-                btn.click()
+                if not tap_element_human(self.device, btn, logger=logger):
+                    btn.click()
                 time.sleep(2)
                 inbox = self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
                 if inbox.exists:
@@ -78,7 +85,9 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         if action_bar.exists:
             images = action_bar.child(className=DM_SELECTORS.image_view_class_name, clickable=True)
             if images.count > 0:
-                images[images.count - 1].click()
+                _img = images[images.count - 1]
+                if not tap_element_human(self.device, _img, logger=logger):
+                    _img.click()
                 time.sleep(2)
                 inbox = self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
                 if inbox.exists:
@@ -104,7 +113,8 @@ class DMInboxNavigationMixin(DMConversationNavigationMixin, DMInboxResetMixin):
         if not button.exists(timeout=3):
             logger.info("No message-requests entry in the inbox header (no pending requests?)")
             return False
-        button.click()
+        if not tap_element_human(self.device, button, logger=logger):
+            button.click()
         time.sleep(2)
         # The thread-list recyclerview exists on BOTH the inbox and the requests screen, so
         # confirm via the action-bar title (e.g. "Message requests" / "Demandes" / "Invitations").

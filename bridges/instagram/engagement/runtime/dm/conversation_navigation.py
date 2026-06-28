@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -29,7 +31,8 @@ class DMConversationNavigationMixin:
                             or item_username_lower in username_lower
                         ):
                             logger.info(f"Found conversation: {item_username}")
-                            item.click()
+                            if not tap_element_human(self.device, item, logger=logger):
+                                item.click()
                             time.sleep(2)
                             return True
             except Exception:
@@ -58,7 +61,8 @@ class DMConversationNavigationMixin:
                         or item_username_lower in username_lower
                     ):
                         logger.info(f"Found via direct username element: {item_username}")
-                        elem.click()
+                        if not tap_element_human(self.device, elem, logger=logger):
+                            elem.click()
                         time.sleep(2)
                         return True
             except Exception:
@@ -67,19 +71,14 @@ class DMConversationNavigationMixin:
         user_elem = self.device(textContains=username)
         if user_elem.exists:
             logger.info(f"Found via textContains: {username}")
-            user_elem.click()
+            if not tap_element_human(self.device, user_elem, logger=logger):
+                user_elem.click()
             time.sleep(2)
             return True
 
         for scroll_attempt in range(5):
             logger.info(f"Scrolling down to find conversation (attempt {scroll_attempt + 1}/5)...")
-            self.device.swipe(
-                self.screen_width // 2,
-                int(self.screen_height * 0.7),
-                self.screen_width // 2,
-                int(self.screen_height * 0.3),
-                duration=0.3,
-            )
+            human_scroll_raw(self.device, "down", logger=logger)
             time.sleep(1)
 
             if self._search_conversation_in_visible_list(username_lower):
