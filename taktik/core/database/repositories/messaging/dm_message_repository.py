@@ -61,6 +61,20 @@ class DmMessageRepository(BaseRepository):
         )
         return [row["text"] for row in rows if row["text"]]
 
+    def last_direction(self, platform: str, thread_sync_id: str) -> Optional[str]:
+        """Direction ('sent' / 'received') of the latest message on record for a thread, by
+        insertion order (``sent_at`` then ``seq``). This is the RELIABLE 'who acted last' signal —
+        immune to the denormalised dm_threads.last_message_is_ours flag, which an ephemeral
+        re-read can clobber (our vanished reply still has a 'sent' row here with a later sent_at)."""
+        self.ensure_table()
+        row = self.query_one(
+            "SELECT direction FROM dm_messages "
+            "WHERE platform = ? AND thread_sync_id = ? "
+            "ORDER BY sent_at DESC, seq DESC LIMIT 1",
+            (platform, thread_sync_id),
+        )
+        return row["direction"] if row else None
+
     def add_message(
         self,
         *,

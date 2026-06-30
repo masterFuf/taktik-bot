@@ -95,13 +95,22 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     # new — skip opening/scrolling and move on. The front restores the full
                     # history from the DB. The match is conservative (see
                     # inbox_preview_matches_known): it never skips a genuine new reply.
-                    known = last_known_message(getattr(self, "_dm_account_id", None), username)
+                    account_id = getattr(self, "_dm_account_id", None)
+                    known = last_known_message(account_id, username)
                     if known and inbox_preview_matches_known(content_desc, username, known["text"]):
                         processed_usernames.add(username_lower)
+                        # No new activity. Classify answered/replyable from the RELIABLE message
+                        # order (the thread's last_message_is_ours flag can be clobbered by an
+                        # ephemeral re-read); if WE answered, re-assert it in the DB so the front
+                        # doesn't re-propose a reply. Either way we skip without opening/scrolling.
+                        answer_state = thread_answer_state(account_id, username)
+                        answered = answer_state["last_direction"] == "sent"
+                        if answered:
+                            mark_thread_answered(account_id, username)
                         conv = build_up_to_date_conversation(
                             real_username=username,
                             inbox_username=username,
-                            last_is_ours=known["is_ours"],
+                            last_is_ours=answered,
                         )
                         conversations.append(conv)
                         conversations_read += 1
@@ -120,7 +129,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                                 "type": "conversation_skipped",
                                 "reason": "up_to_date",
                                 "username": username,
-                                "last_message_is_ours": known["is_ours"],
+                                "last_message_is_ours": answered,
                                 "current": conversations_read,
                                 "total": max(limit, 0),
                             },
@@ -170,9 +179,8 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     # the DB (else the front's DB merge re-proposes a reply). `known` is reused from
                     # the early-exit lookup (None => brand-new thread, nothing to reconcile).
                     if not conv["last_message_is_ours"] and known:
-                        account_id = getattr(self, "_dm_account_id", None)
                         state = thread_answer_state(account_id, username)
-                        if state["has_sent"] and not has_unseen_incoming(messages, state["received_texts"]):
+                        if state["last_direction"] == "sent" and not has_unseen_incoming(messages, state["received_texts"]):
                             logger.info(
                                 f"@{real_username}: deja repondu (reponse masquee par le mode ephemere) "
                                 "-> pas de relance"

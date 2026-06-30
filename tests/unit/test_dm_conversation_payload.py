@@ -142,6 +142,8 @@ class TestThreadAnswerStateDb:
         # We DID answer (a sent message is on record), even though the thread flag says otherwise.
         assert msgs.has_sent_message("instagram", sync_id) is True
         assert msgs.received_texts("instagram", sync_id) == ["Bonjour, merci pour ton abonnement"]
+        # last_direction reads the TRUE order from dm_messages, immune to the clobbered flag.
+        assert msgs.last_direction("instagram", sync_id) == "sent"
 
         # Re-read sees only the received message -> not unseen -> stays answered.
         visible = [{"is_sent": False, "text": "Bonjour, merci pour ton abonnement"}]
@@ -154,6 +156,26 @@ class TestThreadAnswerStateDb:
         ).fetchone()
         assert row["last_message_is_ours"] == 1
         assert row["can_reply"] == 0
+
+    def test_new_incoming_flips_last_direction_to_received(self, conn):
+        # We answered, then they replied AGAIN (newer sent_at): last_direction must become
+        # 'received' so the thread is re-proposed for a reply (not wrongly kept answered).
+        threads = DmThreadRepository(conn)
+        msgs = DmMessageRepository(conn)
+        sync_id = threads.upsert(
+            platform="instagram", account_id=1, partner_username="someone",
+            external_thread_id="someone", last_message_text="x", last_message_is_ours=True,
+            message_count=2,
+        )
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="received",
+                         text="Premiere question", seq=0, sent_at="2026-06-01 10:00:00")
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="sent",
+                         text="Notre reponse", seq=1, sent_at="2026-06-01 10:05:00")
+        assert msgs.last_direction("instagram", sync_id) == "sent"
+        # They write again, later:
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="received",
+                         text="Nouvelle question", seq=2, sent_at="2026-06-02 09:00:00")
+        assert msgs.last_direction("instagram", sync_id) == "received"
 
     def test_thread_without_sent_message(self, conn):
         threads = DmThreadRepository(conn)

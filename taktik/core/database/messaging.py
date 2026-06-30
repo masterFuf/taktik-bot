@@ -193,12 +193,13 @@ class DmConversationService:
     ) -> Dict[str, Any]:
         """Whether WE already answered a thread and which incoming messages are on record.
 
-        Returns ``{has_sent, received_texts}``. ``has_sent`` is the reliable 'we answered'
-        signal (read from dm_messages, immune to the dm_threads.last_message_is_ours flag that
-        an ephemeral re-read can clobber). The reader uses this to keep a thread answered when IG
+        Returns ``{has_sent, received_texts, last_direction}``. ``last_direction`` ('sent'/
+        'received'/None) is the reliable 'who acted last' signal — read from dm_messages by
+        insertion order, immune to the dm_threads.last_message_is_ours flag that an ephemeral
+        re-read can clobber. The reader uses it to classify a thread answered/replyable when IG
         vanish-mode hid our reply and no NEW incoming message has arrived.
         """
-        empty: Dict[str, Any] = {"has_sent": False, "received_texts": []}
+        empty: Dict[str, Any] = {"has_sent": False, "received_texts": [], "last_direction": None}
         conn = DmConversationService._open()
         if conn is None:
             return empty
@@ -210,6 +211,7 @@ class DmConversationService:
             return {
                 "has_sent": messages.has_sent_message(platform, sync_id),
                 "received_texts": messages.received_texts(platform, sync_id, limit),
+                "last_direction": messages.last_direction(platform, sync_id),
             }
         except Exception as exc:
             logger.warning(f"Error reading DM thread answer state: {exc}")
