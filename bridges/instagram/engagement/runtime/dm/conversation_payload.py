@@ -1,8 +1,15 @@
 """Pure data helpers for Instagram DM conversation reading."""
 
+import re
 from typing import Optional
 
 _ELLIPSIS_MARKERS = ("…", "...")
+
+# IG prefixes OUR OWN last message in the inbox preview with a short author label
+# ("Vous : " in FR, "You: " in EN, etc.). Language-agnostic shape: a short leading word
+# (optionally two) followed by a colon and whitespace. The length cap keeps it from ever
+# eating a real message body.
+_AUTHOR_LABEL_RE = re.compile(r"^[^\s:]{1,8}(?: [^\s:]{1,8})?\s*:\s+")
 
 
 def sort_threads_by_top(threads) -> list[tuple[int, object]]:
@@ -74,6 +81,13 @@ def _strip_username_prefix(content_desc: str, username: str) -> str:
     return rest.lstrip(", ").strip()
 
 
+def _strip_author_label(preview: str) -> str:
+    """Drop a leading 'You:' / 'Vous : '-style author label (the one IG prepends to OUR own
+    last message in the inbox preview). Locale-agnostic, best-effort: returns the preview
+    unchanged when no such label is present."""
+    return _AUTHOR_LABEL_RE.sub("", (preview or "").strip(), count=1).strip()
+
+
 def _truncated_preview_prefix(preview: str) -> Optional[str]:
     """The visible message prefix before IG's truncation ellipsis, or None if not truncated."""
     for marker in _ELLIPSIS_MARKERS:
@@ -104,8 +118,13 @@ def inbox_preview_matches_known(
         return True
     cut = _truncated_preview_prefix(_strip_username_prefix(content_desc, username))
     if cut:
-        norm_cut = _normalize_preview(cut)
-        return len(norm_cut) >= min_chars and norm_known.startswith(norm_cut)
+        # Try the visible prefix as-is (interlocutor message: no author label) AND with a leading
+        # author label removed (our OWN message: "Vous : <body…>"). Either being a real prefix of
+        # the stored body is a match; otherwise we open — so this never skips genuine new activity.
+        for candidate in (cut, _strip_author_label(cut)):
+            norm_cut = _normalize_preview(candidate)
+            if len(norm_cut) >= min_chars and norm_known.startswith(norm_cut):
+                return True
     return False
 
 

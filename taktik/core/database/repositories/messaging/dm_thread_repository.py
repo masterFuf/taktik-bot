@@ -62,7 +62,7 @@ class DmThreadRepository(BaseRepository):
             "FROM dm_threads "
             "WHERE platform = ? AND account_id = ? "
             "AND (partner_username = ? OR external_thread_id = ? OR external_thread_id = ?) "
-            "ORDER BY updated_at DESC LIMIT 1",
+            "ORDER BY updated_at DESC, message_count DESC, id DESC LIMIT 1",
             (platform, account_id, key.lower(), key, key.lower()),
         )
         if not row or not row["text"]:
@@ -82,7 +82,7 @@ class DmThreadRepository(BaseRepository):
             "SELECT sync_id FROM dm_threads "
             "WHERE platform = ? AND account_id = ? "
             "AND (partner_username = ? OR external_thread_id = ? OR external_thread_id = ?) "
-            "ORDER BY updated_at DESC LIMIT 1",
+            "ORDER BY updated_at DESC, message_count DESC, id DESC LIMIT 1",
             (platform, account_id, key.lower(), key, key.lower()),
         )
         return row["sync_id"] if row else None

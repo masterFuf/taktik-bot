@@ -42,6 +42,23 @@ class TestInboxPreviewMatchesKnown:
         assert not inbox_preview_matches_known("", "alice", "hello there")
         assert not inbox_preview_matches_known("alice, hello there, 10:00", "alice", "")
 
+    def test_outgoing_author_label_truncated_matches(self):
+        # OUR own long last message is shown as "Vous : <body…>" (FR author label). The stored
+        # body has no label -> the label must be stripped before the truncated-prefix match.
+        content_desc = "blissand_glow, Vous : Ahah oui c'est ca trop contente de…, 2 j"
+        known = "Ahah oui c'est ca trop contente de t'avoir trouvee aussi"
+        assert inbox_preview_matches_known(content_desc, "blissand_glow", known)
+
+    def test_english_author_label_matches(self):
+        content_desc = "someone, You: Hello there friend, how are you…, 1 h"
+        assert inbox_preview_matches_known(content_desc, "someone", "Hello there friend, how are you doing today")
+
+    def test_outgoing_author_label_new_message_does_not_match(self):
+        # A genuinely NEW outgoing message (different body) must NOT be skipped.
+        content_desc = "blissand_glow, Vous : Un message totalement nouveau et different…, 1 m"
+        known = "Ahah oui c'est ca trop contente de t'avoir trouvee aussi"
+        assert not inbox_preview_matches_known(content_desc, "blissand_glow", known)
+
 
 class TestBuildUpToDateConversation:
     def test_their_last_message_stays_replyable(self):
