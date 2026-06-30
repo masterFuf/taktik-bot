@@ -1,18 +1,23 @@
 """Notifications actions for Instagram compat diagnostics (Cartography Lab).
 
 Atomic, single-shot probes for the modern Instagram "Notifications" surface and
-its follow-requests sub-screen. Detection actions report a clear found/not-found
-result; tap actions act on the FIRST matching element and report success.
+its follow-requests sub-screen, PLUS the full engagement-workflow methods.
+
+PROD-ALIGNED: every probe reuses a primitive of the production
+``NotificationsEngagementWorkflow`` (navigation / detection / dump parsing /
+humanized tap) — there is no Lab-only re-implementation of screen detection or
+notification classification. So a green Lab run exercises the exact code the real
+engagement workflow runs. The only exceptions are ``open_filter`` and
+``confirm_inline_request``: the production workflow does not (yet) drive those UI
+affordances, so they stay as plain selector probes of the centralized catalog.
 
 Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog
 (``social_media/instagram/ui/selectors/surfaces/notifications.py``) — no hardcoded
 resource-id / text / content-desc lives here.
 """
 
-import re
 import time
 
-from lxml import etree
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
@@ -20,24 +25,38 @@ from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTO
 
 
 # =============================================================================
-# Local helpers (selector-list aware; no hardcoded UI strings)
+# Production workflow access + small shared helpers
 # =============================================================================
 
-def _any_present(a, selectors) -> bool:
-    """True if ANY selector in ``selectors`` matches a node in the current screen
-    (single XML dump, fast)."""
-    result = a.device.batch_xpath_check({"probe": list(selectors)})
-    return bool(result.get("probe"))
+def _workflow(a):
+    """Build the production NotificationsEngagementWorkflow on the warm Lab device.
 
-def _detect(a, selectors, label):
-    """Detection result dict for a screen/element described by a selector list."""
-    found = _any_present(a, selectors)
+    No notifier / relauncher: narration + self-heal are no-ops for an isolated
+    unit probe. The Lab session already optimized the selector catalog to the
+    device language at start, so the workflow's text-only signatures (e.g. the
+    grouped follow-requests header) resolve without re-detecting per action.
+    """
+    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+        NotificationsEngagementWorkflow,
+    )
+    device_id = getattr(a.device, "device_id", None) or "lab"
+    return NotificationsEngagementWorkflow(a.device, device_id)
+
+
+def _detected(label, found):
+    """Detection result dict for a screen described by a prod predicate."""
     logger.info(f"{label}: {'found' if found else 'not found'}")
-    return {"success": True, "found": found, "message": f"{label}: {'found' if found else 'not found'}"}
+    return {"success": True, "found": found,
+            "message": f"{label}: {'found' if found else 'not found'}"}
+
 
 def _tap_first(a, selectors, label):
-    """Tap the FIRST element matching any selector in ``selectors`` (human tap on
-    its real bounds) and report success."""
+    """Tap the FIRST element matching any selector (human tap on its real bounds).
+
+    Used only by the probes the production workflow does not drive
+    (``open_filter`` / ``confirm_inline_request``); every other probe reuses a
+    workflow primitive.
+    """
     for selector in selectors:
         try:
             element = a.device.xpath(selector).get(timeout=2.0)
@@ -67,165 +86,146 @@ def _tap_first(a, selectors, label):
 
 
 # =============================================================================
-# Navigation
+# Navigation  (prod: NotificationsEngagementWorkflow._tap_activity_and_check)
 # =============================================================================
 
 @action("navigation.go_notifications")
 def go_notifications(a, p):
-    """Open the notifications screen by tapping the activity/heart entry."""
-    result = _tap_first(a, N.activity_entry, "navigation.go_notifications")
-    if result.get("success"):
-        time.sleep(1.0)
-    return result
+    """Open the notifications screen by tapping the activity/heart entry.
+
+    Reuses the prod ``_tap_activity_and_check`` (tap the activity entry, then
+    verify the notifications screen is shown)."""
+    ok = _workflow(a)._tap_activity_and_check()
+    msg = ("navigation.go_notifications: notifications screen opened" if ok
+           else "navigation.go_notifications: notifications screen not reached")
+    (logger.info if ok else logger.warning)(msg)
+    return {"success": ok, "message": msg}
 
 
 # =============================================================================
-# Detection
+# Detection  (prod: _on_notifications_screen / _on_follow_requests_screen)
 # =============================================================================
 
 @action("notifications.is_open")
 def is_open(a, p):
-    """Is the notifications screen shown? (action_bar_title Notifications + activity_feed_list)."""
-    return _detect(a, N.notifications_screen_indicators, "notifications.is_open")
+    """Is the notifications screen shown? (prod ``_on_notifications_screen``)."""
+    return _detected("notifications.is_open", _workflow(a)._on_notifications_screen())
 
 
 @action("notifications.is_follow_requests_open")
 def is_follow_requests_open(a, p):
-    """Is the follow-requests sub-screen shown? (title Discover people + accept resource-id)."""
-    return _detect(a, N.follow_requests_screen_indicators, "notifications.is_follow_requests_open")
+    """Is the follow-requests sub-screen shown? (prod ``_on_follow_requests_screen``)."""
+    return _detected("notifications.is_follow_requests_open",
+                     _workflow(a)._on_follow_requests_screen())
 
 
 # =============================================================================
-# Taps (act on the FIRST matching element)
+# Taps  (reuse prod primitives)
 # =============================================================================
 
 @action("notifications.open_follow_requests")
 def open_follow_requests(a, p):
-    """Tap the grouped follow-requests header row to open the sub-screen."""
-    result = _tap_first(a, N.follow_requests_header, "notifications.open_follow_requests")
-    if result.get("success"):
+    """Open the follow-requests sub-screen via the prod ``_open_grouped_requests``.
+
+    Taps the grouped digest row's LEFT avatar cluster — the reliable hit target;
+    a center tap on the row text is flaky even by hand (this is exactly why prod
+    targets the avatar zone, and why the Lab must drive the same code)."""
+    ok = _workflow(a)._open_grouped_requests()
+    if ok:
         time.sleep(1.0)
-    return result
+    msg = ("notifications.open_follow_requests: opened" if ok
+           else "notifications.open_follow_requests: grouped header not found")
+    (logger.info if ok else logger.warning)(msg)
+    return {"success": ok, "message": msg}
+
+
+def _act_first_request(a, which, label):
+    """Confirm (``which='accept'``) or ignore (``which='ignore'``) the FIRST pending
+    request on the sub-screen, reusing the prod row parser + humanized tap."""
+    wf = _workflow(a)
+    rows = wf._request_rows()
+    row = next((r for r in rows if r.get(which)), None)
+    if not row:
+        logger.warning(f"{label}: no pending request in view")
+        return {"success": False, "message": f"{label}: no pending request in view"}
+    username = row.get("username", "")
+    if not wf._tap_point(row[which], f"{label} {username}".strip()):
+        return {"success": False, "message": f"{label}: tap failed"}
+    msg = f"{label}: {which} {username}".strip()
+    logger.info(msg)
+    return {"success": True, "message": msg}
 
 
 @action("notifications.confirm_follow_request")
 def confirm_follow_request(a, p):
-    """On the follow-requests sub-screen, tap the FIRST accept button."""
-    return _tap_first(a, N.request_accept_button, "notifications.confirm_follow_request")
+    """On the follow-requests sub-screen, confirm the FIRST pending request.
+
+    Reuses the prod request-row parser + humanized tap (``_request_rows`` +
+    ``_tap_point``) instead of a blind selector tap, so the Lab exercises the same
+    row geometry the engagement workflow uses."""
+    return _act_first_request(a, "accept", "notifications.confirm_follow_request")
 
 
 @action("notifications.dismiss_follow_request")
 def dismiss_follow_request(a, p):
-    """On the follow-requests sub-screen, tap the FIRST ignore button."""
-    return _tap_first(a, N.request_ignore_button, "notifications.dismiss_follow_request")
+    """On the follow-requests sub-screen, ignore/delete the FIRST pending request
+    (prod ``_request_rows`` + ``_tap_point``)."""
+    return _act_first_request(a, "ignore", "notifications.dismiss_follow_request")
 
 
 @action("notifications.confirm_inline_request")
 def confirm_inline_request(a, p):
-    """On the MAIN notifications screen, tap the FIRST inline Confirm button."""
+    """On the MAIN notifications screen, tap the FIRST inline Confirm button.
+
+    Selector probe: the production engagement workflow handles follow requests via
+    the sub-screen, not the inline main-feed Confirm affordance, so there is no
+    workflow primitive to reuse here."""
     return _tap_first(a, N.inline_confirm_button, "notifications.confirm_inline_request")
 
 
 @action("notifications.reply_mention")
 def reply_mention(a, p):
-    """On the MAIN notifications screen, tap the FIRST Reply button on a comment-mention row."""
-    return _tap_first(a, N.reply_button, "notifications.reply_mention")
+    """On the MAIN notifications screen, open the reply UI on the FIRST mention.
+
+    Reuses the prod ``_open_reply_thread('')`` (taps the first Reply affordance on
+    screen, bounds-paired, humanized)."""
+    ok = _workflow(a)._open_reply_thread("")
+    msg = ("notifications.reply_mention: reply opened" if ok
+           else "notifications.reply_mention: no reply affordance on screen")
+    (logger.info if ok else logger.warning)(msg)
+    return {"success": ok, "message": msg}
 
 
 @action("notifications.open_filter")
 def open_filter(a, p):
-    """Tap the Filter button on the notifications screen."""
+    """Tap the Filter button on the notifications screen.
+
+    Selector probe: the production workflow does not drive the activity filter, so
+    there is no workflow primitive to reuse here."""
     return _tap_first(a, N.filter_button, "notifications.open_filter")
 
 
 # =============================================================================
-# Read-only classifier — the engagement workflow's "read" backbone
+# Read-only classifier — prod read backbone on a SINGLE screen
 # =============================================================================
-
-# Time tokens like "54m", "10 h", "2 j", "1w", "3 d" trailing a row.
-_TIME_RE = re.compile(r"\b(\d+\s*(?:min|mois|sem|[smhjdwy]))\b", re.IGNORECASE)
-# Inline action affordances that mark a row as actionable (FR + EN).
-_ACTION_WORDS = ("confirmer", "confirm", "répondre", "repondre", "reply",
-                 "follow back", "se réabonner", "message", "supprimer", "remove")
-
-
-def _classify_row(full: str, fragments) -> "tuple[str, str]":
-    """Return (type, username) for a row's concatenated text.
-
-    Username is the text BEFORE the matched type phrase (where the actor leads,
-    e.g. "<user> a commencé à vous suivre"); for `message`/`shared` the phrase
-    leads, so we fall back to the token AFTER it. Best-effort — the Lab cares
-    most about the type + counts.
-    """
-    low = full.lower()
-    for type_name, frags in fragments.items():
-        for frag in frags:
-            if not frag:
-                continue
-            idx = low.find(frag.lower())
-            if idx == -1:
-                continue
-            if idx > 0:
-                user = full[:idx]
-            else:
-                # Phrase leads (message/shared "... from <user>"): take what follows.
-                after = full[idx + len(frag):]
-                user = after.split(".")[0]
-            user = _TIME_RE.sub("", user).strip(" :·-—· ")
-            return type_name, user
-    return "other", ""
-
-
-def _row_has_action(text_low: str) -> bool:
-    return any(w in text_low for w in _ACTION_WORDS)
-
 
 @action("notifications.scan")
 def scan(a, p):
-    """READ-ONLY: classify every notification on the activity screen by type +
-    metadata (username, time, snippet, has_action). Backbone of the engagement
-    workflow's read pass. Scans the currently visible screen (no scroll, no
-    side effects)."""
-    fragments = N.classifier_fragments  # ordered dict type -> [FR+EN fragments]
-    items: list = []
-    seen: set = set()
+    """READ-ONLY: classify every notification on the CURRENT activity screen by
+    type + metadata (username, time, label, has_action). No scroll, no side effects.
 
-    xml = a.device.get_xml_dump()
-    if not xml:
-        return {"success": False, "count": 0, "by_type": {}, "items": [],
-                "message": "notifications.scan: empty XML dump (not on the notifications screen?)"}
-    try:
-        root = etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
-    except Exception as exc:
-        logger.error(f"notifications.scan: XML parse failed: {exc}")
-        return {"success": False, "count": 0, "by_type": {}, "items": [],
-                "message": f"notifications.scan: XML parse failed: {str(exc)[:120]}"}
-
-    for row in root.xpath('//node[contains(@resource-id, "activity_feed_newsfeed_story_row")]'):
-        parts: list = []
-        for node in row.iter():
-            for attr in ("text", "content-desc"):
-                val = node.get(attr)
-                if val and val.strip():
-                    parts.append(val.strip())
-        full = " ".join(dict.fromkeys(parts)).strip()  # join, drop exact dupes, keep order
-        if not full:
-            continue
-        key = full.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        ntype, username = _classify_row(full, fragments)
-        time_match = _TIME_RE.findall(full)
-        ts = time_match[-1].strip() if time_match else ""
-        items.append({
-            "type": ntype,
-            "username": username,
-            "time": ts,
-            "text": full[:200],
-            "has_action": _row_has_action(key),
-        })
-
+    Reuses the prod ``_dump_screen`` (real ``parse_feed_rows`` + ``classifier``) so
+    the Lab tests the exact classification the engagement workflow's read pass uses
+    (vs the full-scroll ``notifications.scan_full``)."""
+    rows, _headers = _workflow(a)._dump_screen()
+    items = [{
+        "type": r.get("type", "other"),
+        "username": r.get("username", ""),
+        "time": r.get("time", ""),
+        "text": (r.get("text") or "")[:200],
+        "label": r.get("label", ""),
+        "has_action": bool(r.get("has_action")),
+    } for r in rows]
     by_type: dict = {}
     for it in items:
         by_type[it["type"]] = by_type.get(it["type"], 0) + 1
@@ -240,14 +240,6 @@ def scan(a, p):
 # Each builds the production NotificationsEngagementWorkflow on the warm Lab device
 # (no notifier/relauncher: narration + self-heal are no-ops for an isolated unit).
 # =============================================================================
-
-def _workflow(a):
-    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
-        NotificationsEngagementWorkflow,
-    )
-    device_id = getattr(a.device, "device_id", None) or "lab"
-    return NotificationsEngagementWorkflow(a.device, device_id)
-
 
 @action("notifications.scan_full")
 def scan_full(a, p):
