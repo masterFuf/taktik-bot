@@ -9,7 +9,48 @@ testable offline.
 
 import random
 
-from taktik.core.shared.behavior.tap import sample_tap_point, sample_tap_down_ms
+from taktik.core.shared.behavior.tap import (
+    sample_tap_point,
+    sample_tap_down_ms,
+    tap_element_human,
+)
+
+
+class _FakeElement:
+    def __init__(self, bounds):
+        self.bounds = bounds
+
+
+class _FakeRawDevice:
+    """Raw uiautomator2-like device: only ``click`` (no ``human_tap`` / ``long_click``)."""
+    def __init__(self):
+        self.tapped = None
+
+    def click(self, x, y):
+        self.tapped = (x, y)
+
+
+def test_x_min_frac_crops_left_avatar_zone():
+    # Inbox row 0..1000 wide; the avatar (story ring) sits in the left ~25%. With x_min_frac the
+    # tap must always land in the right 75% so it opens the conversation, not the user's story.
+    element = _FakeElement((0, 0, 1000, 140))
+    for _ in range(300):
+        device = _FakeRawDevice()
+        assert tap_element_human(device, element, x_min_frac=0.25) is True
+        assert device.tapped[0] >= 250, device.tapped
+
+
+def test_x_min_frac_default_uses_full_width():
+    # Without the crop, taps can land left of the 25% mark (full-width sampling preserved).
+    element = _FakeElement((0, 0, 1000, 140))
+    sawleft = False
+    for _ in range(300):
+        device = _FakeRawDevice()
+        tap_element_human(device, element)
+        if device.tapped[0] < 250:
+            sawleft = True
+            break
+    assert sawleft
 
 
 def test_point_inside_inner_margin():

@@ -102,18 +102,29 @@ def _coerce_bounds(element) -> Optional[Bounds]:
     return None
 
 
-def tap_element_human(device, element, *, logger=None, quick: bool = False) -> bool:
+def tap_element_human(
+    device, element, *, logger=None, quick: bool = False, x_min_frac: float = 0.0
+) -> bool:
     """Human-tap an ALREADY-RESOLVED UI element at a sampled point within its bounds (never
     the exact centre). Works with either a device FACADE (``device.human_tap(bounds)``) or a
     RAW uiautomator2 device (replicates the facade geometry via ``long_click``/``click``) — so
     it can be reused from workflows whose ``self.device`` is the raw device (scraping, agent…)
     as well as BaseAction subclasses. Returns False if it couldn't tap (e.g. unreadable
-    bounds), so the caller falls back to a plain centre ``element.click()``."""
+    bounds), so the caller falls back to a plain centre ``element.click()``.
+
+    ``x_min_frac`` (0..1) crops the left edge before sampling: tap only in the right
+    ``1 - x_min_frac`` of the element width. Use it to avoid a leading avatar/thumbnail whose
+    own tap target differs — e.g. an IG inbox row, where tapping the left avatar opens the
+    user's STORY instead of the conversation."""
     bounds = _coerce_bounds(element)
     if not bounds or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
         if logger:
             logger.debug("human tap: bounds unreadable; centre-click fallback")
         return False
+    if x_min_frac > 0.0:
+        left, top, right, bottom = bounds
+        cropped = int(left + (right - left) * min(x_min_frac, 0.9))
+        bounds = (min(cropped, right - 2), top, right, bottom)
     try:
         human_tap = getattr(device, "human_tap", None)
         if callable(human_tap):
