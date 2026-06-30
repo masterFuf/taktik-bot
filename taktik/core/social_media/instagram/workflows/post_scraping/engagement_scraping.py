@@ -11,6 +11,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
 )
 from .post_scraping_models import ScrapedProfile, CommentData
+from taktik.core.shared.behavior.tap import tap_element_human
 
 console = Console()
 
@@ -33,7 +34,8 @@ class PostEngagementScrapingMixin:
                     if 'Like' in prev_info.get('contentDescription', ''):
                         text = btn.get_text() if hasattr(btn, 'get_text') else ''
                         if text and text.isdigit():
-                            btn.click()
+                            if not tap_element_human(self.device, btn):
+                                btn.click()
                             like_count_clicked = True
                             time.sleep(2)
                             break
@@ -114,7 +116,8 @@ class PostEngagementScrapingMixin:
             # Click comment button or count
             comment_btn = self.device.xpath(POST_COMMENTS_SELECTORS.comment_button_selectors[1])
             if comment_btn.exists:
-                comment_btn.click()
+                if not tap_element_human(self.device, comment_btn):
+                    comment_btn.click()
                 time.sleep(2)
             else:
                 # Try clicking comment count
@@ -123,7 +126,8 @@ class PostEngagementScrapingMixin:
                     if i > 0:
                         prev_info = buttons[i-1].info
                         if 'Comment' in prev_info.get('contentDescription', ''):
-                            btn.click()
+                            if not tap_element_human(self.device, btn):
+                                btn.click()
                             time.sleep(2)
                             break
             
@@ -242,7 +246,8 @@ class PostEngagementScrapingMixin:
             # Click on sort button (e.g., "For you")
             sort_btn = self.device.xpath(POST_COMMENTS_SELECTORS.comment_sort_button)
             if sort_btn.exists:
-                sort_btn.click()
+                if not tap_element_human(self.device, sort_btn):
+                    sort_btn.click()
                 time.sleep(1)
                 
                 # Select the desired sort option
@@ -256,7 +261,8 @@ class PostEngagementScrapingMixin:
                     POST_COMMENTS_SELECTORS.sort_option_by_content_description(target)
                 )
                 if option.exists:
-                    option.click()
+                    if not tap_element_human(self.device, option):
+                        option.click()
                     time.sleep(1)
                     console.print(f"[dim]Sorted by: {target}[/dim]")
                 else:
@@ -274,7 +280,8 @@ class PostEngagementScrapingMixin:
             if reply_btns.exists:
                 for btn in reply_btns.all()[:3]:  # Limit to avoid infinite loops
                     try:
-                        btn.click()
+                        if not tap_element_human(self.device, btn):
+                            btn.click()
                         time.sleep(0.5)
                     except Exception:
                         pass
