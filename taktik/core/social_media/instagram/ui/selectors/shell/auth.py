@@ -451,4 +451,46 @@ class AuthSelectors:
         '//android.widget.TextView[@resource-id="com.instagram.android:id/igds_headline_headline" and contains(@text, "déconnecter")]',
     ])
 
+    # =========================================================
+    # === SWITCH ACCOUNT (plusieurs comptes connectes sur le device) ===
+    # =========================================================
+    # Flow (dumps 2026-07-01) : profil -> menu Settings -> Log out -> ecran "picker" des comptes
+    # connectes (logged-out) -> taper la ligne du compte cible. Les libelles boutons sont
+    # langue-dependants (bilingue inline, comme logout_button / settings_screen_indicators) ; les
+    # LIGNES de compte sont identifiees par le username (content-desc), donc langue-neutres.
+
+    # Indicateurs de l'ecran "picker" de comptes (logged-out, apres logout) : bouton
+    # "Use another profile" / "Utiliser un autre profil" present.
+    account_picker_indicators: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[@content-desc="Use another profile"]',
+        '//android.widget.Button[@content-desc="Utiliser un autre profil"]',
+        '//android.widget.Button[contains(@content-desc, "another profile")]',
+        '//android.widget.Button[contains(@content-desc, "autre profil")]',
+    ])
+
+    # Indicateurs du fil d'accueil IG (connecte). Sert a detecter l'auto-switch : apres un logout,
+    # IG peut basculer sur le HOME d'un autre compte connecte au lieu d'afficher le picker.
+    home_feed_indicators: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/feed_timeline"]',
+        '//*[@resource-id="com.instagram.android:id/feed_tab"]',
+        '//*[@resource-id="com.instagram.android:id/reels_tray_container"]',
+    ])
+
+    # Candidats "ligne de compte" (picker + menu) : ViewGroup cliquable dont le content-desc EST le
+    # username (parfois suivi de ",  New notifications" / ", Nouvelles notifications"). Pas de
+    # resource-id -> on enumere les candidats puis on filtre les libelles non-comptes (ci-dessous)
+    # et on derive le username = content-desc.split(",")[0].
+    account_row_candidates: List[str] = field(default_factory=lambda: [
+        '//android.view.ViewGroup[@clickable="true"]',
+    ])
+
+    # Libelles a EXCLURE de l'enumeration des comptes (boutons du picker/menu, multilingue).
+    account_row_exclude_labels: List[str] = field(default_factory=lambda: [
+        'Use another profile', 'Utiliser un autre profil',
+        'Create account', 'Créer un compte',
+        'Add account', 'Ajouter un compte',
+        'Settings', 'Paramètres', 'Options', 'Back', 'Retour',
+        'Log out', 'Se déconnecter',
+    ])
+
 AUTH_SELECTORS = AuthSelectors()
