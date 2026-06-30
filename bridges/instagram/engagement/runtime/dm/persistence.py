@@ -185,10 +185,9 @@ def last_known_message(account_id: Optional[int], inbox_username: str) -> Option
     """
     if not account_id or not inbox_username:
         return None
-    try:
-        configure_db_service()
-    except Exception:
-        pass
+    # DmConversationService.last_known_message opens its own lightweight sqlite connection — no
+    # configure_db_service() needed. This runs before EVERY thread open, so keep it cheap (the
+    # heavy LocalDatabaseClient re-init per conversation is unnecessary here).
     try:
         return DmConversationService.last_known_message(_PLATFORM, account_id, inbox_username)
     except Exception as exc:
