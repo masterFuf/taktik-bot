@@ -32,7 +32,7 @@ class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
             send_error("Device ID is required")
             return 1
         if not self.workflow_type:
-            send_error("workflowType is required ('login', 'register', 'logout' or 'change_language')")
+            send_error("workflowType is required ('login', 'register', 'logout', 'change_language' or 'switch_account')")
             return 1
 
         device = self._prepare_runtime_session()
@@ -47,6 +47,8 @@ class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
             return self._run_logout(device)
         if self.workflow_type == "change_language":
             return self._run_change_language(device)
+        if self.workflow_type == "switch_account":
+            return self._run_switch(device)
 
         send_error(f"Unknown workflowType: {self.workflow_type}")
         return 1
