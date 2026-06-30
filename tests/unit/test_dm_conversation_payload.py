@@ -3,9 +3,11 @@ pure matcher; a temp SQLite connection covers the thread last-message lookup).""
 
 from bridges.instagram.engagement.runtime.dm.conversation_payload import (
     build_up_to_date_conversation,
+    has_unseen_incoming,
     inbox_preview_matches_known,
 )
 from taktik.core.database.repositories.messaging.dm_thread_repository import DmThreadRepository
+from taktik.core.database.repositories.messaging.dm_message_repository import DmMessageRepository
 
 
 class TestInboxPreviewMatchesKnown:
@@ -78,3 +80,73 @@ class TestFindLastMessage:
         }
         assert repo.find_last_message("instagram", 1, "alice_inbox")["text"] == "Hello there friend"
         assert repo.find_last_message("instagram", 1, "unknown_user") is None
+
+
+class TestHasUnseenIncoming:
+    def test_no_incoming_at_all_is_not_unseen(self):
+        # Whole thread vanished or only our (sent) messages remain visible.
+        assert has_unseen_incoming([{"is_sent": True, "text": "Salut"}], ["Bonjour la"]) is False
+        assert has_unseen_incoming([], ["Bonjour la"]) is False
+
+    def test_incoming_all_known_is_not_unseen(self):
+        msgs = [{"is_sent": False, "text": "Bonjour, merci pour ton abonnement"}]
+        assert has_unseen_incoming(msgs, ["Bonjour, merci pour ton abonnement"]) is False
+
+    def test_new_incoming_is_unseen(self):
+        msgs = [
+            {"is_sent": False, "text": "Bonjour, merci pour ton abonnement"},
+            {"is_sent": False, "text": "Tu es toujours la ?"},
+        ]
+        assert has_unseen_incoming(msgs, ["Bonjour, merci pour ton abonnement"]) is True
+
+
+class TestThreadAnswerStateDb:
+    """The ephemeral scenario: thread re-read sees only the received message, but a sent message
+    is still on record. has_sent_message stays True; mark_answered re-asserts the thread flag."""
+
+    def test_ephemeral_answered_thread(self, conn):
+        threads = DmThreadRepository(conn)
+        msgs = DmMessageRepository(conn)
+        sync_id = threads.upsert(
+            platform="instagram",
+            account_id=1,
+            partner_username="dsnutrition._",
+            external_thread_id="dsnutrition._",
+            last_message_text="Bonjour, merci pour ton abonnement",
+            last_message_is_ours=False,  # clobbered by an ephemeral re-read
+            message_count=1,
+        )
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="received",
+                         text="Bonjour, merci pour ton abonnement", seq=0)
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="sent",
+                         text="Salut, merci a toi", seq=1)
+
+        assert threads.find_sync_id_for_inbox("instagram", 1, "dsnutrition._") == sync_id
+        # We DID answer (a sent message is on record), even though the thread flag says otherwise.
+        assert msgs.has_sent_message("instagram", sync_id) is True
+        assert msgs.received_texts("instagram", sync_id) == ["Bonjour, merci pour ton abonnement"]
+
+        # Re-read sees only the received message -> not unseen -> stays answered.
+        visible = [{"is_sent": False, "text": "Bonjour, merci pour ton abonnement"}]
+        assert has_unseen_incoming(visible, msgs.received_texts("instagram", sync_id)) is False
+
+        # mark_answered re-asserts the (clobbered) thread flag.
+        assert threads.mark_answered("instagram", 1, "dsnutrition._") is True
+        row = conn.execute(
+            "SELECT last_message_is_ours, can_reply FROM dm_threads WHERE sync_id = ?", (sync_id,)
+        ).fetchone()
+        assert row["last_message_is_ours"] == 1
+        assert row["can_reply"] == 0
+
+    def test_thread_without_sent_message(self, conn):
+        threads = DmThreadRepository(conn)
+        msgs = DmMessageRepository(conn)
+        sync_id = threads.upsert(
+            platform="instagram", account_id=1, partner_username="newperson",
+            external_thread_id="newperson", last_message_text="Coucou ca va",
+            last_message_is_ours=False, message_count=1,
+        )
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="received",
+                         text="Coucou ca va", seq=0)
+        # Never answered -> no override should ever fire for this thread.
+        assert msgs.has_sent_message("instagram", sync_id) is False

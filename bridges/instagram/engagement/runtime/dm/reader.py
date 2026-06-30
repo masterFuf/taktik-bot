@@ -9,6 +9,7 @@ from bridges.instagram.engagement.runtime.dm.conversation_payload import (
     build_conversation_payload,
     build_up_to_date_conversation,
     extract_inbox_username,
+    has_unseen_incoming,
     inbox_preview_matches_known,
     is_already_processed,
     is_outgoing_last_message,
@@ -18,7 +19,11 @@ from bridges.instagram.engagement.runtime.dm.conversation_payload import (
 from bridges.instagram.engagement.runtime.dm.conversation_state import DMConversationStateMixin
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
 from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
-from bridges.instagram.engagement.runtime.dm.persistence import last_known_message
+from bridges.instagram.engagement.runtime.dm.persistence import (
+    last_known_message,
+    mark_thread_answered,
+    thread_answer_state,
+)
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
@@ -157,6 +162,27 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     )
                     if conv["last_message_is_ours"]:
                         logger.info(f"Dernier message de @{real_username} est de NOUS -> can_reply=False")
+
+                    # Vanish-mode safety net: IG ephemeral messages can hide OUR last sent message,
+                    # so a thread we already answered re-reads as "reply possible" (a prior re-read
+                    # may even have downgraded the stored thread). If a sent message is on record
+                    # AND no NEW incoming message is visible, keep it answered and re-assert it in
+                    # the DB (else the front's DB merge re-proposes a reply). `known` is reused from
+                    # the early-exit lookup (None => brand-new thread, nothing to reconcile).
+                    if not conv["last_message_is_ours"] and known:
+                        account_id = getattr(self, "_dm_account_id", None)
+                        state = thread_answer_state(account_id, username)
+                        if state["has_sent"] and not has_unseen_incoming(messages, state["received_texts"]):
+                            logger.info(
+                                f"@{real_username}: deja repondu (reponse masquee par le mode ephemere) "
+                                "-> pas de relance"
+                            )
+                            mark_thread_answered(account_id, username)
+                            conv = build_up_to_date_conversation(
+                                real_username=real_username,
+                                inbox_username=username,
+                                last_is_ours=True,
+                            )
 
                     conversations.append(conv)
                     conversations_read += 1

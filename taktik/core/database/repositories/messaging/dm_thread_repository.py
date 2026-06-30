@@ -69,6 +69,40 @@ class DmThreadRepository(BaseRepository):
             return None
         return {"text": row["text"], "is_ours": bool(row["is_ours"])}
 
+    def find_sync_id_for_inbox(
+        self, platform: str, account_id: int, inbox_username: str
+    ) -> Optional[str]:
+        """Resolve a thread's ``sync_id`` from the inbox-row username (matches the persisted
+        ``partner_username`` or the ``external_thread_id``). Lets the reader fetch a thread's
+        recorded messages from the inbox row, before/without opening it."""
+        key = (inbox_username or "").strip()
+        if not key:
+            return None
+        row = self.query_one(
+            "SELECT sync_id FROM dm_threads "
+            "WHERE platform = ? AND account_id = ? "
+            "AND (partner_username = ? OR external_thread_id = ? OR external_thread_id = ?) "
+            "ORDER BY updated_at DESC LIMIT 1",
+            (platform, account_id, key.lower(), key, key.lower()),
+        )
+        return row["sync_id"] if row else None
+
+    def mark_answered(self, platform: str, account_id: int, inbox_username: str) -> bool:
+        """Re-assert that WE answered this thread (``last_message_is_ours=1``, ``can_reply=0``)
+        without re-reading its body. Used when IG vanish-mode hid our reply so a re-read wrongly
+        downgraded the stored thread to 'reply possible'. Matches by partner handle or inbox id."""
+        key = (inbox_username or "").strip()
+        if not key:
+            return False
+        cursor = self.execute(
+            "UPDATE dm_threads "
+            "SET last_message_is_ours = 1, can_reply = 0, updated_at = datetime('now') "
+            "WHERE platform = ? AND account_id = ? "
+            "AND (partner_username = ? OR external_thread_id = ? OR external_thread_id = ?)",
+            (platform, account_id, key.lower(), key, key.lower()),
+        )
+        return cursor.rowcount > 0
+
     def upsert(
         self,
         *,

@@ -195,6 +195,29 @@ def last_known_message(account_id: Optional[int], inbox_username: str) -> Option
         return None
 
 
+def thread_answer_state(account_id: Optional[int], inbox_username: str) -> Dict[str, Any]:
+    """Whether WE already answered a thread + its known incoming texts (``{has_sent, received_texts}``).
+    Best-effort; empty state on any failure. Used by the reader's vanish-mode safety net."""
+    empty: Dict[str, Any] = {"has_sent": False, "received_texts": []}
+    if not account_id or not inbox_username:
+        return empty
+    try:
+        return DmConversationService.thread_answer_state(_PLATFORM, account_id, inbox_username)
+    except Exception as exc:
+        logger.warning(f"[DM] thread_answer_state lookup failed: {exc}")
+        return empty
+
+
+def mark_thread_answered(account_id: Optional[int], inbox_username: str) -> None:
+    """Re-assert in the DB that WE answered a thread (vanish-mode safety net). Best-effort."""
+    if not account_id or not inbox_username:
+        return
+    try:
+        DmConversationService.mark_thread_answered(_PLATFORM, account_id, inbox_username)
+    except Exception as exc:
+        logger.warning(f"[DM] mark_thread_answered failed: {exc}")
+
+
 def record_reply(account_id: Optional[int], partner_username: str, message: str) -> None:
     """Persist a reply we sent. Best-effort."""
     if not account_id or not partner_username:
@@ -224,6 +247,8 @@ __all__ = [
     "resolve_account_id",
     "account_id_for_send",
     "last_known_message",
+    "mark_thread_answered",
     "record_conversations",
     "record_reply",
+    "thread_answer_state",
 ]

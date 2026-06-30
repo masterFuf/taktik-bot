@@ -37,6 +37,30 @@ class DmMessageRepository(BaseRepository):
         current = row["max_seq"] if row and row["max_seq"] is not None else -1
         return int(current) + 1
 
+    def has_sent_message(self, platform: str, thread_sync_id: str) -> bool:
+        """True if WE have at least one message on record in this thread — the reliable
+        'we already answered' signal (the denormalised dm_threads.last_message_is_ours can be
+        clobbered by an ephemeral re-read that no longer sees our vanished reply)."""
+        self.ensure_table()
+        row = self.query_one(
+            "SELECT 1 FROM dm_messages "
+            "WHERE platform = ? AND thread_sync_id = ? AND direction = 'sent' LIMIT 1",
+            (platform, thread_sync_id),
+        )
+        return row is not None
+
+    def received_texts(self, platform: str, thread_sync_id: str, limit: int = 30) -> list[str]:
+        """Recent RECEIVED message texts of a thread (newest first) — lets the reader tell a
+        genuinely NEW incoming message from one already on record."""
+        self.ensure_table()
+        rows = self.query(
+            "SELECT text FROM dm_messages "
+            "WHERE platform = ? AND thread_sync_id = ? AND direction = 'received' AND text IS NOT NULL "
+            "ORDER BY seq DESC LIMIT ?",
+            (platform, thread_sync_id, limit),
+        )
+        return [row["text"] for row in rows if row["text"]]
+
     def add_message(
         self,
         *,

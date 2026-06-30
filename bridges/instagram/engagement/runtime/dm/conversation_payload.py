@@ -109,6 +109,21 @@ def inbox_preview_matches_known(
     return False
 
 
+def has_unseen_incoming(messages: list, known_received_texts) -> bool:
+    """True when a VISIBLE received message is not already on record — i.e. a genuinely NEW
+    incoming message. Used to decide whether a thread we already answered (a sent message is on
+    record) whose reply vanished (IG ephemeral mode) should stay answered or be re-opened for a
+    reply. Conservative: a received message that doesn't normalise to a known one counts as new."""
+    known = {_normalize_preview(text) for text in (known_received_texts or []) if text}
+    for message in messages or []:
+        if message.get("is_sent"):
+            continue
+        text = message.get("text")
+        if text and _normalize_preview(text) not in known:
+            return True
+    return False
+
+
 def build_up_to_date_conversation(
     *, real_username: str, inbox_username: str, last_is_ours: bool
 ) -> dict:
@@ -165,6 +180,7 @@ __all__ = [
     "build_conversation_payload",
     "build_up_to_date_conversation",
     "extract_inbox_username",
+    "has_unseen_incoming",
     "inbox_preview_matches_known",
     "is_already_processed",
     "is_outgoing_last_message",

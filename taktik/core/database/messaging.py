@@ -188,6 +188,51 @@ class DmConversationService:
             conn.close()
 
     @staticmethod
+    def thread_answer_state(
+        platform: str, account_id: int, inbox_username: str, limit: int = 30
+    ) -> Dict[str, Any]:
+        """Whether WE already answered a thread and which incoming messages are on record.
+
+        Returns ``{has_sent, received_texts}``. ``has_sent`` is the reliable 'we answered'
+        signal (read from dm_messages, immune to the dm_threads.last_message_is_ours flag that
+        an ephemeral re-read can clobber). The reader uses this to keep a thread answered when IG
+        vanish-mode hid our reply and no NEW incoming message has arrived.
+        """
+        empty: Dict[str, Any] = {"has_sent": False, "received_texts": []}
+        conn = DmConversationService._open()
+        if conn is None:
+            return empty
+        try:
+            sync_id = DmThreadRepository(conn).find_sync_id_for_inbox(platform, account_id, inbox_username)
+            if not sync_id:
+                return empty
+            messages = DmMessageRepository(conn)
+            return {
+                "has_sent": messages.has_sent_message(platform, sync_id),
+                "received_texts": messages.received_texts(platform, sync_id, limit),
+            }
+        except Exception as exc:
+            logger.warning(f"Error reading DM thread answer state: {exc}")
+            return empty
+        finally:
+            conn.close()
+
+    @staticmethod
+    def mark_thread_answered(platform: str, account_id: int, inbox_username: str) -> bool:
+        """Re-assert that WE answered a thread (last_message_is_ours, can_reply=False) when an
+        ephemeral re-read downgraded it. Bot-owned fact write; returns True if a row changed."""
+        conn = DmConversationService._open()
+        if conn is None:
+            return False
+        try:
+            return DmThreadRepository(conn).mark_answered(platform, account_id, inbox_username)
+        except Exception as exc:
+            logger.warning(f"Error marking DM thread answered: {exc}")
+            return False
+        finally:
+            conn.close()
+
+    @staticmethod
     def record_sent_message(
         *,
         platform: str,
