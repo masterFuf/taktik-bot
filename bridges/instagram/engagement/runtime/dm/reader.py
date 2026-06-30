@@ -7,7 +7,9 @@ import time
 from bridges.instagram.engagement.runtime.dm.conversation_payload import (
     build_answered_conversation,
     build_conversation_payload,
+    build_up_to_date_conversation,
     extract_inbox_username,
+    inbox_preview_matches_known,
     is_already_processed,
     is_outgoing_last_message,
     normalize_inbox_username,
@@ -16,6 +18,7 @@ from bridges.instagram.engagement.runtime.dm.conversation_payload import (
 from bridges.instagram.engagement.runtime.dm.conversation_state import DMConversationStateMixin
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
 from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
+from bridges.instagram.engagement.runtime.dm.persistence import last_known_message
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
@@ -80,6 +83,45 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                             flush=True,
                         )
                         logger.info(f"Skipping (already answered, we sent last): {username}")
+                        continue
+
+                    # Early-exit (no new activity): if the inbox row's last message is the same
+                    # one already on record for this thread (received OR sent), there is nothing
+                    # new — skip opening/scrolling and move on. The front restores the full
+                    # history from the DB. The match is conservative (see
+                    # inbox_preview_matches_known): it never skips a genuine new reply.
+                    known = last_known_message(getattr(self, "_dm_account_id", None), username)
+                    if known and inbox_preview_matches_known(content_desc, username, known["text"]):
+                        processed_usernames.add(username_lower)
+                        conv = build_up_to_date_conversation(
+                            real_username=username,
+                            inbox_username=username,
+                            last_is_ours=known["is_ours"],
+                        )
+                        conversations.append(conv)
+                        conversations_read += 1
+                        new_conversations_in_scroll += 1
+                        emit_dm_json(
+                            {
+                                "type": "conversation",
+                                "current": conversations_read,
+                                "total": max(limit, 0),
+                                "conversation": conv,
+                            },
+                            flush=True,
+                        )
+                        emit_dm_json(
+                            {
+                                "type": "conversation_skipped",
+                                "reason": "up_to_date",
+                                "username": username,
+                                "last_message_is_ours": known["is_ours"],
+                                "current": conversations_read,
+                                "total": max(limit, 0),
+                            },
+                            flush=True,
+                        )
+                        logger.info(f"Skipping (up to date, last message already known): {username}")
                         continue
 
                     logger.info(f"Opening conversation: {username}")

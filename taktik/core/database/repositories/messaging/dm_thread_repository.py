@@ -44,6 +44,31 @@ class DmThreadRepository(BaseRepository):
         )
         return row["account_id"] if row else None
 
+    def find_last_message(
+        self, platform: str, account_id: int, inbox_username: str
+    ) -> Optional[dict]:
+        """Stored last message of a known thread: ``{text, is_ours}``, or None.
+
+        Matches either the persisted ``partner_username`` (the conversation header handle,
+        lowercased) or the ``external_thread_id`` (the inbox-row username) so the reader can
+        look it up from the inbox row BEFORE opening the thread. Lets the reader short-circuit
+        a conversation whose last message is already on record (no new activity).
+        """
+        key = (inbox_username or "").strip()
+        if not key:
+            return None
+        row = self.query_one(
+            "SELECT last_message_text AS text, last_message_is_ours AS is_ours "
+            "FROM dm_threads "
+            "WHERE platform = ? AND account_id = ? "
+            "AND (partner_username = ? OR external_thread_id = ? OR external_thread_id = ?) "
+            "ORDER BY updated_at DESC LIMIT 1",
+            (platform, account_id, key.lower(), key, key.lower()),
+        )
+        if not row or not row["text"]:
+            return None
+        return {"text": row["text"], "is_ours": bool(row["is_ours"])}
+
     def upsert(
         self,
         *,

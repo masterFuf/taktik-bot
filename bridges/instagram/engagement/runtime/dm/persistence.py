@@ -177,6 +177,25 @@ def record_conversations(account_id: Optional[int], conversations: List[Dict[str
         logger.info(f"[DM] Persisted {saved} conversation(s)")
 
 
+def last_known_message(account_id: Optional[int], inbox_username: str) -> Optional[Dict[str, Any]]:
+    """Stored last message ``{text, is_ours}`` for a known thread, or None. Best-effort.
+
+    Used by the reader to short-circuit a conversation whose last message is already on
+    record (no new activity) — looked up from the inbox row BEFORE opening the thread.
+    """
+    if not account_id or not inbox_username:
+        return None
+    try:
+        configure_db_service()
+    except Exception:
+        pass
+    try:
+        return DmConversationService.last_known_message(_PLATFORM, account_id, inbox_username)
+    except Exception as exc:
+        logger.warning(f"[DM] last_known_message lookup failed: {exc}")
+        return None
+
+
 def record_reply(account_id: Optional[int], partner_username: str, message: str) -> None:
     """Persist a reply we sent. Best-effort."""
     if not account_id or not partner_username:
@@ -205,6 +224,7 @@ __all__ = [
     "account_id_from_inbox_header",
     "resolve_account_id",
     "account_id_for_send",
+    "last_known_message",
     "record_conversations",
     "record_reply",
 ]

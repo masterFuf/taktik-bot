@@ -1,5 +1,9 @@
 """Pure data helpers for Instagram DM conversation reading."""
 
+from typing import Optional
+
+_ELLIPSIS_MARKERS = ("…", "...")
+
 
 def sort_threads_by_top(threads) -> list[tuple[int, object]]:
     """Return inbox threads sorted by their top bound, ignoring malformed items."""
@@ -56,6 +60,73 @@ def is_outgoing_last_message(content_desc: str, username: str, outgoing_prefixes
     return any(rest.startswith(prefix) for prefix in outgoing_prefixes if prefix)
 
 
+def _normalize_preview(text: str) -> str:
+    """Lowercase + collapse whitespace so two renderings of the same text compare equal."""
+    return " ".join((text or "").split()).strip().lower()
+
+
+def _strip_username_prefix(content_desc: str, username: str) -> str:
+    """Drop the leading 'username, ' part of an inbox row content-desc (same as the outgoing
+    digest check) so what remains starts with the last-message preview."""
+    rest = content_desc or ""
+    if username and rest.startswith(username):
+        rest = rest[len(username):]
+    return rest.lstrip(", ").strip()
+
+
+def _truncated_preview_prefix(preview: str) -> Optional[str]:
+    """The visible message prefix before IG's truncation ellipsis, or None if not truncated."""
+    for marker in _ELLIPSIS_MARKERS:
+        idx = preview.find(marker)
+        if idx > 0:
+            return preview[:idx].strip()
+    return None
+
+
+def inbox_preview_matches_known(
+    content_desc: str, username: str, known_text: str, *, min_chars: int = 6
+) -> bool:
+    """Conservative: True only when the inbox row's last-message preview is the SAME message
+    we already stored for this thread (i.e. no new activity).
+
+    The row content-desc embeds the last message text, often truncated with an ellipsis. We
+    return True only when confident, so we never skip reading a genuine new reply:
+    - non-truncated row: the full stored message must appear verbatim in the row;
+    - truncated row: the visible preview prefix must be a prefix of the stored message.
+    Very short messages (< ``min_chars``, e.g. "ok", a lone emoji) never match — too ambiguous.
+    """
+    if not content_desc or not known_text:
+        return False
+    norm_known = _normalize_preview(known_text)
+    if len(norm_known) < min_chars:
+        return False
+    if norm_known in _normalize_preview(content_desc):
+        return True
+    cut = _truncated_preview_prefix(_strip_username_prefix(content_desc, username))
+    if cut:
+        norm_cut = _normalize_preview(cut)
+        return len(norm_cut) >= min_chars and norm_known.startswith(norm_cut)
+    return False
+
+
+def build_up_to_date_conversation(
+    *, real_username: str, inbox_username: str, last_is_ours: bool
+) -> dict:
+    """A lightweight 'already up to date' conversation — emitted without opening the thread
+    because its last message is already on record (no new activity). The front restores the
+    full history from the DB; ``up_to_date`` flags WHY it was emitted empty (vs. a fresh read)."""
+    return {
+        "username": real_username,
+        "inbox_username": inbox_username,
+        "messages": [],
+        "is_group": False,
+        # Still replyable when THEIR message is the last one (we just don't need to re-read it).
+        "can_reply": not last_is_ours,
+        "last_message_is_ours": last_is_ours,
+        "up_to_date": True,
+    }
+
+
 def build_answered_conversation(*, real_username: str, inbox_username: str) -> dict:
     """A lightweight 'already answered' conversation (we sent the last message) — emitted
     without opening the thread. The full history (if any) is restored from the DB on the
@@ -92,7 +163,9 @@ def build_conversation_payload(
 __all__ = [
     "build_answered_conversation",
     "build_conversation_payload",
+    "build_up_to_date_conversation",
     "extract_inbox_username",
+    "inbox_preview_matches_known",
     "is_already_processed",
     "is_outgoing_last_message",
     "normalize_inbox_username",

@@ -168,6 +168,26 @@ class DmConversationService:
             conn.close()
 
     @staticmethod
+    def last_known_message(
+        platform: str, account_id: int, inbox_username: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return the stored last message ``{text, is_ours}`` of a known thread, or None.
+
+        Lets the DM reader short-circuit a conversation whose last message is already on
+        record (no new activity) instead of re-opening and scrolling the whole thread.
+        """
+        conn = DmConversationService._open()
+        if conn is None:
+            return None
+        try:
+            return DmThreadRepository(conn).find_last_message(platform, account_id, inbox_username)
+        except Exception as exc:
+            logger.warning(f"Error looking up DM last message: {exc}")
+            return None
+        finally:
+            conn.close()
+
+    @staticmethod
     def record_sent_message(
         *,
         platform: str,
