@@ -76,8 +76,14 @@ def masked_preview(content_desc: str) -> str:
 
 
 def _normalize_preview(text: str) -> str:
-    """Lowercase + collapse whitespace so two renderings of the same text compare equal."""
-    return " ".join((text or "").split()).strip().lower()
+    """Lowercase and keep only letters/digits (Unicode-aware), collapsing everything else to
+    single spaces. Drops emojis, punctuation, the IG '·' separator and invisible formatting chars
+    (e.g. the U+200E LRM IG injects before an inbox preview) so two renderings of the SAME message
+    compare equal. Matching on this alphanumeric core is robust to emoji-variant / separator /
+    invisible-char differences that a raw substring match would miss (seen device-side: a thread
+    whose preview was « ‎Oui merci 😁 · » never matched the stored « Oui merci 😁 »)."""
+    lowered = (text or "").lower()
+    return " ".join("".join(c if c.isalnum() else " " for c in lowered).split())
 
 
 def _strip_username_prefix(content_desc: str, username: str) -> str:

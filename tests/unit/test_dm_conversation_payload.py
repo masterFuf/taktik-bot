@@ -54,6 +54,19 @@ class TestInboxPreviewMatchesKnown:
         content_desc = "someone, You: Hello there friend, how are you…, 1 h"
         assert inbox_preview_matches_known(content_desc, "someone", "Hello there friend, how are you doing today")
 
+    def test_emoji_and_invisible_chars_dont_block_match(self):
+        # Real device case (Fabrice): inbox row carries a U+200E LRM + emoji + '·' separator vs the
+        # stored "Oui merci 😁" — must still match on the alphanumeric core ("oui merci").
+        content_desc = "Fabrice \U0001F1EB\U0001F1F7, ‎Oui merci \U0001F601 ·, 7h"
+        assert inbox_preview_matches_known(content_desc, "Fabrice \U0001F1EB\U0001F1F7", "Oui merci \U0001F601")
+        # An emoji VARIANT (😋 vs 😁) doesn't block it either (same text core).
+        assert inbox_preview_matches_known(content_desc, "Fabrice \U0001F1EB\U0001F1F7", "Oui merci \U0001F60B")
+
+    def test_different_short_message_still_does_not_match(self):
+        # Robust normalisation must not over-match: a genuinely different message is not skipped.
+        content_desc = "fabrice, ‎Bonne soiree \U0001F60A ·, 1 m"
+        assert not inbox_preview_matches_known(content_desc, "fabrice", "Oui merci")
+
     def test_outgoing_author_label_new_message_does_not_match(self):
         # A genuinely NEW outgoing message (different body) must NOT be skipped.
         content_desc = "blissand_glow, Vous : Un message totalement nouveau et different…, 1 m"
