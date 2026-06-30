@@ -55,6 +55,11 @@ from .dump_parsing import (
 # dump corrupts (so we re-read them via the element API to recover the real text).
 _EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "comment_like"}
 from .row_layout import parse_bounds
+from taktik.core.shared.behavior.tap import (
+    tap_element_human,
+    sample_tap_point,
+    sample_tap_down_ms,
+)
 
 StepNotifier = Callable[..., None]
 
@@ -132,7 +137,8 @@ class NotificationsEngagementWorkflow:
         if element is None:
             return False
         try:
-            element.click()
+            if not tap_element_human(self.device, element):
+                element.click()
             self.logger.success(f"Clicked '{name}'")
             return True
         except Exception as exc:
@@ -198,7 +204,8 @@ class NotificationsEngagementWorkflow:
         if element is None:
             return False
         try:
-            element.click()
+            if not tap_element_human(self.device, element):
+                element.click()
             self.logger.info("Tapped 'Show more'")
             self._notify("show_more", "running", "Loading older notifications")
             return True
@@ -231,8 +238,17 @@ class NotificationsEngagementWorkflow:
             self.logger.warning(f"{name}: no tap point")
             return False
         try:
-            self.device.click(point[0], point[1])
-            self.logger.success(f"{name}: tapped @ {point}")
+            # The parser keeps only the affordance CENTRE (center(box)), not the box, so sample a
+            # human point within a small box AROUND the centre + a varied finger-down time —
+            # removes the "exact same pixel + instant click" fingerprint without needing the bounds.
+            x0, y0 = int(point[0]), int(point[1])
+            r = 18
+            x, y = sample_tap_point((x0 - r, y0 - r, x0 + r, y0 + r))
+            try:
+                self.device.long_click(x, y, sample_tap_down_ms() / 1000.0)
+            except Exception:
+                self.device.click(x, y)
+            self.logger.success(f"{name}: tapped @ ({x}, {y})")
             return True
         except Exception as exc:
             self.logger.error(f"{name}: tap failed: {exc}")
@@ -800,7 +816,8 @@ class NotificationsEngagementWorkflow:
         if not replies:
             return False
         try:
-            replies[0].click()
+            if not tap_element_human(self.device, replies[0]):
+                replies[0].click()
             return True
         except Exception as exc:
             self.logger.error(f"reply open (fallback) failed: {exc}")
@@ -820,7 +837,8 @@ class NotificationsEngagementWorkflow:
         except Exception:
             before = ""
         try:
-            field.click()  # focus the composer before the IME broadcast
+            if not tap_element_human(self.device, field):
+                field.click()  # focus the composer before the IME broadcast
             time.sleep(0.3)
         except Exception:
             pass
@@ -924,7 +942,8 @@ class NotificationsEngagementWorkflow:
             self._return_to_notifications()
             return result
         try:
-            send.click()
+            if not tap_element_human(self.device, send):
+                send.click()
         except Exception as exc:
             result["message"] = f"Send tap failed: {exc}"
             self._notify("reply", "failed", result["message"], username=username)
