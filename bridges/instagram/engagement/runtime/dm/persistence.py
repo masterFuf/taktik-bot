@@ -198,7 +198,9 @@ def last_known_message(account_id: Optional[int], inbox_username: str) -> Option
 def thread_answer_state(account_id: Optional[int], inbox_username: str) -> Dict[str, Any]:
     """Whether WE already answered a thread + its known incoming texts (``{has_sent, received_texts}``).
     Best-effort; empty state on any failure. Used by the reader's vanish-mode safety net."""
-    empty: Dict[str, Any] = {"has_sent": False, "received_texts": [], "last_direction": None}
+    empty: Dict[str, Any] = {
+        "has_sent": False, "received_texts": [], "recent_texts": [], "last_direction": None,
+    }
     if not account_id or not inbox_username:
         return empty
     try:

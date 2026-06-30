@@ -199,7 +199,9 @@ class DmConversationService:
         re-read can clobber. The reader uses it to classify a thread answered/replyable when IG
         vanish-mode hid our reply and no NEW incoming message has arrived.
         """
-        empty: Dict[str, Any] = {"has_sent": False, "received_texts": [], "last_direction": None}
+        empty: Dict[str, Any] = {
+            "has_sent": False, "received_texts": [], "recent_texts": [], "last_direction": None,
+        }
         conn = DmConversationService._open()
         if conn is None:
             return empty
@@ -211,6 +213,7 @@ class DmConversationService:
             return {
                 "has_sent": messages.has_sent_message(platform, sync_id),
                 "received_texts": messages.received_texts(platform, sync_id, limit),
+                "recent_texts": messages.recent_texts(platform, sync_id, limit),
                 "last_direction": messages.last_direction(platform, sync_id),
             }
         except Exception as exc:

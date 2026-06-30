@@ -21,7 +21,6 @@ from bridges.instagram.engagement.runtime.dm.conversation_state import DMConvers
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
 from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
 from bridges.instagram.engagement.runtime.dm.persistence import (
-    last_known_message,
     mark_thread_answered,
     thread_answer_state,
 )
@@ -97,20 +96,26 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     # history from the DB. The match is conservative (see
                     # inbox_preview_matches_known): it never skips a genuine new reply.
                     account_id = getattr(self, "_dm_account_id", None)
-                    known = last_known_message(account_id, username)
-                    matched = bool(known) and inbox_preview_matches_known(content_desc, username, known["text"])
+                    answer_state = thread_answer_state(account_id, username)
+                    # Match the inbox-row preview against the messages we ACTUALLY have on record
+                    # (dm_messages, both directions) — far more reliable than the denormalised
+                    # dm_threads.last_message_text, which can be stale/clobbered. If the visible last
+                    # message is one we already stored, there is no new activity.
+                    matched = any(
+                        inbox_preview_matches_known(content_desc, username, text)
+                        for text in answer_state["recent_texts"]
+                    )
                     # Safe diagnostic (masked = no DM content): why does the early-exit skip or not?
                     logger.info(
-                        f"[DM] pre-open {username_lower}: in_db={bool(known)} skip={matched} "
-                        f"shape='{masked_preview(content_desc)}'"
+                        f"[DM] pre-open {username_lower}: in_db={answer_state['last_direction'] is not None} "
+                        f"skip={matched} shape='{masked_preview(content_desc)}'"
                     )
                     if matched:
                         processed_usernames.add(username_lower)
-                        # No new activity. Classify answered/replyable from the RELIABLE message
-                        # order (the thread's last_message_is_ours flag can be clobbered by an
-                        # ephemeral re-read); if WE answered, re-assert it in the DB so the front
-                        # doesn't re-propose a reply. Either way we skip without opening/scrolling.
-                        answer_state = thread_answer_state(account_id, username)
+                        # No new activity. Classify answered/replyable from the RELIABLE message order
+                        # (the thread's last_message_is_ours flag can be clobbered by an ephemeral
+                        # re-read); if WE answered, re-assert it in the DB so the front doesn't
+                        # re-propose a reply. Either way we skip without opening/scrolling.
                         answered = answer_state["last_direction"] == "sent"
                         if answered:
                             mark_thread_answered(account_id, username)
@@ -146,7 +151,10 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         continue
 
                     logger.info(f"Opening conversation: {username}")
-                    if not tap_element_human(self.device, thread, logger=logger):
+                    # Tap the row's TEXT area, not the left avatar: tapping the avatar opens the
+                    # user's STORY (when they have an unseen-story ring) instead of the conversation
+                    # (seen device-side on Fabrice -> "Could not open").
+                    if not tap_element_human(self.device, thread, logger=logger, x_min_frac=0.25):
                         thread.click()
                     time.sleep(2)
 
@@ -183,11 +191,10 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     # so a thread we already answered re-reads as "reply possible" (a prior re-read
                     # may even have downgraded the stored thread). If a sent message is on record
                     # AND no NEW incoming message is visible, keep it answered and re-assert it in
-                    # the DB (else the front's DB merge re-proposes a reply). `known` is reused from
-                    # the early-exit lookup (None => brand-new thread, nothing to reconcile).
-                    if not conv["last_message_is_ours"] and known:
-                        state = thread_answer_state(account_id, username)
-                        if state["last_direction"] == "sent" and not has_unseen_incoming(messages, state["received_texts"]):
+                    # the DB (else the front's DB merge re-proposes a reply). Reuses answer_state
+                    # from the pre-open lookup (last_direction None => brand-new thread, nothing to do).
+                    if not conv["last_message_is_ours"] and answer_state["last_direction"] is not None:
+                        if answer_state["last_direction"] == "sent" and not has_unseen_incoming(messages, answer_state["received_texts"]):
                             logger.info(
                                 f"@{real_username}: deja repondu (reponse masquee par le mode ephemere) "
                                 "-> pas de relance"

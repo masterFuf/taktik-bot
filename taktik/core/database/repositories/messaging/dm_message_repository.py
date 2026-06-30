@@ -61,6 +61,19 @@ class DmMessageRepository(BaseRepository):
         )
         return [row["text"] for row in rows if row["text"]]
 
+    def recent_texts(self, platform: str, thread_sync_id: str, limit: int = 30) -> list[str]:
+        """Recent message texts (BOTH directions, newest first) of a thread — for matching an
+        inbox-row preview against what we actually have on record, more reliably than the
+        denormalised dm_threads.last_message_text (which can be stale or clobbered)."""
+        self.ensure_table()
+        rows = self.query(
+            "SELECT text FROM dm_messages "
+            "WHERE platform = ? AND thread_sync_id = ? AND text IS NOT NULL "
+            "ORDER BY sent_at DESC, seq DESC LIMIT ?",
+            (platform, thread_sync_id, limit),
+        )
+        return [row["text"] for row in rows if row["text"]]
+
     def last_direction(self, platform: str, thread_sync_id: str) -> Optional[str]:
         """Direction ('sent' / 'received') of the latest message on record for a thread, by
         insertion order (``sent_at`` then ``seq``). This is the RELIABLE 'who acted last' signal —

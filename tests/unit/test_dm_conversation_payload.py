@@ -191,6 +191,28 @@ class TestThreadAnswerStateDb:
                          text="Nouvelle question", seq=2, sent_at="2026-06-02 09:00:00")
         assert msgs.last_direction("instagram", sync_id) == "received"
 
+    def test_recent_texts_matches_when_denormalised_last_is_stale(self, conn):
+        # Fabrice case: dm_threads.last_message_text is STALE ("Salut ..."), but dm_messages has
+        # the real last received message ("Oui merci 😋"). Matching the inbox preview against the
+        # recent dm_messages (not the denormalised field) is what lets the early-exit skip.
+        threads = DmThreadRepository(conn)
+        msgs = DmMessageRepository(conn)
+        sync_id = threads.upsert(
+            platform="instagram", account_id=1, partner_username="fabrice",
+            external_thread_id="Fabrice", last_message_text="Salut ! Comment ca va ?",  # stale
+            last_message_is_ours=True, message_count=2,
+        )
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="sent",
+                         text="Salut ! Comment ca va ?", seq=0, sent_at="2026-06-01 10:00:00")
+        msgs.add_message(platform="instagram", thread_sync_id=sync_id, direction="received",
+                         text="Oui merci", seq=1, sent_at="2026-06-02 09:00:00")
+        recent = msgs.recent_texts("instagram", sync_id)
+        assert "Oui merci" in recent  # the real last message is on record (both directions)
+        # The inbox preview "fabrice, Oui merci ·, 2 j" matches a recent message -> would skip.
+        assert any(
+            inbox_preview_matches_known("fabrice, Oui merci ·, 2 j", "fabrice", t) for t in recent
+        )
+
     def test_thread_without_sent_message(self, conn):
         threads = DmThreadRepository(conn)
         msgs = DmMessageRepository(conn)
