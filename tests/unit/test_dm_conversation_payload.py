@@ -5,6 +5,7 @@ from bridges.instagram.engagement.runtime.dm.conversation_payload import (
     build_up_to_date_conversation,
     has_unseen_incoming,
     inbox_preview_matches_known,
+    masked_preview,
 )
 from taktik.core.database.repositories.messaging.dm_thread_repository import DmThreadRepository
 from taktik.core.database.repositories.messaging.dm_message_repository import DmMessageRepository
@@ -58,6 +59,19 @@ class TestInboxPreviewMatchesKnown:
         content_desc = "blissand_glow, Vous : Un message totalement nouveau et different…, 1 m"
         known = "Ahah oui c'est ca trop contente de t'avoir trouvee aussi"
         assert not inbox_preview_matches_known(content_desc, "blissand_glow", known)
+
+
+class TestMaskedPreview:
+    def test_masks_alnum_keeps_structure(self):
+        # Letters/digits -> 'x'; commas, spaces and the IG '.' separator survive so a digest row
+        # ("Envoye il y a X min", no separator) reads differently from an incoming-message row.
+        assert masked_preview("fabrice, Envoye il y a 49 min") == "xxxxxxx, xxxxxx xx x x xx xxx"
+        assert "·" in masked_preview("name, Bonjour ·, 2 sem")
+        assert masked_preview("") == ""
+
+    def test_no_real_words_leak(self):
+        masked = masked_preview("alice, Mon secret confidentiel ·, 3 j")
+        assert "secret" not in masked and "confidentiel" not in masked
 
 
 class TestBuildUpToDateConversation:

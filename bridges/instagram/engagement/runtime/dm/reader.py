@@ -13,6 +13,7 @@ from bridges.instagram.engagement.runtime.dm.conversation_payload import (
     inbox_preview_matches_known,
     is_already_processed,
     is_outgoing_last_message,
+    masked_preview,
     normalize_inbox_username,
     sort_threads_by_top,
 )
@@ -97,7 +98,13 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     # inbox_preview_matches_known): it never skips a genuine new reply.
                     account_id = getattr(self, "_dm_account_id", None)
                     known = last_known_message(account_id, username)
-                    if known and inbox_preview_matches_known(content_desc, username, known["text"]):
+                    matched = bool(known) and inbox_preview_matches_known(content_desc, username, known["text"])
+                    # Safe diagnostic (masked = no DM content): why does the early-exit skip or not?
+                    logger.info(
+                        f"[DM] pre-open {username_lower}: in_db={bool(known)} skip={matched} "
+                        f"shape='{masked_preview(content_desc)}'"
+                    )
+                    if matched:
                         processed_usernames.add(username_lower)
                         # No new activity. Classify answered/replyable from the RELIABLE message
                         # order (the thread's last_message_is_ours flag can be clobbered by an

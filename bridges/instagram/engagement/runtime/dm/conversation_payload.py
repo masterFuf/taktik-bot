@@ -67,6 +67,14 @@ def is_outgoing_last_message(content_desc: str, username: str, outgoing_prefixes
     return any(rest.startswith(prefix) for prefix in outgoing_prefixes if prefix)
 
 
+def masked_preview(content_desc: str) -> str:
+    """Structure-only view of an inbox row content-desc for SAFE diagnostics: letters/digits ->
+    'x', everything else kept (spaces, commas, the IG '.' separator, emojis). Reveals the row
+    SHAPE — digest ('xxx, Xxxxxx xx x x xx xxx'), incoming message ('xxx, Xxxxx ., x xxx'), a
+    reaction, etc. — WITHOUT logging any DM content. Used to debug why the early-exit skips or not."""
+    return "".join("x" if c.isalnum() else c for c in (content_desc or ""))
+
+
 def _normalize_preview(text: str) -> str:
     """Lowercase + collapse whitespace so two renderings of the same text compare equal."""
     return " ".join((text or "").split()).strip().lower()
@@ -203,6 +211,7 @@ __all__ = [
     "inbox_preview_matches_known",
     "is_already_processed",
     "is_outgoing_last_message",
+    "masked_preview",
     "normalize_inbox_username",
     "sort_threads_by_top",
 ]
