@@ -182,6 +182,12 @@ def record_reply(account_id: Optional[int], partner_username: str, message: str)
     if not account_id or not partner_username:
         return
     try:
+        # The send path runs in its own DB context; configure the service before resolving the
+        # partner profile id (otherwise get_db_service() raises "not configured"). Best-effort.
+        try:
+            configure_db_service()
+        except Exception:
+            pass
         link_handle = partner_username.lower() if _looks_like_handle(partner_username) else None
         partner_profile_id = _get_or_create_partner_profile_id(link_handle) if link_handle else None
         DmConversationService.record_sent_message(

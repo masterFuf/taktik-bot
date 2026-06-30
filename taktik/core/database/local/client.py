@@ -69,6 +69,15 @@ class LocalDatabaseClient:
     # PROFILES
     # ============================================
     
+    def get_or_create_profile(self, profile_data: Dict[str, Any]) -> Tuple[int, bool]:
+        """Get or create a social profile. Returns (profile_id, created).
+
+        Mirrors get_or_create_account: the service (self.local_db) owns get_or_create_profile,
+        so the client exposes it too — DM persistence resolves the partner profile id via
+        get_db_service() (which returns this client).
+        """
+        return self.local_db.get_or_create_profile(profile_data)
+
     def save_profile(self, profile: 'InstagramProfile', account_id: int = None) -> bool:
         """Save a profile to local database."""
         try:
