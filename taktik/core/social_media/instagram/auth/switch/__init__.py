@@ -102,10 +102,12 @@ class InstagramSwitchAccount:
         """
         xml = self._dump_xml()
         if not xml:
+            self.logger.warning("account enumeration: empty UI dump")
             return []
         exclude = {label.lower() for label in self.auth.account_row_exclude_labels}
         found: List[str] = []
         seen = set()
+        raw: List[str] = []  # every clickable content-desc, for diagnostics
         for node in re.finditer(r"<node\b[^>]*>", xml):
             chunk = node.group(0)
             if 'clickable="true"' not in chunk:
@@ -116,6 +118,7 @@ class InstagramSwitchAccount:
             desc = html.unescape(match.group(1)).strip()
             if not desc:
                 continue
+            raw.append(desc)
             # Drop a trailing ",  New notifications" / ", Nouvelles notifications".
             name = desc.split(",")[0].strip()
             low = name.lower()
@@ -127,6 +130,10 @@ class InstagramSwitchAccount:
                 continue
             seen.add(low)
             found.append(name)
+        self.logger.info(
+            f"account enumeration: dump={len(xml)} chars, "
+            f"clickable-with-desc={len(raw)}, accounts={found}, raw={raw[:20]}"
+        )
         return found
 
     def _switcher_is_open(self) -> bool:
@@ -136,15 +143,32 @@ class InstagramSwitchAccount:
     def _open_account_switcher(self) -> bool:
         """Open the account switcher WITHOUT logging out: tap the @username (+ chevron) at the top
         of the Profile page. Returns True once the sheet (or its rows) is visible."""
-        if not self._click_first_match(self.auth.profile_username_switcher_button, "account switcher"):
+        # Wait for the profile header (the @username button) to be ready — after a cold IG restart
+        # the profile can still be loading when we arrive.
+        button = None
+        for _ in range(8):
+            button = self._find_element(self.auth.profile_username_switcher_button)
+            if button is not None:
+                break
+            time.sleep(0.5)
+        if button is None:
+            self.logger.warning("account switcher: profile @username button not found")
+            return False
+        try:
+            button.click()
+            self.logger.info("account switcher: tapped profile @username")
+        except Exception as exc:
+            self.logger.warning(f"account switcher: tap failed: {exc}")
             return False
         # The switcher sheet slides in from the bottom; give it time, then confirm it's open
         # (the "Use another profile" button is the most reliable signal).
         time.sleep(1.2)
         for _ in range(8):
             if self._switcher_is_open() or self._list_accounts_on_screen():
+                self.logger.info("account switcher: opened")
                 return True
             time.sleep(0.5)
+        self.logger.warning("account switcher: sheet not detected after tap")
         return self._switcher_is_open()
 
     def _select_account(self, target: str) -> bool:
