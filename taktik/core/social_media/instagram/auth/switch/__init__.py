@@ -109,8 +109,8 @@ class InstagramSwitchAccount:
                 labels.append(desc)
         return labels
 
-    def _list_accounts_on_screen(self) -> List[str]:
-        """The connected-account usernames among the clickable rows (switcher sheet / picker).
+    def _accounts_from_labels(self, labels: List[str]) -> List[str]:
+        """Filter clickable content-descs down to the connected-account usernames.
 
         Each row's content-desc is the username (sometimes suffixed with ",  New notifications").
         Non-account buttons and the profile stats that leak behind the sheet are filtered out.
@@ -118,7 +118,7 @@ class InstagramSwitchAccount:
         exclude = {label.lower() for label in self.auth.account_row_exclude_labels}
         found: List[str] = []
         seen = set()
-        for desc in self._clickable_labels():
+        for desc in labels:
             # Drop a trailing ",  New notifications" / ", Nouvelles notifications".
             name = desc.split(",")[0].strip()
             low = name.lower()
@@ -132,44 +132,37 @@ class InstagramSwitchAccount:
             found.append(name)
         return found
 
+    def _list_accounts_on_screen(self) -> List[str]:
+        """The connected-account usernames visible on the current screen (one UI dump)."""
+        return self._accounts_from_labels(self._clickable_labels())
+
     def _switcher_is_open(self) -> bool:
         """The account switcher sheet / picker is open (shows the "Use another profile" button)."""
         return self._element_exists(self.auth.account_picker_indicators)
 
     def _open_account_switcher(self) -> bool:
         """Open the account switcher WITHOUT logging out: tap the @username (+ chevron) at the top
-        of the Profile page. Returns True once the sheet (or its rows) is visible."""
-        if self._switcher_is_open():
-            return True
-        # Wait for the profile header (the @username button) to be ready — after a cold IG restart
-        # the profile can still be loading when we arrive.
+        of the Profile page. Kept call-light (slow device + scrcpy): find the button once, tap
+        once, settle, confirm once. The caller enumerates regardless of the return value."""
         button = None
-        for _ in range(10):
-            if self._switcher_is_open():
-                return True
+        for _ in range(6):
             button = self._find_element(self.auth.profile_username_switcher_button)
             if button is not None:
                 break
-            time.sleep(0.5)
+            time.sleep(0.6)
         if button is None:
             self.logger.warning("account switcher: profile @username button not found")
+            self._notify("Profile @username button not found")
             return False
-        # Tap the @username and wait for the sheet; retry once (the tap sometimes doesn't register
-        # right after a cold start).
-        for attempt in range(2):
-            try:
-                button.click()
-                self.logger.info(f"account switcher: tapped profile @username (attempt {attempt + 1})")
-            except Exception as exc:
-                self.logger.warning(f"account switcher: tap failed: {exc}")
-            time.sleep(1.5)
-            for _ in range(6):
-                if self._switcher_is_open() or self._list_accounts_on_screen():
-                    self.logger.info("account switcher: opened")
-                    return True
-                time.sleep(0.5)
-            button = self._find_element(self.auth.profile_username_switcher_button) or button
-        self.logger.warning("account switcher: sheet not detected after tap")
+        self._notify("Tapping @username to open the switcher…")
+        try:
+            button.click()
+            self.logger.info("account switcher: tapped profile @username")
+        except Exception as exc:
+            self.logger.warning(f"account switcher: tap failed: {exc}")
+            self._notify(f"Tap failed: {exc}")
+            return False
+        time.sleep(2.5)  # let the sheet animate fully in
         return self._switcher_is_open()
 
     def _select_account(self, target: str) -> bool:
@@ -273,16 +266,18 @@ class InstagramSwitchAccount:
         Best-effort: returns [] if the switcher can't be opened.
         """
         self.logger.info("📋 Listing connected accounts")
-        self._notify("Reading connected accounts…")
+        # Bracketed checkpoints in the FRONT log: the LAST line shown = the step it stalled on.
+        self._notify("Step 1/3 — opening the profile tab…")
         if not self._logout._open_profile_tab():
             self._notify("Could not open the profile tab")
             return []
+        self._notify("Step 2/3 — opening the account switcher…")
         opened = self._open_account_switcher()
-        # Diagnostics visible in the FRONT log: is the switcher open, and what's on screen?
+        self._notify("Step 3/3 — reading the accounts…")
         labels = self._clickable_labels()
-        self.logger.info(f"list_accounts: switcher_open={opened}, screen labels={labels[:20]}")
-        self._notify(f"Switcher open: {opened} — screen: {labels[:10]}")
-        accounts = self._list_accounts_on_screen()
+        self.logger.info(f"list_accounts: switcher_open={opened}, labels={labels[:20]}")
+        self._notify(f"switcher_open={opened} — screen: {labels[:10]}")
+        accounts = self._accounts_from_labels(labels)
         self.logger.info(f"📋 {len(accounts)} connected account(s): {accounts}")
         self._notify(f"Detected {len(accounts)} account(s): {accounts}")
         # Leave the UI clean (close the switcher sheet).
