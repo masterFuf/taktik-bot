@@ -16,11 +16,19 @@ from ....auth.switch import InstagramSwitchAccount
 class SwitchAccountWorkflow:
     """Workflow complet de changement de compte Instagram."""
 
-    def __init__(self, device, device_id: str, notifier: Optional[Callable[[str], None]] = None):
+    def __init__(
+        self,
+        device,
+        device_id: str,
+        notifier: Optional[Callable[[str], None]] = None,
+        on_active_account: Optional[Callable[[str], None]] = None,
+    ):
         self.device = device
         self.device_id = device_id
         self.logger = logger.bind(module="instagram-switch-workflow")
-        self.switch_manager = InstagramSwitchAccount(device, device_id, notifier=notifier)
+        self.switch_manager = InstagramSwitchAccount(
+            device, device_id, notifier=notifier, on_active_account=on_active_account,
+        )
 
     def execute(self, target_username: str) -> Dict[str, Any]:
         """
@@ -64,4 +72,15 @@ class SwitchAccountWorkflow:
             'success': True,
             'accounts': accounts,
             'message': f"{len(accounts)} connected account(s)",
+        }
+
+    def list_saved_accounts(self) -> Dict[str, Any]:
+        """List ALL accounts saved on the device (logs out to reach the picker). See
+        InstagramSwitchAccount.list_saved_accounts — destructive, leaves the device on the picker."""
+        self.logger.info("📋 Listing all saved accounts (logout → picker)")
+        accounts = self.switch_manager.list_saved_accounts()
+        return {
+            'success': True,
+            'accounts': accounts,
+            'message': f"{len(accounts)} saved account(s)",
         }

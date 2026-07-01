@@ -35,13 +35,24 @@ _STAT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# An Instagram @handle: lowercase letters/digits/dot/underscore, 1–30 chars. Mirrors the front's
+# anti-pollution guard in recordDeviceSighting — anything else (display names with spaces, empty)
+# is not a real account username and must never be recorded as the device's active account.
+_HANDLE_RE = re.compile(r"^[a-z0-9._]{1,30}$")
+
 
 class InstagramSwitchAccount:
     """Gestionnaire de changement de compte Instagram (comptes déjà connectés)."""
 
     MAX_LOGOUT_LOOPS = 3  # guards the auto-switch-to-home loop
 
-    def __init__(self, device, device_id: str, notifier: Optional[Callable[[str], None]] = None):
+    def __init__(
+        self,
+        device,
+        device_id: str,
+        notifier: Optional[Callable[[str], None]] = None,
+        on_active_account: Optional[Callable[[str], None]] = None,
+    ):
         self.device = device
         self.device_id = device_id
         self.logger = logger.bind(module="instagram-switch-account")
@@ -49,6 +60,10 @@ class InstagramSwitchAccount:
         # Reuse the logout navigation (profile tab → options menu → log out → dialogs).
         self._logout = InstagramLogout(device, device_id)
         self._notify = notifier or (lambda _msg: None)
+        # Emit the currently-active account (@username) once detected, so the bridge/front recale the
+        # device↔account DB link (account_device_history). No-op by default — e.g. the Cartography
+        # Lab builds the manager without it and just reads the return value.
+        self._emit_active = on_active_account or (lambda _u: None)
 
     # ------------------------------------------------------------------
     # Helpers (delegate the low-level find/click to the logout navigator)
@@ -192,6 +207,46 @@ class InstagramSwitchAccount:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+    def _read_profile_username(self) -> Optional[str]:
+        """Navigate to the own profile tab and read the logged-in @username, reusing the production
+        atomics `navigate_to_profile_tab()` (robust: 3 tries, back if on another user's profile) +
+        `get_username_from_profile()`. Isolated so `detect_active_account` can be unit-tested without
+        a real device."""
+        from ...actions.atomic.navigation import NavigationActions
+        from ...actions.atomic.detection import DetectionActions
+
+        nav = NavigationActions(self.device)
+        detection = DetectionActions(self.device)
+        if not nav.navigate_to_profile_tab():
+            self.logger.warning("detect_active_account: could not reach the own profile")
+            return None
+        return detection.get_username_from_profile()
+
+    def detect_active_account(self) -> Optional[str]:
+        """Read the @username of the account currently ACTIVE on the device — non-destructive.
+
+        Kevin's flow: when an account is active (home feed), navigate to the own profile tab and
+        read the logged-in username. Emits `active_account_detected` (via the `on_active_account`
+        callback) so the front recales the device↔account DB link. Returns None when logged out (on
+        the picker there is no active account) or when the username can't be read / isn't a handle.
+        """
+        if self._on_account_picker():
+            return None
+        self._notify("Reading the active account from the profile…")
+        try:
+            raw = self._read_profile_username()
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"detect_active_account failed: {exc}")
+            return None
+        username = self._norm(raw)
+        if not username or not _HANDLE_RE.match(username):
+            self.logger.warning(f"detect_active_account: no valid username (got {raw!r})")
+            return None
+        self.logger.info(f"👤 Active account on device: @{username}")
+        self._notify(f"Active account on this device: @{username}")
+        self._emit_active(username)
+        return username
+
     def switch_to(self, target_username: str) -> SwitchResult:
         target = self._norm(target_username)
         if not target:
@@ -220,12 +275,16 @@ class InstagramSwitchAccount:
             if self._password_required():
                 return SwitchResult(True, f"@{target} requires re-login (session not saved)",
                                     switched_to=target, relogin_required=True, detected_accounts=detected)
+            self._emit_active(target)  # target is now the active account → recale the DB
             self.logger.success(f"✅ Switched to @{target} (picker)")
             return SwitchResult(True, f"Switched to @{target}", switched_to=target,
                                 detected_accounts=detected)
 
-        # 1. An account is active (home feed): the connected-accounts picker is reached by LOGGING
-        # OUT (Kevin's flow) — Profile tab → options menu → Log out → confirm → picker.
+        # 1. An account is active (home feed). First READ the currently-active account (navigate to
+        # the own profile) so the device↔account DB link is recaled even before the switch (Kevin's
+        # flow) — non-destructive, emits `active_account_detected`. Then reach the connected-accounts
+        # picker by LOGGING OUT — Profile tab → options menu → Log out → confirm → picker.
+        self.detect_active_account()
         self._notify("An account is active — logging out to reach the account picker…")
         if not self._logout._open_profile_tab():
             return SwitchResult(False, "Profile tab not found", "profile_tab_not_found")
@@ -261,6 +320,7 @@ class InstagramSwitchAccount:
                                 switched_to=target, relogin_required=True,
                                 detected_accounts=picker_accounts)
 
+        self._emit_active(target)  # target is now the active account → recale the DB
         self.logger.success(f"✅ Switched to @{target}")
         return SwitchResult(True, f"Switched to @{target}", switched_to=target,
                             detected_accounts=picker_accounts)
@@ -269,21 +329,61 @@ class InstagramSwitchAccount:
         """List the Instagram accounts logged in on the device — NON-destructive.
 
         When the accounts are logged out, IG opens directly on the account picker: enumerate it
-        as-is. When an account is ACTIVE (home feed), the list is only reachable by logging out,
-        which we must NOT do for a mere read — return [] (the front keeps its known list; use a
-        switch to reach the picker). The bottom-nav tabs on the home feed are NOT accounts.
+        as-is. When an account is ACTIVE (home feed), the full picker is only reachable by logging
+        out, which we must NOT do for a mere read (Kevin: non-destructive). Instead READ the active
+        account (navigate to the own profile) and return just that one — recaling the device↔account
+        DB link via `active_account_detected`. The bottom-nav tabs on the home feed are NOT accounts.
         """
         self.logger.info("📋 Listing connected accounts")
         self._notify("Reading connected accounts…")
         time.sleep(1.5)  # let IG settle after launch
         if not self._on_account_picker():
-            self.logger.info("list_accounts: not on the account picker (an account is active)")
-            self._notify("An account is active — switch to reach the account picker")
-            return []
+            self.logger.info("list_accounts: an account is active → reading it from the profile")
+            active = self.detect_active_account()
+            return [active] if active else []
         accounts = self._list_accounts_on_screen()
         self.logger.info(f"📋 {len(accounts)} connected account(s): {accounts}")
         self._notify(f"Detected {len(accounts)} account(s): {accounts}")
         return accounts
+
+    def list_saved_accounts(self) -> List[str]:
+        """List ALL accounts saved on the device — DESTRUCTIVE.
+
+        When an account is active, the only screen that shows every saved account is the logged-out
+        picker, so we LOG OUT to reach it (Kevin's flow: 'logout → récupération des comptes → choix')
+        then enumerate. We recale the DB with the active account BEFORE logging out, and leave the
+        device ON the picker so a following `switch_to(target)` selects the account directly (no
+        second logout). If already on the picker, just enumerate.
+        """
+        self.logger.info("📋 Listing ALL saved accounts (logout → picker)")
+        self._notify("Listing all saved accounts (this logs out to open the account picker)…")
+        time.sleep(1.5)  # let IG settle after launch
+        if not self._on_account_picker():
+            # An account is active: recale the DB with it, then log out to reach the picker.
+            self.detect_active_account()
+            if not self._logout_to_picker():
+                self.logger.warning("list_saved_accounts: could not reach the account picker")
+                self._notify("Could not reach the account picker")
+                return []
+        accounts = self._list_accounts_on_screen()
+        self.logger.info(f"📋 {len(accounts)} saved account(s): {accounts}")
+        self._notify(f"Detected {len(accounts)} saved account(s): {accounts}")
+        return accounts
+
+    def _logout_to_picker(self) -> bool:
+        """Log out (Profile tab → options menu → Log out → confirm dialogs) and reach the
+        connected-accounts picker, handling Instagram auto-switching to another account's home
+        (bounded re-logout via `_ensure_on_picker`). Reuses the InstagramLogout navigation. Returns
+        True if we land on the picker; no-op → True if already there."""
+        if self._on_account_picker():
+            return True
+        if not (self._logout._open_profile_tab()
+                and self._logout._open_options_menu()
+                and self._logout._find_and_click_logout()):
+            return False
+        self._logout._confirm_logout()
+        time.sleep(3)
+        return self._ensure_on_picker()
 
     def _ensure_on_picker(self) -> bool:
         """After logout, make sure we land on the account picker.
@@ -298,7 +398,11 @@ class InstagramSwitchAccount:
                 self.logger.info("🏠 Auto-switched to another account's home → logging out again")
                 self._notify("Instagram switched to another account, logging out again…")
                 if not (self._reach_login_navigation() and self._logout._find_and_click_logout()):
-                    return self._on_account_picker()
+                    # Re-logout nav failed (transient UI, e.g. IG still animating the auto-switch) —
+                    # wait and retry within the bounded loop instead of giving up early; the picker
+                    # may still settle in on the next iteration.
+                    time.sleep(1.5)
+                    continue
                 self._logout._confirm_logout()
                 time.sleep(3)
                 continue
