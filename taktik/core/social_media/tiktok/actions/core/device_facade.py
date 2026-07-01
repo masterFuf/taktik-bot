@@ -1,3 +1,4 @@
+import random
 import time
 from loguru import logger
 
@@ -6,82 +7,74 @@ from taktik.core.shared.device.facade import BaseDeviceFacade
 
 class DeviceFacade(BaseDeviceFacade):
     """TikTok-specific device facade.
-    
-    Inherits common functionality from BaseDeviceFacade.
-    Overrides swipe methods for TikTok's video-based UI (adaptive coordinates).
-    Adds TikTok-specific: click(x,y), double_click, long_click.
+
+    Inherits common functionality from BaseDeviceFacade — including the SHARED humanization
+    engine (human_scroll / human_hswipe / human_tap / human_double_tap). The swipe overrides
+    below route through that engine instead of fixed-coordinate raw swipes, so every TikTok
+    scroll gets varied start points, curved paths and varied durations (no robotic fingerprint).
+    Adds TikTok-specific: click(x, y) (with a small tap jitter), double_click, long_click.
     """
-    
+
     app_id = 'com.zhiliaoapp.musically'
     _facade_name = 'TikTokDeviceFacade'
-    
+
     def __init__(self, device):
         super().__init__(device, module_name="tiktok-device-facade")
-    
+
     # =========================================================================
-    # TikTok-specific: swipe overrides for video UI
+    # Swipe overrides for TikTok's video UI — HUMANIZED (shared engine)
+    #
+    # Previously these computed FIXED percentage coordinates (x=30%, y 80%->15%) with a
+    # constant duration and called the raw u2 swipe — identical trajectory every time (robotic
+    # heatmap fingerprint). They now delegate to the shared humanization engine on the base
+    # facade (human_scroll / human_hswipe), keeping the same travel distance but with sampled
+    # geometry. `scale` is preserved for call-site compatibility and maps to the travel ratio.
     # =========================================================================
-    
+
+    @staticmethod
+    def _scaled_ratio(scale: float, base: float) -> float:
+        """Map the legacy `scale` (default 0.8) to a travel ratio, preserving the historical
+        distance at scale=0.8 (base) and scaling proportionally. Clamped to a sane band."""
+        try:
+            return round(min(max((float(scale) / 0.8) * base, 0.35), 0.9), 3)
+        except Exception:
+            return base
+
     def swipe_up(self, scale: float = 0.8):
-        """Swipe up (scroll down content).
-        
-        Adaptive swipe for TikTok video scrolling that works on all screen resolutions:
-        - Uses percentage-based coordinates to adapt to any screen size
-        - Swipes on LEFT side of screen to avoid interaction buttons on the right
-        - Avoids bottom ~20% (navigation bar + interaction buttons area)
-        - Avoids top ~15% (search bar/status bar area)
-        - Results in ~65% screen distance swipe for reliable video switching
-        """
-        width, height = self.get_screen_size()
-        
-        # Use LEFT side of screen (30% from left) to avoid interaction buttons on right
-        # Interaction buttons (like, comment, share) are on the right side (x > 80%)
-        x = int(width * 0.30)
-        
-        # Percentage-based swipe that adapts to any resolution
-        # Start at 80% from top (avoids bottom nav + buttons area ~20%)
-        # End at 15% from top (avoids search bar + header)
-        y_start = int(height * 0.80)
-        y_end = int(height * 0.15)
-        
-        self.logger.debug(f"Swipe up: screen={width}x{height}, y={y_start}->{y_end}")
-        self.swipe_coordinates(x, y_start, x, y_end, duration=0.35)
-    
+        """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
+        reveals the NEXT content = page 'down'. Was ~65% of screen height; preserved via the ratio."""
+        self.human_scroll("down", distance_ratio=self._scaled_ratio(scale, 0.65))
+
     def swipe_down(self, scale: float = 0.8):
-        """Swipe down (scroll up content)."""
-        width, height = self.get_screen_size()
-        x = width // 2
-        y_start = int(height * 0.2)
-        y_end = int(height * 0.8)
-        
-        self.swipe_coordinates(x, y_start, x, y_end, duration=0.3)
-    
+        """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'."""
+        self.human_scroll("up", distance_ratio=self._scaled_ratio(scale, 0.60))
+
     def swipe_left(self, scale: float = 0.8):
-        """Swipe left."""
-        width, height = self.get_screen_size()
-        y = height // 2
-        x_start = int(width * 0.8)
-        x_end = int(width * 0.2)
-        
-        self.swipe_coordinates(x_start, y, x_end, y, duration=0.3)
-    
+        """Reveal the NEXT horizontal slide — humanized. Finger moves left."""
+        self.human_hswipe("left", distance_ratio=self._scaled_ratio(scale, 0.60))
+
     def swipe_right(self, scale: float = 0.8):
-        """Swipe right."""
-        width, height = self.get_screen_size()
-        y = height // 2
-        x_start = int(width * 0.2)
-        x_end = int(width * 0.8)
-        
-        self.swipe_coordinates(x_start, y, x_end, y, duration=0.3)
-    
+        """Reveal the PREVIOUS horizontal slide — humanized. Finger moves right."""
+        self.human_hswipe("right", distance_ratio=self._scaled_ratio(scale, 0.60))
+
     # =========================================================================
     # TikTok-specific: click at coordinates (different signature from base)
     # =========================================================================
-    
+
+    @staticmethod
+    def _jitter_point(x: int, y: int, spread: float = 4.0, cap: int = 8) -> tuple:
+        """Small gaussian jitter around a target point so repeated coordinate taps never land on
+        the exact same pixel (removes the touch-heatmap fingerprint). Kept small (±cap px) so it
+        stays inside the intended button. Prefer human_tap(bounds) when element bounds are known."""
+        dx = max(-cap, min(cap, int(random.gauss(0, spread))))
+        dy = max(-cap, min(cap, int(random.gauss(0, spread))))
+        return x + dx, y + dy
+
     def click(self, x: int, y: int):
-        """Click at coordinates."""
+        """Tap at (x, y) with a small human jitter (never the exact same pixel twice)."""
         try:
-            self._device.click(x, y)
+            jx, jy = self._jitter_point(x, y)
+            self._device.click(jx, jy)
             time.sleep(0.1)
         except Exception as e:
             self.logger.error(f"Error clicking at ({x}, {y}): {e}")

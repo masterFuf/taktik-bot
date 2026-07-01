@@ -188,12 +188,12 @@ class BaseAction(SharedBaseAction):
         self._human_like_delay('scroll')
     
     def _double_tap_to_like(self):
-        """Double tap center of screen to like video (TikTok specific)."""
+        """Double-tap the video to like it — HUMANIZED. Samples a jittered point in the central
+        video area (never the exact screen centre twice) via the shared humanization engine,
+        staying clear of the right-side action buttons (x>0.8) and the top/bottom bars."""
         width, height = self.device.get_screen_size()
-        x = width // 2
-        y = height // 2
-        
-        self.device.double_click(x, y)
+        bounds = (int(width * 0.25), int(height * 0.30), int(width * 0.75), int(height * 0.70))
+        self.device.human_double_tap(bounds)
         self._human_like_delay('click')
     
     def _press_back(self):
