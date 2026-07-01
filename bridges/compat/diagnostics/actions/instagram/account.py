@@ -38,6 +38,11 @@ def _signup(a):
     return InstagramSignup(a.device, _device_id(a))
 
 
+def _switch(a):
+    from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
+    return InstagramSwitchAccount(a.device, _device_id(a))
+
+
 # === Login ===================================================================
 
 @action("account.login")
@@ -94,6 +99,42 @@ def is_logged_out(a, p):
     """Detection: are we logged out (back on the login screen)?"""
     v = _logout(a)._is_logged_out()
     return {"success": True, "found": bool(v), "message": f"logged_out={bool(v)}"}
+
+
+# === Switch account (multi-account) =========================================
+
+@action("account.detect_connected_accounts")
+def detect_connected_accounts(a, p):
+    """Detection: are we already looking at the connected-accounts list (the logged-out account
+    picker IG opens on, or an open @username switcher)?"""
+    v = _switch(a)._on_landing_account_list()
+    return {"success": True, "found": bool(v), "message": f"on_account_list={bool(v)}"}
+
+
+@action("account.list_accounts")
+def list_accounts(a, p):
+    """List the Instagram accounts logged in on the device (InstagramSwitchAccount.list_accounts):
+    detect the landing picker or open the profile @username switcher, enumerate the rows. No logout.
+    Run on a device with 2+ connected accounts."""
+    accounts = _switch(a).list_accounts()
+    return {
+        "success": True,
+        "found": bool(accounts),
+        "message": f"{len(accounts)} connected account(s): {accounts}",
+        "accounts": accounts,
+    }
+
+
+@action("account.switch_account")
+def switch_account(a, p):
+    """Switch to another account already logged in on the device (InstagramSwitchAccount.switch_to):
+    select it on the picker, or (if an account is active) via the @username switcher / logout
+    fallback. Param: username (required). Run on a device with 2+ connected accounts."""
+    username = (p.get("username") or "").strip()
+    if not username:
+        return {"success": False, "message": "username param is required"}
+    logger.info(f"account.switch_account: @{username}")
+    return _result(_switch(a).switch_to(username), "switch attempted")
 
 
 # === Signup ==================================================================
