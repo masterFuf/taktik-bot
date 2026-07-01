@@ -42,7 +42,7 @@ class AccountSessionLifecycleMixin:
         # ALREADY in the foreground, keep the current screen (the workflow detects the picker or
         # navigates); only fall back to a clean restart when it isn't showing. Every other account
         # flow (login/register/logout/change_language) keeps the clean restart for a known state.
-        if self.workflow_type in ("switch_account", "list_accounts") and app_service.is_running():
+        if self.workflow_type in ("switch_account", "list_accounts", "list_saved_accounts") and app_service.is_running():
             send_status("initializing", "Instagram already open — using the current screen")
             time.sleep(1)
         else:

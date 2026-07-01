@@ -26,7 +26,15 @@ class AccountSwitchRunnerMixin:
             def _notify(message: str) -> None:
                 send_status("running", message)
 
-            workflow = SwitchAccountWorkflow(device, self.device_id, notifier=_notify)
+            # Recale the device↔account DB link on the front (account_device_history) whenever the
+            # bot reads/sets the active account — before logout (real state) and after a successful
+            # switch (new active account).
+            def _emit_active(username: str) -> None:
+                send_message("active_account_detected", username=username, workflow="switch_account")
+
+            workflow = SwitchAccountWorkflow(
+                device, self.device_id, notifier=_notify, on_active_account=_emit_active,
+            )
             result = workflow.execute(target)
 
             outcome = "success" if result["success"] else "error"
@@ -36,6 +44,8 @@ class AccountSwitchRunnerMixin:
             detected = result.get("detected_accounts") or []
             if detected:
                 send_message("accounts_detected", accounts=detected)
+                # Complete picker set → the front persists it as the device's saved-accounts history.
+                send_message("saved_accounts_detected", accounts=detected)
 
             send_message(
                 "account_result",
@@ -66,7 +76,14 @@ class AccountSwitchRunnerMixin:
             def _notify(message: str) -> None:
                 send_status("running", message)
 
-            workflow = SwitchAccountWorkflow(device, self.device_id, notifier=_notify)
+            # When an account is active, list_accounts reads it from the profile and emits it here
+            # so the front recales the device↔account DB link (fixes a stale "current account").
+            def _emit_active(username: str) -> None:
+                send_message("active_account_detected", username=username, workflow="list_accounts")
+
+            workflow = SwitchAccountWorkflow(
+                device, self.device_id, notifier=_notify, on_active_account=_emit_active,
+            )
             result = workflow.list_accounts()
 
             accounts = result.get("accounts") or []
@@ -84,6 +101,46 @@ class AccountSwitchRunnerMixin:
             import traceback
 
             send_error(f"List-accounts error: {exc}")
+            send_log("error", traceback.format_exc())
+            return 1
+
+    def _run_list_saved_accounts(self, device) -> int:
+        send_status("running", "Listing all saved accounts (logging out to open the picker)…")
+        send_log("info", "List-saved-accounts workflow")
+        try:
+            from taktik.core.social_media.instagram.workflows.management.switch import (
+                SwitchAccountWorkflow,
+            )
+
+            def _notify(message: str) -> None:
+                send_status("running", message)
+
+            # Recale the device↔account DB link with the active account before logout.
+            def _emit_active(username: str) -> None:
+                send_message("active_account_detected", username=username, workflow="list_saved_accounts")
+
+            workflow = SwitchAccountWorkflow(
+                device, self.device_id, notifier=_notify, on_active_account=_emit_active,
+            )
+            result = workflow.list_saved_accounts()
+
+            accounts = result.get("accounts") or []
+            send_message("accounts_detected", accounts=accounts)
+            # Complete picker set → the front persists it as the device's saved-accounts history.
+            send_message("saved_accounts_detected", accounts=accounts)
+            send_status("success", result.get("message", ""))
+            send_message(
+                "account_result",
+                success=result["success"],
+                workflow="list_saved_accounts",
+                message=result.get("message", ""),
+                detected_accounts=accounts,
+            )
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            import traceback
+
+            send_error(f"List-saved-accounts error: {exc}")
             send_log("error", traceback.format_exc())
             return 1
 
