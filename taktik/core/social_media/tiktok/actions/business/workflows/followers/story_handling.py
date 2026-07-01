@@ -13,6 +13,21 @@ from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 class StoryHandlingMixin:
     """Methods for handling TikTok story views during the followers workflow."""
 
+    def _human_tap_or_click(self, elem) -> None:
+        """Tap a human-sampled point inside an xpath element's bounds (never its exact centre),
+        with a plain centre-click fallback if the bounds are unreadable. Self-contained (uses
+        the facade's human_tap) because FollowersWorkflow is not a BaseAction — it has no
+        _human_tap_element helper, only `self.device` (the humanized device facade)."""
+        try:
+            el = elem.get(timeout=0.5)
+            bounds = tuple(el.bounds)  # (left, top, right, bottom)
+            if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                if self.device.human_tap(bounds):
+                    return
+        except Exception as e:
+            self.logger.debug(f"human tap fallback (centre click): {e}")
+        elem.click()
+
     def _handle_story_view(self):
         """Handle when we accidentally land on a story instead of profile.
         
@@ -44,8 +59,7 @@ class StoryHandlingMixin:
                 elem = self.device.xpath(selector)
                 if elem.exists:
                     self.logger.debug("Clicking username to go to profile from story")
-                    if not self._human_tap_element(elem):
-                        elem.click()
+                    self._human_tap_or_click(elem)
                     time.sleep(1.5)  # Wait for profile to load
                     
                     # Verify we're now on the profile
@@ -58,8 +72,7 @@ class StoryHandlingMixin:
             self.logger.debug("Username click didn't work, closing story...")
             close_btn = self.device.xpath(PROFILE_SELECTORS.story_close_button[0])
             if close_btn.exists:
-                if not self._human_tap_element(close_btn):
-                    close_btn.click()
+                self._human_tap_or_click(close_btn)
                 time.sleep(1.0)
             else:
                 # Last resort: press back
@@ -79,8 +92,7 @@ class StoryHandlingMixin:
             for selector in self.video_selectors.like_button_unliked:
                 elem = self.device.xpath(selector)
                 if elem.exists:
-                    if not self._human_tap_element(elem):
-                        elem.click()
+                    self._human_tap_or_click(elem)
                     self.logger.info("❤️ Liked story")
                     self._human_delay()
                     return True
