@@ -140,6 +140,11 @@ class InstagramSwitchAccount:
         """The account switcher sheet / picker is open (shows the "Use another profile" button)."""
         return self._element_exists(self.auth.account_picker_indicators)
 
+    def _on_landing_account_list(self) -> bool:
+        """We are already looking at the connected-accounts list (the logged-out picker IG opens
+        on directly, or any screen already showing account rows) — no profile navigation needed."""
+        return self._on_account_picker() or bool(self._list_accounts_on_screen())
+
     def _open_account_switcher(self) -> bool:
         """Open the account switcher WITHOUT logging out: tap the @username (+ chevron) at the top
         of the Profile page. Kept call-light (slow device + scrcpy): find the button once, tap
@@ -189,14 +194,35 @@ class InstagramSwitchAccount:
 
         self.logger.info(f"🔀 Switching to @{target}")
         self._notify(f"Switching to @{target}")
+        time.sleep(1.5)  # let IG settle after launch
 
-        # 0. Profile tab
+        detected: List[str] = []
+
+        # 0. LANDING PICKER: when the accounts are logged out, IG opens directly on the account
+        # picker — select the target right there (no profile tab, no logout).
+        if self._on_landing_account_list():
+            detected = self._list_accounts_on_screen()
+            self.logger.info(f"📋 Landing picker accounts: {detected}")
+            self._notify(f"{len(detected)} account(s) on this device")
+            if not any(self._norm(a) == target for a in detected):
+                return SwitchResult(False, f"@{target} is not connected on this device",
+                                    "target_not_connected", detected_accounts=detected)
+            self._notify(f"Selecting @{target}…")
+            if not self._select_account(target):
+                return SwitchResult(False, f"Could not tap @{target}", "select_failed",
+                                    detected_accounts=detected)
+            time.sleep(3)
+            if self._password_required():
+                return SwitchResult(True, f"@{target} requires re-login (session not saved)",
+                                    switched_to=target, relogin_required=True, detected_accounts=detected)
+            self.logger.success(f"✅ Switched to @{target} (picker)")
+            return SwitchResult(True, f"Switched to @{target}", switched_to=target,
+                                detected_accounts=detected)
+
+        # 1. An account is active (home feed). Profile tab → DIRECT switch via the @username
+        # switcher (NO logout): tap the @username, then the target row. The clean, fast path.
         if not self._logout._open_profile_tab():
             return SwitchResult(False, "Profile tab not found", "profile_tab_not_found")
-
-        # 1. DIRECT switch via the account switcher (NO logout): tap the @username at the top of
-        # the profile, then the target row. The clean, fast path when it's available.
-        detected: List[str] = []
         if self._open_account_switcher():
             detected = self._list_accounts_on_screen()
             self.logger.info(f"📋 Switcher accounts: {detected}")
@@ -266,25 +292,29 @@ class InstagramSwitchAccount:
         Best-effort: returns [] if the switcher can't be opened.
         """
         self.logger.info("📋 Listing connected accounts")
-        # Bracketed checkpoints in the FRONT log: the LAST line shown = the step it stalled on.
-        self._notify("Step 1/3 — opening the profile tab…")
-        if not self._logout._open_profile_tab():
-            self._notify("Could not open the profile tab")
-            return []
-        self._notify("Step 2/3 — opening the account switcher…")
-        opened = self._open_account_switcher()
-        self._notify("Step 3/3 — reading the accounts…")
+        self._notify("Reading connected accounts…")
+        # When the accounts are logged out, IG launches DIRECTLY on the account picker (its rows +
+        # "Use another profile") — enumerate it as-is. We must NOT tap the profile tab in that case
+        # (it doesn't exist on the picker → hang). Only when an account is active (home feed) do we
+        # go Profile → @username switcher.
+        time.sleep(1.5)  # let IG settle after launch
+        navigated = False
+        if not self._on_landing_account_list():
+            self._notify("An account is active — opening the profile switcher…")
+            if self._logout._open_profile_tab():
+                self._open_account_switcher()
+                navigated = True
         labels = self._clickable_labels()
-        self.logger.info(f"list_accounts: switcher_open={opened}, labels={labels[:20]}")
-        self._notify(f"switcher_open={opened} — screen: {labels[:10]}")
+        self.logger.info(f"list_accounts: landing_list={self._on_account_picker()}, labels={labels[:20]}")
+        self._notify(f"screen: {labels[:10]}")
         accounts = self._accounts_from_labels(labels)
         self.logger.info(f"📋 {len(accounts)} connected account(s): {accounts}")
         self._notify(f"Detected {len(accounts)} account(s): {accounts}")
-        # Leave the UI clean (close the switcher sheet).
-        try:
-            self.device.press("back")
-        except Exception:
-            pass
+        if navigated:  # close the switcher sheet we opened (the landing picker we leave as-is)
+            try:
+                self.device.press("back")
+            except Exception:
+                pass
         return accounts
 
     def _ensure_on_picker(self) -> bool:
