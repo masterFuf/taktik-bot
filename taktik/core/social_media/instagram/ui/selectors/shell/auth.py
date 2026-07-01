@@ -499,6 +499,9 @@ class AuthSelectors:
         'Add account', 'Ajouter un compte',
         'Settings', 'Paramètres', 'Options', 'Back', 'Retour',
         'Home', 'Accueil', 'Log out', 'Se déconnecter',
+        # Home-feed bottom navigation tabs — never accounts.
+        'Reels', 'Message', 'Messages', 'Profile', 'Profil', 'Notifications',
+        'Search and explore', 'Recherche et exploration', 'Rechercher',
     ])
 
 AUTH_SELECTORS = AuthSelectors()

@@ -83,6 +83,17 @@ def test_enumerate_accounts_drops_android_navbar_buttons():
     assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
 
 
+def test_enumerate_accounts_drops_home_feed_bottom_nav():
+    # On the home feed (an account active) the IG bottom-nav tabs are clickable content-desc'd
+    # nodes — they must never be listed as accounts (device-side: Reels/Message/Profile leaked).
+    switcher = _switcher(
+        "Home", "Reels", "Message", "Search and explore", "Profile",
+        "the_mermaid_tavern_metz",  # a post author — has no ",  New notifications" but is a handle
+    )
+    accounts = switcher._list_accounts_on_screen()
+    assert "Reels" not in accounts and "Message" not in accounts and "Profile" not in accounts
+
+
 def test_username_normalisation():
     assert InstagramSwitchAccount._norm("@Sandra.Lelit ") == "sandra.lelit"
     assert InstagramSwitchAccount._norm("  ErIkA.spahn") == "erika.spahn"
