@@ -52,6 +52,7 @@ class InstagramSwitchAccount:
         device_id: str,
         notifier: Optional[Callable[[str], None]] = None,
         on_active_account: Optional[Callable[[str], None]] = None,
+        on_step: Optional[Callable[[str, dict], None]] = None,
     ):
         self.device = device
         self.device_id = device_id
@@ -64,6 +65,13 @@ class InstagramSwitchAccount:
         # device↔account DB link (account_device_history). No-op by default — e.g. the Cartography
         # Lab builds the manager without it and just reads the return value.
         self._emit_active = on_active_account or (lambda _u: None)
+        # Emit the current workflow STEP (structured id + data) for the Taktik Agent panel narration
+        # (one card per step: navigate_profile / active_account / logout / enumerate / select /
+        # switched / relogin). No-op by default (Lab / tests).
+        self._emit_step_cb = on_step or (lambda _step, _data: None)
+
+    def _emit_step(self, step: str, **data) -> None:
+        self._emit_step_cb(step, data)
 
     # ------------------------------------------------------------------
     # Helpers (delegate the low-level find/click to the logout navigator)
@@ -233,6 +241,7 @@ class InstagramSwitchAccount:
         if self._on_account_picker():
             return None
         self._notify("Reading the active account from the profile…")
+        self._emit_step("navigate_profile")
         try:
             raw = self._read_profile_username()
         except Exception as exc:  # noqa: BLE001
@@ -244,6 +253,7 @@ class InstagramSwitchAccount:
             return None
         self.logger.info(f"👤 Active account on device: @{username}")
         self._notify(f"Active account on this device: @{username}")
+        self._emit_step("active_account", username=username)
         self._emit_active(username)
         return username
 
@@ -264,18 +274,22 @@ class InstagramSwitchAccount:
             detected = self._list_accounts_on_screen()
             self.logger.info(f"📋 Landing picker accounts: {detected}")
             self._notify(f"{len(detected)} account(s) on this device")
+            self._emit_step("enumerate", accounts=detected)
             if not any(self._norm(a) == target for a in detected):
                 return SwitchResult(False, f"@{target} is not connected on this device",
                                     "target_not_connected", detected_accounts=detected)
             self._notify(f"Selecting @{target}…")
+            self._emit_step("select", username=target)
             if not self._select_account(target):
                 return SwitchResult(False, f"Could not tap @{target}", "select_failed",
                                     detected_accounts=detected)
             time.sleep(3)
             if self._password_required():
+                self._emit_step("relogin", username=target)
                 return SwitchResult(True, f"@{target} requires re-login (session not saved)",
                                     switched_to=target, relogin_required=True, detected_accounts=detected)
             self._emit_active(target)  # target is now the active account → recale the DB
+            self._emit_step("switched", username=target)
             self.logger.success(f"✅ Switched to @{target} (picker)")
             return SwitchResult(True, f"Switched to @{target}", switched_to=target,
                                 detected_accounts=detected)
@@ -286,6 +300,7 @@ class InstagramSwitchAccount:
         # picker by LOGGING OUT — Profile tab → options menu → Log out → confirm → picker.
         self.detect_active_account()
         self._notify("An account is active — logging out to reach the account picker…")
+        self._emit_step("logout")
         if not self._logout._open_profile_tab():
             return SwitchResult(False, "Profile tab not found", "profile_tab_not_found")
         if not self._logout._open_options_menu():
@@ -304,10 +319,12 @@ class InstagramSwitchAccount:
         picker_accounts = self._list_accounts_on_screen()
         self.logger.info(f"📋 {len(picker_accounts)} connected account(s): {picker_accounts}")
         self._notify(f"{len(picker_accounts)} account(s) connected on this device")
+        self._emit_step("enumerate", accounts=picker_accounts)
         if not any(self._norm(a) == target for a in picker_accounts):
             return SwitchResult(False, f"@{target} is not connected on this device",
                                 "target_not_connected", detected_accounts=picker_accounts)
         self._notify(f"Selecting @{target}…")
+        self._emit_step("select", username=target)
         if not self._select_account(target):
             return SwitchResult(False, f"Could not tap @{target}", "select_failed",
                                 detected_accounts=picker_accounts)
@@ -316,11 +333,13 @@ class InstagramSwitchAccount:
         # 5. Either it logged straight in, or the password screen appeared (session not saved).
         if self._password_required():
             self.logger.warning(f"🔐 @{target} requires re-login (session not saved)")
+            self._emit_step("relogin", username=target)
             return SwitchResult(True, f"@{target} requires re-login (session not saved)",
                                 switched_to=target, relogin_required=True,
                                 detected_accounts=picker_accounts)
 
         self._emit_active(target)  # target is now the active account → recale the DB
+        self._emit_step("switched", username=target)
         self.logger.success(f"✅ Switched to @{target}")
         return SwitchResult(True, f"Switched to @{target}", switched_to=target,
                             detected_accounts=picker_accounts)
@@ -361,6 +380,7 @@ class InstagramSwitchAccount:
         if not self._on_account_picker():
             # An account is active: recale the DB with it, then log out to reach the picker.
             self.detect_active_account()
+            self._emit_step("logout")
             if not self._logout_to_picker():
                 self.logger.warning("list_saved_accounts: could not reach the account picker")
                 self._notify("Could not reach the account picker")
@@ -368,6 +388,7 @@ class InstagramSwitchAccount:
         accounts = self._list_accounts_on_screen()
         self.logger.info(f"📋 {len(accounts)} saved account(s): {accounts}")
         self._notify(f"Detected {len(accounts)} saved account(s): {accounts}")
+        self._emit_step("enumerate", accounts=accounts)
         return accounts
 
     def _logout_to_picker(self) -> bool:

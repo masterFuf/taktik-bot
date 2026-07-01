@@ -32,8 +32,13 @@ class AccountSwitchRunnerMixin:
             def _emit_active(username: str) -> None:
                 send_message("active_account_detected", username=username, workflow="switch_account")
 
+            # Narrate each device step in the Taktik Agent panel (one card per step).
+            def _emit_step(step: str, data: dict) -> None:
+                send_message("account_step", step=step, workflow="switch_account", **data)
+
             workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify, on_active_account=_emit_active,
+                device, self.device_id, notifier=_notify,
+                on_active_account=_emit_active, on_step=_emit_step,
             )
             result = workflow.execute(target)
 
@@ -81,8 +86,12 @@ class AccountSwitchRunnerMixin:
             def _emit_active(username: str) -> None:
                 send_message("active_account_detected", username=username, workflow="list_accounts")
 
+            def _emit_step(step: str, data: dict) -> None:
+                send_message("account_step", step=step, workflow="list_accounts", **data)
+
             workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify, on_active_account=_emit_active,
+                device, self.device_id, notifier=_notify,
+                on_active_account=_emit_active, on_step=_emit_step,
             )
             result = workflow.list_accounts()
 
@@ -119,8 +128,12 @@ class AccountSwitchRunnerMixin:
             def _emit_active(username: str) -> None:
                 send_message("active_account_detected", username=username, workflow="list_saved_accounts")
 
+            def _emit_step(step: str, data: dict) -> None:
+                send_message("account_step", step=step, workflow="list_saved_accounts", **data)
+
             workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify, on_active_account=_emit_active,
+                device, self.device_id, notifier=_notify,
+                on_active_account=_emit_active, on_step=_emit_step,
             )
             result = workflow.list_saved_accounts()
 

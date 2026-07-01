@@ -22,12 +22,13 @@ class SwitchAccountWorkflow:
         device_id: str,
         notifier: Optional[Callable[[str], None]] = None,
         on_active_account: Optional[Callable[[str], None]] = None,
+        on_step: Optional[Callable[[str, dict], None]] = None,
     ):
         self.device = device
         self.device_id = device_id
         self.logger = logger.bind(module="instagram-switch-workflow")
         self.switch_manager = InstagramSwitchAccount(
-            device, device_id, notifier=notifier, on_active_account=on_active_account,
+            device, device_id, notifier=notifier, on_active_account=on_active_account, on_step=on_step,
         )
 
     def execute(self, target_username: str) -> Dict[str, Any]:
