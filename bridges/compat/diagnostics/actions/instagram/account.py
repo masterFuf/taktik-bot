@@ -111,6 +111,20 @@ def detect_connected_accounts(a, p):
     return {"success": True, "found": bool(v), "message": f"on_account_list={bool(v)}"}
 
 
+@action("account.detect_active_account")
+def detect_active_account(a, p):
+    """Detection: read the account currently ACTIVE on the device (@username) by navigating to the
+    own profile tab (InstagramSwitchAccount.detect_active_account). Non-destructive (no logout).
+    Returns the active username, or empty when logged out (on the account picker)."""
+    username = _switch(a).detect_active_account()
+    return {
+        "success": bool(username),
+        "found": bool(username),
+        "message": f"active_account=@{username}" if username else "no active account (logged out?)",
+        "username": username,
+    }
+
+
 @action("account.list_accounts")
 def list_accounts(a, p):
     """List the Instagram accounts logged in on the device (InstagramSwitchAccount.list_accounts):
@@ -121,6 +135,21 @@ def list_accounts(a, p):
         "success": True,
         "found": bool(accounts),
         "message": f"{len(accounts)} connected account(s): {accounts}",
+        "accounts": accounts,
+    }
+
+
+@action("account.list_saved_accounts")
+def list_saved_accounts(a, p):
+    """List ALL accounts saved on the device (InstagramSwitchAccount.list_saved_accounts):
+    DESTRUCTIVE — when an account is active, logs out to reach the connected-accounts picker (the
+    only screen that lists every saved account), enumerates it, and leaves the device on the picker.
+    Run on a device with 2+ saved accounts."""
+    accounts = _switch(a).list_saved_accounts()
+    return {
+        "success": True,
+        "found": bool(accounts),
+        "message": f"{len(accounts)} saved account(s): {accounts}",
         "accounts": accounts,
     }
 
