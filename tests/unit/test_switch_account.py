@@ -55,6 +55,19 @@ def test_enumerate_accounts_empty_when_no_rows():
     assert _switcher(elements)._list_accounts_on_screen() == []
 
 
+def test_enumerate_accounts_drops_profile_stats_and_story_labels():
+    # The switcher sheet overlays the profile: header stats + story buttons leak into the dump.
+    elements = [
+        _FakeElement("sandra.lelit"),
+        _FakeElement("1posts"),
+        _FakeElement("36followers"),
+        _FakeElement("91following"),
+        _FakeElement("sandra.lelit's story, 0 of 27, Unseen"),
+        _FakeElement("erika.spahn"),
+    ]
+    assert _switcher(elements)._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+
+
 def test_username_normalisation():
     assert InstagramSwitchAccount._norm("@Sandra.Lelit ") == "sandra.lelit"
     assert InstagramSwitchAccount._norm("  ErIkA.spahn") == "erika.spahn"

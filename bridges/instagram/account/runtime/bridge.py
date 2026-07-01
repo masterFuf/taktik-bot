@@ -49,6 +49,8 @@ class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
             return self._run_change_language(device)
         if self.workflow_type == "switch_account":
             return self._run_switch(device)
+        if self.workflow_type == "list_accounts":
+            return self._run_list_accounts(device)
 
         send_error(f"Unknown workflowType: {self.workflow_type}")
         return 1

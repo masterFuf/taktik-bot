@@ -55,3 +55,13 @@ class SwitchAccountWorkflow:
             self.logger.error(f"❌ Switch workflow failed: {result['message']}")
 
         return result
+
+    def list_accounts(self) -> Dict[str, Any]:
+        """List the accounts logged in on the device (no logout). See InstagramSwitchAccount."""
+        self.logger.info("📋 Listing connected accounts")
+        accounts = self.switch_manager.list_accounts()
+        return {
+            'success': True,
+            'accounts': accounts,
+            'message': f"{len(accounts)} connected account(s)",
+        }

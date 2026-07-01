@@ -55,5 +55,37 @@ class AccountSwitchRunnerMixin:
             send_log("error", traceback.format_exc())
             return 1
 
+    def _run_list_accounts(self, device) -> int:
+        send_status("running", "Reading connected accounts…")
+        send_log("info", "List-accounts workflow")
+        try:
+            from taktik.core.social_media.instagram.workflows.management.switch import (
+                SwitchAccountWorkflow,
+            )
+
+            def _notify(message: str) -> None:
+                send_status("running", message)
+
+            workflow = SwitchAccountWorkflow(device, self.device_id, notifier=_notify)
+            result = workflow.list_accounts()
+
+            accounts = result.get("accounts") or []
+            send_message("accounts_detected", accounts=accounts)
+            send_status("success", result.get("message", ""))
+            send_message(
+                "account_result",
+                success=result["success"],
+                workflow="list_accounts",
+                message=result.get("message", ""),
+                detected_accounts=accounts,
+            )
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            import traceback
+
+            send_error(f"List-accounts error: {exc}")
+            send_log("error", traceback.format_exc())
+            return 1
+
 
 __all__ = ["AccountSwitchRunnerMixin"]

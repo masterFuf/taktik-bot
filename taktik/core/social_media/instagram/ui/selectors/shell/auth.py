@@ -459,6 +459,14 @@ class AuthSelectors:
     # langue-dependants (bilingue inline, comme logout_button / settings_screen_indicators) ; les
     # LIGNES de compte sont identifiees par le username (content-desc), donc langue-neutres.
 
+    # Bouton d'ouverture du selecteur de comptes SANS logout : le @username (+ chevron) en haut
+    # de la page Profile. Le taper ouvre la feuille des comptes connectes (dump profil 2026-07-01).
+    profile_username_switcher_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar_username_container"]',
+        '//android.widget.LinearLayout[.//*[@resource-id="com.instagram.android:id/action_bar_title_chevron"]]',
+        '//*[@resource-id="com.instagram.android:id/action_bar_title" and @clickable="true"]',
+    ])
+
     # Indicateurs de l'ecran "picker" de comptes (logged-out, apres logout) : bouton
     # "Use another profile" / "Utiliser un autre profil" present.
     account_picker_indicators: List[str] = field(default_factory=lambda: [

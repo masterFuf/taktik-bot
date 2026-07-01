@@ -16,6 +16,7 @@ The bot only switches between accounts ALREADY connected on the device; connecti
 a brand-new account is the Login flow's job.
 """
 
+import re
 import time
 from typing import Callable, List, Optional
 
@@ -24,6 +25,14 @@ from loguru import logger
 from ...ui.selectors.shell.auth import AUTH_SELECTORS
 from .models import SwitchResult
 from ..logout import InstagramLogout
+
+# Profile-header stats leak into the dump behind the switcher sheet as content-desc like
+# "36followers" / "1posts" / "91following". A username never has this "<digits><stat-word>" shape,
+# so we drop them from the account enumeration.
+_STAT_RE = re.compile(
+    r"^\d+\s*(posts?|followers?|following|abonn\w*|abonn[ée]s?|publications?|mentions?|reels?|tagged)$",
+    re.IGNORECASE,
+)
 
 
 class InstagramSwitchAccount:
@@ -95,12 +104,25 @@ class InstagramSwitchAccount:
                 low = name.lower()
                 if not name or low in exclude or low in seen:
                     continue
-                # A username has no spaces (handles use letters/digits/._ only).
-                if " " in name:
+                # A username has no spaces (handles use letters/digits/._ only) and is never a
+                # profile stat ("36followers") or a story label ("x's story").
+                if " " in name or "'s story" in low or _STAT_RE.match(name):
                     continue
                 seen.add(low)
                 found.append(name)
         return found
+
+    def _open_account_switcher(self) -> bool:
+        """Open the account switcher WITHOUT logging out: tap the @username (+ chevron) at the top
+        of the Profile page. Returns True once account rows are visible."""
+        if not self._click_first_match(self.auth.profile_username_switcher_button, "account switcher"):
+            return False
+        # The switcher sheet slides in; wait for at least one account row to appear.
+        for _ in range(6):
+            time.sleep(0.5)
+            if self._list_accounts_on_screen():
+                return True
+        return bool(self._list_accounts_on_screen())
 
     def _select_account(self, target: str) -> bool:
         clean = target.lstrip("@")
@@ -127,33 +149,44 @@ class InstagramSwitchAccount:
         self.logger.info(f"🔀 Switching to @{target}")
         self._notify(f"Switching to @{target}")
 
-        # 0. Profile tab → Options menu
+        # 0. Profile tab
         if not self._logout._open_profile_tab():
             return SwitchResult(False, "Profile tab not found", "profile_tab_not_found")
+
+        # 1. DIRECT switch via the account switcher (NO logout): tap the @username at the top of
+        # the profile, then the target row. The clean, fast path when it's available.
+        detected: List[str] = []
+        if self._open_account_switcher():
+            detected = self._list_accounts_on_screen()
+            self.logger.info(f"📋 Switcher accounts: {detected}")
+            self._notify(f"{len(detected)} account(s) on this device")
+            if any(self._norm(a) == target for a in detected):
+                self._notify(f"Switching directly to @{target}…")
+                if self._select_account(target):
+                    time.sleep(3)
+                    if self._logged_in_now():
+                        self.logger.success(f"✅ Switched to @{target} (direct)")
+                        return SwitchResult(True, f"Switched to @{target}", switched_to=target,
+                                            detected_accounts=detected)
+                    if self._password_required():
+                        return SwitchResult(True, f"@{target} needs re-login (session not saved)",
+                                            switched_to=target, relogin_required=True,
+                                            detected_accounts=detected)
+            # Target absent or tap inconclusive → close the sheet and use the logout fallback.
+            try:
+                self.device.press("back")
+            except Exception:
+                pass
+            time.sleep(1)
+
+        # 2. LOG OUT fallback — open the options menu, then reuse the logout navigation + dialogs.
         if not self._logout._open_options_menu():
-            return SwitchResult(False, "Options menu not found", "options_menu_not_found")
-
-        # 1. DIRECT attempt: some IG versions list the connected accounts in the menu.
-        menu_accounts = self._list_accounts_on_screen()
-        if any(self._norm(a) == target for a in menu_accounts):
-            self.logger.info("➡️ Account list present in menu, trying a direct switch")
-            self._notify("Account list in menu, switching directly…")
-            if self._select_account(target):
-                time.sleep(3)
-                if self._logged_in_now():
-                    return SwitchResult(True, f"Switched to @{target}", switched_to=target,
-                                        detected_accounts=menu_accounts)
-                if self._password_required():
-                    return SwitchResult(True, f"@{target} needs re-login (session not saved)",
-                                        switched_to=target, relogin_required=True,
-                                        detected_accounts=menu_accounts)
-            # direct attempt inconclusive → fall through to the logout path
-
-        # 2. LOG OUT (the real path) — reuse the logout navigation + dialogs.
+            return SwitchResult(False, "Options menu not found", "options_menu_not_found",
+                                detected_accounts=detected)
         self._notify("Logging out of the current account…")
         if not self._logout._find_and_click_logout():
             return SwitchResult(False, "Log out button not found", "logout_button_not_found",
-                                detected_accounts=menu_accounts)
+                                detected_accounts=detected)
         self._logout._confirm_logout()
         time.sleep(3)
 
@@ -184,6 +217,28 @@ class InstagramSwitchAccount:
         self.logger.success(f"✅ Switched to @{target}")
         return SwitchResult(True, f"Switched to @{target}", switched_to=target,
                             detected_accounts=picker_accounts)
+
+    def list_accounts(self) -> List[str]:
+        """List the Instagram accounts logged in on the device, WITHOUT logging out.
+
+        Opens the account switcher (profile @username → sheet) and enumerates the rows.
+        Best-effort: returns [] if the switcher can't be opened.
+        """
+        self.logger.info("📋 Listing connected accounts")
+        self._notify("Reading connected accounts…")
+        if not self._logout._open_profile_tab():
+            return []
+        if not self._open_account_switcher():
+            self.logger.info("ℹ️ Account switcher not available on this profile")
+            return []
+        accounts = self._list_accounts_on_screen()
+        self.logger.info(f"📋 {len(accounts)} connected account(s): {accounts}")
+        # Leave the UI clean (close the switcher sheet).
+        try:
+            self.device.press("back")
+        except Exception:
+            pass
+        return accounts
 
     def _ensure_on_picker(self) -> bool:
         """After logout, make sure we land on the account picker.
