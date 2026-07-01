@@ -40,6 +40,18 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return base
 
+    @staticmethod
+    def _list_scroll_ratio(scale: float) -> float:
+        """Varied vertical LIST-scroll distance. The controlled-scroll path clamps the travel to the
+        engine cap (~0.34 of screen height), so a fixed ratio produced an identical distance every
+        call (a fixed-distance fingerprint). Sample a per-call value in the 0.28-0.34 band (kept at/
+        below the cap so it is NOT clamped to a constant) → varied distance, max unchanged vs before,
+        never longer (no new overshoot risk). Scaled by `scale`."""
+        try:
+            return round(min(max(random.uniform(0.28, 0.34) * (float(scale) / 0.8), 0.18), 0.34), 3)
+        except Exception:
+            return 0.31
+
     def swipe_up(self, scale: float = 0.8, coast: bool = False):
         """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
         reveals the NEXT content = page 'down'.
@@ -51,7 +63,7 @@ class DeviceFacade(BaseDeviceFacade):
         if coast:
             self.human_scroll("down", coast=True)
         else:
-            self.human_scroll("down", distance_ratio=self._scaled_ratio(scale, 0.65))
+            self.human_scroll("down", distance_ratio=self._list_scroll_ratio(scale))
 
     def swipe_down(self, scale: float = 0.8, coast: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.
@@ -59,7 +71,7 @@ class DeviceFacade(BaseDeviceFacade):
         if coast:
             self.human_scroll("up", coast=True)
         else:
-            self.human_scroll("up", distance_ratio=self._scaled_ratio(scale, 0.60))
+            self.human_scroll("up", distance_ratio=self._list_scroll_ratio(scale))
 
     def swipe_left(self, scale: float = 0.8):
         """Reveal the NEXT horizontal slide — humanized. Finger moves left."""
