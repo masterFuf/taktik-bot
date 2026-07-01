@@ -178,13 +178,15 @@ class BaseAction(SharedBaseAction):
         self._human_like_delay('scroll')
     
     def _swipe_to_next_video(self):
-        """Swipe to next video (TikTok specific)."""
-        self.device.swipe_up(scale=0.8)
+        """Swipe to next video (TikTok specific) — a real FLING. The For You feed is a snapping
+        pager, so a fling advances exactly one video with varied distance/velocity (natural, no
+        fixed-distance fingerprint)."""
+        self.device.swipe_up(scale=0.8, coast=True)
         self._human_like_delay('scroll')
-    
+
     def _swipe_to_previous_video(self):
-        """Swipe to previous video (TikTok specific)."""
-        self.device.swipe_down(scale=0.8)
+        """Swipe to previous video (TikTok specific) — a real fling (snaps to the previous video)."""
+        self.device.swipe_down(scale=0.8, coast=True)
         self._human_like_delay('scroll')
     
     def _double_tap_to_like(self):

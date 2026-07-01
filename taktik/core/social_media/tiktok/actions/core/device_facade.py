@@ -40,14 +40,26 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return base
 
-    def swipe_up(self, scale: float = 0.8):
+    def swipe_up(self, scale: float = 0.8, coast: bool = False):
         """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
-        reveals the NEXT content = page 'down'. Was ~65% of screen height; preserved via the ratio."""
-        self.human_scroll("down", distance_ratio=self._scaled_ratio(scale, 0.65))
+        reveals the NEXT content = page 'down'.
 
-    def swipe_down(self, scale: float = 0.8):
-        """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'."""
-        self.human_scroll("up", distance_ratio=self._scaled_ratio(scale, 0.60))
+        `coast=True` fires a REAL fling (sampled distance + velocity) — the natural gesture for the
+        video FEED, whose pager snaps to the next video regardless of strength, so distance/velocity
+        vary (no fixed-distance fingerprint) and it never advances two. `coast=False` (default) is a
+        controlled scroll for LISTS (followers/search/scraping/DM), where a fling would overshoot."""
+        if coast:
+            self.human_scroll("down", coast=True)
+        else:
+            self.human_scroll("down", distance_ratio=self._scaled_ratio(scale, 0.65))
+
+    def swipe_down(self, scale: float = 0.8, coast: bool = False):
+        """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.
+        `coast=True` flings (video feed, snaps to previous); `coast=False` is a controlled list scroll."""
+        if coast:
+            self.human_scroll("up", coast=True)
+        else:
+            self.human_scroll("up", distance_ratio=self._scaled_ratio(scale, 0.60))
 
     def swipe_left(self, scale: float = 0.8):
         """Reveal the NEXT horizontal slide — humanized. Finger moves left."""
