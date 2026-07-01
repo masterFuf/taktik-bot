@@ -62,12 +62,15 @@ class InstagramLogout:
     def _element_exists(self, selectors: list) -> bool:
         return self._find_element(selectors) is not None
 
-    def _scroll_down(self, times: int = 1) -> None:
-        """Scroll down in the current scrollable view (humanized controlled scroll)."""
+    def _scroll_down(self, times: int = 1, coast: bool = False, distance_ratio: float = 0.5) -> None:
+        """Scroll down in the current scrollable view (humanized). `coast=True` FLINGS with momentum
+        (the content coasts far past the finger lift), `coast=False` is a precise 1:1 controlled
+        scroll. Use a fling to reach a target at the very bottom of a long menu without dozens of
+        small scrolls (Kevin: 'un scroll avec énormément d'élan')."""
         for _ in range(times):
             try:
-                human_scroll_raw(self.device, "down", distance_ratio=0.5)
-                time.sleep(0.6)
+                human_scroll_raw(self.device, "down", distance_ratio=distance_ratio, coast=coast)
+                time.sleep(1.0 if coast else 0.6)  # let a fling fully settle before reading the UI
             except Exception as exc:
                 self.logger.warning(f"⚠️ Swipe failed: {exc}")
                 break
@@ -90,14 +93,18 @@ class InstagramLogout:
         return True
 
     def _find_and_click_logout(self, max_scrolls: int = 8) -> bool:
-        """Scroll until the Log out button is visible, then click it."""
-        self.logger.info("🔎 Looking for 'Log out' button (scrolling)...")
+        """Scroll until the Log out button is visible, then click it. 'Log out' sits at the very
+        BOTTOM of Instagram's long 'Settings and activity' menu, so we FLING with momentum (coast)
+        to blow past it quickly — small controlled scrolls never reach it on a long menu (device QA:
+        8 half-screen scrolls timed out without reaching the button)."""
+        self.logger.info("🔎 Looking for 'Log out' button (flinging to the bottom)...")
         for attempt in range(max_scrolls + 1):
             if self._element_exists(self.auth_selectors.logout_button):
                 if self._click_first_match(self.auth_selectors.logout_button, "Log out"):
                     return True
             if attempt < max_scrolls:
-                self._scroll_down(1)
+                # Big momentum flings so the content coasts far — reaches the bottom in a few gestures.
+                self._scroll_down(1, coast=True, distance_ratio=0.9)
         self.logger.error("❌ 'Log out' button not found after scrolling")
         return False
 
