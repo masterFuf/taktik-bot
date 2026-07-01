@@ -562,7 +562,8 @@ class DMActions(BaseAction):
                         
                         if elem_clean == name_clean or name_clean in elem_clean or elem_clean in name_clean:
                             self.logger.debug(f"Found matching conversation at index {i}")
-                            elem.click()
+                            if not self._human_tap_bounds(elem):
+                                elem.click()
                             time.sleep(1)
                             return self.is_in_conversation()
                     except Exception as e:

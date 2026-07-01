@@ -44,7 +44,8 @@ class StoryHandlingMixin:
                 elem = self.device.xpath(selector)
                 if elem.exists:
                     self.logger.debug("Clicking username to go to profile from story")
-                    elem.click()
+                    if not self._human_tap_element(elem):
+                        elem.click()
                     time.sleep(1.5)  # Wait for profile to load
                     
                     # Verify we're now on the profile
@@ -57,7 +58,8 @@ class StoryHandlingMixin:
             self.logger.debug("Username click didn't work, closing story...")
             close_btn = self.device.xpath(PROFILE_SELECTORS.story_close_button[0])
             if close_btn.exists:
-                close_btn.click()
+                if not self._human_tap_element(close_btn):
+                    close_btn.click()
                 time.sleep(1.0)
             else:
                 # Last resort: press back
@@ -77,7 +79,8 @@ class StoryHandlingMixin:
             for selector in self.video_selectors.like_button_unliked:
                 elem = self.device.xpath(selector)
                 if elem.exists:
-                    elem.click()
+                    if not self._human_tap_element(elem):
+                        elem.click()
                     self.logger.info("❤️ Liked story")
                     self._human_delay()
                     return True

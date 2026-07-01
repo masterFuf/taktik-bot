@@ -300,7 +300,8 @@ class ScrapingWorkflow:
         """Click a username element, enrich the profile dict, then go back."""
         try:
             self._emit_status("enriching", f"Enriching @{username}")
-            elem.click()
+            if not self._base._human_tap_bounds(elem):
+                elem.click()
             time.sleep(3.5)
 
             enriched = extract_profile_from_screen(raw_device, username)

@@ -107,8 +107,9 @@ class UnfollowWorkflow:
                         logger.info(f"⏭️ Skipped friend: @{username or 'unknown'}")
                         continue
 
-                    # Click the button → unfollow
-                    elem.click()
+                    # Click the button → unfollow (humanized tap; centre-click fallback)
+                    if not self._base._human_tap_bounds(elem):
+                        elem.click()
                     time.sleep(1)
 
                     # Handle confirmation dialog
