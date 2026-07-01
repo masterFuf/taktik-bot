@@ -97,7 +97,10 @@ class GestureMixin:
                                    dist_cap_h=0.45)
             (sx, sy), (ex, ey) = path[0], path[-1]
             dy = abs(ey - sy) or 1
-            duration = min(max(dy / random.uniform(*vel_range), 0.045), 0.10)
+            # Randomise the FLOOR so short flicks aren't all clamped to an identical 45ms — on a
+            # video feed most flicks are short, so a hard floor makes the duration a constant
+            # fingerprint. 45-75ms stays a decisive fling (high velocity into the lift).
+            duration = min(max(dy / random.uniform(*vel_range), random.uniform(0.045, 0.075)), 0.11)
             raw = getattr(self.device, "_device", None)
             if raw is not None and hasattr(raw, "swipe"):
                 raw.swipe(sx, sy, ex, ey, duration=duration)
