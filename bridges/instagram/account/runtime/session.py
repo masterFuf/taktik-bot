@@ -32,15 +32,22 @@ class AccountSessionLifecycleMixin:
             send_error("Device object unavailable after connection")
             return None
 
-        send_status("initializing", "Restarting Instagram...")
         app_service = AppService(
             self._connection,
             platform="instagram",
             package_override=self.package_name,
         )
-        # Clean restart (force-stop + launch) for a consistent initial state — every bridge starts
-        # the app the same way, so we never resume on whatever screen a previous session left.
-        app_service.restart()
-        time.sleep(2)
+        # Account switch / list act on Instagram's current account-picker (or home) state. A cold
+        # force-restart there is wasteful — it just lands us back on the same picker. So when IG is
+        # ALREADY in the foreground, keep the current screen (the workflow detects the picker or
+        # navigates); only fall back to a clean restart when it isn't showing. Every other account
+        # flow (login/register/logout/change_language) keeps the clean restart for a known state.
+        if self.workflow_type in ("switch_account", "list_accounts") and app_service.is_running():
+            send_status("initializing", "Instagram already open — using the current screen")
+            time.sleep(1)
+        else:
+            send_status("initializing", "Restarting Instagram...")
+            app_service.restart()
+            time.sleep(2)
 
         return device

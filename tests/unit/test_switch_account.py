@@ -68,6 +68,21 @@ def test_enumerate_accounts_no_dump_is_empty():
     assert InstagramSwitchAccount(_NoDump(), "d")._list_accounts_on_screen() == []
 
 
+def test_enumerate_accounts_drops_android_navbar_buttons():
+    # The status/nav bar (com.android.systemui) leaks "Back"/"Home" ("Retour"/"Accueil") into the
+    # dump — they must never count as accounts (device-side: "Accueil" was listed as an account).
+    xml = (
+        '<hierarchy rotation="0">'
+        '<node class="android.widget.ImageView" clickable="true" package="com.android.systemui" content-desc="Retour" />'
+        '<node class="android.widget.ImageView" clickable="true" package="com.android.systemui" content-desc="Accueil" />'
+        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="sandra.lelit,  New notifications" />'
+        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="erika.spahn,  New notifications" />'
+        '</hierarchy>'
+    )
+    switcher = InstagramSwitchAccount(_FakeDevice(xml), "device-1")
+    assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+
+
 def test_username_normalisation():
     assert InstagramSwitchAccount._norm("@Sandra.Lelit ") == "sandra.lelit"
     assert InstagramSwitchAccount._norm("  ErIkA.spahn") == "erika.spahn"

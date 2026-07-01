@@ -495,10 +495,10 @@ class AuthSelectors:
     # Libelles a EXCLURE de l'enumeration des comptes (boutons du picker/menu, multilingue).
     account_row_exclude_labels: List[str] = field(default_factory=lambda: [
         'Use another profile', 'Utiliser un autre profil',
-        'Create account', 'Créer un compte',
+        'Create account', 'Créer un compte', 'Create new account', 'Créer un nouveau compte',
         'Add account', 'Ajouter un compte',
         'Settings', 'Paramètres', 'Options', 'Back', 'Retour',
-        'Log out', 'Se déconnecter',
+        'Home', 'Accueil', 'Log out', 'Se déconnecter',
     ])
 
 AUTH_SELECTORS = AuthSelectors()

@@ -101,6 +101,10 @@ class InstagramSwitchAccount:
             chunk = node.group(0)
             if 'clickable="true"' not in chunk:
                 continue
+            # Skip the Android system UI (status bar / nav bar: "Back", "Home"/"Accueil"…) — only
+            # Instagram's own nodes can be account rows.
+            if re.search(r'package="(?:com\.android\.|android)', chunk):
+                continue
             match = re.search(r'content-desc="([^"]*)"', chunk)
             if not match:
                 continue
