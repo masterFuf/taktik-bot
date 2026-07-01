@@ -16,6 +16,7 @@ The bot only switches between accounts ALREADY connected on the device; connecti
 a brand-new account is the Login flow's job.
 """
 
+import html
 import re
 import time
 from typing import Callable, List, Optional
@@ -78,51 +79,73 @@ class InstagramSwitchAccount:
             or self._element_exists(self.auth.login_screen_indicators)
         )
 
-    def _list_accounts_on_screen(self) -> List[str]:
-        """Enumerate the connected-account rows visible on screen (picker or menu).
+    def _dump_xml(self) -> str:
+        """Raw UI hierarchy XML. Tolerant to the device being a facade (`_device`/`device`)."""
+        device = self.device
+        for target in (device, getattr(device, "_device", None), getattr(device, "device", None)):
+            fn = getattr(target, "dump_hierarchy", None) if target is not None else None
+            if callable(fn):
+                try:
+                    return fn() or ""
+                except Exception:
+                    continue
+        return ""
 
-        Each row is a clickable ViewGroup whose content-desc is the username (sometimes
-        suffixed with ",  New notifications"). The non-account buttons are filtered out.
+    def _list_accounts_on_screen(self) -> List[str]:
+        """Enumerate the connected-account rows visible on screen (switcher sheet / picker).
+
+        Each row is a clickable node whose content-desc is the username (sometimes suffixed with
+        ",  New notifications"). Parsed from the raw hierarchy XML — more reliable than
+        xpath+attrib for these unlabelled ViewGroups (device-side: xpath returned nothing while the
+        rows were clearly present). Non-account buttons and the profile stats that leak behind the
+        sheet are filtered out.
         """
+        xml = self._dump_xml()
+        if not xml:
+            return []
         exclude = {label.lower() for label in self.auth.account_row_exclude_labels}
         found: List[str] = []
         seen = set()
-        for selector in self.auth.account_row_candidates:
-            try:
-                elements = self.device.xpath(selector).all()
-            except Exception:
+        for node in re.finditer(r"<node\b[^>]*>", xml):
+            chunk = node.group(0)
+            if 'clickable="true"' not in chunk:
                 continue
-            for element in elements:
-                try:
-                    desc = (element.attrib.get("content-desc", "") or "").strip()
-                except Exception:
-                    continue
-                if not desc:
-                    continue
-                # Drop a trailing ",  New notifications" / ", Nouvelles notifications".
-                name = desc.split(",")[0].strip()
-                low = name.lower()
-                if not name or low in exclude or low in seen:
-                    continue
-                # A username has no spaces (handles use letters/digits/._ only) and is never a
-                # profile stat ("36followers") or a story label ("x's story").
-                if " " in name or "'s story" in low or _STAT_RE.match(name):
-                    continue
-                seen.add(low)
-                found.append(name)
+            match = re.search(r'content-desc="([^"]*)"', chunk)
+            if not match:
+                continue
+            desc = html.unescape(match.group(1)).strip()
+            if not desc:
+                continue
+            # Drop a trailing ",  New notifications" / ", Nouvelles notifications".
+            name = desc.split(",")[0].strip()
+            low = name.lower()
+            if not name or low in exclude or low in seen:
+                continue
+            # A username has no spaces (handles use letters/digits/._ only) and is never a
+            # profile stat ("36followers") or a story label ("x's story").
+            if " " in name or "'s story" in low or _STAT_RE.match(name):
+                continue
+            seen.add(low)
+            found.append(name)
         return found
+
+    def _switcher_is_open(self) -> bool:
+        """The account switcher sheet / picker is open (shows the "Use another profile" button)."""
+        return self._element_exists(self.auth.account_picker_indicators)
 
     def _open_account_switcher(self) -> bool:
         """Open the account switcher WITHOUT logging out: tap the @username (+ chevron) at the top
-        of the Profile page. Returns True once account rows are visible."""
+        of the Profile page. Returns True once the sheet (or its rows) is visible."""
         if not self._click_first_match(self.auth.profile_username_switcher_button, "account switcher"):
             return False
-        # The switcher sheet slides in; wait for at least one account row to appear.
-        for _ in range(6):
-            time.sleep(0.5)
-            if self._list_accounts_on_screen():
+        # The switcher sheet slides in from the bottom; give it time, then confirm it's open
+        # (the "Use another profile" button is the most reliable signal).
+        time.sleep(1.2)
+        for _ in range(8):
+            if self._switcher_is_open() or self._list_accounts_on_screen():
                 return True
-        return bool(self._list_accounts_on_screen())
+            time.sleep(0.5)
+        return self._switcher_is_open()
 
     def _select_account(self, target: str) -> bool:
         clean = target.lstrip("@")

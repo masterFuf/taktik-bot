@@ -1,71 +1,71 @@
 """Unit tests for the Instagram account-switch enumeration logic (no device needed).
 
 Covers the pure parts of `InstagramSwitchAccount`: enumerating the connected-account
-rows from the picker (filtering the non-account buttons, stripping the trailing
-",  New notifications" suffix, de-duplicating) and username normalisation.
+rows from the raw hierarchy XML (filtering the non-account buttons, the profile stats
+that leak behind the switcher sheet, and story labels; stripping the trailing
+",  New notifications" suffix; de-duplicating) and username normalisation.
 """
 
 from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
 
 
-class _FakeElement:
-    def __init__(self, content_desc):
-        self.attrib = {"content-desc": content_desc}
-
-
-class _FakeXpath:
-    def __init__(self, elements):
-        self._elements = elements
-
-    def all(self):
-        return self._elements
+def _dump(*content_descs: str) -> str:
+    """Build a minimal uiautomator hierarchy with one clickable node per content-desc."""
+    nodes = "".join(
+        f'<node index="0" class="android.view.ViewGroup" clickable="true" content-desc="{d}" />'
+        for d in content_descs
+    )
+    return f'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">{nodes}</hierarchy>'
 
 
 class _FakeDevice:
-    """Returns the same fake elements for any xpath query."""
+    """Device stub exposing only dump_hierarchy(), like the real uiautomator2 device."""
 
-    def __init__(self, elements):
-        self._elements = elements
+    def __init__(self, xml: str):
+        self._xml = xml
 
-    def xpath(self, _selector):
-        return _FakeXpath(self._elements)
+    def dump_hierarchy(self):
+        return self._xml
 
 
-def _switcher(elements):
-    return InstagramSwitchAccount(_FakeDevice(elements), "device-1")
+def _switcher(*content_descs: str) -> InstagramSwitchAccount:
+    return InstagramSwitchAccount(_FakeDevice(_dump(*content_descs)), "device-1")
 
 
 def test_enumerate_accounts_filters_buttons_and_strips_suffix():
-    elements = [
-        _FakeElement("sandra.lelit"),
-        _FakeElement("erika.spahn,  Nouvelles notifications"),
-        _FakeElement("Use another profile"),      # picker button → excluded
-        _FakeElement("Créer un compte"),           # picker button → excluded
-        _FakeElement("Add account"),               # menu button → excluded
-        _FakeElement(""),                          # empty → ignored
-        _FakeElement("Some Person Name"),          # has spaces → not a username
-        _FakeElement("sandra.lelit"),              # duplicate → collapsed
-    ]
-    accounts = _switcher(elements)._list_accounts_on_screen()
-    assert accounts == ["sandra.lelit", "erika.spahn"]
+    switcher = _switcher(
+        "sandra.lelit",
+        "erika.spahn,  New notifications",
+        "Use another profile",   # picker button → excluded
+        "Create new account",    # picker button → excluded
+        "Add account",           # menu button → excluded
+        "Some Person Name",      # has spaces → not a username
+        "sandra.lelit",          # duplicate → collapsed
+    )
+    assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
 
 
 def test_enumerate_accounts_empty_when_no_rows():
-    elements = [_FakeElement("Use another profile"), _FakeElement("Log out")]
-    assert _switcher(elements)._list_accounts_on_screen() == []
+    assert _switcher("Use another profile", "Log out")._list_accounts_on_screen() == []
 
 
 def test_enumerate_accounts_drops_profile_stats_and_story_labels():
     # The switcher sheet overlays the profile: header stats + story buttons leak into the dump.
-    elements = [
-        _FakeElement("sandra.lelit"),
-        _FakeElement("1posts"),
-        _FakeElement("36followers"),
-        _FakeElement("91following"),
-        _FakeElement("sandra.lelit's story, 0 of 27, Unseen"),
-        _FakeElement("erika.spahn"),
-    ]
-    assert _switcher(elements)._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+    switcher = _switcher(
+        "sandra.lelit",
+        "1posts",
+        "36followers",
+        "91following",
+        "sandra.lelit's story, 0 of 27, Unseen",
+        "erika.spahn",
+    )
+    assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+
+
+def test_enumerate_accounts_no_dump_is_empty():
+    class _NoDump:
+        pass
+    assert InstagramSwitchAccount(_NoDump(), "d")._list_accounts_on_screen() == []
 
 
 def test_username_normalisation():
