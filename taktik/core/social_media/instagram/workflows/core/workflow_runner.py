@@ -155,19 +155,23 @@ class WorkflowRunner:
             'filter_criteria': action.get('filters', {})
         }
         
-        # Utiliser le NotificationsBusiness si disponible
-        if hasattr(self.automation, 'notifications_business'):
-            result = self.automation.notifications_business.interact_with_notifications(config)
-        else:
-            # Créer une instance temporaire
-            from ..actions.business.workflows.notifications import NotificationsBusiness
-            notifications_business = NotificationsBusiness(
-                self.automation.device,
-                self.automation.session_manager,
-                self.automation
-            )
-            result = notifications_business.interact_with_notifications(config)
-        
+        # Absolute import, like the feed branch below. The relative form used here was
+        # `..actions...`, which resolves to `workflows.actions` — a package that does not
+        # exist (the business actions live under `instagram.actions`). The resulting
+        # ModuleNotFoundError was swallowed by run_workflow_step's except, so a scheduled
+        # Notifications node logged an error and did nothing at all.
+        from taktik.core.social_media.instagram.actions.business.workflows.notifications import (
+            NotificationsBusiness,
+        )
+
+        notifications_business = NotificationsBusiness(
+            self.automation.device,
+            self.automation.session_manager,
+            self.automation
+        )
+        result = notifications_business.interact_with_notifications(config)
+
+
         # Mettre à jour les stats
         self.automation.stats['likes'] += result.get('likes_made', 0)
         self.automation.stats['follows'] += result.get('follows_made', 0)

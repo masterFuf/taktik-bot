@@ -76,5 +76,19 @@ class PlatformBridgeBase:
             )
         self._app.restart()
 
+    def stop(self) -> bool:
+        """Force-stop the app — the counterpart of `restart()` for a finished run.
+
+        Best-effort: a bridge that has finished its work should leave the phone on a
+        clean screen, but failing to close the app must never turn a successful run
+        into an error. Returns False when not connected or when the stop failed.
+        """
+        if self._app is None:
+            return False
+        try:
+            return bool(self._app.stop())
+        except Exception:  # noqa: BLE001 — closing the app is never worth failing a run
+            return False
+
 
 __all__ = ["PlatformBridgeBase"]

@@ -24,7 +24,14 @@ def _connect(device_id: str, package_name: str = None, *, restart: bool = True) 
 
 
 def cmd_scan(device_id: str, limit: int, account_username: str = None, package_name: str = None) -> None:
-    """Read + classify the activity feed (all notification families)."""
+    """Read + classify the activity feed (all notification families).
+
+    The scan is a complete run: it force-restarts Instagram to a known state at the
+    start, so it also CLOSES it at the end rather than leaving the app open on the
+    activity screen. Per-row actions triggered afterwards (accept / ignore / reply /
+    like) self-heal through the workflow's relauncher, which is explicitly designed
+    for "Instagram drifted elsewhere or was closed since the scan".
+    """
     bridge = _connect(device_id, package_name, restart=True)
     # `limit` is interpreted as how many extra screens to scroll (0 = visible only).
     workflow = bridge.build_workflow()
@@ -53,6 +60,9 @@ def cmd_scan(device_id: str, limit: int, account_username: str = None, package_n
                                 message=f"{new_count} new notification(s)", new_count=new_count)
     except Exception as exc:  # never break the scan on persistence
         logger.warning(f"notifications persistence skipped: {exc}")
+
+    # Leave the phone clean: the scan opened Instagram, the scan closes it.
+    bridge.stop()
 
     # Terminal narration: closes the live notifications card in the Agent panel.
     emit_notif_step(step="session_end", status="done", message="Notifications session complete")
