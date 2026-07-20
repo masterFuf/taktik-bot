@@ -34,9 +34,11 @@ class WorkflowRunner:
             elif action_type == 'post_url':
                 return self._run_post_url_workflow(action)
 
-            elif action_type == 'notifications':
-                return self._run_notifications_workflow(action)
-            
+            # NOTE: there is no 'notifications' action here. Reading the activity feed is owned
+            # by the notifications ENGAGEMENT bridge (`notifications_bridge`, the one the desktop
+            # Notifications page and the scheduler node drive) — a single implementation, which
+            # also handles persistence, dedup and closing Instagram. The legacy duplicate that
+            # lived here treated notifications as just another profile source.
             elif action_type == 'unfollow':
                 return self._run_unfollow_workflow(action)
             
@@ -141,44 +143,6 @@ class WorkflowRunner:
         
         # Return True only if we actually interacted with users
         return result.get('users_interacted', 0) > 0
-    
-    def _run_notifications_workflow(self, action: Dict[str, Any]) -> bool:
-        """Run the notifications workflow."""
-        config = {
-            'max_interactions': action.get('max_interactions', 20),
-            'like_percentage': action.get('like_percentage', 70),
-            'follow_percentage': action.get('follow_percentage', 15),
-            'comment_percentage': action.get('comment_percentage', 5),
-            'story_watch_percentage': action.get('story_watch_percentage', 10),
-            'max_likes_per_profile': action.get('max_likes_per_profile', 3),
-            'notification_types': action.get('notification_types', ['likes', 'follows', 'comments']),
-            'filter_criteria': action.get('filters', {})
-        }
-        
-        # Absolute import, like the feed branch below. The relative form used here was
-        # `..actions...`, which resolves to `workflows.actions` — a package that does not
-        # exist (the business actions live under `instagram.actions`). The resulting
-        # ModuleNotFoundError was swallowed by run_workflow_step's except, so a scheduled
-        # Notifications node logged an error and did nothing at all.
-        from taktik.core.social_media.instagram.actions.business.workflows.notifications import (
-            NotificationsBusiness,
-        )
-
-        notifications_business = NotificationsBusiness(
-            self.automation.device,
-            self.automation.session_manager,
-            self.automation
-        )
-        result = notifications_business.interact_with_notifications(config)
-
-
-        # Mettre à jour les stats
-        self.automation.stats['likes'] += result.get('likes_made', 0)
-        self.automation.stats['follows'] += result.get('follows_made', 0)
-        self.automation.stats['comments'] += result.get('comments_made', 0)
-        self.automation.stats['interactions'] += result.get('users_interacted', 0)
-        
-        return result.get('success', False)
     
     def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the unfollow workflow.

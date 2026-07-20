@@ -86,15 +86,6 @@ def _build_action_config(
             "browse_carousels": feed_config.get("browseCarousels", True),
         }
 
-    if action_type == "notifications":
-        return {
-            "type": "notifications",
-            "max_interactions": max_profiles,
-            "like_percentage": like_percentage,
-            "follow_percentage": follow_percentage,
-            "comment_percentage": comment_percentage,
-        }
-
     action_config: Dict[str, Any] = {
         "type": action_type,
         "target_username": primary_target if action_type == "interact_with_followers" else None,
@@ -252,9 +243,13 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
         action_type = "feed"
         session_workflow_type = "feed"
     elif workflow_type == "notifications":
-        interaction_type = "notifications"
-        action_type = "notifications"
-        session_workflow_type = "notifications"
+        # Reading the activity feed belongs to the notifications ENGAGEMENT bridge, which owns
+        # the only implementation (and its persistence / dedup / app lifecycle). Falling through
+        # to the default below would silently turn "read my notifications" into a FOLLOWER
+        # interaction run, so this is a hard error instead.
+        raise ValueError(
+            "workflowType 'notifications' is served by notifications_bridge, not desktop_bridge"
+        )
     else:
         interaction_type = "followers"
         action_type = "interact_with_followers"
