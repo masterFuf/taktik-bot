@@ -48,6 +48,39 @@ def _platform_label(platform: str) -> str:
     return _PLATFORM_LABELS.get((platform or "instagram").lower(), (platform or "Instagram").title())
 
 
+def parse_json_response(text: str) -> Any:
+    """Parse a model answer that is supposed to be JSON, tolerating markdown fences.
+
+    Models wrap JSON in ```json ... ``` about half the time. The three call sites that
+    needed this each carried their own `text.split("```")[1]`, which breaks on the one
+    input that matters: a response cut off mid-answer opens the fence and never closes it,
+    so the split yields a fragment and the failure surfaces as a confusing IndexError or
+    "Unterminated string". Observed in production on a profile classification whose whole
+    answer was ``` ```json\\n{\\n  "n ``` — the profile silently lost its AI qualification.
+
+    Raises ValueError when the text does not contain usable JSON, so every caller reports
+    the same way. Never raises IndexError.
+    """
+    if not text or not text.strip():
+        raise ValueError("empty response")
+
+    candidate = text.strip()
+    if "```" in candidate:
+        # Take what follows the FIRST fence; the closing one may be missing (truncation).
+        after_open = candidate.split("```", 1)[1]
+        if after_open.lower().startswith("json"):
+            after_open = after_open[4:]
+        candidate = after_open.split("```", 1)[0].strip()
+
+    if not candidate:
+        raise ValueError("no JSON payload in response")
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON: {exc}") from exc
+
+
 def _build_style_block(who: str, samples: Any, max_samples: int = 12, max_len: int = 240) -> str:
     """Few-shot writing-style block: real examples of how the operated account writes.
 
@@ -134,6 +167,16 @@ class AIService:
                 usage = data.get("usage", {})
                 # OpenRouter returns cost in usage.cost (not usage.total_cost)
                 cost = usage.get("cost") or usage.get("total_cost")
+                finish_reason = choice.get("finish_reason")
+                # `finish_reason` used to be dropped here, which is why an upstream cut-off
+                # surfaced downstream as a bare "JSON parse error" with no way to tell a
+                # truncated answer from a malformed one. Keep it (plus the token split) so a
+                # failure says what actually happened.
+                if finish_reason == "length":
+                    logger.warning(
+                        f"[AIService] {model} hit the {max_tokens}-token ceiling "
+                        f"(completion={usage.get('completion_tokens')}); response is truncated"
+                    )
                 return {
                     "success": True,
                     "text": text.strip(),
@@ -141,6 +184,7 @@ class AIService:
                     "provider": "openrouter",
                     "usage": usage,
                     "cost_usd": cost,
+                    "finish_reason": finish_reason,
                 }
         except urllib.error.HTTPError as e:
             error_body = ""
@@ -326,17 +370,10 @@ class AIService:
                     logger.warning(f"[AIService] classify_following_usernames_batch failed: {result.get('error')}")
                     continue
                 text = result["text"].strip()
-                # Strip markdown fences if present
-                if "```" in text:
-                    parts = text.split("```")
-                    text = parts[1] if len(parts) > 1 else text
-                    if text.startswith("json"):
-                        text = text[4:]
-                    text = text.strip()
-                batch_result = json.loads(text)
+                batch_result = parse_json_response(text)
                 for username, data in batch_result.items():
                     _ingest(username, data)
-            except (json.JSONDecodeError, Exception) as e:
+            except Exception as e:
                 # A truncated/malformed batch used to be dropped whole. Salvage every COMPLETE
                 # "username": {...} entry so a cut-off tail loses only its last (partial) item.
                 salvaged = self._salvage_batch_entries(text)
@@ -371,6 +408,45 @@ class AIService:
             ]},
         ]
         return self._call_openrouter(self.vision_model, messages, temperature, max_tokens)
+
+    def vision_json_completion(self, system_prompt: str, user_prompt: str, image_path: str,
+                               temperature: float = 0.3, max_tokens: int = 1500,
+                               label: str = "vision") -> Dict[str, Any]:
+        """Vision completion whose answer must be JSON — retried once if it comes back unusable.
+
+        Upstream truncation is rare but real: replaying the exact production call 9 times in a
+        row returned clean JSON every time (~230-390 completion tokens against a 1100 ceiling),
+        yet a live run got a completion cut after four characters. A single retry therefore
+        recovers it with very high probability, and costs nothing on the normal path.
+
+        Returns the usual completion dict plus `payload` (the parsed JSON) on success, or
+        success=False with `error`/`raw` when both attempts failed to parse.
+        """
+        last: Dict[str, Any] = {}
+        for attempt in (1, 2):
+            last = self.vision_completion(system_prompt, user_prompt, image_path,
+                                          temperature=temperature, max_tokens=max_tokens)
+            if not last.get("success"):
+                return last  # transport/HTTP failure: retrying here would just double the wait
+
+            try:
+                last["payload"] = parse_json_response(last.get("text", ""))
+                return last
+            except ValueError as exc:
+                finish = last.get("finish_reason")
+                if attempt == 1:
+                    logger.warning(
+                        f"[AIService] {label}: unusable answer ({exc}; finish_reason={finish}) — retrying once"
+                    )
+                    continue
+                logger.warning(f"[AIService] {label}: unusable answer after retry ({exc}; finish_reason={finish})")
+                return {
+                    "success": False,
+                    "error": f"JSON parse error: {exc}",
+                    "raw": last.get("text", ""),
+                    "finish_reason": finish,
+                }
+        return last
 
     def _extract_partial_classification(self, text: str) -> Optional[Dict[str, Any]]:
         """Fallback parser: extract key fields from a truncated/malformed JSON string."""
@@ -736,8 +812,10 @@ class AIService:
             f"{'─' * 60}\n{user_prompt}\n{'─' * 60}"
         )
 
-        result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
-                                        temperature=0.2, max_tokens=1100 if include_engagement else 900)
+        result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
+                                             temperature=0.2,
+                                             max_tokens=1100 if include_engagement else 900,
+                                             label=f"classify_profile_niche @{username}")
         duration_ms = int((time.time() - t0) * 1000)
 
         logger.debug(
@@ -745,29 +823,21 @@ class AIService:
             f"{'─' * 60}\n{result.get('text', '(no text)')}\n{'─' * 60}"
         )
 
-        if not result["success"]:
-            if self.ipc:
-                self.ipc.ai_error(result.get("error", "Classification failed"), username)
-            return result
-
-        try:
-            text = result["text"]
-            if "```" in text:
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-                text = text.strip()
-            classification = json.loads(text)
-        except (json.JSONDecodeError, IndexError) as e:
-            # Fallback: extract key fields via regex when JSON is truncated mid-string
-            classification = self._extract_partial_classification(result["text"])
+        classification = result.get("payload")
+        if not result["success"] or classification is None:
+            # Both attempts came back unusable. Salvage whatever fields survived a partial
+            # answer before giving up — a truncated classification still often carries the
+            # niche, which is most of the value.
+            classification = self._extract_partial_classification(result.get("raw") or result.get("text") or "")
             if classification:
-                logger.warning(f"[AIService] classify_profile_niche used partial extraction after: {e}")
+                logger.warning(
+                    f"[AIService] classify_profile_niche @{username} used partial extraction "
+                    f"after: {result.get('error')}"
+                )
             else:
-                logger.warning(f"[AIService] classify_profile_niche parse error: {e}")
                 if self.ipc:
-                    self.ipc.ai_error(f"JSON parse error: {e}", username)
-                return {"success": False, "error": f"JSON parse error: {e}", "raw": result["text"]}
+                    self.ipc.ai_error(result.get("error", "Classification failed"), username)
+                return result
 
         # Normalize the optional engagement verdict (defensive: coerce types, drop if unusable).
         if include_engagement:
@@ -857,30 +927,16 @@ class AIService:
         if account_username:
             user_prompt += f"\nScore relevance relative to the automation account @{account_username}."
 
-        result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
-                                        temperature=0.2, max_tokens=500)
+        result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
+                                             temperature=0.2, max_tokens=500,
+                                             label=f"analyze_profile_screenshot @{username}")
         duration_ms = int((time.time() - t0) * 1000)
 
-        if not result["success"]:
+        classification = result.get("payload")
+        if not result["success"] or classification is None:
             if self.ipc:
                 self.ipc.ai_error(result.get("error", "Classification failed"), username)
             return result
-
-        # Parse JSON from response
-        try:
-            text = result["text"]
-            # Strip markdown code fences if present
-            if "```" in text:
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-                text = text.strip()
-            classification = json.loads(text)
-        except (json.JSONDecodeError, IndexError) as e:
-            logger.warning(f"[AIService] Failed to parse classification JSON: {e}")
-            if self.ipc:
-                self.ipc.ai_error(f"JSON parse error: {e}", username)
-            return {"success": False, "error": f"JSON parse error: {e}", "raw": result["text"]}
 
         # Build result summary for AgentPanel
         niche = classification.get("niche", "?")
