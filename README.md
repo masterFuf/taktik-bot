@@ -72,6 +72,8 @@
 | **DM Responses** | Read and reply to incoming DMs (manual or AI mode) |
 | **Cold DM / Outreach** | Send prospecting messages to targeted users (manual or AI mode) |
 
+> Details: [Instagram AI DMs & auto-reply](https://taktik-bot.com/en/features/instagram-ai-dm) on the website.
+
 #### Automation Workflows
 | Feature | Description |
 |---------|-------------|
@@ -80,6 +82,8 @@
 | **Post URL Workflow** | Interact with users who liked a specific post |
 | **Feed Workflow** | Interact with posts in your home feed |
 | **Unfollow Workflow** | Maintenance workflow with customizable parameters |
+
+> Details and screenshots: [Instagram automation](https://taktik-bot.com/en/features/instagram-automation) on the website.
 
 #### Scraping Workflows
 | Feature | Description |
@@ -127,6 +131,7 @@
 | **Export** | Export to CSV or XLSX with scraping history (Desktop app) |
 
 > TikTok features are currently in **beta** and under active development.
+> Details and screenshots: [TikTok automation](https://taktik-bot.com/en/features/tiktok-automation) on the website.
 
 ---
 
@@ -180,6 +185,8 @@
 | **Cartography Lab** | Atomic-action test bench by surface (feed/post/story/reels/search/profile) with XML + screenshot capture, per-run reports and multi-device comparison |
 | **Multi-language** | Interface available in 10+ languages |
 
+> Full catalog with screenshots: [all features](https://taktik-bot.com/en/features) — including the [scheduler](https://taktik-bot.com/en/features/app-scheduler), [analytics](https://taktik-bot.com/en/features/app-sessions-analytics) and [target search](https://taktik-bot.com/en/features/app-target-search).
+
 ---
 
 ## 🚀 Quick Start
@@ -188,7 +195,7 @@
 
 The easiest way to use TAKTIK is through the Desktop application:
 
-1. **Sign up** at [taktik-bot.com](https://taktik-bot.com/en/auth/signin)
+1. **Sign up** at [taktik-bot.com](https://taktik-bot.com/en/pricing)
 2. **Download** the Desktop app for Windows
 3. **Connect** your Android device or emulator via ADB
 4. **Start automating** with the visual interface

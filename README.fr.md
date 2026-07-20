@@ -69,6 +69,8 @@
 | **Reponses DM** | Lecture et reponse aux DM entrants |
 | **Cold DM / prospection** | Envoi de messages a des profils cibles |
 
+> En detail : [DM IA et reponse automatique Instagram](https://taktik-bot.com/fr/fonctionnalites/instagram-ai-dm) sur le site.
+
 #### Automatisation
 
 | Fonctionnalite | Description |
@@ -78,6 +80,8 @@
 | **Workflow post URL** | Interaction avec les likers d'un post |
 | **Workflow feed** | Interaction avec le feed d'accueil |
 | **Workflow unfollow** | Maintenance et nettoyage |
+
+> En detail : [automatisation Instagram](https://taktik-bot.com/fr/fonctionnalites/instagram-automation) sur le site.
 
 #### Scraping & qualification
 
@@ -104,6 +108,7 @@
 | **Scraping target / hashtag** | Extraction de profils |
 
 > Les fonctionnalites TikTok restent en beta et evoluent encore.
+> En detail : [automatisation TikTok](https://taktik-bot.com/fr/fonctionnalites/tiktok-automation) sur le site.
 
 ### YouTube
 
@@ -149,13 +154,15 @@
 | **Cartography Lab** | Banc de test d'actions atomiques avec captures XML + screenshot et comparaison multi-device |
 | **Multi-langue** | Interface disponible en 10+ langues |
 
+> Catalogue complet avec captures : [toutes les fonctionnalites](https://taktik-bot.com/fr/fonctionnalites) — dont le [scheduler](https://taktik-bot.com/fr/fonctionnalites/app-scheduler), les [analytics](https://taktik-bot.com/fr/fonctionnalites/app-sessions-analytics) et la [recherche de cibles](https://taktik-bot.com/fr/fonctionnalites/app-target-search).
+
 ---
 
 ## Demarrage rapide
 
 ### Option 1 : application Desktop
 
-1. S'inscrire sur [taktik-bot.com](https://taktik-bot.com/fr/auth/signin)
+1. S'inscrire sur [taktik-bot.com](https://taktik-bot.com/fr/nos-prix)
 2. Telecharger l'application Desktop Windows
 3. Connecter un appareil Android ou un emulateur via ADB
 4. Lancer les workflows depuis l'interface
