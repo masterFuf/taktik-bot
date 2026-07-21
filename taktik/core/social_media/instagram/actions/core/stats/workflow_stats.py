@@ -52,17 +52,6 @@ _TYPE_EXTRAS: Dict[str, Dict[str, Any]] = {
         # already_processed / already_filtered now live in _BASE_STATS (shared skip check).
         'processed': 0,     # alias of interacted (legacy compat)
     },
-    'followers_legacy': {
-        'processed': 0,
-        'liked': 0,
-        'followed': 0,
-        'stories_viewed': 0,  # alias of stories_watched
-        'resumed_from_checkpoint': False,
-    },
-    'followers_multi': {
-        'targets_processed': 0,
-        'total_extracted': 0,
-    },
     'feed': {
         'posts_checked': 0,
         'posts_skipped_reels': 0,
@@ -87,8 +76,7 @@ def create_workflow_stats(workflow_type: str, source: str = '') -> Dict[str, Any
     
     Args:
         workflow_type: One of 'hashtag', 'post_url', 'followers_direct',
-                       'followers_legacy', 'followers_multi', 'feed',
-                       'notifications', 'unfollow'
+                       'feed', 'notifications', 'unfollow'
         source: Source identifier (hashtag name, URL, target username, etc.)
     
     Returns:
@@ -135,13 +123,3 @@ def sync_aliases(stats: Dict[str, Any], workflow_type: str) -> None:
         stats['filtered'] = stats.get('filtered', 0) or stats.get('profiles_filtered', 0)
         stats['profiles_filtered'] = stats['filtered']
         stats['processed'] = stats['interacted']
-    
-    elif workflow_type == 'followers_legacy':
-        stats['processed'] = stats.get('users_interacted', stats.get('processed', 0))
-        stats['users_interacted'] = stats['processed']
-        stats['liked'] = stats.get('likes_made', stats.get('liked', 0))
-        stats['likes_made'] = stats['liked']
-        stats['followed'] = stats.get('follows_made', stats.get('followed', 0))
-        stats['follows_made'] = stats['followed']
-        stats['stories_viewed'] = stats.get('stories_watched', stats.get('stories_viewed', 0))
-        stats['stories_watched'] = stats['stories_viewed']

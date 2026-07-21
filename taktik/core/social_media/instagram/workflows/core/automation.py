@@ -122,104 +122,73 @@ class InstagramAutomation:
         return stats
 
     def interact_with_followers(self, target_username: str = None, target_usernames: List[str] = None,
-                           max_interactions: int = 100, like_posts: bool = True, 
-                           max_likes_per_profile: int = 2, skip_processed: bool = True, 
-                           config: Dict[str, Any] = None,
-                           use_direct_mode: bool = True) -> Dict[str, Any]:
+                           max_interactions: int = 100, like_posts: bool = True,
+                           max_likes_per_profile: int = 2, skip_processed: bool = True,
+                           config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Interagit avec les followers d'un ou plusieurs comptes cibles.
-        
-        Args:
-            target_username: Username cible unique
-            target_usernames: Liste de usernames cibles
-            max_interactions: Nombre max d'interactions
-            like_posts: Liker les posts
-            max_likes_per_profile: Max likes par profil
-            skip_processed: Ignorer les profils déjà traités
-            config: Configuration additionnelle
-            use_direct_mode: Si True, utilise le nouveau workflow direct (sans deep links)
+        Interagit avec les followers d'un ou plusieurs comptes cibles, via le workflow
+        direct (clics dans la liste, aucune navigation deep-link). Plusieurs cibles :
+        le budget est réparti selon ``config['distribution']`` (équilibrée par défaut).
         """
         if not self.active_account_id:
             self.logger.info("Active account not detected, retrieving current profile...")
             self.get_profile_info(username=None, save_to_db=True)
-            
+
         if not self.active_account_id:
             self.logger.error("Cannot get or create active Instagram account")
             return {}
-        
+
         # Support both single and multi-target
         if target_usernames is None:
             target_usernames = [target_username] if target_username else []
-        
+
         if not target_usernames:
             self.logger.error("No target username(s) provided")
             return {}
-        
-        # 🆕 Utiliser le nouveau workflow direct si activé
-        if use_direct_mode:
-            self.logger.info("🚀 Using DIRECT mode (no deep links, natural navigation)")
 
-            all_results = {
-                'processed': 0,
-                'liked': 0,
-                'followed': 0,
-                'stories_viewed': 0,
-                'errors': 0,
-                'skipped': 0
-            }
-            last_stop_reason = ''
+        all_results = {
+            'processed': 0,
+            'liked': 0,
+            'followed': 0,
+            'stories_viewed': 0,
+            'errors': 0,
+            'skipped': 0
+        }
+        last_stop_reason = ''
 
-            def run_one_target(target: str, quota: int):
-                nonlocal last_stop_reason
-                self.logger.info(f"📍 Processing target: @{target} (quota: {quota})")
-                # finalize=False: the driver finalises ONCE below — the per-target runner
-                # finalising would end the session (and tell the front) after target 1.
-                result = self.actions.follower_business.interact_with_followers_direct(
-                    target_username=target,
-                    max_interactions=quota,
-                    config=config,
-                    account_id=self.active_account_id,
-                    finalize=False
-                )
-                for key in all_results:
-                    all_results[key] += result.get(key, 0)
-                stop_reason = result.get('stop_reason') or ''
-                if stop_reason:
-                    last_stop_reason = stop_reason
-                return result.get('processed', 0), bool(stop_reason)
-
-            distribution = normalize_distribution((config or {}).get('distribution'))
-            if len(target_usernames) > 1:
-                self.logger.info(f"🎯 {len(target_usernames)} targets, distribution: {distribution}")
-            outcome = run_distributed(
-                target_usernames, max_interactions, distribution, run_one_target,
-                on_progress=ipc_source_progress('target'),
+        def run_one_target(target: str, quota: int):
+            nonlocal last_stop_reason
+            self.logger.info(f"📍 Processing target: @{target} (quota: {quota})")
+            # finalize=False: the driver finalises ONCE below — the per-target runner
+            # finalising would end the session (and tell the front) after target 1.
+            result = self.actions.follower_business.interact_with_followers_direct(
+                target_username=target,
+                max_interactions=quota,
+                config=config,
+                account_id=self.active_account_id,
+                finalize=False
             )
+            for key in all_results:
+                all_results[key] += result.get(key, 0)
+            stop_reason = result.get('stop_reason') or ''
+            if stop_reason:
+                last_stop_reason = stop_reason
+            return result.get('processed', 0), bool(stop_reason)
 
-            if not getattr(self, 'session_finalized', False):
-                reason = last_stop_reason or f"Workflow completed ({outcome['processed']} interactions)"
-                self._finalize_session(status='COMPLETED', reason=reason)
-
-            self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
-            return all_results
-        
-        # Mode legacy (avec deep links)
-        self.logger.info("⚠️ Using LEGACY mode (with deep links)")
-        result = self.actions.follower_business.interact_with_target_followers(
-            target_usernames=target_usernames,
-            max_interactions=max_interactions,
-            like_posts=like_posts,
-            max_likes_per_profile=max_likes_per_profile,
-            skip_processed=skip_processed,
-            automation=self,
-            account_id=self.active_account_id,
-            config=config
+        distribution = normalize_distribution((config or {}).get('distribution'))
+        if len(target_usernames) > 1:
+            self.logger.info(f"🎯 {len(target_usernames)} targets, distribution: {distribution}")
+        outcome = run_distributed(
+            target_usernames, max_interactions, distribution, run_one_target,
+            on_progress=ipc_source_progress('target'),
         )
-        
-        if result:
-            self.logger.debug(f"Workflow completed: {result.get('processed', 0)} profiles processed, {result.get('liked', 0)} likes, {result.get('followed', 0)} follows")
-        
-        return result
+
+        if not getattr(self, 'session_finalized', False):
+            reason = last_stop_reason or f"Workflow completed ({outcome['processed']} interactions)"
+            self._finalize_session(status='COMPLETED', reason=reason)
+
+        self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
+        return all_results
         
     def get_profile_info(self, username: Optional[str] = None, save_to_db: bool = False, log_result: bool = True) -> Dict[str, Any]:
         from taktik.core.database import get_db_service

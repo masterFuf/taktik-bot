@@ -1,10 +1,8 @@
 """Business logic for Instagram follower interactions.
 
-Combines all follower-related mixins into a single class.
-Each workflow lives in its own file for maintainability:
-- workflow_legacy.py: interact_with_followers (pre-scraped list)
-- workflow_direct.py: interact_with_followers_direct (click-in-list)
-- workflow_multi_target.py: interact_with_target_followers (multi-target extraction)
+Single workflow since the deep-link era ended: workflows/direct.py's
+interact_with_followers_direct (click-in-list navigation). Multi-target runs
+distribute the budget at the automation level, one direct run per target.
 """
 
 import os
@@ -19,16 +17,12 @@ from .mixins import (
     FollowerExtractionMixin,
 )
 from .workflows import (
-    FollowerLegacyWorkflowMixin,
     FollowerDirectWorkflowMixin,
-    FollowerMultiTargetWorkflowMixin,
 )
 
 
 class FollowerBusiness(
-    FollowerLegacyWorkflowMixin,
     FollowerDirectWorkflowMixin,
-    FollowerMultiTargetWorkflowMixin,
     FollowerNavigationMixin,
     FollowerCheckpointsMixin,
     FollowerExtractionMixin,
