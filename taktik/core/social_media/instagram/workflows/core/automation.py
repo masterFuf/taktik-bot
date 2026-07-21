@@ -19,7 +19,11 @@ from ...ui.selectors.surfaces.post import POST_SELECTORS
 from ..management.config import WorkflowConfigBuilder
 from .workflow_runner import WorkflowRunner
 from ..support.workflow_helpers import WorkflowHelpers
-from ...actions.business.workflows.common.distribution import normalize_distribution, run_distributed
+from ...actions.business.workflows.common.distribution import (
+    ipc_source_progress,
+    normalize_distribution,
+    run_distributed,
+)
 
 
 class InstagramAutomation:
@@ -187,7 +191,10 @@ class InstagramAutomation:
             distribution = normalize_distribution((config or {}).get('distribution'))
             if len(target_usernames) > 1:
                 self.logger.info(f"🎯 {len(target_usernames)} targets, distribution: {distribution}")
-            outcome = run_distributed(target_usernames, max_interactions, distribution, run_one_target)
+            outcome = run_distributed(
+                target_usernames, max_interactions, distribution, run_one_target,
+                on_progress=ipc_source_progress('target'),
+            )
 
             if not getattr(self, 'session_finalized', False):
                 reason = last_stop_reason or f"Workflow completed ({outcome['processed']} interactions)"

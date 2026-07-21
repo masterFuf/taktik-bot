@@ -21,6 +21,7 @@ session would end it after the first source (see the ``finalize`` kwarg on the
 workflow runners).
 """
 
+import json
 import math
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -52,6 +53,36 @@ def normalize_distribution(raw: Any) -> str:
 # (duration up, global limits) — the driver then stops distributing entirely.
 RunSource = Callable[[str, int], Tuple[int, bool]]
 
+# on_progress(source, index, total, quota, processed, status) with status 'running'
+# (before the source runs, processed = cumulated so far) or 'done' (after).
+OnProgress = Callable[[str, int, int, int, int, str], None]
+
+
+def ipc_source_progress(workflow_kind: str) -> OnProgress:
+    """Progress reporter for the desktop app, in the bot's stdout-JSON IPC idiom.
+
+    The live session panel shows WHICH source is being worked and how the budget
+    spreads across them — without this, a distributed run is indistinguishable
+    from a single-source one until the session recap.
+    """
+
+    def report(source: str, index: int, total: int, quota: int, processed: int, status: str) -> None:
+        try:
+            print(json.dumps({
+                "type": "source_progress",
+                "workflow": workflow_kind,
+                "source": source,
+                "index": index,
+                "total": total,
+                "quota": quota,
+                "processed": processed,
+                "status": status,
+            }), flush=True)
+        except Exception:
+            pass
+
+    return report
+
 
 def run_distributed(
     sources: List[str],
@@ -59,6 +90,7 @@ def run_distributed(
     mode: str,
     run_source: RunSource,
     batch_size: int = INTERLEAVED_BATCH_SIZE,
+    on_progress: Optional[OnProgress] = None,
 ) -> Dict[str, Any]:
     """Drive ``run_source`` over ``sources`` until the budget or the sources run out.
 
@@ -69,24 +101,30 @@ def run_distributed(
     remaining = max(int(budget or 0), 0)
     session_stop = False
 
-    def run_one(source: str, quota: int) -> int:
+    def run_one(source: str, quota: int, index: int, total: int) -> int:
         nonlocal remaining, session_stop
+        if on_progress:
+            on_progress(source, index, total, quota, per_source.get(source, 0), 'running')
         processed, stop = run_source(source, quota)
         processed = max(int(processed or 0), 0)
         per_source[source] = per_source.get(source, 0) + processed
         remaining -= processed
         if stop:
             session_stop = True
+        if on_progress:
+            on_progress(source, index, total, quota, per_source[source], 'done')
         return processed
 
     if mode == DISTRIBUTION_INTERLEAVED:
         active = [source for source in sources if source]
+        positions = {source: idx + 1 for idx, source in enumerate(active)}
+        total = len(active)
         while remaining > 0 and active and not session_stop:
             for source in list(active):
                 if remaining <= 0 or session_stop:
                     break
                 quota = min(batch_size, remaining)
-                processed = run_one(source, quota)
+                processed = run_one(source, quota, positions[source], total)
                 # A batch that yields nothing means the source is dry (list
                 # exhausted or everything filtered) — stop rotating through it.
                 if processed == 0:
@@ -102,7 +140,7 @@ def run_distributed(
                 if mode == DISTRIBUTION_SEQUENTIAL
                 else math.ceil(remaining / sources_left)
             )
-            run_one(source, quota)
+            run_one(source, quota, index + 1, len(pending))
 
     return {
         "processed": sum(per_source.values()),

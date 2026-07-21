@@ -3,7 +3,11 @@ from typing import Dict, Any
 from loguru import logger
 
 from ..management.config import WorkflowConfigBuilder
-from ...actions.business.workflows.common.distribution import normalize_distribution, run_distributed
+from ...actions.business.workflows.common.distribution import (
+    ipc_source_progress,
+    normalize_distribution,
+    run_distributed,
+)
 
 
 class WorkflowRunner:
@@ -134,7 +138,8 @@ class WorkflowRunner:
                 last_stop_reason = stop_reason
             return interacted, bool(stop_reason)
 
-        run_distributed(hashtags, budget, distribution, run_one_hashtag)
+        run_distributed(hashtags, budget, distribution, run_one_hashtag,
+                        on_progress=ipc_source_progress('hashtag'))
 
         if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
             self.automation.helpers.finalize_session(status='COMPLETED', reason=last_stop_reason)
@@ -189,7 +194,8 @@ class WorkflowRunner:
                 last_stop_reason = stop_reason
             return interacted, bool(stop_reason)
 
-        run_distributed(post_urls, budget, distribution, run_one_post)
+        run_distributed(post_urls, budget, distribution, run_one_post,
+                        on_progress=ipc_source_progress('post_url'))
 
         if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
             self.automation.helpers.finalize_session(status='COMPLETED', reason=last_stop_reason)
