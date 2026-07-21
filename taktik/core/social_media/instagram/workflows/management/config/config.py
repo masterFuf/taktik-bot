@@ -112,9 +112,12 @@ class WorkflowConfigBuilder:
             config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')
         if action.get('max_no_new_usernames_scrolls') is not None:
             config['max_no_new_usernames_scrolls'] = action.get('max_no_new_usernames_scrolls')
-        
+        # Budget split across several targets (balanced / sequential / interleaved).
+        if action.get('distribution'):
+            config['distribution'] = action.get('distribution')
+
         return config
-    
+
     @staticmethod
     def build_hashtag_config(action: Dict[str, Any]) -> Dict[str, Any]:
         """Build config for hashtag workflow"""

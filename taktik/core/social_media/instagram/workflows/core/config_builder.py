@@ -3,6 +3,8 @@
 import math
 from typing import Any, Dict, Optional
 
+from ...actions.business.workflows.common.distribution import normalize_distribution
+
 
 def _build_action_config(
     *,
@@ -90,8 +92,17 @@ def _build_action_config(
         "type": action_type,
         "target_username": primary_target if action_type == "interact_with_followers" else None,
         "target_usernames": target_list if action_type == "interact_with_followers" else [],
-        "hashtag": target if action_type == "hashtag" else None,
-        "post_url": target if action_type == "post_url" else None,
+        # Singular keys carry the FIRST entry (back-compat readers); the plural lists are
+        # what the multi-source runners iterate. `target` used to go through raw for
+        # hashtags, so several hashtags reached the bot as one comma-joined string and
+        # the run searched Instagram for the literal tag "tag1,tag2".
+        "hashtag": primary_target if action_type == "hashtag" else None,
+        "hashtags": target_list if action_type == "hashtag" else [],
+        "post_url": primary_target if action_type == "post_url" else None,
+        "post_urls": target_list if action_type == "post_url" else [],
+        # How the interaction budget is split across several sources (targets, hashtags,
+        # post URLs): balanced (default) / sequential / interleaved.
+        "distribution": normalize_distribution(raw_config.get("distribution")),
         "interaction_type": interaction_type,
         "max_interactions": max_profiles,
         "like_posts": True,

@@ -3,6 +3,7 @@ from typing import Dict, Any
 from loguru import logger
 
 from ..management.config import WorkflowConfigBuilder
+from ...actions.business.workflows.common.distribution import normalize_distribution, run_distributed
 
 
 class WorkflowRunner:
@@ -88,61 +89,113 @@ class WorkflowRunner:
         return True
     
     def _run_hashtag_workflow(self, action: Dict[str, Any]) -> bool:
-        hashtag = action.get('hashtag')
-        hashtags = action.get('hashtags', [])
-        
-        if hashtag and not hashtags:
-            hashtags = [hashtag]
-        
+        # `hashtags` (list) is the canonical input; the singular `hashtag` is kept for
+        # older payloads — historically it carried a raw comma-joined string, so several
+        # hashtags reached this runner as ONE tag and the bot searched Instagram for the
+        # literal "#tag1,tag2". Split defensively either way.
+        hashtags = [
+            tag.strip().lstrip('#')
+            for raw in (action.get('hashtags') or [action.get('hashtag') or ''])
+            for tag in str(raw).split(',')
+            if tag.strip().lstrip('#')
+        ]
+
         if not hashtags:
             self.logger.error("No hashtag provided for hashtag action")
             return False
-        
+
         config = WorkflowConfigBuilder.build_interaction_config(action)
-        
+
         config['post_criteria'] = action.get('post_criteria', {'min_likes': 100, 'max_likes': 50000})
         config['max_likes_per_profile'] = action.get('max_likes_per_profile', 2)
-        
-        hashtag_to_process = hashtags[0] if hashtags else None
-        
-        if not hashtag_to_process:
-            self.logger.error("Empty hashtag list")
-            return False
-        
-        self.logger.info(f"🏷️ Processing hashtag: #{hashtag_to_process}")
-        self.logger.debug(f"📊 Config: post_criteria={config['post_criteria']}, max_likes_per_profile={config['max_likes_per_profile']}")
-        
-        result = self.automation.hashtag_interaction_manager.interact_with_hashtag_likers(
-            hashtag=hashtag_to_process,
-            config=config
-        )
-        
-        users_interacted = result.get('users_interacted', 0) if result else 0
-        self.logger.debug(f"Hashtag workflow completed: {users_interacted} users interacted")
-        
+
+        budget = config.get('max_interactions', action.get('max_interactions', 10))
+        distribution = normalize_distribution(action.get('distribution'))
+        if len(hashtags) > 1:
+            self.logger.info(f"🏷️ {len(hashtags)} hashtags, distribution: {distribution}")
+
+        total_interacted = 0
+        last_stop_reason = ''
+
+        def run_one_hashtag(tag: str, quota: int):
+            nonlocal total_interacted, last_stop_reason
+            self.logger.info(f"🏷️ Processing hashtag: #{tag} (quota: {quota})")
+            # finalize=False: the driver finalises ONCE below — the per-hashtag runner
+            # finalising would end the session after the first tag.
+            result = self.automation.hashtag_interaction_manager.interact_with_hashtag_likers(
+                hashtag=tag,
+                config={**config, 'max_interactions': quota, 'max_interactions_per_session': quota},
+                finalize=False,
+            )
+            interacted = result.get('users_interacted', 0) if result else 0
+            total_interacted += interacted
+            stop_reason = (result or {}).get('stop_reason') or ''
+            if stop_reason:
+                last_stop_reason = stop_reason
+            return interacted, bool(stop_reason)
+
+        run_distributed(hashtags, budget, distribution, run_one_hashtag)
+
+        if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
+            self.automation.helpers.finalize_session(status='COMPLETED', reason=last_stop_reason)
+
+        self.logger.debug(f"Hashtag workflow completed: {total_interacted} users interacted")
+
         # Return True only if we actually interacted with users
-        return users_interacted > 0
+        return total_interacted > 0
     
     def _run_post_url_workflow(self, action: Dict[str, Any]) -> bool:
-        post_url = action.get('post_url')
-        if not post_url:
+        # `post_urls` (list) is the canonical input; the singular `post_url` covers older
+        # payloads. Instagram post URLs never contain commas, so the defensive split is safe.
+        post_urls = [
+            url.strip()
+            for raw in (action.get('post_urls') or [action.get('post_url') or ''])
+            for url in str(raw).split(',')
+            if url.strip()
+        ]
+        if not post_urls:
             self.logger.error("No post URL provided for post_url action")
             return False
-        
+
         config = WorkflowConfigBuilder.build_post_url_config(action)
-        
-        result = self.automation.actions.post_url_business.interact_with_post_likers(
-            post_url=post_url,
-            config=config
-        )
-        
-        self.automation.stats['likes'] += result.get('likes_made', 0)
-        self.automation.stats['follows'] += result.get('follows_made', 0)
-        self.automation.stats['comments'] += result.get('comments_made', 0)
-        self.automation.stats['interactions'] += result.get('users_interacted', 0)
-        
+
+        budget = config.get('max_interactions', action.get('max_interactions', 10))
+        distribution = normalize_distribution(action.get('distribution'))
+        if len(post_urls) > 1:
+            self.logger.info(f"🔗 {len(post_urls)} post URLs, distribution: {distribution}")
+
+        total_interacted = 0
+        last_stop_reason = ''
+
+        def run_one_post(url: str, quota: int):
+            nonlocal total_interacted, last_stop_reason
+            self.logger.info(f"🔗 Processing post: {url} (quota: {quota})")
+            # finalize=False: the driver finalises ONCE below — the per-post runner
+            # finalising would end the session after the first URL.
+            result = self.automation.actions.post_url_business.interact_with_post_likers(
+                post_url=url,
+                config={**config, 'max_interactions': quota, 'max_interactions_per_session': quota},
+                finalize=False,
+            )
+            result = result or {}
+            self.automation.stats['likes'] += result.get('likes_made', 0)
+            self.automation.stats['follows'] += result.get('follows_made', 0)
+            self.automation.stats['comments'] += result.get('comments_made', 0)
+            self.automation.stats['interactions'] += result.get('users_interacted', 0)
+            interacted = result.get('users_interacted', 0)
+            total_interacted += interacted
+            stop_reason = result.get('stop_reason') or ''
+            if stop_reason:
+                last_stop_reason = stop_reason
+            return interacted, bool(stop_reason)
+
+        run_distributed(post_urls, budget, distribution, run_one_post)
+
+        if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
+            self.automation.helpers.finalize_session(status='COMPLETED', reason=last_stop_reason)
+
         # Return True only if we actually interacted with users
-        return result.get('users_interacted', 0) > 0
+        return total_interacted > 0
     
     def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the unfollow workflow.

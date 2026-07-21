@@ -19,6 +19,7 @@ from ...ui.selectors.surfaces.post import POST_SELECTORS
 from ..management.config import WorkflowConfigBuilder
 from .workflow_runner import WorkflowRunner
 from ..support.workflow_helpers import WorkflowHelpers
+from ...actions.business.workflows.common.distribution import normalize_distribution, run_distributed
 
 
 class InstagramAutomation:
@@ -153,8 +154,7 @@ class InstagramAutomation:
         # 🆕 Utiliser le nouveau workflow direct si activé
         if use_direct_mode:
             self.logger.info("🚀 Using DIRECT mode (no deep links, natural navigation)")
-            
-            # Pour le mode direct, on traite un target à la fois
+
             all_results = {
                 'processed': 0,
                 'liked': 0,
@@ -163,32 +163,36 @@ class InstagramAutomation:
                 'errors': 0,
                 'skipped': 0
             }
-            
-            remaining_interactions = max_interactions
-            
-            for target in target_usernames:
-                if remaining_interactions <= 0:
-                    break
-                    
-                self.logger.info(f"📍 Processing target: @{target}")
-                
+            last_stop_reason = ''
+
+            def run_one_target(target: str, quota: int):
+                nonlocal last_stop_reason
+                self.logger.info(f"📍 Processing target: @{target} (quota: {quota})")
+                # finalize=False: the driver finalises ONCE below — the per-target runner
+                # finalising would end the session (and tell the front) after target 1.
                 result = self.actions.follower_business.interact_with_followers_direct(
                     target_username=target,
-                    max_interactions=remaining_interactions,
+                    max_interactions=quota,
                     config=config,
-                    account_id=self.active_account_id
+                    account_id=self.active_account_id,
+                    finalize=False
                 )
-                
-                # Agréger les résultats
-                all_results['processed'] += result.get('processed', 0)
-                all_results['liked'] += result.get('liked', 0)
-                all_results['followed'] += result.get('followed', 0)
-                all_results['stories_viewed'] += result.get('stories_viewed', 0)
-                all_results['errors'] += result.get('errors', 0)
-                all_results['skipped'] += result.get('skipped', 0)
-                
-                remaining_interactions -= result.get('processed', 0)
-            
+                for key in all_results:
+                    all_results[key] += result.get(key, 0)
+                stop_reason = result.get('stop_reason') or ''
+                if stop_reason:
+                    last_stop_reason = stop_reason
+                return result.get('processed', 0), bool(stop_reason)
+
+            distribution = normalize_distribution((config or {}).get('distribution'))
+            if len(target_usernames) > 1:
+                self.logger.info(f"🎯 {len(target_usernames)} targets, distribution: {distribution}")
+            outcome = run_distributed(target_usernames, max_interactions, distribution, run_one_target)
+
+            if not getattr(self, 'session_finalized', False):
+                reason = last_stop_reason or f"Workflow completed ({outcome['processed']} interactions)"
+                self._finalize_session(status='COMPLETED', reason=reason)
+
             self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
             return all_results
         
