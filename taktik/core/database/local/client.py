@@ -257,9 +257,9 @@ class LocalDatabaseClient:
     # Alias for callers using APIBasedDatabaseService method name
     mark_as_filtered = record_filtered_profile
     
-    def is_profile_filtered(self, username: str, account_id: int) -> bool:
-        """Check if a profile is filtered."""
-        return self.local_db.is_profile_filtered(username, account_id)
+    def is_profile_filtered(self, username: str, account_id: int, max_age_days: int = None) -> bool:
+        """Check if a profile is filtered (max_age_days=None -> filters never expire)."""
+        return self.local_db.is_profile_filtered(username, account_id, max_age_days)
 
     def get_filter_reason(self, username: str, account_id: int):
         """Most recent stored filter reason for a profile (None if not filtered)."""

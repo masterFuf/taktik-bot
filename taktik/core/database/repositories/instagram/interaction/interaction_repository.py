@@ -194,12 +194,24 @@ class InteractionRepository(BaseRepository):
             logger.error(f"Error recording filtered profile: {e}")
             return False
 
-    def is_filtered(self, username: str, account_id: int) -> bool:
-        """Check if a profile is filtered for an account"""
-        row = self.query_one(
-            "SELECT COUNT(*) as count FROM filtered_profiles WHERE platform = 'instagram' AND username = ? AND account_id = ?",
-            (username, account_id)
+    def is_filtered(self, username: str, account_id: int, max_age_days: Optional[int] = None) -> bool:
+        """Is this profile currently filtered out for this account?
+
+        `max_age_days` expires the decision: a profile filtered longer ago than that is no
+        longer considered filtered, so it gets re-evaluated. Filter reasons go stale — "0
+        posts" or "private account" describe a moment, not a profile — and without an expiry
+        a single rejection banned a profile from that account forever. None = never expires
+        (the operator asked for permanent filtering).
+        """
+        sql = (
+            "SELECT COUNT(*) as count FROM filtered_profiles "
+            "WHERE platform = 'instagram' AND username = ? AND account_id = ?"
         )
+        params: list = [username, account_id]
+        if max_age_days is not None and max_age_days > 0:
+            sql += " AND filtered_at >= datetime('now', '-' || ? || ' days')"
+            params.append(int(max_age_days))
+        row = self.query_one(sql, tuple(params))
         return (row['count'] if row else 0) > 0
 
     def get_filter_reason(self, username: str, account_id: int) -> Optional[str]:

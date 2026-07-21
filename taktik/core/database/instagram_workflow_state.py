@@ -201,6 +201,7 @@ class InstagramWorkflowStateService:
     def is_profile_filtered(
         username: str,
         account_id: Optional[int] = None,
+        max_age_days: Optional[int] = None,
     ) -> bool:
         if not account_id:
             return False
@@ -209,6 +210,7 @@ class InstagramWorkflowStateService:
             is_filtered = InstagramWorkflowStateService._db().is_profile_filtered(
                 username,
                 account_id,
+                max_age_days,
             )
             if is_filtered:
                 log.debug("Profile @{} already filtered", username)
@@ -222,7 +224,14 @@ class InstagramWorkflowStateService:
         username: str,
         account_id: Optional[int] = None,
         hours_limit: int = 1440,
+        filtered_max_age_days: Optional[int] = None,
     ) -> tuple[bool, str]:
+        """Should this profile be left alone for THIS account right now?
+
+        Both delays are operator settings (see `RevisitPolicy`): `hours_limit` is how long
+        an interaction keeps a profile off-limits, `filtered_max_age_days` how long a stored
+        filter decision stays valid (None = forever).
+        """
         if not account_id:
             return False, ""
 
@@ -233,7 +242,11 @@ class InstagramWorkflowStateService:
         ):
             return True, "already_processed"
 
-        if InstagramWorkflowStateService.is_profile_filtered(username, account_id):
+        if InstagramWorkflowStateService.is_profile_filtered(
+            username,
+            account_id,
+            filtered_max_age_days,
+        ):
             return True, "already_filtered"
 
         return False, ""

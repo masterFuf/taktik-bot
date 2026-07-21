@@ -29,7 +29,9 @@ class _FakeDbService:
         self.filtered_calls.append(kwargs)
         return True
 
-    def is_profile_filtered(self, username, account_id):
+    def is_profile_filtered(self, username, account_id, max_age_days=None):
+        # max_age_days expires a stored filter (operator setting); None = never expires.
+        self.filtered_max_age_days = max_age_days
         return self.filtered_result
 
     def get_filter_reason(self, username, account_id):

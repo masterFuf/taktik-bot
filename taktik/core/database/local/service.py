@@ -417,9 +417,10 @@ class LocalDatabaseService:
             logger.error(f"Error recording filtered profile: {e}")
             return False
     
-    def is_profile_filtered(self, username: str, account_id: int) -> bool:
-        """Check if a profile is filtered for an account."""
-        return self.interactions.is_filtered(username, account_id)
+    def is_profile_filtered(self, username: str, account_id: int,
+                            max_age_days: Optional[int] = None) -> bool:
+        """Check if a profile is filtered for an account (None = filters never expire)."""
+        return self.interactions.is_filtered(username, account_id, max_age_days)
 
     def get_filter_reason(self, username: str, account_id: int) -> Optional[str]:
         """Most recent stored filter reason for a profile (None if not filtered)."""
