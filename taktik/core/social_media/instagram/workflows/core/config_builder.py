@@ -164,6 +164,10 @@ def _build_action_config(
         "max_following": int(filters.get("maxFollowing", 7500) or 0) or 10000,
         "skip_follows_us": bool(filters.get("skipFollowsUs", False)),
         "skip_already_following": bool(filters.get("skipAlreadyFollowing", False)),
+        # Revisit delays, in days, scoped to the account being automated (0 = never come
+        # back). Absent -> RevisitPolicy defaults, so a standalone run is unchanged.
+        "reinteraction_days": filters.get("reinteractionDays"),
+        "refilter_days": filters.get("refilterDays"),
     }
     action_config.update(action_filters)          # cles plates -> FilterCriteria.from_action
     action_config["filters"] = dict(action_filters)  # dict imbrique -> action.get('filters')
