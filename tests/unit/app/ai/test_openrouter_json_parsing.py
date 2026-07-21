@@ -51,6 +51,21 @@ def test_empty_response_raises_valueerror():
         parse_json_response('')
 
 
+# ── partial extraction: salvage fields from a truncated classification ────────
+
+def test_partial_extraction_salvages_country():
+    # A truncated classification still often carries the early fields. `country` feeds the
+    # audience-persona aggregates (stored as ai_account_based_in), so losing the whole answer
+    # must not also lose an inferred country that made it into the text.
+    svc = AIService(api_key="test-key")
+    text = '{"niche_category": "cinema", "niche": "Actors", "country": "Switzerland", "tags": ["ac'
+
+    partial = svc._extract_partial_classification(text)
+
+    assert partial is not None
+    assert partial["country"] == "Switzerland"
+
+
 # ── vision_json_completion: one retry ──────────────────────────────────────────
 
 class _Svc(AIService):
