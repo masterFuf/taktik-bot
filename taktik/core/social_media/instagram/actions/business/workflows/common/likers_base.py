@@ -17,6 +17,7 @@ from ....core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from .revisit_policy import RevisitPolicy
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -54,6 +55,11 @@ class LikersWorkflowBase(BaseBusinessAction):
         max_consecutive_known_usernames = effective_config.get('max_consecutive_known_usernames')
         if max_consecutive_known_usernames is not None:
             max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
+
+        # Operator-set revisit delays for THIS account (interaction cooldown + filter expiry).
+        revisit_policy = RevisitPolicy.from_filters(
+            effective_config.get('filter_criteria', effective_config.get('filters', {}))
+        )
 
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
@@ -115,7 +121,9 @@ class LikersWorkflowBase(BaseBusinessAction):
 
                 # DB skip check
                 should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
-                    username, account_id, hours_limit=24 * 60
+                    username, account_id,
+                    hours_limit=revisit_policy.reinteraction_hours,
+                    filtered_max_age_days=revisit_policy.filtered_max_age_days,
                 )
                 if should_skip:
                     known_usernames_streak += 1

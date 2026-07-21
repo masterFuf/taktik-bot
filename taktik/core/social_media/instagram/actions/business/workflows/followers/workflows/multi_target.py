@@ -3,6 +3,8 @@
 import time
 from typing import Dict, Any, List, Optional
 
+from ...common.revisit_policy import RevisitPolicy
+
 
 class FollowerMultiTargetWorkflowMixin:
     """Mixin: interact_with_target_followers — multi-target extraction + interaction."""
@@ -97,10 +99,13 @@ class FollowerMultiTargetWorkflowMixin:
                     self.logger.info(f"🎯 Extraction limit adjusted to {extraction_limit} (profile has ~{total_followers_count} followers)")
                 
                 followers = self._extract_followers_with_scroll(
-                    extraction_limit, 
-                    account_id, 
+                    extraction_limit,
+                    account_id,
                     target_username,
-                    max_followers_count=total_followers_count
+                    max_followers_count=total_followers_count,
+                    revisit_policy=RevisitPolicy.from_filters(
+                        config.get('filter_criteria', config.get('filters', {}))
+                    ),
                 )
                 
                 if followers:

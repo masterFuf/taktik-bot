@@ -5,6 +5,7 @@ import random
 from typing import Dict, Any, List
 
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from ...common.revisit_policy import RevisitPolicy
 
 
 class FollowerLegacyWorkflowMixin:
@@ -15,7 +16,11 @@ class FollowerLegacyWorkflowMixin:
                               session_id: str = None,
                               target_username: str = None) -> Dict[str, Any]:
         config = {**self.default_config, **(interaction_config or {})}
-        
+        # Operator-set revisit delays for THIS account (interaction cooldown + filter expiry).
+        revisit_policy = RevisitPolicy.from_filters(
+            config.get('filter_criteria', config.get('filters', {}))
+        )
+
         stats = {
             'processed': 0,
             'liked': 0,
@@ -74,7 +79,9 @@ class FollowerLegacyWorkflowMixin:
                     if account_id:
                         try:
                             should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
-                                username, account_id, hours_limit=24*60
+                                username, account_id,
+                                hours_limit=revisit_policy.reinteraction_hours,
+                                filtered_max_age_days=revisit_policy.filtered_max_age_days,
                             )
                             if should_skip:
                                 self.logger.info(f"Profile @{username} skipped ({skip_reason})")

@@ -4,6 +4,7 @@ import time
 from typing import Dict, Any, List, Optional
 
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from ...common.revisit_policy import RevisitPolicy
 
 
 class FollowerExtractionMixin:
@@ -49,7 +50,9 @@ class FollowerExtractionMixin:
             self.logger.error(f"Error extracting followers from @{target_username}: {e}")
             return []
     
-    def _extract_followers_with_scroll(self, max_followers: int, account_id: int = None, target_username: str = None, max_followers_count: int = 0) -> List[Dict[str, Any]]:
+    def _extract_followers_with_scroll(self, max_followers: int, account_id: int = None,
+                                       target_username: str = None, max_followers_count: int = 0,
+                                       revisit_policy: Optional[RevisitPolicy] = None) -> List[Dict[str, Any]]:
         followers_data = []
         processed_usernames = set()
         scroll_attempts = 0
@@ -64,8 +67,11 @@ class FollowerExtractionMixin:
             
             if account_id:
                 try:
+                    policy = revisit_policy or RevisitPolicy()
                     should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
-                        follower_username, account_id, hours_limit=24*60
+                        follower_username, account_id,
+                        hours_limit=policy.reinteraction_hours,
+                        filtered_max_age_days=policy.filtered_max_age_days,
                     )
                     if should_skip:
                         self.logger.info(f"Profile @{follower_username} skipped ({skip_reason})")

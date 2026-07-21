@@ -8,6 +8,7 @@ from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEnd
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from ....common.revisit_policy import RevisitPolicy
 from ....common.followers_tracker import FollowersTracker
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
@@ -46,7 +47,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             'max_likes_per_profile': config.get('max_likes_per_profile', 3),
             'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
         }
-        
+        # Operator-set revisit delays (how long an interaction / a stored filter keeps a
+        # profile off-limits FOR THIS ACCOUNT). Single owner of the semantic.
+        revisit_policy = RevisitPolicy.from_filters(interaction_config['filter_criteria'])
+
         # Navigation configuration
         deep_link_percentage = config.get('deep_link_percentage', 90)
         force_search_for_target = config.get('force_search_for_target', False)
@@ -208,7 +212,9 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     if account_id:
                         try:
                             should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
-                                username, account_id, hours_limit=24*60
+                                username, account_id,
+                                hours_limit=revisit_policy.reinteraction_hours,
+                                filtered_max_age_days=revisit_policy.filtered_max_age_days,
                             )
                             if should_skip:
                                 known_usernames_streak += 1
