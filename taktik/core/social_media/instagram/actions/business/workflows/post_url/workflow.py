@@ -26,7 +26,8 @@ class PostUrlBusiness(
         self.default_config = {**POST_URL_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS
     
-    def interact_with_post_likers(self, post_url: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
+    def interact_with_post_likers(self, post_url: str, config: Dict[str, Any] = None,
+                                  finalize: bool = True) -> Dict[str, Any]:
         """
         🆕 NOUVEAU WORKFLOW: Navigation directe dans la liste des likers.
         
@@ -124,9 +125,11 @@ class PostUrlBusiness(
             
             self.stats_manager.display_final_stats(workflow_name="POST_URL")
 
-            if stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
+            # finalize=False: a multi-URL run finalises ONCE at the driver level —
+            # finalising here would end the session after the first post.
+            if finalize and stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
                 self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
-            
+
         except Exception as e:
             self.logger.error(f"General error in Post URL workflow: {e}")
             stats['errors'] += 1
@@ -142,5 +145,7 @@ class PostUrlBusiness(
             'stories_watched': real_stats.get('stories_watched', 0),
             'skipped': stats.get('skipped', 0),
             'errors': real_stats.get('errors', 0),
-            'success': real_stats.get('profiles_visited', 0) > 0
+            'success': real_stats.get('profiles_visited', 0) > 0,
+            # Session-level stop, surfaced for the multi-URL driver (see finalize above).
+            'stop_reason': stats.get('stop_reason', ''),
         }

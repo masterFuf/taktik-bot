@@ -30,7 +30,8 @@ class HashtagBusiness(
         self.default_config = {**HASHTAG_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS
     
-    def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
+    def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None,
+                                     finalize: bool = True) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
         
         self.logger.info(f"Hashtag config received: {config}")
@@ -213,9 +214,11 @@ class HashtagBusiness(
             
             self.stats_manager.display_final_stats(workflow_name="HASHTAG")
 
-            if stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
+            # finalize=False: a multi-hashtag run finalises ONCE at the driver level —
+            # finalising here would end the session after the first hashtag.
+            if finalize and stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
                 self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
-            
+
         except Exception as e:
             self.logger.error(f"General hashtag workflow error: {e}")
             stats['errors'] += 1

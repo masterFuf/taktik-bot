@@ -20,7 +20,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
     def interact_with_followers_direct(self, target_username: str,
                                        max_interactions: int = 30,
                                        config: Dict[str, Any] = None,
-                                       account_id: int = None) -> Dict[str, Any]:
+                                       account_id: int = None,
+                                       finalize: bool = True) -> Dict[str, Any]:
         """
         🆕 NOUVEAU WORKFLOW: Interaction directe depuis la liste des followers.
         
@@ -388,19 +389,27 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             
             # Finalization — sync aliased keys before return
             sync_aliases(stats, 'followers_direct')
+            # Surface the session-level stop to callers: a multi-target driver must stop
+            # distributing budget to the NEXT targets when this run ended for a session
+            # reason (duration, global limits), not just because this list ran dry.
+            stats['stop_reason'] = session_stop_reason or ''
             tracker.log_session_end(stats)
             self.logger.info(f"✅ Direct interactions completed: {stats}")
             self.stats_manager.display_final_stats(workflow_name="FOLLOWERS_DIRECT")
-            
-            if session_stop_reason and self.automation and hasattr(self.automation, 'helpers'):
-                self.automation.helpers.finalize_session(status='COMPLETED', reason=session_stop_reason)
-            elif self.automation and hasattr(self.automation, 'helpers'):
-                reason = f"Workflow completed ({stats['interacted']} interactions)"
-                self.automation.helpers.finalize_session(status='COMPLETED', reason=reason)
-            
+
+            # finalize=False: a multi-target run finalises ONCE at the driver level —
+            # finalising here would end the session after the first target.
+            if finalize and self.automation and hasattr(self.automation, 'helpers'):
+                if session_stop_reason:
+                    self.automation.helpers.finalize_session(status='COMPLETED', reason=session_stop_reason)
+                else:
+                    reason = f"Workflow completed ({stats['interacted']} interactions)"
+                    self.automation.helpers.finalize_session(status='COMPLETED', reason=reason)
+
             return stats
-            
+
         except Exception as e:
             self.logger.error(f"Error in direct followers workflow: {e}")
             sync_aliases(stats, 'followers_direct')
+            stats.setdefault('stop_reason', '')
             return stats
