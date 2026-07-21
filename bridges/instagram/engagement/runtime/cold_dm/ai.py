@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.app.ai.providers.openrouter import DEFAULT_TEXT_MODEL
 
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -39,7 +40,11 @@ Le message doit Ãªtre unique et personnalisÃ©. RÃ©ponds uniquement avec le
             "X-Title": "TAKTIK Bot",
         }
         body = json.dumps({
-            "model": "anthropic/claude-3.5-haiku",
+            # Modele lu depuis la constante partagee, jamais code en dur ici : un slug fige dans
+            # un bridge survit aux migrations. Celui qui etait ecrit la (anthropic/claude-3.5-haiku)
+            # a ete retire d'OpenRouter le 2026-07-15 ; le provider et le front avaient migre,
+            # pas ce fichier, et l'echec etait avale plus bas -> mode IA silencieusement mort.
+            "model": DEFAULT_TEXT_MODEL,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
