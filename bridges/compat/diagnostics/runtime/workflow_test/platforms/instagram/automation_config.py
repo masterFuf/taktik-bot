@@ -41,7 +41,12 @@ def build_workflow_config(
         "type": action_type,
         "target_username": target_list[0] if target_list else target,
         "target_usernames": target_list,
-        "hashtag": target if action_type == "hashtag" else None,
+        # Same contract as the production config builder: canonical plural lists, the
+        # singular keys carrying the first entry. The raw `target` here used to reach the
+        # hashtag runner as one comma-joined string — the exact production bug the Lab
+        # exists to catch, reproduced in the Lab's own harness.
+        "hashtag": (target_list[0] if target_list else target) if action_type == "hashtag" else None,
+        "hashtags": target_list if action_type == "hashtag" else [],
         "interaction_type": interaction_type,
         "max_interactions": max_profiles,
         "like_posts": True,
@@ -88,7 +93,8 @@ def build_workflow_config(
         }
     elif action_type == "post_url":
         action_config["type"] = "post_url"
-        action_config["post_url"] = target
+        action_config["post_url"] = target_list[0] if target_list else target
+        action_config["post_urls"] = target_list
 
     f = filters or {}
     allow_private = f.get("allowPrivate", True)
