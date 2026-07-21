@@ -82,15 +82,17 @@ class WorkflowRunner:
         
         config = WorkflowConfigBuilder.build_interaction_config(action)
         
-        # Pass all targets to interact_with_followers for smart extraction
-        self.automation.interact_with_followers(
+        # Pass all targets to interact_with_followers (the driver distributes the budget)
+        result = self.automation.interact_with_followers(
             target_usernames=target_usernames,
             max_interactions=action.get('max_interactions', 10),
             like_posts=action.get('like_posts', True),
             max_likes_per_profile=action.get('max_likes_per_profile', 1),
             config=config
         )
-        return True
+        # Progress signal for the outer loop's no-progress exit (moot for targets today —
+        # the driver always finalises — but every runner reports honestly).
+        return bool((result or {}).get('processed', 0) > 0)
     
     def _run_hashtag_workflow(self, action: Dict[str, Any]) -> bool:
         # `hashtags` (list) is the canonical input; the singular `hashtag` is kept for

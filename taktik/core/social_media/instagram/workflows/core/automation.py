@@ -284,38 +284,50 @@ class InstagramAutomation:
                     self.logger.error("No action or step found in configuration")
                     break
                 
+                iteration_made_progress = False
                 for step in workflow_steps:
                     should_continue_step, stop_reason_step = self.session_manager.should_continue()
                     if not should_continue_step:
                         stop_reason = stop_reason_step
                         break
-                    
+
                     action = step if 'type' in step else step
-                    
+
                     try:
-                        self.workflow_runner.run_workflow_step(action)
-                        
+                        step_made_progress = self.workflow_runner.run_workflow_step(action)
+                        if step_made_progress:
+                            iteration_made_progress = True
+
                         # Check if session was finalized by the workflow itself
                         if self.session_finalized:
                             self.logger.info("Session was finalized by workflow, exiting run_workflow")
                             return
-                        
+
                         delay = self.session_manager.get_delay_between_actions()
                         if delay > 0:
                             time.sleep(delay)
-                        
+
                     except Exception as e:
                         self.logger.error(f"Error executing action: {str(e)[:200]}", exc_info=True)
                         time.sleep(5)
-                
+
                 should_continue, stop_reason = self.session_manager.should_continue()
                 if not should_continue:
                     self._finalize_session(status='COMPLETED', reason=stop_reason)
                     return
-                
+
+                # The loop exists to retry while there is still potential (session limits not
+                # reached). An iteration where EVERY step reported no progress means the sources
+                # are dry — looping again would re-search the same exhausted lists until the
+                # session duration ran out, doing nothing but navigation.
+                if not iteration_made_progress:
+                    self.logger.info("Full iteration made no progress — sources exhausted, ending session")
+                    self._finalize_session(status='COMPLETED', reason='Sources exhausted (no further progress)')
+                    return
+
                 self.logger.info("End of complete workflow iteration")
                 time.sleep(random.uniform(10, 30))
-                
+
                 should_continue, stop_reason = self.session_manager.should_continue()
                 
         except Exception as e:
