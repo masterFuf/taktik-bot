@@ -3,7 +3,23 @@
 import math
 from typing import Any, Dict, Optional
 
+from loguru import logger
+
 from ...actions.business.workflows.common.distribution import normalize_distribution
+
+# Workflow types this builder can turn into an automation action. Anything else must
+# fail loudly instead of silently becoming a follower-interaction run (that fallback
+# already bit once: an unmapped 'cold_dm' launched the wrong workflow on a real device).
+SUPPORTED_WORKFLOW_TYPES = (
+    "target_followers",
+    "target_following",
+    "hashtags",
+    "post_url",
+    "unfollow",
+    "sync_following",
+    "sync_followers_following",
+    "feed",
+)
 
 
 def _build_action_config(
@@ -265,7 +281,20 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
         raise ValueError(
             "workflowType 'notifications' is served by notifications_bridge, not desktop_bridge"
         )
+    elif workflow_type:
+        # A present-but-unknown type is a caller bug (typo, or a new workflow whose
+        # mapping was never added here). The old behaviour — defaulting to a follower
+        # interaction run — executes the WRONG workflow on a real account.
+        raise ValueError(
+            f"Unknown workflowType {workflow_type!r} for desktop_bridge; "
+            f"supported: {', '.join(SUPPORTED_WORKFLOW_TYPES)}"
+        )
     else:
+        # Absent type: documented standalone/CLI default, kept for back-compat with
+        # configs that predate workflowType. The desktop app always sends one.
+        logger.warning(
+            "No workflowType in automation config; defaulting to interact_with_followers"
+        )
         interaction_type = "followers"
         action_type = "interact_with_followers"
         session_workflow_type = "target_followers"

@@ -1,3 +1,5 @@
+import pytest
+
 from taktik.core.social_media.instagram.workflows.core.config_builder import (
     build_instagram_automation_config,
     build_instagram_session_config_event,
@@ -332,3 +334,18 @@ def test_filters_survive_into_the_runner_interaction_config():
     assert criteria["max_following"] == 7500
     assert criteria["skip_follows_us"] is True
     assert criteria["skip_already_following"] is True
+
+
+def test_unknown_workflow_type_raises_instead_of_running_followers():
+    # The old silent fallback turned any unmapped type into a follower-interaction
+    # run on a real account (it bit once with 'cold_dm'). Must fail loudly.
+    with pytest.raises(ValueError, match="cold_dm"):
+        build_instagram_automation_config(
+            {"workflowType": "cold_dm", "target": "someone"}
+        )
+
+
+def test_absent_workflow_type_keeps_the_documented_standalone_default():
+    # Standalone/CLI configs predating workflowType rely on the follower default.
+    config = build_instagram_automation_config({"target": "someone"})
+    assert config["actions"][0]["type"] == "interact_with_followers"
