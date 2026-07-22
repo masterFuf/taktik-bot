@@ -53,10 +53,16 @@ class ProfileExtraction(BaseBusinessAction):
             # click_bio_more_button no-ops when no truncated bio is on screen, so calls that
             # only read counts pay nothing.
             if profile_text.get('bio_truncated'):
-                if self.detection_actions.click_bio_more_button():
+                if self.detection_actions.click_bio_more_button(
+                    region=profile_text.get('_bio_region')
+                ):
                     self._random_sleep(0.8, 1.2)
-                    # Re-extract with the full bio.
-                    new_profile_text = self.detection_actions.get_enriched_profile_data()
+                    # Re-extract with the full bio, but keep this optional enhancement
+                    # bounded and fail-open: a stalled u2 dump must never freeze the
+                    # complete profile pipeline before counters/screenshot/AI.
+                    new_profile_text = self.detection_actions.get_enriched_profile_data(
+                        dump_timeout_seconds=5.0
+                    )
 
                     # IMPORTANT: clicking "more" might have navigated to a @username link in the
                     # bio — verify we're still on the same profile.
@@ -66,8 +72,12 @@ class ProfileExtraction(BaseBusinessAction):
                         self.device.press("back")
                         self._random_sleep(0.3, 0.5)
                         # Keep original profile_text (truncated bio is better than wrong profile)
-                    else:
+                    elif new_profile_text.get('biography'):
                         profile_text = new_profile_text
+                    else:
+                        self.logger.warning(
+                            "Bio expansion refresh unavailable; keeping truncated bio"
+                        )
             
             # Get counts (these are fast, ~300ms each)
             followers_count = self._get_followers_count_robust()

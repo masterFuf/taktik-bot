@@ -152,6 +152,7 @@ class OcrService:
         min_confidence: float = 40.0,
         whole_word: bool = True,
         lang: Optional[str] = None,
+        timeout_seconds: float = 5.0,
     ) -> List[TextMatch]:
         """Return every box whose recognised word matches one of ``queries``.
 
@@ -186,8 +187,13 @@ class OcrService:
 
         try:
             config = "--psm 11"  # sparse text: find as much text as possible, any orientation
-            data = pt.image_to_data(img, output_type=pt.Output.DICT,
-                                    **({"lang": lang} if lang else {}), config=config)
+            data = pt.image_to_data(
+                img,
+                output_type=pt.Output.DICT,
+                **({"lang": lang} if lang else {}),
+                config=config,
+                timeout=max(0.1, float(timeout_seconds)),
+            )
         except Exception as exc:
             if not cls._unavailable_warned:
                 cls._unavailable_warned = True

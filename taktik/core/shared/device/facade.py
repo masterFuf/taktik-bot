@@ -148,9 +148,22 @@ class BaseDeviceFacade:
             self.logger.warning(f"⚠️ Cannot get screen dimensions: {e}")
             return 1080, 1920
     
-    def get_xml_dump(self) -> Optional[str]:
-        """Get a single XML dump of the current screen for batch operations."""
+    def get_xml_dump(self, timeout_seconds: Optional[float] = None) -> Optional[str]:
+        """Get a single XML dump of the current screen for batch operations.
+
+        ``uiautomator2.dump_hierarchy`` applies its global HTTP timeout (currently
+        several minutes). Optional, best-effort reads such as bio expansion must not
+        be allowed to hold the whole workflow for that long, so callers may request a
+        shorter JSON-RPC timeout. The default path is deliberately unchanged.
+        """
         try:
+            if timeout_seconds is not None:
+                max_depth = self._device.settings.get("max_depth", 50)
+                return self._device.jsonrpc.dumpWindowHierarchy(
+                    False,
+                    max_depth,
+                    http_timeout=max(0.1, float(timeout_seconds)),
+                )
             return self._device.dump_hierarchy()
         except Exception as e:
             self.logger.error(f"Error getting XML dump: {e}")

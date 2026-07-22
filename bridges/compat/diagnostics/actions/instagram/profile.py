@@ -151,10 +151,11 @@ def get_enriched(a, p):
     """Read the ENRICHED profile: username/full_name/bio/category/website/linked +
     the bio_truncated flag (whether a '… more'/'… plus' expander is present)."""
     data = a.detection.get_enriched_profile_data() or {}
+    public_data = {key: value for key, value in data.items() if not key.startswith("_")}
     return {"success": bool(data.get("username") or data.get("biography")),
             "message": (f"@{data.get('username')} | bio_truncated={data.get('bio_truncated')} | "
                         f"bio={(data.get('biography') or '')[:50]}"),
-            "details": data}
+            "details": public_data}
 
 
 @action("profile.expand_bio_more")

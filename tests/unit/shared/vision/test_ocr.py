@@ -11,14 +11,17 @@ class _FakePytesseract:
 
     def __init__(self, data):
         self._data = data
+        self.kwargs = None
 
     def image_to_data(self, img, output_type=None, config=None, **kwargs):
+        self.kwargs = kwargs
         return self._data
 
 
 def _patch(monkeypatch, data):
     fake = _FakePytesseract(data)
     monkeypatch.setattr(OcrService, "_pytesseract", classmethod(lambda cls: fake))
+    return fake
 
 
 def test_locate_finds_word_and_returns_center(monkeypatch):
@@ -55,3 +58,13 @@ def test_surrounding_punctuation_still_matches(monkeypatch):
 def test_unavailable_returns_empty(monkeypatch):
     monkeypatch.setattr(OcrService, "_pytesseract", classmethod(lambda cls: None))
     assert OcrService.locate(Image.new("RGB", (50, 50)), "more") == []
+
+
+def test_tesseract_call_has_a_hard_timeout(monkeypatch):
+    fake = _patch(monkeypatch, {
+        "text": [], "conf": [], "left": [], "top": [], "width": [], "height": [],
+    })
+
+    OcrService.locate(Image.new("RGB", (50, 50)), "more")
+
+    assert fake.kwargs["timeout"] == 5.0

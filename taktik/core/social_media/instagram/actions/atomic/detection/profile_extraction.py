@@ -11,6 +11,25 @@ from taktik.core.shared.vision import locate_text_on_screen
 _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
 
+def _bio_text_looks_truncated(text: str, expander_words=None) -> bool:
+    """Return whether a bio carries a real trailing truncation marker.
+
+    A sequence of dots anywhere in the biography is user content, not proof of truncation. Real
+    Instagram truncation is at the end of the TextView, optionally followed by its localized
+    clickable word (``more`` / ``plus`` / ``suite``).
+    """
+    value = " ".join(str(text or "").strip().split()).casefold()
+    if not value:
+        return False
+    if value.endswith("…") or value.endswith("..."):
+        return True
+    for word in expander_words or ():
+        suffix = str(word or "").strip().casefold()
+        if suffix and re.search(rf"(?:…|\.{{3}})\s*{re.escape(suffix)}\s*$", value):
+            return True
+    return False
+
+
 class ProfileExtractionMixin(BaseAction):
     """Mixin: profile flags, text extraction, enriched data (XML batch), bio more button."""
 
@@ -176,7 +195,12 @@ class ProfileExtractionMixin(BaseAction):
 
     # === Enriched profile extraction (XML) ===
 
-    def get_enriched_profile_data(self) -> Dict[str, Any]:
+    def get_enriched_profile_data(
+        self,
+        xml_content: Optional[str] = None,
+        *,
+        dump_timeout_seconds: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """
         Get all enriched profile data in a single XML dump.
         Extracts: username, full_name, bio, business_category, website, linked_accounts.
@@ -197,7 +221,18 @@ class ProfileExtractionMixin(BaseAction):
             'bio_truncated': False,  # True if "more" button detected
         }
         
-        xml_content = self.device.get_xml_dump()
+        if xml_content is None:
+            if dump_timeout_seconds is None:
+                xml_content = self.device.get_xml_dump()
+            else:
+                try:
+                    xml_content = self.device.get_xml_dump(
+                        timeout_seconds=dump_timeout_seconds
+                    )
+                except TypeError:
+                    # Compatibility with lightweight test/device facades. Production's
+                    # BaseDeviceFacade supports the bounded call above.
+                    xml_content = self.device.get_xml_dump()
         if not xml_content:
             return results
         
@@ -254,11 +289,20 @@ class ProfileExtractionMixin(BaseAction):
                         text = element.get('text', '').strip()
                         # Skip empty, "See translation", or very short texts that are likely not bio
                         if text and text != 'See translation' and len(text) > 3:
-                            # Truncation is flagged by the trailing ellipsis (language-neutral:
-                            # "… more" EN, "… plus"/"… suite" FR). A false positive is harmless —
-                            # click_bio_more_button no-ops when OCR finds no expander word.
-                            if '…' in text or '...' in text:
+                            # Only a TRAILING ellipsis / localized expander proves truncation.
+                            # Dots elsewhere are legitimate bio content (a real run had a first
+                            # line of "........" and was sent into OCR indefinitely).
+                            if _bio_text_looks_truncated(
+                                text, PROFILE_SELECTORS.bio_more_words
+                            ):
                                 results['bio_truncated'] = True
+                                match = _BOUNDS_RE.search(
+                                    element.get('bounds', '') or ''
+                                )
+                                if match:
+                                    results['_bio_region'] = tuple(
+                                        int(group) for group in match.groups()
+                                    )
                             results['biography'] = text
                             self.logger.debug(f"Bio found: {text[:50]}...")
                             break
@@ -422,14 +466,24 @@ class ProfileExtractionMixin(BaseAction):
             self.logger.debug(f"Failed to extract avatar: {e}")
             return None
 
-    def _truncated_bio_region(self) -> Optional[tuple]:
+    def _truncated_bio_region(
+        self,
+        xml_content: Optional[str] = None,
+        *,
+        timeout_seconds: float = 5.0,
+    ) -> Optional[tuple]:
         """Bounds (x1,y1,x2,y2) of the truncated bio TextView, or None.
 
         Language-neutral: finds the bio TextView (resource-id based) whose text carries
         the truncation ellipsis "…"/"...". Used as the OCR region to locate the expander.
         """
         from lxml import etree
-        xml = self.device.get_xml_dump()
+        xml = xml_content
+        if xml is None:
+            try:
+                xml = self.device.get_xml_dump(timeout_seconds=timeout_seconds)
+            except TypeError:
+                xml = self.device.get_xml_dump()
         if not xml:
             return None
         try:
@@ -443,13 +497,15 @@ class ProfileExtractionMixin(BaseAction):
                 continue
             for element in elements:
                 text = element.get("text", "") or ""
-                if "…" in text or "..." in text:  # truncated bio
+                if _bio_text_looks_truncated(
+                    text, PROFILE_SELECTORS.bio_more_words
+                ):
                     match = _BOUNDS_RE.search(element.get("bounds", "") or "")
                     if match:
                         return tuple(int(g) for g in match.groups())
         return None
 
-    def click_bio_more_button(self) -> bool:
+    def click_bio_more_button(self, region: Optional[tuple] = None) -> bool:
         """Expand a truncated biography by OCR-locating its '… more' / '… plus' expander
         and tapping its REAL position.
 
@@ -461,7 +517,10 @@ class ProfileExtractionMixin(BaseAction):
         unavailable — the bio simply stays as-is.
         """
         try:
-            region = self._truncated_bio_region()
+            # Production passes the bounds extracted from its first profile dump. This
+            # avoids a second optional hierarchy request before OCR. Direct/Lab callers
+            # still get a bounded best-effort dump through the fallback.
+            region = region or self._truncated_bio_region()
             if region is None:
                 return False
             matches = locate_text_on_screen(self.device, PROFILE_SELECTORS.bio_more_words, region=region)
