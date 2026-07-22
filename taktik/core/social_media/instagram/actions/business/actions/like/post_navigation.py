@@ -10,9 +10,8 @@ from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.shared.telemetry import emit_step
 from ....core.ipc.emitter import IPCEmitter
 
-# Advance gesture mix when browsing a profile's posts — same humanised profile as the
-# feed (a decisive flick most of the time, an occasional slow drag), instead of the
-# old single fixed swipe that read as a robotic, identical scroll every post.
+# Long-run advance mix when browsing a profile's posts. Session memory turns this baseline into
+# short brisk/steady/deliberate bursts instead of an independent 85/15 draw on every post.
 _ADVANCE_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
 
 # Occasionally a human doesn't just swipe through the post viewer — they go BACK to the grid
@@ -53,26 +52,23 @@ class PostNavigationMixin:
             posts = self._visible_grid_thumbnails(thumb_selector)
             if not posts:
                 self.logger.debug("Grid not visible — using legacy first-post open")
-                return self._open_first_post_of_profile()
+                return self._open_first_post_of_profile(username=username)
 
             # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
             prescroll = plan_prescroll(int(posts_count or 0))
             for _ in range(prescroll):
-                scrolled = False
-                try:
-                    scrolled = self.scroll_actions._strong_flick("up")
-                except Exception as e:
-                    self.logger.debug(f"Grid flick failed: {e}")
+                scrolled = self._session_grid_scroll(
+                    "profile_grid_prescroll", distance_ratio=0.40, coast=True
+                )
                 if not scrolled:
                     break
-                time.sleep(random.uniform(0.5, 0.8))
             if prescroll:
                 posts = self._visible_grid_thumbnails(thumb_selector)
                 if not posts:
-                    return self._open_first_post_of_profile()
+                    return self._open_first_post_of_profile(username=username)
 
             # 2. Open a varied visible thumbnail (top-weighted, spread).
-            index = sample_entry_index(len(posts))
+            index = self._choose_session_grid_entry(posts, username=username)
             target = posts[index]
             self.logger.info(
                 f"Opening entry post: thumbnail #{index + 1}/{len(posts)} "
@@ -85,21 +81,23 @@ class PostNavigationMixin:
             if username:
                 self._emit_entry_decision(username, posts_count, prescroll, target, index)
 
+            self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
             if not self._human_tap_grid_thumbnail(target):
                 target.click()  # centre-click fallback if bounds unreadable
 
             time.sleep(3)
             if self._is_in_post_view():
+                self._remember_session_grid_entry(target, index, username=username)
                 self.logger.success("Entry post opened successfully")
                 return True
 
             self.logger.warning("Entry post did not open — falling back to first post")
-            return self._open_first_post_of_profile()
+            return self._open_first_post_of_profile(username=username)
 
         except Exception as e:
             self.logger.error(f"Error opening entry post: {e} — falling back to first post")
             try:
-                return self._open_first_post_of_profile()
+                return self._open_first_post_of_profile(username=username)
             except Exception:
                 return False
 
@@ -125,9 +123,10 @@ class PostNavigationMixin:
                 if el.exists:
                     target = el
                     break
-                if not self.scroll_actions._strong_flick("up"):
+                if not self._session_grid_scroll(
+                    "profile_grid_target_seek", distance_ratio=0.40, coast=True
+                ):
                     break
-                time.sleep(random.uniform(0.5, 0.8))
 
             if target is None:
                 self.logger.warning(
@@ -136,6 +135,7 @@ class PostNavigationMixin:
                 return False
 
             self.logger.info(f"Opening post #{index} (ligne {row}, colonne {col})")
+            self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
             tapped = False
             try:
                 el = target.get(timeout=1.0)
@@ -149,6 +149,7 @@ class PostNavigationMixin:
 
             time.sleep(3)
             if self._is_in_post_view():
+                self._remember_session_grid_entry(target, index - 1, username=None)
                 self.logger.success(f"Post #{index} opened successfully")
                 return True
             self.logger.warning(f"Post #{index} did not open")
@@ -197,14 +198,76 @@ class PostNavigationMixin:
         if posts:
             return posts
         # Humanized controlled scroll to reveal the grid (was facade swipe_ext / Direction.UP).
-        self.device.human_scroll("down", distance_ratio=0.3)
-        time.sleep(0.5)
+        self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.30)
         posts = self.device.xpath(thumb_selector).all()
         if posts:
             return posts
-        self.device.human_scroll("down", distance_ratio=0.5)
-        time.sleep(0.5)
+        self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.50)
         return self.device.xpath(thumb_selector).all()
+
+    def _session_grid_scroll(
+        self, context: str, distance_ratio: float, coast: bool = False
+    ) -> bool:
+        """Route profile-grid motion through the same per-session gesture timeline."""
+        try:
+            _, height = self.device.get_screen_size()
+            decision = self.scroll_actions._plan_behavior_gesture(
+                context, "flick" if coast else "controlled_swipe"
+            )
+            distance_px = height * float(distance_ratio) * decision["distance_scale"]
+            if coast:
+                ok = self.scroll_actions._strong_flick(
+                    "up", distance_px=distance_px,
+                    velocity_scale=decision["velocity_scale"],
+                )
+                base_settle = (0.45, 0.75)
+            else:
+                ok = self.scroll_actions._human_swipe(
+                    "up", distance_px=distance_px, controlled=True,
+                    velocity_scale=decision["velocity_scale"],
+                )
+                base_settle = (0.30, 0.55)
+            if ok:
+                time.sleep(random.uniform(*base_settle) * decision["settle_scale"])
+            return bool(ok)
+        except Exception as exc:
+            self.logger.debug(f"Grid session scroll failed: {exc}")
+            return False
+
+    @staticmethod
+    def _grid_entry_key(element, index: int, username: str = None) -> str:
+        """Stable per-profile cell key from live grid metadata, with an index fallback."""
+        desc = ""
+        try:
+            desc = (element.attrib.get("content-desc") or "") if hasattr(element, "attrib") else ""
+        except Exception:
+            desc = ""
+        if not desc:
+            try:
+                info = getattr(element, "info", {}) or {}
+                desc = info.get("contentDescription") or info.get("content-desc") or ""
+            except Exception:
+                desc = ""
+        match = _GRID_POS_RE.search(desc)
+        position = ((int(match.group(1)) - 1) * GRID_COLUMNS + int(match.group(2))) if match else None
+        cell = f"position:{position}" if position is not None else f"visible:{int(index)}"
+        return f"{username or 'current-profile'}:{cell}"
+
+    def _choose_session_grid_entry(self, posts, username: str = None) -> int:
+        keys = [self._grid_entry_key(post, index, username) for index, post in enumerate(posts)]
+        chooser = getattr(getattr(self, "behavior_state", None), "choose_grid_entry_index", None)
+        if callable(chooser):
+            return int(chooser(context=username or "current-profile", candidate_keys=keys))
+        return sample_entry_index(len(posts))
+
+    def _remember_session_grid_entry(self, target, index: int, username: str = None) -> None:
+        remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
+        if callable(remember):
+            remember(
+                context=username or "current-profile",
+                key=self._grid_entry_key(target, index, username),
+                index=index,
+            )
 
     def _human_tap_grid_thumbnail(self, element) -> bool:
         """Human-tap a grid thumbnail at a sampled point within its bounds (never the
@@ -218,7 +281,7 @@ class PostNavigationMixin:
             self.logger.debug(f"thumbnail human-tap bounds unreadable ({e}); centre-click fallback")
         return False
 
-    def _open_first_post_of_profile(self) -> bool:
+    def _open_first_post_of_profile(self, username: str = None) -> bool:
         try:
             self.logger.info("Opening first post of profile...")
             
@@ -228,16 +291,13 @@ class PostNavigationMixin:
             # This can happen after follow when suggestions popup was hidden by scrolling up
             if not posts:
                 self.logger.debug("No posts visible, scrolling down to reveal grid...")
-                # Humanized controlled scroll to reveal the grid (was facade swipe_ext / Direction.UP).
-                self.device.human_scroll("down", distance_ratio=0.3)
-                time.sleep(0.5)
+                self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.30)
                 posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
 
             if not posts:
                 # Try one more time with a bigger scroll
                 self.logger.debug("Still no posts, trying bigger scroll...")
-                self.device.human_scroll("down", distance_ratio=0.5)
-                time.sleep(0.5)
+                self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.50)
                 posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
             
             if not posts:
@@ -245,12 +305,15 @@ class PostNavigationMixin:
                 return False
             
             first_post = posts[0]
-            first_post.click()
+            self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
+            if not self._human_tap_grid_thumbnail(first_post):
+                first_post.click()
             self.logger.debug("Clicking on first post...")
             
             time.sleep(3)  # Increased from 2s to 3s for slower devices
             
             if self._is_in_post_view():
+                self._remember_session_grid_entry(first_post, 0, username=username)
                 self.logger.success("First post opened successfully")
                 return True
             else:
@@ -282,7 +345,7 @@ class PostNavigationMixin:
             self.logger.debug("Navigating to next post...")
             
             # Get screen dimensions for adaptive swipe coordinates
-            width, height = self.device.get_screen_size()
+            _, height = self.device.get_screen_size()
 
             try:
                 # Vertical advance to the next post — humanised like the FEED browse:
@@ -290,55 +353,90 @@ class PostNavigationMixin:
                 # drag, instead of the single fixed swipe that read as a robotic identical
                 # scroll every post. Then a content-aware reading dwell (varied glance +
                 # occasional linger) replaces the flat 2s pause.
-                modes, weights = zip(*_ADVANCE_MODE_WEIGHTS)
-                mode = random.choices(modes, weights=weights)[0]
+                mode_decision = self.scroll_actions._choose_advance_mode(
+                    "profile_posts",
+                    base_drag_probability=dict(_ADVANCE_MODE_WEIGHTS)["drag"],
+                )
+                mode = mode_decision["mode"]
+                distance_scale = float(mode_decision.get("distance_scale", 1.0))
+                velocity_scale = float(mode_decision.get("velocity_scale", 1.0))
+                dwell_scale = float(mode_decision.get("dwell_scale", 1.0))
                 if mode == "drag":
                     advanced = self.scroll_actions._long_drag(
-                        direction="up", distance_px=random.uniform(0.80, 0.90) * height
+                        direction="up",
+                        distance_px=(random.uniform(0.80, 0.90) * height
+                                     * distance_scale),
+                        guard_start=True,
+                        velocity_scale=velocity_scale,
                     )
                 else:
                     advanced = self.scroll_actions._strong_flick(
-                        direction="up", distance_px=random.uniform(0.55, 0.72) * height
+                        direction="up",
+                        # Stay below the primitive's safe 0.45h fling cap in most cases so the
+                        # session reach multiplier changes real travel instead of being clipped.
+                        distance_px=(random.uniform(0.34, 0.41) * height
+                                     * distance_scale),
+                        guard_start=True,
+                        velocity_scale=velocity_scale,
                     )
-                # Land cleanly on the next post — exactly like the FEED does: a variable flick
-                # can stop "half-and-half" (end of the post above + start of the one below), so
-                # if the incoming post header isn't framed at the top, ONE precise 1:1 lift drag
-                # brings it up (moves less than one post pitch → frames the topmost post, never
-                # skips). No-op if no header is detected, so it can't regress navigation. A human
-                # advances to SEE the next post in full, not stop mid-way.
-                try:
-                    self.scroll_actions.land_on_post_header()
-                except Exception as land_exc:
-                    self.logger.debug(f"land_on_post_header skipped: {land_exc}")
+                # Evaluate the landing exactly like the feed: severity, dump confidence, current
+                # session style, and recent corrections decide whether a precise 1:1 lift is useful.
+                # A moderate imperfection may remain; a severe half-shown post is always repaired.
+                if advanced:
+                    try:
+                        self.scroll_actions.land_on_post_header()
+                    except Exception as land_exc:
+                        self.logger.debug(f"land_on_post_header skipped: {land_exc}")
 
-                # A human GLANCES at each post while scrolling — a short, varied dwell.
-                # The deliberate "open + read the full description" is no longer done on
-                # every advance: it's now an engagement step (see engagement_sequence), so
-                # posts we act on get the full read+reframe and the rest get a glance.
-                time.sleep(content_dwell(0))
+                    # A human GLANCES at each post while scrolling — a short, varied dwell.
+                    # The deliberate "open + read the full description" is no longer done on
+                    # every advance: it's now an engagement step (see engagement_sequence), so
+                    # posts we act on get the full read+reframe and the rest get a glance.
+                    time.sleep(content_dwell(0) * dwell_scale)
 
                 if advanced and self._is_in_post_view():
-                    self.logger.debug(f"Navigation successful via human {mode}")
+                    self.logger.debug(
+                        f"Navigation successful via human {mode} "
+                        f"(style={mode_decision.get('style')}, "
+                        f"burst_left={mode_decision.get('burst_remaining')})"
+                    )
                     return True
             except Exception as e:
                 self.logger.debug(f"Vertical advance failed: {e}")
             
             try:
-                # Humanized horizontal swipe to the next post (was a fixed-coordinate swipe).
-                self.device.human_hswipe("left", distance_ratio=0.55)
-                time.sleep(1)
-                
-                if self._is_in_post_view():
-                    self.logger.debug("Navigation successful via horizontal swipe")
+                # A horizontal fallback is unsafe here: on a carousel it only changes SLIDE while
+                # `_is_in_post_view()` stays true, falsely reporting a new post. Retry vertically
+                # with a controlled production gesture instead.
+                retry = self.scroll_actions._plan_behavior_gesture(
+                    "profile_posts_retry", "controlled_swipe"
+                )
+                advanced = self.scroll_actions._human_swipe(
+                    direction="up",
+                    distance_px=0.68 * height * retry["distance_scale"],
+                    start_band=(0.78 * height, 0.86 * height),
+                    controlled=True,
+                    guard_start=True,
+                    velocity_scale=retry["velocity_scale"],
+                )
+                time.sleep(random.uniform(0.25, 0.50) * retry["settle_scale"])
+                if advanced:
+                    try:
+                        self.scroll_actions.land_on_post_header()
+                    except Exception as land_exc:
+                        self.logger.debug(f"retry land_on_post_header skipped: {land_exc}")
+                if advanced and self._is_in_post_view():
+                    time.sleep(content_dwell(0) * retry["dwell_scale"])
+                    self.logger.debug("Navigation successful via controlled vertical retry")
                     return True
             except Exception as e:
-                self.logger.debug(f"Horizontal swipe failed: {e}")
+                self.logger.debug(f"Controlled vertical retry failed: {e}")
             
             try:
                 next_button_selectors = self.post_selectors.next_post_button_selectors
                 
                 for selector in next_button_selectors:
-                    if self.device.xpath(selector).exists():
+                    if self.device.xpath(selector).exists:
                         self.device.xpath(selector).click()
                         time.sleep(1)
                         
@@ -378,9 +476,7 @@ class PostNavigationMixin:
         post view; the caller falls back to the in-viewer scroll otherwise (zero regression)."""
         try:
             self.logger.debug("Navigating via grid: back to profile → reopen another post")
-            self._return_to_profile_from_post()
-            time.sleep(random.uniform(0.6, 1.2))
-            if self._is_in_post_view():
+            if not self._return_to_profile_from_post():
                 # Back didn't land on the grid (still in a post) → let the caller scroll instead.
                 self.logger.debug("Grid-return: still in post view after back, aborting")
                 return False
@@ -392,7 +488,7 @@ class PostNavigationMixin:
             self.logger.debug(f"Grid-return navigation failed: {e}")
             return False
 
-    def _return_to_profile_from_post(self):
+    def _return_to_profile_from_post(self) -> bool:
         try:
             self.logger.info("Returning to profile from post...")
             
@@ -400,19 +496,53 @@ class PostNavigationMixin:
             
             for selector in back_selectors:
                 if self.device.xpath(selector).exists:
+                    decision = self.scroll_actions._plan_behavior_gesture(
+                        "profile_viewer_back", "tap"
+                    )
                     self.device.xpath(selector).click()
-                    time.sleep(1.5)
-                    self.logger.debug("Returned via back button")
-                    return
+                    time.sleep(random.uniform(0.60, 1.10) * decision["settle_scale"])
+                    returned = self._wait_for_post_view_exit()
+                    self.logger.debug(f"Returned via back button: {returned}")
+                    if returned:
+                        return True
+                    # The selector was real but the tap was swallowed; continue into the gesture
+                    # fallback instead of reporting failure immediately.
+                    break
             
             # Humanised downward swipe fallback (sampled geometry, not fixed coords).
-            width, height = self.device.get_screen_size()
+            _, height = self.device.get_screen_size()
             dist = height * random.uniform(0.40, 0.55)
-            if not self.scroll_actions._human_swipe(direction="down", distance_px=dist, controlled=True):
-                center_x = width // 2
-                self.device.swipe_coordinates(center_x, int(height * 0.625), center_x, int(height * 0.21), duration=0.5)
-            time.sleep(1.5)
-            self.logger.debug("Returned via downward swipe")
+            decision = self.scroll_actions._plan_behavior_gesture(
+                "profile_viewer_dismiss", "controlled_swipe"
+            )
+            injected = self.scroll_actions._human_swipe(
+                direction="down", distance_px=dist * decision["distance_scale"],
+                controlled=True, guard_start=True,
+                velocity_scale=decision["velocity_scale"],
+            )
+            if not injected:
+                # The old coordinate fallback moved UP, the opposite of the intended dismiss.
+                # Back is directionally correct and does not reintroduce hard-coded coordinates.
+                self.device.press("back")
+            time.sleep(random.uniform(0.60, 1.10) * decision["settle_scale"])
+            returned = self._wait_for_post_view_exit()
+            if injected and not returned:
+                # A technically injected dismiss can still be ignored by the viewer. Fall back on
+                # observed UI state, not only on the primitive's transport-level boolean.
+                self.device.press("back")
+                returned = self._wait_for_post_view_exit()
+            self.logger.debug(f"Returned via downward swipe: {returned}")
+            return returned
             
         except Exception as e:
             self.logger.error(f"Error returning to profile: {e}")
+            return False
+
+    def _wait_for_post_view_exit(self, attempts: int = 8, interval_s: float = 0.25) -> bool:
+        """Wait briefly for a viewer transition instead of sampling the UI at one fixed instant."""
+        for attempt in range(max(1, int(attempts))):
+            if not self._is_in_post_view():
+                return True
+            if attempt + 1 < attempts:
+                time.sleep(max(0.0, float(interval_s)))
+        return False

@@ -86,10 +86,16 @@ class ContextScrollMixin(BaseAction):
         self.logger.debug("📸 Scrolling post grid down")
 
         try:
-            # Humanized controlled scroll over the profile post grid (was a fixed-centre swipe).
-            self.device.human_scroll("down", distance_ratio=0.5)
-            self._human_like_delay('scroll')
-            return True
+            decision = self._plan_behavior_gesture("profile_grid_scroll", "controlled_swipe")
+            ok = self._human_swipe(
+                "up",
+                distance_px=0.5 * self.screen_height * decision["distance_scale"],
+                controlled=True,
+                velocity_scale=decision["velocity_scale"],
+            )
+            if ok:
+                self._human_like_delay('scroll', scale=decision["settle_scale"])
+            return bool(ok)
 
         except Exception as e:
             self.logger.error(f"Error scrolling post grid: {e}")
@@ -99,10 +105,16 @@ class ContextScrollMixin(BaseAction):
         self.logger.debug("📱 Scrolling feed down")
 
         try:
-            # Humanized controlled scroll (was a fixed-centre swipe).
-            self.device.human_scroll("down", distance_ratio=0.4)
-            self._human_like_delay('scroll')
-            return True
+            decision = self._plan_behavior_gesture("generic_feed_scroll", "controlled_swipe")
+            ok = self._human_swipe(
+                "up",
+                distance_px=0.4 * self.screen_height * decision["distance_scale"],
+                controlled=True,
+                velocity_scale=decision["velocity_scale"],
+            )
+            if ok:
+                self._human_like_delay('scroll', scale=decision["settle_scale"])
+            return bool(ok)
 
         except Exception as e:
             self.logger.error(f"Error scrolling feed: {e}")

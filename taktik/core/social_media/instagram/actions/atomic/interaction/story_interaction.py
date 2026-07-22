@@ -132,9 +132,15 @@ class StoryInteractionMixin(BaseAction):
         swipe pinned to the tray row — was a fixed-coordinate swipe)."""
         try:
             y_ratio = self._tray_y_ratio(STORY_SELECTORS.highlight_recycler, 0.45)
-            self.device.human_hswipe("left", y_ratio=y_ratio)
-            self._human_like_delay('scroll')
-            return True
+            decision = self._plan_behavior_gesture("story_highlights_tray", "hswipe")
+            ok = self.device.human_hswipe(
+                "left", y_ratio=y_ratio,
+                distance_scale=decision["distance_scale"],
+                velocity_scale=decision["velocity_scale"],
+            )
+            if ok:
+                self._human_like_delay('scroll', scale=decision["settle_scale"])
+            return bool(ok)
         except Exception as e:
             self.logger.error(f"Error scrolling highlights tray: {e}")
             return False
@@ -144,9 +150,15 @@ class StoryInteractionMixin(BaseAction):
         swipe pinned to the top tray row — was a fixed-coordinate swipe)."""
         try:
             y_ratio = self._tray_y_ratio(STORY_SELECTORS.feed_story_recycler, 0.17)
-            self.device.human_hswipe("left", y_ratio=y_ratio)
-            self._human_like_delay('scroll')
-            return True
+            decision = self._plan_behavior_gesture("story_feed_tray", "hswipe")
+            ok = self.device.human_hswipe(
+                "left", y_ratio=y_ratio,
+                distance_scale=decision["distance_scale"],
+                velocity_scale=decision["velocity_scale"],
+            )
+            if ok:
+                self._human_like_delay('scroll', scale=decision["settle_scale"])
+            return bool(ok)
         except Exception as e:
             self.logger.error(f"Error scrolling feed story tray: {e}")
             return False

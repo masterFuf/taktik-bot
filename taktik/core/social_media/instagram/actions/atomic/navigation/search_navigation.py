@@ -11,6 +11,10 @@ from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_hswipe_raw
+from ..story_state import parse_story_position
+
+
+_STORY_TRANSITION_POLL_DELAYS = (0.12, 0.18, 0.28, 0.40)
 
 
 def _safe_story_advance_zone(screen_width: int, screen_height: int, sticker: Optional[dict]):
@@ -328,10 +332,15 @@ class SearchNavigationMixin(BaseAction):
             self.logger.debug("➡️ Navigating to next post")
 
             # Humanized horizontal swipe to the next post (was a fixed normalized-coord swipe).
-            human_hswipe_raw(self.device, "left", distance_ratio=0.6)
-            self._human_like_delay('navigation')
-            
-            return True
+            decision = self._plan_behavior_gesture("generic_post_pager", "hswipe")
+            ok = human_hswipe_raw(
+                self.device, "left", distance_ratio=0.6,
+                distance_scale=decision["distance_scale"],
+                velocity_scale=decision["velocity_scale"],
+            )
+            if ok:
+                self._human_like_delay('navigation', scale=decision["settle_scale"])
+            return bool(ok)
             
         except Exception as e:
             self.logger.error(f"Error navigating to next post: {e}")
@@ -353,8 +362,91 @@ class SearchNavigationMixin(BaseAction):
             pass
         return None
 
-    def navigate_to_next_story(self) -> bool:
+    def _story_transition_signature(self) -> Optional[tuple[bool, tuple]]:
+        """Read a lightweight story identity without requesting an explicit hierarchy dump.
+
+        The first item says whether the signature contains a reliable position marker. Weak
+        signatures are still useful to prove a change, but never to reject a gesture: two slides
+        from the same author can legitimately expose the same rounded timestamp.
+        """
+        selectors = (
+            STORY_SELECTORS.story_viewer_text_container,
+            STORY_SELECTORS.story_viewer_title,
+            STORY_SELECTORS.story_viewer_timestamp,
+            STORY_SELECTORS.story_progress_bar,
+            STORY_SELECTORS.story_image,
+            STORY_SELECTORS.story_video,
+        )
         try:
+            elements = self.device.xpath(" | ".join(selectors)).all() or []
+        except Exception:
+            return None
+
+        identities = []
+        positions = set()
+        progress_states = []
+
+        for element in elements:
+            attributes = getattr(element, "attrib", None) or {}
+            resource_id = str(attributes.get("resource-id") or "").casefold()
+            text = " ".join(str(attributes.get("text") or "").split()).casefold()
+            content_desc = " ".join(
+                str(attributes.get("content-desc") or "").split()
+            ).casefold()
+
+            if "reel_viewer_text_container" in resource_id or "progress_bar" in resource_id:
+                position = parse_story_position(f"{content_desc} {text}")
+                if position:
+                    positions.add(position)
+
+            if any(token in resource_id for token in (
+                "reel_viewer_text_container",
+                "reel_viewer_title",
+                "reel_viewer_timestamp",
+                "reel_media_image",
+                "reel_media_video",
+            )) and (content_desc or text):
+                identities.append((resource_id.rsplit("/", 1)[-1], content_desc, text))
+
+            if "progress_bar" in resource_id:
+                selected = str(attributes.get("selected") or "").casefold()
+                checked = str(attributes.get("checked") or "").casefold()
+                progress_states.append((selected, checked))
+
+        active_progress = any(
+            value in {"1", "true"}
+            for state in progress_states
+            for value in state
+        )
+        value = (
+            tuple(sorted(positions)),
+            tuple(sorted(set(identities))),
+            tuple(progress_states),
+        )
+        return bool(positions or active_progress), value
+
+    def _wait_for_story_transition(
+        self,
+        before: Optional[tuple[bool, tuple]],
+    ) -> Optional[bool]:
+        """Return True/False when observable, or None to preserve the legacy fallback."""
+        if not before or not before[0]:
+            return None
+
+        latest = None
+        for delay in _STORY_TRANSITION_POLL_DELAYS:
+            time.sleep(delay)
+            latest = self._story_transition_signature()
+            if latest and latest[1] != before[1]:
+                return True
+
+        if latest and latest[0] and latest[1] == before[1]:
+            return False
+        return None
+
+    def navigate_to_next_story(self, *, settle: bool = True) -> bool:
+        try:
+            decision = self._plan_behavior_gesture("story_advance", "tap")
             screen_width = self.device.info.get('displayWidth', 1080)
             screen_height = self.device.info.get('displayHeight', 1920)
 
@@ -368,6 +460,7 @@ class SearchNavigationMixin(BaseAction):
 
             tap_x = (zx0 + zx1) // 2
             tap_y = (zy0 + zy1) // 2
+            before_signature = self._story_transition_signature()
 
             # Human-tap a varied point in the (sticker-safe) right-side advance zone; quick tap so a
             # held press never pauses the story. Fall back to the zone centre if sampling fails.
@@ -375,10 +468,27 @@ class SearchNavigationMixin(BaseAction):
                 self.logger.debug(f"👆 Tap for next story: ({tap_x}, {tap_y})")
                 self.device.click(tap_x, tap_y)
 
-            self._human_like_delay('story_transition')
-            
+            transition = self._wait_for_story_transition(before_signature)
+            if transition is False:
+                self.logger.debug("Story advance gesture was injected but the slide did not change")
+                return False
+            if transition is True:
+                if settle:
+                    self._human_like_delay(
+                        "story_transition", scale=decision["settle_scale"]
+                    )
+                self.logger.debug("✅ Story transition confirmed")
+                return True
+
+            # The viewer check below is the functional transition wait. By default the atomic action
+            # owns one human beat; StoryBusiness passes settle=False and applies its configured range.
+            # It is retained for viewers that expose no reliable position marker.
             for indicator in self.detection_selectors.story_viewer_indicators:
                 if self._wait_for_element(indicator, timeout=2):
+                    if settle:
+                        self._human_like_delay(
+                            "story_transition", scale=decision["settle_scale"]
+                        )
                     self.logger.debug("✅ Still in stories")
                     return True
             
@@ -387,4 +497,30 @@ class SearchNavigationMixin(BaseAction):
             
         except Exception as e:
             self.logger.error(f"Error navigating to next story: {e}")
+            return False
+
+    def navigate_to_previous_story(self) -> bool:
+        """Return to the previous story with the shared horizontal production gesture."""
+        try:
+            decision = self._plan_behavior_gesture("story_previous", "hswipe")
+            before_signature = self._story_transition_signature()
+            ok = self.device.human_hswipe(
+                "right",
+                distance_scale=decision["distance_scale"],
+                velocity_scale=decision["velocity_scale"],
+            )
+            if not ok:
+                return False
+
+            transition = self._wait_for_story_transition(before_signature)
+            if transition is False:
+                self.logger.debug("Previous-story gesture was injected but the slide did not change")
+                return False
+
+            self._human_like_delay(
+                "story_transition", scale=decision["settle_scale"]
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error navigating to previous story: {e}")
             return False

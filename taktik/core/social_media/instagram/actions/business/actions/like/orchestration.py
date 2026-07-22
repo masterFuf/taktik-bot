@@ -212,7 +212,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
             # A human glances at the first post on arrival; the deliberate description
             # read is handled per-post by the engagement sequence (engagement_sequence).
-            time.sleep(content_dwell(0))
+            time.sleep(content_dwell(0) * self._behavior_reading_scale("profile_post_glance"))
 
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
@@ -316,7 +316,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         ):
                             self.logger.debug("Reel exit to grid failed — stopping to avoid getting trapped in the reels feed")
                             break
-                        time.sleep(content_dwell(0))   # glance at the freshly opened post
+                        time.sleep(
+                            content_dwell(0) * self._behavior_reading_scale("profile_post_glance")
+                        )
                     # Vary the navigation like a human: usually advance within the post viewer,
                     # but sometimes go BACK to the grid and open a different post instead (only
                     # once we've already liked one and on a big-enough profile, so it looks
@@ -328,23 +330,14 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     ) and self._return_to_grid_and_open_another_post(
                         total_posts_on_profile, username=username
                     ):
-                        time.sleep(content_dwell(0))   # glance at the freshly opened post
+                        time.sleep(
+                            content_dwell(0) * self._behavior_reading_scale("profile_post_glance")
+                        )
                     else:
-                        scroll_count = 1
-                        if posts_seen % 4 == 0:
-                            scroll_count = 2
-                            self.logger.debug(f"Double scroll at post #{posts_seen} for more variety")
-
-                        success = True
-                        for i in range(scroll_count):
-                            if not self._navigate_to_next_post_in_sequence():
-                                self.logger.warning("Unable to navigate to next post - end of scroll")
-                                success = False
-                                break
-                            if i < scroll_count - 1:
-                                time.sleep(0.3)
-
-                        if not success:
+                        # The old `posts_seen % 4 == 0` double-scroll was perfectly periodic and
+                        # could skip an organic post. Session bursts already provide real variety.
+                        if not self._navigate_to_next_post_in_sequence():
+                            self.logger.warning("Unable to navigate to next post - end of scroll")
                             break
 
                 self._human_like_delay('scroll')

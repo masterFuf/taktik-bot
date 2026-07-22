@@ -10,6 +10,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_count,
     sample_story_like_slots,
 )
+from taktik.core.shared.behavior.dwell import story_dwell
 
 
 class StoryBusiness(BaseBusinessAction):
@@ -48,6 +49,17 @@ class StoryBusiness(BaseBusinessAction):
         if random.random() < react_p:
             react_slots = {sample_story_like_slot(max_stories)}
         return like_slots, react_slots
+
+    def _story_view_duration(self, config: Dict[str, Any]) -> float:
+        """Content dwell tied to the current session attention, without another gesture beat."""
+        scale = self._behavior_reading_scale("story_view")
+        return story_dwell(random.uniform(*config['view_duration_range']) * scale)
+
+    def _wait_after_story_advance(self, config: Dict[str, Any]) -> None:
+        """Keep the configured navigation beat coherent with the tap that just advanced."""
+        decision = getattr(self.nav_actions, "_last_behavior_gesture", {})
+        scale = float(decision.get("settle_scale", 1.0))
+        time.sleep(random.uniform(*config['navigation_delay_range']) * scale)
 
     def view_profile_stories(self, username: str,
                            max_stories: int = 5,
@@ -107,9 +119,9 @@ class StoryBusiness(BaseBusinessAction):
                     if metadata.get('is_ad'):
                         stats['stories_skipped_ads'] += 1
                         self.logger.debug("Skipping sponsored story")
-                        if not self.nav_actions.navigate_to_next_story():
+                        if not self.nav_actions.navigate_to_next_story(settle=False):
                             break
-                        time.sleep(random.uniform(*config['navigation_delay_range']))
+                        self._wait_after_story_advance(config)
                         continue
 
                     current_story, total_stories = self.detection_actions.get_story_count_from_viewer()
@@ -118,7 +130,7 @@ class StoryBusiness(BaseBusinessAction):
                     else:
                         self.logger.debug(f"Viewing story {i+1}")
                     
-                    view_duration = random.uniform(*config['view_duration_range'])
+                    view_duration = self._story_view_duration(config)
                     self.logger.debug(f"View duration: {view_duration:.1f}s")
                     time.sleep(view_duration)
                     
@@ -135,7 +147,7 @@ class StoryBusiness(BaseBusinessAction):
                             self._record_action(username, 'STORY_LIKE', 1)
 
                     if i < max_stories - 1:
-                        if not self.nav_actions.navigate_to_next_story():
+                        if not self.nav_actions.navigate_to_next_story(settle=False):
                             self.logger.debug("No next story or end of stories")
                             # Last slide reached early: if likes were planned but none landed
                             # (story shorter than the sampled slots), leave one here.
@@ -145,8 +157,7 @@ class StoryBusiness(BaseBusinessAction):
                                     self._record_action(username, 'STORY_LIKE', 1)
                             break
 
-                        delay = random.uniform(*config['navigation_delay_range'])
-                        time.sleep(delay)
+                        self._wait_after_story_advance(config)
                 
                 except Exception as e:
                     self.logger.error(f"Error on story {i+1}: {e}")
@@ -255,12 +266,12 @@ class StoryBusiness(BaseBusinessAction):
                     if metadata.get('is_ad'):
                         stats['stories_skipped_ads'] += 1
                         self.logger.debug("Skipping sponsored story")
-                        if not self.nav_actions.navigate_to_next_story():
+                        if not self.nav_actions.navigate_to_next_story(settle=False):
                             break
-                        time.sleep(random.uniform(*config['navigation_delay_range']))
+                        self._wait_after_story_advance(config)
                         continue
 
-                    view_duration = random.uniform(*config['view_duration_range'])
+                    view_duration = self._story_view_duration(config)
                     self.logger.debug(f"Viewing feed story @{current_username} for {view_duration:.1f}s")
                     time.sleep(view_duration)
 
@@ -285,7 +296,7 @@ class StoryBusiness(BaseBusinessAction):
                             self._record_action(current_username, 'STORY_REACTION', 1)
 
                     if story_index < max_stories - 1:
-                        if not self.nav_actions.navigate_to_next_story():
+                        if not self.nav_actions.navigate_to_next_story(settle=False):
                             # Last slide early: if likes were planned but none landed, leave one.
                             if like_slots and likes_done == 0:
                                 if self.click_actions.like_story():
@@ -293,7 +304,7 @@ class StoryBusiness(BaseBusinessAction):
                                     stats['stories_liked'] += 1
                                     self._record_action(current_username, 'STORY_LIKE', 1)
                             break
-                        time.sleep(random.uniform(*config['navigation_delay_range']))
+                        self._wait_after_story_advance(config)
 
                 # Robust close: swipe-down (a back press is unreliable / can be swallowed by
                 # an overlay); fall back to back only if the viewer is still open.

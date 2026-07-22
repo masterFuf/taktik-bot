@@ -17,6 +17,10 @@ READ_CAP_S = 16.0            # nobody fully reads a wall of text — they skim
 MIN_DWELL_S = 1.0
 LINGER_PROB = 0.12           # occasionally zone out / really into it
 LINGER_S = (3.0, 10.0)
+# A static story image auto-advances after only a few seconds. Keep the proactive tap inside a
+# jittered safe window so a deliberate session scale cannot sleep through one slide then skip the
+# next with a stale tap. Video stories still get repeated per-slide observation through the loop.
+STORY_AUTOPLAY_SAFE_CAP_S = (3.7, 4.4)
 
 _URL_RE = re.compile(r"https?://\S+")
 _TAG_RE = re.compile(r"[#@]\S+")
@@ -50,3 +54,8 @@ def content_dwell(prose_len: int) -> float:
     if random.random() < LINGER_PROB:
         total += random.uniform(*LINGER_S)
     return total
+
+
+def story_dwell(seconds: float) -> float:
+    """Bound a scaled story dwell below the image auto-advance window, without a fixed cap."""
+    return min(max(0.0, float(seconds)), random.uniform(*STORY_AUTOPLAY_SAFE_CAP_S))

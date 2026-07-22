@@ -11,6 +11,7 @@ from taktik.core.social_media.instagram.actions.business.actions.like.post_navig
     PostNavigationMixin,
 )
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_SELECTORS
+import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_nav
 
 _CLIPS_BACK = '//*[@resource-id="com.instagram.android:id/clips_action_bar_start_action_buttons"]//android.widget.ImageView'
 
@@ -46,3 +47,106 @@ def test_post_back_selectors_include_the_clips_back_button():
     # without this selector _return_to_profile_from_post can't leave a reel and falls back to a
     # swipe that doesn't exit the viewer.
     assert _CLIPS_BACK in POST_SELECTORS.back_button_selectors
+
+
+def test_failed_downward_dismiss_falls_back_to_back_not_opposite_swipe(monkeypatch):
+    calls = []
+
+    class _XPath:
+        exists = False
+
+    class _Device:
+        @staticmethod
+        def xpath(_selector):
+            return _XPath()
+
+        @staticmethod
+        def get_screen_size():
+            return 1080, 2280
+
+        @staticmethod
+        def press(key):
+            calls.append(("press", key))
+
+    class _Scroll:
+        @staticmethod
+        def _plan_behavior_gesture(_context, _gesture):
+            return {
+                "distance_scale": 1.0,
+                "velocity_scale": 1.0,
+                "settle_scale": 1.0,
+            }
+
+        @staticmethod
+        def _human_swipe(**kwargs):
+            calls.append(("swipe", kwargs))
+            return False
+
+    nav = object.__new__(PostNavigationMixin)
+    nav.device = _Device()
+    nav.scroll_actions = _Scroll()
+    nav.post_selectors = POST_SELECTORS
+    nav.logger = type("_Log", (), {
+        "info": lambda *_a, **_k: None,
+        "debug": lambda *_a, **_k: None,
+        "error": lambda *_a, **_k: None,
+    })()
+    monkeypatch.setattr(post_nav.time, "sleep", lambda _seconds: None)
+
+    returned = nav._return_to_profile_from_post()
+
+    assert returned is True
+    assert calls[0][0] == "swipe"
+    assert calls[0][1]["direction"] == "down"
+    assert calls[1] == ("press", "back")
+
+
+def test_injected_but_ignored_dismiss_falls_back_to_back_after_ui_check(monkeypatch):
+    calls = []
+
+    class _XPath:
+        exists = False
+
+    class _Device:
+        @staticmethod
+        def xpath(_selector):
+            return _XPath()
+
+        @staticmethod
+        def get_screen_size():
+            return 1080, 2280
+
+        @staticmethod
+        def press(key):
+            calls.append(("press", key))
+
+    class _Scroll:
+        @staticmethod
+        def _plan_behavior_gesture(_context, _gesture):
+            return {
+                "distance_scale": 1.0,
+                "velocity_scale": 1.0,
+                "settle_scale": 1.0,
+            }
+
+        @staticmethod
+        def _human_swipe(**kwargs):
+            calls.append(("swipe", kwargs))
+            return True
+
+    checks = iter([True] * 8 + [False])
+    nav = object.__new__(PostNavigationMixin)
+    nav.device = _Device()
+    nav.scroll_actions = _Scroll()
+    nav.post_selectors = POST_SELECTORS
+    nav._is_in_post_view = lambda: next(checks)
+    nav.logger = type("_Log", (), {
+        "info": lambda *_a, **_k: None,
+        "debug": lambda *_a, **_k: None,
+        "error": lambda *_a, **_k: None,
+    })()
+    monkeypatch.setattr(post_nav.time, "sleep", lambda _seconds: None)
+
+    assert nav._return_to_profile_from_post() is True
+    assert calls[0][0] == "swipe"
+    assert calls[1] == ("press", "back")

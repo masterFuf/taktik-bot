@@ -6,13 +6,15 @@ import time
 class DelaysMixin:
     """Mixin: délais humanisés (_random_sleep, _human_like_delay, _maybe_take_break)."""
 
-    def _random_sleep(self, min_delay: float = 0.3, max_delay: float = 0.8) -> None:
+    def _random_sleep(self, min_delay: float = 0.3, max_delay: float = 0.8,
+                      scale: float = 1.0) -> None:
         """Sleep avec distribution gaussienne et fatigue de session."""
-        delay = self.human.gaussian_delay(min_delay, max_delay)
+        bounded_scale = min(1.60, max(0.60, float(scale)))
+        delay = self.human.gaussian_delay(min_delay, max_delay) * bounded_scale
         self.logger.debug(f"⏱️ Random sleep: {delay:.2f}s (fatigue: x{self.human.get_fatigue_multiplier():.2f})")
         time.sleep(delay)
     
-    def _human_like_delay(self, action_type: str = 'general') -> None:
+    def _human_like_delay(self, action_type: str = 'general', scale: float = 1.0) -> None:
         """Délai humanisé selon le type d'action — micro-hésitations seulement.
 
         Le bot est déjà lent du fait du travail réel (navigation, analyse IA ~2,5s, scroll), donc
@@ -31,13 +33,14 @@ class DelaysMixin:
             'before_follow': (0.3, 1.0),    # courte hésitation avant follow
             'story_view': (1.5, 4.0),       # FONCTIONNEL : on regarde vraiment la story
             'story_load': (0.8, 1.5),       # FONCTIONNEL : chargement story
+            'story_transition': (0.2, 0.6), # beat après le tap, avant la vérification du viewer
             'load_more': (1.2, 2.2),        # FONCTIONNEL : Instagram doit charger plus
             'profile_view': (0.4, 1.0),     # l'analyse IA couvre déjà l'observation du profil
             'default': (0.2, 0.6)
         }
 
         min_delay, max_delay = delays.get(action_type, delays['default'])
-        self._random_sleep(min_delay, max_delay)
+        self._random_sleep(min_delay, max_delay, scale=scale)
         
         # Enregistrer l'action pour le système de pauses
         self.human.record_action()

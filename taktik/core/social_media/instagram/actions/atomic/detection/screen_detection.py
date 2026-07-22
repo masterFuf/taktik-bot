@@ -6,6 +6,7 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
+from ..story_state import parse_story_position
 
 
 class ScreenDetectionMixin(BaseAction):
@@ -333,17 +334,14 @@ class ScreenDetectionMixin(BaseAction):
                 content_desc = element.attrib.get('content-desc', '')
                 self.logger.debug(f"📱 Story viewer content-desc: {content_desc}")
                 
-                import re
-                pattern = r'story\s+(\d+)\s+of\s+(\d+)'
-                match = re.search(pattern, content_desc, re.IGNORECASE)
+                position = parse_story_position(content_desc)
                 
-                if match:
-                    current_story = int(match.group(1))
-                    total_stories = int(match.group(2))
+                if position:
+                    current_story, total_stories = position
                     self.logger.info(f"📊 Stories detected: {current_story}/{total_stories}")
                     return (current_story, total_stories)
                 else:
-                    self.logger.debug(f"⚠️ Pattern 'story X of Y' not found in: {content_desc}")
+                    self.logger.debug(f"⚠️ Story position not found in: {content_desc}")
                     return (0, 0)
             else:
                 self.logger.debug("⚠️ Element story_viewer_text_container not found")

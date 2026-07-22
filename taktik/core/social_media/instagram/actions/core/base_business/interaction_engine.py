@@ -14,6 +14,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_slots,
 )
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.shared.behavior.dwell import story_dwell
 
 
 class InteractionEngineMixin:
@@ -368,7 +369,10 @@ class InteractionEngineMixin:
                 if not self.detection_actions.is_story_viewer_open():
                     break
 
-                view_duration = random.uniform(2, 5)
+                scale_provider = getattr(self, "_behavior_reading_scale", None)
+                dwell_scale = (float(scale_provider("story_view"))
+                               if callable(scale_provider) else 1.0)
+                view_duration = story_dwell(random.uniform(2, 5) * dwell_scale)
                 time.sleep(view_duration)
                 stories_viewed += 1
                 watch_times.append(self._action_timestamp())
