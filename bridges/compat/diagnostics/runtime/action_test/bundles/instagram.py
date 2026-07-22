@@ -24,14 +24,16 @@ def build_instagram_action_bundle(device_facade):
     from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
     from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
     from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+    from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
     logger.info("Building action bundle...")
+    behavior_state = BehaviorSessionState()
     bundle = ActionBundle()
     bundle.device = device_facade
-    bundle.nav = NavigationActions(device_facade)
+    bundle.nav = NavigationActions(device_facade, behavior_state=behavior_state)
     bundle.detection = DetectionActions(device_facade)
-    bundle.click = ClickActions(device_facade)
-    bundle.scroll = ScrollActions(device_facade)
+    bundle.click = ClickActions(device_facade, behavior_state=behavior_state)
+    bundle.scroll = ScrollActions(device_facade, behavior_state=behavior_state)
     bundle.kb = TextActions(device_facade)
     bundle.comment = CommentAction(device_facade)
     # Like orchestration carries the post-grid entry + in-viewer navigation helpers
@@ -43,9 +45,22 @@ def build_instagram_action_bundle(device_facade):
     bundle.feed = FeedBusiness(device_facade)
     bundle.unfollow = UnfollowBusiness(device_facade)
     bundle.popup = BaseBusinessAction(device_facade)
+    # The Lab bundle has no workflow SessionManager, but its production action facades still need
+    # one shared per-bundle memory so repeated feed/profile probes exercise real session bursts.
+    for component in (bundle.comment, bundle.like, bundle.story, bundle.feed,
+                      bundle.unfollow, bundle.popup):
+        component.behavior_state = behavior_state
+        scroll_actions = getattr(component, "scroll_actions", None)
+        if scroll_actions is not None:
+            scroll_actions.behavior_state = behavior_state
+        nav_actions = getattr(component, "nav_actions", None)
+        if nav_actions is not None:
+            nav_actions.behavior_state = behavior_state
+        click_actions = getattr(component, "click_actions", None)
+        if click_actions is not None:
+            click_actions.behavior_state = behavior_state
     logger.info("Action bundle ready")
     return bundle
 
 
 __all__ = ["build_instagram_action_bundle", "create_instagram_device_facade"]
-

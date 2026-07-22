@@ -108,10 +108,21 @@ def open_first_post(a, p):
 
 @action("profile.scroll_grid")
 def scroll_grid(a, p):
-    """Scroll the profile post grid down with a humanised flick (sampled geometry,
-    real fling) — the primitive used by the adaptive pre-scroll."""
-    ok = a.scroll._strong_flick("up")
-    return {"success": bool(ok), "message": f"grid flick done={ok}"}
+    """Exercise the production grid-scroll action with the shared session state."""
+    ok = a.scroll.scroll_post_grid_down()
+    decision = dict(getattr(a.scroll, "_last_behavior_gesture", {}))
+    snapshot = getattr(a.scroll, "_behavior_snapshot", lambda: {})()
+    return {
+        "success": bool(ok),
+        "message": (
+            f"grid scroll={ok} style={decision.get('style')} "
+            f"energy={decision.get('energy')}"
+        ),
+        "details": {
+            "gesture_decision": decision,
+            "behavior_state": snapshot,
+        },
+    }
 
 
 # =============================================================================
@@ -154,4 +165,3 @@ def expand_bio_more(a, p):
     ok = a.detection.click_bio_more_button()
     return {"success": bool(ok),
             "message": "bio expanded via OCR" if ok else "bio not truncated / expander not located"}
-

@@ -1,4 +1,13 @@
-from bridges.compat.diagnostics.runtime.action_test.analysis import build_action_analysis
+from bridges.compat.diagnostics.runtime.action_test.analysis import (
+    build_action_analysis,
+    expected_screen_after,
+)
+
+
+def test_profile_post_navigation_actions_declare_their_expected_screens():
+    assert expected_screen_after("post.navigate_next") == "instagram.post"
+    assert expected_screen_after("post.return_to_profile") == "instagram.profile"
+    assert expected_screen_after("post.return_to_grid_and_reopen") == "instagram.post"
 
 
 def test_home_profile_surface_misses_are_screen_disambiguation_not_context_gate():

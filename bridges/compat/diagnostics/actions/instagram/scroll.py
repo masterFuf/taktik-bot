@@ -25,6 +25,9 @@ def scroll_feed_next(a, p):
     skip_ads = str(p.get("skip_ads", "1")).lower() not in ("0", "false", "no")
     skip_sugg = str(p.get("skip_suggested", "1")).lower() not in ("0", "false", "no")
     res = a.scroll.scroll_feed_to_next_post(skip_ads=skip_ads, skip_suggested=skip_sugg)
+    snapshot = getattr(a.scroll, "_behavior_snapshot", lambda: {})()
+    if snapshot:
+        res["behavior_state"] = snapshot
     g, d = res.get("gestures"), res.get("dumps")
     mode, land, corr = res.get("mode"), res.get("land_ratio"), res.get("corrected")
     full, meta = res.get("full_post"), res.get("metadata_visible")
@@ -45,7 +48,13 @@ def scroll_feed_next(a, p):
              else "header cadre, meta sous le pli" if meta is False else "cadre")
     if res.get("on_reel"):
         return {"success": True, "message": f"scroll feed -> reel plein ecran ({mode})", "details": res}
-    return {"success": True, "message": f"scroll feed [{mode}] {g} geste(s), {tail} — {badge}, {d} dumps",
+    decision = res.get("advance_decision") or {}
+    style = decision.get("style")
+    energy = decision.get("energy")
+    style_suffix = f", style={style}" if style else ""
+    if energy is not None:
+        style_suffix += f", energy={energy}"
+    return {"success": True, "message": f"scroll feed [{mode}] {g} geste(s){style_suffix}, {tail} — {badge}, {d} dumps",
             "details": res}
 
 
@@ -74,15 +83,58 @@ def scroll_reveal_post(a, p):
 def scroll_feed_flick(a, p):
     """One strong FLICK only (A/B probe to measure the real fling coast on this device)."""
     h = a.scroll.screen_height
-    ok = a.scroll._strong_flick("up", distance_px=0.33 * h)
+    ok = a.scroll._strong_flick("up", distance_px=0.33 * h, guard_start=True)
     return {"success": bool(ok), "message": "flick fort (up)" if ok else "echec flick", "details": {}}
 
 
 @action("scroll.feed_drag")
 def scroll_feed_drag(a, p):
-    """One long continuous DRAG only (A/B probe: 1:1 finger track, no coast)."""
-    ok = a.scroll._long_drag("up")
-    return {"success": bool(ok), "message": "drag continu (up)" if ok else "echec drag", "details": {}}
+    """Regression probe for the post Share long-press.
+
+    Requests the production drag from the live Share bounds. The production start-zone guard must
+    move the actual touch-down to a neutral gap, and the low-level touch path must not open the
+    Direct share sheet. Run with a post action row visible (``scroll.reveal_post`` can prepare it).
+    """
+    modal_before = a.popup._detect_blocking_modal()
+    if modal_before:
+        return {
+            "success": False,
+            "message": f"precondition bloquee par la modale {modal_before}",
+            "details": {"blocked": "modal_already_open", "modal": modal_before},
+        }
+
+    share_bounds = a.scroll._post_action_bounds("share")
+    if not share_bounds:
+        return {
+            "success": False,
+            "message": "bouton share non visible (afficher d'abord la barre d'engagement)",
+            "details": {"blocked": "share_not_visible"},
+        }
+
+    h = int(a.scroll.screen_height)
+    target = min(
+        share_bounds,
+        key=lambda box: abs(((box[1] + box[3]) / 2.0) - (0.815 * h)),
+    )
+    requested = ((target[0] + target[2]) // 2, (target[1] + target[3]) // 2)
+    ok = a.scroll._long_drag("up", start_point=requested, guard_start=True)
+    start = dict(getattr(a.scroll, "_last_gesture_start", {}))
+    modal_after = a.popup._detect_blocking_modal()
+    safe = bool(start.get("adjusted")) and modal_after is None
+    return {
+        "success": bool(ok and safe),
+        "message": (
+            "drag post protege: depart share deplace, aucune modale"
+            if ok and safe
+            else f"echec garde drag (modal={modal_after}, adjusted={start.get('adjusted')})"
+        ),
+        "details": {
+            "share_bounds": target,
+            "requested_start": requested,
+            "gesture_start": start,
+            "modal_after": modal_after,
+        },
+    }
 
 
 @action("reading.expand_caption")
@@ -98,9 +150,12 @@ def reading_expand_caption(a, p):
 def reading_carousel_swipe(a, p):
     """Swipe through 1-2 slides of the dominant on-screen carousel post, if any."""
     n = a.scroll.browse_carousel_slides()
+    decision = dict(getattr(a.scroll, "_last_carousel_behavior", {}))
+    snapshot = getattr(a.scroll, "_behavior_snapshot", lambda: {})()
     return {"success": True,
             "message": (f"carousel: {n} slide(s) parcourue(s)" if n else "pas de carousel a parcourir"),
-            "details": {"slides": n}}
+            "details": {"slides": n, "gesture_decision": decision,
+                        "behavior_state": snapshot}}
 
 
 @action("scroll.read_pause")
@@ -168,4 +223,3 @@ def scroll_right(a, p):
     scale = float(p.get("scale", 0.8))
     a.device.swipe_right(scale=scale)
     return True
-

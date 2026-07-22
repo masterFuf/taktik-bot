@@ -52,13 +52,47 @@ def navigate_next(a, p):
     (sampled geometry, randomised distance) instead of the old fixed 78%->21%
     gesture. Must be run while a post is open."""
     ok = a.like._navigate_to_next_post_in_sequence()
-    return {"success": bool(ok), "message": f"navigated to next post={ok}"}
+    scroll = a.like.scroll_actions
+    decision = dict(getattr(scroll, "_last_advance_behavior", {}))
+    snapshot = getattr(scroll, "_behavior_snapshot", lambda: {})()
+    return {
+        "success": bool(ok),
+        "message": (
+            f"navigated to next post={ok} mode={decision.get('mode')} "
+            f"style={decision.get('style')} energy={decision.get('energy')}"
+        ),
+        "details": {"advance_decision": decision, "behavior_state": snapshot},
+    }
 
 
 @action("post.return_to_profile")
 def return_to_profile(a, p):
     """Return from an open post back to the profile grid (back button, else a
     humanised downward swipe)."""
-    a.like._return_to_profile_from_post()
-    return {"success": True, "message": "returned to profile"}
+    ok = a.like._return_to_profile_from_post()
+    decision = dict(getattr(a.like.scroll_actions, "_last_behavior_gesture", {}))
+    return {
+        "success": bool(ok),
+        "message": f"returned to profile={ok} style={decision.get('style')}",
+        "details": {
+            "gesture_decision": decision,
+            "behavior_state": a.like._behavior_state_snapshot(),
+        },
+    }
 
+
+@action("post.return_to_grid_and_reopen")
+def return_to_grid_and_reopen(a, p):
+    """Exercise the production alternate sequence: leave the viewer and open another grid post."""
+    posts_count = max(0, int(p.get("posts_count", 0)))
+    username = str(p.get("username") or "") or None
+    ok = a.like._return_to_grid_and_open_another_post(posts_count, username=username)
+    decision = dict(getattr(a.like.scroll_actions, "_last_behavior_gesture", {}))
+    return {
+        "success": bool(ok),
+        "message": f"retour grille + reouverture={ok} style={decision.get('style')}",
+        "details": {
+            "gesture_decision": decision,
+            "behavior_state": a.like._behavior_state_snapshot(),
+        },
+    }

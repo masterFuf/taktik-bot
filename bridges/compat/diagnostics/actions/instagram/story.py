@@ -14,13 +14,28 @@ def like_story(a, p):
 
 @action("story.go_to_next")
 def story_next(a, p):
-    return a.nav.navigate_to_next_story()
+    ok = a.nav.navigate_to_next_story()
+    decision = dict(getattr(a.nav, "_last_behavior_gesture", {}))
+    snapshot = getattr(a.nav, "_behavior_state_snapshot", lambda: {})()
+    return {
+        "success": bool(ok),
+        "message": f"story suivante={ok} style={decision.get('style')} energy={decision.get('energy')}",
+        "details": {"gesture_decision": decision, "behavior_state": snapshot},
+    }
 
 
 @action("story.go_to_previous")
 def story_prev(a, p):
-    a.device.swipe_right()
-    return True
+    ok = a.nav.navigate_to_previous_story()
+    decision = dict(getattr(a.nav, "_last_behavior_gesture", {}))
+    return {
+        "success": bool(ok),
+        "message": f"story precedente={ok} style={decision.get('style')} energy={decision.get('energy')}",
+        "details": {
+            "gesture_decision": decision,
+            "behavior_state": a.nav._behavior_state_snapshot(),
+        },
+    }
 
 
 @action("story.close")
@@ -88,7 +103,16 @@ def story_open_highlight(a, p):
 @action("story.scroll_highlights")
 def story_scroll_highlights(a, p):
     """Scroll the highlights tray left to reveal more 'à la une'."""
-    return a.click.scroll_highlights_left()
+    ok = a.click.scroll_highlights_left()
+    decision = dict(getattr(a.click, "_last_behavior_gesture", {}))
+    return {
+        "success": bool(ok),
+        "message": f"highlights defiles={ok} style={decision.get('style')}",
+        "details": {
+            "gesture_decision": decision,
+            "behavior_state": a.click._behavior_state_snapshot(),
+        },
+    }
 
 
 @action("story.count_feed_tray")
@@ -185,5 +209,13 @@ def story_is_ad(a, p):
 @action("story.scroll_tray")
 def story_scroll_tray(a, p):
     """Scroll the home feed story tray left to reveal more friends' stories."""
-    return a.click.scroll_feed_stories_left()
-
+    ok = a.click.scroll_feed_stories_left()
+    decision = dict(getattr(a.click, "_last_behavior_gesture", {}))
+    return {
+        "success": bool(ok),
+        "message": f"tray defile={ok} style={decision.get('style')}",
+        "details": {
+            "gesture_decision": decision,
+            "behavior_state": a.click._behavior_state_snapshot(),
+        },
+    }

@@ -16,6 +16,9 @@ EXPECTED_SCREEN_AFTER: dict[str, str] = {
     "navigation.go_search": "instagram.search",
     "navigation.go_profile_tab": "instagram.profile",
     "navigation.open_profile": "instagram.profile",
+    "post.navigate_next": "instagram.post",
+    "post.return_to_profile": "instagram.profile",
+    "post.return_to_grid_and_reopen": "instagram.post",
 }
 
 
