@@ -216,6 +216,31 @@ def test_grid_entry_memory_avoids_the_last_successful_cell_on_same_profile():
     ]
 
 
+def test_grid_entry_memory_can_require_an_unseen_cell_for_reel_reentry():
+    state = BehaviorSessionState(seed=5)
+    keys = [f"kevin:position:{position}" for position in range(1, 5)]
+    chosen = []
+
+    for _ in keys:
+        index = state.choose_grid_entry_index(
+            context="kevin",
+            candidate_keys=keys,
+            avoid_recent=None,
+            require_unseen=True,
+        )
+        assert index is not None
+        assert index not in chosen
+        chosen.append(index)
+        state.remember_grid_entry(context="kevin", key=keys[index], index=index)
+
+    assert state.choose_grid_entry_index(
+        context="kevin",
+        candidate_keys=keys,
+        avoid_recent=None,
+        require_unseen=True,
+    ) is None
+
+
 def test_strict_regression_keeps_framing_deterministic_and_immediate():
     state = BehaviorSessionState(strict_regression=True)
     decision = state.decide_post_framing(

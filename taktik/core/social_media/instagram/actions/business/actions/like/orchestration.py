@@ -7,7 +7,7 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from ...management.profile import ProfileBusiness
-from .post_navigation import PostNavigationMixin, _GRID_RETURN_PROB, _GRID_RETURN_MIN_POSTS
+from .post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
 from taktik.core.shared.behavior.dwell import content_dwell
@@ -302,43 +302,33 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                             self._notify_gesture(on_comment, 'comment')
                 else:
                     self.logger.debug(f"Post #{posts_seen} not engaged")
-                
+
+                # Stop on the post that fulfilled the requested objective. Waiting for
+                # the next loop condition used to perform one extra navigation first,
+                # opening a post the bot had no intention (or budget) to inspect.
+                if posts_liked >= max_likes:
+                    self.logger.success(
+                        f"Goal reached: {posts_liked}/{max_likes} posts liked - "
+                        "stopping before next post"
+                    )
+                    break
+
                 if posts_seen < max_posts_to_see:
-                    if is_reel:
-                        # This post is a REEL: advancing in-viewer would scroll the full-screen
-                        # reels FEED (not the profile's posts), and after the first reel the top-left
-                        # Back button disappears — trapping the run in an endless reels feed with no
-                        # way out (device: bot stuck, every later workflow failed to navigate). Exit
-                        # to the grid instead — the Back button is still present on this freshly
-                        # opened reel — and open another post. Stop if we can't exit cleanly.
-                        if not self._return_to_grid_and_open_another_post(
-                            total_posts_on_profile, username=username
-                        ):
-                            self.logger.debug("Reel exit to grid failed — stopping to avoid getting trapped in the reels feed")
-                            break
-                        time.sleep(
-                            content_dwell(0) * self._behavior_reading_scale("profile_post_glance")
-                        )
-                    # Vary the navigation like a human: usually advance within the post viewer,
-                    # but sometimes go BACK to the grid and open a different post instead (only
-                    # once we've already liked one and on a big-enough profile, so it looks
-                    # natural). Falls back to the in-viewer scroll if the grid-return fails.
-                    elif (
-                        posts_liked >= 1
-                        and total_posts_on_profile >= _GRID_RETURN_MIN_POSTS
-                        and random.random() < _GRID_RETURN_PROB
-                    ) and self._return_to_grid_and_open_another_post(
-                        total_posts_on_profile, username=username
+                    # One owner for the transition rule: normal posts advance sequentially;
+                    # freshly opened Reels exit through the grid so we never enter the global
+                    # Reels feed. The latter path requires an unseen profile-grid cell.
+                    if not self._advance_or_exit_reel(
+                        is_reel, total_posts_on_profile, username
                     ):
+                        if is_reel:
+                            self.logger.debug("Reel exit to grid failed — stopping to avoid getting trapped in the reels feed")
+                        else:
+                            self.logger.warning("Unable to navigate to next post - end of scroll")
+                        break
+                    if is_reel:
                         time.sleep(
                             content_dwell(0) * self._behavior_reading_scale("profile_post_glance")
                         )
-                    else:
-                        # The old `posts_seen % 4 == 0` double-scroll was perfectly periodic and
-                        # could skip an organic post. Session bursts already provide real variety.
-                        if not self._navigate_to_next_post_in_sequence():
-                            self.logger.warning("Unable to navigate to next post - end of scroll")
-                            break
 
                 self._human_like_delay('scroll')
             

@@ -118,7 +118,7 @@ class BehaviorSessionState:
         self.gesture_history: Deque[Dict[str, Any]] = deque(maxlen=max(4, history_limit))
         self.framing_history: Deque[Dict[str, Any]] = deque(maxlen=max(4, history_limit))
         self.grid_entry_history: Deque[Dict[str, Any]] = deque(
-            maxlen=max(4, min(8, history_limit))
+            maxlen=max(16, min(64, history_limit * 2))
         )
 
     def reconfigure(
@@ -321,24 +321,35 @@ class BehaviorSessionState:
         return scale
 
     def choose_grid_entry_index(
-        self, *, context: str, candidate_keys: Sequence[str], avoid_recent: int = 2
-    ) -> int:
-        """Choose a weighted grid cell while avoiding recent cells on the same profile.
+        self,
+        *,
+        context: str,
+        candidate_keys: Sequence[str],
+        avoid_recent: Optional[int] = 2,
+        require_unseen: bool = False,
+    ) -> Optional[int]:
+        """Choose a weighted grid cell while avoiding cells seen on the same profile.
 
         Selection does not record success: callers remember the cell only after the post viewer
-        actually opens, so a failed tap never poisons the short-term memory.
+        actually opens, so a failed tap never poisons the short-term memory. ``avoid_recent=None``
+        considers the complete bounded history for the profile. When ``require_unseen`` is true,
+        exhausting the visible candidates returns ``None`` instead of reopening an old cell.
         """
         keys = [str(key) for key in candidate_keys]
-        if len(keys) <= 1:
-            return 0
+        if not keys:
+            return None
+        recent_limit = None if avoid_recent is None else max(0, int(avoid_recent))
         recent = []
-        for item in reversed(self.grid_entry_history):
-            if item.get("context") == context:
-                recent.append(item.get("key"))
-                if len(recent) >= max(0, int(avoid_recent)):
-                    break
+        if recent_limit != 0:
+            for item in reversed(self.grid_entry_history):
+                if item.get("context") == context:
+                    recent.append(item.get("key"))
+                    if recent_limit is not None and len(recent) >= recent_limit:
+                        break
         eligible = [index for index, key in enumerate(keys) if key not in recent]
         if not eligible:
+            if require_unseen:
+                return None
             eligible = list(range(len(keys)))
         weights = row_weights(len(keys))
         return int(self._rng.choices(eligible, weights=[weights[i] for i in eligible], k=1)[0])

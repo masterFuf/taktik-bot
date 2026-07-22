@@ -194,39 +194,19 @@ class PostReadingMixin:
         index text (`carousel_index_indicator_text_view`); swipe horizontally INSIDE the media band
         (vertical centre, |dy|≈0, travel ~60% width → pages the slide, never opens the post, never
         reads as a story-swipe), stop at the last slide. Returns the number of slides advanced."""
-        VIEWPAGER, MEDIA, INDEX = (FS.carousel_viewpager_id, FS.carousel_media_group_id,
-                                   FS.carousel_index_id)
         swiped = 0
         for _ in range(2):   # at most 2 slides
             root = self._dump_root()
             if root is None:
+                self._last_carousel_skip_reason = "hierarchy_unavailable"
                 break
-            band = None        # (prefer_viewpager, vis_h, (l, t, r, b))
-            cur = total = None
-            for node in root.iter():
-                short = node.get("resource-id", "").rsplit("/", 1)[-1]
-                if short == INDEX:
-                    mm = _CAROUSEL_INDEX_RE.match(
-                        (node.get("text") or node.get("content-desc") or "").strip())
-                    if mm:
-                        cur, total = int(mm.group(1)), int(mm.group(2))
-                    continue
-                if short not in (VIEWPAGER, MEDIA):
-                    continue
-                m = _BOUNDS_RE.search(node.get("bounds", ""))
-                if not m:
-                    continue
-                l, t, r, b = (int(m.group(i)) for i in range(1, 5))
-                t = max(t, int(0.06 * self.screen_height))
-                b = min(b, int(0.92 * self.screen_height))
-                if b - t <= 0:
-                    continue
-                pref = short == VIEWPAGER
-                if band is None or (pref, b - t) > (band[0], band[1]):
-                    band = (pref, b - t, (l, t, r, b))
-            if band is None or cur is None or total is None or cur >= total:
+            candidate = self._current_framed_carousel(root)
+            if candidate is None:
                 break
-            l, t, r, b = band[2]
+            (l, t, r, b), cur, total = candidate
+            if cur >= total:
+                self._last_carousel_skip_reason = "last_slide"
+                break
             plan_provider = getattr(self, "_plan_behavior_gesture", None)
             decision = (plan_provider("carousel_slide", "hswipe")
                         if callable(plan_provider) else {
@@ -250,6 +230,112 @@ class PostReadingMixin:
         if swiped:
             self.logger.debug(f"🖼️ carousel: swiped {swiped} slide(s)")
         return swiped
+
+    @staticmethod
+    def _node_bounds(node):
+        match = _BOUNDS_RE.search(node.get("bounds", ""))
+        if not match:
+            return None
+        return tuple(int(match.group(i)) for i in range(1, 5))
+
+    def _current_framed_carousel(self, root):
+        """Find an unambiguous carousel belonging to the fully framed current post.
+
+        The header, complete media, ``N/M`` indicator and engagement row must all be
+        associated within one post interval in the same hierarchy dump. Partial media
+        is never clamped into an apparently valid band.
+        """
+        height = int(self.screen_height)
+        top_limit, bottom_limit = 0, height
+        headers, like_rows, medias, indexes = [], [], [], []
+        media_ids = (FS.carousel_viewpager_id, FS.carousel_media_group_id)
+
+        for node in root.iter():
+            short = node.get("resource-id", "").rsplit("/", 1)[-1]
+            bounds = self._node_bounds(node)
+            if short == FS.action_bar_id and bounds:
+                top_limit = max(top_limit, bounds[3])
+            elif short == FS.tab_bar_id and bounds:
+                bottom_limit = min(bottom_limit, bounds[1])
+            elif short == FS.header_id and bounds:
+                headers.append((bounds, node))
+            elif short == FS.like_button_id and bounds:
+                like_rows.append((bounds, node))
+            elif short in media_ids and bounds:
+                medias.append((short == FS.carousel_viewpager_id, bounds, node))
+            elif short == FS.carousel_index_id:
+                match = _CAROUSEL_INDEX_RE.match(
+                    (node.get("text") or node.get("content-desc") or "").strip()
+                )
+                if match:
+                    indexes.append((
+                        int(match.group(1)), int(match.group(2)), bounds, node
+                    ))
+
+        visible_headers = sorted(
+            (
+                item for item in headers
+                if item[0][1] >= top_limit and item[0][3] <= bottom_limit
+            ),
+            key=lambda item: item[0][1],
+        )
+        if not visible_headers or not like_rows or not medias or not indexes:
+            self._last_carousel_skip_reason = "missing_post_anchors"
+            return None
+
+        candidates = []
+        all_header_tops = sorted(bounds[1] for bounds, _node in headers)
+        for preferred, media_bounds, media_node in medias:
+            left, top, right, bottom = media_bounds
+            if (left >= right or top >= bottom or top < top_limit
+                    or bottom > bottom_limit):
+                continue
+
+            preceding = [item for item in visible_headers if item[0][1] <= top]
+            if not preceding:
+                continue
+            header_bounds, _header_node = max(
+                preceding, key=lambda item: item[0][1]
+            )
+            next_headers = [value for value in all_header_tops if value > header_bounds[1]]
+            post_bottom = min(next_headers) if next_headers else bottom_limit
+            if bottom > post_bottom:
+                continue
+
+            matching_likes = [
+                bounds for bounds, _node in like_rows
+                if bounds[1] >= bottom and bounds[3] <= post_bottom
+                and bounds[1] >= top_limit and bounds[3] <= bottom_limit
+            ]
+            if not matching_likes:
+                continue
+
+            for current, total, index_bounds, index_node in indexes:
+                related_in_tree = (
+                    media_node in index_node.iterancestors()
+                    or index_node in media_node.iterancestors()
+                )
+                inside_media = False
+                if index_bounds:
+                    center_x = (index_bounds[0] + index_bounds[2]) / 2
+                    center_y = (index_bounds[1] + index_bounds[3]) / 2
+                    inside_media = (
+                        left <= center_x <= right and top <= center_y <= bottom
+                    )
+                if not (related_in_tree or inside_media):
+                    continue
+                if total <= 1 or current < 1 or current > total:
+                    continue
+                candidates.append((
+                    header_bounds[1], not preferred, media_bounds, current, total
+                ))
+
+        if not candidates:
+            self._last_carousel_skip_reason = "carousel_not_fully_framed"
+            return None
+        _header_top, _not_preferred, bounds, current, total = min(candidates)
+        self._last_carousel_skip_reason = None
+        return bounds, current, total
 
     def current_caption_text(self, root=None) -> str:
         """Raw text of the dominant on-screen post's caption — the tallest visible

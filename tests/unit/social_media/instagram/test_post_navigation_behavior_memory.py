@@ -13,6 +13,15 @@ class _Logger:
     def error(self, *_args, **_kwargs):
         pass
 
+    def info(self, *_args, **_kwargs):
+        pass
+
+    def warning(self, *_args, **_kwargs):
+        pass
+
+    def success(self, *_args, **_kwargs):
+        pass
+
 
 class _Device:
     @staticmethod
@@ -241,7 +250,7 @@ def test_failed_vertical_gestures_reach_the_real_next_button_property(monkeypatc
     assert clicks == ["next"]
 
 
-def test_reopen_selection_excludes_the_last_successful_grid_cell_in_session_ram():
+def test_reopen_selection_excludes_every_successful_grid_cell_in_profile_visit():
     host = object.__new__(PostNavigationMixin)
     host.behavior_state = BehaviorSessionState(seed=7)
     posts = [
@@ -249,8 +258,100 @@ def test_reopen_selection_excludes_the_last_successful_grid_cell_in_session_ram(
         for column in (1, 2, 3)
     ]
 
-    first = host._choose_session_grid_entry(posts, username="kevin")
-    host._remember_session_grid_entry(posts[first], first, username="kevin")
-    second = host._choose_session_grid_entry(posts, username="kevin")
+    chosen = []
+    for _ in posts:
+        index = host._choose_session_grid_entry(
+            posts, username="kevin", require_unseen=True
+        )
+        assert index is not None
+        assert index not in chosen
+        chosen.append(index)
+        host._remember_session_grid_entry(posts[index], index, username="kevin")
 
-    assert second != first
+    assert host._choose_session_grid_entry(
+        posts, username="kevin", require_unseen=True
+    ) is None
+
+
+def test_vertical_profile_advance_is_also_remembered_before_reel_exit():
+    host = object.__new__(PostNavigationMixin)
+    host.behavior_state = BehaviorSessionState(seed=9)
+    opened = SimpleNamespace(
+        attrib={"content-desc": "post à la ligne 1, colonne 2"}
+    )
+
+    host._remember_session_grid_entry(opened, 1, username="kevin")
+    host._remember_sequential_profile_post()
+
+    keys = [
+        item["key"]
+        for item in host.behavior_state.grid_entry_history
+        if item["context"] == "kevin"
+    ]
+    assert keys == ["kevin:position:2", "kevin:position:3"]
+
+
+def test_reel_reentry_scrolls_grid_to_find_a_new_absolute_position(monkeypatch):
+    first_view = [
+        SimpleNamespace(attrib={"content-desc": f"post à la ligne 1, colonne {column}"})
+        for column in (1, 2)
+    ]
+    second_view = [
+        first_view[1],
+        SimpleNamespace(attrib={"content-desc": "post à la ligne 1, colonne 3"}),
+    ]
+    host = object.__new__(PostNavigationMixin)
+    host.behavior_state = BehaviorSessionState(seed=11)
+    host.logger = _Logger()
+    host.detection_selectors = SimpleNamespace(post_thumbnail_selectors=("thumb",))
+    host.scroll_actions = SimpleNamespace(
+        _plan_behavior_gesture=lambda *_args, **_kwargs: {}
+    )
+    opened = []
+    scrolls = []
+
+    host._remember_session_grid_entry(first_view[0], 0, username="kevin")
+    host._remember_session_grid_entry(first_view[1], 1, username="kevin")
+    host._visible_grid_thumbnails = lambda _selector: second_view if scrolls else first_view
+    host._session_grid_scroll = lambda *_args, **_kwargs: (scrolls.append("up") or True)
+    host._human_tap_grid_thumbnail = lambda target: (opened.append(target) or True)
+    host._is_in_post_view = lambda: True
+    host._emit_entry_decision = lambda *_args, **_kwargs: None
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        lambda _seconds: None,
+    )
+
+    assert host._open_entry_post_of_profile(
+        posts_count=3, username="kevin", reopening=True
+    ) is True
+    assert scrolls == ["up"]
+    assert opened == [second_view[1]]
+
+
+def test_reel_reentry_stops_when_visible_grid_is_exhausted(monkeypatch):
+    posts = [
+        SimpleNamespace(attrib={"content-desc": f"post à la ligne 1, colonne {column}"})
+        for column in (1, 2)
+    ]
+    host = object.__new__(PostNavigationMixin)
+    host.behavior_state = BehaviorSessionState(seed=13)
+    host.logger = _Logger()
+    host.detection_selectors = SimpleNamespace(post_thumbnail_selectors=("thumb",))
+    host._remember_session_grid_entry(posts[0], 0, username="kevin")
+    host._remember_session_grid_entry(posts[1], 1, username="kevin")
+    host._visible_grid_thumbnails = lambda _selector: posts
+    host._session_grid_scroll = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AssertionError("an exhausted two-post profile must not scroll")
+    )
+    host._human_tap_grid_thumbnail = lambda _target: (_ for _ in ()).throw(
+        AssertionError("an exhausted grid must not reopen a post")
+    )
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        lambda _seconds: None,
+    )
+
+    assert host._open_entry_post_of_profile(
+        posts_count=2, username="kevin", reopening=True
+    ) is False

@@ -148,13 +148,16 @@ def reading_expand_caption(a, p):
 
 @action("reading.carousel_swipe")
 def reading_carousel_swipe(a, p):
-    """Swipe through 1-2 slides of the dominant on-screen carousel post, if any."""
+    """Swipe only when the current carousel is fully framed and unambiguous."""
     n = a.scroll.browse_carousel_slides()
     decision = dict(getattr(a.scroll, "_last_carousel_behavior", {}))
+    skip_reason = getattr(a.scroll, "_last_carousel_skip_reason", None)
     snapshot = getattr(a.scroll, "_behavior_snapshot", lambda: {})()
     return {"success": True,
-            "message": (f"carousel: {n} slide(s) parcourue(s)" if n else "pas de carousel a parcourir"),
+            "message": (f"carousel: {n} slide(s) parcourue(s)" if n
+                        else f"carousel ignore ({skip_reason or 'absent'})"),
             "details": {"slides": n, "gesture_decision": decision,
+                        "skip_reason": skip_reason,
                         "behavior_state": snapshot}}
 
 

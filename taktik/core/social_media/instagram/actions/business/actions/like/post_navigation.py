@@ -3,6 +3,7 @@
 import time
 import random
 import re
+from typing import Optional
 from loguru import logger
 
 from taktik.core.shared.behavior.grid_entry import plan_prescroll, sample_entry_index, GRID_COLUMNS
@@ -13,12 +14,6 @@ from ....core.ipc.emitter import IPCEmitter
 # Long-run advance mix when browsing a profile's posts. Session memory turns this baseline into
 # short brisk/steady/deliberate bursts instead of an independent 85/15 draw on every post.
 _ADVANCE_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
-
-# Occasionally a human doesn't just swipe through the post viewer — they go BACK to the grid
-# and pick another post. Probability of taking that alternative advance, and the minimum
-# profile size for it to look natural (no point on a tiny grid).
-_GRID_RETURN_PROB = 0.25
-_GRID_RETURN_MIN_POSTS = 6
 
 # Grid cells expose their position in content-desc ("... à la ligne R, colonne C" /
 # "row R, column C"). Lets us narrate the real post position to the copilot.
@@ -33,7 +28,13 @@ class PostNavigationMixin:
     self.scroll_actions, etc.)
     """
 
-    def _open_entry_post_of_profile(self, posts_count: int = 0, username: str = None) -> bool:
+    def _open_entry_post_of_profile(
+        self,
+        posts_count: int = 0,
+        username: str = None,
+        *,
+        reopening: bool = False,
+    ) -> bool:
         """Open a post to start engaging — but NOT always the top-left (newest) one.
 
         Humanised entry (see ``shared/behavior/grid_entry``): on a profile large
@@ -44,18 +45,23 @@ class PostNavigationMixin:
         entry point.
 
         ``posts_count`` is the profile's publication count (already read upstream);
-        it drives whether pre-scrolling the grid looks natural at all.
+        it drives whether pre-scrolling the grid looks natural at all. A reopen after leaving a
+        Reel is stricter: it never reuses a cell already opened during this profile visit and seeks
+        a new grid row when all currently visible cells have been consumed.
         """
         try:
             thumb_selector = self.detection_selectors.post_thumbnail_selectors[0]
 
             posts = self._visible_grid_thumbnails(thumb_selector)
             if not posts:
+                if reopening:
+                    self.logger.info("Profile grid unavailable during Reel exit; stopping safely")
+                    return False
                 self.logger.debug("Grid not visible — using legacy first-post open")
                 return self._open_first_post_of_profile(username=username)
 
             # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
-            prescroll = plan_prescroll(int(posts_count or 0))
+            prescroll = 0 if reopening else plan_prescroll(int(posts_count or 0))
             for _ in range(prescroll):
                 scrolled = self._session_grid_scroll(
                     "profile_grid_prescroll", distance_ratio=0.40, coast=True
@@ -67,8 +73,31 @@ class PostNavigationMixin:
                 if not posts:
                     return self._open_first_post_of_profile(username=username)
 
-            # 2. Open a varied visible thumbnail (top-weighted, spread).
-            index = self._choose_session_grid_entry(posts, username=username)
+            # 2. Open a varied visible thumbnail (top-weighted, spread). Re-entry from a Reel
+            # must never pick a cell already visited during this profile pass. If this viewport is
+            # exhausted but the profile has more posts, move the grid and retry with absolute cell
+            # keys from the live content-desc.
+            index = self._choose_session_grid_entry(
+                posts, username=username, require_unseen=reopening
+            )
+            if index is None and reopening and int(posts_count or 0) > len(posts):
+                for _ in range(2):
+                    if not self._session_grid_scroll(
+                        "profile_grid_reopen_seek", distance_ratio=0.40, coast=False
+                    ):
+                        break
+                    posts = self._visible_grid_thumbnails(thumb_selector)
+                    index = self._choose_session_grid_entry(
+                        posts, username=username, require_unseen=True
+                    )
+                    if index is not None:
+                        break
+            if index is None:
+                self.logger.info(
+                    "No unseen profile-grid thumbnail remains; stopping instead of reopening "
+                    "a post already visited"
+                )
+                return False
             target = posts[index]
             self.logger.info(
                 f"Opening entry post: thumbnail #{index + 1}/{len(posts)} "
@@ -91,10 +120,16 @@ class PostNavigationMixin:
                 self.logger.success("Entry post opened successfully")
                 return True
 
+            if reopening:
+                self.logger.warning("Unseen grid entry did not open; refusing a repeated fallback")
+                return False
             self.logger.warning("Entry post did not open — falling back to first post")
             return self._open_first_post_of_profile(username=username)
 
         except Exception as e:
+            if reopening:
+                self.logger.error(f"Error reopening unseen grid post: {e}")
+                return False
             self.logger.error(f"Error opening entry post: {e} — falling back to first post")
             try:
                 return self._open_first_post_of_profile(username=username)
@@ -253,20 +288,58 @@ class PostNavigationMixin:
         cell = f"position:{position}" if position is not None else f"visible:{int(index)}"
         return f"{username or 'current-profile'}:{cell}"
 
-    def _choose_session_grid_entry(self, posts, username: str = None) -> int:
+    def _choose_session_grid_entry(
+        self, posts, username: str = None, *, require_unseen: bool = False
+    ) -> Optional[int]:
         keys = [self._grid_entry_key(post, index, username) for index, post in enumerate(posts)]
         chooser = getattr(getattr(self, "behavior_state", None), "choose_grid_entry_index", None)
         if callable(chooser):
-            return int(chooser(context=username or "current-profile", candidate_keys=keys))
+            choice = chooser(
+                context=username or "current-profile",
+                candidate_keys=keys,
+                avoid_recent=None,
+                require_unseen=require_unseen,
+            )
+            return int(choice) if choice is not None else None
         return sample_entry_index(len(posts))
 
     def _remember_session_grid_entry(self, target, index: int, username: str = None) -> None:
+        context = username or "current-profile"
+        key = self._grid_entry_key(target, index, username)
+        position_match = re.search(r":position:(\d+)$", key)
+        self._profile_post_cursor = {
+            "context": context,
+            "position": int(position_match.group(1)) if position_match else None,
+        }
         remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
         if callable(remember):
             remember(
-                context=username or "current-profile",
-                key=self._grid_entry_key(target, index, username),
+                context=context,
+                key=key,
                 index=index,
+            )
+
+    def _remember_sequential_profile_post(self) -> None:
+        """Mark the next absolute profile position reached through the vertical viewer.
+
+        Grid-only memory is incomplete: after opening position 3 and scrolling to position 4,
+        returning from a Reel must not consider position 4 unseen merely because it was reached in
+        the viewer. The cursor is reset from every real grid entry and advances only after a
+        verified vertical navigation.
+        """
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        context = cursor.get("context")
+        position = cursor.get("position")
+        if not context or position is None:
+            return
+        next_position = int(position) + 1
+        self._profile_post_cursor = {"context": context, "position": next_position}
+        remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
+        if callable(remember):
+            remember(
+                context=context,
+                key=f"{context}:position:{next_position}",
+                index=next_position - 1,
             )
 
     def _human_tap_grid_thumbnail(self, element) -> bool:
@@ -395,6 +468,7 @@ class PostNavigationMixin:
                     time.sleep(content_dwell(0) * dwell_scale)
 
                 if advanced and self._is_in_post_view():
+                    self._remember_sequential_profile_post()
                     self.logger.debug(
                         f"Navigation successful via human {mode} "
                         f"(style={mode_decision.get('style')}, "
@@ -426,6 +500,7 @@ class PostNavigationMixin:
                     except Exception as land_exc:
                         self.logger.debug(f"retry land_on_post_header skipped: {land_exc}")
                 if advanced and self._is_in_post_view():
+                    self._remember_sequential_profile_post()
                     time.sleep(content_dwell(0) * retry["dwell_scale"])
                     self.logger.debug("Navigation successful via controlled vertical retry")
                     return True
@@ -441,6 +516,7 @@ class PostNavigationMixin:
                         time.sleep(1)
                         
                         if self._is_in_post_view():
+                            self._remember_sequential_profile_post()
                             self.logger.debug("Navigation successful via Next button")
                             return True
             except Exception as e:
@@ -467,20 +543,25 @@ class PostNavigationMixin:
         return self._navigate_to_next_post_in_sequence()
 
     def _return_to_grid_and_open_another_post(self, posts_count: int = 0, username: str = None) -> bool:
-        """Alternative human navigation: instead of swiping through the post viewer, go BACK to
-        the profile grid, (re-)scroll it and open ANOTHER post — the way a person sometimes
-        returns to the grid to pick a different post rather than always paging the feed view.
+        """Leave a Reel safely, return to the profile grid, and open an unseen post.
 
-        Reuses the humanised entry path (`_open_entry_post_of_profile`: adaptive grid pre-scroll
-        + top-weighted spread thumbnail + human tap). Returns True only if we ended up back in a
-        post view; the caller falls back to the in-viewer scroll otherwise (zero regression)."""
+        Swiping vertically from a freshly opened Reel enters Instagram's global Reels feed and
+        loses the profile-scoped Back control. Normal posts therefore remain in sequential viewer
+        navigation, while this path is reserved for Reel escape (and its Cartography probe).
+
+        Reuses the humanised entry path while requiring a cell not already opened during this
+        profile visit. If the viewport is exhausted, that path scrolls the grid to seek a new
+        absolute position; it stops instead of looping over an old post. Returns True only if we
+        ended up back in a post view."""
         try:
             self.logger.debug("Navigating via grid: back to profile → reopen another post")
             if not self._return_to_profile_from_post():
                 # Back didn't land on the grid (still in a post) → let the caller scroll instead.
                 self.logger.debug("Grid-return: still in post view after back, aborting")
                 return False
-            opened = self._open_entry_post_of_profile(posts_count, username=username)
+            opened = self._open_entry_post_of_profile(
+                posts_count, username=username, reopening=True
+            )
             if opened:
                 self.logger.info("Navigated via grid (back → reopened another post)")
             return bool(opened)

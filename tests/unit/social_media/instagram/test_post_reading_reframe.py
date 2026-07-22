@@ -58,10 +58,32 @@ def _root_without_overflow():
 
 def _root_with_carousel(index="1/3"):
     xml = (
-        f'<hierarchy><node resource-id="com.instagram.android:id/{FS.carousel_viewpager_id}" '
+        f'<hierarchy><node resource-id="com.instagram.android:id/{FS.header_id}" '
+        f'text="author" bounds="[80,220][500,280]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.carousel_viewpager_id}" '
         f'bounds="[80,300][1000,1500]" />'
         f'<node resource-id="com.instagram.android:id/{FS.carousel_index_id}" '
-        f'text="{index}" bounds="[850,320][940,380]" /></hierarchy>'
+        f'text="{index}" bounds="[850,320][940,380]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.like_button_id}" '
+        f'bounds="[80,1520][180,1620]" /></hierarchy>'
+    )
+    return etree.fromstring(xml.encode("utf-8"))
+
+
+def _root_with_partial_next_carousel():
+    xml = (
+        f'<hierarchy><node resource-id="com.instagram.android:id/{FS.header_id}" '
+        f'text="current" bounds="[80,100][500,170]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.like_button_id}" '
+        f'bounds="[80,1050][180,1140]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.header_id}" '
+        f'text="next" bounds="[80,1220][500,1290]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.carousel_viewpager_id}" '
+        f'bounds="[80,1310][1000,2250]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.carousel_index_id}" '
+        f'text="1/4" bounds="[850,1330][940,1390]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.tab_bar_id}" '
+        f'bounds="[0,1900][1080,2000]" /></hierarchy>'
     )
     return etree.fromstring(xml.encode("utf-8"))
 
@@ -186,3 +208,25 @@ def test_carousel_uses_shared_horizontal_engine_and_session_scales(monkeypatch):
     }]
     assert sleeps == [0.6 * 1.20]
     assert host._last_carousel_behavior["style"] == "deliberate"
+
+
+def test_partial_next_carousel_is_not_browsed(monkeypatch):
+    host = _Host()
+    monkeypatch.setattr(host, "_dump_root", _root_with_partial_next_carousel)
+
+    assert host.browse_carousel_slides() == 0
+    assert host.hswipes == []
+    assert host._last_carousel_skip_reason == "carousel_not_fully_framed"
+
+
+def test_carousel_without_its_engagement_row_is_ambiguous(monkeypatch):
+    host = _Host()
+    root = _root_with_carousel()
+    for node in list(root):
+        if node.get("resource-id", "").endswith(FS.like_button_id):
+            root.remove(node)
+    monkeypatch.setattr(host, "_dump_root", lambda: root)
+
+    assert host.browse_carousel_slides() == 0
+    assert host.hswipes == []
+    assert host._last_carousel_skip_reason == "missing_post_anchors"
