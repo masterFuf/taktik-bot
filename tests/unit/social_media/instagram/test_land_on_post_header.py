@@ -23,7 +23,9 @@ class _Host(FeedScrollMixin):
         y = self._seq.pop(0) if self._seq else None
         return {"headers": ([y] if y is not None else [])}
 
-    def _long_drag(self, direction, distance_px=0, vel_range=None):
+    def _long_drag(self, direction, distance_px=0, vel_range=None, guard_start=False,
+                   velocity_scale=1.0):
+        assert guard_start is True
         self.drags.append((direction, round(distance_px)))
         return True
 
@@ -66,3 +68,40 @@ def test_single_correction_cap(monkeypatch):
     h = _Host([int(0.6 * 2000), int(0.4 * 2000)])
     h.land_on_post_header()
     assert len(h.drags) == 1
+
+
+def test_session_policy_can_defer_a_moderate_correction(monkeypatch):
+    _patch(monkeypatch)
+    h = _Host([int(0.30 * 2000)])
+    h._decide_post_framing = lambda **_kwargs: {
+        "correct": False,
+        "needed": True,
+        "probability": 0.42,
+        "reason": "deferred",
+    }
+
+    res = h.land_on_post_header()
+
+    assert h.drags == []
+    assert res["corrected"] is False
+    assert res["framed"] is False
+    assert res["framing_decision"]["reason"] == "deferred"
+
+
+def test_tiny_selected_correction_is_accepted_instead_of_becoming_a_touch_slop_jolt(monkeypatch):
+    _patch(monkeypatch)
+    h = _Host([int(0.15 * 2000)])
+    h._decide_post_framing = lambda **_kwargs: {
+        "correct": True,
+        "needed": True,
+        "probability": 0.7,
+        "reason": "selected",
+        "reaction_delay_s": 0.0,
+        "target_ratio": 0.10,
+    }
+
+    res = h.land_on_post_header()
+
+    assert h.drags == []
+    assert res["corrected"] is False
+    assert res["framing_decision"]["reason"] == "accepted_below_smooth_drag_floor"

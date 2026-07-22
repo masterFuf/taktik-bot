@@ -55,7 +55,11 @@ class PostReadingMixin:
         during a multi-second reading pause, so its freeze overlaps the dwell (invisible)."""
         try:
             xml = self.device._device.dump_hierarchy()
-            return etree.fromstring(xml.encode("utf-8"))
+            root = etree.fromstring(xml.encode("utf-8"))
+            remember_geometry = getattr(self, "_remember_post_action_geometry", None)
+            if callable(remember_geometry):
+                remember_geometry(root)
+            return root
         except Exception as e:
             self.logger.debug(f"dump_root failed: {e}")
             return None
@@ -121,6 +125,13 @@ class PostReadingMixin:
         the TOTAL distance scrolled in px (0 if none) so the caller can reframe the post after."""
         fold = int(0.86 * self.screen_height)
         scrolled_px = 0
+        motor_provider = getattr(self, "_motor_modulation", None)
+        motor = (motor_provider("caption_read") if callable(motor_provider) else {
+            "distance_scale": 1.0,
+            "velocity_scale": 1.0,
+            "settle_scale": 1.0,
+            "dwell_scale": 1.0,
+        })
         for _ in range(max_scrolls):
             root = self._dump_root()
             if root is None:
@@ -137,10 +148,14 @@ class PostReadingMixin:
                     below = b - t
             if below is None:
                 break
-            dist = random.uniform(0.20, 0.30) * self.screen_height
-            self._long_drag("up", distance_px=dist, vel_range=_READ_DRAG_VEL_PXS)
+            dist = (random.uniform(0.20, 0.30) * self.screen_height
+                    * motor["distance_scale"])
+            self._long_drag(
+                "up", distance_px=dist, vel_range=_READ_DRAG_VEL_PXS, guard_start=True,
+                velocity_scale=motor["velocity_scale"],
+            )
             scrolled_px += int(dist)
-            time.sleep(random.uniform(0.7, 1.4))   # read the revealed lines
+            time.sleep(random.uniform(0.7, 1.4) * motor["dwell_scale"])
         if scrolled_px:
             self.logger.debug(f"📖 scrolled {scrolled_px}px to read the expanded caption")
         return scrolled_px
@@ -166,7 +181,8 @@ class PostReadingMixin:
             per = remaining / gestures
             for _ in range(gestures):
                 self._human_swipe(direction="down", distance_px=per,
-                                  start_band=(0.18 * h, 0.32 * h), controlled=True)
+                                  start_band=(0.18 * h, 0.32 * h), controlled=True,
+                                  guard_start=True)
                 time.sleep(random.uniform(0.25, 0.55))
             self.logger.debug(f"📐 reframed post after reading (back ~{int(remaining)}px)")
         except Exception as e:
@@ -211,17 +227,24 @@ class PostReadingMixin:
             if band is None or cur is None or total is None or cur >= total:
                 break
             l, t, r, b = band[2]
-            w = r - l
-            y = (t + b) // 2 + random.randint(-10, 10)
-            x_start = int(l + (0.80 + random.uniform(-0.03, 0.03)) * w)
-            x_end = int(l + (0.20 + random.uniform(-0.03, 0.03)) * w)
-            raw = getattr(self.device, "_device", None)
-            if raw is not None and hasattr(raw, "swipe"):
-                raw.swipe(x_start, y, x_end, y, duration=random.uniform(0.20, 0.35))
-            else:
-                self.device.swipe_coordinates(x_start, y, x_end, y, 0.28)
+            plan_provider = getattr(self, "_plan_behavior_gesture", None)
+            decision = (plan_provider("carousel_slide", "hswipe")
+                        if callable(plan_provider) else {
+                            "distance_scale": 1.0,
+                            "velocity_scale": 1.0,
+                            "dwell_scale": 1.0,
+                        })
+            if not self._human_horizontal_swipe(
+                "left",
+                distance_ratio=0.60,
+                bounds=(l, t, r, b),
+                distance_scale=decision["distance_scale"],
+                velocity_scale=decision["velocity_scale"],
+            ):
+                break
+            self._last_carousel_behavior = dict(decision)
             swiped += 1
-            time.sleep(random.uniform(0.6, 1.2))   # look at the slide
+            time.sleep(random.uniform(0.6, 1.2) * decision["dwell_scale"])
             if cur + 1 >= total:
                 break
         if swiped:
@@ -284,7 +307,14 @@ class PostReadingMixin:
             except Exception as e:
                 self.logger.debug(f"caption expand skipped: {e}")
         prose = self._caption_prose_length()                 # full text now (caption expanded)
-        target = dwell_s if dwell_s is not None else content_dwell(prose)
+        dwell_scale = 1.0
+        if dwell_s is None:
+            scale_provider = getattr(self, "_reading_dwell_scale", None)
+            if callable(scale_provider):
+                dwell_scale = float(scale_provider("post_reading"))
+            target = content_dwell(prose) * dwell_scale
+        else:
+            target = dwell_s
         spent = time.monotonic() - start                     # carousel/caption already took time
         remain = max(MIN_DWELL_S, target - spent)
         time.sleep(remain)
@@ -295,7 +325,8 @@ class PostReadingMixin:
             self._reframe_post_after_reading(reveal_px)
         self._last_reveal_scroll_px = 0
         total = time.monotonic() - start
-        self.logger.debug(f"⏲️ reading: prose={prose}ch target={target:.1f}s active={spent:.1f}s "
+        self.logger.debug(f"⏲️ reading: prose={prose}ch target={target:.1f}s "
+                          f"scale={dwell_scale:.3f} active={spent:.1f}s "
                           f"dwell={remain:.1f}s total={total:.1f}s")
         return round(total, 1)
 

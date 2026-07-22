@@ -12,24 +12,34 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_S
 
 
 class _Host(pr.PostReadingMixin):
+    screen_width = 1080
     screen_height = 2000
 
     def __init__(self):
         self.drags = []
         self.swipes = []
+        self.hswipes = []
 
         class _Log:
             def debug(self, *_a, **_k): pass
             def error(self, *_a, **_k): pass
         self.logger = _Log()
 
-    def _long_drag(self, direction="up", distance_px=None, vel_range=None):
+    def _long_drag(self, direction="up", distance_px=None, vel_range=None, guard_start=False,
+                   velocity_scale=1.0):
+        assert guard_start is True
         self.drags.append((direction, distance_px))
         return True
 
-    def _human_swipe(self, direction="up", distance_px=None, start_band=None, controlled=False):
+    def _human_swipe(self, direction="up", distance_px=None, start_band=None, controlled=False,
+                     guard_start=False):
+        assert guard_start is True
         self.swipes.append({"direction": direction, "distance_px": distance_px,
                             "start_band": start_band, "controlled": controlled})
+        return True
+
+    def _human_horizontal_swipe(self, direction="left", **kwargs):
+        self.hswipes.append({"direction": direction, **kwargs})
         return True
 
 
@@ -43,6 +53,16 @@ def _root_with_caption_below_fold():
 def _root_without_overflow():
     xml = (f'<hierarchy><node class="{FS.caption_layout_class}" text="short" '
            f'bounds="[0,1500][1080,1700]" /></hierarchy>')
+    return etree.fromstring(xml.encode("utf-8"))
+
+
+def _root_with_carousel(index="1/3"):
+    xml = (
+        f'<hierarchy><node resource-id="com.instagram.android:id/{FS.carousel_viewpager_id}" '
+        f'bounds="[80,300][1000,1500]" />'
+        f'<node resource-id="com.instagram.android:id/{FS.carousel_index_id}" '
+        f'text="{index}" bounds="[850,320][940,380]" /></hierarchy>'
+    )
     return etree.fromstring(xml.encode("utf-8"))
 
 
@@ -119,3 +139,50 @@ def test_reading_pause_skips_reframe_below_threshold(monkeypatch):
 
     host.human_reading_pause()
     assert calls == []
+
+
+def test_automatic_reading_dwell_uses_the_session_attention_scale(monkeypatch):
+    host = _Host()
+    sleeps = []
+    ticks = iter((100.0, 100.0, 112.0))
+    monkeypatch.setattr(pr.time, "sleep", sleeps.append)
+    monkeypatch.setattr(pr.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(pr, "content_dwell", lambda _prose: 10.0)
+    monkeypatch.setattr(host, "_caption_prose_length", lambda root=None: 80)
+    host._reading_dwell_scale = lambda _context: 1.2
+
+    total = host.human_reading_pause(read_captions=False, browse_carousels=False)
+
+    assert sleeps == [12.0]
+    assert total == 12.0
+
+
+def test_carousel_uses_shared_horizontal_engine_and_session_scales(monkeypatch):
+    host = _Host()
+    roots = [_root_with_carousel(), _root_without_overflow()]
+    sleeps = []
+    decision = {
+        "distance_scale": 1.04,
+        "velocity_scale": 0.90,
+        "dwell_scale": 1.20,
+        "style": "deliberate",
+    }
+    host._plan_behavior_gesture = lambda context, gesture: (
+        decision if (context, gesture) == ("carousel_slide", "hswipe") else None
+    )
+    monkeypatch.setattr(host, "_dump_root", lambda: roots.pop(0))
+    monkeypatch.setattr(pr.time, "sleep", sleeps.append)
+    monkeypatch.setattr(pr.random, "uniform", lambda lower, _upper: lower)
+
+    count = host.browse_carousel_slides()
+
+    assert count == 1
+    assert host.hswipes == [{
+        "direction": "left",
+        "distance_ratio": 0.60,
+        "bounds": (80, 300, 1000, 1500),
+        "distance_scale": 1.04,
+        "velocity_scale": 0.90,
+    }]
+    assert sleeps == [0.6 * 1.20]
+    assert host._last_carousel_behavior["style"] == "deliberate"

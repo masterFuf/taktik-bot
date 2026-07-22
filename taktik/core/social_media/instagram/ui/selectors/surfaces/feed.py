@@ -134,5 +134,24 @@ class FeedScrollSelectors:
     carousel_index_id: str = "carousel_index_indicator_text_view"
     carousel_index_pattern: str = r"^(\d+)\s*/\s*(\d+)$"
 
+    # --- Garde du point d'appui des gestes verticaux sur une carte de post ---
+    # Les tokens sont lus sur le resource-id court du dump (clone-safe). Le moteur de gestes
+    # consomme leurs bounds, jamais des coordonnees Instagram codees en dur.
+    gesture_action_row_ids: tuple = ("row_feed_view_group_buttons",)
+    gesture_action_id_tokens: tuple = (
+        ("like", ("row_feed_button_like", "like_button")),
+        ("comment", ("row_feed_button_comment", "comment_button")),
+        ("share", ("row_feed_button_share", "row_feed_button_send", "direct_share_button")),
+        ("save", ("row_feed_button_save", "save_button")),
+    )
+    gesture_post_marker_ids: tuple = (
+        "row_feed_photo_profile_name",
+        "row_feed_profile_header",
+        "row_feed_view_group_buttons",
+    )
+    # Dump indisponible sur une vue post : bande media centrale, exprimee en ratios d'ecran.
+    # Elle evite le cluster like/comment/share a gauche et le bouton save a droite.
+    gesture_fallback_safe_x_band: tuple = (0.46, 0.70)
+
 
 FEED_SCROLL_SELECTORS = FeedScrollSelectors()

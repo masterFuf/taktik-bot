@@ -302,12 +302,17 @@ class BaseDeviceFacade:
         return host._human_swipe(direction=g_dir, distance_px=distance_px)
 
     def human_hswipe(self, direction: str = "left", distance_ratio: float = 0.6,
-                     y_ratio: Optional[float] = None) -> bool:
+                     y_ratio: Optional[float] = None,
+                     distance_scale: float = 1.0,
+                     velocity_scale: float = 1.0) -> bool:
         """Humanized HORIZONTAL swipe (stories, carousels, story/highlight trays). `direction='left'`
         reveals the NEXT slide, `'right'` the previous. Dedicated horizontal profile (varied start
         point, vertical wobble, varied duration) — never a fixed-coordinate robotic swipe. `y_ratio`
         pins the swipe row (e.g. a top story tray ~0.17h); default samples the mid band."""
-        return self._gesture_host()._human_horizontal_swipe(direction, distance_ratio, y_ratio=y_ratio)
+        return self._gesture_host()._human_horizontal_swipe(
+            direction, distance_ratio, y_ratio=y_ratio,
+            distance_scale=distance_scale, velocity_scale=velocity_scale,
+        )
 
     # =========================================================================
     # Click & Press

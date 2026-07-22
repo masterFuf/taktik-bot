@@ -36,12 +36,14 @@ _DRAG_VEL_PXS = (1500.0, 2200.0)    # drag velocity px/s (slow → 1:1 track, no
 # A geste-level `skim` (2 flicks at once) was REMOVED (#27): it overshot organic posts into the
 # ad/suggestion block and counted as a `filler_run`, falsely tripping `reached_tail` — and it is
 # redundant with `browse_feed.skip_prob`, which skips a post by advancing to a REAL one (no junk
-# overshoot). The gesture is now always ONE decisive advance.
+# overshoot). The gesture is now always ONE decisive advance. These weights are the long-run
+# baseline; session memory turns them into short coherent brisk/steady/deliberate bursts.
 _MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
 # A post is "framed" only when its header sits in the very top of the screen — otherwise the
 # previous post still fills the top and we stopped "in the middle of a post".
 _LAND_GOOD_MAX = 0.12               # incoming header y / h ≤ this ⇒ post framed at top (done)
 _LAND_TARGET = 0.05                 # where the correction drag lands the header (just under the top)
+_MIN_SMOOTH_CORRECTION_H = 0.10     # below this, touch-slop exit would consume most of the drag
 # Session exhaustion: the followed feed is declared spent only after this many CONSECUTIVE gestures
 # that saw nothing but ads/suggestions. One filler run (a normal 2-3 ad block between real posts) is
 # NOT the tail — at 2 runs in a row we have glided past ~4-6 junk units with no organic post, which a
@@ -79,6 +81,9 @@ class FeedScrollMixin(PostReadingMixin):
         try:
             xml = self.device._device.dump_hierarchy()
             root = etree.fromstring(xml.encode("utf-8"))
+            remember_geometry = getattr(self, "_remember_post_action_geometry", None)
+            if callable(remember_geometry):
+                remember_geometry(root)
             for node in root.iter():
                 # Ad marker: the "Sponsorisé(e)" / "Sponsored" label lives in a content-desc
                 # (on the media or a label), often on a node without a resource-id → check first.
@@ -244,32 +249,101 @@ class FeedScrollMixin(PostReadingMixin):
             return None
         return min(on) / float(self.screen_height)
 
+    def _landing_confidence(self, anchors: Dict[str, Any], land: Optional[float]) -> float:
+        """Confidence that ``land`` describes a real, dominant post header."""
+        if land is None:
+            return 0.0
+        confidence = 0.55
+        if anchors.get("headers"):
+            confidence += 0.15
+        if anchors.get("posts"):
+            confidence += 0.20
+        if anchors.get("on_feed"):
+            confidence += 0.05
+        headers = anchors.get("headers") or []
+        if len(headers) > 1 and headers[1] - headers[0] < 0.18 * self.screen_height:
+            confidence -= 0.15
+        return min(1.0, max(0.0, confidence))
+
+    def _framing_decision(
+        self, anchors: Dict[str, Any], land: Optional[float], context: str
+    ) -> Dict[str, Any]:
+        """Use session memory when available; pure mixin test hosts keep the legacy fallback."""
+        confidence = self._landing_confidence(anchors, land)
+        decider = getattr(self, "_decide_post_framing", None)
+        if callable(decider):
+            return decider(
+                land_ratio=land,
+                confidence=confidence,
+                context=context,
+                good_threshold=_LAND_GOOD_MAX,
+            )
+        needed = land is not None and land > _LAND_GOOD_MAX
+        return {
+            "context": context,
+            "land_ratio": round(land, 3) if land is not None else None,
+            "confidence": round(confidence, 3),
+            "needed": needed,
+            "correct": needed,
+            "probability": 1.0 if needed else 0.0,
+            "reason": "legacy_fallback",
+            "reaction_delay_s": 0.0,
+            "target_ratio": _LAND_TARGET if needed else None,
+        }
+
     def land_on_post_header(self, max_corrections: int = 1) -> Dict[str, Any]:
-        """Frame the topmost post at the very top after an advance — so we never stop
-        'half-and-half' (end of one post + start of the next). Reuses the feed's landing logic
-        (header ratio + ONE precise 1:1 lift drag, moving LESS than one post pitch so it frames
-        whatever post is topmost and can never skip) but WITHOUT any feed-specific ad/recover
-        behaviour, so it is safe to call on the profile-post viewer too (same post layout).
+        """Evaluate and optionally frame the topmost post after an advance.
+
+        Reuses the feed's session-aware landing policy (header ratio, perception confidence, and at
+        most one precise 1:1 lift drag) without feed-specific ad/recovery behaviour, so it is safe
+        on the profile-post viewer too. Moderate imperfections may be accepted; severe ones are
+        repaired, always by less than one post pitch so the correction cannot skip a post.
 
         Best-effort + non-destructive: a NO-OP when no post header is detected (a reel, or an
         unrecognised surface) → it never regresses the caller. Returns {framed, corrected,
-        land_ratio}."""
+        land_ratio, framing_decision}."""
         corrected = False
         anchors = self._read_feed_anchors()
         land = self._incoming_header_ratio(anchors)
-        for _ in range(max(0, max_corrections)):
-            if land is None or land <= _LAND_GOOD_MAX:
+        framing_decision = self._framing_decision(anchors, land, "profile_post_header")
+        correction_limit = max(0, max_corrections)
+        for attempt in range(correction_limit):
+            if not framing_decision.get("correct"):
                 break
-            lift_px = (land - _LAND_TARGET) * self.screen_height
-            self._long_drag("up", distance_px=lift_px, vel_range=_DRAG_VEL_PXS)
+            motor_provider = getattr(self, "_motor_modulation", None)
+            motor = (motor_provider("profile_post_framing")
+                     if callable(motor_provider)
+                     else {"velocity_scale": 1.0, "settle_scale": 1.0})
+            reaction = float(framing_decision.get("reaction_delay_s") or 0.0)
+            if reaction > 0:
+                time.sleep(reaction)
+            target_ratio = float(framing_decision.get("target_ratio") or _LAND_TARGET)
+            lift_px = (land - target_ratio) * self.screen_height
+            if lift_px < _MIN_SMOOTH_CORRECTION_H * self.screen_height:
+                framing_decision = {
+                    **framing_decision,
+                    "correct": False,
+                    "reason": "accepted_below_smooth_drag_floor",
+                }
+                break
+            self._long_drag(
+                "up", distance_px=lift_px, vel_range=_DRAG_VEL_PXS, guard_start=True,
+                velocity_scale=motor["velocity_scale"],
+            )
             corrected = True
-            time.sleep(random.uniform(0.30, 0.50))
+            time.sleep(random.uniform(0.30, 0.50) * motor["settle_scale"])
             anchors = self._read_feed_anchors()
             land = self._incoming_header_ratio(anchors)
+            if (attempt + 1 < correction_limit
+                    and land is not None and land > _LAND_GOOD_MAX):
+                framing_decision = self._framing_decision(
+                    anchors, land, "profile_post_header"
+                )
         return {
             "framed": land is not None and land <= _LAND_GOOD_MAX,
             "corrected": corrected,
             "land_ratio": land,
+            "framing_decision": framing_decision,
         }
 
     # ── ENGINE: advance to the next real post ──────────────────────────────────────
@@ -279,15 +353,25 @@ class FeedScrollMixin(PostReadingMixin):
         used on the first post already on screen when we arrive on the feed. Stops as soon as the
         bar is visible (or it's an ad / off-feed). Returns the number of scrolls done."""
         done = 0
+        motor_provider = getattr(self, "_motor_modulation", None)
+        motor = (motor_provider("feed_metadata_reveal") if callable(motor_provider) else {
+            "distance_scale": 1.0,
+            "velocity_scale": 1.0,
+            "settle_scale": 1.0,
+        })
         for _ in range(max_scrolls):
             a = self._read_feed_anchors()
             if (not a.get("on_feed") or self._dominant_is_ad(a)
                     or self._metadata_visible(a)[0]):
                 break
-            self._strong_flick("up", distance_px=random.uniform(0.18, 0.26) * self.screen_height,
-                               vel_range=_FLICK_VEL_PXS)
+            self._strong_flick(
+                "up", distance_px=(random.uniform(0.18, 0.26) * self.screen_height
+                                   * motor["distance_scale"]),
+                vel_range=_FLICK_VEL_PXS, guard_start=True,
+                velocity_scale=motor["velocity_scale"],
+            )
             done += 1
-            time.sleep(random.uniform(0.45, 0.65))
+            time.sleep(random.uniform(0.45, 0.65) * motor["settle_scale"])
         return done
 
     def scroll_feed_to_next_post(self, max_gestures: int = 3, skip_ads: bool = True,
@@ -302,42 +386,69 @@ class FeedScrollMixin(PostReadingMixin):
         exactly the "petits à-coups / 3 mini-scrolls per post" the user rejected.
 
         A human does ONE of two things to bring the next post up, and we reproduce both:
-          - **flick** (default ~85%): one quick STRONG flick whose momentum coasts ~one post
+          - **flick** (~85% over time): one quick STRONG flick whose momentum coasts ~one post
             (`_strong_flick` → straight high-velocity `raw.swipe` → real OS fling, coast ~3x).
-          - **drag** (~15%): keep the finger down and push continuously (`_long_drag` → slow
-            `raw.drag`, 1:1 track, lands where the finger stops).
+          - **drag** (~15% over time): keep the finger down and push continuously (`_long_drag` →
+            low-level touch path, 1:1 track, lands where the finger stops).
+        A per-session style keeps that mix coherent for several posts (brisk, steady, deliberate)
+        instead of drawing an independent 85/15 coin flip on every advance.
         The gesture is always ONE decisive advance to the next post — a multi-flick "skim" was
         removed (#27) because it overshot organic posts into the ad/suggestion block and falsely
         tripped feed-exhaustion. Skipping a post WITHOUT reading is `browse_feed.skip_prob`, which
         advances to a REAL next post (no junk overshoot).
 
         Then ONE settle + dump measures where the incoming post's header landed (`land_ratio`).
-        If it is not framed at the very top (the previous post still fills the top = "stopped in
-        the middle of a post"), exactly ONE **precise 1:1 drag** lifts that header to the top —
-        reliable where the variable flick was not. Because the drag moves less than one post
-        pitch, it just frames whatever post is currently topmost; it can never skip. So every
-        call ends on a cleanly framed post (a full post shown from its top), never mid-post.
+        A session-aware policy combines framing severity, perception confidence, current style,
+        and recent corrections. It can accept a small imperfection instead of producing a fixed
+        gesture/dump/correction loop; a severe half-shown post is always repaired with one precise
+        1:1 drag.
         If we land on a Sponsored ad and `skip_ads`, we advance straight past it (smooth) without
         framing/reading it. Off-feed → targeted recovery.
         Returns {advanced, on_feed, on_reel, mode, land_ratio, corrected, reveal, full_post,
-        metadata_visible, is_ad, ads_skipped, surface, gestures, dumps}."""
+        metadata_visible, is_ad, ads_skipped, surface, gestures, dumps, advance_decision,
+        framing_decision}."""
         h = self.screen_height
         dumps = 0
         ads_skipped = 0
         try:
-            modes, weights = zip(*_MODE_WEIGHTS)
-            mode = random.choices(modes, weights=weights)[0]
+            chooser = getattr(self, "_choose_advance_mode", None)
+            if callable(chooser):
+                advance_decision = chooser(
+                    "feed_post", base_drag_probability=dict(_MODE_WEIGHTS)["drag"]
+                )
+                mode = advance_decision["mode"]
+            else:
+                modes, weights = zip(*_MODE_WEIGHTS)
+                mode = random.choices(modes, weights=weights)[0]
+                advance_decision = {
+                    "context": "feed_post",
+                    "mode": mode,
+                    "style": None,
+                    "burst_remaining": 0,
+                    "drag_probability": dict(_MODE_WEIGHTS)["drag"],
+                }
+            distance_scale = float(advance_decision.get("distance_scale", 1.0))
+            velocity_scale = float(advance_decision.get("velocity_scale", 1.0))
+            settle_scale = float(advance_decision.get("settle_scale", 1.0))
             gestures = 0
             if mode == "drag":
-                self._long_drag("up", distance_px=random.uniform(*_DRAG_FINGER_H) * h,
-                                vel_range=_DRAG_VEL_PXS)
+                self._long_drag(
+                    "up", distance_px=(random.uniform(*_DRAG_FINGER_H) * h
+                                       * distance_scale),
+                    vel_range=_DRAG_VEL_PXS, guard_start=True,
+                    velocity_scale=velocity_scale,
+                )
                 gestures = 1
-                settle = random.uniform(0.15, 0.30)
+                settle = random.uniform(0.15, 0.30) * settle_scale
             else:  # flick (default)
-                self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
-                                   vel_range=_FLICK_VEL_PXS)
+                self._strong_flick(
+                    "up", distance_px=(random.uniform(*_FLICK_FINGER_H) * h
+                                       * distance_scale),
+                    vel_range=_FLICK_VEL_PXS, guard_start=True,
+                    velocity_scale=velocity_scale,
+                )
                 gestures = 1
-                settle = random.uniform(0.45, 0.70)
+                settle = random.uniform(0.45, 0.70) * settle_scale
             time.sleep(settle)   # let the fling coast settle before measuring (natural glance beat)
 
             anchors = self._read_feed_anchors()      # single dump: surface check + landing
@@ -377,9 +488,13 @@ class FeedScrollMixin(PostReadingMixin):
                     if stuck >= 2:
                         break
                     stuck += 1
-                self._strong_flick("up", distance_px=random.uniform(*_FLICK_FINGER_H) * h,
-                                   vel_range=_FLICK_VEL_PXS)
-                time.sleep(random.uniform(0.45, 0.65))
+                self._strong_flick(
+                    "up", distance_px=(random.uniform(*_FLICK_FINGER_H) * h
+                                       * distance_scale),
+                    vel_range=_FLICK_VEL_PXS, guard_start=True,
+                    velocity_scale=velocity_scale,
+                )
+                time.sleep(random.uniform(0.45, 0.65) * settle_scale)
                 anchors = self._read_feed_anchors()
                 dumps += 1
                 if not anchors["on_feed"]:
@@ -393,18 +508,33 @@ class FeedScrollMixin(PostReadingMixin):
 
             land = self._incoming_header_ratio(anchors)
             corrected = False
-            # Frame the post header at the top → the previous post must not still fill the top
-            # ("milieu d'un post"). ONE PRECISE 1:1 drag lifts the header to the top, reliable where
-            # the variable flick was not; moving LESS than one pitch it frames whatever post is
-            # topmost and can never skip. Skipped if the post is still ad/suggested (we're leaving it).
-            if not skippable and on_feed and land is not None and land > _LAND_GOOD_MAX:
-                lift_px = (land - _LAND_TARGET) * h          # 1:1 content px to bring the header to the top
-                self._long_drag("up", distance_px=lift_px, vel_range=_DRAG_VEL_PXS)
-                corrected = True
-                time.sleep(random.uniform(0.30, 0.50))
-                anchors = self._read_feed_anchors()
-                dumps += 1
-                land = self._incoming_header_ratio(anchors)
+            framing_decision = None
+            # Decide whether this landing deserves an immediate precise correction. Small framing
+            # errors can be accepted; severe ones are always repaired. Skipped for filler units.
+            if not skippable and on_feed:
+                framing_decision = self._framing_decision(anchors, land, "feed_post")
+            if framing_decision and framing_decision.get("correct"):
+                reaction = float(framing_decision.get("reaction_delay_s") or 0.0)
+                if reaction > 0:
+                    time.sleep(reaction)
+                target_ratio = float(framing_decision.get("target_ratio") or _LAND_TARGET)
+                lift_px = (land - target_ratio) * h
+                if lift_px < _MIN_SMOOTH_CORRECTION_H * h:
+                    framing_decision = {
+                        **framing_decision,
+                        "correct": False,
+                        "reason": "accepted_below_smooth_drag_floor",
+                    }
+                else:
+                    self._long_drag(
+                        "up", distance_px=lift_px, vel_range=_DRAG_VEL_PXS, guard_start=True,
+                        velocity_scale=velocity_scale,
+                    )
+                    corrected = True
+                    time.sleep(random.uniform(0.30, 0.50) * settle_scale)
+                    anchors = self._read_feed_anchors()
+                    dumps += 1
+                    land = self._incoming_header_ratio(anchors)
 
             on_feed = anchors["on_feed"]
             on_reel = on_feed and not anchors["headers"] and anchors.get("video_band") is not None
@@ -420,10 +550,14 @@ class FeedScrollMixin(PostReadingMixin):
             meta_vis, like_ratio = self._metadata_visible(anchors)
             reveal = 0
             while on_feed and not on_reel and not skippable and not meta_vis and reveal < 2:
-                self._strong_flick("up", distance_px=random.uniform(0.20, 0.28) * h,
-                                   vel_range=_FLICK_VEL_PXS)
+                self._strong_flick(
+                    "up", distance_px=(random.uniform(0.20, 0.28) * h
+                                       * distance_scale),
+                    vel_range=_FLICK_VEL_PXS, guard_start=True,
+                    velocity_scale=velocity_scale,
+                )
                 reveal += 1
-                time.sleep(random.uniform(0.45, 0.65))   # coast to a smooth rest, then measure
+                time.sleep(random.uniform(0.45, 0.65) * settle_scale)
                 anchors = self._read_feed_anchors()
                 dumps += 1
                 on_feed = anchors["on_feed"]
@@ -448,7 +582,10 @@ class FeedScrollMixin(PostReadingMixin):
             self.logger.debug(
                 f"📰 feed scroll: mode={mode} flicks={gestures} stuck_retry={stuck} reveal={reveal} "
                 f"ads_skipped={ads_skipped} sugg_skipped={sugg_skipped} filler_run={filler_run} land={land} "
-                f"corrected={corrected} full_post={full_post} meta={meta_vis} ad={is_ad} sugg={is_sugg} "
+                f"style={advance_decision.get('style')} "
+                f"burst_left={advance_decision.get('burst_remaining')} "
+                f"framing={framing_decision} corrected={corrected} full_post={full_post} "
+                f"meta={meta_vis} ad={is_ad} sugg={is_sugg} "
                 f"advanced={advanced} on_feed={on_feed} surface={anchors.get('surface')} dumps={dumps}")
             return {"advanced": advanced, "on_feed": on_feed, "on_reel": on_reel, "mode": mode,
                     "land_ratio": round(land, 3) if land is not None else None,
@@ -456,6 +593,8 @@ class FeedScrollMixin(PostReadingMixin):
                     "full_post": full_post, "metadata_visible": meta_vis, "is_ad": is_ad,
                     "is_suggested": is_sugg, "filler_run": filler_run,
                     "ads_skipped": ads_skipped, "suggested_skipped": sugg_skipped,
+                    "advance_decision": advance_decision,
+                    "framing_decision": framing_decision,
                     "like_ratio": round(like_ratio, 3) if like_ratio is not None else None,
                     "surface": anchors.get("surface"), "gestures": gestures, "dumps": dumps}
         except Exception as e:
