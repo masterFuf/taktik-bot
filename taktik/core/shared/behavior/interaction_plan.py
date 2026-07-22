@@ -153,6 +153,80 @@ def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None
     )
 
 
+def empty_interaction_plan() -> InteractionPlan:
+    """Return a plan with no side effect for preview and fail-closed execution paths."""
+    return InteractionPlan(
+        like_target=0,
+        do_follow=False,
+        do_comment=False,
+        max_comments=0,
+        do_watch_story=False,
+        story_like_slot=-1,
+        max_story_slides=0,
+        do_story_like=False,
+        max_story_likes=0,
+    )
+
+
+def interaction_plan_from_payload(payload, config: dict, *, rng=None) -> InteractionPlan:
+    """Validate an injected concrete plan against the workflow's hard execution bounds.
+
+    This is deliberately not a selection strategy: Electron has already chosen the actions and
+    quantities. The public Bot only converts the wire payload and clamps it to local maxima.
+    """
+    if not isinstance(payload, dict):
+        return empty_interaction_plan()
+
+    max_likes = max(0, int(config.get('max_likes_per_profile', 0) or 0))
+    max_comments_raw = config.get('max_comments_per_profile', 1)
+    max_story_slides_raw = config.get('max_stories_per_profile', 3)
+    max_story_likes_raw = config.get('max_story_likes_per_profile', 1)
+    max_comments = max(0, int(1 if max_comments_raw is None else max_comments_raw))
+    max_story_slides = max(0, int(3 if max_story_slides_raw is None else max_story_slides_raw))
+    max_story_likes = max(0, int(1 if max_story_likes_raw is None else max_story_likes_raw))
+
+    capabilities = config.get('ai_decision_capabilities')
+    capabilities = capabilities if isinstance(capabilities, dict) else {}
+    may_like = capabilities.get('like', True) is True
+    may_follow = capabilities.get('follow', True) is True
+    may_comment = capabilities.get('comment', True) is True
+    may_watch_story = capabilities.get('watchStories', True) is True
+    may_like_story = capabilities.get('likeStories', True) is True
+
+    like_target = (
+        max(0, min(int(payload.get('likes', 0) or 0), max_likes)) if may_like else 0
+    )
+    do_comment = may_comment and bool(payload.get('comment')) and max_comments > 0
+    requested_comments = max(0, int(payload.get('maxComments', 0) or 0))
+    comment_target = min(requested_comments, max_comments) if do_comment else 0
+    do_comment = do_comment and comment_target > 0
+
+    do_watch_story = (
+        may_watch_story and bool(payload.get('watchStory')) and max_story_slides > 0
+    )
+    requested_slides = max(0, int(payload.get('maxStorySlides', 0) or 0))
+    story_slides = min(requested_slides, max_story_slides) if do_watch_story else 0
+    do_watch_story = do_watch_story and story_slides > 0
+
+    do_story_like = do_watch_story and may_like_story and bool(payload.get('likeStory'))
+    requested_story_likes = max(0, int(payload.get('maxStoryLikes', 0) or 0))
+    story_likes = min(requested_story_likes, max_story_likes) if do_story_like else 0
+    do_story_like = do_story_like and story_likes > 0
+    story_slot = sample_story_like_slot(story_slides, rng=rng) if do_story_like else -1
+
+    return InteractionPlan(
+        like_target=like_target,
+        do_follow=may_follow and bool(payload.get('follow')),
+        do_comment=do_comment,
+        max_comments=comment_target,
+        do_watch_story=do_watch_story,
+        story_like_slot=story_slot,
+        max_story_slides=story_slides,
+        do_story_like=do_story_like,
+        max_story_likes=story_likes,
+    )
+
+
 def mask_exhausted_intents(plan: InteractionPlan, exhausted) -> tuple:
     """Drop the intents whose DAILY quota is already spent. Returns (plan, masked_names).
 
@@ -294,4 +368,6 @@ __all__ = [
     "sample_story_like_count",
     "sample_story_like_slots",
     "build_interaction_plan",
+    "empty_interaction_plan",
+    "interaction_plan_from_payload",
 ]

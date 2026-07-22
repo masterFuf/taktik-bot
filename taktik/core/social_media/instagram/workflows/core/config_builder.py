@@ -210,6 +210,14 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     probabilities = raw_config.get("probabilities", {})
     filters = raw_config.get("filters", {})
     session_config = raw_config.get("session", {})
+    ai_config = raw_config.get("ai", {})
+    decision_config = ai_config.get("decision") if isinstance(ai_config, dict) else {}
+    decision_mode = (
+        isinstance(decision_config, dict) and decision_config.get("mode") == "decide"
+    )
+    decision_capabilities = (
+        decision_config.get("capabilities", {}) if decision_mode else {}
+    )
 
     max_profiles = limits.get("maxProfiles", 20)
     min_likes_per_profile = limits.get("minLikesPerProfile", 1)
@@ -219,6 +227,15 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     comment_percentage = probabilities.get("comment", 5)
     story_percentage = probabilities.get("watchStories", 15)
     story_like_percentage = probabilities.get("likeStories", 10)
+    if decision_mode:
+        # The intention sliders have no authority in decision mode. Convert the operator's
+        # capability mask to 100/0 only for legacy execution settings/session ceilings; the
+        # per-profile selection itself still comes exclusively from Electron's concrete plan.
+        like_percentage = 100 if decision_capabilities.get("like") is True else 0
+        follow_percentage = 100 if decision_capabilities.get("follow") is True else 0
+        comment_percentage = 100 if decision_capabilities.get("comment") is True else 0
+        story_percentage = 100 if decision_capabilities.get("watchStories") is True else 0
+        story_like_percentage = 100 if decision_capabilities.get("likeStories") is True else 0
     min_followers = filters.get("minFollowers", 50)
     max_followers = filters.get("maxFollowers", 50000)
     min_posts = filters.get("minPosts", 5)
@@ -363,6 +380,16 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
         ],
     }
 
+    if decision_mode:
+        # Defense in depth: the interaction engine can now identify decision mode even if the
+        # premium hook/provider fails before depositing a response on profile_data. In that case
+        # it executes an empty plan instead of silently falling back to probability rolls.
+        built["actions"][0]["ai_decision_mode"] = "decide"
+        built["actions"][0]["ai_decision_dry_run"] = bool(
+            decision_config.get("dryRun", True)
+        )
+        built["actions"][0]["ai_decision_capabilities"] = dict(decision_capabilities)
+
     # Pass the pacing/behaviour profile through to the SessionManager (which reads
     # config["behaviorPolicy"] via parse_behavior_policy) so the rhythm selector works.
     behavior_policy = raw_config.get("behaviorPolicy")
@@ -461,5 +488,8 @@ def build_instagram_session_config_event(
         relevance_gating = ai_config.get("relevanceGating") or ai_config.get("relevance_gating")
         if isinstance(relevance_gating, dict):
             payload["ai"]["relevanceGating"] = relevance_gating
+        decision = ai_config.get("decision")
+        if isinstance(decision, dict):
+            payload["ai"]["decision"] = decision
 
     return payload

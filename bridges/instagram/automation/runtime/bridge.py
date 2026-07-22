@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from bridges.instagram.automation.runtime.ai import create_instagram_ai_service
+from bridges.instagram.automation.runtime.decision_client import DesktopProfileDecisionClient
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
 from bridges.instagram.automation.runtime.signals import register_desktop_shutdown_handlers
@@ -38,6 +39,12 @@ class DesktopBridge:
             ipc=_ipc,
             log=send_log,
         )
+        decision_config = self.ai_config.get("decision") or {}
+        self.decision_client = (
+            DesktopProfileDecisionClient(ipc=_ipc, log=send_log)
+            if decision_config.get("mode") == "decide"
+            else None
+        )
 
         self.media_capture = InstagramMediaCaptureRuntime(
             device_id=self.device_id,
@@ -62,6 +69,9 @@ class DesktopBridge:
             ai_service=self.ai_service,
             ai_config=self.ai_config,
             language=self.language,
+            decision_provider=(
+                self.decision_client.request_plan if self.decision_client else None
+            ),
         )
         result = runner.run()
         self.automation = runner.automation

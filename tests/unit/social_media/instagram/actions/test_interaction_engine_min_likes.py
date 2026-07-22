@@ -19,14 +19,18 @@ from taktik.core.social_media.instagram.actions.core.base_business.config_parsin
 
 
 class _Logger:
+    def __init__(self):
+        self.infos = []
+        self.errors = []
+
     def debug(self, *a, **k):
         pass
 
     def info(self, *a, **k):
-        pass
+        self.infos.append(str(a[0]) if a else "")
 
     def error(self, *a, **k):
-        pass
+        self.errors.append(str(a[0]) if a else "")
 
 
 class _LikeBusiness:
@@ -173,3 +177,124 @@ def test_successful_like_counts_and_emits():
     assert res['likes'] == 2
     assert res['actually_interacted'] is True
     assert len(eng.like_events) == 1  # IPC like event emitted
+
+
+def test_engine_logs_the_final_executable_plan():
+    eng = _Engine(_LikeBusiness(posts_liked=0), _ClickActions(follow_ok=False))
+
+    eng._perform_interactions_on_profile(
+        'erin',
+        _cfg(like_probability=0.0, follow_probability=1.0),
+        profile_data=None,
+    )
+
+    final_logs = [message for message in eng.logger.infos if message.startswith('Plan final @erin:')]
+    assert final_logs == [
+        'Plan final @erin: likes=0, follow=oui, commentaires=0, '
+        'story=non, like_story=non'
+    ]
+
+
+def _agent_decision(*, dry_run=False, ok=True):
+    return {
+        'mode': 'decide',
+        'ok': ok,
+        'plan': {
+            'likes': 1,
+            'follow': True,
+            'comment': False,
+            'maxComments': 0,
+            'watchStory': False,
+            'likeStory': False,
+            'maxStorySlides': 0,
+            'maxStoryLikes': 0,
+        },
+        'decision': {
+            'dryRun': dry_run,
+            'score': 0.91,
+            'reason': 'strong match',
+            'notes': ['strong match'],
+        },
+    }
+
+
+def test_injected_decision_bypasses_probability_rolls():
+    like_biz = _LikeBusiness(posts_liked=1)
+    clicks = _ClickActions(follow_ok=True)
+    eng = _Engine(like_biz, clicks)
+    eng._determine_interactions_from_config = lambda _config: (_ for _ in ()).throw(
+        AssertionError('probability rolls must not run in decide mode')
+    )
+
+    result = eng._perform_interactions_on_profile(
+        'agent_target',
+        _cfg(
+            like_probability=0.0,
+            follow_probability=0.0,
+            max_likes_per_profile=3,
+        ),
+        profile_data={'ai_agent_decision': _agent_decision()},
+    )
+
+    assert like_biz.calls == 1
+    assert clicks.follow_calls == 1
+    assert result['likes'] == 1
+    assert result['follows'] == 1
+
+
+def test_injected_decision_dry_run_announces_without_any_gesture():
+    like_biz = _LikeBusiness(posts_liked=1)
+    clicks = _ClickActions(follow_ok=True)
+    eng = _Engine(like_biz, clicks)
+
+    result = eng._perform_interactions_on_profile(
+        'preview_target',
+        _cfg(),
+        profile_data={'ai_agent_decision': _agent_decision(dry_run=True)},
+    )
+
+    assert like_biz.calls == 0
+    assert clicks.follow_calls == 0
+    assert result['actually_interacted'] is False
+    assert any(message.startswith('Plan simulé @preview_target:') for message in eng.logger.infos)
+
+
+def test_failed_injected_decision_is_fail_closed_not_legacy_fallback():
+    like_biz = _LikeBusiness(posts_liked=1)
+    clicks = _ClickActions(follow_ok=True)
+    eng = _Engine(like_biz, clicks)
+
+    result = eng._perform_interactions_on_profile(
+        'closed_target',
+        _cfg(like_probability=1.0, follow_probability=1.0),
+        profile_data={'ai_agent_decision': _agent_decision(dry_run=False, ok=False)},
+    )
+
+    assert like_biz.calls == 0
+    assert clicks.follow_calls == 0
+    assert result['actually_interacted'] is False
+
+
+def test_configured_decision_mode_without_response_is_also_fail_closed():
+    like_biz = _LikeBusiness(posts_liked=1)
+    clicks = _ClickActions(follow_ok=True)
+    eng = _Engine(like_biz, clicks)
+    eng._determine_interactions_from_config = lambda _config: (_ for _ in ()).throw(
+        AssertionError('missing injected response must not restore probability rolls')
+    )
+
+    result = eng._perform_interactions_on_profile(
+        'missing_response',
+        _cfg(
+            like_probability=1.0,
+            follow_probability=1.0,
+            ai_decision_mode='decide',
+            ai_decision_dry_run=False,
+        ),
+        profile_data={},
+    )
+
+    assert like_biz.calls == 0
+    assert clicks.follow_calls == 0
+    assert result['actually_interacted'] is False
+    assert any(message.startswith('Plan final @missing_response:') for message in eng.logger.infos)

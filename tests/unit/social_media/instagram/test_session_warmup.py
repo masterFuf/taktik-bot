@@ -168,3 +168,31 @@ def test_no_session_cap_is_a_noop():
     sm.counters['likes'] = 999
     ok, _ = sm.should_continue()
     assert ok is True
+
+
+def test_decision_budget_snapshot_exposes_live_usage_and_hard_caps():
+    sm = _sm(warmup={
+        'max_actions_per_day': 50,
+        'max_follows_per_day': 10,
+        'max_comments_per_day': 5,
+        'max_actions_per_session': 25,
+    })
+    sm.set_daily_usage_provider(
+        lambda: {'total': 23, 'follows': 4, 'comments': 2}
+    )
+    sm.counters['likes'] = 3
+    sm.counters['follows'] = 1
+    sm.counters['comments'] = 1
+
+    snapshot = sm.decision_budget_snapshot()
+
+    assert snapshot['daily'] == {'total': 23, 'follows': 4, 'comments': 2}
+    assert snapshot['session'] == {
+        'total': 5, 'likes': 3, 'follows': 1, 'comments': 1,
+    }
+    assert snapshot['caps'] == {
+        'max_actions_per_day': 50,
+        'max_follows_per_day': 10,
+        'max_comments_per_day': 5,
+        'max_actions_per_session': 25,
+    }

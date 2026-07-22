@@ -9,6 +9,8 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from taktik.core.shared.behavior.interaction_plan import (
     apply_relevance_gating,
     build_interaction_plan,
+    empty_interaction_plan,
+    interaction_plan_from_payload,
     mask_exhausted_intents,
     sample_story_like_count,
     sample_story_like_slots,
@@ -65,16 +67,52 @@ class InteractionEngineMixin:
         }
 
         try:
-            interactions_to_do = self._determine_interactions_from_config(config)
+            injected_decision = (profile_data or {}).get('ai_agent_decision')
+            configured_decision_mode = config.get('ai_decision_mode') == 'decide'
+            uses_injected_decision = configured_decision_mode or (
+                isinstance(injected_decision, dict)
+                and injected_decision.get('mode') == 'decide'
+            )
+            if uses_injected_decision and not isinstance(injected_decision, dict):
+                injected_decision = {
+                    'mode': 'decide',
+                    'ok': False,
+                    'error': 'No profile decision was provided',
+                    'decision': {
+                        'dryRun': bool(config.get('ai_decision_dry_run', True)),
+                        'score': None,
+                        'reason': 'Aucune décision reçue : aucune action exécutée.',
+                        'notes': [],
+                    },
+                }
+            decision_details = (
+                injected_decision.get('decision')
+                if uses_injected_decision and isinstance(injected_decision.get('decision'), dict)
+                else {}
+            )
+            decision_dry_run = (
+                bool(decision_details.get(
+                    'dryRun', config.get('ai_decision_dry_run', True)
+                )) if uses_injected_decision else False
+            )
+            interactions_to_do = (
+                [] if uses_injected_decision else self._determine_interactions_from_config(config)
+            )
             # Resolve the per-profile plan: turns the rolled intents into concrete
             # quantities — a likes target sampled PROPORTIONALLY to the profile's post count
             # (a 10-post account gets few likes, a 500-post one can take more) and the single
             # story slide to like (a human likes one slide, not all).
             posts_count = (profile_data or {}).get('posts_count')
-            plan = build_interaction_plan(config, interactions_to_do, posts_count=posts_count)
-            self.logger.debug(f"🎯 Plan for @{username}: {interactions_to_do} → "
-                              f"likes={plan.like_target}, story_slot={plan.story_like_slot}")
-
+            if uses_injected_decision:
+                # Electron already selected actions and quantities. The public Bot validates hard
+                # execution bounds only; a failed/missing response becomes an empty plan.
+                plan = interaction_plan_from_payload(
+                    injected_decision.get('plan') if injected_decision.get('ok') else None,
+                    config,
+                )
+            else:
+                # Strictly compatible off/enrich path: probabilities still own selection.
+                plan = build_interaction_plan(config, interactions_to_do, posts_count=posts_count)
             # === DAILY SUB-QUOTAS ===
             # A spent follow/comment quota removes ITS OWN intent for the rest of the day instead
             # of ending the session: the run keeps liking and watching stories on the action
@@ -99,12 +137,12 @@ class InteractionEngineMixin:
             # profile entirely and/or mask planned intents the verdict advises against.
             # Fail-open: no verdict/disabled → passthrough (today's behaviour). In dry-run it
             # only REPORTS what it would do, so the operator can vet verdict quality first.
-            gate = apply_relevance_gating(
+            gate = None if uses_injected_decision else apply_relevance_gating(
                 plan,
                 (profile_data or {}).get('ai_engagement'),
                 (profile_data or {}).get('ai_relevance_gating'),
             )
-            if gate.active:
+            if gate is not None and gate.active:
                 score_str = f"{gate.score:.2f}" if isinstance(gate.score, (int, float)) else "?"
                 if gate.would_skip:
                     prefix = "[dry-run] " if gate.dry_run else ""
@@ -139,6 +177,29 @@ class InteractionEngineMixin:
                 settle_attempts=3, settle_delay=0.35
             )
 
+            plan_label = "Plan simulé" if decision_dry_run else "Plan final"
+            self.logger.info(
+                f"{plan_label} @{username}: likes={plan.like_target}, "
+                f"follow={'oui' if plan.do_follow else 'non'}, "
+                f"commentaires={plan.max_comments if plan.do_comment else 0}, "
+                f"story={'oui' if story_available else 'non'}, "
+                f"like_story={'oui' if story_available and plan.do_story_like else 'non'}"
+            )
+
+            if uses_injected_decision:
+                IPCEmitter.emit_action('decision', username, {
+                    'likes': plan.like_target,
+                    'story': story_available,
+                    'story_like': story_available and plan.do_story_like,
+                    'follow': plan.do_follow,
+                    'comment': plan.max_comments if plan.do_comment else 0,
+                    'score': decision_details.get('score'),
+                    'reason': decision_details.get('reason') or injected_decision.get('error'),
+                    'notes': decision_details.get('notes') or [],
+                    'dry_run': decision_dry_run,
+                    'ok': bool(injected_decision.get('ok')),
+                })
+
             # Pre-announce the plan to the live copilot (Taktik Agent) BEFORE acting. The story /
             # story-like intentions reflect a story that ACTUALLY exists on the profile (detected
             # just above), NOT merely the rolled probability — so the panel never shows "story +
@@ -151,7 +212,15 @@ class InteractionEngineMixin:
                 'story_like': story_available and plan.do_story_like,
                 'follow': plan.do_follow,
                 'comment': plan.max_comments if plan.do_comment else 0,
+                'dry_run': decision_dry_run,
+                'decision_mode': uses_injected_decision,
             })
+
+            # Announcement-only mode is permanent: narrate the exact plan above, then replace it
+            # by an empty execution plan. No tap, story open, follow or comment can follow.
+            if decision_dry_run:
+                plan = empty_interaction_plan()
+                story_available = False
 
             # Human ordering of the header-dependent actions. The story sits right at the top on
             # arrival, so watch it FIRST most of the time; the follow is mixed early/late (a human
@@ -167,7 +236,7 @@ class InteractionEngineMixin:
                 self._do_follow(username, plan, profile_data, result)
 
             # === LIKE / COMMENT ===
-            should_like = 'like' in interactions_to_do
+            should_like = plan.like_target > 0
             should_comment = plan.do_comment
             min_likes = config.get('min_likes_per_profile', 1)
 
@@ -305,7 +374,10 @@ class InteractionEngineMixin:
         try:
             meta = self.detection_actions.get_story_viewer_metadata()
             total = (meta or {}).get('total_stories', 0)
-            if total and total > 0:
+            # One generic progress container is ambiguous: it often represents the
+            # whole segmented bar, not one slide. Treat only multiple metadata nodes as
+            # a count; an explicit parsed "1 of 1" above remains authoritative.
+            if total and total > 1:
                 return int(total)
         except Exception:
             pass

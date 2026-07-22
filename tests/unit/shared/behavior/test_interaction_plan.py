@@ -12,6 +12,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_count,
     sample_story_like_slots,
     build_interaction_plan,
+    interaction_plan_from_payload,
 )
 
 
@@ -270,3 +271,66 @@ def test_gating_dry_run_reports_masking_without_applying():
     )
     assert set(g.masked) == {"follow", "like"}
     assert g.plan is plan and g.plan.do_follow is True and g.plan.like_target == 2
+
+
+def test_injected_plan_is_clamped_to_local_execution_bounds():
+    plan = interaction_plan_from_payload(
+        {
+            "likes": 99,
+            "follow": True,
+            "comment": True,
+            "maxComments": 8,
+            "watchStory": True,
+            "likeStory": True,
+            "maxStorySlides": 12,
+            "maxStoryLikes": 7,
+        },
+        {
+            "max_likes_per_profile": 3,
+            "max_comments_per_profile": 1,
+            "max_stories_per_profile": 4,
+            "max_story_likes_per_profile": 2,
+        },
+        rng=random.Random(7),
+    )
+
+    assert plan.like_target == 3
+    assert plan.do_follow is True
+    assert plan.max_comments == 1
+    assert plan.max_story_slides == 4
+    assert plan.max_story_likes == 2
+    assert 0 <= plan.story_like_slot < 4
+
+
+def test_injected_plan_cannot_bypass_operator_capability_mask():
+    plan = interaction_plan_from_payload(
+        {
+            "likes": 3,
+            "follow": True,
+            "comment": True,
+            "maxComments": 1,
+            "watchStory": True,
+            "likeStory": True,
+            "maxStorySlides": 3,
+            "maxStoryLikes": 1,
+        },
+        {
+            "max_likes_per_profile": 3,
+            "max_comments_per_profile": 1,
+            "max_stories_per_profile": 3,
+            "max_story_likes_per_profile": 1,
+            "ai_decision_capabilities": {
+                "like": False,
+                "follow": False,
+                "comment": False,
+                "watchStories": True,
+                "likeStories": False,
+            },
+        },
+    )
+
+    assert plan.like_target == 0
+    assert plan.do_follow is False
+    assert plan.do_comment is False
+    assert plan.do_watch_story is True
+    assert plan.do_story_like is False

@@ -143,3 +143,24 @@ def test_fallback_last_slide_when_planned_slots_unreached(monkeypatch):
     host, res = _run(monkeypatch, slides=2, count=1, slots=[4])
     assert host.click_actions.like_calls == 1
     assert res["stories_liked"] == 1
+
+
+def test_single_metadata_progress_node_is_not_reported_as_one_slide():
+    host = _Host(slides=4, report_total=False)
+    host.detection_actions.get_story_viewer_metadata = lambda: {"total_stories": 1}
+
+    assert host._read_story_slide_total() == 0
+
+
+def test_multiple_metadata_segments_remain_a_valid_fallback_total():
+    host = _Host(slides=4, report_total=False)
+    host.detection_actions.get_story_viewer_metadata = lambda: {"total_stories": 4}
+
+    assert host._read_story_slide_total() == 4
+
+
+def test_explicit_single_slide_counter_remains_authoritative():
+    host = _Host(slides=1, report_total=True)
+    host.detection_actions.get_story_viewer_metadata = lambda: {"total_stories": 1}
+
+    assert host._read_story_slide_total() == 1

@@ -11,6 +11,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
 )
 
 LogCallback = Callable[[str, str], None]
+DecisionProvider = Callable[[Mapping[str, Any]], dict[str, Any]]
 
 
 def _noop_log(_level: str, _message: str) -> None:
@@ -134,6 +135,7 @@ def install_instagram_ai_hooks(
     device: Any,
     language: str = "en",
     log: LogCallback = _noop_log,
+    decision_provider: "DecisionProvider | None" = None,
 ) -> None:
     """Install monkey-patches that inject AI behavior into Instagram automation."""
     if not device:
@@ -331,7 +333,10 @@ def install_instagram_ai_hooks(
         except Exception as exc:
             log("warning", f"Failed to install Smart Comments hook: {exc}")
 
-    if ai_config.get("profileAnalysis", False):
+    decision_settings = ai_config.get("decision") or {}
+    decision_mode = decision_settings.get("mode") == "decide"
+
+    if ai_config.get("profileAnalysis", False) or decision_mode:
         try:
             from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
                 InteractionEngineMixin,
@@ -349,6 +354,138 @@ def install_instagram_ai_hooks(
             # verdict so the interaction engine can enforce it WITHOUT any config threading —
             # {enabled, minScore, maskIntents, dryRun}. Absent/disabled → engine passthrough.
             relevance_gating = ai_config.get("relevanceGating") or ai_config.get("relevance_gating")
+
+            def _request_agent_decision(
+                self_engine,
+                username,
+                engagement,
+                profile_data,
+                config,
+            ):
+                """Ask Electron for one concrete plan and deposit it for the pure executor."""
+                if not decision_mode or not isinstance(profile_data, dict):
+                    return
+
+                french = str(language).lower().startswith("fr")
+                no_verdict_reason = (
+                    "Aucun verdict fiable : aucune action n'est exécutée."
+                    if french
+                    else "No reliable verdict: no action will be executed."
+                )
+                failed = {
+                    "mode": "decide",
+                    "ok": False,
+                    "error": "AI verdict unavailable",
+                    "decision": {
+                        "dryRun": bool(decision_settings.get("dryRun", True)),
+                        "score": None,
+                        "reason": no_verdict_reason,
+                        "notes": [no_verdict_reason],
+                    },
+                }
+                if not isinstance(engagement, dict):
+                    profile_data["ai_agent_decision"] = failed
+                    return
+                if decision_provider is None:
+                    failed["error"] = "desktop decision provider unavailable"
+                    failed["decision"]["reason"] = (
+                        "Le décideur premium est indisponible : aucune action n'est exécutée."
+                        if french
+                        else "The premium decision provider is unavailable: no action will be executed."
+                    )
+                    profile_data["ai_agent_decision"] = failed
+                    return
+
+                session = getattr(self_engine, "session_manager", None)
+                snapshot = (
+                    session.decision_budget_snapshot()
+                    if session is not None and hasattr(session, "decision_budget_snapshot")
+                    else {}
+                )
+                daily = snapshot.get("daily") or {}
+                session_usage = snapshot.get("session") or {}
+                caps = snapshot.get("caps") or {}
+                facts = {
+                    "username": username,
+                    "engagement": {
+                        "relevant": bool(engagement.get("relevant")),
+                        "score": engagement.get("score"),
+                        "reason": engagement.get("reason"),
+                        "like": bool(engagement.get("like")),
+                        "follow": bool(engagement.get("follow")),
+                        "comment": bool(engagement.get("comment")),
+                    },
+                    "profile": {
+                        "followersCount": int(profile_data.get("followers_count", 0) or 0),
+                        "followingCount": int(profile_data.get("following_count", 0) or 0),
+                        "postsCount": int(profile_data.get("posts_count", 0) or 0),
+                        "followButtonState": profile_data.get("follow_button_state"),
+                        "relationship": (
+                            profile_data.get("relationship")
+                            or profile_data.get("relationship_state")
+                        ),
+                        "niche": profile_data.get("ai_niche"),
+                        "nicheCategory": profile_data.get("ai_niche_category"),
+                    },
+                    "budget": {
+                        "daily": {
+                            "total": int(daily.get("total", 0) or 0),
+                            "follows": int(daily.get("follows", 0) or 0),
+                            "comments": int(daily.get("comments", 0) or 0),
+                        },
+                        "session": {
+                            "total": int(session_usage.get("total", 0) or 0),
+                            "likes": int(session_usage.get("likes", 0) or 0),
+                            "follows": int(session_usage.get("follows", 0) or 0),
+                            "comments": int(session_usage.get("comments", 0) or 0),
+                        },
+                        "caps": {
+                            "maxActionsPerDay": int(caps.get("max_actions_per_day", 0) or 0),
+                            "maxFollowsPerDay": int(caps.get("max_follows_per_day", 0) or 0),
+                            "maxCommentsPerDay": int(caps.get("max_comments_per_day", 0) or 0),
+                            "maxActionsPerSession": int(caps.get("max_actions_per_session", 0) or 0),
+                        },
+                    },
+                    "limits": {
+                        "maxLikesPerProfile": int(config.get("max_likes_per_profile", 0) or 0),
+                        "minLikesPerProfile": int(config.get("min_likes_per_profile", 0) or 0),
+                        "maxCommentsPerProfile": max(0, int(
+                            config.get("max_comments_per_profile", 1)
+                            if config.get("max_comments_per_profile") is not None else 1
+                        )),
+                        "maxStoriesPerProfile": max(0, int(
+                            config.get("max_stories_per_profile", 3)
+                            if config.get("max_stories_per_profile") is not None else 3
+                        )),
+                        "maxStoryLikesPerProfile": max(0, int(
+                            config.get("max_story_likes_per_profile", 1)
+                            if config.get("max_story_likes_per_profile") is not None else 1
+                        )),
+                    },
+                }
+                try:
+                    response = decision_provider(facts)
+                    if isinstance(response, dict):
+                        response_decision = response.get("decision")
+                        response_decision = (
+                            dict(response_decision)
+                            if isinstance(response_decision, dict)
+                            else {}
+                        )
+                        response_decision.setdefault(
+                            "dryRun", bool(decision_settings.get("dryRun", True))
+                        )
+                        profile_data["ai_agent_decision"] = {
+                            **response,
+                            "mode": "decide",
+                            "decision": response_decision,
+                        }
+                    else:
+                        profile_data["ai_agent_decision"] = failed
+                except Exception as exc:
+                    failed["error"] = str(exc)
+                    profile_data["ai_agent_decision"] = failed
+                    log("warning", f"Profile decision failed for @{username}: {exc}")
 
             def _surface_engagement(username, engagement, profile_data):
                 """Shared verdict surfacing (vision path AND cached path): deposit the verdict +
@@ -372,9 +509,10 @@ def install_instagram_ai_hooks(
                 log(
                     "info",
                     (
-                        f"  ↳ pertinence IA @{username}: "
+                        f"  ↳ avis IA @{username}: "
                         f"{'pertinent' if engagement.get('relevant') else 'non pertinent'} "
-                        f"(score {score_str}) → {', '.join(would) or 'rien'}"
+                        f"(score {score_str}) · recommande {', '.join(would) or 'rien'} "
+                        f"(le plan final est calculé ensuite)"
                         + (f" · {engagement['reason']}" if engagement.get("reason") else "")
                     ),
                 )
@@ -390,6 +528,8 @@ def install_instagram_ai_hooks(
                 })
 
             def ai_perform_interactions(self_engine, username, config, profile_data=None):
+                if profile_data is None:
+                    profile_data = {}
                 # Reuse an existing AI qualification instead of re-paying for the vision classification:
                 # if this profile was already scraped + AI-qualified (its niche is in the DB), skip the
                 # re-analysis entirely. Same dedup the scraping path already applies — a profile's niche
@@ -407,7 +547,8 @@ def install_instagram_ai_hooks(
                     # KNOWN niche/bio against the account persona with a cheap TEXT-only call (no
                     # screenshot). Account-relative → recomputed per run, never persisted. Any
                     # failure keeps the historic fail-open behaviour.
-                    if relevance_gating and isinstance(profile_data, dict):
+                    engagement = None
+                    if (relevance_gating or decision_mode) and isinstance(profile_data, dict):
                         try:
                             verdict = ai.engagement_verdict_for_known_profile(
                                 username=username,
@@ -417,11 +558,16 @@ def install_instagram_ai_hooks(
                                 response_language=language,
                             )
                             if verdict.get("success") and isinstance(verdict.get("engagement"), dict):
-                                _surface_engagement(username, verdict["engagement"], profile_data)
+                                engagement = verdict["engagement"]
+                                _surface_engagement(username, engagement, profile_data)
                         except Exception as exc:
                             log("warning", f"Cached-profile relevance verdict failed for @{username}: {exc}")
+                    _request_agent_decision(
+                        self_engine, username, engagement, profile_data, config
+                    )
                     return original_perform(self_engine, username, config, profile_data)
 
+                engagement = None
                 try:
                     tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
                     os.makedirs(tmp_dir, exist_ok=True)
@@ -472,6 +618,9 @@ def install_instagram_ai_hooks(
                 except Exception as exc:
                     log("warning", f"AI profile analysis error for @{username}: {exc}")
 
+                _request_agent_decision(
+                    self_engine, username, engagement, profile_data, config
+                )
                 return original_perform(self_engine, username, config, profile_data)
 
             InteractionEngineMixin._perform_interactions_on_profile = ai_perform_interactions

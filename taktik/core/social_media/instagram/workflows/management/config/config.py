@@ -2,6 +2,25 @@ from typing import Dict, Any
 from dataclasses import dataclass
 
 
+_EXECUTION_CONFIG_KEYS = (
+    'min_likes_per_profile',
+    'max_likes_per_profile',
+    'max_comments_per_profile',
+    'max_stories_per_profile',
+    'max_story_likes_per_profile',
+    'ai_decision_mode',
+    'ai_decision_dry_run',
+    'ai_decision_capabilities',
+)
+
+
+def _copy_execution_config(action: Dict[str, Any], config: Dict[str, Any]) -> None:
+    """Preserve hard bounds and decision guards across compatibility config rebuilds."""
+    for key in _EXECUTION_CONFIG_KEYS:
+        if key in action:
+            config[key] = action[key]
+
+
 @dataclass
 class ActionProbabilities:
     """Probabilities for different action types (0.0 to 1.0)"""
@@ -108,6 +127,11 @@ class WorkflowConfigBuilder:
             'interaction_type': action.get('interaction_type', 'followers')  # 'followers' or 'following'
         }
 
+        # Concrete execution bounds and decision-mode guards must survive this compatibility
+        # rebuild. Dropping them would restore stale defaults (notably max likes) and could let a
+        # missing premium response fall back to the 100/0 capability probabilities.
+        _copy_execution_config(action, config)
+
         if action.get('max_consecutive_known_usernames') is not None:
             config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')
         if action.get('max_no_new_usernames_scrolls') is not None:
@@ -132,6 +156,8 @@ class WorkflowConfigBuilder:
             'filter_criteria': filters.to_dict()
         }
 
+        _copy_execution_config(action, config)
+
         if action.get('max_consecutive_known_usernames') is not None:
             config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')
         if action.get('max_no_new_usernames_scrolls') is not None:
@@ -152,6 +178,8 @@ class WorkflowConfigBuilder:
             **probabilities.to_dict(),
             'filter_criteria': filters.to_dict()
         }
+
+        _copy_execution_config(action, config)
 
         if action.get('max_consecutive_known_usernames') is not None:
             config['max_consecutive_known_usernames'] = action.get('max_consecutive_known_usernames')

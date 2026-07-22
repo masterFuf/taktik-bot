@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Callable, Mapping
 
 from bridges.instagram.runtime.ipc import (
     logger,
@@ -31,6 +31,7 @@ class InstagramAutomationRunner:
         ai_service: Any | None,
         ai_config: dict,
         language: str,
+        decision_provider: Callable[[Mapping[str, Any]], dict[str, Any]] | None = None,
     ):
         self.config = config
         self.device_manager = device_manager
@@ -40,6 +41,7 @@ class InstagramAutomationRunner:
         self.ai_service = ai_service
         self.ai_config = ai_config
         self.language = language
+        self.decision_provider = decision_provider
         self.automation = None
 
     def build_workflow_config(self) -> dict:
@@ -100,7 +102,9 @@ class InstagramAutomationRunner:
         )
 
     def _install_ai_hooks(self) -> None:
-        if not (self.ai_enabled and self.ai_service):
+        decision_config = self.ai_config.get("decision") or {}
+        decision_mode = decision_config.get("mode") == "decide"
+        if not ((self.ai_enabled and self.ai_service) or decision_mode):
             return
 
         from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
@@ -113,4 +117,5 @@ class InstagramAutomationRunner:
             device=self.device_manager.device if self.device_manager else None,
             language=self.language,
             log=send_log,
+            decision_provider=self.decision_provider,
         )

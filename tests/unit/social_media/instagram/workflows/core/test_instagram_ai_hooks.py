@@ -188,7 +188,14 @@ def test_load_cached_qualification_handles_db_errors(monkeypatch):
 # skipped the engagement verdict, so cached profiles were NEVER gated (fail-open). With gating on,
 # the hook now judges the KNOWN niche against the account persona via a cheap text-only call.
 
-def _install_profile_hook(monkeypatch, fake_ai, ai_config, captured):
+def _install_profile_hook(
+    monkeypatch,
+    fake_ai,
+    ai_config,
+    captured,
+    log=None,
+    decision_provider=None,
+):
     from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
         InteractionEngineMixin,
     )
@@ -205,7 +212,13 @@ def _install_profile_hook(monkeypatch, fake_ai, ai_config, captured):
         "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
         staticmethod(lambda *a, **k: None),
     )
-    install_instagram_ai_hooks(ai=fake_ai, ai_config=ai_config, device=object(), log=lambda *a: None)
+    install_instagram_ai_hooks(
+        ai=fake_ai,
+        ai_config=ai_config,
+        device=object(),
+        log=log or (lambda *a: None),
+        decision_provider=decision_provider,
+    )
     return InteractionEngineMixin
 
 
@@ -242,6 +255,34 @@ def test_cached_profile_gets_text_verdict_when_gating_on(monkeypatch):
     assert captured["verdict_kwargs"]["cached"]["niche"] == "Hair & Nail Art"
     # The reuse markers stay (no vision re-analysis happened).
     assert captured["profile_data"]["ai_reused_qualification"] is True
+
+
+def test_relevance_log_labels_ai_output_as_advice_not_executed_plan(monkeypatch):
+    _patch_db(monkeypatch, [CACHED_ROW])
+    captured = {}
+    logs = []
+
+    class FakeAI:
+        def engagement_verdict_for_known_profile(self, **kwargs):
+            return {"success": True, "engagement": {
+                "relevant": True, "follow": True, "comment": False, "like": True,
+                "score": 0.8, "reason": "adjacent",
+            }}
+
+    engine_cls = _install_profile_hook(
+        monkeypatch,
+        FakeAI(),
+        {"profileAnalysis": True, "accountNiche": "beauty_wellness", "relevanceGating": GATING},
+        captured,
+        log=lambda level, message: logs.append((level, message)),
+    )
+
+    engine_cls._perform_interactions_on_profile(object(), "known", {}, {})
+
+    advice_logs = [message for _, message in logs if "avis IA @known" in message]
+    assert len(advice_logs) == 1
+    assert "recommande follow, like" in advice_logs[0]
+    assert "plan final est calculé ensuite" in advice_logs[0]
 
 
 def test_cached_profile_skips_verdict_when_gating_off(monkeypatch):
@@ -283,3 +324,85 @@ def test_cached_profile_fails_open_when_verdict_errors(monkeypatch):
 
     assert result == "performed"
     assert "ai_engagement" not in captured["profile_data"]
+
+
+def test_decide_mode_requests_front_plan_for_cached_profile(monkeypatch):
+    _patch_db(monkeypatch, [CACHED_ROW])
+    captured = {}
+
+    class FakeAI:
+        def engagement_verdict_for_known_profile(self, **kwargs):
+            return {"success": True, "engagement": {
+                "relevant": True, "follow": True, "comment": False, "like": True,
+                "score": 0.9, "reason": "strong",
+            }}
+
+    response = {
+        "ok": True,
+        "plan": {"likes": 1, "follow": True},
+        "decision": {"dryRun": True, "score": 0.9, "reason": "strong", "notes": []},
+    }
+
+    def decide(facts):
+        captured["facts"] = facts
+        return response
+
+    engine_cls = _install_profile_hook(
+        monkeypatch,
+        FakeAI(),
+        {
+            "profileAnalysis": True,
+            "accountNiche": "beauty_wellness",
+            "decision": {"mode": "decide", "dryRun": True},
+        },
+        captured,
+        decision_provider=decide,
+    )
+    profile_data = {"followers_count": 120, "following_count": 900, "posts_count": 42}
+
+    engine_cls._perform_interactions_on_profile(
+        object(),
+        "known",
+        {
+            "max_likes_per_profile": 3,
+            "max_comments_per_profile": 0,
+            "max_stories_per_profile": 0,
+            "max_story_likes_per_profile": 0,
+        },
+        profile_data,
+    )
+
+    assert captured["facts"]["profile"]["followersCount"] == 120
+    assert captured["facts"]["limits"]["maxCommentsPerProfile"] == 0
+    assert captured["facts"]["limits"]["maxStoriesPerProfile"] == 0
+    assert captured["facts"]["limits"]["maxStoryLikesPerProfile"] == 0
+    assert captured["profile_data"]["ai_agent_decision"]["mode"] == "decide"
+
+
+def test_decide_response_without_metadata_inherits_configured_dry_run(monkeypatch):
+    _patch_db(monkeypatch, [CACHED_ROW])
+    captured = {}
+
+    class FakeAI:
+        def engagement_verdict_for_known_profile(self, **kwargs):
+            return {"success": True, "engagement": {
+                "relevant": True, "follow": True, "comment": False, "like": True,
+                "score": 0.9, "reason": "strong",
+            }}
+
+    engine_cls = _install_profile_hook(
+        monkeypatch,
+        FakeAI(),
+        {
+            "profileAnalysis": True,
+            "decision": {"mode": "decide", "dryRun": False},
+        },
+        captured,
+        decision_provider=lambda _facts: {"ok": False, "error": "timeout"},
+    )
+
+    engine_cls._perform_interactions_on_profile(object(), "known", {}, {})
+
+    decision = captured["profile_data"]["ai_agent_decision"]
+    assert decision["ok"] is False
+    assert decision["decision"]["dryRun"] is False

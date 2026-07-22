@@ -349,3 +349,76 @@ def test_absent_workflow_type_keeps_the_documented_standalone_default():
     # Standalone/CLI configs predating workflowType rely on the follower default.
     config = build_instagram_automation_config({"target": "someone"})
     assert config["actions"][0]["type"] == "interact_with_followers"
+
+
+def test_session_config_event_passes_through_agent_decision_contract():
+    decision = {
+        "mode": "decide",
+        "dryRun": True,
+        "capabilities": {
+            "like": True,
+            "follow": False,
+            "comment": False,
+            "watchStories": True,
+            "likeStories": False,
+        },
+    }
+    payload = build_instagram_session_config_event(
+        {"ai": {"enabled": True, "profileAnalysis": True, "decision": decision}},
+        ai_enabled=True,
+    )
+
+    assert payload["ai"]["decision"] == decision
+
+
+def test_decision_mode_capabilities_replace_legacy_probability_ceilings():
+    config = build_instagram_automation_config({
+        "workflowType": "target_followers",
+        "target": "someone",
+        "limits": {"maxProfiles": 12, "maxLikesPerProfile": 3},
+        # These stale UI intentions must have no authority in decide mode.
+        "probabilities": {
+            "like": 0,
+            "follow": 7,
+            "comment": 0,
+            "watchStories": 0,
+            "likeStories": 100,
+        },
+        "ai": {
+            "enabled": True,
+            "decision": {
+                "mode": "decide",
+                "dryRun": False,
+                "capabilities": {
+                    "like": True,
+                    "follow": True,
+                    "comment": False,
+                    "watchStories": True,
+                    "likeStories": False,
+                },
+            },
+        },
+    })
+
+    action = config["actions"][0]
+    assert action["probabilities"] == {
+        "like_percentage": 100,
+        "follow_percentage": 100,
+        "comment_percentage": 0,
+        "story_percentage": 100,
+        "story_like_percentage": 0,
+    }
+    assert config["session_settings"]["total_likes_limit"] == 36
+    assert config["session_settings"]["total_follows_limit"] == 12
+    assert action["ai_decision_mode"] == "decide"
+    assert action["ai_decision_dry_run"] is False
+    assert action["ai_decision_capabilities"]["comment"] is False
+
+    from taktik.core.social_media.instagram.workflows.management.config.config import (
+        WorkflowConfigBuilder,
+    )
+
+    runner_config = WorkflowConfigBuilder.build_interaction_config(action)
+    assert runner_config["max_likes_per_profile"] == 3
+    assert runner_config["ai_decision_mode"] == "decide"
+    assert runner_config["ai_decision_capabilities"] == action["ai_decision_capabilities"]

@@ -210,6 +210,40 @@ class SessionManager:
         """
         self._daily_usage_provider = provider
 
+    def decision_budget_snapshot(self) -> Dict[str, Dict[str, int]]:
+        """Return factual live budget state for an injected premium decision provider.
+
+        This exposes no allocation strategy: the public Bot reports the real counters and the
+        hard caps already injected by Electron. With no desktop policy/provider every value is
+        zero, preserving standalone behavior and preventing a caller from assuming free budget.
+        """
+        usage = self._read_daily_usage() or {}
+        caps = self._warmup_policy
+        session_total = (
+            int(self.counters.get('likes', 0))
+            + int(self.counters.get('follows', 0))
+            + int(self.counters.get('comments', 0))
+        )
+        return {
+            'daily': {
+                'total': int(usage.get('total', 0) or 0),
+                'follows': int(usage.get('follows', 0) or 0),
+                'comments': int(usage.get('comments', 0) or 0),
+            },
+            'session': {
+                'total': session_total,
+                'likes': int(self.counters.get('likes', 0)),
+                'follows': int(self.counters.get('follows', 0)),
+                'comments': int(self.counters.get('comments', 0)),
+            },
+            'caps': {
+                'max_actions_per_day': int(caps.get('max_actions_per_day', 0) or 0),
+                'max_follows_per_day': int(caps.get('max_follows_per_day', 0) or 0),
+                'max_comments_per_day': int(caps.get('max_comments_per_day', 0) or 0),
+                'max_actions_per_session': int(caps.get('max_actions_per_session', 0) or 0),
+            },
+        }
+
     def record_profile_processed(self):
         """Record that a profile has been processed (visited for interaction).
         

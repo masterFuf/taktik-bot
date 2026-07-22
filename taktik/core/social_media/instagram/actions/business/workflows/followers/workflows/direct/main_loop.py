@@ -45,7 +45,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             'comment_probability': config.get('comment_probability', 0.1),
             'story_probability': config.get('story_probability', 0.2),
             'story_like_probability': config.get('story_like_probability', 0.0),
+            'min_likes_per_profile': config.get('min_likes_per_profile', 1),
             'max_likes_per_profile': config.get('max_likes_per_profile', 3),
+            'max_comments_per_profile': config.get('max_comments_per_profile', 1),
+            'max_stories_per_profile': config.get('max_stories_per_profile', 3),
+            'max_story_likes_per_profile': config.get('max_story_likes_per_profile', 1),
+            'ai_decision_mode': config.get('ai_decision_mode'),
+            'ai_decision_dry_run': config.get('ai_decision_dry_run', True),
+            'ai_decision_capabilities': config.get('ai_decision_capabilities'),
             'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
         }
         # Operator-set revisit delays (how long an interaction / a stored filter keeps a
