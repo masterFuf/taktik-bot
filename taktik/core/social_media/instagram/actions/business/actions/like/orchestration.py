@@ -21,6 +21,13 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "like")
+        # The bridge monkeypatch (bridges/instagram/runtime/ipc_stats.py) wires the IPC
+        # callback onto EVERY BaseStatsManager at __init__ — including this class's own
+        # (module "like"). A single increment here would publish a near-empty snapshot
+        # over the workflow's counters in the UI, so cut the callback: live counters flow
+        # exclusively through the injected on_like/on_comment callbacks. This turns the
+        # "never increment from this class" rule from discipline into a guarantee.
+        self.stats_manager.set_on_stats_callback(None)
         self.profile_selectors = PROFILE_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
         self.debug_selectors = DEBUG_SELECTORS

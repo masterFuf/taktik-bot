@@ -235,3 +235,32 @@ def test_every_story_slide_counts_as_it_is_watched(monkeypatch):
     # 'story_likes' is the declared counter; 'stories_liked' silently logged
     # "Unknown statistic" and lost every story like.
     assert host.stats_manager.running_total('stories_liked') == 0
+
+
+def test_like_orchestration_never_publishes_from_its_own_stats_manager():
+    """The bridge monkeypatch wires the IPC callback onto EVERY BaseStatsManager at
+    __init__ — including LikeOrchestration's own "like" manager, whose near-empty
+    snapshot would overwrite the workflow's counters in the UI. The class must cut
+    its callback at construction so an accidental increment can never publish."""
+    from unittest.mock import MagicMock
+
+    from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+
+    original_init = BaseStatsManager.__init__
+    published = []
+
+    def patched_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        self.set_on_stats_callback(lambda stats: published.append(stats))
+
+    BaseStatsManager.__init__ = patched_init
+    try:
+        from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+            LikeOrchestration,
+        )
+
+        orchestration = LikeOrchestration(MagicMock())
+        orchestration.stats_manager.increment('likes')
+        assert published == [], "the 'like' module manager must never publish snapshots"
+    finally:
+        BaseStatsManager.__init__ = original_init
