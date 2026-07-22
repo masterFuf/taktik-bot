@@ -29,8 +29,9 @@ class ClickActions(
     - story_interaction.py     — Story ring click + story like
     """
     
-    def __init__(self, device):
+    def __init__(self, device, behavior_state=None):
         super().__init__(device)
+        self.behavior_state = behavior_state
         self.logger = logger.bind(module="instagram-click-atomic")
         self.detection_selectors = DETECTION_SELECTORS
         self.selectors = BUTTON_SELECTORS  # Pour les boutons d'interaction

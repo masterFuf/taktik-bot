@@ -4,6 +4,7 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 from .base_scroll import BaseScrollMixin
 from .feed_scroll import FeedScrollMixin
@@ -26,10 +27,14 @@ class ScrollActions(
     - context_scroll.py   - Context-specific scrolls (followers, comments, feed, grid) + load more + smart scroll
     """
     
-    def __init__(self, device):
+    def __init__(self, device, behavior_state=None):
         super().__init__(device)
         self.logger = logger.bind(module="instagram-scroll-atomic")
         self.detection_selectors = DETECTION_SELECTORS
+        # Standalone/Lab callers get an isolated in-memory state. Workflow callers inject the
+        # SessionManager-owned instance so every ScrollActions facade on that device shares one
+        # coherent history without a cross-device singleton.
+        self.behavior_state = behavior_state or BehaviorSessionState()
         
         try:
             self.screen_width, self.screen_height = self.device.get_screen_size()

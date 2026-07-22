@@ -13,6 +13,7 @@ from .policy import BehaviorPolicy, PausePolicy, ResumePolicy, parse_behavior_po
 from .gesture import sample_swipe, sample_burst_gap, sample_reading_pause, load_calibration
 from .gesture_primitives import GestureMixin
 from .dwell import content_dwell, caption_prose_chars
+from .session_state import BehaviorSessionState
 
 __all__ = [
     "BehaviorPolicy",
@@ -26,4 +27,5 @@ __all__ = [
     "GestureMixin",
     "content_dwell",
     "caption_prose_chars",
+    "BehaviorSessionState",
 ]

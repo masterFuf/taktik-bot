@@ -54,3 +54,21 @@ def test_update_config_reresolves_pacing_profile():
     # dropping the profile reverts to the default 'natural'
     sm.update_config({'session_settings': {}})
     assert sm.pacing.profile_id == 'natural'
+
+
+def test_session_manager_owns_one_ephemeral_behavior_state():
+    sm = SessionManager({
+        'session_settings': {},
+        'behaviorPolicy': {'profileId': 'careful', 'seed': 17},
+    })
+    state = sm.behavior_state
+    state.choose_scroll_mode(context='profile_posts')
+
+    sm.update_config({
+        'session_settings': {},
+        'behaviorPolicy': {'profileId': 'fast', 'seed': 99},
+    })
+
+    assert sm.behavior_state is state
+    assert state.snapshot()['profile_id'] == 'fast'
+    assert state.snapshot()['gesture_count'] == 1

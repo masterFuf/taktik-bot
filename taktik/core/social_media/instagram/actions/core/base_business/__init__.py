@@ -51,6 +51,7 @@ class BaseBusinessAction(
                  init_business_modules=False):
         super().__init__(device)
         self.session_manager = session_manager
+        self.behavior_state = getattr(session_manager, "behavior_state", None)
         self.automation = automation
         self.logger = logger.bind(module=f"instagram-{module_name}-business")
         
@@ -80,10 +81,16 @@ class BaseBusinessAction(
         self.default_config = {}
     
     def _init_atomic_actions(self):
-        self.nav_actions = NavigationActions(self.device)
+        behavior_state = getattr(self, "behavior_state", None)
+        self.nav_actions = NavigationActions(self.device, behavior_state=behavior_state)
         self.detection_actions = DetectionActions(self.device)
-        self.click_actions = ClickActions(self.device)
-        self.scroll_actions = ScrollActions(self.device)
+        self.click_actions = ClickActions(self.device, behavior_state=behavior_state)
+        self.scroll_actions = ScrollActions(self.device, behavior_state=behavior_state)
+        # Standalone callers have no SessionManager; ScrollActions creates one isolated RAM state
+        # for them. Share that exact instance with every facade instead of creating parallel moods.
+        self.behavior_state = self.scroll_actions.behavior_state
+        self.nav_actions.behavior_state = self.behavior_state
+        self.click_actions.behavior_state = self.behavior_state
     
     def _init_business_modules(self):
         from ...business.management.profile import ProfileBusiness

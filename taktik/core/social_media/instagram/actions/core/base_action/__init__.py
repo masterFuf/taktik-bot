@@ -73,5 +73,39 @@ class BaseAction(
         self._TAKTIK_KEYBOARD_IME = TAKTIK_KEYBOARD_IME
         self._IME_MESSAGE_B64 = IME_MESSAGE_B64
 
+    def _plan_behavior_gesture(self, context: str, gesture: str) -> Dict[str, Any]:
+        """Join a known gesture to the injected per-session rhythm, with a neutral fallback."""
+        state = getattr(self, "behavior_state", None)
+        if state is not None and hasattr(state, "plan_directional_gesture"):
+            decision = state.plan_directional_gesture(context=context, gesture=gesture)
+        else:
+            decision = {
+                "context": context,
+                "gesture": gesture,
+                "mode": gesture,
+                "style": None,
+                "burst_remaining": 0,
+                "energy": 0.52,
+                "distance_scale": 1.0,
+                "velocity_scale": 1.0,
+                "settle_scale": 1.0,
+                "dwell_scale": 1.0,
+            }
+        self._last_behavior_gesture = dict(decision)
+        return decision
+
+    def _behavior_reading_scale(self, context: str) -> float:
+        """Return the current attention multiplier without consuming another gesture beat."""
+        state = getattr(self, "behavior_state", None)
+        if state is not None and hasattr(state, "reading_scale"):
+            return float(state.reading_scale(context=context))
+        return 1.0
+
+    def _behavior_state_snapshot(self) -> Dict[str, Any]:
+        state = getattr(self, "behavior_state", None)
+        if state is not None and hasattr(state, "snapshot"):
+            return state.snapshot()
+        return {}
+
 
 __all__ = ['BaseAction']

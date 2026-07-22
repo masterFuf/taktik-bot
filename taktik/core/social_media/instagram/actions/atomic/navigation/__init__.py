@@ -27,8 +27,9 @@ class NavigationActions(
     - search_navigation.py     — Search-based nav (profile search, hashtag) + content nav (lists, posts, stories)
     """
     
-    def __init__(self, device):
+    def __init__(self, device, behavior_state=None):
         super().__init__(device)
+        self.behavior_state = behavior_state
         self.logger = logger.bind(module="instagram-navigation-atomic")
         self.detection_selectors = DETECTION_SELECTORS
         self.selectors = NAVIGATION_SELECTORS

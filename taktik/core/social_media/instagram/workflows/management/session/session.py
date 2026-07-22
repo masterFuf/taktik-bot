@@ -6,6 +6,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.policy import parse_behavior_policy
 from taktik.core.shared.behavior.profiles import resolve_pacing_profile
+from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 
 log = logger.bind(module="session-manager")
@@ -47,6 +48,11 @@ class SessionManager:
         # today's behaviour. Drives the between-actions delay when no explicit user delay is set.
         policy = parse_behavior_policy(self.config)
         self.pacing = resolve_pacing_profile(policy.profile_id if policy else None)
+        self.behavior_state = BehaviorSessionState(
+            seed=policy.seed if policy else None,
+            strict_regression=policy.strict_regression if policy else False,
+            profile_id=self.pacing.profile_id,
+        )
         if policy:
             log.info(f"Pacing profile: {self.pacing.profile_id}")
 
@@ -294,6 +300,11 @@ class SessionManager:
         # (update_config is called on every run_workflow); otherwise self.pacing stays stale.
         policy = parse_behavior_policy(self.config)
         self.pacing = resolve_pacing_profile(policy.profile_id if policy else None)
+        self.behavior_state.reconfigure(
+            seed=policy.seed if policy else None,
+            strict_regression=policy.strict_regression if policy else False,
+            profile_id=self.pacing.profile_id,
+        )
 
         session_settings = self.config.get('session_settings', {})
         # Same reason as the pacing profile: refresh the warmup caps on a config swap. The injected
