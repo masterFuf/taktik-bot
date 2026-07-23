@@ -34,6 +34,7 @@ class PostNavigationMixin:
         username: str = None,
         *,
         reopening: bool = False,
+        posts_to_inspect: int = 0,
     ) -> bool:
         """Open a post to start engaging — but NOT always the top-left (newest) one.
 
@@ -77,8 +78,29 @@ class PostNavigationMixin:
             # must never pick a cell already visited during this profile pass. If this viewport is
             # exhausted but the profile has more posts, move the grid and retry with absolute cell
             # keys from the live content-desc.
-            index = self._choose_session_grid_entry(
-                posts, username=username, require_unseen=reopening
+            candidate_posts = posts
+            candidate_indexes = list(range(len(posts)))
+            if not reopening and int(posts_count or 0) > 0 and int(posts_to_inspect or 0) > 0:
+                latest_start = max(
+                    1,
+                    int(posts_count) - min(int(posts_count), int(posts_to_inspect)) + 1,
+                )
+                eligible = [
+                    (visible_index, post)
+                    for visible_index, post in enumerate(posts)
+                    if self._grid_entry_position(post, visible_index) <= latest_start
+                ]
+                if eligible:
+                    candidate_indexes = [visible_index for visible_index, _post in eligible]
+                    candidate_posts = [post for _visible_index, post in eligible]
+
+            candidate_index = self._choose_session_grid_entry(
+                candidate_posts, username=username, require_unseen=reopening
+            )
+            index = (
+                candidate_indexes[candidate_index]
+                if candidate_index is not None
+                else None
             )
             if index is None and reopening and int(posts_count or 0) > len(posts):
                 for _ in range(2):
@@ -270,8 +292,8 @@ class PostNavigationMixin:
             return False
 
     @staticmethod
-    def _grid_entry_key(element, index: int, username: str = None) -> str:
-        """Stable per-profile cell key from live grid metadata, with an index fallback."""
+    def _grid_entry_position(element, index: int) -> int:
+        """Return the one-based absolute grid position exposed by Instagram."""
         desc = ""
         try:
             desc = (element.attrib.get("content-desc") or "") if hasattr(element, "attrib") else ""
@@ -284,8 +306,15 @@ class PostNavigationMixin:
             except Exception:
                 desc = ""
         match = _GRID_POS_RE.search(desc)
-        position = ((int(match.group(1)) - 1) * GRID_COLUMNS + int(match.group(2))) if match else None
-        cell = f"position:{position}" if position is not None else f"visible:{int(index)}"
+        if match:
+            return ((int(match.group(1)) - 1) * GRID_COLUMNS + int(match.group(2)))
+        return int(index) + 1
+
+    @staticmethod
+    def _grid_entry_key(element, index: int, username: str = None) -> str:
+        """Stable per-profile cell key from live grid metadata, with an index fallback."""
+        position = PostNavigationMixin._grid_entry_position(element, index)
+        cell = f"position:{position}"
         return f"{username or 'current-profile'}:{cell}"
 
     def _choose_session_grid_entry(
@@ -540,6 +569,14 @@ class PostNavigationMixin:
         when we couldn't advance (the caller should stop the scroll)."""
         if is_reel:
             return self._return_to_grid_and_open_another_post(total_posts_on_profile, username=username)
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        if (
+            int(total_posts_on_profile or 0) > 0
+            and cursor.get("position") is not None
+            and int(cursor["position"]) >= int(total_posts_on_profile)
+        ):
+            self.logger.info("Last profile post reached; no vertical advance attempted")
+            return False
         return self._navigate_to_next_post_in_sequence()
 
     def _return_to_grid_and_open_another_post(self, posts_count: int = 0, username: str = None) -> bool:

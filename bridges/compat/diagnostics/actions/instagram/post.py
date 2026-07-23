@@ -46,6 +46,19 @@ def is_liked(a, p):
     return result
 
 
+@action("post.read_stats")
+def read_stats(a, p):
+    """Read the current post counters through the production UI extractors."""
+    is_reel = bool(p.get("is_reel")) if isinstance(p, dict) else False
+    likes = a.like.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel)
+    comments = a.like.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel)
+    return {
+        "success": True,
+        "message": f"likes={likes}, comments={comments}",
+        "details": {"likes": likes, "comments": comments, "is_reel": is_reel},
+    }
+
+
 @action("post.navigate_next")
 def navigate_next(a, p):
     """Advance to the next post in the in-viewer sequence with the humanised swipe

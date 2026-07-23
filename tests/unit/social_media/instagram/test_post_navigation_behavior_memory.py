@@ -355,3 +355,50 @@ def test_reel_reentry_stops_when_visible_grid_is_exhausted(monkeypatch):
     assert host._open_entry_post_of_profile(
         posts_count=2, username="kevin", reopening=True
     ) is False
+
+
+def test_small_profile_entry_keeps_the_requested_inspection_window(monkeypatch):
+    posts = [
+        SimpleNamespace(attrib={"content-desc": f"post row 1, column {column}"})
+        for column in (1, 2, 3)
+    ] + [SimpleNamespace(attrib={"content-desc": "post row 2, column 1"})]
+    host = object.__new__(PostNavigationMixin)
+    host.behavior_state = BehaviorSessionState(seed=17)
+    host.logger = _Logger()
+    host.detection_selectors = SimpleNamespace(post_thumbnail_selectors=("thumb",))
+    host.scroll_actions = SimpleNamespace(
+        _plan_behavior_gesture=lambda *_args, **_kwargs: {}
+    )
+    opened = []
+    host._visible_grid_thumbnails = lambda _selector: posts
+    host._human_tap_grid_thumbnail = lambda target: (opened.append(target) or True)
+    host._is_in_post_view = lambda: True
+    host._emit_entry_decision = lambda *_args, **_kwargs: None
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.plan_prescroll",
+        lambda _posts_count: 0,
+    )
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        lambda _seconds: None,
+    )
+
+    assert host._open_entry_post_of_profile(
+        posts_count=4,
+        username="kevin",
+        posts_to_inspect=4,
+    ) is True
+    assert opened == [posts[0]]
+
+
+def test_known_last_profile_post_is_not_advanced():
+    host = object.__new__(PostNavigationMixin)
+    host.logger = _Logger()
+    host._profile_post_cursor = {"context": "kevin", "position": 4}
+    host._navigate_to_next_post_in_sequence = lambda: (_ for _ in ()).throw(
+        AssertionError("the last known post must not receive another vertical gesture")
+    )
+
+    assert host._advance_or_exit_reel(
+        False, total_posts_on_profile=4, username="kevin"
+    ) is False

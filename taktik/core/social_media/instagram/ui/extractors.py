@@ -171,7 +171,7 @@ class InstagramUIExtractors:
                     for element in elements:
                         element_info = element.info
                         text = element_info.get('text', '')
-                        if text:
+                        if text and self.is_like_count_text(text):
                             likes_count = self.parse_instagram_number(text)
                             if likes_count > max_likes:
                                 max_likes = likes_count
@@ -240,7 +240,7 @@ class InstagramUIExtractors:
                     for element in elements:
                         element_info = element.info
                         text = element_info.get('text', '')
-                        if text:
+                        if text and self.is_like_count_text(text):
                             parsed_number = self.parse_instagram_number(text)
                             if parsed_number >= 0:
                                 numeric_buttons.append((parsed_number, text))

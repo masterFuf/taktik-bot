@@ -72,13 +72,27 @@ def open_entry_post(a, p):
 
     params (optional):
       - posts_count: the profile's number of publications (drives pre-scroll).
+      - posts_to_inspect: number of sequential posts the run needs to inspect.
     """
     try:
         posts_count = int(p.get("posts_count") or 0)
     except (TypeError, ValueError):
         posts_count = 0
-    ok = a.like._open_entry_post_of_profile(posts_count)
-    return {"success": bool(ok), "message": f"entry post opened={ok} (posts_count={posts_count})"}
+    try:
+        posts_to_inspect = int(p.get("posts_to_inspect") or 0)
+    except (TypeError, ValueError):
+        posts_to_inspect = 0
+    ok = a.like._open_entry_post_of_profile(
+        posts_count,
+        posts_to_inspect=posts_to_inspect,
+    )
+    return {
+        "success": bool(ok),
+        "message": (
+            f"entry post opened={ok} (posts_count={posts_count}, "
+            f"posts_to_inspect={posts_to_inspect})"
+        ),
+    }
 
 
 @action("profile.open_post_index")

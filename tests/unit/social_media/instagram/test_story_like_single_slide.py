@@ -37,6 +37,7 @@ class _Detection:
 class _Clicks:
     def __init__(self):
         self.like_calls = 0
+        self.close_calls = 0
 
     def click_story_ring(self):
         return True
@@ -46,6 +47,7 @@ class _Clicks:
         return True
 
     def close_story(self):
+        self.close_calls += 1
         return True
 
 
@@ -111,6 +113,13 @@ def test_proportional_likes_multiple_varied_slides(monkeypatch):
     assert host.click_actions.like_calls == 3
     assert res["stories_liked"] == 3
     assert res["stories_viewed"] == 12
+
+
+def test_auto_closed_last_story_does_not_swipe_the_profile(monkeypatch):
+    host, res = _run(monkeypatch, slides=1, do_story_like=False)
+
+    assert res["stories_viewed"] == 1
+    assert host.click_actions.close_calls == 0
 
 
 def test_no_like_when_story_like_disabled(monkeypatch):

@@ -124,6 +124,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             stats['posts_commented'] = posts_commented
             stats['posts_seen'] = sequential_stats.get('posts_seen', 0)
             stats['method'] = sequential_stats.get('method', 'sequential_scroll')
+            if sequential_stats.get('technical_failure'):
+                stats['technical_failure'] = True
+                stats['failure_stage'] = sequential_stats.get('failure_stage')
             
             # Legacy grid method removed - sequential scroll is now the only method
             
@@ -216,9 +219,15 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             comment_attempts = 0
             posts_seen = 0
             
-            if not self._open_entry_post_of_profile(total_posts_on_profile, username=username):
+            if not self._open_entry_post_of_profile(
+                total_posts_on_profile,
+                username=username,
+                posts_to_inspect=max_posts_to_see,
+            ):
                 self.logger.error("Failed to open entry post of profile")
                 stats['errors'] += 1
+                stats['technical_failure'] = True
+                stats['failure_stage'] = 'post_entry'
                 return stats
 
             self.logger.success("Entry post opened, starting sequential scroll")

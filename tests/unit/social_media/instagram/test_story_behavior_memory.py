@@ -50,7 +50,10 @@ class _StoryTrayHost(StoryInteractionMixin):
         self.behavior_state = _BehaviorState()
         self.device = _SwipeDevice(swipe_result)
         self.delays = []
-        self.logger = SimpleNamespace(error=lambda *_a, **_k: None)
+        self.logger = SimpleNamespace(
+            debug=lambda *_a, **_k: None,
+            error=lambda *_a, **_k: None,
+        )
 
     @staticmethod
     def _tray_y_ratio(_selector, default_ratio):
@@ -80,6 +83,18 @@ def test_story_trays_propagate_a_physical_swipe_failure_without_settle_delay():
 
         assert getattr(host, method_name)() is False
         assert host.delays == []
+
+
+def test_story_conditional_close_does_not_touch_an_already_closed_viewer():
+    host = _StoryTrayHost()
+    host.device.get_screen_size = lambda: (1080, 2280)
+    host.device.swipe_coordinates = lambda *_args, **_kwargs: host.device.calls.append(
+        ("dismiss", {})
+    )
+    detection = SimpleNamespace(is_story_viewer_open=lambda: False)
+
+    assert host.close_story_if_open(detection) is True
+    assert host.device.calls == []
 
 
 class _StoryAdvanceHost(SearchNavigationMixin):

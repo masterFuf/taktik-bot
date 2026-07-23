@@ -1,7 +1,5 @@
 """Story actions for Instagram compat diagnostics."""
 
-import time
-
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
@@ -40,13 +38,8 @@ def story_prev(a, p):
 
 @action("story.close")
 def story_close(a, p):
-    """Close the story viewer (swipe down; back press is unreliable on this version)."""
-    a.click.close_story()
-    time.sleep(0.4)
-    if a.detection.is_story_viewer_open():
-        a.device.press("back")
-        time.sleep(0.4)
-    closed = not a.detection.is_story_viewer_open()
+    """Run the production conditional close (no gesture after an auto-close)."""
+    closed = a.click.close_story_if_open(a.detection)
     logger.info(f"Story closed: {closed}")
     return closed
 

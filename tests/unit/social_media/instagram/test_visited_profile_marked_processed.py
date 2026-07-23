@@ -42,15 +42,16 @@ class _StatsManager:
 
 
 class _Probe(ProfileProcessingMixin):
-    def __init__(self, interacted: bool):
+    def __init__(self, interacted: bool, interaction=None):
         self.logger = _Logger()
         self.profile_business = _ProfileBusiness()
         self.filtering_business = _FilteringBusiness()
         self.stats_manager = _StatsManager()
         self._interacted = interacted
+        self._interaction = interaction
 
     def _perform_interactions_on_profile(self, username, config, profile_data=None):
-        return {'actually_interacted': self._interacted}
+        return self._interaction or {'actually_interacted': self._interacted}
 
     def _record_filtered_in_db(self, *a, **k):
         pass
@@ -83,3 +84,23 @@ def test_interacted_profile_is_marked_processed(captured_marks):
     )
     assert result.status == ProfileProcessingResult.SUCCESS
     assert captured_marks == ['alice']
+
+
+def test_post_entry_failure_is_retryable_and_not_marked_processed(captured_marks):
+    probe = _Probe(
+        interacted=False,
+        interaction={
+            'actually_interacted': False,
+            'technical_failure': True,
+            'failure_stage': 'post_entry',
+        },
+    )
+    result = probe._process_profile_on_screen(
+        'retry_me', {}, source_type='FOLLOWER', source_name='@target',
+        account_id=6563, session_id=1,
+    )
+
+    assert result.status == ProfileProcessingResult.ERROR_INTERACTION
+    assert result.was_error is True
+    assert result.error_message == 'Interaction failed at post_entry'
+    assert captured_marks == []

@@ -265,6 +265,9 @@ class InteractionEngineMixin:
                 if likes_result:
                     result['likes'] = likes_result.get('posts_liked', 0)
                     result['comments'] = likes_result.get('posts_commented', 0)
+                    if likes_result.get('technical_failure'):
+                        result['technical_failure'] = True
+                        result['failure_stage'] = likes_result.get('failure_stage')
 
                     # The min-likes threshold ONLY gates whether the like counts as an
                     # interaction (e.g. a profile with too few posts in a like workflow).
@@ -542,9 +545,17 @@ class InteractionEngineMixin:
             # and can leave the viewer open, which then makes the followers-list
             # recovery overshoot to the target profile and re-scroll from the top).
             # Fall back to back only if the viewer is still open. Mirrors StoryBusiness.
-            self.click_actions.close_story()
-            if self.detection_actions.is_story_viewer_open():
-                self.device.press('back')
+            # Instagram often auto-closes the viewer when the last slide ends. A blind
+            # swipe-down at that point lands on the profile and triggers pull-to-refresh,
+            # temporarily removing the grid before the post phase. Dismiss only while the
+            # viewer is still proven open, then verify the gesture before using Back.
+            close_if_open = getattr(self.click_actions, "close_story_if_open", None)
+            if callable(close_if_open):
+                close_if_open(self.detection_actions)
+            elif self.detection_actions.is_story_viewer_open():
+                self.click_actions.close_story()
+                if self.detection_actions.is_story_viewer_open():
+                    self.device.press('back')
             self._human_like_delay('navigation')
 
             if stories_viewed > 0:

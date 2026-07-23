@@ -239,3 +239,23 @@ class StoryInteractionMixin(BaseAction):
         except Exception as e:
             self.logger.error(f"Error closing story: {e}")
             return False
+
+    def close_story_if_open(self, detection_actions) -> bool:
+        """Dismiss the viewer only when its live detector still proves it is open.
+
+        The last story can auto-close between the final navigation check and cleanup.
+        Injecting the normal swipe-down after that transition would hit the underlying
+        profile and trigger pull-to-refresh.
+        """
+        try:
+            if not detection_actions.is_story_viewer_open():
+                self.logger.debug("Story viewer already closed; no dismiss gesture needed")
+                return True
+            self.close_story()
+            if detection_actions.is_story_viewer_open():
+                self.device.press("back")
+                self._human_like_delay("navigation")
+            return not detection_actions.is_story_viewer_open()
+        except Exception as exc:
+            self.logger.debug(f"Story close verification failed: {exc}")
+            return False

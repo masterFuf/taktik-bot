@@ -31,6 +31,7 @@ class ProfileProcessingResult:
     # rendrait illisibles le panneau Agent et les stats de session.
     FILTERED_RELATIONSHIP = 'filtered_relationship'
     ERROR_NO_DATA = 'error_no_data'
+    ERROR_INTERACTION = 'error_interaction'
     ERROR_EXCEPTION = 'error_exception'
     
     def __init__(self, status: str, username: str):
@@ -61,7 +62,9 @@ class ProfileProcessingResult:
     
     @property
     def was_error(self) -> bool:
-        return self.status in (self.ERROR_NO_DATA, self.ERROR_EXCEPTION)
+        return self.status in (
+            self.ERROR_NO_DATA, self.ERROR_INTERACTION, self.ERROR_EXCEPTION
+        )
     
     @property
     def likes(self) -> int:
@@ -232,6 +235,15 @@ class ProfileProcessingMixin:
             if interaction and interaction.get('actually_interacted', False):
                 result.status = ProfileProcessingResult.SUCCESS
                 self.logger.success(f"✅ Successful interaction with @{username}")
+            elif interaction and interaction.get('technical_failure'):
+                result.status = ProfileProcessingResult.ERROR_INTERACTION
+                result.error_message = (
+                    f"Interaction failed at {interaction.get('failure_stage') or 'unknown stage'}"
+                )
+                self.logger.warning(
+                    f"@{username} not marked processed: {result.error_message}"
+                )
+                return result
             else:
                 result.status = ProfileProcessingResult.SKIPPED_PROBABILITY
                 self.logger.debug(f"@{username} visited but no interaction (probability)")

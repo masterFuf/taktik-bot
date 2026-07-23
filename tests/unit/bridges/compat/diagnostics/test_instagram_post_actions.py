@@ -2,9 +2,33 @@ from types import SimpleNamespace
 
 from bridges.compat.diagnostics.actions.instagram.post import (
     navigate_next,
+    read_stats,
     return_to_profile,
     return_to_grid_and_reopen,
 )
+
+
+def test_read_stats_uses_production_extractors():
+    calls = []
+    extractors = SimpleNamespace(
+        extract_likes_count_from_ui=lambda **kwargs: (
+            calls.append(("likes", kwargs)) or 123
+        ),
+        extract_comments_count_from_ui=lambda **kwargs: (
+            calls.append(("comments", kwargs)) or 4
+        ),
+    )
+
+    result = read_stats(
+        SimpleNamespace(like=SimpleNamespace(ui_extractors=extractors)),
+        {"is_reel": False},
+    )
+
+    assert result["details"] == {"likes": 123, "comments": 4, "is_reel": False}
+    assert calls == [
+        ("likes", {"is_reel": False}),
+        ("comments", {"is_reel": False}),
+    ]
 
 
 def test_navigate_next_exposes_profile_viewer_session_memory():

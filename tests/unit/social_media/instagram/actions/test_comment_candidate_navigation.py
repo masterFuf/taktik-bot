@@ -59,6 +59,26 @@ class _CommentOnlyHarness:
         self.returned = True
 
 
+class _ProfileInteractionHarness:
+    like_profile_posts = LikeOrchestration.like_profile_posts
+    default_config = {}
+
+    def __init__(self):
+        self.logger = _Logger()
+        self.session_manager = None
+
+    @staticmethod
+    def like_posts_with_sequential_scroll(*_args, **_kwargs):
+        return {
+            "posts_liked": 0,
+            "posts_commented": 0,
+            "posts_seen": 0,
+            "method": "sequential_scroll",
+            "technical_failure": True,
+            "failure_stage": "post_entry",
+        }
+
+
 def test_comment_candidate_runs_when_like_target_is_zero(monkeypatch):
     monkeypatch.setattr(
         "taktik.core.social_media.instagram.actions.business.actions.like.orchestration.time.sleep",
@@ -85,3 +105,16 @@ def test_comment_candidate_runs_when_like_target_is_zero(monkeypatch):
     assert result["success"] is True
     assert harness.sequences == [["comment"], ["comment"]]
     assert harness.returned is True
+
+
+def test_post_entry_failure_propagates_through_profile_interaction():
+    result = _ProfileInteractionHarness().like_profile_posts(
+        "filmmaker",
+        max_likes=1,
+        navigate_to_profile=False,
+        profile_data={"posts_count": 4},
+    )
+
+    assert result["success"] is False
+    assert result["technical_failure"] is True
+    assert result["failure_stage"] == "post_entry"
