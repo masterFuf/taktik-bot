@@ -19,6 +19,18 @@ def _noop_log(_level: str, _message: str) -> None:
     return None
 
 
+def _skipped_comment_result(reason: str) -> dict[str, Any]:
+    """Keep the CommentAction result contract when AI intentionally declines a post."""
+    return {
+        "commented": False,
+        "comment_text": None,
+        "errors": 0,
+        "success": False,
+        "skipped": True,
+        "skip_reason": reason,
+    }
+
+
 # Account/app language aliases → a single code, so the detected POST language (an English name
 # like "Spanish") can be compared against the account's preferred language (a code like "es").
 # Codes match only exactly; full names match by prefix (so "Slovenian" is never read as English).
@@ -186,6 +198,20 @@ def install_instagram_ai_hooks(
                         username=username,
                     )
 
+                def skip_comment(reason: str, stage: str) -> dict[str, Any]:
+                    """Close the live AI attempt and keep CommentAction's dict contract."""
+                    IPCEmitter.emit_action("comment_skip", username or "", {
+                        "reason": reason,
+                        "stage": stage,
+                    })
+                    emit_step(
+                        "comment",
+                        action=f"skip_{stage}",
+                        target=username,
+                        reason=reason,
+                    )
+                    return _skipped_comment_result(reason)
+
                 try:
                     tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
                     os.makedirs(tmp_dir, exist_ok=True)
@@ -238,8 +264,9 @@ def install_instagram_ai_hooks(
                             )
 
                     if not post_desc and not post_caption:
-                        log("info", f"No post context for @{username} (no vision description, no caption), skipping comment (AI mode)")
-                        return False
+                        reason = "no vision description or caption"
+                        log("info", f"No post context for @{username} ({reason}), skipping comment (AI mode)")
+                        return skip_comment(reason, "missing_context")
 
                     # The comment's BASE language is the ACCOUNT's preferred language — the reliable
                     # anchor the operator SET (erika.spahn = French). It falls back to the app language
@@ -265,18 +292,24 @@ def install_instagram_ai_hooks(
                     # the account language on a clearly-foreign post.
                     base_code = str(base_lang or "en").lower()
                     if caption_lang is None and vision_lang and vision_lang not in (base_code, "en"):
-                        log("info", f"Skipping comment for @{username}: post looks '{vision_lang}' "
-                                    f"(neither {base_lang} nor English)")
-                        return False
+                        reason = (
+                            f"post looks '{vision_lang}' "
+                            f"(neither {base_lang} nor English)"
+                        )
+                        log("info", f"Skipping comment for @{username}: {reason}")
+                        return skip_comment(reason, "vision_language")
 
                     comment_lang = _resolve_comment_language(base_lang, caption_lang)
                     if comment_lang is None:
+                        reason = (
+                            f"caption language '{caption_lang}' is outside "
+                            f"{{{base_lang}, english}}"
+                        )
                         log(
                             "info",
-                            f"Skipping comment for @{username}: caption language "
-                            f"'{caption_lang}' is outside {{{base_lang}, english}}",
+                            f"Skipping comment for @{username}: {reason}",
                         )
-                        return False
+                        return skip_comment(reason, "caption_language")
                     result = ai.generate_smart_comment(
                         post_description=post_desc,
                         username=username or "unknown",
@@ -298,17 +331,7 @@ def install_instagram_ai_hooks(
                             "info",
                             f"Skipping comment for @{username}: {reason}",
                         )
-                        IPCEmitter.emit_action("comment_skip", username or "", {
-                            "reason": reason,
-                            "stage": "post_relevance",
-                        })
-                        emit_step(
-                            "comment",
-                            action="skip_post_relevance",
-                            target=username,
-                            reason=reason,
-                        )
-                        return False
+                        return skip_comment(reason, "post_relevance")
                     if result.get("success") and result.get("comment"):
                         ai_comment = result["comment"]
                         refusal_signals = [
@@ -334,11 +357,12 @@ def install_instagram_ai_hooks(
                             signal in ai_comment_lower for signal in refusal_signals
                         )
                         if is_refusal:
+                            reason = "AI response was a refusal or unusable"
                             log(
                                 "warning",
                                 f"AI comment refused/unusable for @{username}, skipping comment",
                             )
-                            return False
+                            return skip_comment(reason, "ai_refusal")
                         log("info", f'AI comment for @{username}: "{ai_comment}"')
                         return original_comment_on_post(
                             self_comment,
