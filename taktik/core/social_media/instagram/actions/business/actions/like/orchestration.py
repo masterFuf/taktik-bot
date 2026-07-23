@@ -484,6 +484,15 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 config=config,
                 username=username,
             )
+            # CommentAction's public contract is a result dictionary. Keep a
+            # compatibility guard so an optional hook returning the legacy
+            # bool shape cannot abort the rest of the profile sequence.
+            if not isinstance(comment_result, dict):
+                self.logger.warning(
+                    "Comment action returned a legacy scalar result; "
+                    "treating it as a posted/not-posted flag"
+                )
+                return bool(comment_result)
             if comment_result.get('commented'):
                 # Text-only log: CommentBusiness already logged the "Comment posted"
                 # marker (and recorded the COMMENT). A second "Comment posted" line
