@@ -158,7 +158,12 @@ class BaseDeviceFacade:
         """
         try:
             if timeout_seconds is not None:
-                max_depth = self._device.settings.get("max_depth", 50)
+                # uiautomator2 ``Settings`` deliberately exposes ``get(key)`` only,
+                # unlike a regular dict. Passing a default as a second positional
+                # argument raises at runtime on real devices.
+                max_depth = self._device.settings.get("max_depth")
+                if max_depth is None:
+                    max_depth = 50
                 return self._device.jsonrpc.dumpWindowHierarchy(
                     False,
                     max_depth,
