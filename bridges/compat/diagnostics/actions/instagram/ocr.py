@@ -14,14 +14,14 @@ from bridges.compat.diagnostics.actions.instagram import action
 
 @action("ocr.available")
 def ocr_available(a, p):
-    """Is OCR usable on this host? (pytesseract import AND the tesseract binary resolve.)
+    """Is the tesseract CLI usable on this host?
     No device screen needed. Guards every OCR-driven action."""
     from taktik.core.shared.vision import OcrService
     available = OcrService.available()
     logger.info(f"ocr.available: {available}")
     return {"success": bool(available),
             "message": "tesseract OCR is available" if available
-                       else "OCR unavailable (tesseract binary / pytesseract not found)"}
+                       else "OCR unavailable (tesseract binary not found or not executable)"}
 
 
 @action("ocr.locate")

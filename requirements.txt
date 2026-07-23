@@ -18,8 +18,7 @@ pillow>=10.0.0
 # Local OCR (free) — locate on-screen UI text that has no accessibility node
 # (e.g. the "more"/"suite"/"plus" inline expanders on IG/TikTok). Requires the
 # tesseract binary installed on the host (UB-Mannheim build on Windows); the OCR
-# service degrades gracefully (logs + no-op) when it is absent.
-pytesseract>=0.3.10
+# service calls it directly and degrades gracefully (logs + no-op) when it is absent.
 loguru>=0.7.0
 
 # ORM pilot (Vague D) - SQLAlchemy maps existing tables only (never owns the

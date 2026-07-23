@@ -68,7 +68,6 @@ def build_launcher() -> None:
         "adbutils",
         "uiautomator2",
         "PIL",
-        "pytesseract",  # OCR (lazy import in taktik.core.shared.vision.ocr)
         "loguru",
         "requests",
         "httpx",
