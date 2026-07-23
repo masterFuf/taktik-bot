@@ -644,19 +644,44 @@ class AIService:
         return (
             "We are evaluating acquisition targets for the operated account below:\n"
             f"{account_context}\n"
-            "Use this strict relevance ladder:\n"
-            "- direct: the candidate's observed profession, content or audience explicitly overlaps "
-            "the operated niche/objective.\n"
-            "- adjacent: one clear, single-hop professional or audience overlap is observed.\n"
-            "- weak: only a broad theme, hypothetical collaboration, generic lifestyle/culture/"
-            "creativity, or a multi-hop connection can be invented.\n"
+            "Judge MARKET FIT, not whether the candidate has the same job title and not whether "
+            "the candidate personally performs the operated account's objective. The objective "
+            "describes what OUR account wants to achieve; it is not a job description that every "
+            "valuable target must satisfy.\n"
+            "Evaluate these independent fit paths and use the strongest one supported by an "
+            "observed candidate fact:\n"
+            "1. core ecosystem: same field, supply chain, professional community or creator scene;\n"
+            "2. target audience: the candidate is explicitly one of the people the account serves;\n"
+            "3. shared customer/problem: both address the same concrete clientele, need or business problem;\n"
+            "4. complementary market: the candidate offers a credible one-hop complementary service "
+            "or reaches the same concrete audience;\n"
+            "5. distribution/context: explicit media, event, community or geographic fit that makes "
+            "the candidate a credible participant in this market.\n"
+            "Use this evidence-based relevance ladder:\n"
+            "- direct: a concrete candidate fact places the profile in the core ecosystem, explicit "
+            "target audience, or same customer/problem market. Exact job-title equality is unnecessary.\n"
+            "- adjacent: a concrete candidate fact shows a credible one-hop complementary market, "
+            "shared audience, distribution channel or professional community.\n"
+            "- weak: only a broad theme, vague aspiration, hypothetical collaboration, generic "
+            "lifestyle/culture/creativity/business wording, or a multi-hop connection can be invented.\n"
             "- none: no credible overlap, spam, generic store/service, or unrelated fan account.\n"
             "Broad words such as culture, events, community, lifestyle, visual or creativity are NOT "
-            "evidence by themselves. A cinema account versus a generic hair salon or football fan is "
-            "weak/none unless the candidate explicitly shows film-production work. Do not infer "
-            "relevance merely because the candidate follows the source account. "
+            "evidence by themselves; an observed profession, service, audience, portfolio topic, "
+            "business category, bio claim or repeated content theme can be evidence. A cinema account "
+            "versus a generic hair salon or football fan is weak/none, while an actor, filmmaker or "
+            "cinematographer is direct and a working musician, photographer or cultural journalist can "
+            "be adjacent when the operated persona targets the broader cultural ecosystem. For a "
+            "business-coaching account serving beauty institutes, institute owners and estheticians are "
+            "direct; a coach, marketer, trainer or wellness professional is adjacent only when a concrete "
+            "shared clientele, entrepreneurial problem or complementary service is visible. Do not infer "
+            "relevance merely because the candidate follows the source account or because both profiles "
+            "are generically entrepreneurial or creative. "
             "For direct/adjacent, 'evidence' must cite the concrete candidate fact that overlaps; "
             "phrases such as 'could interest', 'might be useful' or 'potential collaboration' are weak. "
+            "Consistency check before answering: if the extracted profession, tags or bio explicitly "
+            "name a role inside the operated account's core ecosystem or target audience, do not return "
+            "weak/none. If you return weak/none despite a concrete profession, verify that none of the "
+            "five fit paths above is actually supported. "
         )
 
     def engagement_verdict_for_known_profile(
@@ -687,9 +712,11 @@ class AIService:
             "Choose the semantic tier only; deterministic code derives the permitted action "
             "candidates from it. 'score' is 0.0-1.0 relevance confidence.\n"
             f"Write 'reason' (one short sentence) in {_lang_full}.\n"
-            "Respond ONLY with valid JSON — no extra text:\n"
-            '{"relevant": false, "relevance_tier": "none", "evidence": null, '
-            '"score": 0.0, "reason": "short reason"}'
+            "Respond ONLY with valid JSON using this schema (the placeholders are not a verdict):\n"
+            '{"relevant": "<true for direct/adjacent, otherwise false>", '
+            '"relevance_tier": "<direct|adjacent|weak|none>", '
+            '"evidence": "<concrete observed fit, or null>", '
+            '"score": "<number 0.0-1.0>", "reason": "<short reason>"}'
         )
 
         parts = [f"Profile @{username} — already-classified data:"]
@@ -697,9 +724,21 @@ class AIService:
             parts.append(f"Niche: {cached.get('niche_category') or '?'} / {cached.get('niche') or '?'}")
         if cached.get("profession"):
             parts.append(f"Profession: {cached['profession']}")
+        profession_tags = cached.get("profession_tags")
+        if isinstance(profession_tags, list) and profession_tags:
+            parts.append(f"Profession tags: {', '.join(str(tag) for tag in profession_tags[:8])}")
+        tags = cached.get("tags")
+        if isinstance(tags, list) and tags:
+            parts.append(f"Content tags: {', '.join(str(tag) for tag in tags[:10])}")
         bio = (cached.get("biography") or "").strip()
         if bio:
             parts.append(f"Bio: {bio[:400]}")
+        summary = (cached.get("summary") or "").strip()
+        if summary:
+            parts.append(f"Profile summary: {summary[:500]}")
+        following_insights = (cached.get("following_insights") or "").strip()
+        if following_insights:
+            parts.append(f"Audience/community signals: {following_insights[:400]}")
         if cached.get("full_name"):
             parts.append(f"Full name: {cached['full_name']}")
         if cached.get("is_business"):
@@ -813,8 +852,10 @@ class AIService:
                 "them from the tier, then evaluates any comment against the real post.\n"
             )
             engagement_json = (
-                ', "engagement": {"relevant": false, "relevance_tier": "none", '
-                '"evidence": null, "score": 0.0, "reason": "short reason"}'
+                ', "engagement": {"relevant": "<true for direct/adjacent, otherwise false>", '
+                '"relevance_tier": "<direct|adjacent|weak|none>", '
+                '"evidence": "<concrete observed fit, or null>", '
+                '"score": "<number 0.0-1.0>", "reason": "<short reason>"}'
             )
 
         system_prompt = (
