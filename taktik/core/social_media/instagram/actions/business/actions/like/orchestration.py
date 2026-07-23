@@ -85,7 +85,11 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         }
         
         try:
-            self.logger.info(f"Starting to like posts from @{username} (max: {max_likes})")
+            self.logger.info(
+                f"Starting post interactions for @{username} "
+                f"(likes: {max_likes if should_like else 0}, "
+                f"comments: {max_comments if should_comment else 0})"
+            )
             
             if navigate_to_profile:
                 if not self.nav_actions.navigate_to_profile(username):
@@ -145,8 +149,13 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self._record_action(username, 'LIKE', posts_liked,
                                     timestamps=sequential_stats.get('like_times'))
             
-            stats['success'] = stats['posts_liked'] > 0
-            self.logger.info(f"Likes completed for @{username}: {stats['posts_liked']} posts liked")
+            stats['success'] = (
+                stats['posts_liked'] > 0 or stats['posts_commented'] > 0
+            )
+            self.logger.info(
+                f"Post interactions completed for @{username}: "
+                f"{stats['posts_liked']} liked, {stats['posts_commented']} commented"
+            )
             
             return stats
             
@@ -192,15 +201,19 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 profile_info = self.profile_business.get_complete_profile_info(username=username, navigate_if_needed=False)
             total_posts_on_profile = profile_info.get('posts_count', 0) if profile_info else 0
             
+            like_goal = max_likes if should_like else 0
+            comment_goal = max_comments if should_comment else 0
+            inspection_budget = max(like_goal * 5, comment_goal * 3, 1)
             if total_posts_on_profile > 0:
-                max_posts_to_see = min(total_posts_on_profile, max_likes * 5)
+                max_posts_to_see = min(total_posts_on_profile, inspection_budget)
                 self.logger.info(f"Profile has {total_posts_on_profile} posts - viewing max {max_posts_to_see}")
             else:
-                max_posts_to_see = max_likes * 5
+                max_posts_to_see = inspection_budget
                 self.logger.debug(f"Post count unknown - max {max_posts_to_see} by default")
             
             posts_liked = 0
             posts_commented = 0
+            comment_attempts = 0
             posts_seen = 0
             
             if not self._open_entry_post_of_profile(total_posts_on_profile, username=username):
@@ -218,7 +231,13 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             seen_posts_signatures = set()
             unique_posts_seen = 0
             
-            while posts_liked < max_likes and posts_seen < max_posts_to_see:
+            def objectives_pending():
+                return (
+                    (should_like and posts_liked < max_likes)
+                    or (should_comment and posts_commented < max_comments)
+                )
+
+            while objectives_pending() and posts_seen < max_posts_to_see:
                 posts_seen += 1
                 stats['posts_seen'] = posts_seen
                 
@@ -261,8 +280,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     self.logger.info(f"Post #{posts_seen}/{max_posts_to_see} - Metadata unavailable - Likes: {posts_liked}/{max_likes}")
                     consecutive_identical_posts = 0
                 
-                if posts_liked >= max_likes:
-                    self.logger.success(f"Goal reached: {posts_liked}/{max_likes} posts liked - stopping scroll")
+                if not objectives_pending():
+                    self.logger.success("Post interaction objectives reached - stopping scroll")
                     break
                 
                 # Decide whether to engage this post (probability gate kept — respects the
@@ -276,16 +295,25 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 else:
                     should_like_this_post = False
 
-                if should_like_this_post and posts_liked < max_likes:
-                    if self._is_post_already_liked():
+                do_like_this = should_like_this_post and posts_liked < max_likes
+                do_comment_this = (
+                    should_comment
+                    and posts_commented < max_comments
+                    and comment_attempts < 3
+                )
+
+                if do_like_this or do_comment_this:
+                    if do_like_this and self._is_post_already_liked():
                         self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")
                         stats['already_liked'] = stats.get('already_liked', 0) + 1
-                    else:
-                        do_comment_this = should_comment and posts_commented < max_comments
+                        do_like_this = False
+                    if do_like_this or do_comment_this:
+                        if do_comment_this:
+                            comment_attempts += 1
                         # Vary the choreography: like / read description / comment in a
                         # human, non-fixed order (A: like→read→comment, B: read→like→comment,
                         # C: like+comment no read, D: read→like, …). See engagement_sequence.
-                        sequence = plan_engagement_sequence(True, do_comment_this)
+                        sequence = plan_engagement_sequence(do_like_this, do_comment_this)
                         self.logger.debug(f"Post #{posts_seen}: engagement pattern {sequence}")
                         liked_ok, commented_ok = self._run_engagement_sequence(
                             sequence, username, custom_comments, comment_template_category, config
@@ -306,9 +334,9 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 # Stop on the post that fulfilled the requested objective. Waiting for
                 # the next loop condition used to perform one extra navigation first,
                 # opening a post the bot had no intention (or budget) to inspect.
-                if posts_liked >= max_likes:
+                if not objectives_pending():
                     self.logger.success(
-                        f"Goal reached: {posts_liked}/{max_likes} posts liked - "
+                        "Post interaction objectives reached - "
                         "stopping before next post"
                     )
                     break
@@ -334,7 +362,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             
             self._return_to_profile_from_post()
             
-            stats['success'] = posts_liked > 0
+            stats['success'] = posts_liked > 0 or posts_commented > 0
             stats['unique_posts_seen'] = unique_posts_seen
             self.logger.success(f"[FINAL] Sequential scroll completed: {posts_liked}/{max_likes} posts liked from {unique_posts_seen} unique posts ({posts_seen} scrolls)")
             return stats

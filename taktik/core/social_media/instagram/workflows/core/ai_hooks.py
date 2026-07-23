@@ -4,6 +4,7 @@ import os
 import tempfile
 from typing import Any, Callable, Mapping
 
+from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.shared.text import detect_text_language
 from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
@@ -156,6 +157,9 @@ def install_instagram_ai_hooks(
             "objective": persona.get("objective"),
         })
 
+    decision_settings = ai_config.get("decision") or {}
+    decision_mode = decision_settings.get("mode") == "decide"
+
     if ai_config.get("smartComments", False):
         try:
             from taktik.core.social_media.instagram.actions.business.actions.comment.action import (
@@ -212,10 +216,18 @@ def install_instagram_ai_hooks(
 
                     post_desc = ""
                     post_language = None
-                    if ai_config.get("postAnalysis", False):
+                    # A profile-level decision only nominates a comment candidate.
+                    # Autonomous mode always analyzes the exact framed post before
+                    # publishing, even when the optional broad postAnalysis toggle is off.
+                    if ai_config.get("postAnalysis", False) or decision_mode:
                         # Feed the author's caption too: it's the reliable language signal (the post
                         # screenshot often carries stylised/English design text while the post is FR).
-                        analysis = ai.analyze_post(screenshot_path, username=username, response_language=language, post_caption=post_caption)
+                        analysis = ai.analyze_post(
+                            screenshot_path=screenshot_path,
+                            username=username,
+                            response_language=language,
+                            post_caption=post_caption,
+                        )
                         if analysis.get("success"):
                             post_desc = analysis["description"]
                             post_language = analysis.get("post_language")
@@ -274,7 +286,29 @@ def install_instagram_ai_hooks(
                         account_persona=account_persona,
                         app_language=language,
                         post_screenshot_path=screenshot_path,
+                        require_relevance_decision=decision_mode,
                     )
+                    if (
+                        decision_mode
+                        and result.get("success")
+                        and result.get("should_comment") is not True
+                    ):
+                        reason = result.get("reasoning") or "post not comment-worthy"
+                        log(
+                            "info",
+                            f"Skipping comment for @{username}: {reason}",
+                        )
+                        IPCEmitter.emit_action("comment_skip", username or "", {
+                            "reason": reason,
+                            "stage": "post_relevance",
+                        })
+                        emit_step(
+                            "comment",
+                            action="skip_post_relevance",
+                            target=username,
+                            reason=reason,
+                        )
+                        return False
                     if result.get("success") and result.get("comment"):
                         ai_comment = result["comment"]
                         refusal_signals = [
@@ -332,9 +366,6 @@ def install_instagram_ai_hooks(
             log("info", "AI Smart Comments hook installed")
         except Exception as exc:
             log("warning", f"Failed to install Smart Comments hook: {exc}")
-
-    decision_settings = ai_config.get("decision") or {}
-    decision_mode = decision_settings.get("mode") == "decide"
 
     if ai_config.get("profileAnalysis", False) or decision_mode:
         try:
@@ -664,7 +695,10 @@ def install_instagram_ai_hooks(
                     screenshot_path = os.path.join(tmp_dir, f"post_like_{id(self_like)}.png")
                     img = crop_screenshot_to_post(device.screenshot(), device)
                     img.save(screenshot_path, format="PNG")
-                    ai.analyze_post(screenshot_path, response_language=language)
+                    ai.analyze_post(
+                        screenshot_path=screenshot_path,
+                        response_language=language,
+                    )
                 except Exception as exc:
                     log("warning", f"AI post analysis before like error: {exc}")
                 return original_like_current(self_like)

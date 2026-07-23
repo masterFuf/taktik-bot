@@ -26,14 +26,14 @@ def test_full_direct_verdict_is_coerced_and_clamped():
 
     assert verdict["relevant"] is True
     assert verdict["follow"] is True
-    assert verdict["comment"] is False
+    assert verdict["comment"] is True
     assert verdict["like"] is True
     assert verdict["score"] == 1.0
     assert verdict["reason"] == "direct niche"
     assert verdict["evidence"] == "Explicit filmmaker profession"
 
 
-def test_string_booleans_are_parsed():
+def test_action_candidates_are_derived_from_tier_not_model_booleans():
     verdict = norm({
         "relevant": "yes",
         "relevance_tier": "direct",
@@ -45,7 +45,7 @@ def test_string_booleans_are_parsed():
     })
 
     assert verdict["follow"] is True
-    assert verdict["comment"] is False
+    assert verdict["comment"] is True
     assert verdict["like"] is True
     assert verdict["score"] == 0.4
 

@@ -45,7 +45,7 @@ def test_valid_verdict_is_parsed_and_normalized(monkeypatch):
         "karyu_nails", CACHED, account_niche="beauty_wellness", response_language="fr")
     assert out["success"] is True
     e = out["engagement"]
-    assert e["relevant"] is True and e["follow"] is True and e["comment"] is False
+    assert e["relevant"] is True and e["follow"] is True and e["comment"] is True
     assert e["score"] == 0.85
     assert e["reason"] == "direct niche"
 

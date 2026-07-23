@@ -71,6 +71,81 @@ def test_install_ai_hooks_without_device_is_noop_and_logs_warning():
     assert logs == [("warning", "AI hooks: no device available, skipping")]
 
 
+def test_decide_comment_analyzes_exact_post_and_can_skip(monkeypatch):
+    from types import SimpleNamespace
+
+    from taktik.core.social_media.instagram.actions.business.actions.comment.action import (
+        CommentAction,
+    )
+
+    captured = {"original_calls": 0}
+    logs = []
+
+    def original_comment(*_args, **_kwargs):
+        captured["original_calls"] += 1
+        return True
+
+    monkeypatch.setattr(CommentAction, "comment_on_post", original_comment)
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        staticmethod(lambda *a, **k: None),
+    )
+
+    class Screenshot:
+        def save(self, *_args, **_kwargs):
+            return None
+
+    class Device:
+        def screenshot(self):
+            return Screenshot()
+
+    class FakeAI:
+        def analyze_post(self, **kwargs):
+            captured["analysis"] = kwargs
+            return {
+                "success": True,
+                "description": "Personal breakfast photo",
+                "post_language": "french",
+            }
+
+        def generate_smart_comment(self, **kwargs):
+            captured["generation"] = kwargs
+            return {
+                "success": True,
+                "should_comment": False,
+                "comment": "",
+                "reasoning": "Post unrelated to the cinema objective",
+            }
+
+    install_instagram_ai_hooks(
+        ai=FakeAI(),
+        ai_config={
+            "smartComments": True,
+            "postAnalysis": False,
+            "decision": {"mode": "decide", "dryRun": False},
+            "accountProfile": {
+                "niche": "Cinema",
+                "objective": "Build a cinema community",
+                "language": "fr",
+            },
+        },
+        device=Device(),
+        language="fr",
+        log=lambda *args: logs.append(args),
+    )
+
+    result = CommentAction.comment_on_post(
+        SimpleNamespace(),
+        username="candidate",
+    )
+
+    assert result is False, logs
+    assert captured["analysis"]["username"] == "candidate"
+    assert captured["generation"]["require_relevance_decision"] is True
+    assert captured["generation"]["post_description"] == "Personal breakfast photo"
+    assert captured["original_calls"] == 0
+
+
 @pytest.mark.parametrize(
     "base_lang, post_language, expected",
     [

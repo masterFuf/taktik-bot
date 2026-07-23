@@ -30,6 +30,7 @@ def test_parses_reasoning_and_comment_from_json(monkeypatch):
     out = svc.generate_smart_comment(post_description="a retreat announcement", username="x",
                                      language="fr", app_language="fr")
     assert out["success"] is True
+    assert out["should_comment"] is True
     assert out["comment"] == "Ça donne trop envie ce moment 🙌"
     assert "retraite" in out["reasoning"]
 
@@ -53,3 +54,57 @@ def test_strips_wrapping_quotes_in_fallback(monkeypatch):
     svc = _service(monkeypatch, '"quoted plain comment"')
     out = svc.generate_smart_comment(post_description="d", username="x", language="en", app_language="en")
     assert out["comment"] == "quoted plain comment"
+
+
+def test_post_specific_comment_decision_can_reject_post(monkeypatch):
+    svc = _service(
+        monkeypatch,
+        '{"should_comment": false, "reasoning": "Personal post unrelated to cinema", '
+        '"comment": ""}',
+    )
+
+    out = svc.generate_smart_comment(
+        post_description="A personal breakfast photo",
+        username="x",
+        language="fr",
+        app_language="fr",
+        require_relevance_decision=True,
+    )
+
+    assert out["success"] is True
+    assert out["should_comment"] is False
+    assert out["comment"] == ""
+    assert "unrelated" in out["reasoning"]
+
+
+def test_post_specific_comment_decision_accepts_grounded_post(monkeypatch):
+    svc = _service(
+        monkeypatch,
+        '{"should_comment": true, "reasoning": "The caption announces a short film", '
+        '"comment": "Hâte de découvrir ce court-métrage 🎬"}',
+    )
+
+    out = svc.generate_smart_comment(
+        post_description="A short-film poster",
+        post_caption="Notre court-métrage sort vendredi",
+        username="x",
+        language="fr",
+        app_language="fr",
+        require_relevance_decision=True,
+    )
+
+    assert out["should_comment"] is True
+    assert out["comment"] == "Hâte de découvrir ce court-métrage 🎬"
+
+
+def test_post_specific_comment_decision_fails_closed_on_bare_text(monkeypatch):
+    svc = _service(monkeypatch, "super post 🔥")
+
+    out = svc.generate_smart_comment(
+        post_description="A post",
+        username="x",
+        require_relevance_decision=True,
+    )
+
+    assert out["should_comment"] is False
+    assert out["comment"] == ""

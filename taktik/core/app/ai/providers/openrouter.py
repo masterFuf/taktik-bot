@@ -562,13 +562,6 @@ class AIService:
         if not isinstance(raw, dict):
             return None
 
-        def _b(v) -> bool:
-            if isinstance(v, bool):
-                return v
-            if isinstance(v, str):
-                return v.strip().lower() in ("true", "yes", "1")
-            return bool(v) if isinstance(v, (int, float)) else False
-
         score = raw.get("score")
         try:
             score = max(0.0, min(1.0, float(score)))
@@ -586,15 +579,15 @@ class AIService:
         if tier in {"direct", "adjacent"} and not evidence:
             tier = "weak"
 
-        follow = _b(raw.get("follow"))
-        comment = _b(raw.get("comment"))
-        like = _b(raw.get("like"))
-        relevant = _b(raw.get("relevant"))
+        # The model chooses one semantic tier; deterministic code derives the
+        # permitted candidates. This avoids asking a small model for four
+        # correlated booleans that it can copy mechanically from an example.
+        relevant = tier in {"direct", "adjacent"}
+        follow = tier == "direct"
+        comment = tier == "direct"
+        like = tier in {"direct", "adjacent"}
 
         if tier == "adjacent":
-            follow = False
-            comment = False
-            relevant = relevant and like
             if score is not None:
                 score = min(score, 0.79)
         elif tier == "weak":
@@ -607,9 +600,6 @@ class AIService:
             follow = comment = like = False
             if score is not None:
                 score = min(score, 0.20)
-        elif not relevant:
-            follow = comment = like = False
-
         return {
             "relevant": relevant,
             "relevance_tier": tier,
@@ -694,14 +684,11 @@ class AIService:
             + self._engagement_relativity(
                 account_niche, account_sub_niche, account_persona
             ) +
-            "Return a consistent verdict. Only direct profiles may request follow or comment; "
-            "adjacent profiles may request at most a discovery like. 'comment' means the profile "
-            "is strong enough to inspect one real post for a possible comment, not permission to "
-            "publish blindly. 'score' is 0.0-1.0 relevance confidence.\n"
+            "Choose the semantic tier only; deterministic code derives the permitted action "
+            "candidates from it. 'score' is 0.0-1.0 relevance confidence.\n"
             f"Write 'reason' (one short sentence) in {_lang_full}.\n"
             "Respond ONLY with valid JSON — no extra text:\n"
             '{"relevant": false, "relevance_tier": "none", "evidence": null, '
-            '"follow": false, "comment": false, "like": false, '
             '"score": 0.0, "reason": "short reason"}'
         )
 
@@ -821,14 +808,13 @@ class AIService:
                 "\nENGAGEMENT RELEVANCE: " + relativity +
                 "Return an 'engagement' object consistent with the ladder: 'relevance_tier' "
                 "(direct|adjacent|weak|none), 'evidence' (a concrete observed overlap, otherwise null), "
-                "'relevant' (true only for direct/adjacent), 'follow' and 'comment' (true only for direct), "
-                "'like' (true only for direct/adjacent), 'score' (0.0-1.0), and 'reason' (one short sentence). "
-                "'comment' only nominates the profile for later post-specific analysis.\n"
+                "'relevant' (true only for direct/adjacent), 'score' (0.0-1.0), and 'reason' "
+                "(one short sentence). Do not choose individual actions: deterministic code derives "
+                "them from the tier, then evaluates any comment against the real post.\n"
             )
             engagement_json = (
                 ', "engagement": {"relevant": false, "relevance_tier": "none", '
-                '"evidence": null, "follow": false, "comment": false, '
-                '"like": false, "score": 0.0, "reason": "short reason"}'
+                '"evidence": null, "score": 0.0, "reason": "short reason"}'
             )
 
         system_prompt = (
@@ -1155,7 +1141,8 @@ No markdown formatting."""
                                 niche: str = "general", language: str = "auto",
                                 post_caption: str = "", account_persona: dict = None,
                                 platform: str = "instagram", app_language: str = "en",
-                                post_screenshot_path: str = None) -> Dict[str, Any]:
+                                post_screenshot_path: str = None,
+                                require_relevance_decision: bool = False) -> Dict[str, Any]:
         """
         Generate a contextual smart comment based on post analysis.
         `post_description` is the vision model's description of the post image;
@@ -1210,9 +1197,30 @@ No markdown formatting."""
         # decision trace) so it is written in the APP language, not the comment's language.
         _reasoning_lang_label = _lang_names.get(app_language, 'English')
 
+        decision_rules = ""
+        response_schema = (
+            f'{{"reasoning": "<one short sentence in {_reasoning_lang_label} explaining WHY you '
+            'wrote this specific comment>", "comment": "<the comment>"}}'
+        )
+        if require_relevance_decision:
+            decision_rules = """
+Before writing, decide whether THIS EXACT POST offers a concrete, authentic comment opportunity
+for the operated account. Reject it when the post is unrelated to the account's niche/objective,
+too ambiguous, sensitive/personal, purely promotional with nothing specific to react to, or when
+the only possible response would be generic praise. Approval requires one explicit detail from the
+caption or image that the comment can naturally reference. A strong profile does not make every
+one of its posts comment-worthy.
+"""
+            response_schema = (
+                f'{{"should_comment": false, "reasoning": "<one short decision sentence in '
+                f'{_reasoning_lang_label}>", "comment": ""}} or '
+                '{"should_comment": true, "reasoning": "<specific opportunity>", '
+                '"comment": "<the comment>"}'
+            )
+
         system_prompt = f"""You are a {_platform_label(platform)} engagement expert for the "{niche}" niche.
 Write a short, authentic comment that reacts to the post the way a REAL person scrolling {_platform_label(platform)} would — NOT a polished, literary or formal sentence.
-{brand_block}{style_block}Rules for the COMMENT:
+{brand_block}{style_block}{decision_rules}Rules for the COMMENT:
 - No hashtags
 - Write casually and spontaneously: a quick reaction (a few words to one short line), conversational — never stiff or formal
 - Do NOT end with a period or other formal end punctuation — real social-media comments almost never end with a full stop
@@ -1223,7 +1231,7 @@ Write a short, authentic comment that reacts to the post the way a REAL person s
 - {"Write in the same language as the post" if language == "auto" else f"Write in {_comment_lang_label}"}
 
 Respond with ONLY a JSON object, on a single line, nothing else:
-{{"reasoning": "<one short sentence in {_reasoning_lang_label} explaining WHY you wrote this specific comment — what in the post you are reacting to and how it fits our account's voice/goal>", "comment": "<the comment itself, following EVERY rule above>"}}"""
+{response_schema}"""
 
         parts = []
         if post_description:
@@ -1244,18 +1252,27 @@ Respond with ONLY a JSON object, on a single line, nothing else:
         # JSON, treat the whole text as the comment (prior behaviour) with no reasoning.
         raw = result["text"].strip()
         reasoning = ""
-        comment = raw
+        comment = raw if not require_relevance_decision else ""
+        should_comment = not require_relevance_decision
         try:
             start, end = raw.find("{"), raw.rfind("}")
             if start != -1 and end != -1 and end > start:
                 obj = json.loads(raw[start:end + 1])
-                comment = (obj.get("comment") or "").strip() or raw
+                parsed_comment = (obj.get("comment") or "").strip()
                 reasoning = (obj.get("reasoning") or "").strip()
+                if require_relevance_decision:
+                    should_comment = (
+                        obj.get("should_comment") is True and bool(parsed_comment)
+                    )
+                    comment = parsed_comment if should_comment else ""
+                else:
+                    comment = parsed_comment or raw
         except Exception:
-            comment = raw
+            if not require_relevance_decision:
+                comment = raw
         comment = comment.strip().strip('"').strip("'")
 
-        if self.ipc:
+        if self.ipc and should_comment:
             # Attach the DECISION CONTEXT to the card: WHY (reasoning), what the post was about
             # (vision description + author caption) and the exact image sent to the model.
             screenshot_url = None
@@ -1276,6 +1293,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             "success": True,
             "comment": comment,
             "reasoning": reasoning,
+            "should_comment": should_comment,
             "model": result.get("model"),
             "provider": "openrouter",
             "cost_usd": result.get("cost_usd"),
