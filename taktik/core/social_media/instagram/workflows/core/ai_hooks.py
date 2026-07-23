@@ -349,6 +349,11 @@ def install_instagram_ai_hooks(
             # now → the verdict falls back to a generic "good engagement target?" judgement.
             account_niche = ai_config.get("accountNiche") or ai_config.get("account_niche")
             account_sub_niche = ai_config.get("accountSubNiche") or ai_config.get("account_sub_niche")
+            account_persona = (
+                ai_config.get("accountProfile")
+                if isinstance(ai_config.get("accountProfile"), dict)
+                else None
+            )
 
             # Opt-in relevance gating (front-owned settings). Rides on profile_data next to the
             # verdict so the interaction engine can enforce it WITHOUT any config threading —
@@ -411,6 +416,8 @@ def install_instagram_ai_hooks(
                         "relevant": bool(engagement.get("relevant")),
                         "score": engagement.get("score"),
                         "reason": engagement.get("reason"),
+                        "relevanceTier": engagement.get("relevance_tier"),
+                        "evidence": engagement.get("evidence"),
                         "like": bool(engagement.get("like")),
                         "follow": bool(engagement.get("follow")),
                         "comment": bool(engagement.get("comment")),
@@ -522,6 +529,8 @@ def install_instagram_ai_hooks(
                     "relevant": bool(engagement.get("relevant")),
                     "score": engagement.get("score"),
                     "reason": engagement.get("reason"),
+                    "relevance_tier": engagement.get("relevance_tier"),
+                    "evidence": engagement.get("evidence"),
                     "follow": bool(engagement.get("follow")),
                     "comment": bool(engagement.get("comment")),
                     "like": bool(engagement.get("like")),
@@ -555,6 +564,7 @@ def install_instagram_ai_hooks(
                                 cached=cached,
                                 account_niche=account_niche,
                                 account_sub_niche=account_sub_niche,
+                                account_persona=account_persona,
                                 response_language=language,
                             )
                             if verdict.get("success") and isinstance(verdict.get("engagement"), dict):
@@ -582,6 +592,7 @@ def install_instagram_ai_hooks(
                         include_engagement=True,
                         account_niche=account_niche,
                         account_sub_niche=account_sub_niche,
+                        account_persona=account_persona,
                         response_language=language,
                     )
                     if result.get("success") and result.get("classification"):

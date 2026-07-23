@@ -335,6 +335,7 @@ def test_decide_mode_requests_front_plan_for_cached_profile(monkeypatch):
             return {"success": True, "engagement": {
                 "relevant": True, "follow": True, "comment": False, "like": True,
                 "score": 0.9, "reason": "strong",
+                "relevance_tier": "direct", "evidence": "Same professional niche",
             }}
 
     response = {
@@ -373,6 +374,8 @@ def test_decide_mode_requests_front_plan_for_cached_profile(monkeypatch):
     )
 
     assert captured["facts"]["profile"]["followersCount"] == 120
+    assert captured["facts"]["engagement"]["relevanceTier"] == "direct"
+    assert captured["facts"]["engagement"]["evidence"] == "Same professional niche"
     assert captured["facts"]["limits"]["maxCommentsPerProfile"] == 0
     assert captured["facts"]["limits"]["maxStoriesPerProfile"] == 0
     assert captured["facts"]["limits"]["maxStoryLikesPerProfile"] == 0
@@ -403,6 +406,8 @@ def test_decide_mode_sends_fresh_classification_facts_to_front(monkeypatch):
                     "niche": "Filmmaking & Cinematography",
                     "engagement": {
                         "relevant": True,
+                        "relevance_tier": "direct",
+                        "evidence": "Explicit filmmaker profession",
                         "follow": True,
                         "comment": False,
                         "like": True,
@@ -473,6 +478,7 @@ def test_decide_mode_sends_fresh_classification_facts_to_front(monkeypatch):
     assert result == "performed"
     assert captured["facts"]["profile"]["niche"] == "Filmmaking & Cinematography"
     assert captured["facts"]["profile"]["nicheCategory"] == "arts"
+    assert captured["facts"]["engagement"]["relevanceTier"] == "direct"
     assert captured["profile_data"]["ai_niche"] == "Filmmaking & Cinematography"
     assert captured["profile_data"]["ai_niche_category"] == "arts"
 

@@ -555,9 +555,10 @@ class AIService:
     def _normalize_engagement(raw: Any) -> Optional[Dict[str, Any]]:
         """Coerce the model's `engagement` block into a safe, typed verdict (or None).
 
-        Returns None when the block is missing/garbage so callers cleanly fall back to the
-        non-AI behaviour. `relevant` defaults to the OR of follow/comment/like; a missing
-        sub-flag is False; score is clamped to [0,1]."""
+        The semantic tier is mandatory. Weak, missing or malformed evidence fails
+        closed. An adjacent profile may receive a discovery like, but never a
+        follow or comment from this profile-level verdict alone.
+        """
         if not isinstance(raw, dict):
             return None
 
@@ -568,12 +569,6 @@ class AIService:
                 return v.strip().lower() in ("true", "yes", "1")
             return bool(v) if isinstance(v, (int, float)) else False
 
-        follow = _b(raw.get("follow"))
-        comment = _b(raw.get("comment"))
-        like = _b(raw.get("like"))
-        relevant = raw.get("relevant")
-        relevant = _b(relevant) if relevant is not None else (follow or comment or like)
-
         score = raw.get("score")
         try:
             score = max(0.0, min(1.0, float(score)))
@@ -582,9 +577,43 @@ class AIService:
 
         reason = raw.get("reason")
         reason = reason.strip()[:200] if isinstance(reason, str) else None
+        evidence = raw.get("evidence")
+        evidence = evidence.strip()[:240] if isinstance(evidence, str) else None
+
+        tier = str(raw.get("relevance_tier") or "").strip().lower()
+        if tier not in {"direct", "adjacent", "weak", "none"}:
+            tier = "none"
+        if tier in {"direct", "adjacent"} and not evidence:
+            tier = "weak"
+
+        follow = _b(raw.get("follow"))
+        comment = _b(raw.get("comment"))
+        like = _b(raw.get("like"))
+        relevant = _b(raw.get("relevant"))
+
+        if tier == "adjacent":
+            follow = False
+            comment = False
+            relevant = relevant and like
+            if score is not None:
+                score = min(score, 0.79)
+        elif tier == "weak":
+            relevant = False
+            follow = comment = like = False
+            if score is not None:
+                score = min(score, 0.44)
+        elif tier == "none":
+            relevant = False
+            follow = comment = like = False
+            if score is not None:
+                score = min(score, 0.20)
+        elif not relevant:
+            follow = comment = like = False
 
         return {
             "relevant": relevant,
+            "relevance_tier": tier,
+            "evidence": evidence,
             "follow": follow,
             "comment": comment,
             "like": like,
@@ -593,20 +622,51 @@ class AIService:
         }
 
     @staticmethod
-    def _engagement_relativity(account_niche: Optional[str], account_sub_niche: Optional[str]) -> str:
+    def _engagement_relativity(
+        account_niche: Optional[str],
+        account_sub_niche: Optional[str],
+        account_persona: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """The shared 'judge THIS profile relative to OUR account' instruction — single source for
         both the vision classification and the text-only cached-profile verdict, so the two paths
         can never drift apart in what 'relevant' means."""
-        if account_niche:
-            who = f"a '{account_niche}'" + (f" / '{account_sub_niche}'" if account_sub_niche else "") + " account"
-            return (
-                f"We are GROWING {who}. Judge whether engaging THIS profile is worthwhile for that "
-                "account: consider niche ADJACENCY (e.g. fitness ↔ bodybuilding ↔ nutrition are adjacent), "
-                "audience overlap, and whether it's a real, active, human-ish account (not a spam/store/bot). "
-            )
+        persona = account_persona if isinstance(account_persona, dict) else {}
+        niche = account_niche or persona.get("niche")
+        if niche:
+            identity = f"Niche: {niche}"
+            if account_sub_niche:
+                identity += f" / {account_sub_niche}"
+            details = [identity]
+            for label, key in (
+                ("Product/service", "productService"),
+                ("Objective", "objective"),
+                ("Target audience", "targetAudience"),
+                ("Unique selling point", "uniqueSellingPoint"),
+                ("Additional context", "customContext"),
+            ):
+                value = persona.get(key)
+                if isinstance(value, str) and value.strip():
+                    details.append(f"{label}: {value.strip()[:500]}")
+            account_context = "\n".join(details)
+        else:
+            account_context = "No operated-account persona is available."
+
         return (
-            "Judge whether THIS profile is a worthwhile engagement target in general: a real, active, "
-            "niche-coherent, human-ish account (not a spam/store/bot). "
+            "We are evaluating acquisition targets for the operated account below:\n"
+            f"{account_context}\n"
+            "Use this strict relevance ladder:\n"
+            "- direct: the candidate's observed profession, content or audience explicitly overlaps "
+            "the operated niche/objective.\n"
+            "- adjacent: one clear, single-hop professional or audience overlap is observed.\n"
+            "- weak: only a broad theme, hypothetical collaboration, generic lifestyle/culture/"
+            "creativity, or a multi-hop connection can be invented.\n"
+            "- none: no credible overlap, spam, generic store/service, or unrelated fan account.\n"
+            "Broad words such as culture, events, community, lifestyle, visual or creativity are NOT "
+            "evidence by themselves. A cinema account versus a generic hair salon or football fan is "
+            "weak/none unless the candidate explicitly shows film-production work. Do not infer "
+            "relevance merely because the candidate follows the source account. "
+            "For direct/adjacent, 'evidence' must cite the concrete candidate fact that overlaps; "
+            "phrases such as 'could interest', 'might be useful' or 'potential collaboration' are weak. "
         )
 
     def engagement_verdict_for_known_profile(
@@ -615,6 +675,7 @@ class AIService:
         cached: Dict[str, Any],
         account_niche: str = None,
         account_sub_niche: str = None,
+        account_persona: Dict[str, Any] = None,
         response_language: str = 'en',
     ) -> Dict[str, Any]:
         """Engagement verdict for a profile whose AI classification is ALREADY stored — TEXT-ONLY
@@ -630,14 +691,18 @@ class AIService:
 
         system_prompt = (
             "You judge Instagram engagement targets for an account we operate.\n"
-            + self._engagement_relativity(account_niche, account_sub_niche) +
-            "Be SELECTIVE — not every profile deserves a follow or a comment: "
-            "'follow' (worth following), 'comment' (worth a comment — STRICTER than follow), "
-            "'like' (worth liking its posts), 'score' (0.0-1.0 relevance confidence).\n"
+            + self._engagement_relativity(
+                account_niche, account_sub_niche, account_persona
+            ) +
+            "Return a consistent verdict. Only direct profiles may request follow or comment; "
+            "adjacent profiles may request at most a discovery like. 'comment' means the profile "
+            "is strong enough to inspect one real post for a possible comment, not permission to "
+            "publish blindly. 'score' is 0.0-1.0 relevance confidence.\n"
             f"Write 'reason' (one short sentence) in {_lang_full}.\n"
             "Respond ONLY with valid JSON — no extra text:\n"
-            '{"relevant": true, "follow": true, "comment": false, "like": true, '
-            '"score": 0.8, "reason": "short reason"}'
+            '{"relevant": false, "relevance_tier": "none", "evidence": null, '
+            '"follow": false, "comment": false, "like": false, '
+            '"score": 0.0, "reason": "short reason"}'
         )
 
         parts = [f"Profile @{username} — already-classified data:"]
@@ -683,6 +748,7 @@ class AIService:
                                include_engagement: bool = False,
                                account_niche: str = None,
                                account_sub_niche: str = None,
+                               account_persona: Dict[str, Any] = None,
                                platform: str = "instagram") -> Dict[str, Any]:
         """
         Classify an Instagram profile from a screenshot into a niche (scraping mode).
@@ -698,10 +764,9 @@ class AIService:
                              engaging this profile is worthwhile (opt-in so the scraping path,
                              which reuses this call, pays no extra tokens). See
                              `internal docs`.
-            account_niche / account_sub_niche: the niche of the account being automated, so the
-                             engagement verdict is judged RELATIVE to it (adjacency-aware). When
-                             absent the verdict falls back to a generic "is this a good engagement
-                             target" judgement.
+            account_niche / account_sub_niche / account_persona: factual context for the
+                             operated account, so the verdict is judged relative to its real
+                             market rather than a broad niche label alone.
         """
         t0 = time.time()
 
@@ -749,17 +814,21 @@ class AIService:
         engagement_instr = ""
         engagement_json = ""
         if include_engagement:
-            relativity = self._engagement_relativity(account_niche, account_sub_niche)
+            relativity = self._engagement_relativity(
+                account_niche, account_sub_niche, account_persona
+            )
             engagement_instr = (
                 "\nENGAGEMENT RELEVANCE: " + relativity +
-                "Be SELECTIVE — not every profile deserves a follow or a comment. Return an 'engagement' object: "
-                "'relevant' (bool), 'follow' (bool: worth following), 'comment' (bool: worth a comment — STRICTER "
-                "than follow), 'like' (bool: worth liking its posts), 'score' (0.0-1.0 relevance confidence), "
-                "'reason' (one short sentence).\n"
+                "Return an 'engagement' object consistent with the ladder: 'relevance_tier' "
+                "(direct|adjacent|weak|none), 'evidence' (a concrete observed overlap, otherwise null), "
+                "'relevant' (true only for direct/adjacent), 'follow' and 'comment' (true only for direct), "
+                "'like' (true only for direct/adjacent), 'score' (0.0-1.0), and 'reason' (one short sentence). "
+                "'comment' only nominates the profile for later post-specific analysis.\n"
             )
             engagement_json = (
-                ', "engagement": {"relevant": true, "follow": true, "comment": false, '
-                '"like": true, "score": 0.8, "reason": "short reason"}'
+                ', "engagement": {"relevant": false, "relevance_tier": "none", '
+                '"evidence": null, "follow": false, "comment": false, '
+                '"like": false, "score": 0.0, "reason": "short reason"}'
             )
 
         system_prompt = (

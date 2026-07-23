@@ -37,19 +37,22 @@ def _service(monkeypatch, model_text=None, success=True, capture=None):
 
 
 def test_valid_verdict_is_parsed_and_normalized(monkeypatch):
-    svc = _service(monkeypatch, '{"relevant": true, "follow": true, "comment": false, '
-                                '"like": true, "score": 0.85, "reason": "adjacent niche"}')
+    svc = _service(monkeypatch, '{"relevant": true, "relevance_tier": "direct", '
+                                '"evidence": "Nail artist for beauty account", '
+                                '"follow": true, "comment": false, '
+                                '"like": true, "score": 0.85, "reason": "direct niche"}')
     out = svc.engagement_verdict_for_known_profile(
         "karyu_nails", CACHED, account_niche="beauty_wellness", response_language="fr")
     assert out["success"] is True
     e = out["engagement"]
     assert e["relevant"] is True and e["follow"] is True and e["comment"] is False
     assert e["score"] == 0.85
-    assert e["reason"] == "adjacent niche"
+    assert e["reason"] == "direct niche"
 
 
 def test_verdict_with_surrounding_text_still_parses(monkeypatch):
-    svc = _service(monkeypatch, 'Sure!\n{"relevant": false, "follow": false, "comment": false, '
+    svc = _service(monkeypatch, 'Sure!\n{"relevant": false, "relevance_tier": "none", '
+                                '"evidence": null, "follow": false, "comment": false, '
                                 '"like": false, "score": 0.1, "reason": "unrelated"}\nDone')
     out = svc.engagement_verdict_for_known_profile("x", CACHED)
     assert out["success"] is True
@@ -72,13 +75,22 @@ def test_prompt_carries_account_and_cached_niches(monkeypatch):
     # The verdict must be judged RELATIVE to the operated account (same relativity wording as the
     # vision path) and fed the profile's KNOWN classification — no screenshot involved.
     capture = {}
-    svc = _service(monkeypatch, '{"relevant": true, "follow": true, "comment": false, '
-                                '"like": true, "score": 0.7, "reason": "ok"}', capture=capture)
+    svc = _service(monkeypatch, '{"relevant": true, "relevance_tier": "direct", '
+                                '"evidence": "Same nail niche", "follow": true, '
+                                '"comment": false, "like": true, "score": 0.7, '
+                                '"reason": "ok"}', capture=capture)
     svc.engagement_verdict_for_known_profile(
         "karyu_nails", CACHED,
-        account_niche="beauty_wellness", account_sub_niche="Nail Art", response_language="fr")
+        account_niche="beauty_wellness",
+        account_sub_niche="Nail Art",
+        account_persona={
+            "objective": "Sell nail training",
+            "targetAudience": "Nail artists in France",
+        },
+        response_language="fr")
     assert "beauty_wellness" in capture["system"] and "Nail Art" in capture["system"]
-    assert "GROWING" in capture["system"]                    # account-relative judgement
+    assert "Sell nail training" in capture["system"]
+    assert "Nail artists in France" in capture["system"]
     assert "Hair & Nail Art" in capture["user"]              # cached niche fed as context
     assert "ANGERS" in capture["user"]                       # cached bio fed as context
     assert "French" in capture["system"]                     # reason language follows the app
@@ -88,6 +100,22 @@ def test_relativity_wording_shared_with_vision_path():
     # Single source of truth: the text-only verdict and the vision classification must use the
     # exact same relativity instruction, so "relevant" never drifts between the two paths.
     with_account = AIService._engagement_relativity("fitness", "Gym")
-    assert "GROWING" in with_account and "'fitness' / 'Gym'" in with_account
+    assert "Niche: fitness / Gym" in with_account
+    assert "strict relevance ladder" in with_account
     generic = AIService._engagement_relativity(None, None)
-    assert "in general" in generic
+    assert "No operated-account persona" in generic
+
+
+def test_prompt_explicitly_rejects_cinema_hair_salon_and_football_shortcuts():
+    prompt = AIService._engagement_relativity(
+        "Cinéma, Communauté, Événements culturels",
+        None,
+        {
+            "objective": "Build a cinema community",
+            "targetAudience": "Cinema enthusiasts and filmmakers",
+        },
+    )
+
+    assert "generic hair salon or football fan" in prompt
+    assert "multi-hop connection" in prompt
+    assert "could interest" in prompt
