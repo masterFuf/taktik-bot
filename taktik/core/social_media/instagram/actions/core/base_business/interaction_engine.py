@@ -22,6 +22,10 @@ from taktik.core.shared.behavior.dwell import story_dwell
 class InteractionEngineMixin:
     """Mixin: moteur d'interaction unifié (perform_interactions, stories, IPC events)."""
 
+    _VISIBLE_PROFILE_RELATION_STATES = {
+        'follow', 'follow_back', 'following', 'requested', 'message',
+    }
+
     def _count_live(self, stat_name: str, value: int = 1) -> None:
         """Move a live counter THE INSTANT the gesture lands.
 
@@ -294,13 +298,15 @@ class InteractionEngineMixin:
             # rest of the profile still runs (proactive counterpart to the time-based watchdog).
             self._recover_from_blocking_modal(username, context="after like/comment")
 
-            # === PHASE END — header-dependent actions, after a humanized return to the top ===
-            # The like flow above scrolls the post grid down, leaving the profile HEADER (the avatar
-            # story ring + the follow button) off-screen — which silently made BOTH follow and story
-            # fail. So anything deferred to the end first scrolls back to the top (humanized).
+            # === PHASE END — header-dependent actions, after a state-aware return to the top ===
+            # Back-navigation often restores a usable header/action-bar immediately. Only gesture
+            # when the exact deferred affordance is still absent, and stop as soon as it appears.
             if story_phase == 'end' or follow_phase == 'end':
                 if should_like or should_comment:
-                    self.scroll_actions.scroll_to_top()
+                    self._ensure_profile_header_actions_visible(
+                        needs_story=story_phase == 'end',
+                        needs_follow=follow_phase == 'end',
+                    )
                 if story_phase == 'end':
                     self._do_watch_story(username, plan, profile_data, result)
                 if follow_phase == 'end':
@@ -315,6 +321,57 @@ class InteractionEngineMixin:
         except Exception as e:
             self.logger.error(f"Error performing interactions on @{username}: {e}")
             return result
+
+    def _profile_header_actions_visible(
+        self,
+        *,
+        needs_story: bool = False,
+        needs_follow: bool = False,
+    ) -> bool:
+        """Prove that every deferred profile-header action is currently usable."""
+        checks = []
+
+        if needs_story:
+            try:
+                checks.append(bool(self.detection_actions.has_unseen_profile_story(
+                    settle_attempts=1,
+                    settle_delay=0.0,
+                )))
+            except Exception as exc:
+                self.logger.debug(f"Deferred story visibility check failed: {exc}")
+                checks.append(False)
+
+        if needs_follow:
+            try:
+                state = self.click_actions.get_follow_button_state()
+                checks.append(state in self._VISIBLE_PROFILE_RELATION_STATES)
+            except Exception as exc:
+                self.logger.debug(f"Deferred follow visibility check failed: {exc}")
+                checks.append(False)
+
+        return all(checks) if checks else True
+
+    def _ensure_profile_header_actions_visible(
+        self,
+        *,
+        needs_story: bool = False,
+        needs_follow: bool = False,
+        max_attempts: int = 3,
+    ) -> bool:
+        """Return toward the profile header only until the deferred actions are visible."""
+        reached = self.scroll_actions.scroll_to_top(
+            max_attempts=max_attempts,
+            stop_condition=lambda: self._profile_header_actions_visible(
+                needs_story=needs_story,
+                needs_follow=needs_follow,
+            ),
+        )
+        if not reached:
+            self.logger.warning(
+                "Profile header actions still unavailable after bounded recovery "
+                f"(story={needs_story}, follow={needs_follow})"
+            )
+        return reached
 
     def _do_follow(self, username, plan, profile_data, result) -> None:
         """Follow the user if planned and not already following/requested. Needs the profile HEADER

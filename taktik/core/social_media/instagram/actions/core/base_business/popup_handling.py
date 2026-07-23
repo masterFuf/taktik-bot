@@ -165,31 +165,29 @@ class PopupHandlingMixin:
                 pass
             return False
 
-    def _handle_follow_suggestions_popup(self):
+    def _handle_follow_suggestions_popup(self) -> bool:
+        """Observe Instagram's inline post-follow suggestions without moving the profile.
+
+        The suggestions are not a blocking modal. Scrolling them away used to pull the profile
+        toward refresh immediately after a successful follow, so the production handler now only
+        records their presence and lets normal back-navigation leave the profile.
+        """
         try:
-            self.logger.debug("🔍 Checking for suggestions popup after follow...")
+            self.logger.debug("🔍 Checking for inline suggestions after follow...")
             
-            popup_detected = False
             for selector in self.popup_selectors.follow_suggestions_indicators:
                 if self.device.xpath(selector).exists:
-                    popup_detected = True
-                    self.logger.debug(f"✅ Suggestions popup detected: {selector}")
-                    break
-            
-            if popup_detected:
-                # Scroll back UP to the top of the profile where posts are visible — humanized
-                # controlled scroll ("up" = content goes up toward the header).
-                self.logger.debug("📜 Scrolling up to hide suggestions section...")
-                self.device.human_scroll("up", distance_ratio=0.5)
-                time.sleep(0.3)
-                self.device.human_scroll("up", distance_ratio=0.5)  # ensure we're at the top
-                time.sleep(0.3)
-                self.logger.debug("✅ Suggestions section hidden by scrolling up")
-            else:
-                self.logger.debug("ℹ️ No suggestions popup detected")
+                    self.logger.debug(
+                        f"✅ Inline suggestions detected and left in place: {selector}"
+                    )
+                    return True
+
+            self.logger.debug("ℹ️ No inline suggestions detected")
+            return False
                 
         except Exception as e:
-            self.logger.debug(f"Error handling suggestions popup: {e}")
+            self.logger.debug(f"Error observing inline suggestions: {e}")
+            return False
 
     def _is_ad_consent_popup_open(self) -> bool:
         """Check if the Meta ad consent popup (page 1 or 2) is visible."""

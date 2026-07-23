@@ -32,6 +32,9 @@ class _Logger:
     def error(self, *a, **k):
         self.errors.append(str(a[0]) if a else "")
 
+    def warning(self, *a, **k):
+        self.infos.append(str(a[0]) if a else "")
+
 
 class _LikeBusiness:
     def __init__(self, posts_liked=0, posts_commented=0):
@@ -44,13 +47,17 @@ class _LikeBusiness:
 
 
 class _ClickActions:
-    def __init__(self, follow_ok=True):
+    def __init__(self, follow_ok=True, follow_state='follow'):
         self.follow_ok = follow_ok
+        self.follow_state = follow_state
         self.follow_calls = 0
 
     def follow_user(self, username):
         self.follow_calls += 1
         return self.follow_ok
+
+    def get_follow_button_state(self):
+        return self.follow_state
 
 
 class _ScrollActions:
@@ -58,10 +65,13 @@ class _ScrollActions:
     before any END-phase follow/story so the header isn't off-screen after the like flow."""
     def __init__(self):
         self.to_top_calls = 0
+        self.to_top_kwargs = []
 
     def scroll_to_top(self, *a, **k):
         self.to_top_calls += 1
-        return True
+        self.to_top_kwargs.append(k)
+        stop_condition = k.get('stop_condition')
+        return bool(stop_condition()) if stop_condition else True
 
 
 class _DetectionActions:
@@ -177,6 +187,17 @@ def test_successful_like_counts_and_emits():
     assert res['likes'] == 2
     assert res['actually_interacted'] is True
     assert len(eng.like_events) == 1  # IPC like event emitted
+
+
+def test_header_recovery_uses_visible_follow_action_as_immediate_stop_proof():
+    eng = _Engine(
+        _LikeBusiness(posts_liked=1),
+        _ClickActions(follow_ok=True, follow_state='follow'),
+    )
+
+    assert eng._ensure_profile_header_actions_visible(needs_follow=True) is True
+    assert eng.scroll_actions.to_top_calls == 1
+    assert eng.scroll_actions.to_top_kwargs[0]['max_attempts'] == 3
 
 
 def test_engine_logs_the_final_executable_plan():

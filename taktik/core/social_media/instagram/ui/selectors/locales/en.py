@@ -592,7 +592,6 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "popup.follow_suggestions_indicators": [
         "//android.widget.TextView[contains(@text, \"Suggested for you\")]",
-        "//*[contains(@content-desc, \"Suggested\")]",
     ],
     "popup.likers_popup_indicators": [],
     "popup.not_now_selectors": [

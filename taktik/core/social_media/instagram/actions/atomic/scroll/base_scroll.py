@@ -2,7 +2,7 @@
 
 import time
 import random
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Callable, Dict, Any, List, Optional, Tuple
 from loguru import logger
 from lxml import etree
 
@@ -265,18 +265,46 @@ class BaseScrollMixin(GestureMixin, BaseAction):
     def scroll_right(self, distance_ratio: float = 0.4, speed: str = "normal") -> bool:
         return self._scroll('right', distance_ratio, speed)
 
-    def scroll_to_top(self, max_attempts: int = 6) -> bool:
-        """Humanized return to the top: decisive down-flicks (a real fling — the content coasts up
-        toward the header), with the occasional sampled curve for variety. Never the fixed-coordinate
-        robotic swipe, so e.g. landing back on a profile header looks human."""
+    def scroll_to_top(
+        self,
+        max_attempts: int = 6,
+        stop_condition: Optional[Callable[[], bool]] = None,
+    ) -> bool:
+        """Humanized, bounded return toward the top.
+
+        When the caller knows which UI affordance it needs, ``stop_condition`` is checked before
+        the first gesture and after every gesture. This prevents blind top-overscrolls from
+        repeatedly pulling Instagram's profile refresh once the requested header action is already
+        usable. Callers without a screen proof keep the historical bounded behaviour.
+        """
         self.logger.debug("⬆️ Human scroll to top")
-        for _ in range(max_attempts):
+
+        def target_reached() -> bool:
+            if stop_condition is None:
+                return False
+            try:
+                return bool(stop_condition())
+            except Exception as exc:
+                self.logger.debug(f"Scroll-to-top stop condition failed: {exc}")
+                return False
+
+        if target_reached():
+            self.logger.debug("Profile header action already visible; no scroll needed")
+            return True
+
+        for attempt in range(max(0, int(max_attempts))):
             if random.random() < 0.2:
                 self._human_swipe(direction="down")
             else:
                 self._strong_flick(direction="down")
             self._random_sleep(0.35, 0.7)
-        return True
+            if target_reached():
+                self.logger.debug(
+                    f"Scroll-to-top target reached after {attempt + 1} gesture(s)"
+                )
+                return True
+
+        return stop_condition is None
 
     def scroll_to_bottom(self, max_attempts: int = 10) -> bool:
         self.logger.debug("⬇️ Human scroll to bottom")

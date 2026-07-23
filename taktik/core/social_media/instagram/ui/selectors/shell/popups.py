@@ -98,9 +98,8 @@ class PopupSelectors:
     def review_account_cancel_button(self) -> List[str]:
         return L("popup.review_account_cancel_button")
 
-    # === Popup de suggestions après follow ===
+    # === Section inline de suggestions après follow ===
     _follow_suggestions_indicators_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, "suggested")]',
         # "Suggestions" est un sous-texte présent en FR ("Suggestions pour vous")
         # comme en EN ("Suggestions for you") -> neutre, gardé pour toutes les langues.
         '//android.widget.TextView[contains(@text, "Suggestions")]',
