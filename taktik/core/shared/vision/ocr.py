@@ -113,6 +113,18 @@ class OcrService:
         return pytesseract
 
     @classmethod
+    def prepare(cls) -> bool:
+        """Load and configure pytesseract before OCR work moves to a worker thread.
+
+        On Windows, pytesseract imports numpy and its native OpenBLAS runtime. Loading
+        that native stack for the first time from a short-lived daemon thread can stall
+        while holding Python's import machinery, which then prevents unrelated threads
+        (including the OpenRouter request worker) from starting. Call this once from the
+        workflow thread; subsequent OCR calls reuse Python's module cache.
+        """
+        return cls._pytesseract() is not None
+
+    @classmethod
     def available(cls) -> bool:
         """True if pytesseract import AND the tesseract binary both resolve."""
         pt = cls._pytesseract()

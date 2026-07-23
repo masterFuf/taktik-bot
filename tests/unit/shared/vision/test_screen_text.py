@@ -68,6 +68,10 @@ def test_whole_screen_text_operation_has_a_wall_clock_boundary(monkeypatch):
         "taktik.core.shared.vision.screen_text.screenshot_pil",
         stalled_screenshot,
     )
+    monkeypatch.setattr(
+        "taktik.core.shared.vision.screen_text.OcrService.prepare",
+        lambda: True,
+    )
     started_at = time.monotonic()
 
     from taktik.core.shared.vision.screen_text import locate_text_on_screen
@@ -82,6 +86,31 @@ def test_whole_screen_text_operation_has_a_wall_clock_boundary(monkeypatch):
 
     assert matches == []
     assert elapsed < 0.3
+
+
+def test_native_ocr_dependencies_are_prepared_before_worker_starts(monkeypatch):
+    caller_thread = threading.get_ident()
+    calls = []
+
+    monkeypatch.setattr(
+        "taktik.core.shared.vision.screen_text.OcrService.prepare",
+        lambda: calls.append(("prepare", threading.get_ident())) or True,
+    )
+    monkeypatch.setattr(
+        "taktik.core.shared.vision.screen_text.screenshot_pil",
+        lambda *_args, **_kwargs: Image.new("RGB", (20, 20), "black"),
+    )
+    monkeypatch.setattr(
+        "taktik.core.shared.vision.screen_text.OcrService.locate",
+        lambda *_args, **_kwargs: calls.append(("locate", threading.get_ident())) or [],
+    )
+
+    from taktik.core.shared.vision.screen_text import locate_text_on_screen
+
+    assert locate_text_on_screen(object(), "plus") == []
+    assert calls[0] == ("prepare", caller_thread)
+    assert calls[1][0] == "locate"
+    assert calls[1][1] != caller_thread
 
 
 def test_default_ocr_wall_budget_covers_screenshot_and_tesseract_budgets():
