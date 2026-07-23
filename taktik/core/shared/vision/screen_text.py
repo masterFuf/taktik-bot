@@ -83,12 +83,6 @@ def locate_text_on_screen(
     Returns matches in FULL-screen pixel coordinates (tap-ready via ``.center``), or
     ``[]`` if the screenshot or OCR is unavailable.
     """
-    # Import/configure pytesseract on the workflow thread. Its first import loads
-    # numpy/OpenBLAS; doing that inside the bounded daemon worker can deadlock the
-    # Windows interpreter's import machinery and block every later thread start.
-    if not OcrService.prepare():
-        return []
-
     def locate() -> List[TextMatch]:
         img = screenshot_pil(device, timeout_seconds=screenshot_timeout_seconds)
         if img is None:

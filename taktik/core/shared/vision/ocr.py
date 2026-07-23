@@ -5,15 +5,19 @@ accessibility node (the "more" / "suite" / "plus" comment expanders, the full-bi
 "more", …). They cannot be located in a UI dump, so we OCR a screenshot region and
 tap the word's real on-screen position.
 
-Backed by tesseract (pytesseract). Degrades gracefully: if pytesseract or the tesseract
-binary is unavailable, ``locate`` logs once and returns ``[]`` — callers simply skip the
-OCR-driven action (no crash). Pure: takes an image in, returns matches; no device access
-(see ``screen_text`` for the device-aware wrapper).
+Backed directly by the tesseract CLI. Degrades gracefully: if the binary is unavailable,
+``locate`` logs once and returns ``[]`` — callers simply skip the OCR-driven action (no
+crash). Pure: takes an image in, returns matches; no device access (see ``screen_text``
+for the device-aware wrapper).
 """
 
 from __future__ import annotations
 
+import csv
+import io
 import os
+import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
@@ -57,18 +61,21 @@ class OcrService:
     """Locate text in an image via tesseract. Stateless; methods are classmethods."""
 
     _unavailable_warned = False
-    _configured = False
+    _resolved = False
+    _tesseract_cmd: Optional[str] = None
 
     @classmethod
-    def _configure(cls, pytesseract) -> None:
-        """Point pytesseract at a BUNDLED tesseract so it ships with the app (clients
-        never install it). Resolution order: ``TAKTIK_TESSERACT_CMD`` env → a `tesseract/`
-        folder bundled next to the frozen exe / in the PyInstaller _MEIPASS → PATH (dev).
-        Also sets ``TESSDATA_PREFIX`` to the bundled ``tessdata`` when present.
+    def _resolve_tesseract_cmd(cls) -> Optional[str]:
+        """Resolve the bundled/system tesseract executable once.
+
+        Resolution order: ``TAKTIK_TESSERACT_CMD`` env → a ``tesseract/`` folder bundled
+        next to the frozen executable / in PyInstaller ``_MEIPASS`` → standard Windows
+        install locations → ``PATH``. ``TESSDATA_PREFIX`` follows a bundled executable
+        when its sibling ``tessdata`` folder exists.
         """
-        if cls._configured:
-            return
-        cls._configured = True
+        if cls._resolved:
+            return cls._tesseract_cmd
+
         exe_name = "tesseract.exe" if os.name == "nt" else "tesseract"
         candidates = []
         env_cmd = os.environ.get("TAKTIK_TESSERACT_CMD")
@@ -89,50 +96,83 @@ class OcrService:
                     folder = os.path.join(root, "Tesseract-OCR")
                     candidates.append((os.path.join(folder, exe_name), os.path.join(folder, "tessdata")))
         for cmd, tessdata in candidates:
-            if cmd and os.path.exists(cmd):
-                pytesseract.pytesseract.tesseract_cmd = cmd
+            resolved = cmd if cmd and os.path.isfile(cmd) else shutil.which(cmd or "")
+            if resolved:
+                cls._tesseract_cmd = resolved
+                cls._resolved = True
                 if os.path.isdir(tessdata):
                     os.environ["TESSDATA_PREFIX"] = tessdata
-                logger.debug(f"OCR: using tesseract at {cmd}")
-                return
-        # else: fall back to a system-installed tesseract on PATH (dev machines).
+                logger.debug(f"OCR: using tesseract at {resolved}")
+                return resolved
 
-    @classmethod
-    def _pytesseract(cls):
-        """Return the pytesseract module if usable, else None (logged once)."""
-        try:
-            import pytesseract  # noqa: PLC0415 (lazy: optional dep)
-        except Exception:
-            if not cls._unavailable_warned:
-                cls._unavailable_warned = True
-                logger.warning(
-                    "OCR unavailable: pytesseract not importable. OCR-driven taps are skipped."
-                )
-            return None
-        cls._configure(pytesseract)
-        return pytesseract
+        cls._tesseract_cmd = shutil.which(exe_name)
+        cls._resolved = True
+        if cls._tesseract_cmd:
+            logger.debug(f"OCR: using tesseract at {cls._tesseract_cmd}")
+        return cls._tesseract_cmd
 
     @classmethod
     def prepare(cls) -> bool:
-        """Load and configure pytesseract before OCR work moves to a worker thread.
+        """Resolve the lightweight CLI dependency without importing native Python modules."""
+        return cls._resolve_tesseract_cmd() is not None
 
-        On Windows, pytesseract imports numpy and its native OpenBLAS runtime. Loading
-        that native stack for the first time from a short-lived daemon thread can stall
-        while holding Python's import machinery, which then prevents unrelated threads
-        (including the OpenRouter request worker) from starting. Call this once from the
-        workflow thread; subsequent OCR calls reuse Python's module cache.
-        """
-        return cls._pytesseract() is not None
+    @staticmethod
+    def _startupinfo():
+        if os.name != "nt" or not hasattr(subprocess, "STARTUPINFO"):
+            return None
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        return startupinfo
+
+    @classmethod
+    def _image_to_tsv(
+        cls,
+        command: str,
+        image,
+        *,
+        lang: Optional[str],
+        timeout_seconds: float,
+    ) -> str:
+        """Run tesseract out-of-process and return its TSV word data."""
+        encoded = io.BytesIO()
+        image.save(encoded, format="PNG")
+
+        args = [command, "stdin", "stdout"]
+        if lang:
+            args.extend(("-l", lang))
+        args.extend(("--psm", "11", "tsv"))
+
+        completed = subprocess.run(
+            args,
+            input=encoded.getvalue(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=max(0.1, float(timeout_seconds)),
+            startupinfo=cls._startupinfo(),
+        )
+        if completed.returncode != 0:
+            error = completed.stderr.decode("utf-8", errors="replace").strip()
+            raise RuntimeError(error or f"tesseract exited with code {completed.returncode}")
+        return completed.stdout.decode("utf-8", errors="replace")
 
     @classmethod
     def available(cls) -> bool:
-        """True if pytesseract import AND the tesseract binary both resolve."""
-        pt = cls._pytesseract()
-        if pt is None:
+        """True if the tesseract binary resolves and starts successfully."""
+        command = cls._resolve_tesseract_cmd()
+        if command is None:
             return False
         try:
-            pt.get_tesseract_version()
-            return True
+            completed = subprocess.run(
+                [command, "--version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=3.0,
+                startupinfo=cls._startupinfo(),
+            )
+            return completed.returncode == 0
         except Exception:
             if not cls._unavailable_warned:
                 cls._unavailable_warned = True
@@ -174,8 +214,13 @@ class OcrService:
         requires an exact token match (else substring). Returns ``[]`` if OCR is
         unavailable or nothing matches.
         """
-        pt = cls._pytesseract()
-        if pt is None:
+        command = cls._resolve_tesseract_cmd()
+        if command is None:
+            if not cls._unavailable_warned:
+                cls._unavailable_warned = True
+                logger.warning(
+                    "OCR unavailable: tesseract binary not found. OCR-driven taps are skipped."
+                )
             return []
         img = cls._load(image)
         if img is None:
@@ -198,13 +243,11 @@ class OcrService:
             return []
 
         try:
-            config = "--psm 11"  # sparse text: find as much text as possible, any orientation
-            data = pt.image_to_data(
+            tsv = cls._image_to_tsv(
+                command,
                 img,
-                output_type=pt.Output.DICT,
-                **({"lang": lang} if lang else {}),
-                config=config,
-                timeout=max(0.1, float(timeout_seconds)),
+                lang=lang,
+                timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
             if not cls._unavailable_warned:
@@ -213,14 +256,14 @@ class OcrService:
             return []
 
         matches: List[TextMatch] = []
-        words = data.get("text", [])
-        for i, raw in enumerate(words):
+        for row in csv.DictReader(io.StringIO(tsv), delimiter="\t"):
+            raw = row.get("text") or ""
             token = (raw or "").strip().strip(_TRIM).lower()
             if not token:
                 continue
             try:
-                conf = float(data["conf"][i])
-            except (ValueError, KeyError, IndexError):
+                conf = float(row.get("conf") or -1)
+            except (TypeError, ValueError):
                 conf = -1.0
             if conf < min_confidence:
                 continue
@@ -230,10 +273,10 @@ class OcrService:
             matches.append(TextMatch(
                 text=raw.strip(),
                 confidence=conf,
-                left=int(data["left"][i]) + ox,
-                top=int(data["top"][i]) + oy,
-                width=int(data["width"][i]),
-                height=int(data["height"][i]),
+                left=int(row["left"]) + ox,
+                top=int(row["top"]) + oy,
+                width=int(row["width"]),
+                height=int(row["height"]),
             ))
         return matches
 
