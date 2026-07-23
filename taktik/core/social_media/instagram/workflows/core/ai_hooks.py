@@ -586,6 +586,16 @@ def install_instagram_ai_hooks(
                     )
                     if result.get("success") and result.get("classification"):
                         classification = result["classification"]
+                        # The desktop allocator receives factual profile context in
+                        # addition to the model's engagement advice. Cached
+                        # qualifications already populated these fields, but fresh
+                        # vision classifications did not, leaving every new
+                        # decision request with a null niche/category.
+                        if isinstance(profile_data, dict):
+                            profile_data["ai_niche"] = classification.get("niche")
+                            profile_data["ai_niche_category"] = classification.get(
+                                "niche_category"
+                            )
                         log(
                             "info",
                             (

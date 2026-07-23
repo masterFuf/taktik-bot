@@ -379,6 +379,104 @@ def test_decide_mode_requests_front_plan_for_cached_profile(monkeypatch):
     assert captured["profile_data"]["ai_agent_decision"]["mode"] == "decide"
 
 
+def test_decide_mode_sends_fresh_classification_facts_to_front(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks._load_cached_qualification",
+        lambda _username: None,
+    )
+
+    class Screenshot:
+        def save(self, *_args, **_kwargs):
+            return None
+
+    class Device:
+        def screenshot(self):
+            return Screenshot()
+
+    class FakeAI:
+        def classify_profile_niche(self, **_kwargs):
+            return {
+                "success": True,
+                "classification": {
+                    "niche_category": "arts",
+                    "niche": "Filmmaking & Cinematography",
+                    "engagement": {
+                        "relevant": True,
+                        "follow": True,
+                        "comment": False,
+                        "like": True,
+                        "score": 0.9,
+                        "reason": "Direct cinema match",
+                    },
+                },
+            }
+
+    def decide(facts):
+        captured["facts"] = facts
+        return {
+            "ok": True,
+            "plan": {"likes": 1, "follow": False},
+            "decision": {
+                "dryRun": True,
+                "score": 0.9,
+                "reason": "Direct cinema match",
+                "notes": [],
+            },
+        }
+
+    from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+        InteractionEngineMixin,
+    )
+
+    def fake_perform(self_engine, username, config, profile_data=None):
+        captured["profile_data"] = profile_data
+        return "performed"
+
+    monkeypatch.setattr(
+        InteractionEngineMixin,
+        "_perform_interactions_on_profile",
+        fake_perform,
+    )
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        staticmethod(lambda *a, **k: None),
+    )
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_profile_classification",
+        staticmethod(lambda *a, **k: None),
+    )
+
+    install_instagram_ai_hooks(
+        ai=FakeAI(),
+        ai_config={
+            "profileAnalysis": True,
+            "decision": {"mode": "decide", "dryRun": True},
+        },
+        device=Device(),
+        log=lambda *a: None,
+        decision_provider=decide,
+    )
+
+    profile_data = {
+        "followers_count": 433,
+        "following_count": 998,
+        "posts_count": 4,
+    }
+    result = InteractionEngineMixin._perform_interactions_on_profile(
+        object(),
+        "direct_filmmaker",
+        {"max_likes_per_profile": 3},
+        profile_data,
+    )
+
+    assert result == "performed"
+    assert captured["facts"]["profile"]["niche"] == "Filmmaking & Cinematography"
+    assert captured["facts"]["profile"]["nicheCategory"] == "arts"
+    assert captured["profile_data"]["ai_niche"] == "Filmmaking & Cinematography"
+    assert captured["profile_data"]["ai_niche_category"] == "arts"
+
+
 def test_decide_response_without_metadata_inherits_configured_dry_run(monkeypatch):
     _patch_db(monkeypatch, [CACHED_ROW])
     captured = {}
