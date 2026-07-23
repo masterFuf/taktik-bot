@@ -21,11 +21,17 @@ import os
 from typing import Optional, Dict, Any
 from loguru import logger
 
+from taktik.core.shared.actions.optional_call import run_bounded_optional
+
 # Default models
 DEFAULT_TEXT_MODEL = "google/gemini-2.5-flash-lite"
 DEFAULT_VISION_MODEL = "google/gemini-2.5-flash"
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# urllib's timeout is a socket-inactivity timeout, not a total request deadline. A
+# provider can therefore drip bytes and keep a profile run blocked indefinitely.
+OPENROUTER_SOCKET_TIMEOUT_SECONDS = 30.0
+OPENROUTER_TOTAL_TIMEOUT_SECONDS = 45.0
 
 # Vision models (Gemini) bill images by 768px tiles — a QUANTIZED step, not a continuous
 # cost/quality dial: any long edge in (768, 1536] costs the SAME 2 tiles as 1536 itself
@@ -159,44 +165,74 @@ class AIService:
 
         req = urllib.request.Request(OPENROUTER_API_URL, data=body, headers=headers, method="POST")
 
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                choice = data.get("choices", [{}])[0]
-                text = choice.get("message", {}).get("content", "")
-                usage = data.get("usage", {})
-                # OpenRouter returns cost in usage.cost (not usage.total_cost)
-                cost = usage.get("cost") or usage.get("total_cost")
-                finish_reason = choice.get("finish_reason")
-                # `finish_reason` used to be dropped here, which is why an upstream cut-off
-                # surfaced downstream as a bare "JSON parse error" with no way to tell a
-                # truncated answer from a malformed one. Keep it (plus the token split) so a
-                # failure says what actually happened.
-                if finish_reason == "length":
-                    logger.warning(
-                        f"[AIService] {model} hit the {max_tokens}-token ceiling "
-                        f"(completion={usage.get('completion_tokens')}); response is truncated"
-                    )
-                return {
-                    "success": True,
-                    "text": text.strip(),
-                    "model": data.get("model", model),
-                    "provider": "openrouter",
-                    "usage": usage,
-                    "cost_usd": cost,
-                    "finish_reason": finish_reason,
-                }
-        except urllib.error.HTTPError as e:
-            error_body = ""
+        def request_once() -> Dict[str, Any]:
             try:
-                error_body = e.read().decode("utf-8")
-            except Exception:
-                pass
-            logger.error(f"[AIService] OpenRouter HTTP {e.code}: {error_body[:300]}")
-            return {"success": False, "error": f"HTTP {e.code}: {error_body[:200]}"}
-        except Exception as e:
-            logger.error(f"[AIService] OpenRouter error: {e}")
-            return {"success": False, "error": str(e)}
+                with urllib.request.urlopen(
+                    req, timeout=OPENROUTER_SOCKET_TIMEOUT_SECONDS
+                ) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    choice = data.get("choices", [{}])[0]
+                    text = choice.get("message", {}).get("content", "")
+                    usage = data.get("usage", {})
+                    # OpenRouter returns cost in usage.cost (not usage.total_cost)
+                    cost = usage.get("cost") or usage.get("total_cost")
+                    finish_reason = choice.get("finish_reason")
+                    # Keep the finish reason so an upstream cut-off is distinguishable
+                    # from a malformed model answer.
+                    if finish_reason == "length":
+                        logger.warning(
+                            f"[AIService] {model} hit the {max_tokens}-token ceiling "
+                            f"(completion={usage.get('completion_tokens')}); response is truncated"
+                        )
+                    return {
+                        "success": True,
+                        "text": text.strip(),
+                        "model": data.get("model", model),
+                        "provider": "openrouter",
+                        "usage": usage,
+                        "cost_usd": cost,
+                        "finish_reason": finish_reason,
+                    }
+            except urllib.error.HTTPError as exc:
+                error_body = ""
+                try:
+                    error_body = exc.read().decode("utf-8")
+                except Exception:
+                    pass
+                logger.error(
+                    f"[AIService] OpenRouter HTTP {exc.code}: {error_body[:300]}"
+                )
+                return {
+                    "success": False,
+                    "error": f"HTTP {exc.code}: {error_body[:200]}",
+                }
+            except Exception as exc:
+                logger.error(f"[AIService] OpenRouter error: {exc}")
+                return {"success": False, "error": str(exc)}
+
+        # The worker only performs the HTTP read and has no IPC/UI side effects.
+        # If it outlives the deadline, the profile pipeline resumes and emits one
+        # normal ai_error from the caller thread; a late response cannot revive a
+        # stale Agent card.
+        bounded = run_bounded_optional(
+            request_once,
+            timeout_seconds=OPENROUTER_TOTAL_TIMEOUT_SECONDS,
+            label=f"OpenRouter {model} request",
+        )
+        if bounded.timed_out:
+            message = (
+                f"OpenRouter request exceeded its "
+                f"{OPENROUTER_TOTAL_TIMEOUT_SECONDS:.0f}s total deadline"
+            )
+            logger.error(f"[AIService] {message}")
+            return {"success": False, "error": message}
+        if bounded.error is not None:
+            logger.error(f"[AIService] OpenRouter worker error: {bounded.error}")
+            return {"success": False, "error": str(bounded.error)}
+        return bounded.value or {
+            "success": False,
+            "error": "OpenRouter request ended without a response",
+        }
 
     def _image_to_base64_url(self, image_path: str) -> Optional[str]:
         """Convert an image file to a data URL for vision models."""
