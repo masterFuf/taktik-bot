@@ -28,13 +28,25 @@ class WorkflowHelpers:
         
         # Mark session as finalized to prevent further iterations
         self.automation.session_finalized = True
+
+        # Freeze the duration before publishing the terminal event. The desktop can
+        # remount its recap as soon as session_stop arrives, so relying on its local
+        # live timer loses the elapsed value and renders 00:00:00.
+        try:
+            duration_seconds = max(
+                0,
+                int(time.time() - self.automation.stats['start_time']),
+            )
+        except (AttributeError, KeyError, TypeError, ValueError):
+            duration_seconds = 0
         
         # Send stop reason to frontend
         import json
         stop_message = {
             "type": "session_stop",
             "status": status,
-            "reason": reason
+            "reason": reason,
+            "duration_seconds": duration_seconds,
         }
         print(json.dumps(stop_message), flush=True)
         
