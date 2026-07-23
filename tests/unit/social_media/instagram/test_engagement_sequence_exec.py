@@ -1,5 +1,7 @@
 """LikeOrchestration._run_engagement_sequence — executes steps in order, aborts on like fail."""
 
+import pytest
+
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
     LikeOrchestration,
 )
@@ -79,6 +81,39 @@ def test_comment_failure_reported():
     calls, liked, commented = _run(['like', 'comment'], comment_ok=False)
     assert calls == ['like', 'comment']
     assert liked is True and commented is False
+
+
+@pytest.mark.parametrize(("legacy_result", "expected"), [(True, True), (False, False)])
+def test_comment_current_post_accepts_legacy_boolean_result(
+    monkeypatch,
+    legacy_result,
+    expected,
+):
+    """A legacy AI hook result must not abort the running profile sequence."""
+
+    class _CommentBusiness:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def comment_on_post(self, **_kwargs):
+            return legacy_result
+
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.actions.business.actions.comment.CommentBusiness",
+        _CommentBusiness,
+    )
+    host = _Host()
+    host.device = object()
+    host.session_manager = None
+    host.automation = None
+
+    assert LikeOrchestration._comment_current_post(
+        host,
+        "candidate",
+        [],
+        "generic",
+        {},
+    ) is expected
 
 
 # ─── Frame-drift identity guard (the Lot 2 review fix) ───────────────────────
