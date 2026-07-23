@@ -101,7 +101,7 @@ def test_relativity_wording_shared_with_vision_path():
     # exact same relativity instruction, so "relevant" never drifts between the two paths.
     with_account = AIService._engagement_relativity("fitness", "Gym")
     assert "Niche: fitness / Gym" in with_account
-    assert "strict relevance ladder" in with_account
+    assert "evidence-based relevance ladder" in with_account
     generic = AIService._engagement_relativity(None, None)
     assert "No operated-account persona" in generic
 
@@ -119,3 +119,83 @@ def test_prompt_explicitly_rejects_cinema_hair_salon_and_football_shortcuts():
     assert "generic hair salon or football fan" in prompt
     assert "multi-hop connection" in prompt
     assert "could interest" in prompt
+
+
+def test_prompt_treats_relevance_as_market_fit_not_exact_job_match():
+    prompt = AIService._engagement_relativity(
+        "Cinema, Community, Cultural events",
+        None,
+        {
+            "objective": "Build a cinema community and promote events",
+            "targetAudience": "Cinema enthusiasts, filmmakers and cultural professionals",
+        },
+    )
+
+    assert "MARKET FIT" in prompt
+    assert "not a job description" in prompt
+    assert "core ecosystem" in prompt
+    assert "shared customer/problem" in prompt
+    assert "complementary market" in prompt
+    assert "actor, filmmaker or cinematographer is direct" in prompt
+    assert "musician, photographer or cultural journalist can be adjacent" in prompt
+    assert "do not return weak/none" in prompt
+
+
+def test_prompt_supports_cross_niche_fit_for_business_coaching():
+    prompt = AIService._engagement_relativity(
+        "Business coaching for beauty institutes",
+        None,
+        {
+            "objective": "Help institute owners grow revenue and improve their management",
+            "targetAudience": "Beauty institute owners, estheticians and service entrepreneurs",
+        },
+    )
+
+    assert "institute owners and estheticians are direct" in prompt
+    assert "shared clientele, entrepreneurial problem or complementary service" in prompt
+    assert "generically entrepreneurial or creative" in prompt
+
+
+def test_cached_verdict_receives_all_available_candidate_evidence(monkeypatch):
+    capture = {}
+    cached = {
+        **CACHED,
+        "profession_tags": ["coaching", "beauty business"],
+        "tags": ["entrepreneurship", "revenue", "esthetician"],
+        "summary": "An esthetician who teaches other institute owners how to grow.",
+        "following_insights": "Mostly follows French beauty institutes and business educators.",
+    }
+    svc = _service(
+        monkeypatch,
+        '{"relevant": true, "relevance_tier": "adjacent", '
+        '"evidence": "Shared beauty-business audience", "score": 0.72, "reason": "ok"}',
+        capture=capture,
+    )
+
+    out = svc.engagement_verdict_for_known_profile(
+        "karyu_nails",
+        cached,
+        account_niche="Business coaching for beauty institutes",
+        account_persona={"targetAudience": "Beauty institute owners"},
+    )
+
+    assert out["success"] is True
+    assert "Profession tags: coaching, beauty business" in capture["user"]
+    assert "Content tags: entrepreneurship, revenue, esthetician" in capture["user"]
+    assert "Profile summary: An esthetician" in capture["user"]
+    assert "Audience/community signals:" in capture["user"]
+
+
+def test_verdict_schema_does_not_anchor_the_model_to_none(monkeypatch):
+    capture = {}
+    svc = _service(
+        monkeypatch,
+        '{"relevant": false, "relevance_tier": "none", '
+        '"evidence": null, "score": 0.1, "reason": "unrelated"}',
+        capture=capture,
+    )
+
+    svc.engagement_verdict_for_known_profile("x", CACHED)
+
+    assert '"relevance_tier": "none"' not in capture["system"]
+    assert "<direct|adjacent|weak|none>" in capture["system"]
