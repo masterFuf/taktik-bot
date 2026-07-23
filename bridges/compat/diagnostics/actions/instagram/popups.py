@@ -39,8 +39,16 @@ def close_popup_swipe(a, p):
 
 @action("popups.close_follow_suggestions")
 def close_follow_suggestions(a, p):
-    a.popup._handle_follow_suggestions_popup()
-    return True
+    detected = a.popup._handle_follow_suggestions_popup()
+    return {
+        "success": True,
+        "message": (
+            "inline follow suggestions detected and left in place"
+            if detected else
+            "no inline follow suggestions detected"
+        ),
+        "details": {"detected": bool(detected), "scrolled": False},
+    }
 
 
 @action("popups.press_back")
@@ -48,4 +56,3 @@ def press_back(a, p):
     a.device.press("back")
     time.sleep(0.8)
     return True
-

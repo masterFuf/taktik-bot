@@ -125,6 +125,41 @@ def scroll_grid(a, p):
     }
 
 
+@action("profile.ensure_header_actions")
+def ensure_header_actions(a, p):
+    """Run the production bounded header recovery used before deferred story/follow actions."""
+    def enabled(value, default):
+        if value is None:
+            return default
+        if isinstance(value, str):
+            return value.strip().lower() not in {"", "0", "false", "no", "off"}
+        return bool(value)
+
+    needs_story = enabled(p.get("needs_story"), False)
+    needs_follow = enabled(p.get("needs_follow"), True)
+    try:
+        max_attempts = int(p.get("max_attempts", 3))
+    except (TypeError, ValueError):
+        max_attempts = 3
+    reached = a.popup._ensure_profile_header_actions_visible(
+        needs_story=needs_story,
+        needs_follow=needs_follow,
+        max_attempts=max_attempts,
+    )
+    return {
+        "success": bool(reached),
+        "message": (
+            f"profile header actions visible={reached} "
+            f"(story={needs_story}, follow={needs_follow})"
+        ),
+        "details": {
+            "needs_story": needs_story,
+            "needs_follow": needs_follow,
+            "max_attempts": max_attempts,
+        },
+    }
+
+
 # =============================================================================
 # Bio / enrichment reads (ProfileExtractionMixin via a.detection). Device must be
 # on a PROFILE screen. No hardcoded selectors (PROFILE_SELECTORS catalog).
