@@ -161,8 +161,9 @@ def get_enriched(a, p):
 @action("profile.expand_bio_more")
 def expand_bio_more(a, p):
     """Expand a TRUNCATED bio via OCR (locate '… more'/'… plus'/'… suite' in the bio
-    region and tap it). No-op if the bio isn't truncated or OCR is unavailable. Device
-    must be on a profile screen whose bio is truncated."""
+    region and tap it). The read-only OCR stage has a strict wall-clock boundary and
+    fails open. No-op if the bio isn't truncated or OCR is unavailable. Device must be
+    on a profile screen whose bio is truncated."""
     ok = a.detection.click_bio_more_button()
     return {"success": bool(ok),
             "message": "bio expanded via OCR" if ok else "bio not truncated / expander not located"}

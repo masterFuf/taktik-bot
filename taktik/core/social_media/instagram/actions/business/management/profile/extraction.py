@@ -3,6 +3,7 @@
 import time
 from typing import Dict, Any, List, Optional
 from loguru import logger
+from taktik.core.shared.actions.optional_call import run_bounded_optional
 from ....core.base_business import BaseBusinessAction
 
 
@@ -53,16 +54,26 @@ class ProfileExtraction(BaseBusinessAction):
             # click_bio_more_button no-ops when no truncated bio is on screen, so calls that
             # only read counts pay nothing.
             if profile_text.get('bio_truncated'):
-                if self.detection_actions.click_bio_more_button(
+                self.logger.debug("Bio expansion: starting bounded OCR lookup")
+                bio_expanded = self.detection_actions.click_bio_more_button(
                     region=profile_text.get('_bio_region')
-                ):
+                )
+                self.logger.debug(
+                    f"Bio expansion: OCR lookup finished (expanded={bio_expanded})"
+                )
+                if bio_expanded:
                     self._random_sleep(0.8, 1.2)
                     # Re-extract with the full bio, but keep this optional enhancement
                     # bounded and fail-open: a stalled u2 dump must never freeze the
                     # complete profile pipeline before counters/screenshot/AI.
-                    new_profile_text = self.detection_actions.get_enriched_profile_data(
-                        dump_timeout_seconds=5.0
+                    refresh = run_bounded_optional(
+                        lambda: self.detection_actions.get_enriched_profile_data(
+                            dump_timeout_seconds=5.0
+                        ),
+                        timeout_seconds=6.0,
+                        label="Instagram expanded bio refresh",
                     )
+                    new_profile_text = refresh.value or {}
 
                     # IMPORTANT: clicking "more" might have navigated to a @username link in the
                     # bio — verify we're still on the same profile.

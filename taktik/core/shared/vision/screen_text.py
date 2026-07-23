@@ -15,6 +15,8 @@ from typing import List, Optional, Sequence, Tuple, Union
 from loguru import logger
 from PIL import Image
 
+from taktik.core.shared.actions.optional_call import run_bounded_optional
+
 from .ocr import OcrService, TextMatch
 
 Region = Tuple[int, int, int, int]
@@ -73,19 +75,28 @@ def locate_text_on_screen(
     whole_word: bool = True,
     lang: Optional[str] = None,
     screenshot_timeout_seconds: float = 5.0,
+    operation_timeout_seconds: float = 8.0,
 ) -> List[TextMatch]:
     """Screenshot the device and OCR-locate ``queries`` (optionally within ``region``).
 
     Returns matches in FULL-screen pixel coordinates (tap-ready via ``.center``), or
     ``[]`` if the screenshot or OCR is unavailable.
     """
-    img = screenshot_pil(device, timeout_seconds=screenshot_timeout_seconds)
-    if img is None:
-        return []
-    return OcrService.locate(
-        img, queries, region=region, min_confidence=min_confidence,
-        whole_word=whole_word, lang=lang,
+    def locate() -> List[TextMatch]:
+        img = screenshot_pil(device, timeout_seconds=screenshot_timeout_seconds)
+        if img is None:
+            return []
+        return OcrService.locate(
+            img, queries, region=region, min_confidence=min_confidence,
+            whole_word=whole_word, lang=lang,
+        )
+
+    result = run_bounded_optional(
+        locate,
+        timeout_seconds=operation_timeout_seconds,
+        label="screen text OCR",
     )
+    return result.value or []
 
 
 __all__ = ["locate_text_on_screen", "screenshot_pil", "TextMatch"]

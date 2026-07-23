@@ -1,5 +1,7 @@
 import base64
 import io
+import threading
+import time
 
 from PIL import Image
 
@@ -52,3 +54,30 @@ def test_u2_screenshot_failure_does_not_retry_with_global_timeout():
 
     assert screenshot_pil(device) is None
     assert device.unbounded_calls == 0
+
+
+def test_whole_screen_text_operation_has_a_wall_clock_boundary(monkeypatch):
+    release = threading.Event()
+
+    def stalled_screenshot(*_args, **_kwargs):
+        release.wait(10)
+        return None
+
+    monkeypatch.setattr(
+        "taktik.core.shared.vision.screen_text.screenshot_pil",
+        stalled_screenshot,
+    )
+    started_at = time.monotonic()
+
+    from taktik.core.shared.vision.screen_text import locate_text_on_screen
+
+    matches = locate_text_on_screen(
+        object(),
+        "more",
+        operation_timeout_seconds=0.03,
+    )
+    elapsed = time.monotonic() - started_at
+    release.set()
+
+    assert matches == []
+    assert elapsed < 0.3
