@@ -57,6 +57,13 @@ class DesktopBridge:
         """Handle shutdown signal."""
         send_status("stopping", "Received shutdown signal")
         self.running = False
+        if self.decision_client:
+            self.decision_client.close()
+
+    def close(self) -> None:
+        """Release bridge-owned background readers before interpreter shutdown."""
+        if self.decision_client:
+            self.decision_client.close()
 
     def run_workflow(self) -> bool:
         """Run the configured workflow."""

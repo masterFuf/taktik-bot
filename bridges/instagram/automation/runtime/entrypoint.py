@@ -11,4 +11,9 @@ def run_desktop_config(config: dict, bridge_cls) -> int:
         return bridge.run()
 
     bridge = bridge_cls(config)
-    return bridge.run()
+    try:
+        return bridge.run()
+    finally:
+        close = getattr(bridge, "close", None)
+        if callable(close):
+            close()
