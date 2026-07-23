@@ -1,4 +1,5 @@
 import base64
+import inspect
 import io
 import threading
 import time
@@ -81,3 +82,14 @@ def test_whole_screen_text_operation_has_a_wall_clock_boundary(monkeypatch):
 
     assert matches == []
     assert elapsed < 0.3
+
+
+def test_default_ocr_wall_budget_covers_screenshot_and_tesseract_budgets():
+    from taktik.core.shared.vision.screen_text import locate_text_on_screen
+
+    parameters = inspect.signature(locate_text_on_screen).parameters
+    screenshot_budget = parameters["screenshot_timeout_seconds"].default
+    ocr_budget = parameters["ocr_timeout_seconds"].default
+    total_budget = parameters["operation_timeout_seconds"].default
+
+    assert total_budget >= screenshot_budget + ocr_budget + 2.0

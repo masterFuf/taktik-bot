@@ -75,7 +75,8 @@ def locate_text_on_screen(
     whole_word: bool = True,
     lang: Optional[str] = None,
     screenshot_timeout_seconds: float = 5.0,
-    operation_timeout_seconds: float = 8.0,
+    ocr_timeout_seconds: float = 7.0,
+    operation_timeout_seconds: float = 15.0,
 ) -> List[TextMatch]:
     """Screenshot the device and OCR-locate ``queries`` (optionally within ``region``).
 
@@ -89,6 +90,7 @@ def locate_text_on_screen(
         return OcrService.locate(
             img, queries, region=region, min_confidence=min_confidence,
             whole_word=whole_word, lang=lang,
+            timeout_seconds=ocr_timeout_seconds,
         )
 
     result = run_bounded_optional(
