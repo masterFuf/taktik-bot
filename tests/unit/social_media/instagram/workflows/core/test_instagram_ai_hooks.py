@@ -78,7 +78,7 @@ def test_decide_comment_analyzes_exact_post_and_can_skip(monkeypatch):
         CommentAction,
     )
 
-    captured = {"original_calls": 0}
+    captured = {"original_calls": 0, "actions": []}
     logs = []
 
     def original_comment(*_args, **_kwargs):
@@ -88,7 +88,7 @@ def test_decide_comment_analyzes_exact_post_and_can_skip(monkeypatch):
     monkeypatch.setattr(CommentAction, "comment_on_post", original_comment)
     monkeypatch.setattr(
         "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
-        staticmethod(lambda *a, **k: None),
+        staticmethod(lambda *args, **kwargs: captured["actions"].append((args, kwargs))),
     )
 
     class Screenshot:
@@ -139,11 +139,29 @@ def test_decide_comment_analyzes_exact_post_and_can_skip(monkeypatch):
         username="candidate",
     )
 
-    assert result is False, logs
+    assert result == {
+        "commented": False,
+        "comment_text": None,
+        "errors": 0,
+        "success": False,
+        "skipped": True,
+        "skip_reason": "Post unrelated to the cinema objective",
+    }, logs
     assert captured["analysis"]["username"] == "candidate"
     assert captured["generation"]["require_relevance_decision"] is True
     assert captured["generation"]["post_description"] == "Personal breakfast photo"
     assert captured["original_calls"] == 0
+    assert captured["actions"][-1:] == [(
+        (
+            "comment_skip",
+            "candidate",
+            {
+                "reason": "Post unrelated to the cinema objective",
+                "stage": "post_relevance",
+            },
+        ),
+        {},
+    )]
 
 
 @pytest.mark.parametrize(
