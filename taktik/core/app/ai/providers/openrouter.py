@@ -23,9 +23,12 @@ from loguru import logger
 
 from taktik.core.shared.actions.optional_call import run_bounded_optional
 
-# Default models
-DEFAULT_TEXT_MODEL = "google/gemini-2.5-flash-lite"
-DEFAULT_VISION_MODEL = "google/gemini-2.5-flash"
+# Two fixed models by task nature (both multimodal). Single source of truth for every LLM call.
+MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"     # classify / analyse / describe (high volume)
+MODEL_GENERATION = "google/gemini-3-flash-preview"  # comment / DM / persona / scheduler (quality)
+# Back-compat aliases for the few `import DEFAULT_*` sites; both resolve to the analysis model.
+DEFAULT_TEXT_MODEL = MODEL_ANALYSIS
+DEFAULT_VISION_MODEL = MODEL_ANALYSIS
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 # urllib's timeout is a socket-inactivity timeout, not a total request deadline. A
@@ -132,8 +135,14 @@ class AIService:
                  niche_taxonomy: Dict[str, list] = None):
         self.api_key = api_key
         self.ipc = ipc
-        self.text_model = text_model or DEFAULT_TEXT_MODEL
-        self.vision_model = vision_model or DEFAULT_VISION_MODEL
+        # Two fixed models by task. The desktop app no longer injects models; the text_model/
+        # vision_model params remain for signature compatibility but are ignored.
+        self.model_analysis = MODEL_ANALYSIS
+        self.model_generation = MODEL_GENERATION
+        # Back-compat aliases: some callers read .vision_model / .text_model for display labels;
+        # both point at the analysis model (classification/vision is the common case).
+        self.vision_model = MODEL_ANALYSIS
+        self.text_model = MODEL_ANALYSIS
         # Premium niche taxonomy injected by the desktop app via the bridge config
         # (slug -> [sub-niche labels]). The open-source bot does NOT own this list;
         # when nothing is injected, profile classification stays free-form so the
@@ -329,13 +338,15 @@ class AIService:
     # ------------------------------------------------------------------
 
     def text_completion(self, system_prompt: str, user_prompt: str,
-                        temperature: float = 0.7, max_tokens: int = 2000) -> Dict[str, Any]:
-        """Simple text completion via the text model."""
+                        temperature: float = 0.7, max_tokens: int = 2000,
+                        model: str = None) -> Dict[str, Any]:
+        """Simple text completion. Defaults to the analysis model; generation callers pass
+        `model=self.model_generation` explicitly."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return self._call_openrouter(self.text_model, messages, temperature, max_tokens)
+        return self._call_openrouter(model or self.model_analysis, messages, temperature, max_tokens)
 
     def classify_following_usernames_batch(
         self,
@@ -1225,7 +1236,7 @@ No markdown formatting."""
 
         if self.ipc:
             self.ipc.ai_comment_generating(username, prompt=f"Smart comment for @{username} ({niche})",
-                                           model=self.text_model, prompt_key="promptSmartComment")
+                                           model=self.model_generation, prompt_key="promptSmartComment")
 
         # Render the target language as a full name in the prompt ("Write in French", not "Write in
         # fr"). "auto" is handled separately (match the post's language).
@@ -1281,7 +1292,8 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             parts.append(f'The author\'s caption: "{post_caption[:1000]}"')
         user_prompt = "\n\n".join(parts) + "\n\nGenerate a natural, engaging comment."
 
-        result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220)
+        result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
+                                      model=self.model_generation)
         duration_ms = int((time.time() - t0) * 1000)
 
         if not result["success"]:

@@ -4,14 +4,17 @@ from typing import List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
+
 
 @dataclass
 class DMAutoReplyConfig:
     """Configuration pour le workflow de réponse automatique."""
-    
+
     # === API Configuration ===
     openrouter_api_key: str = ""
-    llm_model: str = "anthropic/claude-sonnet-5"  # Modèle par défaut sur OpenRouter
+    # Reponse DM = generation -> modele unique lu depuis la constante centrale (jamais en dur).
+    llm_model: str = MODEL_GENERATION
     
     # === Persona & Contexte ===
     persona_name: str = ""
