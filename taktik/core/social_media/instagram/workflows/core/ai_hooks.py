@@ -211,6 +211,47 @@ def install_instagram_ai_hooks(
     decision_settings = ai_config.get("decision") or {}
     decision_mode = decision_settings.get("mode") == "decide"
 
+    # In-thread replies: the writer the Post URL run calls for each comment it considers
+    # answering. Attached on the CLASS, like the comment hook, so any Post URL instance the
+    # runner builds later carries it. Without this attachment the in-thread mode only likes.
+    try:
+        from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import (
+            PostUrlBusiness,
+        )
+
+        def in_thread_reply_writer(username: str, their_comment: str) -> "dict[str, Any] | None":
+            """Decide and write a reply to `their_comment`, or None to leave it alone."""
+            persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
+            # Same rule as a comment: the ACCOUNT's own language anchors us, and we only
+            # answer within {account language, English} — replying in a language we don't
+            # claim to speak is not credible, and the app's UI language is the operator's
+            # reading preference, never the audience's.
+            reply_lang = _resolve_comment_language(
+                _resolve_base_language(persona), detect_text_language(their_comment),
+            )
+            if reply_lang is None:
+                log("info", f"Skipping reply to @{username}: no credible language to answer in")
+                return None
+
+            result = ai.generate_comment_reply(
+                comment_text=their_comment,
+                username=username,
+                niche=(persona or {}).get("niche") or "general",
+                language=reply_lang,
+                account_persona=persona,
+                platform="instagram",
+                app_language=language,
+            )
+            if not result.get("success") or not result.get("should_reply"):
+                log("info", f"No reply for @{username}: {result.get('reasoning') or result.get('error') or 'declined'}")
+                return None
+            return {**result, "language": reply_lang}
+
+        PostUrlBusiness.in_thread_reply_writer = staticmethod(in_thread_reply_writer)
+        log("info", "AI hook installed: in-thread replies")
+    except Exception as exc:  # noqa: BLE001 — a missing hook must never fail a run
+        log("warning", f"Could not install the in-thread reply hook: {exc}")
+
     if ai_config.get("smartComments", False):
         try:
             from taktik.core.social_media.instagram.actions.business.actions.comment.action import (
