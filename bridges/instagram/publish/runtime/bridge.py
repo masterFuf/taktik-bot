@@ -33,6 +33,14 @@ class InstagramPublishBridge:
         self.caption = config.get("caption", "")
         self.hashtags = config.get("hashtags", [])
         self.post_type = (config.get("postType") or "post").lower()
+        # Several media on a feed post IS a carousel; Instagram has no other meaning for it.
+        # A caller that sends every path but leaves the type at "post" gets the single-media
+        # branch, which selects one thumbnail and publishes one image while the rest sit unused
+        # in the gallery — silently, since nothing about that looks like a failure. The desktop
+        # app derives this too; it is repeated here because this bridge is a public entry point
+        # and must not depend on its caller getting it right.
+        if self.post_type == "post" and len(self.media_paths) > 1:
+            self.post_type = "carousel"
         self.package_name = config.get("packageName")
         self._connection = None
         self._stop_requested = False
