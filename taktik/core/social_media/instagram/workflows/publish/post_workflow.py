@@ -117,8 +117,14 @@ class InstagramPostWorkflow:
         caption: str = "",
         hashtags: Optional[List[str]] = None,
         media_paths: Optional[List[str]] = None,
+        stop_before_share: bool = False,
     ) -> dict:
         """Publie `media_paths` selon `post_type` (post/reel/carousel/story).
+
+        `stop_before_share` runs the whole flow but stops on the last screen without tapping the
+        share button, so the diagnostic bench can measure the navigation end to end without
+        posting anything publicly. It is a flag on the production path on purpose: a bench that
+        reimplements the flow to avoid the last tap would no longer be testing this workflow.
 
         Returns dict {success: bool, message: str, error_type: str | None}.
         """
@@ -140,7 +146,7 @@ class InstagramPostWorkflow:
 
         # Story has a distinct tail (no Next/caption screen).
         if self.post_type == "story":
-            return self._publish_story()
+            return self._publish_story(stop_before_share)
 
         # 3. Open creation + ensure the gallery grid is visible
         err = self._open_creation_and_gallery()
@@ -158,7 +164,7 @@ class InstagramPostWorkflow:
             time.sleep(1.0)
 
         # 5. Compose (Next-loop -> caption) and share
-        return self._compose_and_share(caption, hashtags)
+        return self._compose_and_share(caption, hashtags, stop_before_share)
 
     # ------------------------------------------------------------------
     # Shared stages
@@ -256,7 +262,7 @@ class InstagramPostWorkflow:
             self._log("debug", f"selected media count failed: {e}")
             return 0
 
-    def _compose_and_share(self, caption: str, hashtags: List[str]) -> dict:
+    def _compose_and_share(self, caption: str, hashtags: List[str], stop_before_share: bool = False) -> dict:
         # Next-loop to the caption composer
         self._status("navigating", "Navigating to caption screen...")
         if not self._advance_to_composer():
@@ -269,6 +275,15 @@ class InstagramPostWorkflow:
             if not self._fill_caption(full_caption):
                 return self._error("caption_fill_failed", "Could not enter caption")
             time.sleep(0.5)
+
+        # Rehearsal: the share button being on screen is the proof the flow reached the end.
+        if stop_before_share:
+            self._dismiss_keyboard()
+            if not self._present(CC.share_button_xpaths(), timeout=6):
+                return self._error("share_not_found", "Share button not found")
+            self._status("success", f"{self.post_type} reached the share screen (not published)")
+            self._log("info", f"Instagram {self.post_type}: stopped before sharing")
+            return {"success": True, "message": f"{self.post_type} reached the share screen (not published)", "error_type": None}
 
         # Share (the IME may still cover the footer button: dismiss + retry once)
         self._status("publishing", "Publishing...")
@@ -288,7 +303,7 @@ class InstagramPostWorkflow:
         self._log("info", f"Instagram {label} published")
         return {"success": True, "message": f"{label} published successfully", "error_type": None}
 
-    def _publish_story(self) -> dict:
+    def _publish_story(self, stop_before_share: bool = False) -> dict:
         """Story flow: enter (create '+' STORY tab OR feed tray) -> gallery -> select ->
         'Your story' -> dismiss the one-time story-to-story promo modal."""
         if self.story_via_feed:
@@ -301,6 +316,13 @@ class InstagramPostWorkflow:
         if not self._tap(CC.first_gallery_item_xpath(), timeout=6):
             return self._error("gallery_item_not_found", "Could not select media for story")
         time.sleep(1.0)
+        if stop_before_share:
+            if not self._present(CC.story_publish_xpaths(), timeout=6):
+                return self._error("share_not_found", "'Your story' button not found")
+            self._status("success", "story reached the share screen (not published)")
+            self._log("info", "Instagram story: stopped before sharing")
+            return {"success": True, "message": "story reached the share screen (not published)", "error_type": None}
+
         self._status("publishing", "Publishing story...")
         if not self._tap(CC.story_publish_xpaths(), timeout=6):
             return self._error("share_not_found", "'Your story' button not found")
@@ -409,6 +431,26 @@ class InstagramPostWorkflow:
 
     def _tap(self, selectors, timeout: float = 4.0) -> bool:
         return bool(self._a["click"]._find_and_click(selectors, timeout=timeout))
+
+    def _present(self, selectors, timeout: float = 4.0) -> bool:
+        """True if any selector is on screen, WITHOUT touching it.
+
+        Used by the rehearsal mode: reaching the share button proves the whole navigation worked,
+        and not tapping it is what keeps the run from publishing anything.
+        """
+        device = self._a["click"].device
+        if isinstance(selectors, str):
+            selectors = [selectors]
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            for selector in selectors:
+                try:
+                    if device.xpath(selector).exists:
+                        return True
+                except Exception:
+                    continue
+            time.sleep(0.3)
+        return False
 
     @staticmethod
     def _build_caption(caption: str, hashtags: List[str]) -> str:
