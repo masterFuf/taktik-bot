@@ -49,7 +49,15 @@ def create_posted_comments_tables(cursor: sqlite3.Cursor) -> None:
             post_url TEXT,
             post_caption TEXT,                      -- author's own words, as read at comment time
             post_description TEXT,                  -- vision analysis of the post, when one was run
-            -- What we said
+            -- What we said. `kind` separates the two shapes a published comment can take:
+            --   'comment' — left ON someone's post (engagement module);
+            --   'reply'   — answering someone's COMMENT under a post, which also records
+            --               WHOM we answered and what they had written.
+            -- For a reply, `target_username` is the COMMENTER (the person we address) while
+            -- `post_author` stays the owner of the post — they differ, unlike for a comment.
+            kind TEXT NOT NULL DEFAULT 'comment',
+            reply_to_username TEXT,
+            reply_to_text TEXT,
             comment_text TEXT NOT NULL,
             source TEXT NOT NULL DEFAULT 'ai',      -- 'ai' | 'template' | 'custom' (operator list)
             -- How it was produced (NULL for non-AI comments)
@@ -80,6 +88,9 @@ def create_posted_comments_indexes(cursor: sqlite3.Cursor) -> None:
         "CREATE INDEX IF NOT EXISTS idx_posted_comments_account "
         "ON posted_comments(platform, account_id, posted_at)"
     )
+    # NB: the index on `kind` is created by the migration step, not here. This runs BEFORE
+    # migrations, so on a base that predates the column the index would fail on a column that
+    # does not exist yet — taking the whole schema bootstrap down with it.
     cursor.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_posted_comments_sync_id "
         "ON posted_comments(sync_id)"

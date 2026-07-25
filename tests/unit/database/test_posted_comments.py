@@ -63,6 +63,62 @@ def test_record_stores_the_ai_production_metadata(repo):
     assert row["sync_id"]
 
 
+def test_a_reply_records_whom_it_answers(repo):
+    """kind='reply' is an answer to someone's comment under a post: target_username is the
+    COMMENTER, while post_author stays the post's owner — they differ, unlike for a comment."""
+    repo.record(
+        target_username="commenter", comment_text="Totalement d'accord avec toi",
+        session_id=3, post_author="post_owner", kind="reply",
+        reply_to_username="commenter", reply_to_text="Super intéressant ce point",
+    )
+    row = repo.get_by_session(3)[0]
+    assert row["kind"] == "reply"
+    assert row["target_username"] == "commenter"
+    assert row["post_author"] == "post_owner"
+    assert row["reply_to_username"] == "commenter"
+    assert row["reply_to_text"] == "Super intéressant ce point"
+
+
+def test_a_comment_defaults_to_kind_comment_with_no_reply_fields(repo):
+    repo.record(target_username="alice", comment_text="joli", session_id=4)
+    row = repo.get_by_session(4)[0]
+    assert row["kind"] == "comment"
+    assert row["reply_to_username"] is None and row["reply_to_text"] is None
+
+
+def test_migration_adds_the_columns_to_an_existing_table():
+    """Every base that booted since posted_comments shipped already HAS the table, so the
+    new columns arrive by ALTER — and existing rows must read as plain comments."""
+    from taktik.core.database.local.migration_steps.posted_comments import (
+        run_posted_comments_migrations,
+    )
+
+    conn = sqlite3.connect(":memory:")
+    cur = conn.cursor()
+    cur.execute(
+        """CREATE TABLE posted_comments (
+             id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT NOT NULL DEFAULT 'instagram',
+             target_username TEXT NOT NULL, comment_text TEXT NOT NULL)"""
+    )
+    cur.execute("INSERT INTO posted_comments (target_username, comment_text) VALUES ('a','old')")
+
+    run_posted_comments_migrations(cur)
+    run_posted_comments_migrations(cur)  # idempotent
+
+    cols = {row[1] for row in cur.execute("PRAGMA table_info(posted_comments)")}
+    assert {"kind", "reply_to_username", "reply_to_text"} <= cols
+    assert cur.execute("SELECT kind FROM posted_comments").fetchone()[0] == "comment"
+
+
+def test_migration_is_a_noop_without_the_table():
+    from taktik.core.database.local.migration_steps.posted_comments import (
+        run_posted_comments_migrations,
+    )
+
+    conn = sqlite3.connect(":memory:")
+    run_posted_comments_migrations(conn.cursor())  # must not raise
+
+
 def test_template_comment_has_no_ai_metadata(repo):
     repo.record(target_username="bob", comment_text="Superbe", session_id=7, source="template")
     row = repo.get_by_session(7)[0]

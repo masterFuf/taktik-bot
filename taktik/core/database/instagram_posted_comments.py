@@ -36,12 +36,18 @@ class InstagramPostedComments:
         ai_metadata: Optional[Dict[str, Any]] = None,
         source: str = "template",
         posted_at: Optional[str] = None,
+        kind: str = "comment",
+        reply_to_username: Optional[str] = None,
+        reply_to_text: Optional[str] = None,
     ) -> Optional[int]:
         """Store one posted comment; returns its row id (or None).
 
         `ai_metadata` is what the AI hook knows and the action does not: which model wrote
         the comment, what the call cost, the model's own reasoning, the post caption/vision
         description and the language. Absent for template/custom comments.
+
+        `kind='reply'` is an answer to someone's comment under a post: `target_username` is
+        then the COMMENTER, and `reply_to_*` keeps whom we answered and what they wrote.
         """
         if not target_username or not comment_text:
             return None
@@ -66,6 +72,9 @@ class InstagramPostedComments:
                 ai_reasoning=meta.get("reasoning"),
                 language=meta.get("language"),
                 posted_at=posted_at,
+                kind=kind,
+                reply_to_username=reply_to_username,
+                reply_to_text=reply_to_text,
             )
         except Exception as exc:
             logger.warning(f"Could not record posted comment for @{target_username}: {exc}")

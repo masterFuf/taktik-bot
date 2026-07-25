@@ -34,8 +34,15 @@ class PostedCommentRepository(BaseRepository):
         ai_reasoning: Optional[str] = None,
         language: Optional[str] = None,
         posted_at: Optional[str] = None,
+        kind: str = 'comment',
+        reply_to_username: Optional[str] = None,
+        reply_to_text: Optional[str] = None,
     ) -> Optional[int]:
         """Store one posted comment. Returns the row id, or None on failure.
+
+        `kind='reply'` records an answer to someone's comment under a post: `target_username`
+        is then the COMMENTER we address, and `reply_to_*` keeps whom we answered and what
+        they had written.
 
         Never raises: a bookkeeping failure must not cost us a comment that is already
         live on the platform. `posted_at` takes the real moment of the gesture when the
@@ -46,14 +53,17 @@ class PostedCommentRepository(BaseRepository):
                 """INSERT INTO posted_comments
                    (platform, sync_id, account_id, session_id, target_username, post_author,
                     post_ref, post_url, post_caption, post_description, comment_text, source,
-                    ai_model, ai_cost_usd, ai_reasoning, language, posted_at, created_at)
+                    ai_model, ai_cost_usd, ai_reasoning, language, posted_at, created_at,
+                    kind, reply_to_username, reply_to_text)
                    VALUES (?, lower(hex(randomblob(16))), ?, ?, ?, ?,
                            ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, COALESCE(?, datetime('now')), datetime('now'))""",
+                           ?, ?, ?, ?, COALESCE(?, datetime('now')), datetime('now'),
+                           ?, ?, ?)""",
                 (
                     platform, account_id, session_id, target_username, post_author,
                     post_ref, post_url, post_caption, post_description, comment_text, source,
                     ai_model, ai_cost_usd, ai_reasoning, language, posted_at,
+                    kind or 'comment', reply_to_username, reply_to_text,
                 ),
             )
             return cursor.lastrowid
