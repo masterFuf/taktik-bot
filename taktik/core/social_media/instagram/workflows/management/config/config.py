@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from dataclasses import dataclass
 
+from loguru import logger
+
 
 _EXECUTION_CONFIG_KEYS = (
     'min_likes_per_profile',
@@ -186,8 +188,19 @@ class WorkflowConfigBuilder:
         if action.get('max_no_new_usernames_scrolls') is not None:
             config['max_no_new_usernames_scrolls'] = action.get('max_no_new_usernames_scrolls')
 
+        # Which population of the post to walk. This builder is a whitelist, so the key has to
+        # be copied explicitly or the UI choice never reaches the workflow.
+        source_mode = str(action.get('source_mode') or '').strip().lower()
+        if source_mode:
+            if source_mode not in ('likers', 'commenters'):
+                logger.warning(
+                    f"Unknown post_url source_mode '{source_mode}' — falling back to likers"
+                )
+                source_mode = 'likers'
+            config['source_mode'] = source_mode
+
         return config
-    
+
     @staticmethod
     def build_place_config(action: Dict[str, Any]) -> Dict[str, Any]:
         """Build config for place workflow"""

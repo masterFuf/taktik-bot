@@ -3,8 +3,23 @@
 All functions take `device` and `logger` as parameters — no class dependency.
 """
 
+import re
+from typing import Any, Dict, List
+
 from ...ui.selectors.shell.popups import POPUP_SELECTORS
-from ...ui.selectors.surfaces.post import POST_DETAIL_SELECTORS, POST_REELS_SELECTORS
+from ...ui.selectors.surfaces.post import (
+    POST_COMMENTS_SELECTORS,
+    POST_DETAIL_SELECTORS,
+    POST_REELS_SELECTORS,
+)
+
+# Labels that pass the username regex but are action buttons, not people.
+_COMMENTER_ACTION_TEXTS = frozenset({
+    'Reply', 'Hide', 'Like', 'Follow', 'Following', 'Remove',
+    'Post', 'Translate', 'Report', 'Signaler', 'Retirer',
+    'Répondre', 'Masquer', 'Suivre', 'Publier',
+})
+_COMMENTER_USERNAME_RE = re.compile(r'^[a-zA-Z0-9._]{1,30}$')
 
 
 def is_reel_post(device, logger=None) -> bool:
@@ -54,3 +69,34 @@ def is_comments_view_open(device, logger=None) -> bool:
         except Exception:
             continue
     return False
+
+
+def read_visible_commenters(device, logger=None) -> List[Dict[str, Any]]:
+    """Read the people visible in the comments thread, as {'username', 'element'} rows.
+
+    A commenter's username is an `android.widget.Button` whose @content-desc is EMPTY; the
+    action buttons around it (Reply / Like / See translation) carry their visible label as
+    @content-desc. That discriminator is the only thing separating the two, so it lives here
+    once — both the scraping loop and the interaction loop read commenters this way.
+    """
+    try:
+        buttons = device.xpath(POST_COMMENTS_SELECTORS.commenter_button_nodes_selector).all()
+    except Exception as exc:
+        if logger:
+            logger.debug(f"[commenters] xpath dump failed: {exc}")
+        return []
+
+    rows: List[Dict[str, Any]] = []
+    for elem in buttons:
+        try:
+            text = (elem.text or '').strip().lstrip('@')
+            if elem.attrib.get('content-desc', None) != '':
+                continue
+            if not text or not _COMMENTER_USERNAME_RE.match(text):
+                continue
+            if text in _COMMENTER_ACTION_TEXTS:
+                continue
+            rows.append({'username': text, 'element': elem})
+        except Exception:
+            continue
+    return rows

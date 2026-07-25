@@ -15,23 +15,15 @@ the two concrete strategies used today.
 
 from __future__ import annotations
 
-import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List
 
-from ..common.detection import is_likers_popup_open, is_comments_view_open
-from ...ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
-
-
-# Action-button labels that pass the username regex but are NOT usernames.
-# Used to filter commenter button candidates.
-_COMMENTER_ACTION_TEXTS = frozenset({
-    'Reply', 'Hide', 'Like', 'Follow', 'Following', 'Remove',
-    'Post', 'Translate', 'Report', 'Signaler', 'Retirer',
-    'Répondre', 'Masquer', 'Suivre', 'Publier',
-})
-_COMMENTER_USERNAME_RE = re.compile(r'^[a-zA-Z0-9._]{1,30}$')
+from ..common.detection import (
+    is_likers_popup_open,
+    is_comments_view_open,
+    read_visible_commenters,
+)
 
 
 @dataclass
@@ -124,30 +116,7 @@ def make_commenters_strategy(workflow) -> ListScrapingStrategy:
     scr = workflow.scroll_actions
 
     def _get_visible() -> List[Dict[str, Any]]:
-        try:
-            buttons = device.xpath(POST_COMMENTS_SELECTORS.commenter_button_nodes_selector).all()
-        except Exception as e:
-            logger.debug(f"[commenters] xpath dump failed: {e}")
-            return []
-
-        out: List[Dict[str, Any]] = []
-        for elem in buttons:
-            try:
-                text = (elem.text or '').strip().lstrip('@')
-                cd = elem.attrib.get('content-desc', None)
-                # Discriminator:
-                #   username buttons → content-desc == '' (empty string)
-                #   action buttons   → content-desc equals visible label
-                if cd != '':
-                    continue
-                if not text or not _COMMENTER_USERNAME_RE.match(text):
-                    continue
-                if text in _COMMENTER_ACTION_TEXTS:
-                    continue
-                out.append({'username': text, 'element': elem})
-            except Exception:
-                continue
-        return out
+        return read_visible_commenters(device, logger)
 
     def _is_on_list() -> bool:
         try:

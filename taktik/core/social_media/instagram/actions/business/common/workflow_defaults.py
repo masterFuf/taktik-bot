@@ -65,6 +65,9 @@ POST_URL_DEFAULTS: Dict[str, Any] = {
     **_INTERACTION_DEFAULTS,
     'like_percentage': 70,
     'min_likes_per_profile': 2,
+    # Which population of the post we walk: 'likers' (the bottom-sheet) or 'commenters'
+    # (the thread — people who took the time to write something, a stronger signal).
+    'source_mode': 'likers',
 }
 
 

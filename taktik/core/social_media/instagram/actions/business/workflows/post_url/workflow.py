@@ -7,6 +7,7 @@ import re
 import time
 
 from ..common.likers_base import LikersWorkflowBase
+from ..common.list_sources import resolve_list_source
 from ....core.stats import create_workflow_stats
 
 from .mixins.url_handling import PostUrlHandlingMixin
@@ -96,9 +97,21 @@ class PostUrlBusiness(
                     self.current_max_interactions = max_interactions
                     self.logger.info(f"✅ Adjusted max interactions to {max_interactions}")
             
-            # 2. Ouvrir la popup des likers
+            # 2. Ouvrir la source de profils choisie pour ce run.
+            # Un post rassemble DEUX populations : ceux qui l'ont liké, et ceux qui ont pris le
+            # temps d'écrire un commentaire (signal plus fort). Le reste de la boucle est
+            # identique — seule la liste d'où viennent les profils change.
+            source_mode = str(effective_config.get('source_mode') or 'likers').strip().lower()
+            if source_mode not in ('likers', 'commenters'):
+                self.logger.warning(f"Unknown source_mode '{source_mode}' — falling back to likers")
+                source_mode = 'likers'
             is_reel = post_metadata.get('is_reel', False)
-            if not self._open_likers_popup(is_reel):
+            if source_mode == 'commenters':
+                if not self._open_comments_view():
+                    self.logger.error("Failed to open the comments thread")
+                    stats['errors'] += 1
+                    return stats
+            elif not self._open_likers_popup(is_reel):
                 self.logger.error("Failed to open likers popup")
                 stats['errors'] += 1
                 return stats
@@ -107,10 +120,10 @@ class PostUrlBusiness(
             if self.session_manager:
                 self.session_manager.start_interaction_phase()
             
-            self.logger.info(f"🚀 Starting direct interactions in likers list (target: {max_interactions})")
-            
+            self.logger.info(f"🚀 Starting direct interactions in the {source_mode} list (target: {max_interactions})")
+
             effective_config['source'] = post_url
-            
+
             # Shared interaction loop (from LikersWorkflowBase)
             self._interact_with_likers_list(
                 stats=stats,
@@ -118,6 +131,7 @@ class PostUrlBusiness(
                 max_interactions=max_interactions,
                 source_type='POST_URL',
                 source_name=post_url,
+                list_source=resolve_list_source(self, source_mode),
             )
             
             stats['success'] = stats['users_interacted'] > 0

@@ -17,7 +17,10 @@ def unlike_post(a, p):
 
 @action("post.open_comments")
 def open_comments(a, p):
-    return a.click.click_comment_button()
+    # Mirror production exactly, like post.open_likers below: the bot opens the thread via
+    # the shared _open_comments_view flow (tap + empty-state guard + verifies the thread
+    # actually opened), not the bare click_comment_button atomic which prod never calls.
+    return a.popup._open_comments_view()
 
 
 @action("post.open_share")
@@ -37,6 +40,26 @@ def open_likers(a, p):
     # opened), not the bare click_likes_count atomic which prod never calls.
     is_reel = bool(p.get("is_reel")) if isinstance(p, dict) else False
     return a.popup._open_likers_popup(is_reel=is_reel)
+
+
+@action("post.read_commenters")
+def read_commenters(a, p):
+    """List the people visible in the open comments thread.
+
+    Same reader the scraping loop and the post-URL interaction loop use, so what the Lab
+    reports here is literally what a run would walk.
+    """
+    from taktik.core.social_media.instagram.workflows.common.detection import (
+        read_visible_commenters,
+    )
+
+    rows = read_visible_commenters(a.device, logger)
+    usernames = [row["username"] for row in rows]
+    return {
+        "success": bool(usernames),
+        "message": f"{len(usernames)} commenter(s): {', '.join(usernames[:10]) or 'none'}",
+        "details": {"count": len(usernames), "usernames": usernames},
+    }
 
 
 @action("post.is_liked")

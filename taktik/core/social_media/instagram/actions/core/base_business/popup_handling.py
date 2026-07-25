@@ -39,6 +39,48 @@ class PopupHandlingMixin:
         """Find the like count element on the current post (reel-aware)."""
         return self.ui_extractors.find_like_count_element(logger_instance=self.logger)
 
+    def _open_comments_view(self) -> bool:
+        """Open the comments thread of the current post.
+
+        Canonical production flow (workflows + Cartography Lab), the counterpart of
+        `_open_likers_popup`: tap the post's comment button, then confirm the thread is
+        actually showing. A post with no comments at all is closed again and reported as
+        not opened — there is nobody to engage there.
+        """
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
+            POST_COMMENTS_SELECTORS,
+        )
+
+        try:
+            opened = False
+            for selector in self.button_selectors.comment_button:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    element.click()
+                    time.sleep(2)
+                    opened = True
+                    break
+
+            if not opened:
+                self.logger.warning("⚠️ No comment button found on this post")
+                return False
+
+            if self.device.xpath(POST_COMMENTS_SELECTORS.comment_empty_state_view).exists:
+                self.logger.info("Post has no comments — nothing to engage with here")
+                self.device.press("back")
+                time.sleep(0.5)
+                return False
+
+            if not self._is_comments_view_open():
+                self.logger.warning("⚠️ Comment button tapped but the thread did not open")
+                return False
+
+            self.logger.info("💬 Comments thread opened")
+            return True
+        except Exception as exc:
+            self.logger.error(f"Error opening comments view: {exc}")
+            return False
+
     def _open_likers_popup(self, is_reel: bool = False) -> bool:
         """Open the likers popup of the current post.
 

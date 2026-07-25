@@ -18,6 +18,7 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from .revisit_policy import RevisitPolicy
+from .list_sources import InteractionListSource, make_likers_source
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -33,12 +34,13 @@ class LikersWorkflowBase(BaseBusinessAction):
         source_type: str,
         source_name: str,
         max_scroll_attempts: int = 50,
+        list_source: Optional[InteractionListSource] = None,
     ) -> None:
         """
-        Shared interaction loop for likers popup workflows.
+        Shared interaction loop for the people gathered around a post.
 
-        Iterates visible likers, clicks each one, visits profile, applies filters,
-        performs interactions, and returns to the likers list.
+        Iterates the visible rows, clicks each one, visits the profile, applies filters,
+        performs interactions, and returns to the list.
 
         Args:
             stats: Mutable stats dict (updated in place)
@@ -47,7 +49,11 @@ class LikersWorkflowBase(BaseBusinessAction):
             source_type: 'HASHTAG' or 'POST_URL' (for DB recording)
             source_name: e.g. '#travel' or 'https://instagram.com/p/...'
             max_scroll_attempts: Max scroll attempts before giving up
+            list_source: WHERE the rows come from — the likers sheet (default, historical
+                behaviour) or the comments thread. Only the row plumbing differs; everything
+                downstream of the click is identical.
         """
+        source = list_source or make_likers_source(self)
         processed_usernames: Set[str] = set()
         scroll_attempts = 0
         consecutive_empty = 0
@@ -81,28 +87,28 @@ class LikersWorkflowBase(BaseBusinessAction):
                     self.logger.warning(f"🛑 Session stopped: {stop_reason}")
                     break
 
-            # Get visible likers
-            visible_likers = self.detection_actions.get_visible_followers_with_elements()
+            # Get the visible rows (likers sheet or comments thread)
+            visible_likers = source.get_visible()
 
             if not visible_likers:
                 consecutive_empty += 1
-                popup_open = self._is_likers_popup_open()
+                popup_open = source.is_open()
                 # WRONG SCREEN: tapping a REEL's like count can drop us into the full-screen clips/
                 # Reels viewer instead of the likers list, and the popup then never opens no matter
                 # how much we scroll. Detect it (likers-popup indicators absent for a couple of
                 # cycles — tolerates a slow-loading popup) and LEAVE this post instead of scrolling
                 # into the void (a real run wasted ~40s / 50 scrolls stuck on a reel viewer).
                 if not popup_open and consecutive_empty >= 2:
-                    self.logger.warning("Likers popup not open after retries (wrong screen, e.g. reel/clips viewer) — leaving this post")
-                    self._exit_wrong_likers_screen()
+                    self.logger.warning(f"{source.label} list not open after retries (wrong screen, e.g. reel/clips viewer) — leaving this post")
+                    source.exit_wrong_screen()
                     break
-                # Popup IS open but shows no more likers after several scrolls → end of the list.
+                # List IS open but shows nothing more after several scrolls → end of the list.
                 if popup_open and consecutive_empty >= 4:
-                    self.logger.debug("No more likers after several scrolls — end of list")
+                    self.logger.debug(f"No more {source.label} after several scrolls — end of list")
                     break
-                self.logger.debug("No visible likers found on screen")
+                self.logger.debug(f"No visible {source.label} found on screen")
                 scroll_attempts += 1
-                self._scroll_likers_popup_up()
+                source.scroll()
                 self._human_like_delay('scroll')
                 continue
 
@@ -170,7 +176,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                 # (_process_profile_on_screen), qui reste la source de verite.
                 fc = effective_config.get('filter_criteria', effective_config.get('filters', {})) or {}
                 if fc.get('skip_follows_us') or fc.get('skip_already_following'):
-                    row_state = self.detection_actions.get_row_follow_state(username)
+                    row_state = source.row_follow_state(username)
                     rel_reason = None
                     if fc.get('skip_follows_us') and row_state == 'follow_back':
                         rel_reason = 'Already follows us'
@@ -192,7 +198,7 @@ class LikersWorkflowBase(BaseBusinessAction):
                     f"[{stats['users_interacted']}/{max_interactions}] 👆 Clicking on @{username}"
                 )
 
-                if not self.detection_actions.click_follower_in_list(username):
+                if not source.click(username, liker_data.get('element')):
                     self.logger.warning(f"Could not click on @{username}")
                     stats['errors'] += 1
                     _ledger(username, "error", "click_failed")
@@ -205,8 +211,8 @@ class LikersWorkflowBase(BaseBusinessAction):
                 if not self.detection_actions.wait_for_profile_screen(timeout=8.0):
                     self.logger.warning(f"Profile did not load after clicking @{username} (slow connection?)")
                     _ledger(username, "error", "profile_screen_missing")
-                    if not self._ensure_on_likers_popup():
-                        self.logger.error("Could not recover to likers popup, stopping")
+                    if not source.ensure_open():
+                        self.logger.error(f"Could not recover to the {source.label} list, stopping")
                         break
                     stats['errors'] += 1
                     continue
@@ -221,16 +227,16 @@ class LikersWorkflowBase(BaseBusinessAction):
                 if result.was_error:
                     stats['errors'] += 1
                     _ledger(username, "error", "processing_error")
-                    if not self._ensure_on_likers_popup(force_back=True):
-                        self.logger.error("Could not recover to likers popup, stopping")
+                    if not source.ensure_open(force_back=True):
+                        self.logger.error(f"Could not recover to the {source.label} list, stopping")
                         break
                     continue
 
                 if result.was_private:
                     stats['skipped'] += 1
                     _ledger(username, "skipped", "private")
-                    if not self._ensure_on_likers_popup(force_back=True):
-                        self.logger.error("Could not recover to likers popup, stopping")
+                    if not source.ensure_open(force_back=True):
+                        self.logger.error(f"Could not recover to the {source.label} list, stopping")
                         break
                     continue
 
@@ -238,8 +244,8 @@ class LikersWorkflowBase(BaseBusinessAction):
                     stats['profiles_filtered'] += 1
                     _ledger(username, "filtered", "filter_criteria",
                             filters=getattr(result, "filter_reasons", None))
-                    if not self._ensure_on_likers_popup(force_back=True):
-                        self.logger.error("Could not recover to likers popup, stopping")
+                    if not source.ensure_open(force_back=True):
+                        self.logger.error(f"Could not recover to the {source.label} list, stopping")
                         break
                     continue
 
@@ -264,8 +270,8 @@ class LikersWorkflowBase(BaseBusinessAction):
                     _ledger(username, "skipped", "no_interaction")
 
                 # Return to likers list
-                if not self._ensure_on_likers_popup(force_back=True):
-                    self.logger.error("Could not return to likers popup, stopping")
+                if not source.ensure_open(force_back=True):
+                    self.logger.error(f"Could not return to the {source.label} list, stopping")
                     break
 
                 # Check if target reached
@@ -280,7 +286,7 @@ class LikersWorkflowBase(BaseBusinessAction):
             # Scroll if no new likers found
             if not new_likers_found:
                 scroll_attempts += 1
-                self._scroll_likers_popup_up()
+                source.scroll()
                 self._human_like_delay('scroll')
             else:
                 scroll_attempts = 0
