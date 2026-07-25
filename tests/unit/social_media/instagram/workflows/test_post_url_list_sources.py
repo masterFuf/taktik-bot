@@ -25,11 +25,22 @@ class _FakeElement:
         self._clicked.append(self.text)
 
 
-def _workflow(buttons=None, comments_open=True):
-    """Minimal stand-in exposing only what the sources touch."""
+def _workflow(buttons=None, comments_open=True, scoped_buttons=None):
+    """Minimal stand-in exposing only what the sources touch.
+
+    `scoped_buttons` answers the comments-list-scoped query; `buttons` answers the
+    whole-screen fallback, so a test can tell the two paths apart.
+    """
+    def _xpath(selector):
+        scoped = selector.startswith('//*[@resource-id=')
+        rows = scoped_buttons if (scoped and scoped_buttons is not None) else (buttons or [])
+        if scoped and scoped_buttons is None:
+            rows = []  # container not resolvable -> falls back to the whole screen
+        return types.SimpleNamespace(all=lambda: list(rows), exists=comments_open)
+
     return types.SimpleNamespace(
         device=types.SimpleNamespace(
-            xpath=lambda _sel: types.SimpleNamespace(all=lambda: list(buttons or []), exists=comments_open),
+            xpath=_xpath,
             press=lambda _key: None,
         ),
         logger=types.SimpleNamespace(
@@ -104,6 +115,30 @@ def test_an_unreadable_screen_yields_no_rows_instead_of_raising():
     wf = _workflow()
     wf.device.xpath = lambda _sel: (_ for _ in ()).throw(RuntimeError("dump failed"))
     assert make_commenters_source(wf).get_visible() == []
+
+
+def test_the_post_cards_own_counters_are_never_read_as_people():
+    """Taken from a real dump (2026-02-08): under the comments sheet, the post card still
+    exposes its like/comment/share counters as Buttons with an EMPTY content-desc and
+    numeric text — shaped exactly like a username node. Scoping to the comments list
+    removes them, and the count-shaped filter removes them again if scoping fails."""
+    real_commenters = [
+        _FakeElement("dianeou38", ""),
+        _FakeElement("taktik_r2d2", ""),
+        _FakeElement("maryonlnd", ""),
+    ]
+    post_counters = [_FakeElement(t, "") for t in ("18.5K", "428", "4", "97", "1,204")]
+
+    scoped = _workflow(buttons=real_commenters + post_counters, scoped_buttons=real_commenters)
+    assert [r["username"] for r in make_commenters_source(scoped).get_visible()] == [
+        "dianeou38", "taktik_r2d2", "maryonlnd",
+    ]
+
+    # Container not resolvable -> whole-screen fallback, counters still rejected.
+    unscoped = _workflow(buttons=real_commenters + post_counters)
+    assert [r["username"] for r in make_commenters_source(unscoped).get_visible()] == [
+        "dianeou38", "taktik_r2d2", "maryonlnd",
+    ]
 
 
 # ── Clicking ────────────────────────────────────────────────────────────────

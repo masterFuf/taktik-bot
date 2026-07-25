@@ -66,6 +66,17 @@ class PostCommentsSelectors:
         default_factory=lambda: list(POST_SELECTORS.comment_username_selectors)
     )
     commenter_button_nodes_selector: str = POST_SELECTORS.all_button_nodes_selector
+
+    @property
+    def commenter_button_nodes_in_list_selector(self) -> str:
+        """Commenter buttons, scoped to the comments list itself.
+
+        The unscoped variant sweeps the WHOLE screen, so it also returns the post card's own
+        counter buttons sitting under the sheet ("18.5K", "428", "4") — empty content-desc,
+        numeric text, indistinguishable from a username by attributes alone. Scoping to the
+        comments RecyclerView removes them structurally instead of by guesswork.
+        """
+        return f"{self.comments_list_selector()}{self.commenter_button_nodes_selector}"
     comments_view_indicators: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.comments_view_indicators)
     )
