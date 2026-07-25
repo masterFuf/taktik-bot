@@ -46,10 +46,15 @@ def send_instagram_profile_classification(username: str, classification: dict, r
     listens for it and upserts the niche/profession/gender/age into profile_ai_enrichments (the
     canonical, Turso-synced qualification store, front-owned). Without this, a profile classified
     during a target-IA automation was paid for but never saved — no niche in the DB, and the
-    interaction re-analysed it on the next pass (double cost)."""
+    interaction re-analysed it on the next pass (double cost).
+
+    persist_only marks this as a persistence re-emit: the AIService already emitted the
+    countable ai_profile_done for this analysis, so the desktop's counter must skip this one
+    (it used to double ai_profiles_analyzed)."""
     _ipc.ai_profile_analyzed(
         username, result, duration_ms=duration_ms, model=model, provider=provider,
         cost_usd=cost_usd, classification=classification, screenshot=screenshot,
+        persist_only=True,
     )
 
 

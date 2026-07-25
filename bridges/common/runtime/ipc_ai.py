@@ -24,8 +24,12 @@ class AIIpcMixin:
     def ai_profile_analyzed(self, username: str, result: str, duration_ms: int = 0,
                             model: str = None, provider: str = None, cost_usd: float = None,
                             event_id: str = None, classification: dict = None,
-                            screenshot: str = None) -> None:
-        """Signal that AI profile classification is done."""
+                            screenshot: str = None, persist_only: bool = False) -> None:
+        """Signal that AI profile classification is done.
+
+        `persist_only=True` marks a re-emit whose sole purpose is making the desktop persist
+        the qualification (interaction path). The desktop's ai_profiles_analyzed counter must
+        skip those, otherwise every profile is counted twice."""
         data = dict(username=username, target_username=username, result=result,
                     duration_ms=duration_ms, model=model, provider=provider,
                     workflow_type="automation")
@@ -37,6 +41,8 @@ class AIIpcMixin:
             data["classification"] = classification
         if screenshot is not None:
             data["screenshot"] = screenshot
+        if persist_only:
+            data["persist_only"] = True
         self.send("ai_profile_done", **data)
 
     def ai_screenshot_analyzing(self, username: str = None, prompt: str = None, model: str = None,

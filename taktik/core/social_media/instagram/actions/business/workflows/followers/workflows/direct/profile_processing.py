@@ -72,9 +72,10 @@ class DirectProfileProcessingMixin:
             stats['errors'] += 1
             return False
         
-        # Profile successfully visited
-        stats['visited'] += 1
-        self.stats_manager.increment('profiles_visited')
+        # Profile screen loaded. The VISIT counters are incremented after the filter branches
+        # below, so the live panel and the persisted stats share one semantic ("profiles
+        # actually processed") — counting here made the hub show +56% vs the final card
+        # (opened-but-filtered profiles were live-counted but never DB-recorded).
         # profile_visit IPC is emitted centrally in _process_profile_on_screen.
         tracker.log_profile_visit(username, idx, already_in_db=False)
         
@@ -107,7 +108,12 @@ class DirectProfileProcessingMixin:
             if not self._ensure_on_followers_list(target_username, force_back=True):
                 return None  # Critical
             return False
-        
+
+        # Profile passed the filters — THIS is a visit in the persisted sense (the DB records
+        # PROFILE_VISIT for processed profiles only, probability-skipped included).
+        stats['visited'] += 1
+        self.stats_manager.increment('profiles_visited')
+
         # --- Interaction happened or skipped by probability ---
         # Action counters (likes/follows/stories/story likes/comments) are NOT added here:
         # the interaction engine now moves them as each gesture lands, so the desktop live
@@ -122,6 +128,11 @@ class DirectProfileProcessingMixin:
                 stats['stories_viewed'] += result.stories
             if result.stories_liked > 0:
                 stats['story_likes'] += result.stories_liked
+            if result.comments > 0:
+                # No alias key exists for comments (unlike liked/followed): increment the
+                # canonical key directly. This was the only action missing from the local
+                # tally, which is why every end-of-run summary showed comments_made=0.
+                stats['comments_made'] += result.comments
 
 
             stats['interacted'] += 1
