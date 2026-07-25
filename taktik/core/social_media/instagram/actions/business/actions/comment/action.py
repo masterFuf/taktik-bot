@@ -106,9 +106,11 @@ class CommentAction(BaseBusinessAction):
                 self.logger.error(f"Failed to increment comment session counter: {e}")
                 stats['errors'] += 1
             
-            # Record comment in database
+            # Record comment in database, WITH the text we actually posted: the desktop
+            # session drill-down reads interactions.content, so this is what turns a generic
+            # "Action COMMENT sur profil @x" row into the real comment.
             if username:
-                self._record_action(username, 'COMMENT', 1)
+                self._record_action(username, 'COMMENT', 1, content=comment_text)
             
             return stats
             

@@ -51,6 +51,7 @@ class InstagramWorkflowStateService:
         account_id: Optional[int] = None,
         session_id: Optional[int] = None,
         timestamps: Optional[list] = None,
+        content: Optional[str] = None,
     ) -> bool:
         if not account_id:
             log.warning(
@@ -70,14 +71,18 @@ class InstagramWorkflowStateService:
 
         try:
             db = InstagramWorkflowStateService._db()
+            # The REAL payload when the caller has one (the comment we actually posted), so the
+            # desktop drill-down shows the comment instead of a generic "Action COMMENT sur
+            # profil @x" placeholder. Falls back to that placeholder for actions with no
+            # content of their own (like, follow, story…).
+            row_content = content or f"Action {action_type} sur profil @{username}"
             for interaction_time in rows:
-                content = f"Action {action_type} sur profil @{username}"
                 success = db.record_interaction(
                     account_id=account_id,
                     username=username,
                     interaction_type=action_type,
                     success=True,
-                    content=content,
+                    content=row_content,
                     session_id=session_id,
                     interaction_time=interaction_time,
                 )

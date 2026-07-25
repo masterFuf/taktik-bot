@@ -20,7 +20,8 @@ class StatsRecordingMixin:
         return InstagramWorkflowStateService.utc_timestamp()
 
     def _record_action(self, username: str, action_type: str, count: int = 1,
-                       timestamps: Optional[List[str]] = None) -> bool:
+                       timestamps: Optional[List[str]] = None,
+                       content: Optional[str] = None) -> bool:
         """
         Record an action in the database and emit IPC event for WorkflowAnalyzer.
         Centralized method to avoid code duplication across business actions.
@@ -31,6 +32,9 @@ class StatsRecordingMixin:
             count: Number of actions to record
             timestamps: Real per-gesture times (from _action_timestamp) for batched calls;
                 omit for count=1 calls made at the moment of the action
+            content: The action's real payload when it has one — the posted comment text. Stored
+                in interactions.content, which the desktop session drill-down displays; without
+                it every row falls back to a generic "Action <TYPE> sur profil @x" label.
 
         Returns:
             True if recording succeeded, False otherwise
@@ -49,7 +53,8 @@ class StatsRecordingMixin:
                 count=count,
                 account_id=account_id,
                 session_id=session_id,
-                timestamps=timestamps
+                timestamps=timestamps,
+                content=content,
             )
             self.logger.debug(f"✅ {count} {action_type} action(s) recorded for @{username}")
 
