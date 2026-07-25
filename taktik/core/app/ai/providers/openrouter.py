@@ -1432,7 +1432,10 @@ Write a short, authentic comment that reacts to the post the way a REAL person s
 - No hashtags
 - Write casually and spontaneously: a quick reaction (a few words to one short line), conversational — never stiff or formal
 - Do NOT end with a period or other formal end punctuation — real social-media comments almost never end with a full stop
-- Use emojis naturally: MOST real comments include 1-2 (occasionally none) — but never emoji-only
+- Emoji: 0 to 2, and each must genuinely FIT this specific post — pick the emoji a real person would actually use for THIS exact image/message, or none at all. VARY it from post to post: never fall back to one default go-to emoji regardless of content (the sparkle is the classic overused reflex). Never emoji-only
+- Vary your opening. Do NOT start with formulaic fillers like "C'est tellement vrai", "Tellement vrai", "Super" or "Bravo". Jump straight into a real reaction
+- React to the SPECIFIC point of the post — the exact offer, contest, question, result or detail — not just the general vibe
+- Naming the author: only OCCASIONALLY, and only when it genuinely fits — most comments should NOT name anyone. Never make it a reflex on every comment
 - Sound genuinely interested, not generic
 - Match the energy/tone of the post
 - If the author's caption is provided, react to what THEY said (their announcement, question or joke), not only the visual
