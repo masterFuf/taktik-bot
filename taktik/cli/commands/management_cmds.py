@@ -685,8 +685,8 @@ def dm_send(device_id, to, message):
     """📤 Envoyer un DM à un utilisateur."""
     from taktik.core.social_media.instagram.workflows.management import DMOutreachWorkflow, DMOutreachConfig
     from taktik.core.shared.device.manager import DeviceManager
-    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
     import uiautomator2 as u2
     
     console.print(Panel.fit("[bold green]📤 Envoi d'un DM Instagram[/bold green]"))
@@ -768,8 +768,8 @@ def post_single(device_id, image, caption, location, hashtags):
     """Poster une photo unique sur Instagram."""
     from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
     from taktik.core.shared.device.manager import DeviceManager
-    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
     import uiautomator2 as u2
     
     console.print(Panel.fit("[bold green]📸 Publication d'un post Instagram[/bold green]"))
@@ -844,8 +844,8 @@ def post_bulk(device_id, images, captions, delay):
     """Poster plusieurs photos successivement."""
     from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
     from taktik.core.shared.device.manager import DeviceManager
-    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
     import uiautomator2 as u2
     
     console.print(Panel.fit("[bold green]📸 Publication multiple de posts Instagram[/bold green]"))
@@ -918,8 +918,8 @@ def post_story(device_id, image):
     """Poster une story sur Instagram."""
     from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
     from taktik.core.shared.device.manager import DeviceManager
-    from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-    from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
     import uiautomator2 as u2
     
     console.print(Panel.fit("[bold green]📱 Publication d'une story Instagram[/bold green]"))

@@ -305,8 +305,8 @@ def cli(ctx, lang=None):
                     elif mgmt_choice == 2:
                         # Post Content interactif
                         from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-                        from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-                        from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+                        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+                        from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
                         import uiautomator2 as u2
                         
                         console.print("\n[bold green]📸 Post Content[/bold green]")
@@ -363,8 +363,8 @@ def cli(ctx, lang=None):
                     elif mgmt_choice == 3:
                         # Post Story interactif
                         from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-                        from taktik.core.social_media.instagram.actions.atomic.navigation_actions import NavigationActions
-                        from taktik.core.social_media.instagram.actions.atomic.detection_actions import DetectionActions
+                        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+                        from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
                         import uiautomator2 as u2
                         
                         console.print("\n[bold green]📱 Post Story[/bold green]")
