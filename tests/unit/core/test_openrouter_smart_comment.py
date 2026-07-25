@@ -13,6 +13,10 @@ def _service(monkeypatch, model_text):
     svc = object.__new__(AIService)
     svc.ipc = None
     svc.text_model = "test/model"
+    # Comment generation routes to the GENERATION model explicitly (two-fixed-models design),
+    # so the stub must carry it too — __init__ is bypassed here.
+    svc.model_generation = "test/model-generation"
+    svc.model_analysis = "test/model"
     svc.niche_taxonomy = {}
     monkeypatch.setattr(
         svc, "text_completion",

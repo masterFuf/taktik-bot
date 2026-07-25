@@ -392,6 +392,16 @@ class InteractionEngineMixin:
             self.logger.info(f"✅ Followed @{username}")
             self._count_live('follows')
             self._record_action(username, 'FOLLOW', 1)
+            # Feed the SESSION counter too (like/comment already do): should_continue gates
+            # total_follows_limit on session counters, and this was the only action path that
+            # never incremented it — the per-session follow cap was structurally unenforced
+            # (runs showed follows=0/7 while 4 real follows had landed).
+            try:
+                session = getattr(self, 'session_manager', None)
+                if session:
+                    session.record_action('follow_user', success=True, source=username)
+            except Exception as exc:
+                self.logger.debug(f"Follow session counter increment failed: {exc}")
             self._emit_follow_event(username, profile_data)
             emit_step("follow", action="button", target=username)
             self._handle_follow_suggestions_popup()
