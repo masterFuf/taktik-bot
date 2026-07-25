@@ -11,6 +11,7 @@ from lxml import etree
 from taktik.core.social_media.instagram.workflows.common.comments_thread import (
     center,
     find_comment_like_target,
+    find_comment_reply_target,
     parse_bounds,
 )
 
@@ -50,6 +51,7 @@ REAL_THREAD = """
     <node class="android.view.ViewGroup" bounds="[84,559][492,641]" content-desc="maryonlnd ">
       <node class="android.widget.Button" bounds="[98,559][189,584]" content-desc="" text="maryonlnd"/>
     </node>
+    <node class="android.widget.Button" bounds="[98,641][170,670]" content-desc="Reply" text="Reply"/>
     <node class="android.widget.Button" bounds="[492,547][576,637]"
           content-desc="3 likes. Double tap to like comment and press and hold to see all likes"/>
   </node>
@@ -153,3 +155,38 @@ def test_the_post_cards_counters_are_not_mistaken_for_a_row():
     """"18.5K" and "428" are Buttons with an empty content-desc, exactly like a username."""
     for fake in ("18.5K", "428"):
         assert find_comment_like_target(_root(), fake, EN_LIKE, EN_UNLIKE) is None
+
+
+# ── Reply affordance ────────────────────────────────────────────────────────
+
+REPLY_LABELS = ["reply", "répondre"]
+
+
+def test_each_reply_button_belongs_to_its_own_comment():
+    """Three rows, three Reply buttons a few dozen pixels apart. Reply sits BELOW its
+    username (unlike the heart, which spans the row), so the pairing follows reading order
+    — and it must not drift by one row: answering under the wrong comment is not
+    recoverable."""
+    assert find_comment_reply_target(_root(), "dianeou38", REPLY_LABELS) == (98, 255, 170, 302)
+    assert find_comment_reply_target(_root(), "taktik_r2d2", REPLY_LABELS) == (145, 500, 217, 547)
+    assert find_comment_reply_target(_root(), "maryonlnd", REPLY_LABELS) == (98, 641, 170, 670)
+
+
+def test_a_row_whose_reply_button_is_missing_yields_nothing():
+    stripped = REAL_THREAD.replace(
+        '<node class="android.widget.Button" bounds="[98,255][170,302]" content-desc="Reply" text="Reply"/>', "",
+    )
+    assert find_comment_reply_target(_root(stripped), "dianeou38", REPLY_LABELS) is None
+
+
+def test_the_reply_label_is_matched_case_insensitively_in_either_attribute():
+    french = REAL_THREAD.replace('content-desc="Reply" text="Reply"', 'content-desc="Répondre" text=""')
+    assert find_comment_reply_target(_root(french), "dianeou38", REPLY_LABELS) is not None
+
+
+def test_an_unknown_commenter_has_no_reply_target():
+    assert find_comment_reply_target(_root(), "nobody_here", REPLY_LABELS) is None
+
+
+def test_no_labels_means_no_blind_tap():
+    assert find_comment_reply_target(_root(), "dianeou38", []) is None

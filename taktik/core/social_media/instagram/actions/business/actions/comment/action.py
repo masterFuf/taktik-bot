@@ -480,12 +480,141 @@ class CommentAction(BaseBusinessAction):
             result['message'] = str(exc)
             return result
 
-    def _find_comment_like_control(self, username: str) -> Optional[Dict[str, Any]]:
-        """The like control of ``username``'s comment row, with its liked state."""
-        from lxml import etree
+    def reply_to_comment_in_thread(self, username: str, reply_text: str,
+                                   reply_to_text: str = '', config: dict = None,
+                                   ai_metadata: Optional[Dict[str, Any]] = None,
+                                   max_scrolls: int = 6) -> Dict[str, Any]:
+        """Answer ``username``'s comment, inside the thread, as a threaded reply.
+
+        Tapping the row's own Reply affordance is what makes the answer land UNDER that
+        comment instead of at the bottom of the post: Instagram prefills the composer with
+        "@username ", and that mention is the thread link. The typing helper falls back to
+        `set_text`, which REPLACES the field — so the mention is verified after typing and
+        restored if it was wiped, otherwise the reply would silently become an ordinary
+        top-level comment addressed to nobody.
+        """
+        config = {**self.default_config, **(config or {})}
+        result = {'success': False, 'username': username, 'comment_id': None, 'message': ''}
+        handle = (username or '').strip().lstrip('@')
+        text = (reply_text or '').strip()
+        if not handle or not text:
+            result['message'] = 'A username and a reply text are both required'
+            return result
+
+        try:
+            if not self._is_comments_view_open():
+                result['message'] = 'Comments thread is not open'
+                return result
+
+            bounds = self._find_comment_reply_control(handle)
+            for _ in range(max_scrolls):
+                if bounds:
+                    break
+                self.scroll_actions.scroll_down()
+                time.sleep(0.6)
+                bounds = self._find_comment_reply_control(handle)
+
+            if not bounds:
+                result['message'] = f'No comment from @{handle} found in the thread'
+                return result
+
+            if not self.device.human_tap(bounds):
+                result['message'] = f'Could not tap Reply on @{handle}'
+                return result
+            self._human_like_delay('click')
+            time.sleep(1.0)
+
+            if not self._type_comment(text):
+                result['message'] = 'Could not type the reply'
+                return result
+
+            self._ensure_reply_mention(handle, text)
+
+            if not self._post_comment():
+                result['message'] = 'Could not send the reply'
+                return result
+
+            self.logger.success(f"Replied to @{handle}")
+            time.sleep(random.uniform(*config['comment_delay_range']))
+            self._close_comment_popup()
+
+            if self.session_manager:
+                try:
+                    # A reply IS a published text: it consumes the comment budget, because
+                    # Instagram sees the same surface and the same spam signals.
+                    self.session_manager.record_action('comment_posts', success=True)
+                except Exception:
+                    pass
+
+            self._record_action(handle, 'COMMENT', 1, content=text)
+            result['comment_id'] = InstagramPostedComments.record(
+                target_username=handle,
+                comment_text=text,
+                account_id=self._get_account_id(),
+                session_id=self._get_session_id(),
+                ai_metadata=ai_metadata,
+                source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'custom'),
+                kind='reply',
+                reply_to_username=handle,
+                reply_to_text=reply_to_text or None,
+            )
+            result['success'] = True
+            result['message'] = f'Replied to @{handle}'
+            return result
+
+        except Exception as exc:
+            self.logger.error(f"Error replying to @{handle}: {exc}")
+            result['message'] = str(exc)
+            return result
+
+    def _ensure_reply_mention(self, username: str, text: str) -> None:
+        """Put the "@username " mention back if the typing fallback wiped it.
+
+        Best-effort by design: when the composer cannot be read we leave the field as the
+        typing helper left it rather than risk overwriting a correct reply.
+        """
+        mention = f'@{username}'
+        field = None
+        for selector in getattr(self.post_selectors, 'comment_field_selectors',
+                                [self.post_selectors.comment_field_selector]):
+            try:
+                candidate = self.device.xpath(selector)
+                if candidate.exists:
+                    field = candidate
+                    break
+            except Exception:
+                continue
+        if field is None:
+            return
+
+        try:
+            current = field.get_text() or ''
+        except Exception:
+            return
+
+        if mention.lower() in current.lower():
+            return
+
+        self.logger.warning(f"Reply mention to @{username} was lost while typing — restoring it")
+        try:
+            field.set_text(f'{mention} {text}')
+        except Exception as exc:
+            self.logger.debug(f"Could not restore the reply mention: {exc}")
+
+    def _find_comment_reply_control(self, username: str):
+        """Bounds of the Reply affordance on ``username``'s comment row."""
         from taktik.core.social_media.instagram.workflows.common.comments_thread import (
-            find_comment_like_target,
+            find_comment_reply_target,
         )
+
+        root = self._dump_comments_root()
+        if root is None:
+            return None
+        return find_comment_reply_target(root, username, list(self.post_selectors.reply_button_labels))
+
+    def _dump_comments_root(self):
+        """The current hierarchy parsed to an XML root, or None."""
+        from lxml import etree
 
         try:
             xml = self.device.dump_hierarchy()
@@ -495,9 +624,19 @@ class CommentAction(BaseBusinessAction):
         if not xml:
             return None
         try:
-            root = etree.fromstring(xml.encode('utf-8') if isinstance(xml, str) else xml)
+            return etree.fromstring(xml.encode('utf-8') if isinstance(xml, str) else xml)
         except Exception as exc:
             self.logger.debug(f"XML parse failed: {exc}")
+            return None
+
+    def _find_comment_like_control(self, username: str) -> Optional[Dict[str, Any]]:
+        """The like control of ``username``'s comment row, with its liked state."""
+        from taktik.core.social_media.instagram.workflows.common.comments_thread import (
+            find_comment_like_target,
+        )
+
+        root = self._dump_comments_root()
+        if root is None:
             return None
 
         return find_comment_like_target(

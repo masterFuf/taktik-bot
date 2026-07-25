@@ -44,6 +44,19 @@ def _matches_any(value: str, tokens: List[str]) -> bool:
     return any(token.lower() in low for token in tokens if token)
 
 
+def _username_center_y(root, target: str) -> Optional[int]:
+    """Vertical centre of `target`'s username button — the anchor every row control pairs to."""
+    for node in root.iter("node"):
+        if (node.get("content-desc") or "") != "":
+            continue
+        if (node.get("text") or "").strip().lstrip("@").lower() != target:
+            continue
+        box = parse_bounds(node.get("bounds", ""))
+        if box:
+            return (box[1] + box[3]) // 2
+    return None
+
+
 def find_comment_like_target(
     root,
     username: str,
@@ -68,16 +81,7 @@ def find_comment_like_target(
     if not target:
         return None
 
-    username_center_y: Optional[int] = None
-    for node in root.iter("node"):
-        if (node.get("content-desc") or "") != "":
-            continue
-        if (node.get("text") or "").strip().lower().lstrip("@") != target:
-            continue
-        box = parse_bounds(node.get("bounds", ""))
-        if box:
-            username_center_y = (box[1] + box[3]) // 2
-            break
+    username_center_y = _username_center_y(root, target)
     if username_center_y is None:
         return None
 
@@ -96,8 +100,73 @@ def find_comment_like_target(
     return None
 
 
+def find_comment_reply_target(
+    root,
+    username: str,
+    reply_labels: List[str],
+) -> Optional[Tuple[int, int, int, int]]:
+    """The bounds of the Reply affordance on `username`'s comment row, or None.
+
+    Paired by READING ORDER, not by containment like the heart: the heart spans the whole
+    row so the username falls inside it, but Reply sits BELOW the username, in the text
+    column. So the right button is the first reply-labelled node between our author and the
+    NEXT author on screen — a few dozen pixels separate it from the following row's own
+    Reply, and answering under the wrong comment is not recoverable.
+
+    Matched on the button's text OR its content-desc, since Instagram fills both.
+    """
+    target = (username or "").strip().lstrip("@").lower()
+    if not target:
+        return None
+
+    wanted = {label.strip().lower() for label in reply_labels if label and label.strip()}
+    if not wanted:
+        return None
+
+    anchors = _username_anchors(root)
+    own_center = next((c for handle, c, _ in anchors if handle == target), None)
+    if own_center is None:
+        return None
+    # Everything below the next author belongs to the next comment.
+    next_top = next((top for _, c, top in anchors if c > own_center), None)
+
+    best: Optional[Tuple[int, Tuple[int, int, int, int]]] = None
+    for node in root.iter("node"):
+        label = (node.get("text") or "").strip().lower() or (node.get("content-desc") or "").strip().lower()
+        if label not in wanted:
+            continue
+        box = parse_bounds(node.get("bounds", ""))
+        if not box:
+            continue
+        node_center = (box[1] + box[3]) // 2
+        if node_center <= own_center:
+            continue
+        if next_top is not None and node_center >= next_top:
+            continue
+        if best is None or node_center < best[0]:
+            best = (node_center, box)
+    return best[1] if best else None
+
+
+def _username_anchors(root) -> List[Tuple[str, int, int]]:
+    """Every username button on screen as ``(handle, vertical_centre, top)``, top to bottom."""
+    anchors: List[Tuple[str, int, int]] = []
+    for node in root.iter("node"):
+        if (node.get("content-desc") or "") != "":
+            continue
+        handle = (node.get("text") or "").strip().lstrip("@").lower()
+        if not handle:
+            continue
+        box = parse_bounds(node.get("bounds", ""))
+        if box:
+            anchors.append((handle, (box[1] + box[3]) // 2, box[1]))
+    anchors.sort(key=lambda item: item[1])
+    return anchors
+
+
 __all__ = [
     "parse_bounds",
     "center",
     "find_comment_like_target",
+    "find_comment_reply_target",
 ]

@@ -64,3 +64,56 @@ def like_comment_in_thread(a, p):
         "message": result.get("message", ""),
         "details": result,
     }
+
+
+@action("comment.read_thread")
+def read_thread(a, p):
+    """Read the comments visible in the open thread, WITH their text.
+
+    Instagram renders comment bodies with Litho, so they are absent from the accessibility
+    hierarchy; this exercises the production two-source reader (XML says who is on screen,
+    `dumpsys activity top` says what they wrote).
+    """
+    from taktik.core.social_media.instagram.workflows.common.comment_reading import (
+        read_visible_comments,
+    )
+
+    comments = read_visible_comments(a.device)
+    preview = "; ".join(f"@{c['username']}: {c['text'][:40]}" for c in comments[:5])
+    return {
+        "success": bool(comments),
+        "message": f"{len(comments)} comment(s) — {preview or 'none readable'}",
+        "details": {"count": len(comments), "comments": comments},
+    }
+
+
+@action("comment.reply_in_thread")
+def reply_in_thread(a, p):
+    """Reply to a given commenter inside the open thread — the production function.
+
+    Publishes a real reply on the device, so both a ``username`` and a ``text`` are
+    required; without them the action reports who is answerable instead of guessing.
+    """
+    params = p if isinstance(p, dict) else {}
+    username = (params.get("username") or "").strip()
+    text = (params.get("text") or "").strip()
+    if not username or not text:
+        from taktik.core.social_media.instagram.workflows.common.detection import (
+            read_visible_commenters,
+        )
+
+        visible = [row["username"] for row in read_visible_commenters(a.device, logger)]
+        return {
+            "success": False,
+            "message": f"username and text required — visible: {', '.join(visible[:10]) or 'none'}",
+            "details": {"visible": visible},
+        }
+
+    result = a.comment.reply_to_comment_in_thread(
+        username, text, reply_to_text=(params.get("reply_to_text") or ""),
+    )
+    return {
+        "success": bool(result.get("success")),
+        "message": result.get("message", ""),
+        "details": result,
+    }

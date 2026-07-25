@@ -6,10 +6,12 @@ import traceback
 
 from bridges.instagram.engagement.runtime.smart_comment.events import emit_comment_scraped
 from bridges.instagram.engagement.runtime.smart_comment.models import ScrapedComment
-from bridges.instagram.engagement.runtime.smart_comment.parsing import parse_litho_comments
-from bridges.instagram.engagement.runtime.smart_comment.visible_usernames import extract_visible_comment_usernames
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.shared.device.adb import run_adb_shell_process
+from taktik.core.social_media.instagram.workflows.common.comment_reading import (
+    extract_visible_comment_usernames,
+    parse_litho_comments,
+)
 
 
 class SmartCommentCommentExtractionMixin:
