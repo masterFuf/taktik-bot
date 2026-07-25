@@ -119,6 +119,15 @@ def _build_action_config(
         # How the interaction budget is split across several sources (targets, hashtags,
         # post URLs): balanced (default) / sequential / interleaved.
         "distribution": normalize_distribution(raw_config.get("distribution")),
+        # Post URL — which population of the post to walk, and whether to act inside its
+        # comment thread. This builder is a whitelist, so an unnamed key never reaches the
+        # workflow; `None` here means "not specified", and the workflow keeps its default.
+        "source_mode": raw_config.get("source_mode"),
+        "like_comments": raw_config.get("like_comments"),
+        "reply_to_comments": raw_config.get("reply_to_comments"),
+        "max_comment_likes": raw_config.get("max_comment_likes"),
+        "max_comment_replies": raw_config.get("max_comment_replies"),
+        "walk_profiles": raw_config.get("walk_profiles"),
         "interaction_type": interaction_type,
         "max_interactions": max_profiles,
         "like_posts": True,
