@@ -4,7 +4,6 @@ from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.workfl
     run_instagram_dm,
     run_instagram_publish,
     run_instagram_scraping,
-    run_instagram_smart_comment,
 )
 
 
@@ -12,5 +11,4 @@ __all__ = [
     "run_instagram_dm",
     "run_instagram_publish",
     "run_instagram_scraping",
-    "run_instagram_smart_comment",
 ]

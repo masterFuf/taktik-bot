@@ -61,7 +61,6 @@ EXPECTED_FILES = (
     "workflow_test/platforms/instagram/workflows/dm.py",
     "workflow_test/platforms/instagram/workflows/publish.py",
     "workflow_test/platforms/instagram/workflows/scraping.py",
-    "workflow_test/platforms/instagram/workflows/smart_comment.py",
     "workflow_test/platforms/tiktok/dispatcher.py",
     "workflow_test/platforms/tiktok/runners.py",
     "workflow_test/platforms/tiktok/workflows/automation.py",

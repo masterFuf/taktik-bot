@@ -25,7 +25,6 @@ NEEDS_TARGET = (
     "scrape_hashtag",
     "scrape_post_url",
     "scrape_e_story",
-    "smart_comment",
 )
 
 INSTAGRAM_AUTOMATION_WF = (

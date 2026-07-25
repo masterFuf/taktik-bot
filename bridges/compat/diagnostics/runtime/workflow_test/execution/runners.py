@@ -4,7 +4,6 @@ from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.runner
     run_instagram_dm,
     run_instagram_publish,
     run_instagram_scraping,
-    run_instagram_smart_comment,
 )
 from bridges.compat.diagnostics.runtime.workflow_test.platforms.tiktok.runners import (
     run_tiktok_automation,
@@ -19,7 +18,6 @@ __all__ = [
     "run_instagram_dm",
     "run_instagram_publish",
     "run_instagram_scraping",
-    "run_instagram_smart_comment",
     "run_tiktok_automation",
     "run_tiktok_dm",
     "run_tiktok_publish",

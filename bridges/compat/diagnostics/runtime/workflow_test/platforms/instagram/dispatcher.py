@@ -18,7 +18,6 @@ from bridges.compat.diagnostics.runtime.workflow_test.execution.runners import (
     run_instagram_dm,
     run_instagram_publish,
     run_instagram_scraping,
-    run_instagram_smart_comment,
 )
 
 
@@ -70,12 +69,6 @@ def dispatch_instagram_workflow(
     if workflow_type in INSTAGRAM_DM_WF:
         tracer.begin_step(f"dm:{workflow_type}")
         result.success = run_instagram_dm(conn, device, ipc, workflow_type, limits, delays)
-        tracer.end_step(success=result.success)
-        return result
-
-    if workflow_type == "smart_comment":
-        tracer.begin_step("smart_comment")
-        result.success = run_instagram_smart_comment(conn, device, ipc, target, limits, delays)
         tracer.end_step(success=result.success)
         return result
 
