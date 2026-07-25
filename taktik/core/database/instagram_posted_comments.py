@@ -10,28 +10,13 @@ bookkeeping failure must never surface as a workflow error.
 
 from __future__ import annotations
 
-import hashlib
 from typing import Any, Dict, Optional
 
 from loguru import logger
 
-
-def build_post_ref(post_author: Optional[str], post_caption: Optional[str]) -> Optional[str]:
-    """A cheap, stable-ish identity for the post we commented on.
-
-    Free (no extra UI gesture, unlike the shareable link): the author plus a short hash of
-    the caption. Two comments left on the SAME post therefore carry the same ref, which is
-    what makes it useful for grouping. Falls back to the author alone when the post has no
-    caption — weaker, but still better than nothing.
-    """
-    author = (post_author or "").strip().lstrip("@").lower()
-    caption = (post_caption or "").strip()
-    if not author and not caption:
-        return None
-    if not caption:
-        return author or None
-    digest = hashlib.sha1(caption.encode("utf-8", "ignore")).hexdigest()[:12]
-    return f"{author}:{digest}" if author else digest
+# Post identity is shared with the analysis cache — single owner, re-exported here for the
+# callers that already imported it from this module.
+from taktik.core.database.instagram_post_identity import build_post_ref
 
 
 class InstagramPostedComments:

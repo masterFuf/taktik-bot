@@ -3,6 +3,7 @@
 from .account import AccountRepository
 from .profile import ProfileRepository
 from .interaction import InteractionRepository
+from .post_analysis import PostAnalysisRepository
 from .posted_comment import PostedCommentRepository
 from .session import SessionRepository
 from .scraping import ScrapedProfileRepository
@@ -13,6 +14,7 @@ __all__ = [
     'AccountRepository',
     'ProfileRepository',
     'InteractionRepository',
+    'PostAnalysisRepository',
     'PostedCommentRepository',
     'SessionRepository',
     'ScrapedProfileRepository',

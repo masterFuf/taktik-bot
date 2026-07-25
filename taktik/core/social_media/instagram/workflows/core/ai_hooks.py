@@ -6,6 +6,7 @@ from typing import Any, Callable, Mapping
 
 from loguru import logger
 
+from taktik.core.database.instagram_post_analysis import InstagramPostAnalysis
 from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.shared.text import detect_text_language
 from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
@@ -248,22 +249,46 @@ def install_instagram_ai_hooks(
                     # Autonomous mode always analyzes the exact framed post before
                     # publishing, even when the optional broad postAnalysis toggle is off.
                     if ai_config.get("postAnalysis", False) or decision_mode:
-                        # Feed the author's caption too: it's the reliable language signal (the post
-                        # screenshot often carries stylised/English design text while the post is FR).
-                        analysis = ai.analyze_post(
-                            screenshot_path=screenshot_path,
-                            username=username,
-                            response_language=language,
-                            post_caption=post_caption,
-                        )
-                        if analysis.get("success"):
-                            post_desc = analysis["description"]
-                            post_language = analysis.get("post_language")
-                        else:
+                        # Reuse a vision analysis already paid for on THIS post — by any account.
+                        # What a post shows is a FACT, independent of who is looking at it, so a
+                        # post crossed by several accounts of the fleet is analysed once instead
+                        # of once per account. Only the facts are reused; the per-account verdict
+                        # is still decided below. Mirrors _load_cached_qualification for profiles.
+                        cached_post = InstagramPostAnalysis.load(username, post_caption)
+                        if cached_post:
+                            post_desc = cached_post.get("description") or ""
+                            post_language = cached_post.get("post_language")
+                            InstagramPostAnalysis.mark_reused(username, post_caption)
                             log(
-                                "warning",
-                                f"Post analysis failed for @{username}: {analysis.get('error')}",
+                                "info",
+                                f"@{username}: analyse du post déjà en base — réutilisée "
+                                f"(pas de nouvel appel vision)",
                             )
+                        else:
+                            # Feed the author's caption too: it's the reliable language signal (the post
+                            # screenshot often carries stylised/English design text while the post is FR).
+                            analysis = ai.analyze_post(
+                                screenshot_path=screenshot_path,
+                                username=username,
+                                response_language=language,
+                                post_caption=post_caption,
+                            )
+                            if analysis.get("success"):
+                                post_desc = analysis["description"]
+                                post_language = analysis.get("post_language")
+                                InstagramPostAnalysis.store(
+                                    post_author=username,
+                                    post_caption=post_caption,
+                                    description=post_desc,
+                                    post_language=post_language,
+                                    ai_model=analysis.get("model"),
+                                    ai_cost_usd=analysis.get("cost_usd"),
+                                )
+                            else:
+                                log(
+                                    "warning",
+                                    f"Post analysis failed for @{username}: {analysis.get('error')}",
+                                )
 
                     if not post_desc and not post_caption:
                         reason = "no vision description or caption"

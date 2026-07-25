@@ -17,6 +17,7 @@ from ..repositories import (
     AccountRepository,
     ProfileRepository,
     InteractionRepository,
+    PostAnalysisRepository,
     PostedCommentRepository,
     SessionRepository,
     ScrapedProfileRepository,
@@ -71,6 +72,7 @@ class LocalDatabaseService:
         self._profiles: Optional[ProfileRepository] = None
         self._interactions: Optional[InteractionRepository] = None
         self._posted_comments: Optional[PostedCommentRepository] = None
+        self._post_analysis: Optional[PostAnalysisRepository] = None
         self._sessions: Optional[SessionRepository] = None
         self._scraped_profiles: Optional[ScrapedProfileRepository] = None
         self._social_graph: Optional[SocialGraphRepository] = None
@@ -137,6 +139,7 @@ class LocalDatabaseService:
         self._profiles = ProfileRepository(conn, orm)
         self._interactions = InteractionRepository(conn, orm)
         self._posted_comments = PostedCommentRepository(conn, orm)
+        self._post_analysis = PostAnalysisRepository(conn, orm)
         self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn, orm)
         self._social_graph = SocialGraphRepository(conn, orm)
@@ -171,6 +174,13 @@ class LocalDatabaseService:
         if not self._posted_comments:
             self._init_repositories()
         return self._posted_comments
+
+    @property
+    def post_analysis(self) -> PostAnalysisRepository:
+        """Access PostAnalysisRepository for the reusable facts of a post's AI analysis."""
+        if not self._post_analysis:
+            self._init_repositories()
+        return self._post_analysis
 
     @property
     def sessions(self) -> SessionRepository:
