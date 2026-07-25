@@ -86,6 +86,22 @@ def story_count_highlights(a, p):
     }
 
 
+@action("story.count_in_viewer")
+def story_count_in_viewer(a, p):
+    """Read "position / total" from the OPEN story viewer, through the production detector.
+
+    Different from story.count_highlights, which counts the always-available bubbles on a
+    profile. This one answers "how far into this person's stories am I", which is what the
+    viewer loop needs to know when to stop.
+    """
+    current, total = a.detection.get_story_count_from_viewer()
+    return {
+        "success": total > 0,
+        "message": f"story {current}/{total}" if total else "compteur illisible",
+        "details": {"current": current, "total": total},
+    }
+
+
 @action("story.open_highlight")
 def story_open_highlight(a, p):
     """Open a 'à la une' highlight by horizontal index (0 = first visible)."""
