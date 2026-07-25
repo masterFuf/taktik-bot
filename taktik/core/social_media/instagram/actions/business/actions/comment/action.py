@@ -20,7 +20,12 @@ class CommentAction(BaseBusinessAction):
         self.default_config = {
             'comment_delay_range': (3, 7),
             'max_comment_length': 150,
-            'min_comment_length': 3
+            'min_comment_length': 3,
+            # Capture the shareable link of the post we just commented on. Costs a share-sheet
+            # round trip (open share -> "Copy link" -> read -> close), which is why it runs
+            # AFTER the comment is safely posted and recorded, and never fails the action.
+            # Set False to keep comments strictly gesture-minimal.
+            'capture_post_url': True,
         }
         
         # Mutable copy so add_custom_template works at runtime
@@ -119,7 +124,7 @@ class CommentAction(BaseBusinessAction):
             #    it cost, why. A comment is the only gesture with real content of its own.
             if username:
                 self._record_action(username, 'COMMENT', 1, content=comment_text)
-                stats['comment_id'] = InstagramPostedComments.record(
+                comment_id = InstagramPostedComments.record(
                     target_username=username,
                     comment_text=comment_text,
                     account_id=self._get_account_id(),
@@ -127,6 +132,9 @@ class CommentAction(BaseBusinessAction):
                     ai_metadata=ai_metadata,
                     source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'template'),
                 )
+                stats['comment_id'] = comment_id
+                if comment_id and config.get('capture_post_url', True):
+                    self._attach_post_url(comment_id)
 
             return stats
             
@@ -134,7 +142,29 @@ class CommentAction(BaseBusinessAction):
             self.logger.error(f"Error commenting on post: {e}")
             stats['errors'] += 1
             return stats
-    
+
+    def _attach_post_url(self, comment_id: int) -> None:
+        """Best-effort: capture the post's shareable link and complete the stored comment.
+
+        Runs only AFTER the comment is posted and recorded, so the comment is never at risk.
+        It reuses the production `get_post_url_from_share` (already used by post scraping),
+        which opens the share sheet, reads the link and closes the sheet itself. Deliberately
+        synchronous: it TAPS the screen, so it must not run in a background thread alongside
+        the main one. Any failure is swallowed — we simply keep the row without a link.
+        """
+        try:
+            from taktik.core.social_media.instagram.workflows.common.post_navigation import (
+                get_post_url_from_share,
+            )
+            url = get_post_url_from_share(self.device, self.logger)
+            if url:
+                InstagramPostedComments.attach_post_url(comment_id, url)
+                self.logger.debug(f"Post URL captured for comment {comment_id}: {url}")
+            else:
+                self.logger.debug("Post URL not captured (share sheet unavailable) — comment kept")
+        except Exception as exc:
+            self.logger.debug(f"Post URL capture skipped ({exc}) — comment kept")
+
     def _is_comment_composer_open(self) -> bool:
         """Whether the comment composer/edit field is already on screen.
 
