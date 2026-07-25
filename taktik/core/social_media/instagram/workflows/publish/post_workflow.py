@@ -217,20 +217,27 @@ class InstagramPostWorkflow:
     def _select_carousel(self, count: int) -> bool:
         """Enable multi-select and select exactly the first `count` gallery thumbnails.
 
-        Two device-confirmed gotchas (Cartography Lab):
+        Three device-confirmed gotchas (Cartography Lab):
           1. Enabling multi-select auto-selects the *previewed* thumbnail, which is NOT
              always grid #1 — a stale preview from a previous session can be selected at
              an arbitrary grid position. Relying on the grid index then mixes the wrong
              media into the carousel and makes the preview jump between files.
           2. Re-tapping a selected thumbnail DESELECTS it.
-        So we first clear any auto/stale selection, then tap grid[1..count] on a clean
+          3. Instagram numbers the carousel in TAP ORDER, not in grid order, and the grid
+             is date-sorted DESCENDING — so grid #1 is the media pushed LAST. Tapping
+             1, 2, 3 therefore published the slides backwards (device report 2026-07-26:
+             slide-03, slide-02, slide-01). We walk the positions from `count` down to 1,
+             which taps the oldest of the freshly pushed media first and restores the
+             caller's order.
+        So we first clear any auto/stale selection, then tap grid[count..1] on a clean
         slate. The grid is date-sorted descending, so positions 1..count are the freshest
         media (= the ones just pushed). Finally we verify the live selected count."""
         self._tap(CC.multi_select_xpaths(), timeout=4)
         time.sleep(0.6)
 
         self._clear_gallery_selection()
-        for i in range(1, count + 1):
+        # Reversed on purpose — see gotcha 3. `media_paths[0]` must be slide 1 of the carousel.
+        for i in range(count, 0, -1):
             if self._tap(CC.gallery_item_xpath(i), timeout=4):
                 time.sleep(0.4)
             else:
