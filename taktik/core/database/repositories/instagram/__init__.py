@@ -3,6 +3,7 @@
 from .account import AccountRepository
 from .profile import ProfileRepository
 from .interaction import InteractionRepository
+from .posted_comment import PostedCommentRepository
 from .session import SessionRepository
 from .scraping import ScrapedProfileRepository
 from .social_graph import SocialGraphRepository
@@ -12,6 +13,7 @@ __all__ = [
     'AccountRepository',
     'ProfileRepository',
     'InteractionRepository',
+    'PostedCommentRepository',
     'SessionRepository',
     'ScrapedProfileRepository',
     'SocialGraphRepository',

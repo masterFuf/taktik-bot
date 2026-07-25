@@ -13,6 +13,10 @@ from .schemas.enrichment import create_enrichment_tables, create_enrichment_inde
 from .schemas.instagram import create_instagram_tables, create_instagram_indexes
 from .schemas.messaging import create_messaging_tables, create_messaging_indexes
 from .schemas.notifications import create_notifications_tables, create_notifications_indexes
+from .schemas.posted_comments import (
+    create_posted_comments_tables,
+    create_posted_comments_indexes,
+)
 from .schemas.scraping import create_scraping_tables, create_scraping_indexes
 from .schemas.social_graph import create_social_graph_tables
 from .schemas.tiktok import create_tiktok_tables, create_tiktok_indexes
@@ -36,5 +40,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_messaging_indexes(cursor)
     create_notifications_tables(cursor)
     create_notifications_indexes(cursor)
+    create_posted_comments_tables(cursor)
+    create_posted_comments_indexes(cursor)
 
     conn.commit()

@@ -6,6 +6,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
+from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
 
@@ -26,7 +27,11 @@ class CommentAction(BaseBusinessAction):
         self.comment_templates = {k: list(v) for k, v in DEFAULT_TEMPLATES.items()}
     
     def comment_on_post(self, comment_text: str = None, template_category: str = 'generic',
-                       custom_comments: List[str] = None, config: dict = None, username: str = None) -> dict:
+                       custom_comments: List[str] = None, config: dict = None, username: str = None,
+                       ai_metadata: Optional[Dict[str, Any]] = None) -> dict:
+        """Post a comment. `ai_metadata` carries what only the AI hook knows (model, cost,
+        reasoning, post caption/description, language) so the stored record of the comment
+        is complete; it stays None for template/custom comments."""
         config = {**self.default_config, **(config or {})}
         
         stats = {
@@ -106,12 +111,23 @@ class CommentAction(BaseBusinessAction):
                 self.logger.error(f"Failed to increment comment session counter: {e}")
                 stats['errors'] += 1
             
-            # Record comment in database, WITH the text we actually posted: the desktop
-            # session drill-down reads interactions.content, so this is what turns a generic
-            # "Action COMMENT sur profil @x" row into the real comment.
+            # Two writes, on purpose:
+            #  - interactions: the ACTION LEDGER row (counters, quotas, Turso sync all read
+            #    it). Carries the text too, so the session drill-down shows it even for a
+            #    row with no rich record beside it.
+            #  - posted_comments: the RICH record — which post, which model wrote it, what
+            #    it cost, why. A comment is the only gesture with real content of its own.
             if username:
                 self._record_action(username, 'COMMENT', 1, content=comment_text)
-            
+                stats['comment_id'] = InstagramPostedComments.record(
+                    target_username=username,
+                    comment_text=comment_text,
+                    account_id=self._get_account_id(),
+                    session_id=self._get_session_id(),
+                    ai_metadata=ai_metadata,
+                    source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'template'),
+                )
+
             return stats
             
         except Exception as e:

@@ -17,6 +17,7 @@ from ..repositories import (
     AccountRepository,
     ProfileRepository,
     InteractionRepository,
+    PostedCommentRepository,
     SessionRepository,
     ScrapedProfileRepository,
     SocialGraphRepository,
@@ -69,6 +70,7 @@ class LocalDatabaseService:
         self._accounts: Optional[AccountRepository] = None
         self._profiles: Optional[ProfileRepository] = None
         self._interactions: Optional[InteractionRepository] = None
+        self._posted_comments: Optional[PostedCommentRepository] = None
         self._sessions: Optional[SessionRepository] = None
         self._scraped_profiles: Optional[ScrapedProfileRepository] = None
         self._social_graph: Optional[SocialGraphRepository] = None
@@ -134,6 +136,7 @@ class LocalDatabaseService:
         self._accounts = AccountRepository(conn, orm)
         self._profiles = ProfileRepository(conn, orm)
         self._interactions = InteractionRepository(conn, orm)
+        self._posted_comments = PostedCommentRepository(conn, orm)
         self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn, orm)
         self._social_graph = SocialGraphRepository(conn, orm)
@@ -162,6 +165,13 @@ class LocalDatabaseService:
             self._init_repositories()
         return self._interactions
     
+    @property
+    def posted_comments(self) -> PostedCommentRepository:
+        """Access PostedCommentRepository for the comments we leave on other people's posts."""
+        if not self._posted_comments:
+            self._init_repositories()
+        return self._posted_comments
+
     @property
     def sessions(self) -> SessionRepository:
         """Access SessionRepository for sessions operations."""

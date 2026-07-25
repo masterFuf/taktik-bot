@@ -373,6 +373,19 @@ def install_instagram_ai_hooks(
                             custom_comments=None,
                             config=config,
                             username=username,
+                            # Everything only this hook knows about how the comment was
+                            # produced, so the stored record answers "which post, which
+                            # model, what did it cost, why this comment" later on.
+                            ai_metadata={
+                                "source": "ai",
+                                "model": result.get("model"),
+                                "cost_usd": result.get("cost_usd"),
+                                "reasoning": result.get("reasoning"),
+                                "post_caption": post_caption,
+                                "post_description": post_desc,
+                                "post_author": username,
+                                "language": comment_lang,
+                            },
                         )
 
                     log("warning", "AI comment generation failed, falling back to default")
