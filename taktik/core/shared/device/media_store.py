@@ -158,6 +158,82 @@ def push_media(
     return remote_path
 
 
+def parse_pushed_timestamp(filename: str, file_prefix: str = DEFAULT_FILE_PREFIX) -> Optional[float]:
+    """Epoch seconds encoded in a name written by `push_media`, or None if it is not ours.
+
+    The name carries its own timestamp (`TAKTIK_20260726_011540.png`), so age is read from the
+    name rather than from the device clock or the file mtime — both of which drift, and the mtime
+    is deliberately rewritten by `trigger_media_scan` to sort the file to the top of Recents.
+    """
+    stem = os.path.splitext(filename)[0]
+    prefix = f'{file_prefix}_'
+    if not stem.startswith(prefix):
+        return None
+    try:
+        return time.mktime(time.strptime(stem[len(prefix):], '%Y%m%d_%H%M%S'))
+    except (ValueError, OverflowError):
+        return None
+
+
+def purge_pushed_media(
+    device_id: str,
+    remote_dir: str = DEFAULT_REMOTE_DIR,
+    file_prefix: str = DEFAULT_FILE_PREFIX,
+    max_age_hours: float = 6.0,
+    log: Optional[Callable[[str, str], None]] = None,
+) -> int:
+    """Delete media this bot pushed earlier, and forget them in MediaStore. Returns the count.
+
+    Publishing copies a file into the device gallery and never removes it, so a phone automated
+    for months accumulates every medium it ever posted until storage runs out.
+
+    Deleting at the END of a publish would be the obvious place and is the wrong one: Instagram
+    uploads in the background after the composer closes, so the file may still be read. This runs
+    at the START of a run instead and only touches files older than `max_age_hours`, which cannot
+    belong to a publish still in flight.
+
+    Only files matching the prefix AND carrying a parsable timestamp are removed — never a bare
+    wildcard sweep of the camera folder, which is the user's own.
+    """
+    def _log(level: str, msg: str):
+        if log is not None:
+            try:
+                log(level, msg)
+                return
+            except Exception:
+                pass
+        getattr(logger, level if hasattr(logger, level) else 'debug')(msg)
+
+    code, out, _ = _adb_shell(device_id, 'ls', '-1', remote_dir)
+    if code != 0 or not out:
+        return 0
+
+    cutoff = time.time() - max_age_hours * 3600
+    removed = 0
+    for name in (line.strip() for line in out.splitlines()):
+        if not name:
+            continue
+        pushed_at = parse_pushed_timestamp(name, file_prefix)
+        if pushed_at is None or pushed_at > cutoff:
+            continue
+
+        remote_path = f'{remote_dir.rstrip("/")}/{name}'
+        rm_code, _, _ = _adb_shell(device_id, 'rm', '-f', remote_path)
+        if rm_code != 0:
+            continue
+
+        # Drop the MediaStore row too: deleting the file alone leaves a ghost thumbnail in the
+        # gallery, and the picker would offer a medium that no longer exists.
+        normalized = remote_path.replace('/sdcard/', '/storage/emulated/0/')
+        for uri in ('content://media/external/images/media', 'content://media/external/video/media'):
+            _adb_shell(device_id, 'content', 'delete', '--uri', uri, '--where', f'_data=\'{normalized}\'')
+        removed += 1
+
+    if removed:
+        _log('info', f'[media_store] purged {removed} previously pushed media older than {max_age_hours:g}h')
+    return removed
+
+
 def trigger_media_scan(
     device_id: str,
     remote_path: str,

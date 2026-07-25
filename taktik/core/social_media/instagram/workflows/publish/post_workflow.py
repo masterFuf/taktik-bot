@@ -32,6 +32,7 @@ from loguru import logger
 
 from taktik.core.clone import get_active_package
 from taktik.core.shared.device.media_store import (
+    purge_pushed_media,
     push_media,
     scan_wait_for,
     trigger_media_scan,
@@ -171,6 +172,15 @@ class InstagramPostWorkflow:
     # ------------------------------------------------------------------
 
     def _push_all(self, media_paths: List[str]) -> bool:
+        # Reclaim what earlier runs left behind before adding more. Done here, at the start,
+        # rather than after publishing: Instagram keeps uploading in the background once the
+        # composer closes, so a file deleted at the end may still be in use. Only media this bot
+        # pushed more than a few hours ago is touched.
+        try:
+            purge_pushed_media(self.device_id, log=self._log)
+        except Exception as e:
+            self._log("warning", f"Media purge skipped: {e}")
+
         for path in media_paths:
             self._status("uploading", f"Pushing media: {os.path.basename(path)}")
             remote_path = push_media(self.device_id, path)
