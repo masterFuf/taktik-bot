@@ -8,6 +8,7 @@ import time
 
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
+from .in_thread import engage_thread
 from ....core.stats import create_workflow_stats
 
 from .mixins.url_handling import PostUrlHandlingMixin
@@ -106,6 +107,26 @@ class PostUrlBusiness(
                 self.logger.warning(f"Unknown source_mode '{source_mode}' — falling back to likers")
                 source_mode = 'likers'
             is_reel = post_metadata.get('is_reel', False)
+            effective_config['source'] = post_url
+            effective_config.setdefault('post_author', post_metadata.get('author_username'))
+
+            # In-thread engagement — likes and replies ON the comments, without leaving the
+            # post. It runs FIRST and on its own: it needs the thread open, whereas walking
+            # likers needs the bottom sheet, and the two cannot be open at once.
+            in_thread_requested = bool(effective_config.get('like_comments')) or \
+                bool(effective_config.get('reply_to_comments'))
+            if in_thread_requested:
+                if self._open_comments_view():
+                    engage_thread(self, effective_config, stats, self._resolve_reply_writer())
+                    self._close_comments_view()
+                else:
+                    self.logger.warning("In-thread engagement skipped: no comments thread on this post")
+
+            # Then the profile-discovery family, unless the run only asked for in-thread work.
+            if not effective_config.get('walk_profiles', True):
+                stats['success'] = True
+                return self._final_stats(stats)
+
             if source_mode == 'commenters':
                 if not self._open_comments_view():
                     self.logger.error("Failed to open the comments thread")
@@ -121,8 +142,6 @@ class PostUrlBusiness(
                 self.session_manager.start_interaction_phase()
             
             self.logger.info(f"🚀 Starting direct interactions in the {source_mode} list (target: {max_interactions})")
-
-            effective_config['source'] = post_url
 
             # Shared interaction loop (from LikersWorkflowBase)
             self._interact_with_likers_list(
@@ -148,7 +167,13 @@ class PostUrlBusiness(
             self.logger.error(f"General error in Post URL workflow: {e}")
             stats['errors'] += 1
             self.stats_manager.add_error(f"General error: {e}")
+        return self._final_stats(stats)
+
+    def _final_stats(self, stats: Dict[str, Any]) -> Dict[str, Any]:
+        """The run's result, from the stats manager (the source of truth for gestures)."""
         real_stats = self.stats_manager.to_dict()
+        comment_likes = stats.get('comment_likes', 0)
+        replies = stats.get('comment_replies', 0)
         return {
             'post_url': stats.get('post_url', ''),
             'users_found': stats.get('users_found', 0),
@@ -157,9 +182,24 @@ class PostUrlBusiness(
             'follows_made': real_stats.get('follows', 0),
             'comments_made': real_stats.get('comments', 0),
             'stories_watched': real_stats.get('stories_watched', 0),
+            'comment_likes': comment_likes,
+            'comment_replies': replies,
             'skipped': stats.get('skipped', 0),
             'errors': real_stats.get('errors', 0),
-            'success': real_stats.get('profiles_visited', 0) > 0,
+            # An in-thread-only run visits nobody, so profiles alone cannot define success.
+            'success': (real_stats.get('profiles_visited', 0) + comment_likes + replies) > 0,
             # Session-level stop, surfaced for the multi-URL driver (see finalize above).
             'stop_reason': stats.get('stop_reason', ''),
         }
+
+    def _resolve_reply_writer(self):
+        """The callable that decides and writes an in-thread reply, or None.
+
+        The AI hooks attach it when the run has replies enabled and an AI service; without
+        it the in-thread mode still likes comments and publishes nothing, rather than
+        inventing text of its own.
+        """
+        writer = getattr(self, 'in_thread_reply_writer', None)
+        if writer is None:
+            self.logger.info("In-thread replies requested but no AI writer attached — liking only")
+        return writer

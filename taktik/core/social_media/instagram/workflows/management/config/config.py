@@ -199,6 +199,18 @@ class WorkflowConfigBuilder:
                 source_mode = 'likers'
             config['source_mode'] = source_mode
 
+        # In-thread engagement: act ON the comments instead of on the people behind them.
+        # Same whitelist rule — an unlisted key never reaches the workflow.
+        for key in ('like_comments', 'reply_to_comments'):
+            if action.get(key) is not None:
+                config[key] = bool(action.get(key))
+        for key in ('max_comment_likes', 'max_comment_replies'):
+            if action.get(key) is not None:
+                config[key] = int(action.get(key) or 0)
+        # A run may ask for in-thread work ONLY, without walking any profile.
+        if action.get('walk_profiles') is not None:
+            config['walk_profiles'] = bool(action.get('walk_profiles'))
+
         return config
 
     @staticmethod
