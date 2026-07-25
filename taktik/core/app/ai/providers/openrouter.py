@@ -18,6 +18,7 @@ import time
 import base64
 import json
 import os
+import re
 from typing import Optional, Dict, Any
 from loguru import logger
 
@@ -154,8 +155,12 @@ class AIService:
     # ------------------------------------------------------------------
 
     def _call_openrouter(self, model: str, messages: list, temperature: float = 0.7,
-                         max_tokens: int = 2000) -> Dict[str, Any]:
-        """Call OpenRouter chat completions API. Returns dict with success, text, usage, cost."""
+                         max_tokens: int = 2000, label: str = "") -> Dict[str, Any]:
+        """Call OpenRouter chat completions API. Returns dict with success, text, usage, cost.
+
+        `label` names the calling operation (classify / comment / post…) for the one-line
+        cost log emitted on success — without it a finished run gave no way to tell which
+        model actually served a call, nor what each call cost."""
         import urllib.request
         import urllib.error
 
@@ -238,10 +243,28 @@ class AIService:
         if bounded.error is not None:
             logger.error(f"[AIService] OpenRouter worker error: {bounded.error}")
             return {"success": False, "error": str(bounded.error)}
-        return bounded.value or {
-            "success": False,
-            "error": "OpenRouter request ended without a response",
-        }
+        result = bounded.value
+        if not result:
+            return {
+                "success": False,
+                "error": "OpenRouter request ended without a response",
+            }
+        if result.get("success"):
+            # Single audit line per LLM call: which model ACTUALLY served it (the API may
+            # route elsewhere than the requested slug), how many tokens, and what it cost.
+            # Previously both were captured and silently dropped, so a post-hoc audit of a
+            # finished run could not answer "which model ran?" or "where did the cost go?".
+            usage = result.get("usage") or {}
+            cost = result.get("cost_usd")
+            cost_txt = f"${cost:.6f}" if isinstance(cost, (int, float)) else "n/a"
+            served = result.get("model") or model
+            routed = "" if served == model else f" (requested {model})"
+            logger.info(
+                f"[AIService] {label or 'call'} · model={served}{routed} · "
+                f"tokens={usage.get('prompt_tokens', '?')}+{usage.get('completion_tokens', '?')} · "
+                f"cost={cost_txt}"
+            )
+        return result
 
     def _image_to_base64_url(self, image_path: str) -> Optional[str]:
         """Convert an image file to a data URL for vision models."""
@@ -339,14 +362,15 @@ class AIService:
 
     def text_completion(self, system_prompt: str, user_prompt: str,
                         temperature: float = 0.7, max_tokens: int = 2000,
-                        model: str = None) -> Dict[str, Any]:
+                        model: str = None, label: str = "text") -> Dict[str, Any]:
         """Simple text completion. Defaults to the analysis model; generation callers pass
         `model=self.model_generation` explicitly."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return self._call_openrouter(model or self.model_analysis, messages, temperature, max_tokens)
+        return self._call_openrouter(model or self.model_analysis, messages, temperature,
+                                     max_tokens, label=label)
 
     def classify_following_usernames_batch(
         self,
@@ -402,7 +426,7 @@ class AIService:
             if niche_val not in known_sub_niches and niche_val != "Other":
                 logger.info(f"[AIService] Proposed new sub-niche '{niche_val}' for @{username}")
             results[username] = {
-                "niche_category": str(data.get("niche_category") or "other"),
+                "niche_category": self._canonicalize_niche_category(data.get("niche_category")),
                 "niche": niche_val,
                 "gender": str(data.get("gender") or "unknown"),
             }
@@ -412,7 +436,9 @@ class AIService:
             user_prompt = "Classify these Instagram usernames:\n" + "\n".join(f"- {u}" for u in batch)
             text = ""
             try:
-                result = self.text_completion(system_prompt, user_prompt, temperature=0.1, max_tokens=max_tokens)
+                result = self.text_completion(system_prompt, user_prompt, temperature=0.1,
+                                              max_tokens=max_tokens,
+                                              label=f"classify_following_batch ({len(batch)})")
                 if not result.get("success"):
                     logger.warning(f"[AIService] classify_following_usernames_batch failed: {result.get('error')}")
                     continue
@@ -439,7 +465,8 @@ class AIService:
     # ------------------------------------------------------------------
 
     def vision_completion(self, system_prompt: str, user_prompt: str, image_path: str,
-                          temperature: float = 0.3, max_tokens: int = 1500) -> Dict[str, Any]:
+                          temperature: float = 0.3, max_tokens: int = 1500,
+                          label: str = "vision") -> Dict[str, Any]:
         """Vision completion — sends an image + prompt to the vision model."""
         # Downscaled + JPEG (see _image_for_vision): device screenshots are huge PNGs and
         # the image dominates each vision call's token cost. Never sends more than the raw.
@@ -454,7 +481,8 @@ class AIService:
                 {"type": "text", "text": user_prompt},
             ]},
         ]
-        return self._call_openrouter(self.vision_model, messages, temperature, max_tokens)
+        return self._call_openrouter(self.vision_model, messages, temperature, max_tokens,
+                                     label=label)
 
     def vision_json_completion(self, system_prompt: str, user_prompt: str, image_path: str,
                                temperature: float = 0.3, max_tokens: int = 1500,
@@ -472,7 +500,8 @@ class AIService:
         last: Dict[str, Any] = {}
         for attempt in (1, 2):
             last = self.vision_completion(system_prompt, user_prompt, image_path,
-                                          temperature=temperature, max_tokens=max_tokens)
+                                          temperature=temperature, max_tokens=max_tokens,
+                                          label=label)
             if not last.get("success"):
                 return last  # transport/HTTP failure: retrying here would just double the wait
 
@@ -544,6 +573,127 @@ class AIService:
         "art_design", "finance", "health_family", "home_interior", "events_services",
         "community_causes", "other",
     ]
+
+    # Free-text drift the model actually produces, mapped back onto the canonical buckets.
+    # Built from real runs (626/627, 2026-07-24): the model returned `fashion_and_beauty`,
+    # `personal_blog`, `spam`, and four spellings of arts_* despite the prompt listing the keys.
+    _NICHE_CATEGORY_SYNONYMS = {
+        # entertainment / culture cluster
+        "arts_and_entertainment": "music_entertainment",
+        "arts_entertainment": "music_entertainment",
+        "entertainment": "music_entertainment",
+        "arts_and_culture": "music_entertainment",
+        "music": "music_entertainment",
+        "cinema": "music_entertainment",
+        "film_and_cinema": "music_entertainment",
+        "media": "music_entertainment",
+        # visual arts / craft / literature
+        "art": "art_design",
+        "arts": "art_design",
+        "design": "art_design",
+        "art_and_design": "art_design",
+        "arts_and_crafts": "art_design",
+        "crafts": "art_design",
+        "photography": "art_design",
+        "books_and_literature": "art_design",
+        "literature": "art_design",
+        # beauty
+        "beauty": "beauty_wellness",
+        "wellness": "beauty_wellness",
+        "cosmetics": "beauty_wellness",
+        "fashion_and_beauty": "beauty_wellness",
+        # lifestyle
+        "personal_lifestyle": "lifestyle",
+        "personal_blog": "lifestyle",
+        "lifestyle_blog": "lifestyle",
+        "blog": "lifestyle",
+        "blogger": "lifestyle",
+        # food
+        "food": "food_drink",
+        "food_and_drink": "food_drink",
+        "food_and_beverage": "food_drink",
+        "restaurant": "food_drink",
+        "cooking": "food_drink",
+        # business
+        "business": "business_marketing",
+        "business_and_entrepreneurship": "business_marketing",
+        "entrepreneurship": "business_marketing",
+        "marketing": "business_marketing",
+        # home
+        "home_improvement": "home_interior",
+        "home_and_garden": "home_interior",
+        "home_decor": "home_interior",
+        "interior_design": "home_interior",
+        # fitness / sports
+        "fitness": "fitness_sports",
+        "sports": "fitness_sports",
+        "health_and_fitness": "fitness_sports",
+        # health / family
+        "health": "health_family",
+        "family": "health_family",
+        "parenting": "health_family",
+        "family_and_parenting": "health_family",
+        "health_and_family": "health_family",
+        # tech / education
+        "tech": "tech_education",
+        "technology": "tech_education",
+        "education": "tech_education",
+        # travel
+        "travel_and_tourism": "travel",
+        "tourism": "travel",
+        # finance
+        "finance_and_investing": "finance",
+        "investing": "finance",
+        # events / services
+        "events": "events_services",
+        "services": "events_services",
+        # community
+        "community": "community_causes",
+        "causes": "community_causes",
+        "nonprofit": "community_causes",
+        # junk / non-buckets
+        "spam": "other",
+        "scam": "other",
+        "spam_and_scam": "other",
+        "unknown": "other",
+        "none": "other",
+    }
+
+    @classmethod
+    def _canonicalize_niche_category(cls, raw: Any) -> str:
+        """Clamp a model-emitted niche_category onto the 16 canonical buckets.
+
+        The classification prompt lists the allowed keys, but the output was never
+        validated: real runs persisted free-text slugs into the indexed
+        profile_following.niche_category column, fragmenting one concept across
+        several spellings. Resolution order: exact match, then synonym remap, then
+        single-token overlap; anything ambiguous fails closed to 'other'.
+        """
+        if not raw:
+            return "other"
+        slug = re.sub(r"[^a-z0-9]+", "_", str(raw).strip().lower()).strip("_")
+        if not slug:
+            return "other"
+        if slug in cls.NICHE_CATEGORIES:
+            return slug
+        mapped = cls._NICHE_CATEGORY_SYNONYMS.get(slug)
+        if mapped:
+            return mapped
+        # Last resort: token overlap with the canonical buckets (unique winner only).
+        stop = {"and", "the", "of", "a"}
+        tokens = {t for t in slug.split("_") if t and t not in stop}
+        best, best_overlap, tied = "other", 0, False
+        for cat in cls.NICHE_CATEGORIES:
+            overlap = len(tokens & set(cat.split("_")))
+            if overlap > best_overlap:
+                best, best_overlap, tied = cat, overlap, False
+            elif overlap == best_overlap and overlap > 0:
+                tied = True
+        if best_overlap > 0 and not tied:
+            logger.debug(f"[AIService] niche_category '{raw}' clamped to '{best}' (token overlap)")
+            return best
+        logger.debug(f"[AIService] niche_category '{raw}' not recognized — clamped to 'other'")
+        return "other"
 
     @property
     def _known_sub_niches(self) -> set:
@@ -756,7 +906,8 @@ class AIService:
             parts.append("Business account: yes")
         user_prompt = "\n".join(parts)
 
-        result = self.text_completion(system_prompt, user_prompt, temperature=0.2, max_tokens=220)
+        result = self.text_completion(system_prompt, user_prompt, temperature=0.2, max_tokens=220,
+                                      label=f"engagement_verdict @{username}")
         duration_ms = int((time.time() - t0) * 1000)
         if not result.get("success"):
             return {"success": False, "error": result.get("error", "verdict failed"), "duration_ms": duration_ms}
@@ -991,7 +1142,10 @@ class AIService:
             classification["engagement"] = self._normalize_engagement(classification.get("engagement"))
 
         niche = classification.get("niche", "?")
-        niche_cat = classification.get("niche_category", "other")
+        # Clamp the model's category onto the 16 canonical buckets and write it back so the
+        # emitted event AND the persisted row both carry the canonical slug (never free text).
+        niche_cat = self._canonicalize_niche_category(classification.get("niche_category"))
+        classification["niche_category"] = niche_cat
         # Detect proposed sub-niches (not in canonical taxonomy) for monitoring
         if niche and niche not in self._known_sub_niches and niche != "Other":
             logger.info(f"[AIService] Proposed new sub-niche '{niche}' for @{username} (cat: {niche_cat})")
@@ -1088,7 +1242,8 @@ class AIService:
         # Build result summary for AgentPanel
         niche = classification.get("niche", "?")
         score = classification.get("score", 0)
-        niche_cat = classification.get("niche_category", "")
+        niche_cat = self._canonicalize_niche_category(classification.get("niche_category"))
+        classification["niche_category"] = niche_cat
         summary = classification.get("summary", "")
         result_text = f"[{niche_cat}] {niche} — Score: {score}/100"
         if summary:
@@ -1145,7 +1300,8 @@ No markdown formatting."""
         user_prompt = f"Describe this Instagram post. Be concise and precise.{caption_block}"
 
         result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
-                                        temperature=0.2, max_tokens=300)
+                                        temperature=0.2, max_tokens=300,
+                                        label=f"analyze_post @{username or '?'}")
         duration_ms = int((time.time() - t0) * 1000)
 
         if not result["success"]:
@@ -1293,7 +1449,8 @@ Respond with ONLY a JSON object, on a single line, nothing else:
         user_prompt = "\n\n".join(parts) + "\n\nGenerate a natural, engaging comment."
 
         result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
-                                      model=self.model_generation)
+                                      model=self.model_generation,
+                                      label=f"generate_smart_comment @{username or '?'}")
         duration_ms = int((time.time() - t0) * 1000)
 
         if not result["success"]:
