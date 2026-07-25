@@ -112,6 +112,15 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # non-loop scan, so scattered re-tops over a long session don't accumulate into a false
             # stop — only a list genuinely stuck at the top (scrolling never advances) ends it.
             consecutive_top_loops = 0
+            # True when we could not recover to the followers list: must end the WHOLE run.
+            # The old code only broke the inner for-loop, so the while-loop kept blind-scrolling
+            # an unknown screen for minutes (real runs: ~7 min of empty scrolls, non-human bursts)
+            # until the global 100-scroll cap finally tripped.
+            navigation_lost = False
+            # Consecutive scans with NO visible followers. A handful is normal (loading, end of
+            # list being handled), but a long streak means the list is gone (e.g. the
+            # "Suggestions" screen) — stop instead of scrolling into the void.
+            consecutive_empty_screens = 0
 
             while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
                 # Vérifier si on doit prendre une pause
@@ -136,6 +145,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 
                 # Tracker: enregistrer les followers visibles + détecter les boucles
                 if visible_followers:
+                    consecutive_empty_screens = 0
                     visible_usernames_for_tracking = [f['username'] for f in visible_followers]
                     loop_detected = tracker.log_visible_followers(visible_usernames_for_tracking, "scan")
                     if loop_detected:
@@ -161,6 +171,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     consecutive_top_loops = 0
                 
                 if not visible_followers:
+                    consecutive_empty_screens += 1
+                    if consecutive_empty_screens >= 4:
+                        # 4 scans in a row with zero followers: the list is gone (suggestions
+                        # screen / navigation drift). Blind-scrolling further is pure waste and
+                        # a detectable non-human burst.
+                        self.logger.error("🛑 Followers list unavailable (4 consecutive empty scans) — ending run")
+                        session_stop_reason = session_stop_reason or 'followers_list_unavailable'
+                        break
                     # Gérer la fin de liste / suggestions / scroll
                     should_break = self._handle_empty_followers_screen(scroll_detector)
                     if should_break:
@@ -169,7 +187,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     self.scroll_actions.scroll_followers_list_down()
                     self._human_like_delay('scroll')
                     continue
-                
+
                 new_usernames_found = 0
                 new_profiles_to_interact = 0
                 did_interact_this_iteration = False
@@ -283,10 +301,13 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     )
                     
                     if interaction_ok is None:
-                        # Critical error — could not recover to list
+                        # Critical error — could not recover to list. Flag it so the OUTER loop
+                        # ends too (this break only exits the for-loop).
                         emit_step("follower_decision", action="error", target=username,
                                   reason="processing_error", encounter_order=total_usernames_seen,
                                   source_type="FOLLOWERS")
+                        navigation_lost = True
+                        session_stop_reason = session_stop_reason or 'navigation_lost'
                         break
 
                     # Outcome ledger: the rich reason (private/filtered/error) is recorded
@@ -305,7 +326,11 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     # _ensure_on_followers_list for filtered/private/error cases, so we only
                     # need to force a back when coming from an actual interaction (like/follow)
                     if not self._ensure_on_followers_list(target_username, force_back=False):
+                        # "stopping" must mean STOPPING: this break only exits the for-loop, so
+                        # without the flag the while-loop kept scrolling a dead screen for minutes.
                         self.logger.error("Could not return to followers list, stopping")
+                        navigation_lost = True
+                        session_stop_reason = session_stop_reason or 'navigation_lost'
                         break
                     
                     # Vérification de position après retour
@@ -323,7 +348,11 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     
                     # Après interaction, re-scanner la liste
                     break
-                
+
+                if navigation_lost:
+                    self.logger.error("🛑 Navigation lost — ending run (no blind scrolling on an unknown screen)")
+                    break
+
                 # Notify the scroll-end detector ONLY when the visible page is exhausted
                 # (every follower on it already processed this session). While a fresh follower
                 # remains, we deliberately re-scan the SAME page (process one -> break -> re-scan),
@@ -407,7 +436,13 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # finalize=False: a multi-target run finalises ONCE at the driver level —
             # finalising here would end the session after the first target.
             if finalize and self.automation and hasattr(self.automation, 'helpers'):
-                if session_stop_reason:
+                if navigation_lost:
+                    # A run that died on lost navigation is NOT a completed run: surface it as
+                    # INTERRUPTED (already an accepted terminal status — Ctrl+C uses it) so the
+                    # operator can tell a degraded run (626: 23/46) from a healthy one.
+                    self.automation.helpers.finalize_session(
+                        status='INTERRUPTED', reason=session_stop_reason or 'navigation_lost')
+                elif session_stop_reason:
                     self.automation.helpers.finalize_session(status='COMPLETED', reason=session_stop_reason)
                 else:
                     reason = f"Workflow completed ({stats['interacted']} interactions)"
