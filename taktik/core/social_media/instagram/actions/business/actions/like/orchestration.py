@@ -499,7 +499,17 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 # here was double-counted by the front's log parser (4 shown for 2).
                 self.logger.success(f"💬 Comment text: '{comment_result.get('comment_text')}'")
                 return True
-            self.logger.debug("Comment not posted")
+            # Say WHY: a deliberate AI skip (off-niche post, no genuine hook) and a real
+            # failure both used to log the same blank line, so a run's log could not tell
+            # "the AI declined" from "the comment failed".
+            if comment_result.get('skipped'):
+                self.logger.info(
+                    f"💬 Comment skipped by AI: {comment_result.get('skip_reason') or 'no reason given'}"
+                )
+            else:
+                self.logger.debug(
+                    f"Comment not posted (errors={comment_result.get('errors', 0)})"
+                )
             return False
         except Exception as e:
             self.logger.error(f"Error commenting: {e}")

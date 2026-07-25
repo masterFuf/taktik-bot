@@ -4,6 +4,8 @@ import os
 import tempfile
 from typing import Any, Callable, Mapping
 
+from loguru import logger
+
 from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.shared.text import detect_text_language
 from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
@@ -578,6 +580,17 @@ def install_instagram_ai_hooks(
                         + (f" · {engagement['reason']}" if engagement.get("reason") else "")
                     ),
                 )
+                # Same verdict to the RUN LOG (stderr/loguru). `log` above is the injected
+                # desktop callback, which only reaches Electron over IPC — so a finished run's
+                # log carried no trace of the relevance decision and a post-hoc audit ("why was
+                # this off-niche profile engaged?") was impossible. Structured tokens on purpose.
+                logger.info(
+                    f"[AI-Relevance] @{username} tier={engagement.get('relevance_tier') or '?'} "
+                    f"score={score_str} relevant={bool(engagement.get('relevant'))} "
+                    f"recommend={','.join(would) or 'none'}"
+                    + (f" evidence={engagement['evidence']!r}" if engagement.get("evidence") else "")
+                    + (f" reason={engagement['reason']!r}" if engagement.get("reason") else "")
+                )
                 # Surface the WHY as a proper Agent card (prod + Lab), not just a log:
                 # "is this profile worth engaging vs OUR niche, and why".
                 IPCEmitter.emit_action("relevance", username, {
@@ -732,13 +745,20 @@ def install_instagram_ai_hooks(
         except Exception as exc:
             log("warning", f"Failed to install Post Analysis hook: {exc}")
 
-    log(
-        "info",
-        (
-            "AI hooks installed: "
-            f"smartComments={ai_config.get('smartComments')}, "
-            f"profileAnalysis={ai_config.get('profileAnalysis')}, "
-            f"postAnalysis={ai_config.get('postAnalysis')}, "
-            f"relevanceGating={(ai_config.get('relevanceGating') or {}).get('enabled') if isinstance(ai_config.get('relevanceGating'), dict) else False}"
-        ),
+    _gating_on = (
+        (ai_config.get('relevanceGating') or {}).get('enabled')
+        if isinstance(ai_config.get('relevanceGating'), dict) else False
     )
+    _modes = (
+        f"smartComments={ai_config.get('smartComments')}, "
+        f"profileAnalysis={ai_config.get('profileAnalysis')}, "
+        f"postAnalysis={ai_config.get('postAnalysis')}, "
+        f"decisionMode={decision_mode}, "
+        f"relevanceGating={_gating_on}"
+    )
+    log("info", f"AI hooks installed: {_modes}")
+    # Mirror to the RUN LOG (stderr/loguru): `log` only reaches Electron over IPC, so a
+    # finished run gave no way to know WHICH AI modes were active. Without it, a legitimate
+    # `ai_posts_analyzed=0` (postAnalysis AND decision mode both off) is indistinguishable
+    # from a broken counter.
+    logger.info(f"[AI-Config] {_modes}")
