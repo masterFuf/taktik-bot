@@ -55,22 +55,58 @@ def _detect_language_code(detected_lower: str) -> str:
     return "other"
 
 
-def _resolve_comment_language(base_lang: str, post_language: Any) -> "str | None":
+def _resolve_base_language(account_persona: Any) -> "str | None":
+    """The language THIS ACCOUNT speaks to its audience — or None if we cannot establish it.
+
+    Takes no app language ON PURPOSE, so it cannot be passed back in: the app UI language is
+    the OPERATOR's reading preference, not the audience's. A French coaching account operated
+    from an English-language app is still a French account, and that former fallback made it
+    both comment in English on French posts AND skip the French posts it should have taken.
+
+    Order:
+      1. the explicit `preferred_language` set on the account profile;
+      2. failing that, the language the persona itself is WRITTEN IN — "Business coaching
+         pour instituts de beauté" is unambiguously French. Free, needs no operator input,
+         and works on accounts whose language field was never filled;
+      3. None — the caller then follows the post, or skips. Never invents a language.
+    """
+    persona = account_persona if isinstance(account_persona, dict) else {}
+    explicit = str(persona.get("language") or "").strip().lower()
+    if explicit:
+        code = _detect_language_code(explicit)
+        return code if code != "other" else explicit[:2]
+
+    # The persona is stored in the account's own language — use it as the anchor.
+    persona_text = " ".join(
+        str(persona.get(key) or "")
+        for key in ("niche", "tonePersonality", "targetAudience", "objective", "uniqueSellingPoint")
+    ).strip()
+    return detect_text_language(persona_text)
+
+
+def _resolve_comment_language(base_lang: "str | None", post_language: Any) -> "str | None":
     """Decide which language to comment in, or None to SKIP the comment entirely.
 
-    `base_lang` is the ACCOUNT's preferred language (the operated account can target an audience
-    different from the operator's app UI), falling back to the app language. A comment is read by
-    real people, so it follows the POST's language — but only within {base_lang, English}:
+    `base_lang` is the ACCOUNT's own language (see `_resolve_base_language`), and may be None
+    when it could not be established. A comment is read by real people, so it follows the
+    POST's language — but only within {base_lang, English}:
       - post in base_lang                 -> comment in base_lang
       - post in English                   -> comment in English (universal 2nd language)
       - post in ANY other detected language -> None (skip): commenting a language we don't claim
         to speak isn't credible
       - language undetected                -> default to base_lang
+
+    When base_lang is unknown, the post's own language is the only credible choice; with no
+    signal at all we publish nothing rather than guess.
     """
-    base = (base_lang or "en").lower()
-    if not post_language:
-        return base  # undetected → default to the account/app language
-    detected = _detect_language_code(str(post_language).strip().lower())
+    base = str(base_lang or "").strip().lower() or None
+    detected = _detect_language_code(str(post_language).strip().lower()) if post_language else None
+
+    if base is None:
+        # Account language unknown: follow the post when it is readable, else stay silent.
+        return detected if detected and detected != "other" else None
+    if detected is None:
+        return base  # undetected → the account's own language
     if detected == base:
         return base
     if detected == "en":
@@ -295,11 +331,13 @@ def install_instagram_ai_hooks(
                         log("info", f"No post context for @{username} ({reason}), skipping comment (AI mode)")
                         return skip_comment(reason, "missing_context")
 
-                    # The comment's BASE language is the ACCOUNT's preferred language — the reliable
-                    # anchor the operator SET (erika.spahn = French). It falls back to the app language
-                    # only if the account has none. Persona (niche + brand voice) is injected at launch.
+                    # The comment's BASE language is the ACCOUNT's own language: its explicit
+                    # preferred_language, or — since that field is empty on almost every account —
+                    # the language its persona is WRITTEN IN. Never the app UI language: that is the
+                    # operator's reading preference, and using it made a French account comment in
+                    # English on French posts while skipping the French posts it should have taken.
                     account_persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
-                    base_lang = (account_persona or {}).get("language") or language
+                    base_lang = _resolve_base_language(account_persona)
 
                     # Which language to comment IN is decided from the author's CAPTION (ground truth),
                     # NEVER from the vision model's post_language guess — that guess is unreliable (a
@@ -317,11 +355,11 @@ def install_instagram_ai_hooks(
                     # gave no verdict but the vision model flags a language that is neither the account's
                     # nor English (e.g. a genuinely Spanish post), skip instead of default-commenting in
                     # the account language on a clearly-foreign post.
-                    base_code = str(base_lang or "en").lower()
-                    if caption_lang is None and vision_lang and vision_lang not in (base_code, "en"):
+                    allowed_langs = {c for c in (base_lang, "en") if c}
+                    if caption_lang is None and vision_lang and vision_lang not in allowed_langs:
                         reason = (
                             f"post looks '{vision_lang}' "
-                            f"(neither {base_lang} nor English)"
+                            f"(neither {base_lang or 'the account language'} nor English)"
                         )
                         log("info", f"Skipping comment for @{username}: {reason}")
                         return skip_comment(reason, "vision_language")
@@ -329,8 +367,10 @@ def install_instagram_ai_hooks(
                     comment_lang = _resolve_comment_language(base_lang, caption_lang)
                     if comment_lang is None:
                         reason = (
-                            f"caption language '{caption_lang}' is outside "
-                            f"{{{base_lang}, english}}"
+                            f"account language unknown and post language undetected"
+                            if base_lang is None
+                            else f"caption language '{caption_lang}' is outside "
+                                 f"{{{base_lang}, english}}"
                         )
                         log(
                             "info",
