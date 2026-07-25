@@ -1,21 +1,10 @@
-"""TikTok unfollow workflow-test runner."""
+"""TikTok unfollow workflow-test runners.
 
-from loguru import logger
+Not wired to production — see `not_wired` for why and for what each one must call.
+"""
+
+from bridges.compat.diagnostics.runtime.workflow_test.execution.not_wired import not_wired
 
 
-def run_tiktok_unfollow(conn, device, ipc, limits):
-    """Run TikTok unfollow workflow."""
-    try:
-        from taktik.core.social_media.tiktok.workflows.unfollow import UnfollowWorkflow
-
-        max_unfollows = limits.get("maxUnfollows", 20)
-
-        ipc.send("workflow_step", step="tiktok_unfollow", status="running")
-        wf = UnfollowWorkflow(device)
-        success = wf.run(max_unfollows=max_unfollows)
-        ipc.send("workflow_step", step="tiktok_unfollow", status="done" if success else "failed")
-        return success
-    except Exception as exc:
-        logger.exception(f"[WorkflowTest] TikTok unfollow failed: {exc}")
-        ipc.send("workflow_step", step="tiktok_unfollow", status="error", error=str(exc))
-        return False
+def run_tiktok_unfollow(conn, device, ipc, limits, delays):
+    return not_wired(ipc, "tiktok_unfollow", "bridges.tiktok.automation.unfollow (bridge runtime)")

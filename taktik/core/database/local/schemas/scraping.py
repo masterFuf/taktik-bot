@@ -80,6 +80,11 @@ def create_scraping_indexes(cursor: sqlite3.Cursor) -> None:
     """Create scraping indexes."""
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_status ON scraping_sessions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_source ON scraping_sessions(source_type, source_name)")
+    # `WHERE scraping_type = ? ORDER BY start_time DESC` is issued by both the bot and the
+    # desktop; without this it is a full scan plus a temp B-tree for the sort (confirmed with
+    # EXPLAIN QUERY PLAN on the real base). The sort column is part of the index so the ORDER BY
+    # is satisfied by the walk itself.
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraping_sessions_type ON scraping_sessions(scraping_type, start_time DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_processed_hashtag_posts_lookup ON processed_hashtag_posts(account_id, hashtag, post_author)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_session ON scraped_profiles(scraping_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scraped_profiles_profile ON scraped_profiles(profile_id)")
