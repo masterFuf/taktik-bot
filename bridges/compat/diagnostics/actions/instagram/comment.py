@@ -36,3 +36,31 @@ def post_comment(a, p):
 @action("comment.close_popup")
 def close_comment(a, p):
     return a.comment._close_comment_popup()
+
+
+@action("comment.like_in_thread")
+def like_comment_in_thread(a, p):
+    """Like a given commenter's comment in the open thread — the production function.
+
+    Pass ``username``; without it the action reports which commenters are visible so the
+    operator can pick one, rather than liking an arbitrary row.
+    """
+    username = (p.get("username") or "").strip() if isinstance(p, dict) else ""
+    if not username:
+        from taktik.core.social_media.instagram.workflows.common.detection import (
+            read_visible_commenters,
+        )
+
+        visible = [row["username"] for row in read_visible_commenters(a.device, logger)]
+        return {
+            "success": False,
+            "message": f"username required — visible: {', '.join(visible[:10]) or 'none'}",
+            "details": {"visible": visible},
+        }
+
+    result = a.comment.like_comment_in_thread(username)
+    return {
+        "success": bool(result.get("success")),
+        "message": result.get("message", ""),
+        "details": result,
+    }

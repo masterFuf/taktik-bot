@@ -68,6 +68,16 @@ class PostCommentsSelectors:
     commenter_button_nodes_selector: str = POST_SELECTORS.all_button_nodes_selector
 
     @property
+    def comment_like_labels(self) -> List[str]:
+        """Content-desc fragments of a comment's heart in its NOT-liked state."""
+        return L("post_comments.comment_like_button")
+
+    @property
+    def comment_unlike_labels(self) -> List[str]:
+        """Content-desc fragments of a comment's heart in its ALREADY-liked state."""
+        return L("post_comments.comment_unlike_button")
+
+    @property
     def commenter_button_nodes_in_list_selector(self) -> str:
         """Commenter buttons, scoped to the comments list itself.
 

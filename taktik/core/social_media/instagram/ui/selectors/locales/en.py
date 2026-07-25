@@ -736,6 +736,18 @@ STRINGS: Dict[str, List[str]] = {
     "post_comments.comment_composer_indicators": [
         "//*[contains(@hint, \"Add a comment\")]",
     ],
+    # Heart control on a comment row, NOT-liked state (plain text, NOT an xpath — matched
+    # by CONTAINMENT against the node's content-desc, which reads either "Tap to like
+    # comment" on a comment with no likes yet, or "<N> likes. Double tap to like comment
+    # and press and hold to see all likes". Both share the fragment below).
+    "post_comments.comment_like_button": [
+        "to like comment",
+    ],
+    # Same control, ALREADY-liked state. Tested FIRST and wins, so a liked comment is never
+    # tapped again (which would unlike it).
+    "post_comments.comment_unlike_button": [
+        "to unlike comment",
+    ],
     # --- post_grid ---
     "post_grid.back_button_selectors": [
         "//android.widget.ImageView[@content-desc=\"Back\"]",

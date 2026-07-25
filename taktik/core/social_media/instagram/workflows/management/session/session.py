@@ -36,6 +36,10 @@ class SessionManager:
             'follows': 0,
             'likes': 0,
             'comments': 0,
+            # Liking a COMMENT is counted apart from liking a POST so the operator can read
+            # what a run actually did. Both feed the same daily like budget (see
+            # StatsRepository._INTERACTION_COLUMN_MAP) — same surface, same risk family.
+            'comment_likes': 0,
             'stories_watched': 0
         }
         self.source_counters = {}
@@ -271,6 +275,8 @@ class SessionManager:
             self.counters['likes'] += 1
         elif action_type == 'comment_posts' and success:
             self.counters['comments'] += 1
+        elif action_type == 'like_comment' and success:
+            self.counters['comment_likes'] += 1
         elif action_type == 'watch_stories' and success:
             self.counters['stories_watched'] += 1
 

@@ -18,6 +18,12 @@ class StatsRepository(BaseRepository):
 
     _INTERACTION_COLUMN_MAP = {
         'LIKE': 'total_likes',
+        # Liking a comment consumes the same daily like budget as liking a post: same
+        # surface, same rate limiting, so splitting it into its own column would let an
+        # account spend two budgets while both read "green". The `interactions` row keeps
+        # its own COMMENT_LIKE type, so analytics and the session drill-down still tell
+        # the two apart — only the daily envelope is shared.
+        'COMMENT_LIKE': 'total_likes',
         'FOLLOW': 'total_follows',
         'UNFOLLOW': 'total_unfollows',
         'COMMENT': 'total_comments',

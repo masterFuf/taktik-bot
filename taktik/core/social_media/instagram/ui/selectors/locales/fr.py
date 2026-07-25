@@ -675,6 +675,17 @@ STRINGS: Dict[str, List[str]] = {
     "post_comments.comment_composer_indicators": [
         "//*[contains(@hint, \"Ajouter un commentaire\")]",
     ],
+    # Contrôle coeur d'une ligne de commentaire, état PAS-AIMÉ (texte brut, PAS un xpath —
+    # apparié par CONTENANCE sur le content-desc du noeud).
+    "post_comments.comment_like_button": [
+        "aimer le commentaire",
+    ],
+    # Même contrôle, état DÉJÀ-AIMÉ. Testé EN PREMIER et prioritaire : "ne plus aimer le
+    # commentaire" CONTIENT le fragment ci-dessus, donc tester le positif d'abord taperait
+    # un commentaire déjà aimé et le DÉ-LIKERAIT en silence.
+    "post_comments.comment_unlike_button": [
+        "ne plus aimer le commentaire",
+    ],
     # --- post_grid ---
     "post_grid.back_button_selectors": [],
     "post_grid.next_post_button_selectors": [],

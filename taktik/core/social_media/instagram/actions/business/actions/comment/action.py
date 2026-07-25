@@ -414,6 +414,99 @@ class CommentAction(BaseBusinessAction):
                 pass
             return False
     
+    # ─── In-thread actions (on the comments of a post, not on the post) ──
+
+    def like_comment_in_thread(self, username: str, max_scrolls: int = 6) -> Dict[str, Any]:
+        """Like the comment written by ``username`` in the open comments thread.
+
+        The lightest way to engage a commenter — no navigation off the post, no text
+        published. Scrolls the thread to reveal the row if it is below the fold.
+
+        Never re-taps a comment that is ALREADY liked: that gesture would UNLIKE it,
+        turning an intended engagement into its opposite while the run reported a like.
+        A control whose state cannot be read is treated the same way (skipped), because
+        the cost of a missed like is nothing and the cost of a wrong tap is a visible
+        action on someone else's comment.
+        """
+        result = {'success': False, 'username': username, 'skipped_reason': None, 'message': ''}
+        handle = (username or '').strip().lstrip('@')
+        if not handle:
+            result['message'] = 'No username given'
+            return result
+
+        try:
+            if not self._is_comments_view_open():
+                result['message'] = 'Comments thread is not open'
+                return result
+
+            target = self._find_comment_like_control(handle)
+            for _ in range(max_scrolls):
+                if target:
+                    break
+                self.scroll_actions.scroll_down()
+                time.sleep(0.6)
+                target = self._find_comment_like_control(handle)
+
+            if not target:
+                result['message'] = f'No comment from @{handle} found in the thread'
+                result['skipped_reason'] = 'not_found'
+                return result
+
+            if target['already_liked']:
+                self.logger.info(f"@{handle}'s comment is already liked — leaving it alone")
+                result['skipped_reason'] = 'already_liked'
+                result['message'] = f'@{handle} already liked'
+                return result
+
+            if not self.device.human_tap(target['bounds']):
+                result['message'] = f'Could not tap the like control of @{handle}'
+                return result
+
+            self._human_like_delay('click')
+            result['success'] = True
+            result['message'] = f"Liked @{handle}'s comment"
+            self.logger.success(result['message'])
+
+            self._record_action(handle, 'COMMENT_LIKE', 1)
+            if self.session_manager:
+                try:
+                    self.session_manager.record_action('like_comment', success=True)
+                except Exception:
+                    pass  # standalone runs have no session manager contract to honour
+            return result
+
+        except Exception as exc:
+            self.logger.error(f"Error liking @{handle}'s comment: {exc}")
+            result['message'] = str(exc)
+            return result
+
+    def _find_comment_like_control(self, username: str) -> Optional[Dict[str, Any]]:
+        """The like control of ``username``'s comment row, with its liked state."""
+        from lxml import etree
+        from taktik.core.social_media.instagram.workflows.common.comments_thread import (
+            find_comment_like_target,
+        )
+
+        try:
+            xml = self.device.dump_hierarchy()
+        except Exception as exc:
+            self.logger.debug(f"dump_hierarchy failed: {exc}")
+            return None
+        if not xml:
+            return None
+        try:
+            root = etree.fromstring(xml.encode('utf-8') if isinstance(xml, str) else xml)
+        except Exception as exc:
+            self.logger.debug(f"XML parse failed: {exc}")
+            return None
+
+        return find_comment_like_target(
+            root,
+            username,
+            self.post_selectors.comment_like_labels,
+            self.post_selectors.comment_unlike_labels,
+        )
+
     # ─── Backward-compatible template management methods ─────────────────
     
     def _get_random_comment(self, category: str = 'generic') -> str:
