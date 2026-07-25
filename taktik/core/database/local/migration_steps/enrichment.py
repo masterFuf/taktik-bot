@@ -5,6 +5,11 @@ from __future__ import annotations
 import sqlite3
 from typing import Iterable
 
+from taktik.core.database.local.schemas.enrichment import (
+    create_enrichment_indexes,
+    create_enrichment_tables,
+)
+
 
 LEGACY_PROFILE_AI_COLUMNS = (
     "ai_niche",
@@ -60,49 +65,14 @@ def run_profile_ai_enrichment_migrations(cursor: sqlite3.Cursor) -> None:
     """Create profile_ai_enrichments and backfill legacy Instagram AI columns."""
     if _is_view(cursor, "profile_ai_enrichments"):
         return  # Vague C: front unified into profile_qualification; nothing to do
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS profile_ai_enrichments (
-            enrichment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            platform TEXT NOT NULL,
-            profile_id INTEGER,
-            username TEXT NOT NULL,
-            provider TEXT NOT NULL DEFAULT 'legacy',
-            model TEXT NOT NULL DEFAULT 'legacy',
-            criteria_hash TEXT NOT NULL DEFAULT 'legacy_profile_ai',
-            ai_niche TEXT,
-            ai_specific_niche TEXT,
-            ai_score INTEGER,
-            ai_classification TEXT,
-            ai_profession TEXT,
-            ai_profession_tags TEXT,
-            ai_gender TEXT,
-            ai_age_group TEXT,
-            ai_account_based_in TEXT,
-            location_city TEXT,
-            location_region TEXT,
-            analysis_json TEXT,
-            source TEXT NOT NULL DEFAULT 'ai',
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now')),
-            UNIQUE(platform, username, criteria_hash, provider, model)
-        )
-    """)
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_profile_ai_enrichments_lookup "
-        "ON profile_ai_enrichments(platform, username)"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_profile_ai_enrichments_profile "
-        "ON profile_ai_enrichments(platform, profile_id)"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_profile_ai_enrichments_score "
-        "ON profile_ai_enrichments(platform, ai_score)"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_profile_ai_enrichments_updated "
-        "ON profile_ai_enrichments(updated_at)"
-    )
+
+    # Call the schema rather than restating it. The CREATE TABLE and its four indexes used to be
+    # copied here verbatim, so a base built from scratch and a base brought up by migration were
+    # only identical as long as someone remembered to edit both. That is the same defect class as
+    # the missing scraping_sessions index: declared in the schema, so every NEW base had it, and
+    # no migration ever gave it to an EXISTING one.
+    create_enrichment_tables(cursor)
+    create_enrichment_indexes(cursor)
 
     profile_columns = _table_columns(cursor, "instagram_profiles")
     if not profile_columns:

@@ -5,10 +5,19 @@ from __future__ import annotations
 import sqlite3
 
 
-def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
-    """Create scraping tables."""
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS scraping_sessions (
+def scraping_sessions_ddl(table_name: str = "scraping_sessions", if_not_exists: bool = True) -> str:
+    """The one definition of ``scraping_sessions``, usable under another name.
+
+    The table-rebuild migration needs the same shape under a temporary name, and used to restate
+    the whole CREATE by hand. The two copies had already drifted — ``created_at`` and ``sync_id``
+    were declared in opposite order — which is harmless in SQLite but is the first step of a base
+    that differs depending on whether it was created or migrated.
+
+    ``table_name`` is interpolated, so it must never come from outside this module.
+    """
+    guard = "IF NOT EXISTS " if if_not_exists else ""
+    return f"""
+        CREATE TABLE {guard}{table_name} (
             scraping_id INTEGER PRIMARY KEY AUTOINCREMENT,
             account_id INTEGER,
             scraping_type TEXT NOT NULL,
@@ -31,7 +40,12 @@ def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
             -- account_id FK to instagram_accounts dropped (Vague B: accounts unified/legacy dropped)
             -- sync_id = stable cross-device key (Turso); NULL until assigned at row creation.
         )
-    """)
+    """
+
+
+def create_scraping_tables(cursor: sqlite3.Cursor) -> None:
+    """Create scraping tables."""
+    cursor.execute(scraping_sessions_ddl())
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS processed_hashtag_posts (

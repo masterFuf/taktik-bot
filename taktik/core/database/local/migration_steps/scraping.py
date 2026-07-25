@@ -6,6 +6,8 @@ import sqlite3
 
 from loguru import logger
 
+from taktik.core.database.local.schemas.scraping import scraping_sessions_ddl
+
 from .identifiers import _validate_sql_identifier
 
 
@@ -48,29 +50,9 @@ def drop_scraping_sessions_discovery_campaign_id(cursor: sqlite3.Cursor) -> None
     logger.info("Migration: rebuilding scraping_sessions without dead discovery_campaign_id")
     cursor.execute("DROP INDEX IF EXISTS idx_scraping_sessions_discovery")
     cursor.execute("DROP TABLE IF EXISTS scraping_sessions_new")
-    cursor.execute("""
-        CREATE TABLE scraping_sessions_new (
-            scraping_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER,
-            scraping_type TEXT NOT NULL,
-            source_type TEXT NOT NULL,
-            source_name TEXT NOT NULL,
-            total_scraped INTEGER DEFAULT 0,
-            max_profiles INTEGER DEFAULT 500,
-            export_csv INTEGER DEFAULT 0,
-            csv_path TEXT,
-            save_to_db INTEGER DEFAULT 1,
-            start_time TEXT DEFAULT (datetime('now')),
-            end_time TEXT,
-            duration_seconds INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'RUNNING',
-            error_message TEXT,
-            config_used TEXT,
-            platform TEXT DEFAULT 'instagram',
-            created_at TEXT DEFAULT (datetime('now')),
-            sync_id TEXT
-        )
-    """)
+    # Same definition as the schema, under a temporary name. Restating it here is what let the
+    # two drift: created_at and sync_id had ended up declared in opposite order.
+    cursor.execute(scraping_sessions_ddl("scraping_sessions_new", if_not_exists=False))
     cursor.execute(
         f"INSERT INTO scraping_sessions_new ({keep_csv}) "
         f"SELECT {keep_csv} FROM scraping_sessions"
