@@ -140,19 +140,9 @@ def scroll_feed_drag(a, p):
     }
 
 
-def _screen_anchors(device, limit: int = 80):
-    """Map identifiable on-screen items to their vertical centre.
-
-    A surface-agnostic way to measure how far the content ACTUALLY moved: match the items present
-    before and after the gesture and take the median shift.
-
-    Keys on text OR content-desc, and that second one is not a nicety — a photo feed carries almost
-    no TextView, so a text-only probe found a single common anchor there and had to report itself
-    inconclusive. Instagram labels its media ("Photo by ... on ..."), so content-desc is what makes
-    the measurement possible on exactly the surface we most need it.
-    """
+def _anchors_for(device, selectors, limit: int = 80):
     anchors = {}
-    for selector in ('//*[@content-desc]', '//android.widget.TextView'):
+    for selector in selectors:
         try:
             for node in device.xpath(selector).all()[:limit]:
                 try:
@@ -166,6 +156,33 @@ def _screen_anchors(device, limit: int = 80):
         except Exception:
             continue
     return anchors
+
+
+def _screen_anchors(device):
+    """Map SCROLLABLE-CONTENT items to their vertical centre, and say whether scoping worked.
+
+    Two lessons are baked in here, both from device runs.
+
+    Keys on text OR content-desc: a photo feed carries almost no TextView, so a text-only probe
+    found one common anchor there and had to call itself inconclusive. Instagram labels its media
+    ("Photo by ... on ..."), so content-desc is what makes the measurement possible on the surface
+    that needs it most.
+
+    But content-desc also drags in the STATIC chrome, and that produced a flatly wrong answer: on a
+    feed that had genuinely scrolled 1297px, 11 of 21 matched anchors were the Android nav bar, the
+    Instagram tab bar and the status bar, all at +0 — so the median landed on zero and the probe
+    reported a motionless screen. Scoping to the scrollable container removes them structurally
+    rather than by guessing at screen regions: chrome lives outside the RecyclerView by
+    construction. Replayed on the two real dumps, it goes from 21 anchors / median 0px to
+    10 anchors / median 1297px.
+    """
+    scoped = _anchors_for(device, ('//*[@scrollable="true"]//*[@content-desc]',
+                                   '//*[@scrollable="true"]//android.widget.TextView'))
+    if len(scoped) >= 3:
+        return scoped, True
+    # No scrollable container exposed (a dialog, a full-screen viewer): fall back to the whole
+    # screen and flag it, because the reading is then chrome-contaminated and must be read as such.
+    return _anchors_for(device, ('//*[@content-desc]', '//android.widget.TextView')), False
 
 
 @action("scroll.controlled_step")
@@ -187,17 +204,18 @@ def scroll_controlled_step(a, p):
     h = int(a.scroll.screen_height)
     requested = int(ratio * h)
 
-    before = _screen_anchors(a.device)
+    before, scoped = _screen_anchors(a.device)
     a.device.human_scroll("down", distance_ratio=ratio)
     time.sleep(0.9)
-    after = _screen_anchors(a.device)
+    after, _ = _screen_anchors(a.device)
 
     common = [k for k in before if k in after]
     shifts = sorted(before[k] - after[k] for k in common)
     injection = dict(getattr(a.scroll, "_last_gesture_injection", None) or {})
     details = {"requested_px": requested, "distance_ratio": ratio, "screen_height": h,
                "anchors_before": len(before), "anchors_after": len(after),
-               "anchors_matched": len(shifts), "injection": injection}
+               "anchors_matched": len(shifts), "scoped_to_scrollable": scoped,
+               "shifts_px": shifts, "injection": injection}
 
     if len(shifts) < 3:
         return {"success": False,
@@ -222,9 +240,10 @@ def scroll_controlled_step(a, p):
         verdict, ok = f"COURT x{excess:.2f} — le geste n'atteint pas la distance demandee", False
     else:
         verdict, ok = f"controle x{excess:.2f}", True
+    suffix = "" if scoped else " (hors conteneur scrollable: lecture polluee par le chrome fixe)"
     return {"success": ok,
             "message": (f"demande {requested}px ({ratio:.2f}h), mesure {moved}px sur "
-                        f"{len(shifts)} ancres — {verdict}"),
+                        f"{len(shifts)} ancres — {verdict}{suffix}"),
             "details": details}
 
 
