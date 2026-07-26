@@ -140,6 +140,82 @@ def scroll_feed_drag(a, p):
     }
 
 
+def _text_anchors(device, limit: int = 60):
+    """Map the visible texts to their vertical centre.
+
+    A surface-agnostic way to measure how far the content ACTUALLY moved: match the texts present
+    before and after the gesture and take the median shift. Independent of which screen we are on,
+    so the same probe works on the feed, in the post viewer and on a profile.
+    """
+    anchors = {}
+    try:
+        for node in device.xpath('//android.widget.TextView').all()[:limit]:
+            try:
+                text = (node.text or "").strip()
+                if len(text) < 4:
+                    continue
+                left, top, right, bottom = node.bounds
+                anchors.setdefault(text, (top + bottom) // 2)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return anchors
+
+
+@action("scroll.controlled_step")
+def scroll_controlled_step(a, p):
+    """Measure what ONE production controlled scroll really moves on screen.
+
+    Runs `device.human_scroll("down", distance_ratio=R)` — the shared entry point itself, no
+    Lab-only path — and compares the position of the texts visible before and after, so it reports
+    the displacement the CONTENT underwent, not the one we asked the finger for.
+
+    What it settles: `coast=False` promises a 1:1 gesture with no overshoot. It used to take the
+    fling branch, so the content travelled the finger distance PLUS an Android coast, and the
+    callers that advance one post per scroll could sail past one. Displacement close to the request
+    means the contract holds; a large excess means a fling is still happening.
+
+    Run it in the view you care about — the hashtag flows use R=0.62 in the post viewer.
+    """
+    ratio = max(0.10, min(0.95, float(p.get("distance_ratio", 0.62))))
+    h = int(a.scroll.screen_height)
+    requested = int(ratio * h)
+
+    before = _text_anchors(a.device)
+    a.device.human_scroll("down", distance_ratio=ratio)
+    time.sleep(0.9)
+    after = _text_anchors(a.device)
+
+    shared = [before[t] - after[t] for t in before if t in after]
+    injection = dict(getattr(a.scroll, "_last_gesture_injection", None) or {})
+    details = {"requested_px": requested, "distance_ratio": ratio, "screen_height": h,
+               "anchors_before": len(before), "anchors_after": len(after),
+               "anchors_matched": len(shared), "injection": injection}
+
+    if len(shared) < 3:
+        return {"success": False,
+                "message": (f"non concluant: {len(shared)} texte(s) commun(s) — le contenu a "
+                            f"defile de plus d'un ecran, ou la vue n'a pas de texte stable"),
+                "details": details}
+
+    shared.sort()
+    moved = shared[len(shared) // 2]
+    excess = (moved / requested) if requested else 0.0
+    details.update(measured_px=moved, ratio_measured_over_requested=round(excess, 2))
+
+    if excess > 1.25:
+        verdict, ok = f"DEPASSEMENT x{excess:.2f} — un fling se produit encore", False
+    elif excess < 0.6:
+        verdict, ok = f"COURT x{excess:.2f} — le geste n'atteint pas la distance demandee", False
+    else:
+        verdict, ok = f"controle x{excess:.2f}", True
+    return {"success": ok,
+            "message": (f"demande {requested}px ({ratio:.2f}h), mesure {moved}px sur "
+                        f"{len(shared)} ancres — {verdict}"),
+            "details": details}
+
+
 @action("scroll.gesture_bench")
 def scroll_gesture_bench(a, p):
     """A/B the two gesture pacings on THIS device, on numbers instead of on the eye.
