@@ -141,10 +141,15 @@ class PopupSelectors:
         '//*[contains(@resource-id, "bottom_sheet_container")]',
     ])
 
-    # Candidate pool for the geometric grab-bar search: the bar is decorative, so it is never
-    # clickable. Shape filtering (thin, centred, at the sheet's top edge) happens in
-    # actions/atomic/interaction/bottom_sheet.py — it cannot be expressed as XPath.
-    bottom_sheet_handle_candidates: str = '//*[@clickable="false"]'
+    # Candidate pool for the geometric grab-bar search, SCOPED to the sheet's own subtree: the
+    # bar is decorative (never clickable) and belongs to the sheet, so searching the whole screen
+    # would also offer up dividers from the page still rendered behind the dimmer. Shape filtering
+    # (thin, wide-ish, centred) happens in actions/atomic/interaction/bottom_sheet.py — a ratio of
+    # the screen cannot be expressed as XPath.
+    bottom_sheet_handle_candidates: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "layout_container_bottom_sheet")]//*[@clickable="false"]',
+        '//*[contains(@resource-id, "bottom_sheet_container")]//*[@clickable="false"]',
+    ])
 
     # The Direct / share sheet reached from a post's share button. Its own marker, so a caller
     # can ask "is THAT sheet still up" rather than "is any sheet up".

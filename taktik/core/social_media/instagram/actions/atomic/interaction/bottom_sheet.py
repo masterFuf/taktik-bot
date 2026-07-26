@@ -32,15 +32,31 @@ from loguru import logger as _default_logger
 
 from ....ui.selectors.shell.popups import POPUP_SELECTORS
 
-# A grab bar is much wider than it is tall, never fills the width, and sits centred.
-_HANDLE_MAX_HEIGHT_PX = 24
-_HANDLE_MIN_WIDTH_PX = 40
+# Shape of a grab bar: much wider than it is tall, never fills the width, horizontally centred.
+#
+# Every threshold is a FRACTION OF THE SCREEN, never a pixel count. The bar measured 6x88 px on a
+# 1080x2340 phone; the same bar is roughly 8x117 px on a 1440x3200 one, so a `height <= 24px` test
+# would be tight on one device and loose on another. Ratios describe the shape itself, which is
+# what actually stays constant across resolutions.
+_HANDLE_MAX_HEIGHT_RATIO = 0.012      # 28px on 2340, 38px on 3200 — the bar is ~6px / ~8px
+_HANDLE_MIN_WIDTH_RATIO = 0.03        # 32px on 1080, 43px on 1440 — the bar is ~88px / ~117px
 _HANDLE_MAX_WIDTH_RATIO = 0.45
 _HANDLE_CENTER_TOLERANCE_RATIO = 0.08
-# How far below the sheet's top edge the bar may sit before it stops being a grab bar.
-_HANDLE_TOP_BAND_PX = 120
 # Above this, a handle drag would start in the status-bar pull-down zone.
 _FULLSCREEN_HANDLE_RATIO = 0.10
+# A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
+_MAX_DRAG_STEPS = 3
+
+
+def _screen_size(device) -> tuple:
+    """(width, height) in pixels. Falls back to a common phone size if the device cannot say —
+    every threshold here is a fraction of these, so a wrong guess skews the shape filter rather
+    than pointing a gesture at a fixed coordinate."""
+    try:
+        info = device.info
+        return int(info.get('displayWidth', 1080)), int(info.get('displayHeight', 2340))
+    except Exception:
+        return 1080, 2340
 
 
 def _bounds_of(element) -> Optional[Dict[str, int]]:
@@ -54,17 +70,24 @@ def _bounds_of(element) -> Optional[Dict[str, int]]:
 
 
 def _sheet_top(device) -> int:
-    """Top edge of the open sheet, or 0 when no container is recognised."""
+    """Top edge of the sheet host, or 0 when no sheet is recognised.
+
+    Only the host is needed now: the grab bar is looked up INSIDE the sheet's subtree, so there is
+    no need to guess which inner container tracks the expanded/collapsed state. An earlier version
+    took the deepest container it could match and landed on the external-share row at the very
+    bottom of the sheet, 1800px below the bar it was meant to bracket.
+    """
+    tops = []
     for selector in POPUP_SELECTORS.bottom_sheet_container_selectors:
         try:
             element = device.xpath(selector)
             if element.exists:
                 bounds = _bounds_of(element)
                 if bounds:
-                    return int(bounds['top'])
+                    tops.append(int(bounds['top']))
         except Exception:
             continue
-    return 0
+    return min(tops) if tops else 0
 
 
 def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
@@ -90,27 +113,23 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
         except Exception:
             continue
 
-    # No id: look for the shape instead. Bounded to the sheet's own top band so a thin divider
-    # further down the page cannot pass for a grab bar.
-    try:
-        info = device.info
-        screen_width = int(info.get('displayWidth', 1080))
-    except Exception:
-        screen_width = 1080
-
-    top = _sheet_top(device)
-    if not top:
-        return None
+    # No id: look for the shape instead, inside the sheet's own subtree.
+    screen_width, screen_height = _screen_size(device)
 
     screen_center = screen_width / 2
     tolerance = screen_width * _HANDLE_CENTER_TOLERANCE_RATIO
+    max_height = screen_height * _HANDLE_MAX_HEIGHT_RATIO
+    min_width = screen_width * _HANDLE_MIN_WIDTH_RATIO
+    max_width = screen_width * _HANDLE_MAX_WIDTH_RATIO
+
+    candidates = []
+    for selector in POPUP_SELECTORS.bottom_sheet_handle_candidates:
+        try:
+            candidates.extend(device.xpath(selector).all())
+        except Exception:
+            continue
+
     best = None
-
-    try:
-        candidates = device.xpath(POPUP_SELECTORS.bottom_sheet_handle_candidates).all()
-    except Exception:
-        candidates = []
-
     for candidate in candidates:
         try:
             bounds = candidate.bounds  # (left, top, right, bottom)
@@ -121,27 +140,25 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
         left, c_top, right, bottom = (int(v) for v in bounds)
         height = bottom - c_top
         width = right - left
-        if height <= 0 or height > _HANDLE_MAX_HEIGHT_PX:
+        if height <= 0 or height > max_height:
             continue
-        if width < _HANDLE_MIN_WIDTH_PX or width > screen_width * _HANDLE_MAX_WIDTH_RATIO:
-            continue
-        if c_top < top or c_top > top + _HANDLE_TOP_BAND_PX:
+        if width < min_width or width > max_width:
             continue
         if abs(((left + right) / 2) - screen_center) > tolerance:
             continue
-        # Several may match (bar + its wrapper): the thinnest one is the bar itself.
-        if best is None or height < best['height']:
+        # The bar is the topmost thing in the sheet; anything thin further down is a divider.
+        if best is None or c_top < best['top']:
             best = {
                 'x': (left + right) // 2,
                 'y': (c_top + bottom) // 2,
-                'height': height,
+                'top': c_top,
                 'source': 'geometry',
                 'selector': None,
             }
 
     if best:
-        log.debug(f"Sheet grab bar found by geometry at ({best['x']},{best['y']}) h={best['height']}px")
-        best.pop('height', None)
+        log.debug(f"Sheet grab bar found by geometry at ({best['x']},{best['y']})")
+        best.pop('top', None)
     return best
 
 
@@ -162,12 +179,7 @@ def dismiss_bottom_sheet(
     if not is_open():
         return True
 
-    try:
-        info = device.info
-        screen_height = int(info.get('displayHeight', 1920))
-        screen_width = int(info.get('displayWidth', 1080))
-    except Exception:
-        screen_height, screen_width = 1920, 1080
+    screen_width, screen_height = _screen_size(device)
 
     # 1. Defocus — a focused text field eats the first back press.
     for selector in (defocus_selectors or []):
@@ -195,36 +207,57 @@ def dismiss_bottom_sheet(
             log.debug(f"Sheet closed after {attempt + 1} back press(es)")
             return True
 
-    # 3. Drag the grab bar down — only while the sheet is not expanded to the top.
-    handle = find_drag_handle(device, log)
-    if handle:
-        if handle['y'] < int(screen_height * _FULLSCREEN_HANDLE_RATIO):
-            log.debug(f"Sheet expanded (handle y={handle['y']}) — a drag from there opens the shade, skipping")
-        else:
-            end_y = int(screen_height * 0.95)
-            log.debug(f"Dragging sheet handle ({handle['source']}): ({handle['x']},{handle['y']}) -> ({handle['x']},{end_y})")
-            try:
-                device.swipe_coordinates(handle['x'], handle['y'], handle['x'], end_y, 0.3)
-            except AttributeError:
-                device.swipe(handle['x'], handle['y'], handle['x'], end_y, duration=0.3)
-            time.sleep(0.7)
-            if not is_open():
-                log.debug("Sheet closed via handle drag")
-                return True
-
-    # 4. Drag from inside the sheet's content. The one that works on an expanded sheet.
+    # 3. Drag the sheet down, once per state it has to cross.
+    #
+    # A bottom sheet steps EXPANDED -> COLLAPSED -> HIDDEN, one state per drag: from full screen a
+    # single downward drag only brings it back to its two-thirds height, which reads as "the swipe
+    # did nothing" when it in fact did half the job. So drag again while the sheet keeps moving,
+    # and stop as soon as a pass changes nothing — repeating a gesture that achieves nothing only
+    # delays the caller.
+    #
+    # Progress is measured on the GRAB BAR, not on the sheet container: the container is a
+    # full-screen host that reads the same whether the sheet peeks or fills the screen, while the
+    # bar travels with the sheet (y=183 expanded, y=910 collapsed on the device measured).
+    end_y = int(screen_height * 0.95)
     center_x = screen_width // 2
-    start_y = int(screen_height * 0.40)
-    end_y = int(screen_height * 0.92)
-    log.debug(f"Centre swipe: ({center_x},{start_y}) -> ({center_x},{end_y})")
-    try:
-        device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.4)
-    except AttributeError:
-        device.swipe(center_x, start_y, center_x, end_y, duration=0.4)
-    time.sleep(0.7)
-    if not is_open():
-        log.debug("Sheet closed via centre swipe")
-        return True
+    fullscreen_cutoff = int(screen_height * _FULLSCREEN_HANDLE_RATIO)
+
+    for step in range(_MAX_DRAG_STEPS):
+        handle = find_drag_handle(device, log)
+        handle_y_before = handle['y'] if handle else None
+
+        # Reach for the grab bar, like a person would — unless the sheet is expanded to the very
+        # top, where the gesture would start in the notification-shade zone and pull that instead.
+        if handle and handle['y'] >= fullscreen_cutoff:
+            start_x, start_y = handle['x'], handle['y']
+            how = f"handle drag ({handle['source']})"
+            duration = 0.3
+        else:
+            if handle:
+                log.debug(f"Sheet expanded (grab bar y={handle['y']}) — dragging from the content instead")
+            start_x = center_x
+            start_y = int(screen_height * 0.40)
+            how = "centre swipe"
+            duration = 0.4
+
+        log.debug(f"{how} #{step + 1}: ({start_x},{start_y}) -> ({start_x},{end_y})")
+        try:
+            device.swipe_coordinates(start_x, start_y, start_x, end_y, duration)
+        except AttributeError:
+            device.swipe(start_x, start_y, start_x, end_y, duration=duration)
+        time.sleep(0.7)
+
+        if not is_open():
+            log.debug(f"Sheet closed via {how} (pass {step + 1})")
+            return True
+
+        after = find_drag_handle(device, log)
+        handle_y_after = after['y'] if after else None
+        if handle_y_before is not None and handle_y_after is not None:
+            if handle_y_after <= handle_y_before:
+                log.debug(f"Sheet did not move (grab bar {handle_y_before} -> {handle_y_after}) — stopping")
+                break
+            log.debug(f"Sheet collapsed a step (grab bar {handle_y_before} -> {handle_y_after}), dragging again")
 
     log.warning("Sheet still open after every dismiss strategy")
     return False
