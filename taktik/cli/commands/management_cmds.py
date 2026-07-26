@@ -728,11 +728,15 @@ def dm_send(device_id, to, message):
         
         console.print("\n[yellow]⏳ Envoi en cours...[/yellow]")
         
-        # Exécuter
-        results = workflow.execute(config)
-        
-        # Afficher le résultat
-        if results and results[0].success:
+        # Exécuter. Le workflow expose `run()`, pas `execute()`, et rend un dict de synthèse —
+        # pas une liste d'objets. Le code appelait `execute()` puis lisait `results[0].success` :
+        # il levait un AttributeError avant même d'atteindre l'affichage.
+        outcome = workflow.run(config)
+
+        sent = (outcome or {}).get('results') or []
+        first = sent[0] if sent else {}
+
+        if outcome and outcome.get('success') and first.get('success'):
             console.print(Panel(
                 f"[green]✅ Message envoyé avec succès ![/green]\n"
                 f"[cyan]Destinataire:[/cyan] @{to}",
@@ -740,7 +744,7 @@ def dm_send(device_id, to, message):
                 border_style="green"
             ))
         else:
-            error = results[0].error if results else "Erreur inconnue"
+            error = first.get('error') or (outcome or {}).get('error') or "Erreur inconnue"
             console.print(Panel(
                 f"[red]❌ Échec de l'envoi[/red]\n"
                 f"[cyan]Erreur:[/cyan] {error}",

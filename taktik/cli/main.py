@@ -542,8 +542,12 @@ def cli(ctx, lang=None):
 
                     console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
                     automation = InstagramAutomation(device_manager)
-                    
-                    automation._initialize_license_limits(api_key)
+
+                    # The licence-limit call that used to sit here was a leftover: the method was
+                    # removed from InstagramAutomation, and the `api_key` it was passed had never
+                    # been defined in this scope either. It raised on every single automation run
+                    # started from the CLI. The bot has no licence limits in standalone — the only
+                    # quota is the desktop app's device count, which lives on that side.
                     automation.config = dynamic_config
                     console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
                     
