@@ -6,6 +6,10 @@ comments sheet had it: `_close_comment_popup` grew five verified strategies whil
 sheet made do with a single hardcoded `device.tap(288, 200)` meant to land "above the modal",
 which lands *inside* it as soon as the sheet is expanded to full screen.
 
+The gesture itself matters as much as where it starts: a swipe (coarse down/move/up) is read as a
+fling and drops the sheet exactly one state, while a drag that keeps the finger down and reports
+the whole path carries the sheet with it and closes it in one go. Everything here drags.
+
 Two things make a sheet hard to dismiss, and both show up on the Direct share sheet:
 
   * **The grab bar is anonymous.** On the comments sheet it is
@@ -16,10 +20,9 @@ Two things make a sheet hard to dismiss, and both show up on the Direct share sh
     the sheet is a grab bar, whatever it is called.
 
   * **An expanded sheet has no outside.** Its container and the dimmer behind it share the same
-    full-screen bounds, so there is no dimmer left to tap and no room above the sheet. Dragging
-    the handle is out too — from that high up the gesture pulls the notification shade down
-    instead. What works is a drag starting inside the sheet's own content, which is why the
-    centre swipe is the strategy that actually closes these.
+    full-screen bounds, so there is no dimmer left to tap and no room above the sheet. Grabbing
+    the bar is out too — from that high up the gesture starts in the notification-shade zone — so
+    the drag starts inside the sheet's own content instead and carries it down from there.
 
 Every strategy re-checks `is_open()` before claiming success: a dismissal that is not verified
 is how a caller ends up reporting a URL it captured behind a modal that never went away.
@@ -30,6 +33,7 @@ from typing import Callable, Dict, List, Optional
 
 from loguru import logger as _default_logger
 
+from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from ....ui.selectors.shell.popups import POPUP_SELECTORS
 
 # Shape of a grab bar: much wider than it is tall, never fills the width, horizontally centred.
@@ -209,12 +213,15 @@ def dismiss_bottom_sheet(
             log.debug(f"Sheet closed after {attempt + 1} back press(es)")
             return True
 
-    # 3. Drag the sheet down, once per state it has to cross.
+    # 3. Drag the sheet down and off the screen.
     #
-    # A bottom sheet steps EXPANDED -> COLLAPSED -> HIDDEN, one state per drag: from full screen a
-    # single downward drag only brings it back to its two-thirds height, which reads as "the swipe
-    # did nothing" when it in fact did half the job. So drag again while the sheet keeps moving,
-    # and stop as soon as a pass changes nothing — repeating a gesture that achieves nothing only
+    # One accompanied drag is enough — checked by hand on a device: press, hold, and carry the
+    # sheet all the way down and it closes from full screen in a single gesture. An earlier
+    # version used `swipe_coordinates`, whose coarse down/move/up Android reads as a fling; a
+    # flung sheet settles one state down (expanded -> collapsed) no matter how far the gesture
+    # travelled, which is why it kept stopping at two thirds. The loop below is kept as a safety
+    # net for that class of outcome: it drags again while the sheet keeps moving and stops as
+    # soon as a pass changes nothing, since repeating a gesture that achieves nothing only
     # delays the caller.
     #
     # Progress is measured on the GRAB BAR, not on the sheet container: the container is a
@@ -237,20 +244,21 @@ def dismiss_bottom_sheet(
         if handle and handle['y'] >= fullscreen_cutoff:
             start_x, start_y = handle['x'], handle['y']
             how = f"handle drag ({handle['source']})"
-            duration = 0.3
+            duration = 0.6
         else:
             if handle:
                 log.debug(f"Sheet expanded (grab bar y={handle['y']}) — dragging from the content instead")
             start_x = center_x
             start_y = int(screen_height * 0.40)
-            how = "centre swipe"
-            duration = 0.4
+            how = "content drag"
+            duration = 0.7
 
         log.debug(f"{how} #{step + 1}: ({start_x},{start_y}) -> ({start_x},{end_y})")
-        try:
-            device.swipe_coordinates(start_x, start_y, start_x, end_y, duration)
-        except AttributeError:
-            device.swipe(start_x, start_y, start_x, end_y, duration=duration)
+        # Accompanied drag, not a swipe. A coarse down/move/up reads as a fling and the sheet
+        # settles one state down however far the gesture went — which is why an expanded sheet
+        # only ever collapsed to two thirds. Keeping the finger down and reporting the whole
+        # path carries the sheet along, and it is already at the bottom when the finger lifts.
+        human_drag_between_raw(device, (start_x, start_y), (start_x, end_y), duration, log)
         time.sleep(0.7)
 
         if not is_open():

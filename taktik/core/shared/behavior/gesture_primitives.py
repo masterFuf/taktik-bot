@@ -557,3 +557,48 @@ def human_hswipe_raw(raw_device, direction: str = "left", distance_ratio: float 
         direction, distance_ratio, y_ratio=y_ratio,
         distance_scale=distance_scale, velocity_scale=velocity_scale,
     )
+
+
+def human_drag_between_raw(raw_device, start: Tuple[int, int], end: Tuple[int, int],
+                           duration: float = 0.65, logger=None) -> bool:
+    """Continuous finger-down drag from `start` to `end` that TRACKS the finger 1:1 and lifts at
+    near-zero velocity — press, hold, accompany, release.
+
+    Distinct from a swipe on purpose. `swipe_coordinates` sends a coarse down/move/up: Android
+    reads it as a FLING and lets the widget settle wherever its own velocity thresholds say, which
+    on a bottom sheet means dropping exactly one state (expanded -> collapsed) however far the
+    gesture travelled. A drag that stays down and reports many intermediate positions carries the
+    sheet with it, so at release the sheet is already at the bottom and settles closed.
+
+    Endpoints are given, not sampled: callers here are aiming at a grab bar or a sheet's content,
+    not scrolling a page. `_long_drag` owns the sampled-endpoint case.
+    """
+    host = _raw_host(raw_device, logger)
+    sx, sy = int(start[0]), int(start[1])
+    ex, ey = int(end[0]), int(end[1])
+
+    # Enough intermediate points that the widget sees a tracked finger rather than a jump.
+    steps = max(12, min(32, abs(ey - sy) // 40))
+    path = [
+        [round(sx + (ex - sx) * (i / steps)), round(sy + (ey - sy) * (i / steps))]
+        for i in range(steps + 1)
+    ]
+
+    raw = getattr(host.device, "_device", None) or raw_device
+    try:
+        touch = host._touch_api(raw)
+        if touch is not None:
+            host._execute_touch_path(touch, path, duration)
+        elif hasattr(raw, "swipe_points"):
+            raw.swipe_points(path, duration / max(1, len(path) - 1))
+        else:
+            host.device.swipe_coordinates(sx, sy, ex, ey, duration)
+        emit_step(
+            "scroll", action="drag", target="down" if ey > sy else "up",
+            distance_px=int(abs(ey - sy)), duration_ms=round(duration * 1000),
+            points=len(path),
+        )
+        return True
+    except Exception as exc:
+        host.logger.error(f"Error in drag between points: {exc}")
+        return False
