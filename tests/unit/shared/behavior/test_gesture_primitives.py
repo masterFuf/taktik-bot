@@ -59,6 +59,23 @@ class _RawPoints:
         self.drag_calls.append((args, kwargs))
 
 
+class _JsonRpc:
+    def __init__(self, owner):
+        self._owner = owner
+
+    def swipePoints(self, flat, steps):
+        self._owner.point_calls.append((flat, steps))
+
+
+class _RawJsonRpc:
+    """A device exposing the preferred entry point: the whole path in one round trip."""
+
+    def __init__(self):
+        self.point_calls = []
+        self.drag_calls = []
+        self.jsonrpc = _JsonRpc(self)
+
+
 class _RawBare:
     pass
 
@@ -166,7 +183,13 @@ def test_touch_path_distributes_the_complete_duration():
     assert abs(sum(sleeps) - 0.6) < 1e-9
 
 
-def test_long_drag_falls_back_to_swipe_points_without_using_raw_drag(monkeypatch):
+def test_long_drag_hands_the_path_to_the_device_without_using_raw_drag(monkeypatch):
+    """One call carrying a densified path, and still never `raw.drag`.
+
+    The path is resampled before it goes down: paced from the PC, the sampler's 4 points WERE the
+    whole gesture (4 events, ~8 Hz, 265px jumps). Handed over whole, the device injects one move
+    per segment every 5 ms, so the segment count is the duration.
+    """
     _patch_path(monkeypatch)
     raw = _RawPoints()
     host = _Host(raw)
@@ -174,11 +197,36 @@ def test_long_drag_falls_back_to_swipe_points_without_using_raw_drag(monkeypatch
     assert host._long_drag("up") is True
 
     assert len(raw.calls) == 1
-    assert raw.calls[0][0] == _PATH
+    points, _ = raw.calls[0]
     assert raw.drag_calls == []
+    assert len(points) > 100                      # densified, not the raw 4 sampled points
+    assert points[0] == _PATH[0]                  # the guarded start must stay exact
+    assert points[-1] == _PATH[-1]                # and so must the landing point
+
+
+def test_device_path_never_asks_for_a_single_step(monkeypatch):
+    """`UiDevice.swipe(Point[], steps)` injects `steps - 1` moves per segment.
+
+    At 1 it injects NONE and the drag silently becomes a down/up pair — a tap, which on a feed
+    opens whatever sits under the finger. uiautomator2 guards its own `swipe` with `max(2, steps)`
+    but NOT `swipe_points`, so the floor has to be ours.
+    """
+    _patch_path(monkeypatch)
+    raw = _RawJsonRpc()
+    host = _Host(raw)
+
+    assert host._long_drag("up") is True
+
+    _, steps = raw.point_calls[0]
+    assert steps >= 2
 
 
 def test_velocity_scale_changes_the_physical_drag_duration(monkeypatch):
+    """Duration now lives in the POINT COUNT, not in a per-segment delay.
+
+    The device spends a fixed 5 ms per step, so a slower gesture is a longer path, and the
+    per-segment duration it is handed is deliberately constant.
+    """
     _patch_path(monkeypatch)
     monkeypatch.setattr(gp.random, "uniform", lambda lower, _upper: lower)
     slow_raw = _RawPoints()
@@ -187,9 +235,22 @@ def test_velocity_scale_changes_the_physical_drag_duration(monkeypatch):
     assert _Host(slow_raw)._long_drag("up", velocity_scale=0.8) is True
     assert _Host(fast_raw)._long_drag("up", velocity_scale=1.2) is True
 
-    slow_segment_duration = slow_raw.calls[0][1]
-    fast_segment_duration = fast_raw.calls[0][1]
-    assert slow_segment_duration > fast_segment_duration
+    assert len(slow_raw.calls[0][0]) > len(fast_raw.calls[0][0])
+
+
+def test_controlled_gesture_velocity_stays_in_the_human_band(monkeypatch):
+    """A controlled gesture's duration must be coherent with the distance it covers.
+
+    `sample_swipe` reuses the duration of a randomly chosen REAL swipe, rescaled by at most ±40%
+    for distance, so the same 0.62h request came out anywhere between 169 ms (8000 px/s — a flick,
+    not an accompanied drag) and 850 ms. Sampling stays the source of variability; only the two
+    impossible tails are trimmed.
+    """
+    travel = 1480.0
+    low, high = gp._CONTROLLED_VEL_RANGE
+    for sampled in (0.05, 0.3, 0.6, 5.0):
+        duration = gp._controlled_duration(sampled, travel)
+        assert low - 1 <= travel / duration <= high + 1
 
 
 def test_long_drag_falls_back_to_facade_swipe_coordinates(monkeypatch):
