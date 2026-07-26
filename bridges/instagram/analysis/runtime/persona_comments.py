@@ -63,6 +63,9 @@ class PersonaCommentsMixin:
         if style_seen is None:
             style_seen = set()
         try:
+            from taktik.core.social_media.instagram.actions.atomic.scroll.context_scroll import (
+                comments_scroll_path,
+            )
             from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
                 POST_COMMENTS_SELECTORS,
                 POST_DETAIL_SELECTORS,
@@ -127,7 +130,15 @@ class PersonaCommentsMixin:
                     else:
                         scroll_attempts = 0
                     if len(comments) < self.max_comments:
-                        self.device.swipe(540, 1200, 540, 400, duration=0.5)
+                        # Same bounds-scoped geometry as the production comments scroll. This used
+                        # to be swipe(540, 1200, 540, 400): a 1080x2340 phone written down as four
+                        # constants, so on any other screen it started off the sheet and scraped
+                        # nothing — silently, since an empty scan just ends the loop.
+                        screen_w, screen_h = self.device.window_size()
+                        (start_x, start_y), (end_x, end_y) = comments_scroll_path(
+                            self.device, int(screen_w), int(screen_h), logger
+                        )
+                        self.device.swipe(start_x, start_y, end_x, end_y, duration=0.5)
                         time.sleep(0.8)
                 except Exception:
                     break

@@ -155,12 +155,10 @@ def _collect_feed_usernames(device) -> List[str]:
 
 def _scroll_feed(device) -> None:
     """Scroll the home feed one page down."""
-    try:
-        info = device.info
-        w, h = info["displayWidth"], info["displayHeight"]
-        device.swipe(w // 2, int(h * 0.70), w // 2, int(h * 0.30), duration=0.4)
-    except Exception:  # noqa: BLE001
-        device.swipe(288, 900, 288, 350, duration=0.4)
+    # Fractions of the screen: uiautomator2 converts any coordinate below 1 itself, so this needs
+    # no screen-size read and therefore has no blind fallback. The one it replaced was
+    # swipe(288, 900, 288, 350) — a 576x1280 device written down as four constants.
+    device.swipe(0.5, 0.70, 0.5, 0.30, duration=0.4)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

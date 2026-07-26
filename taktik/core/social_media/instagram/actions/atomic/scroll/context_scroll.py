@@ -11,6 +11,37 @@ from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
 
 
+def comments_scroll_path(device, screen_width: int, screen_height: int, logger=None):
+    """Return `((start_x, start_y), (end_x, end_y))` for a scroll CONTAINED in the comments list.
+
+    Scoped to the list's own bounds on purpose: the comments sheet floats over the post, so a
+    full-screen gesture starts on the post or the navigation bar behind it. When the list exposes
+    no readable bounds it falls back to a fraction of the screen — never to a pixel constant, which
+    would describe one device and misfire on every other.
+
+    Module-level and bounds-only (it computes, it does not swipe) so every caller shares the one
+    geometry: the IG action below, and the persona-analysis bridge, which held a duplicate written
+    in raw pixels.
+    """
+    try:
+        comments_list = device.xpath(POST_COMMENTS_SELECTORS.comments_list_selector())
+        if comments_list.exists:
+            bounds = (comments_list.info or {}).get("bounds") or {}
+            if bounds:
+                left = bounds.get("left", 0)
+                top = bounds.get("top", int(screen_height * 0.07))
+                right = bounds.get("right", screen_width)
+                bottom = bounds.get("bottom", int(screen_height * 0.83))
+                center_x = (left + right) // 2
+                return ((center_x, top + int((bottom - top) * 0.75)),
+                        (center_x, top + int((bottom - top) * 0.25)))
+    except Exception as exc:
+        if logger is not None:
+            logger.debug(f"Could not read comments list bounds: {exc}")
+    return ((screen_width // 2, int(screen_height * 0.75)),
+            (screen_width // 2, int(screen_height * 0.30)))
+
+
 class ContextScrollMixin(BaseAction):
     """Mixin: context-specific scrolls (followers, comments, feed, grid) + load more + smart scroll."""
 
@@ -39,42 +70,11 @@ class ContextScrollMixin(BaseAction):
         self.logger.debug("💬 Scrolling comments list down")
 
         try:
-            # Try to scroll within the comments RecyclerView (sticky_header_list)
-            # The comments view is a bottom sheet that covers most of the screen
-            # We need to scroll within its bounds, not the full screen
-            comments_list = self.device.xpath(POST_COMMENTS_SELECTORS.comments_list_selector())
-
-            if comments_list.exists:
-                # Get the bounds of the comments list
-                try:
-                    info = comments_list.info
-                    bounds = info.get('bounds', {})
-                    if bounds:
-                        left = bounds.get('left', 0)
-                        top = bounds.get('top', 162)
-                        right = bounds.get('right', self.screen_width)
-                        bottom = bounds.get('bottom', int(self.screen_height * 0.83))
-
-                        # Scroll within the comments list bounds
-                        center_x = (left + right) // 2
-                        start_y = top + int((bottom - top) * 0.75)
-                        end_y = top + int((bottom - top) * 0.25)
-
-                        self.logger.debug(f"💬 Scrolling in comments bounds: ({center_x}, {start_y}) → ({center_x}, {end_y})")
-                        self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.6)
-                        self._human_like_delay('scroll')
-                        return True
-                except Exception as e:
-                    self.logger.debug(f"Could not get comments list bounds: {e}")
-
-            # Fallback: scroll in the bottom sheet area (typically y=200 to y=1200)
-            center_x = self.screen_width // 2
-            # Comments bottom sheet typically starts around y=160 and ends around y=1260
-            start_y = int(self.screen_height * 0.75)  # ~1140 on 1520 screen
-            end_y = int(self.screen_height * 0.30)    # ~456 on 1520 screen
-
-            self.logger.debug(f"💬 Fallback scroll: ({center_x}, {start_y}) → ({center_x}, {end_y})")
-            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.6)
+            (start_x, start_y), (end_x, end_y) = comments_scroll_path(
+                self.device, int(self.screen_width), int(self.screen_height), self.logger
+            )
+            self.logger.debug(f"💬 Scrolling in comments: ({start_x}, {start_y}) → ({end_x}, {end_y})")
+            self.device.swipe_coordinates(start_x, start_y, end_x, end_y, 0.6)
             self._human_like_delay('scroll')
             return True
 

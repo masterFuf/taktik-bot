@@ -546,12 +546,9 @@ def _collect_visible_usernames(device) -> List[str]:
 
 def _scroll_serp(device) -> None:
     """Scroll the main results list one page down."""
-    try:
-        info = device.info
-        w, h = info["displayWidth"], info["displayHeight"]
-        device.swipe(w // 2, int(h * 0.75), w // 2, int(h * 0.35), duration=0.3)
-    except Exception:  # noqa: BLE001
-        device.swipe(500, 1500, 500, 600, duration=0.3)
+    # Fractions of the screen (uiautomator2 converts anything below 1), so no screen-size read and
+    # no blind fallback. Replaces swipe(500, 1500, 500, 600), which described one device only.
+    device.swipe(0.5, 0.75, 0.5, 0.35, duration=0.3)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -782,13 +779,8 @@ def _do_likes_on_posts(device, username, *, probability: int, max_likes: int,
                 log_fn("warning", f"Like failed on post #{idx}: {exc}")
         if liked >= max_likes:
             break
-        # Scroll profile feed
-        try:
-            info = device.info
-            w, h = info["displayWidth"], info["displayHeight"]
-            device.swipe(w // 2, int(h * 0.7), w // 2, int(h * 0.3), duration=0.3)
-        except Exception:  # noqa: BLE001
-            device.swipe(500, 1400, 500, 600, duration=0.3)
+        # Scroll profile feed — fractions of the screen, no screen-size read, no blind fallback.
+        device.swipe(0.5, 0.7, 0.5, 0.3, duration=0.3)
         scrolls += 1
         time.sleep(1.2)
     return liked

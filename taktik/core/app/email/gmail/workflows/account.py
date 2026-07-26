@@ -309,16 +309,12 @@ class GmailWorkflow:
                     # recovery email shown on screen.
                     _ipc.log("info", "🔐 Google identity challenge — selecting 'Receive code'…")
                     if not self._click_selector(GOOGLE_VERIFY_SELECTORS.receive_code, timeout=5.0):
-                        # Fallback: tap on the first option by coordinate
-                        # The list starts around y=575 on 576×1280; center ≈ (288,632)
-                        try:
-                            info = self.device.info
-                            w = int(info.get("displayWidth", 576))
-                            h_px = int(info.get("displayHeight", 1280))
-                            tap_y = int(h_px * 0.494)  # ≈ 632 / 1280
-                            self.device.click(w // 2, tap_y)
-                        except Exception:
-                            self.device.click(288, 632)
+                        # Fallback: tap the first option by position. Expressed as a FRACTION of
+                        # the screen — uiautomator2 converts any coordinate below 1 itself — so it
+                        # holds on every device and needs no screen-size plumbing. Measured on the
+                        # reference dump: the list starts at y=575 of 1280 and the first row centres
+                        # on (288, 632) of 576x1280.
+                        self.device.click(0.5, 0.494)
                     time.sleep(_NAV_PAUSE)
 
                 elif screen == "google_verify_send":
@@ -346,14 +342,12 @@ class GmailWorkflow:
                     # Skip by clicking "Annuler" — no phone needed.
                     _ipc.log("info", "📵 Skipping recovery phone (Annuler)…")
                     if not self._click_selector(GOOGLE_RECOVERY_SELECTORS.cancel_button, timeout=5.0):
-                        # Fallback: coordinate tap on Annuler button
-                        # From dump: bounds [24,1153][127,1208] → center ≈ (75, 1180)
-                        try:
-                            info = self.device.info
-                            h_px = int(info.get("displayHeight", 1280))
-                            self.device.click(75, int(h_px * 0.922))
-                        except Exception:
-                            self.device.click(75, 1180)
+                        # Fallback: tap Annuler by position, as a FRACTION of the screen. The x was
+                        # the dangerous one — it stayed the literal 75 on BOTH branches, so on a
+                        # 1080-wide phone the tap landed at 7% of the width instead of 13% and hit
+                        # whatever sits left of the button. From the dump: bounds [24,1153][127,1208]
+                        # on 576x1280 -> centre (75.5, 1180.5) -> (0.131, 0.922).
+                        self.device.click(0.131, 0.922)
                     time.sleep(_NAV_PAUSE)
 
                 elif screen == "google_error":
