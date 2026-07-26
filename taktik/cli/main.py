@@ -695,6 +695,12 @@ from taktik.cli.commands.workflow_cmds import workflows as _workflows_group
 
 cli.add_command(_workflows_group)
 
+# Instagram publishing on the production path. The older `management content` commands run a
+# separate, drifted implementation whose "post-bulk" publishes N posts rather than a carousel.
+from taktik.cli.commands.publish_cmds import publish as _publish_group
+
+cli.add_command(_publish_group)
+
 
 @cli.group()
 def device():
