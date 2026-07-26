@@ -161,6 +161,22 @@ def open_likers_list(device, ui_extractors, logger=None) -> bool:
         return False
 
 
+def _close_share_sheet(device, logger=None) -> bool:
+    """Leave no share sheet behind. Verified: False means it is genuinely still on screen.
+
+    A sheet left open hides whatever comes next — the run that surfaced this ended on four empty
+    followers-list scans, ten seconds after the sheet stayed up.
+    """
+    from ...actions.atomic.interaction.bottom_sheet import dismiss_share_sheet, is_share_sheet_open
+
+    if not is_share_sheet_open(device):
+        return True
+    closed = dismiss_share_sheet(device, logger)
+    if not closed and logger:
+        logger.warning("get_post_url_from_share: share sheet still open after every dismiss strategy")
+    return closed
+
+
 def get_post_url_from_share(device, logger=None) -> Optional[str]:
     """Extract the Instagram URL of the currently open post via the Share button.
 
@@ -225,8 +241,7 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
         if copy_link is None:
             if logger:
                 logger.debug("get_post_url_from_share: 'Copy link' not found in share sheet (tried scroll)")
-            device.press("back")
-            time.sleep(0.5)
+            _close_share_sheet(device, logger)
             return None
 
         copy_link.click()
@@ -242,16 +257,11 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
                     logger.debug(f"get_post_url_from_share: URL found in share picker: {url}")
                 device.press("back")   # close system share picker
                 time.sleep(0.4)
-                # On some Instagram versions, Copy link auto-dismisses the share sheet;
-                # on others it stays open. Check for the dimmer overlay and tap above
-                # the sheet to close it cleanly — safer than a blind second back press
-                # which would navigate away from the post.
-                try:
-                    if device.xpath(POST_SHARE_SHEET_SELECTORS.share_sheet_dimmer).exists:
-                        device.tap(288, 200)   # tap above the share modal (dimmer zone)
-                        time.sleep(0.4)
-                except Exception:
-                    pass
+                # Copy link dismisses the share sheet on some Instagram builds and leaves it up on
+                # others. This used to tap a fixed (288, 200) "above the modal" — a point that is
+                # INSIDE the sheet once it has expanded to full screen — and then return the URL
+                # without checking, so the caller carried on with a modal covering the app.
+                _close_share_sheet(device, logger)
                 return url
 
         # Step 4: fallback — try clipboard (devices that copy directly)
@@ -263,15 +273,13 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
                 url = clipboard.strip()
                 if logger:
                     logger.debug(f"get_post_url_from_share: URL from clipboard: {url}")
-                device.press("back")   # close any remaining sheet
-                time.sleep(0.5)
+                _close_share_sheet(device, logger)
                 return url
         except Exception:
             pass
 
-        # Nothing worked — close sheets and return None
-        device.press("back")
-        time.sleep(0.3)
+        # Nothing worked — close the sheet anyway and return None
+        _close_share_sheet(device, logger)
         if logger:
             logger.warning("get_post_url_from_share: could not retrieve post URL")
         return None
@@ -280,7 +288,7 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
         if logger:
             logger.error(f"get_post_url_from_share: unexpected error: {e}")
         try:
-            device.press("back")
+            _close_share_sheet(device, logger)
         except Exception:
             pass
         return None

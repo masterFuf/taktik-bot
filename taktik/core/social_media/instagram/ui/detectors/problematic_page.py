@@ -244,14 +244,24 @@ class ProblematicPageDetector:
                         continue
                             
                 elif method == 'tap_outside':
-                    # Taper dans la zone supérieure (zone des followers)
-                    info = self.device.info
-                    screen_width = info['displayWidth']
-                    screen_height = info['displayHeight']
-                    
-                    # Cliquer dans la zone des followers (partie haute de l'écran)
-                    self.device.click(screen_width // 2, screen_height // 4)
-                    
+                    # Tap the page BEHIND the sheet, in the strip left visible above it.
+                    #
+                    # This used to tap a quarter of the way down the screen unconditionally. On a
+                    # sheet that fills the screen — the Direct share sheet does once expanded —
+                    # that point is inside the sheet's own recipient grid, so the tap SELECTED A
+                    # DM RECIPIENT instead of closing anything, arming a "send this post to
+                    # someone" that a later confirm tap could have completed. When there is no
+                    # strip above the sheet there is nothing to tap outside of, and the caller
+                    # falls through to the next method in its list.
+                    from ...actions.atomic.interaction.bottom_sheet import sheet_outside_tap_point
+
+                    point = sheet_outside_tap_point(self.device)
+                    if point is None:
+                        logger.debug("tap_outside: sheet covers the screen, nothing outside to tap")
+                        continue
+                    self.device.click(point[0], point[1])
+
+
                 elif method == 'swipe_down':
                     # Swipe vers le bas pour fermer la popup
                     # Tente d'abord de trouver le drag handle pour un swipe précis

@@ -44,6 +44,8 @@ _HANDLE_MAX_WIDTH_RATIO = 0.45
 _HANDLE_CENTER_TOLERANCE_RATIO = 0.08
 # Above this, a handle drag would start in the status-bar pull-down zone.
 _FULLSCREEN_HANDLE_RATIO = 0.10
+# Highest a "tap outside the sheet" may land: below the status bar and the shade pull-down zone.
+_OUTSIDE_TAP_MIN_RATIO = 0.12
 # A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
 _MAX_DRAG_STEPS = 3
 
@@ -222,8 +224,12 @@ def dismiss_bottom_sheet(
     center_x = screen_width // 2
     fullscreen_cutoff = int(screen_height * _FULLSCREEN_HANDLE_RATIO)
 
+    # The post-swipe lookup of one pass is the pre-swipe lookup of the next: locating the bar
+    # costs two selector probes plus a subtree scan, and doing it twice per pass was most of the
+    # nine seconds this took on the Lab run.
+    handle = find_drag_handle(device, log)
+
     for step in range(_MAX_DRAG_STEPS):
-        handle = find_drag_handle(device, log)
         handle_y_before = handle['y'] if handle else None
 
         # Reach for the grab bar, like a person would — unless the sheet is expanded to the very
@@ -251,8 +257,8 @@ def dismiss_bottom_sheet(
             log.debug(f"Sheet closed via {how} (pass {step + 1})")
             return True
 
-        after = find_drag_handle(device, log)
-        handle_y_after = after['y'] if after else None
+        handle = find_drag_handle(device, log)
+        handle_y_after = handle['y'] if handle else None
         if handle_y_before is not None and handle_y_after is not None:
             if handle_y_after <= handle_y_before:
                 log.debug(f"Sheet did not move (grab bar {handle_y_before} -> {handle_y_after}) — stopping")
@@ -261,6 +267,29 @@ def dismiss_bottom_sheet(
 
     log.warning("Sheet still open after every dismiss strategy")
     return False
+
+
+def sheet_outside_tap_point(device):
+    """A point on the page BEHIND the sheet, or None when the sheet leaves nothing exposed.
+
+    "Tap outside to dismiss" only means something while the sheet peeks: expanded, its container
+    and the dimmer share the same full-screen bounds, and a tap meant for the page lands on the
+    sheet's own content — on the Direct share sheet, on a recipient avatar.
+    """
+    screen_width, screen_height = _screen_size(device)
+
+    # The grab bar rides the sheet's top edge and is findable in both states, unlike the
+    # container, which is a full-screen host.
+    handle = find_drag_handle(device)
+    top = handle['y'] if handle else _sheet_top(device)
+    if not top:
+        return None
+
+    # Leave a margin below the status bar so the tap cannot land on it or pull the shade.
+    lowest_safe = int(screen_height * _OUTSIDE_TAP_MIN_RATIO)
+    if top <= lowest_safe:
+        return None
+    return screen_width // 2, (lowest_safe + top) // 2
 
 
 def is_share_sheet_open(device) -> bool:
