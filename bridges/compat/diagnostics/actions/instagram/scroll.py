@@ -226,19 +226,24 @@ def scroll_controlled_step(a, p):
 
     moved = shifts[len(shifts) // 2]
     excess = (moved / requested) if requested else 0.0
-    # Nothing left to scroll looks exactly like a gesture that fell short, except that the screen
-    # kept ALL its anchors -- content that genuinely moved renews most of them.
-    exhausted = abs(moved) < 0.15 * requested and len(shifts) >= 0.8 * max(1, len(before))
+    # A screen with nothing left to scroll cannot be told apart from a gesture that fell short --
+    # not from one reading. Anchor survival looked like the discriminator and is not: measured on
+    # two consecutive gestures in the post viewer it was 95% for a genuine 1149px move and 85% for a
+    # 310px one. So only a near-motionless screen is called end-of-content; anything between that
+    # and the requested travel is reported as UNDETERMINED, naming both causes rather than blaming
+    # the gesture. A probe that cries failure on healthy behaviour is worse than one that abstains.
+    stalled = abs(moved) < 0.05 * requested
     details.update(measured_px=moved, ratio_measured_over_requested=round(excess, 2),
-                   end_of_content=exhausted)
+                   end_of_content=stalled)
 
-    if exhausted:
-        verdict, ok = ("fin de contenu — l'ecran n'a plus rien a faire defiler, "
+    if stalled:
+        verdict, ok = ("ecran immobile — plus rien a faire defiler (fin de contenu), "
                        "le geste n'est pas en cause"), True
     elif excess > 1.25:
         verdict, ok = f"DEPASSEMENT x{excess:.2f} — un fling se produit encore", False
     elif excess < 0.6:
-        verdict, ok = f"COURT x{excess:.2f} — le geste n'atteint pas la distance demandee", False
+        verdict, ok = (f"INDETERMINE x{excess:.2f} — soit la fin du contenu approche, soit le geste "
+                       f"n'a pas sa course; un seul releve ne permet pas de trancher"), False
     else:
         verdict, ok = f"controle x{excess:.2f}", True
     suffix = "" if scoped else " (hors conteneur scrollable: lecture polluee par le chrome fixe)"
