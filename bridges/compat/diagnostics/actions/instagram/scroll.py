@@ -140,26 +140,31 @@ def scroll_feed_drag(a, p):
     }
 
 
-def _text_anchors(device, limit: int = 60):
-    """Map the visible texts to their vertical centre.
+def _screen_anchors(device, limit: int = 80):
+    """Map identifiable on-screen items to their vertical centre.
 
-    A surface-agnostic way to measure how far the content ACTUALLY moved: match the texts present
-    before and after the gesture and take the median shift. Independent of which screen we are on,
-    so the same probe works on the feed, in the post viewer and on a profile.
+    A surface-agnostic way to measure how far the content ACTUALLY moved: match the items present
+    before and after the gesture and take the median shift.
+
+    Keys on text OR content-desc, and that second one is not a nicety — a photo feed carries almost
+    no TextView, so a text-only probe found a single common anchor there and had to report itself
+    inconclusive. Instagram labels its media ("Photo by ... on ..."), so content-desc is what makes
+    the measurement possible on exactly the surface we most need it.
     """
     anchors = {}
-    try:
-        for node in device.xpath('//android.widget.TextView').all()[:limit]:
-            try:
-                text = (node.text or "").strip()
-                if len(text) < 4:
+    for selector in ('//*[@content-desc]', '//android.widget.TextView'):
+        try:
+            for node in device.xpath(selector).all()[:limit]:
+                try:
+                    key = (node.attrib.get("content-desc") or node.text or "").strip()
+                    if len(key) < 4:
+                        continue
+                    _, top, _, bottom = node.bounds
+                    anchors.setdefault(key, (top + bottom) // 2)
+                except Exception:
                     continue
-                left, top, right, bottom = node.bounds
-                anchors.setdefault(text, (top + bottom) // 2)
-            except Exception:
-                continue
-    except Exception:
-        pass
+        except Exception:
+            continue
     return anchors
 
 
@@ -182,29 +187,36 @@ def scroll_controlled_step(a, p):
     h = int(a.scroll.screen_height)
     requested = int(ratio * h)
 
-    before = _text_anchors(a.device)
+    before = _screen_anchors(a.device)
     a.device.human_scroll("down", distance_ratio=ratio)
     time.sleep(0.9)
-    after = _text_anchors(a.device)
+    after = _screen_anchors(a.device)
 
-    shared = [before[t] - after[t] for t in before if t in after]
+    common = [k for k in before if k in after]
+    shifts = sorted(before[k] - after[k] for k in common)
     injection = dict(getattr(a.scroll, "_last_gesture_injection", None) or {})
     details = {"requested_px": requested, "distance_ratio": ratio, "screen_height": h,
                "anchors_before": len(before), "anchors_after": len(after),
-               "anchors_matched": len(shared), "injection": injection}
+               "anchors_matched": len(shifts), "injection": injection}
 
-    if len(shared) < 3:
+    if len(shifts) < 3:
         return {"success": False,
-                "message": (f"non concluant: {len(shared)} texte(s) commun(s) — le contenu a "
-                            f"defile de plus d'un ecran, ou la vue n'a pas de texte stable"),
+                "message": (f"non concluant: {len(shifts)} ancre(s) commune(s) — le contenu a "
+                            f"defile de plus d'un ecran, ou la vue n'offre rien de stable"),
                 "details": details}
 
-    shared.sort()
-    moved = shared[len(shared) // 2]
+    moved = shifts[len(shifts) // 2]
     excess = (moved / requested) if requested else 0.0
-    details.update(measured_px=moved, ratio_measured_over_requested=round(excess, 2))
+    # Nothing left to scroll looks exactly like a gesture that fell short, except that the screen
+    # kept ALL its anchors -- content that genuinely moved renews most of them.
+    exhausted = abs(moved) < 0.15 * requested and len(shifts) >= 0.8 * max(1, len(before))
+    details.update(measured_px=moved, ratio_measured_over_requested=round(excess, 2),
+                   end_of_content=exhausted)
 
-    if excess > 1.25:
+    if exhausted:
+        verdict, ok = ("fin de contenu — l'ecran n'a plus rien a faire defiler, "
+                       "le geste n'est pas en cause"), True
+    elif excess > 1.25:
         verdict, ok = f"DEPASSEMENT x{excess:.2f} — un fling se produit encore", False
     elif excess < 0.6:
         verdict, ok = f"COURT x{excess:.2f} — le geste n'atteint pas la distance demandee", False
@@ -212,7 +224,7 @@ def scroll_controlled_step(a, p):
         verdict, ok = f"controle x{excess:.2f}", True
     return {"success": ok,
             "message": (f"demande {requested}px ({ratio:.2f}h), mesure {moved}px sur "
-                        f"{len(shared)} ancres — {verdict}"),
+                        f"{len(shifts)} ancres — {verdict}"),
             "details": details}
 
 
@@ -259,6 +271,7 @@ def scroll_gesture_bench(a, p):
             "events": events, "rpc_calls": info.get("rpc_calls"),
             "hz": round(events / elapsed, 1) if elapsed > 0 and events else None,
             "overshoot_pct": round((elapsed / duration - 1) * 100) if duration > 0 else None,
+            "injection": info,
         })
         time.sleep(0.9)   # let the previous motion settle before measuring the next
 
@@ -268,8 +281,12 @@ def scroll_gesture_bench(a, p):
         return {"success": False, "message": "cadence device indisponible (swipePoints absent ?)",
                 "details": {"runs": runs}}
     gain = (round(dev["hz"] / rpc["hz"], 1) if dev.get("hz") and rpc.get("hz") else None)
+    # The per-step cost is what sizes every device-paced gesture, so show it: it is the number to
+    # look at when a gesture runs long. It self-calibrates from the first gesture of a session.
+    step_ms = (dev.get("injection") or {}).get("step_cost_ms")
     summary = (f"device {dev['hz']}Hz en {dev['events']} events / 1 aller-retour "
-               f"({dev['measured_ms']}ms pour {dev['asked_ms']}ms demandes)")
+               f"({dev['measured_ms']}ms pour {dev['asked_ms']}ms demandes"
+               + (f", {step_ms}ms/pas" if step_ms else "") + ")")
     if rpc.get("ok"):
         summary += (f" | PC {rpc['hz']}Hz en {rpc['events']} events / {rpc['rpc_calls']} "
                     f"allers-retours ({rpc['measured_ms']}ms, +{rpc['overshoot_pct']}%)")
