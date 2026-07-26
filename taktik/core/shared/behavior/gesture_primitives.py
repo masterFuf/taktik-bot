@@ -183,6 +183,83 @@ def _touch_move_path(
     return moves
 
 
+# UiAutomator injects one MOVE per step and sleeps 5 ms after it, so once the whole path is in the
+# device's hands the DEVICE owns the cadence — ~200 Hz, against the 8-16 Hz a PC-paced path can
+# reach (see `_execute_device_path` for the measurements).
+_DEVICE_STEP_S = 0.005
+# `UiDevice.swipe(Point[], segmentSteps)` injects `segmentSteps - 1` moves per segment: at 1 it
+# injects NONE and the gesture degrades to a bare down/up pair — a TAP. 2 gives exactly one move
+# per segment, so every injected position is one of ours and none is interpolated by the device.
+_DEVICE_SEGMENT_STEPS = 2
+_DEVICE_MAX_POINTS = 400
+
+
+def _min_jerk(u: float) -> float:
+    """Fraction of the distance covered at normalised time `u`, on the minimum-jerk law.
+
+    The standard model of human point-to-point movement: bell-shaped velocity, at rest at both
+    ends. It buys a drag the two properties we need — it lifts at ~zero velocity (no fling, the
+    widget settles where the finger stopped) and it needs no start teleport. The RPC-paced executor
+    had to jump 3-4% of the screen on its first move to clear touch slop before Android's
+    long-press timeout, because its second move was 60ms away; here the points are 5ms apart, so
+    slop (~20-40px) falls within the first ~90ms — far inside the 500ms timeout.
+    """
+    return u * u * u * (10.0 + u * (-15.0 + 6.0 * u))
+
+
+def _resample_by_time(
+    path: Sequence[Sequence[int]], n_out: int, screen_w: int, *, easing=_min_jerk, rng=None
+) -> List[List[int]]:
+    """Resample a polyline into `n_out` positions equally spaced in TIME, not in distance.
+
+    The device spends the same 5 ms on every segment handed to it, so the SPACING of these points
+    *is* the velocity profile: bunched = slow, spread = fast. This is the only way a shaped gesture
+    survives the trip to the phone — paced from the PC, the sampled ease-out was erased by ±50 ms
+    of transport jitter on a 60 ms budget, and the device saw a near-uniform staircase whatever we
+    computed.
+    """
+    pts = [(float(p[0]), float(p[1])) for p in path]
+    if len(pts) < 2 or n_out < 2:
+        return [[int(round(x)), int(round(y))] for x, y in pts]
+    rng = rng or random
+
+    cum = [0.0]
+    for a, b in zip(pts, pts[1:]):
+        cum.append(cum[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    total = cum[-1]
+    if total <= 0:
+        return [[int(round(x)), int(round(y))] for x, y in pts]
+
+    # Physiological tremor: ONE slow bow across the gesture, never per-point noise. White noise at
+    # 5 ms would inject hundreds of px/s of velocity error into the slow end phase — exactly the
+    # release velocity a bottom sheet reads to decide whether to fling. A low-frequency wobble
+    # reads as a hand rather than a ruler and leaves the profile intact.
+    amp = 0.0015 * max(1, screen_w)
+    freq = rng.uniform(1.2, 2.6)
+    phase = rng.uniform(0.0, 2.0 * math.pi)
+
+    out: List[List[int]] = []
+    seg = 0
+    for i in range(n_out):
+        u = i / (n_out - 1)
+        target = min(max(easing(u), 0.0), 1.0) * total
+        while seg < len(cum) - 2 and cum[seg + 1] < target:
+            seg += 1
+        span = cum[seg + 1] - cum[seg]
+        t = 0.0 if span <= 0 else (target - cum[seg]) / span
+        (ax, ay), (bx, by) = pts[seg], pts[seg + 1]
+        x, y = ax + (bx - ax) * t, ay + (by - ay) * t
+        dx, dy = bx - ax, by - ay
+        norm = math.hypot(dx, dy) or 1.0
+        # Envelope vanishes at both ends so the requested endpoints stay exact — callers aim at a
+        # grab bar or a guarded start zone and must land on it.
+        wobble = amp * math.sin(freq * 2.0 * math.pi * u + phase) * math.sin(math.pi * u)
+        out.append([int(round(x - dy / norm * wobble)), int(round(y + dx / norm * wobble))])
+    out[0] = [int(round(pts[0][0])), int(round(pts[0][1]))]
+    out[-1] = [int(round(pts[-1][0])), int(round(pts[-1][1]))]
+    return out
+
+
 class GestureMixin:
     """Mixin of humanized scroll/drag/flick primitives. Host must expose `self.device`,
     `self.screen_width`, `self.screen_height`, `self.logger`."""
@@ -219,20 +296,27 @@ class GestureMixin:
             n_seg = max(1, len(path) - 1)
             raw = getattr(self.device, "_device", None)
 
-            touch = self._touch_api(raw) if controlled else None
-            if touch is not None:
-                self._execute_touch_path(touch, path, duration)
-            elif raw is not None and hasattr(raw, "swipe_points"):
-                # swipe_points `duration` is injected PER SEGMENT (total = duration × segments).
-                total = duration if controlled else self._fling_total(path)
-                raw.swipe_points(path, total / n_seg)
-            else:
-                self.device.swipe_coordinates(path[0][0], path[0][1], path[-1][0], path[-1][1],
-                                              duration if controlled else self._fling_total(path))
+            # Controlled = the content must track the finger 1:1, so the path is paced ON the
+            # device. Uncontrolled already goes down in one call as a fling profile.
+            executed = bool(controlled) and self._execute_device_path(raw, path, duration)
+            if controlled and not executed:
+                touch = self._touch_api(raw)
+                if touch is not None:
+                    self._execute_touch_path(touch, path, duration)
+                    executed = True
+            if not executed:
+                if raw is not None and hasattr(raw, "swipe_points"):
+                    # swipe_points `duration` is injected PER SEGMENT (total = duration × segments).
+                    total = duration if controlled else self._fling_total(path)
+                    raw.swipe_points(path, total / n_seg)
+                else:
+                    self.device.swipe_coordinates(path[0][0], path[0][1], path[-1][0], path[-1][1],
+                                                  duration if controlled else self._fling_total(path))
             emit_step(
                 "scroll", action="curve", target=direction,
                 distance_px=int(abs(path[-1][1] - path[0][1])), points=len(path),
                 controlled=controlled, velocity_scale=round(speed, 3),
+                paced=(getattr(self, "_last_gesture_injection", None) or {}).get("mode"),
             )
             time.sleep(0.1)
             return True
@@ -313,17 +397,19 @@ class GestureMixin:
             scaled_vel_range = tuple(float(value) * speed for value in vel_range)
             duration = min(max(dy / random.uniform(*scaled_vel_range), 0.40), 0.85)
             raw = getattr(self.device, "_device", None)
-            touch = self._touch_api(raw)
-            if touch is not None:
-                self._execute_touch_path(touch, path, duration)
-            elif raw is not None and hasattr(raw, "swipe_points"):
-                raw.swipe_points(path, duration / max(1, len(path) - 1))
-            else:
-                self.device.swipe_coordinates(sx, sy, ex, ey, duration)
+            if not self._execute_device_path(raw, path, duration):
+                touch = self._touch_api(raw)
+                if touch is not None:
+                    self._execute_touch_path(touch, path, duration)
+                elif raw is not None and hasattr(raw, "swipe_points"):
+                    raw.swipe_points(path, duration / max(1, len(path) - 1))
+                else:
+                    self.device.swipe_coordinates(sx, sy, ex, ey, duration)
             emit_step(
                 "scroll", action="drag", target=direction,
                 distance_px=int(dy), duration_ms=round(duration * 1000),
                 velocity_scale=round(speed, 3),
+                paced=(getattr(self, "_last_gesture_injection", None) or {}).get("mode"),
             )
             time.sleep(0.08)
             return True
@@ -344,13 +430,68 @@ class GestureMixin:
             return None
         return touch
 
+    def _execute_device_path(self, raw, path: Sequence[Sequence[int]], duration: float) -> bool:
+        """Hand the whole gesture to the DEVICE in ONE round trip and let it pace itself.
+
+        Returns False when the device exposes no usable entry point, so callers keep their
+        fallback. This is the default path for every gesture that must track the finger 1:1.
+
+        Why not `touch.down/move/up`: each of those is a JSON-RPC round trip, measured at 63 ms
+        median on a USB-attached Pixel 3a — and the cheapest call in the API (`getLastTraversedText`)
+        costs the same, so it is the UiAutomator bridge, not the method. Six or seven of them *are*
+        the whole gesture, so the finger position updated at 8-16 Hz where a real finger reports at
+        60-120 Hz: the content advanced in 265px teleports, an 8fps animation on a 60Hz screen, and
+        a gesture asked to last 850 ms took ~1.3 s. Sent as one path, the device replays it at
+        5 ms/step and the transport is out of the loop.
+        """
+        if raw is None:
+            return False
+        n_events = max(2, min(_DEVICE_MAX_POINTS - 1,
+                              int(round(max(duration, 0.02) / _DEVICE_STEP_S))))
+        points = _resample_by_time(path, n_events + 1, int(self.screen_width))
+        n_seg = len(points) - 1
+        moves = n_seg * (_DEVICE_SEGMENT_STEPS - 1)
+        info = {"mode": "device", "events": moves, "rpc_calls": 1,
+                "planned_ms": round(moves * _DEVICE_STEP_S * 1000),
+                "planned_hz": round(1.0 / _DEVICE_STEP_S)}
+        try:
+            jsonrpc = getattr(raw, "jsonrpc", None)
+            if jsonrpc is not None and hasattr(jsonrpc, "swipePoints"):
+                flat: List[int] = []
+                for x, y in points:
+                    flat.extend((int(x), int(y)))
+                jsonrpc.swipePoints(flat, _DEVICE_SEGMENT_STEPS)
+            elif hasattr(raw, "swipe_points"):
+                # u2 derives the step count as int(per_segment_duration / 0.005); aim at the middle
+                # of the bucket so float error can never round it down to 1 — at 1 the device
+                # injects no move at all and the drag becomes a tap.
+                raw.swipe_points(points, (_DEVICE_SEGMENT_STEPS + 0.5) * _DEVICE_STEP_S)
+            else:
+                return False
+        except Exception as exc:
+            self.logger.debug(f"device-paced path unavailable ({exc}); falling back to RPC pacing")
+            return False
+        self._last_gesture_injection = info
+        return True
+
     def _execute_touch_path(self, touch, path: Sequence[Sequence[int]], duration: float) -> None:
-        """Inject DOWN -> immediate MOVE -> paced path -> near-zero-velocity UP."""
+        """Inject DOWN -> immediate MOVE -> paced path -> near-zero-velocity UP.
+
+        FALLBACK ONLY — `_execute_device_path` is the normal route. Every event here costs a
+        round trip (~63 ms), so this caps out around 8-16 Hz and overshoots the requested duration
+        by 50-120%. Kept because it is the one path that works when the device exposes no
+        `swipePoints`.
+        """
         sx, sy = path[0]
         moves = _touch_move_path(path, int(self.screen_height))
         if not moves:
             return
         per_move = duration / max(1, len(moves))
+        self._last_gesture_injection = {
+            "mode": "rpc", "events": len(moves), "rpc_calls": len(moves) + 2,
+            "planned_ms": round(duration * 1000),
+            "planned_hz": round(len(moves) / max(duration, 1e-3)),
+        }
         last_x, last_y = sx, sy
         down_sent = False
         try:
@@ -577,26 +718,29 @@ def human_drag_between_raw(raw_device, start: Tuple[int, int], end: Tuple[int, i
     sx, sy = int(start[0]), int(start[1])
     ex, ey = int(end[0]), int(end[1])
 
-    # Enough intermediate points that the widget sees a tracked finger rather than a jump.
-    steps = max(12, min(32, abs(ey - sy) // 40))
-    path = [
-        [round(sx + (ex - sx) * (i / steps)), round(sy + (ey - sy) * (i / steps))]
-        for i in range(steps + 1)
-    ]
-
     raw = getattr(host.device, "_device", None) or raw_device
     try:
-        touch = host._touch_api(raw)
-        if touch is not None:
-            host._execute_touch_path(touch, path, duration)
-        elif hasattr(raw, "swipe_points"):
-            raw.swipe_points(path, duration / max(1, len(path) - 1))
-        else:
-            host.device.swipe_coordinates(sx, sy, ex, ey, duration)
+        # The endpoints ARE the intent; the device-paced executor resamples them into a minimum-jerk
+        # profile at 5 ms/point, so the widget sees a tracked finger and not a jump.
+        if not host._execute_device_path(raw, [[sx, sy], [ex, ey]], duration):
+            # RPC-paced fallback injects one event per point, so hand it a pre-densified path.
+            steps = max(12, min(32, abs(ey - sy) // 40))
+            path = [
+                [round(sx + (ex - sx) * (i / steps)), round(sy + (ey - sy) * (i / steps))]
+                for i in range(steps + 1)
+            ]
+            touch = host._touch_api(raw)
+            if touch is not None:
+                host._execute_touch_path(touch, path, duration)
+            elif hasattr(raw, "swipe_points"):
+                raw.swipe_points(path, duration / max(1, len(path) - 1))
+            else:
+                host.device.swipe_coordinates(sx, sy, ex, ey, duration)
+        injection = getattr(host, "_last_gesture_injection", None) or {}
         emit_step(
             "scroll", action="drag", target="down" if ey > sy else "up",
             distance_px=int(abs(ey - sy)), duration_ms=round(duration * 1000),
-            points=len(path),
+            points=injection.get("events"), paced=injection.get("mode"),
         )
         return True
     except Exception as exc:
