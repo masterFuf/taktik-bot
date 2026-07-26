@@ -388,7 +388,21 @@ class PostNavigationMixin:
             self.logger.info("Opening first post of profile...")
             
             posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
-            
+
+            if not posts:
+                # Before assuming the grid is merely scrolled out of view, check it is DISPLAYED at
+                # all: Instagram remembers the last sub-tab, and a device run found "Reposted"
+                # active. No thumbnail selector can match then, so the two scrolls below were
+                # chasing a grid that was not on the page — and on a short profile they only pushed
+                # it around. Shared with the standalone flows, one implementation.
+                # Absolute on purpose: the relative form from this depth is easy to get wrong, and
+                # an import inside a function body is not exercised by an import-time check.
+                from taktik.core.social_media.instagram.workflows.common.post_navigation import (
+                    ensure_profile_grid_tab,
+                )
+                if ensure_profile_grid_tab(self.device, self.logger):
+                    posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
+
             # If no posts visible, try scrolling down slightly to reveal the grid
             # This can happen after follow when suggestions popup was hidden by scrolling up
             if not posts:

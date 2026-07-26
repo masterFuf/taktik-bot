@@ -164,6 +164,21 @@ class ProfileSelectors:
     # OR-combo bilingue inline (scalaire str, jamais filtre par langue aujourd'hui)
     # -> migration overlay ulterieure ; laisse tel quel, aucun changement de comportement.
     posts_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Publications") or contains(@content-desc, "Posts")]'
+
+    # The POSTS grid sub-tab, addressed by POSITION rather than by label.
+    #
+    # Instagram remembers the last sub-tab a profile was left on, so arriving on a profile does NOT
+    # mean the grid is showing. A device dump caught "Reposted" active: every thumbnail selector then
+    # matches nothing, however far the page is scrolled, and the flow reports "no posts" on a profile
+    # that has them. The grid is always the FIRST tab of the row, which is why this keys on position
+    # inside `profile_tab_layout` instead of the label — that same dump calls it "Grid view" where
+    # `posts_tab` above looks for "Posts"/"Publications", so a label match would have missed it too,
+    # and being language-independent it needs no locale overlay.
+    profile_grid_tab_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]'
+        '//*[@resource-id="com.instagram.android:id/profile_tab_icon_view"][1]',
+        '(//*[contains(@resource-id, "profile_tab_icon_view")])[1]',
+    ])
     igtv_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "IGTV")]'
     saved_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Enregistré") or contains(@content-desc, "Saved")]'
     tagged_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Photos de") or contains(@content-desc, "Photos with")]'

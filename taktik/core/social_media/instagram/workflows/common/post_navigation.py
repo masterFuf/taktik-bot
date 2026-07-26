@@ -10,14 +10,48 @@ from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from ...ui.selectors.surfaces.post.grid import POST_GRID_SELECTORS
 from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
 from ...ui.selectors.surfaces.post.share_sheet import POST_SHARE_SHEET_SELECTORS
+from ...ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.grid_entry import GRID_COLUMNS
 from .detection import is_in_post_view, is_likers_popup_open
 
 
+def ensure_profile_grid_tab(device, logger=None) -> bool:
+    """Make the POSTS grid the active sub-tab of the profile on screen. True if it is (or now is).
+
+    Instagram remembers the last sub-tab a profile was left on, so landing on a profile does not
+    mean the grid is showing. Caught on a device: "Reposted" was active, so no thumbnail selector
+    could match and the caller concluded "no posts in grid" on a profile that has posts — then
+    scrolled twice looking for them, which on a short profile only pushed the page around. Checking
+    the tab costs one dump and removes a whole class of phantom empty grids.
+    """
+    for selector in PROFILE_SELECTORS.profile_grid_tab_selectors:
+        try:
+            element = device.xpath(selector)
+            if not element.exists:
+                continue
+            node = element.get()
+            if str(node.attrib.get("selected", "")).lower() == "true":
+                return True
+            if logger:
+                logger.debug("Profile is on another sub-tab; selecting the posts grid")
+            human_tap = getattr(device, "human_tap", None)
+            if callable(human_tap) and human_tap(node.bounds):
+                pass
+            else:
+                node.click()
+            time.sleep(1.2)          # let the grid attach before anyone reads thumbnails
+            return True
+        except Exception as exc:
+            if logger:
+                logger.debug(f"Could not read the profile sub-tab row: {exc}")
+    return False
+
+
 def open_first_post_of_profile(device, logger=None) -> bool:
     """Open the first post in the current profile's grid."""
     try:
+        ensure_profile_grid_tab(device, logger)
         posts = device.xpath(DETECTION_SELECTORS.post_thumbnail_selectors[0]).all()
 
         if not posts:
