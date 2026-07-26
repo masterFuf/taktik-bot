@@ -173,9 +173,12 @@ def select_language():
 @click.option('--lang', '-l', type=click.Choice(['fr', 'en']), help='Language (fr/en)')
 @click.pass_context
 def cli(ctx, lang=None):
+    # Only ask when we are about to show the interactive menu. Asking first made every
+    # sub-command block on a prompt, which is fine at a keyboard and fatal in a script or a
+    # cron job — the standalone use the bot is supposed to support.
     if not lang:
-        lang = select_language()
-    
+        lang = select_language() if ctx.invoked_subcommand is None else 'en'
+
     set_language(lang)
     
     console = Console()
@@ -696,6 +699,14 @@ def cli(ctx, lang=None):
 def setup():
     console.print(Panel.fit("[bold green]Configuration de Taktik-Instagram[/bold green]"))
     console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
+
+# Registry-driven access to every workflow that has a runnable handler, including the platforms
+# that never got a menu branch (TikTok, Threads, Gmail, YouTube). Registered as a group rather
+# than woven into the interactive menu so a new platform needs no edit here.
+from taktik.cli.commands.workflow_cmds import workflows as _workflows_group
+
+cli.add_command(_workflows_group)
+
 
 @cli.group()
 def device():
