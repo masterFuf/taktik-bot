@@ -19,10 +19,13 @@ Two things make a sheet hard to dismiss, and both show up on the Direct share sh
     falls back to geometry: a thin, wide-ish, horizontally centred view sitting at the top of
     the sheet is a grab bar, whatever it is called.
 
-  * **An expanded sheet has no outside.** Its container and the dimmer behind it share the same
-    full-screen bounds, so there is no dimmer left to tap and no room above the sheet. Grabbing
-    the bar is out too — from that high up the gesture starts in the notification-shade zone — so
-    the drag starts inside the sheet's own content instead and carries it down from there.
+  * **An expanded sheet has no outside, and barely enough room to drag.** Its container and the
+    dimmer behind it share the same full-screen bounds, so there is no dimmer left to tap and no
+    room above the sheet. And a sheet moves by exactly the distance the finger travels, settling
+    closed only once its top passes roughly halfway between collapsed and off-screen: from an
+    expanded sheet that takes almost the full height of the screen, so the drag has to start on
+    the grab bar near the top. Starting a third of the way down — which is where the sheet's
+    content begins — leaves the sheet short and it snaps back to collapsed.
 
 Every strategy re-checks `is_open()` before claiming success: a dismissal that is not verified
 is how a caller ends up reporting a URL it captured behind a modal that never went away.
@@ -46,8 +49,9 @@ _HANDLE_MAX_HEIGHT_RATIO = 0.012      # 28px on 2340, 38px on 3200 — the bar i
 _HANDLE_MIN_WIDTH_RATIO = 0.03        # 32px on 1080, 43px on 1440 — the bar is ~88px / ~117px
 _HANDLE_MAX_WIDTH_RATIO = 0.45
 _HANDLE_CENTER_TOLERANCE_RATIO = 0.08
-# Above this, a handle drag would start in the status-bar pull-down zone.
-_FULLSCREEN_HANDLE_RATIO = 0.10
+# Margin below the app window's top edge before a drag may start: touching down INSIDE the status
+# bar pulls the notification shade instead of the sheet. Expressed as a fraction, like the rest.
+_SHADE_SAFETY_MARGIN_RATIO = 0.005
 # Highest a "tap outside the sheet" may land: below the status bar and the shade pull-down zone.
 _OUTSIDE_TAP_MIN_RATIO = 0.12
 # A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
@@ -229,25 +233,40 @@ def dismiss_bottom_sheet(
     # bar travels with the sheet (y=183 expanded, y=910 collapsed on the device measured).
     end_y = int(screen_height * 0.95)
     center_x = screen_width // 2
-    fullscreen_cutoff = int(screen_height * _FULLSCREEN_HANDLE_RATIO)
 
     # The post-swipe lookup of one pass is the pre-swipe lookup of the next: locating the bar
     # costs two selector probes plus a subtree scan, and doing it twice per pass was most of the
     # nine seconds this took on the Lab run.
     handle = find_drag_handle(device, log)
+    # The app window's top edge does not move while the sheet slides, so read it once.
+    shade_floor = _sheet_top(device) + int(screen_height * _SHADE_SAFETY_MARGIN_RATIO)
 
     for step in range(_MAX_DRAG_STEPS):
         handle_y_before = handle['y'] if handle else None
 
-        # Reach for the grab bar, like a person would — unless the sheet is expanded to the very
-        # top, where the gesture would start in the notification-shade zone and pull that instead.
-        if handle and handle['y'] >= fullscreen_cutoff:
+        # Always reach for the grab bar when it is safe to touch down on it — this is not just
+        # "what a person does", it is the only start point with enough room.
+        #
+        # A bottom sheet moves by exactly the distance the finger travels, and it settles closed
+        # only once its top passes roughly halfway between collapsed and off-screen. From an
+        # expanded sheet the bar sits near the top of the screen, so a drag from there covers
+        # almost the full height and clears that threshold. Starting from the sheet's content
+        # instead — a third of the way down — throws away that third: measured on a 1080x2220
+        # device, a drag from y=888 moved the sheet's top to 1345 against a ~1842 threshold, so
+        # it settled back to collapsed however cleanly the finger tracked. Two passes for one
+        # gesture's worth of work.
+        #
+        # The only reason not to start on the bar is the notification shade, and that risk is a
+        # touch-down inside the status bar — which is exactly the strip above the app window, so
+        # the window's own top edge is the honest floor rather than a fraction of the screen.
+        if handle and handle['y'] >= shade_floor:
             start_x, start_y = handle['x'], handle['y']
             how = f"handle drag ({handle['source']})"
             duration = 0.6
         else:
             if handle:
-                log.debug(f"Sheet expanded (grab bar y={handle['y']}) — dragging from the content instead")
+                log.debug(f"Grab bar at y={handle['y']} is inside the status bar (floor {shade_floor}) "
+                          f"— dragging from the content instead")
             start_x = center_x
             start_y = int(screen_height * 0.40)
             how = "content drag"
