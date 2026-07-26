@@ -4,6 +4,7 @@ import time
 
 from bridges.compat.diagnostics.actions.instagram import action
 from taktik.core.shared.behavior.gesture import sample_swipe
+from taktik.core.shared.behavior.gesture_primitives import _step_cost as _gesture_step_cost
 
 
 @action("scroll.up")
@@ -301,11 +302,17 @@ def scroll_gesture_bench(a, p):
                 "details": {"runs": runs}}
     gain = (round(dev["hz"] / rpc["hz"], 1) if dev.get("hz") and rpc.get("hz") else None)
     # The per-step cost is what sizes every device-paced gesture, so show it: it is the number to
-    # look at when a gesture runs long. It self-calibrates from the first gesture of a session.
-    step_ms = (dev.get("injection") or {}).get("step_cost_ms")
+    # look at when a gesture runs long. Both values matter and they differ on the first run of a
+    # session: `planifie` is what the path was sized with (the seed, until a gesture has been
+    # measured), `mesure` is what this phone actually charged. Once they agree, the pacing is
+    # calibrated -- and the bench, being the first device-paced gesture, is precisely where they
+    # do not yet.
+    planned_step = (dev.get("injection") or {}).get("step_cost_ms")
+    learned_step = round(_gesture_step_cost(raw) * 1000, 1)
     summary = (f"device {dev['hz']}Hz en {dev['events']} events / 1 aller-retour "
                f"({dev['measured_ms']}ms pour {dev['asked_ms']}ms demandes"
-               + (f", {step_ms}ms/pas" if step_ms else "") + ")")
+               + (f", pas planifie {planned_step}ms -> mesure {learned_step}ms" if planned_step else "")
+               + ")")
     if rpc.get("ok"):
         summary += (f" | PC {rpc['hz']}Hz en {rpc['events']} events / {rpc['rpc_calls']} "
                     f"allers-retours ({rpc['measured_ms']}ms, +{rpc['overshoot_pct']}%)")
