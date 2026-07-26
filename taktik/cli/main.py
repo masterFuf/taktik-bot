@@ -701,6 +701,11 @@ from taktik.cli.commands.publish_cmds import publish as _publish_group
 
 cli.add_command(_publish_group)
 
+# The autonomous Agent, previously reachable only through its desktop bridge.
+from taktik.cli.commands.agent_cmds import agent as _agent_group
+
+cli.add_command(_agent_group)
+
 
 @cli.group()
 def device():
