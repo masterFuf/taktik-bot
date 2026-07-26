@@ -1,6 +1,9 @@
 """Scroll actions for Instagram compat diagnostics."""
 
+import time
+
 from bridges.compat.diagnostics.actions.instagram import action
+from taktik.core.shared.behavior.gesture import sample_swipe
 
 
 @action("scroll.up")
@@ -135,6 +138,68 @@ def scroll_feed_drag(a, p):
             "modal_after": modal_after,
         },
     }
+
+
+@action("scroll.gesture_bench")
+def scroll_gesture_bench(a, p):
+    """A/B the two gesture pacings on THIS device, on numbers instead of on the eye.
+
+    Runs the SAME production path twice — once handed whole to the device (`_execute_device_path`,
+    one round trip, the device injects a move every 5 ms) and once paced from the PC
+    (`_execute_touch_path`, one JSON-RPC round trip per point) — and reports events, round trips
+    and the effective injection rate. Up then down, so the feed lands back where it started.
+
+    Reference: a real finger reports at 60-120 Hz. Below ~30 Hz the content advances in visible
+    teleports, which is what reads as lag through the mirror.
+    """
+    fs = a.scroll
+    h, w = int(fs.screen_height), int(fs.screen_width)
+    raw = getattr(fs.device, "_device", None)
+    if raw is None:
+        return {"success": False, "message": "device brut indisponible", "details": {}}
+
+    ratio = max(0.2, min(0.75, float(p.get("distance_ratio", 0.55))))
+    runs = []
+    for mode, direction, band in (("device", "up", (0.60 * h, 0.70 * h)),
+                                  ("rpc", "down", (0.30 * h, 0.38 * h))):
+        path, duration = sample_swipe(w, h, direction=direction, distance_px=ratio * h,
+                                      start_band=band, dist_cap_h=0.95)
+        path = fs._prepare_gesture_path(path, guard_start=True)
+        fs._last_gesture_injection = None
+        started = time.perf_counter()
+        if mode == "device":
+            ok = fs._execute_device_path(raw, path, duration)
+        else:
+            touch = fs._touch_api(raw)
+            ok = touch is not None
+            if ok:
+                fs._execute_touch_path(touch, path, duration)
+        elapsed = time.perf_counter() - started
+        info = dict(getattr(fs, "_last_gesture_injection", None) or {})
+        events = int(info.get("events") or 0)
+        runs.append({
+            "mode": mode, "direction": direction, "ok": bool(ok),
+            "asked_ms": round(duration * 1000), "measured_ms": round(elapsed * 1000),
+            "events": events, "rpc_calls": info.get("rpc_calls"),
+            "hz": round(events / elapsed, 1) if elapsed > 0 and events else None,
+            "overshoot_pct": round((elapsed / duration - 1) * 100) if duration > 0 else None,
+        })
+        time.sleep(0.9)   # let the previous motion settle before measuring the next
+
+    by_mode = {r["mode"]: r for r in runs}
+    dev, rpc = by_mode.get("device", {}), by_mode.get("rpc", {})
+    if not dev.get("ok"):
+        return {"success": False, "message": "cadence device indisponible (swipePoints absent ?)",
+                "details": {"runs": runs}}
+    gain = (round(dev["hz"] / rpc["hz"], 1) if dev.get("hz") and rpc.get("hz") else None)
+    summary = (f"device {dev['hz']}Hz en {dev['events']} events / 1 aller-retour "
+               f"({dev['measured_ms']}ms pour {dev['asked_ms']}ms demandes)")
+    if rpc.get("ok"):
+        summary += (f" | PC {rpc['hz']}Hz en {rpc['events']} events / {rpc['rpc_calls']} "
+                    f"allers-retours ({rpc['measured_ms']}ms, +{rpc['overshoot_pct']}%)")
+        if gain:
+            summary += f" -> x{gain}"
+    return {"success": True, "message": summary, "details": {"runs": runs, "gain": gain}}
 
 
 @action("reading.expand_caption")
