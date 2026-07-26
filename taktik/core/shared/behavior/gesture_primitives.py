@@ -183,10 +183,52 @@ def _touch_move_path(
     return moves
 
 
-# UiAutomator injects one MOVE per step and sleeps 5 ms after it, so once the whole path is in the
-# device's hands the DEVICE owns the cadence — ~200 Hz, against the 8-16 Hz a PC-paced path can
-# reach (see `_execute_device_path` for the measurements).
-_DEVICE_STEP_S = 0.005
+# UiAutomator sleeps 5 ms after each injected MOVE, so once the whole path is in the device's hands
+# the DEVICE owns the cadence — against the 8-16 Hz a PC-paced path can reach (see
+# `_execute_device_path`). But that 5 ms is only the sleep: injecting the event costs more on top,
+# and how much is a property of the phone. Measured on a Pixel 3a: 18.1 ms per event, so a gesture
+# asked to last 399 ms took 1450 ms. Hence the nominal value is only a SEED — `_step_cost` learns
+# the real one from the first gesture and every gesture keeps it current.
+#
+# Two different 5 ms live here and must not be conflated. `_U2_STEP_QUANTUM` is uiautomator2's own
+# arithmetic — it derives its step count as `int(per_segment_duration / 0.005)` — so it is a fixed
+# property of the library, never a measurement. `_DEVICE_STEP_SEED` is our starting guess at what a
+# step actually COSTS, and it is deliberately not 5 ms: that figure ignores the injection entirely,
+# and the two measured phones sat far above it. A midpoint seed bounds the error on the very first
+# gesture of a session, after which the measurement takes over.
+_U2_STEP_QUANTUM = 0.005
+_DEVICE_STEP_SEED = 0.012
+_STEP_COST_ATTR = "_taktik_device_step_s"
+# Floor just under the 5 ms sleep UiAutomator always performs; ceiling generous enough for a slow
+# phone while still rejecting a reading polluted by an unrelated stall (an app freeze, a GC pause).
+_STEP_COST_BOUNDS = (0.0045, 0.060)
+
+
+def _step_cost(raw) -> float:
+    """Seconds the device really spends per injected move, learned per device."""
+    try:
+        value = float(getattr(raw, _STEP_COST_ATTR))
+    except (AttributeError, TypeError, ValueError):
+        return _DEVICE_STEP_SEED
+    return value
+
+
+def _observe_step_cost(raw, seconds_per_move: float) -> None:
+    """Fold a measurement into the per-device estimate.
+
+    The first reading is taken as-is rather than blended: seeded at the nominal 5 ms, an EMA would
+    need a dozen gestures to reach a phone's real 18 ms, and every gesture until then would run
+    long. Later readings are smoothed, so one slow call cannot swing the pacing.
+    """
+    if not (seconds_per_move > 0):
+        return
+    low, high = _STEP_COST_BOUNDS
+    previous = getattr(raw, _STEP_COST_ATTR, None)
+    blended = seconds_per_move if previous is None else previous * 0.7 + seconds_per_move * 0.3
+    try:
+        setattr(raw, _STEP_COST_ATTR, min(max(blended, low), high))
+    except Exception:
+        pass          # a device object that refuses attributes just keeps the nominal seed
 # `UiDevice.swipe(Point[], segmentSteps)` injects `segmentSteps - 1` moves per segment: at 1 it
 # injects NONE and the gesture degrades to a bare down/up pair — a TAP. 2 gives exactly one move
 # per segment, so every injected position is one of ours and none is interpolated by the device.
@@ -467,19 +509,30 @@ class GestureMixin:
         costs the same, so it is the UiAutomator bridge, not the method. Six or seven of them *are*
         the whole gesture, so the finger position updated at 8-16 Hz where a real finger reports at
         60-120 Hz: the content advanced in 265px teleports, an 8fps animation on a 60Hz screen, and
-        a gesture asked to last 850 ms took ~1.3 s. Sent as one path, the device replays it at
-        5 ms/step and the transport is out of the loop.
+        a gesture asked to last 850 ms took ~1.3 s. Sent as one path, the transport leaves the loop.
+
+        The event count comes from the device's MEASURED cost per move, not from UiAutomator's
+        nominal 5 ms sleep. On a Pixel 3a the real cost is 18.1 ms — injecting the MotionEvent
+        dominates the sleep — so a path sized for 5 ms ran 3.6x long (1450 ms for 399 ms asked).
+        Since the per-event cost is the phone's, the injection rate is capped by it whatever we do
+        (~55 Hz there); what we control is the DURATION, and honouring it is what keeps the sampled
+        velocity meaningful. 55 Hz with ~60px between events is what a real finger produces at that
+        speed anyway — the old 8 Hz was unwatchable because it fell below the display refresh, not
+        because the steps were large.
         """
         if raw is None:
             return False
+        step_cost = _step_cost(raw)
         n_events = max(2, min(_DEVICE_MAX_POINTS - 1,
-                              int(round(max(duration, 0.02) / _DEVICE_STEP_S))))
+                              int(round(max(duration, 0.02) / step_cost))))
         points = _resample_by_time(path, n_events + 1, int(self.screen_width))
         n_seg = len(points) - 1
         moves = n_seg * (_DEVICE_SEGMENT_STEPS - 1)
         info = {"mode": "device", "events": moves, "rpc_calls": 1,
-                "planned_ms": round(moves * _DEVICE_STEP_S * 1000),
-                "planned_hz": round(1.0 / _DEVICE_STEP_S)}
+                "step_cost_ms": round(step_cost * 1000, 1),
+                "planned_ms": round(moves * step_cost * 1000),
+                "planned_hz": round(1.0 / step_cost)}
+        started = time.perf_counter()
         try:
             jsonrpc = getattr(raw, "jsonrpc", None)
             if jsonrpc is not None and hasattr(jsonrpc, "swipePoints"):
@@ -488,15 +541,22 @@ class GestureMixin:
                     flat.extend((int(x), int(y)))
                 jsonrpc.swipePoints(flat, _DEVICE_SEGMENT_STEPS)
             elif hasattr(raw, "swipe_points"):
-                # u2 derives the step count as int(per_segment_duration / 0.005); aim at the middle
-                # of the bucket so float error can never round it down to 1 — at 1 the device
-                # injects no move at all and the drag becomes a tap.
-                raw.swipe_points(points, (_DEVICE_SEGMENT_STEPS + 0.5) * _DEVICE_STEP_S)
+                # u2's OWN arithmetic, not the measured cost: it derives the step count as
+                # int(per_segment_duration / 0.005). Aim at the middle of the bucket so float error
+                # can never round it down to 1 — at 1 the device injects no move at all and the
+                # drag becomes a tap.
+                raw.swipe_points(points, (_DEVICE_SEGMENT_STEPS + 0.5) * _U2_STEP_QUANTUM)
             else:
                 return False
         except Exception as exc:
             self.logger.debug(f"device-paced path unavailable ({exc}); falling back to RPC pacing")
             return False
+        elapsed = time.perf_counter() - started
+        # One round trip (~63 ms) is in there too; charging it to the events would inflate the
+        # estimate on short gestures, so subtract it before dividing.
+        if moves:
+            _observe_step_cost(raw, max(elapsed - 0.063, 0.0) / moves)
+        info["measured_ms"] = round(elapsed * 1000)
         self._last_gesture_injection = info
         return True
 

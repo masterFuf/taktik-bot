@@ -199,7 +199,10 @@ def test_long_drag_hands_the_path_to_the_device_without_using_raw_drag(monkeypat
     assert len(raw.calls) == 1
     points, _ = raw.calls[0]
     assert raw.drag_calls == []
-    assert len(points) > 100                      # densified, not the raw 4 sampled points
+    # Densified well past the 4 sampled points. The exact count is deliberately NOT asserted: it is
+    # duration / measured cost per step, so it follows the phone (22 events on a Pixel 3a at 18 ms,
+    # ~80 on a device that really honours 5 ms).
+    assert len(points) >= 5 * len(_PATH)
     assert points[0] == _PATH[0]                  # the guarded start must stay exact
     assert points[-1] == _PATH[-1]                # and so must the landing point
 
@@ -236,6 +239,29 @@ def test_velocity_scale_changes_the_physical_drag_duration(monkeypatch):
     assert _Host(fast_raw)._long_drag("up", velocity_scale=1.2) is True
 
     assert len(slow_raw.calls[0][0]) > len(fast_raw.calls[0][0])
+
+
+def test_step_cost_is_learned_from_the_first_gesture(monkeypatch):
+    """The event count must follow what a step really COSTS on this phone, not the nominal 5 ms.
+
+    UiAutomator sleeps 5 ms per step, but injecting the event costs more on top and how much is a
+    property of the device: 18.1 ms measured on a Pixel 3a, where a path sized for 5 ms ran 3.6x
+    long. Seeding an average and blending later readings would need a dozen gestures to converge,
+    so the FIRST measurement replaces the seed outright.
+    """
+    raw = _RawPoints()
+
+    assert gp._step_cost(raw) == gp._DEVICE_STEP_SEED
+    gp._observe_step_cost(raw, 0.0181)
+    assert abs(gp._step_cost(raw) - 0.0181) < 1e-6
+
+    # A later reading is smoothed, so one slow call cannot swing the pacing...
+    gp._observe_step_cost(raw, 0.030)
+    assert 0.018 < gp._step_cost(raw) < 0.024
+    # ...and an absurd one is clamped rather than trusted.
+    for _ in range(20):
+        gp._observe_step_cost(raw, 5.0)
+    assert gp._step_cost(raw) <= gp._STEP_COST_BOUNDS[1]
 
 
 def test_controlled_gesture_velocity_stays_in_the_human_band(monkeypatch):
