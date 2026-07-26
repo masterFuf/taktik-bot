@@ -56,3 +56,56 @@ def press_back(a, p):
     a.device.press("back")
     time.sleep(0.8)
     return True
+
+
+# === Bottom sheets (generic close cascade) ===================================
+
+@action("popups.is_share_sheet_open")
+def is_share_sheet_open(a, p):
+    """Detection: is the Direct / share sheet (post share button) currently up?"""
+    from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import (
+        is_share_sheet_open as _is_open,
+    )
+    found = _is_open(a.device)
+    return {"success": True, "found": bool(found), "message": f"share_sheet_open={bool(found)}"}
+
+
+@action("popups.find_sheet_handle")
+def find_sheet_handle(a, p):
+    """Diagnostic: locate the grey grab bar of the open bottom sheet, and say HOW it was found.
+
+    `source=id` means Instagram named it on this sheet; `source=geometry` means it is anonymous
+    here (the Direct share sheet is) and we matched it by shape. Reading which one fired is the
+    point of this action — an id-only lookup silently finds nothing on the share sheet."""
+    from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import find_drag_handle
+    handle = find_drag_handle(a.device, logger)
+    if not handle:
+        return {"success": False, "found": False, "message": "no grab bar found on screen"}
+    return {
+        "success": True,
+        "found": True,
+        "message": f"grab bar at ({handle['x']},{handle['y']}) via {handle['source']}",
+        "details": handle,
+    }
+
+
+@action("popups.close_share_sheet")
+def close_share_sheet(a, p):
+    """Close the Direct / share sheet through the shared verified cascade.
+
+    Same function production will call: defocus, back x3, handle drag (skipped when the sheet is
+    expanded to the top), then a drag from inside the sheet. Each step re-checks that the sheet
+    is really gone, so a false success cannot be reported."""
+    from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import (
+        dismiss_share_sheet,
+        is_share_sheet_open as _is_open,
+    )
+    was_open = _is_open(a.device)
+    if not was_open:
+        return {"success": False, "message": "no share sheet open — open one first", "details": {"was_open": False}}
+    closed = dismiss_share_sheet(a.device, logger)
+    return {
+        "success": bool(closed),
+        "message": "share sheet closed" if closed else "share sheet STILL OPEN after every strategy",
+        "details": {"was_open": True, "closed": bool(closed)},
+    }

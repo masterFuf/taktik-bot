@@ -124,6 +124,36 @@ class PopupSelectors:
     # === Comment popup close ===
     comment_popup_drag_handle: str = '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_prism"]'
 
+    # === Bottom sheets (generic) ===
+    # The grey grab bar at the top of a bottom sheet. Instagram names it on some sheets
+    # (comments) and leaves it anonymous on others — on the Direct share sheet it is a bare
+    # 88x6 ImageView with no resource-id and no content-desc, which is why an id-only lookup
+    # finds nothing there. Ids first (cheap, exact), geometry second (see bottom_sheet.py).
+    bottom_sheet_drag_handle_selectors: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/bottom_sheet_drag_handle_prism"]',
+        '//*[contains(@resource-id, "bottom_sheet_drag_handle")]',
+    ])
+
+    # Root of an open bottom sheet. Used to bound the geometric handle search to the sheet's
+    # own top edge instead of the screen's, and to tell "a sheet is up" from "nothing is up".
+    bottom_sheet_container_selectors: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "layout_container_bottom_sheet")]',
+        '//*[contains(@resource-id, "bottom_sheet_container")]',
+    ])
+
+    # Candidate pool for the geometric grab-bar search: the bar is decorative, so it is never
+    # clickable. Shape filtering (thin, centred, at the sheet's top edge) happens in
+    # actions/atomic/interaction/bottom_sheet.py — it cannot be expressed as XPath.
+    bottom_sheet_handle_candidates: str = '//*[@clickable="false"]'
+
+    # The Direct / share sheet reached from a post's share button. Its own marker, so a caller
+    # can ask "is THAT sheet still up" rather than "is any sheet up".
+    share_sheet_indicators: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "direct_private_share_container_view")]',
+        '//*[contains(@resource-id, "direct_private_share_recipients_recycler_view")]',
+        '//*[contains(@resource-id, "direct_external_reshare_row")]',
+    ])
+
     # === Unfollow confirmation selectors ===
     @property
     def unfollow_confirmation_selectors(self) -> List[str]:
