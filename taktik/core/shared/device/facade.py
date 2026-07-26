@@ -311,13 +311,21 @@ class BaseDeviceFacade:
         `coast=True` fires a real Android fling (`_strong_flick`, content coasts ~2.5-4x — a natural
         feed advance); `coast=False` (default) is a 1:1 controlled curve (`_human_swipe`) that
         preserves a precise travel distance (safe drop-in for detection/extraction loops, no
-        overshoot). `distance_ratio` = gesture magnitude as a fraction of screen height."""
+        overshoot). `distance_ratio` = gesture magnitude as a fraction of screen height.
+
+        `controlled=True` is what makes the no-overshoot half of that contract true, and it was
+        missing: without it `_human_swipe` takes its fling branch (`_fling_total`, ~0.24s cap, so
+        ~4600 px/s at release on a half-screen scroll) and clamps the travel to 0.34h. Every caller
+        of this entry point asked for the opposite in writing — "keeps the travel precise so we
+        don't skip rows", "controlled advance to the next post", "a fling would overshoot" — and
+        the five that request 0.5-0.62h were silently getting 0.34h plus a coast. The hashtag
+        extractor counts one scroll as one post, so an overshoot made it read the WRONG post."""
         host = self._gesture_host()
         g_dir = self._PAGE_TO_GESTURE.get(direction, "up")
         distance_px = (distance_ratio * host.screen_height) if distance_ratio else None
         if coast:
             return host._strong_flick(direction=g_dir, distance_px=distance_px)
-        return host._human_swipe(direction=g_dir, distance_px=distance_px)
+        return host._human_swipe(direction=g_dir, distance_px=distance_px, controlled=True)
 
     def human_hswipe(self, direction: str = "left", distance_ratio: float = 0.6,
                      y_ratio: Optional[float] = None,

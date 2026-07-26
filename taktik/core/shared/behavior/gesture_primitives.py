@@ -194,6 +194,27 @@ _DEVICE_SEGMENT_STEPS = 2
 _DEVICE_MAX_POINTS = 400
 
 
+# A hand keeping contact with the glass while it drags: roughly 0.8-3.2 k px/s. `_long_drag` already
+# derives its duration from an explicit 1500-2200 px/s band; this is the wider envelope around it.
+_CONTROLLED_VEL_RANGE = (800.0, 3200.0)
+
+
+def _controlled_duration(duration: float, distance_px: float, speed: float = 1.0) -> float:
+    """Keep a controlled gesture's implied velocity inside the human accompanied-drag band.
+
+    `sample_swipe` takes its duration from a randomly chosen REAL swipe and only rescales it by
+    ±40% for distance, so it is close to independent of how far we ask the finger to travel: the
+    same 0.62h request came out anywhere between 169 ms (8000 px/s — a flick, not a drag) and
+    850 ms (1600 px/s). Sampling stays the source of variability; this trims only the two tails a
+    hand cannot produce while staying on the glass. The band scales with `velocity_scale` so a
+    caller asking for a brisker gesture still gets one.
+    """
+    if distance_px <= 0:
+        return duration
+    lo, hi = _CONTROLLED_VEL_RANGE[0] * speed, _CONTROLLED_VEL_RANGE[1] * speed
+    return min(max(duration, distance_px / hi), distance_px / lo)
+
+
 def _min_jerk(u: float) -> float:
     """Fraction of the distance covered at normalised time `u`, on the minimum-jerk law.
 
@@ -293,6 +314,11 @@ class GestureMixin:
             path = self._prepare_gesture_path(path, guard_start=guard_start)
             speed = min(1.50, max(0.60, float(velocity_scale)))
             duration = duration / speed
+            if controlled:
+                # A controlled gesture tracks the finger, so its duration must be coherent with the
+                # distance it is asked to cover. The fling branch below overrides the duration with
+                # `_fling_total` and never needed this.
+                duration = _controlled_duration(duration, abs(path[-1][1] - path[0][1]), speed)
             n_seg = max(1, len(path) - 1)
             raw = getattr(self.device, "_device", None)
 
