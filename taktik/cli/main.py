@@ -1,5 +1,17 @@
 ﻿import os
 import sys
+
+# Windows consoles default to cp1252 while the banner, the menus and the workflow labels use
+# box-drawing characters and emoji. Attached to a terminal that is fine, but as soon as stdout is
+# redirected — a log file, a pipe, a scheduled run — encoding raised before a single line was
+# printed. Standalone use is precisely those cases, so make the stream tolerant instead.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):  # pragma: no cover - stream already detached
+            pass
+
 import click
 import logging
 import time
@@ -189,10 +201,16 @@ def cli(ctx, lang=None):
         display_banner()
         
         while True:
-            options = ['instagram', 'tiktok', 'quit']
+            # Threads, Gmail and YouTube have runnable handlers but never had a menu entry, so
+            # they were unreachable from the terminal. Labels stay literal: they are platform
+            # names, and adding three translation keys per language for them would be noise.
+            options = ['instagram', 'tiktok', 'threads', 'gmail', 'youtube', 'quit']
             labels = [
                 current_translations['option_instagram'],
                 current_translations['option_tiktok'],
+                '🧵 Threads',
+                '📧 Gmail',
+                '▶️  YouTube',
                 current_translations['option_quit']
             ]
             
@@ -623,74 +641,44 @@ def cli(ctx, lang=None):
                         sys.exit(0)
             
             elif choice == 'tiktok':
-                # Menu TikTok
-                console.print("\n[bold cyan]TikTok Mode Selection[/bold cyan]")
-                console.print("[bold]1.[/bold] 🔧 Management (Features: Auth, Profile, Videos)")
-                console.print("[bold]2.[/bold] 🤖 Automation (Workflows: Target users, Hashtags, For You, Sounds)")
-                console.print("[bold]3.[/bold] ← Back")
-                
-                mode_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 3), show_choices=False)
-                
-                if mode_choice == 3:
-                    continue
-                
-                # Sélection du device
-                from taktik.cli.common.device_selector import select_device as _select_device
-                device_id = _select_device(device_manager, current_translations)
+                # Driven by the Agent registry. This menu used to be nine "Coming soon" entries,
+                # one of them claiming the workflows were not implemented yet — while fifteen
+                # TikTok workflows ran in production from the desktop app every day.
+                from taktik.cli.common.device_selector import select_and_connect_device
+                from taktik.cli.common.registry_menu import run_registry_menu
+
+                device_id = select_and_connect_device(device_manager, current_translations)
                 if not device_id:
                     continue
-                
-                # Initialiser TikTok
+
                 tiktok = TikTokManager(device_id)
                 if not tiktok.is_installed():
                     console.print("[red]❌ TikTok is not installed on this device.[/red]")
                     continue
-                
+
                 console.print("[blue]🚀 Launching TikTok...[/blue]")
-                if tiktok.launch():
-                    console.print("[green]✅ TikTok launched successfully![/green]")
-                else:
+                if not tiktok.launch():
                     console.print("[red]❌ Failed to launch TikTok.[/red]")
                     continue
-                
-                if mode_choice == 1:
-                    # Mode Management
-                    console.print("\n[bold cyan]TikTok Management Options[/bold cyan]")
-                    console.print("[bold]1.[/bold] 🔐 Login (Coming soon)")
-                    console.print("[bold]2.[/bold] 👤 Profile Management (Coming soon)")
-                    console.print("[bold]3.[/bold] 🎬 Video Management (Coming soon)")
-                    console.print("[bold]4.[/bold] 📊 Statistics (Coming soon)")
-                    console.print("[bold]5.[/bold] ← Back")
-                    
-                    mgmt_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
-                    
-                    if mgmt_choice == 5:
-                        continue
-                    else:
-                        console.print("[yellow]⚠️ This feature is coming soon![/yellow]")
-                        input("\nPress Enter to continue...")
-                        continue
-                
-                elif mode_choice == 2:
-                    # Mode Automation
-                    console.print("\n[bold cyan]TikTok Automation Workflows[/bold cyan]")
-                    console.print("[bold]1.[/bold] 👥 Target Users (Followers/Following) - Coming soon")
-                    console.print("[bold]2.[/bold] #️⃣ Hashtag Targeting - Coming soon")
-                    console.print("[bold]3.[/bold] 🎯 For You Feed - Coming soon")
-                    console.print("[bold]4.[/bold] 🎵 Sound/Music Targeting - Coming soon")
-                    console.print("[bold]5.[/bold] 📊 View Statistics - Coming soon")
-                    console.print("[bold]6.[/bold] ← Back")
-                    
-                    auto_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 6), show_choices=False)
-                    
-                    if auto_choice == 6:
-                        continue
-                    else:
-                        console.print("[yellow]⚠️ TikTok automation workflows are coming soon![/yellow]")
-                        console.print("[cyan]💡 The architecture is ready. Workflows will be implemented in the next update.[/cyan]")
-                        input("\nPress Enter to continue...")
-                        continue
-                    
+                console.print("[green]✅ TikTok launched successfully![/green]")
+
+                run_registry_menu('tiktok', device_manager, device_id)
+                continue
+
+            elif choice in ('threads', 'gmail', 'youtube'):
+                # Platforms that had no CLI surface at all despite having runnable handlers.
+                # No app launcher here on purpose: their workflows own their own startup, and
+                # guessing a package to force-launch would be a behaviour the desktop does not have.
+                from taktik.cli.common.device_selector import select_and_connect_device
+                from taktik.cli.common.registry_menu import run_registry_menu
+
+                device_id = select_and_connect_device(device_manager, current_translations)
+                if not device_id:
+                    continue
+
+                run_registry_menu(choice, device_manager, device_id)
+                continue
+
             elif choice == 'quit':
                 console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                 sys.exit(0)
