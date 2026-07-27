@@ -8,9 +8,17 @@ to comment mentions). Selectors come from the centralized
 
 from .classifier import classify_row, extract_time, row_has_action
 from .notifications_workflow import NotificationsEngagementWorkflow
+from .profile_pipeline import (
+    DEFAULT_SUGGESTION_INTERACTION_CONFIG,
+    NotificationsProfilePipeline,
+    build_notifications_profile_pipeline,
+)
 
 __all__ = [
+    "DEFAULT_SUGGESTION_INTERACTION_CONFIG",
     "NotificationsEngagementWorkflow",
+    "NotificationsProfilePipeline",
+    "build_notifications_profile_pipeline",
     "classify_row",
     "extract_time",
     "row_has_action",
