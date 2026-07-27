@@ -184,7 +184,9 @@ def parse_suggestion_rows(root, selectors, profile_selectors,
     - ``state``   : 'follow' | 'follow_back' | 'following' | 'requested' | None,
       lu par ``classify_state`` sur le texte du bouton ;
     - ``section`` : l'en-tete de section au-dessus de la ligne, s'il est visible ;
-    - ``follow_bounds`` / ``row_bounds`` : geometrie reelle pour un tap humanise.
+    - ``follow_bounds`` / ``row_bounds`` / ``name_bounds`` : geometrie reelle pour un
+      tap humanise. ``name_bounds`` vise le NOM, donc l'ouverture du profil ;
+      ``follow_bounds`` vise le bouton, donc le follow depuis la liste.
 
     Les lignes d'accroche "Connect to Facebook" / "Connect contacts" ne sont pas
     des suggestions et sont ignorees.
@@ -229,6 +231,10 @@ def parse_suggestion_rows(root, selectors, profile_selectors,
             "section": _section_for(row_bounds[1] if row_bounds else None),
             "follow_bounds": parse_bounds(follow_node.get("bounds") or ""),
             "row_bounds": row_bounds,
+            # Bounds du NOM : c'est la qu'on tape pour ouvrir le profil. Le centre de
+            # la ligne entiere ne convient pas — le bouton d'abonnement occupe sa
+            # partie droite, et on ferait un follow a l'aveugle au lieu d'une visite.
+            "name_bounds": parse_bounds(name_node.get("bounds") or "") if name_node is not None else None,
         })
 
     rows.sort(key=lambda row: row["row_bounds"][1] if row["row_bounds"] else 0)

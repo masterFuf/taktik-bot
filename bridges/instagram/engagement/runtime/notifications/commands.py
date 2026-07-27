@@ -63,10 +63,53 @@ def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profile
     result.update({k: visit[k] for k in
                    ("visited", "processed", "follows", "filtered", "errors",
                     "profiles", "stop_reason")})
+
+    # REPLI. La section du bas de l'ecran d'activite est servie par l'algorithme : le
+    # meme compte y a montre « Suggestions », puis « Followers que vous ne suivez pas »,
+    # puis rien, dans la meme heure. Quand elle n'est pas la, on va chercher le volume
+    # sur l'ecran DEDIE « Decouvrir des personnes », avec la meme visite qualifiee.
+    remaining = max_profiles - result["visited"]
+    if result["stop_reason"] == "no_suggestions_offered" and remaining > 0:
+        emit_notif_step(step="suggestions", status="running",
+                        message="Aucune suggestion ici — repli sur Decouvrir des personnes")
+        fallback = _run_discover_fallback(bridge, account_id=account_id,
+                                          max_profiles=remaining)
+        result["fallback"] = fallback
+        for key in ("visited", "processed", "follows", "filtered", "errors"):
+            result[key] += fallback.get(key, 0)
+        result["profiles"].extend(fallback.get("profiles", []))
+        result["stop_reason"] = fallback.get("stop_reason", result["stop_reason"])
+
     emit_notif_step(step="suggestions", status="done",
-                    message=f"{visit['visited']} profil(s) suggere(s) visite(s), "
-                            f"{visit['follows']} follow(s)")
+                    message=f"{result['visited']} profil(s) suggere(s) visite(s), "
+                            f"{result['follows']} follow(s)")
     return result
+
+
+def _run_discover_fallback(bridge: NotificationsBridge, *, account_id: int,
+                           max_profiles: int) -> dict:
+    """Aller chercher les suggestions sur l'ecran dedie « Decouvrir des personnes ».
+
+    Le workflow Feed possede cette surface — et, etant un ``BaseBusinessAction``, il
+    porte deja le pipeline par-profil : rien a injecter, contrairement au workflow
+    Notifications.
+    """
+    from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
+    from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+    from taktik.core.social_media.instagram.workflows.management.notifications import (
+        DEFAULT_SUGGESTION_INTERACTION_CONFIG,
+    )
+
+    try:
+        feed = FeedBusiness(DeviceFacade(bridge.device))
+        feed.active_account_id = account_id
+        return feed.run_discover_visit_pass(
+            dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG), max_profiles=max_profiles,
+        )
+    except Exception as exc:  # noqa: BLE001 — le repli ne doit jamais casser le scan
+        logger.warning(f"[NOTIF] Discover people fallback failed: {exc}")
+        return {"visited": 0, "processed": 0, "follows": 0, "filtered": 0,
+                "errors": 0, "profiles": [], "stop_reason": "fallback_error"}
 
 
 def cmd_scan(device_id: str, limit: int, account_username: str = None,

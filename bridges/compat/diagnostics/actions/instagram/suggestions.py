@@ -33,6 +33,10 @@ _STOP_LABELS = {
     "blocked_by_dialog": "alerte Instagram non reconnue",
     "discover_screen_not_reached": "ecran suggestions jamais atteint",
     "disabled": "plafond a zero",
+    "home_not_reached": "accueil non atteint",
+    "discover_screen_lost": "ecran suggestions perdu",
+    "zone_not_reached": "zone non atteinte",
+    "no_pipeline": "pipeline profil absent",
 }
 
 
@@ -250,3 +254,103 @@ def run_pass(a, p):
                                    f"modale contacts: {res.get('contacts_dialog')}"),
         "details": res,
     }
+
+
+# =============================================================================
+# Visite QUALIFIEE (par opposition au follow de masse ci-dessus)
+#
+# La liste n'expose qu'un libelle : un compte suggere est INCONNU, il n'y a rien a
+# reconcilier en base. On ouvre donc sa fiche et on lui applique le pipeline
+# par-profil de production, comme une cible target.
+# =============================================================================
+
+def _visit_config(p):
+    """Config d'interaction de la visite : acquerir, donc follow et rien d'autre."""
+    from taktik.core.social_media.instagram.workflows.management.notifications import (
+        DEFAULT_SUGGESTION_INTERACTION_CONFIG,
+    )
+    return dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG)
+
+
+def _visit_summary(res, max_profiles):
+    stop = res.get("stop_reason", "?")
+    parts = [f"{res.get('visited', 0)}/{max_profiles} profil(s) visite(s)",
+             f"{res.get('follows', 0)} follow(s)",
+             f"{res.get('filtered', 0)} filtre(s)"]
+    if res.get("skipped_known"):
+        parts.append(f"{res['skipped_known']} deja en base (visite epargnee)")
+    if res.get("errors"):
+        parts.append(f"{res['errors']} erreur(s)")
+    parts.append(f"arret: {_STOP_LABELS.get(stop, stop)}")
+    return " — ".join(parts)
+
+
+@action("suggestions.open_profile")
+def open_profile(a, p):
+    """Ouvrir le PROFIL de la premiere ligne suivable de la liste ouverte.
+
+    Tape le NOM et jamais le centre de la ligne : le bouton d'abonnement occupe sa
+    partie droite, et viser le milieu ferait un follow depuis la liste — c'est-a-dire
+    exactement ce que cette visite remplace.
+    """
+    from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import (
+        followable_rows,
+    )
+    rows = followable_rows(a.feed.scan_discover_suggestions())
+    if not rows:
+        return {"success": False, "message": "Aucune ligne suivable a l'ecran"}
+    row = rows[0]
+    label = row.get("label") or "?"
+    if not a.feed.open_discover_profile(row):
+        return {"success": False, "message": f"'{label}' n'a pas ouvert de profil"}
+    username = a.feed.detection_actions.get_username_from_profile()
+    return {"success": True,
+            "message": f"'{label}' -> @{username or '?'}",
+            "details": {"label": label, "username": username}}
+
+
+@action("suggestions.back_to_list")
+def back_to_list(a, p):
+    """Revenir du profil vers la liste de suggestions (fleche, puis touche back)."""
+    ok = a.feed.leave_discover_profile()
+    return {"success": bool(ok),
+            "message": ("Retour a la liste confirme" if ok
+                        else "Liste de suggestions non retrouvee")}
+
+
+@action("suggestions.visit_visible")
+def visit_visible(a, p):
+    """Visite qualifiee depuis la liste DEJA ouverte (param ``max``, 1 par defaut).
+
+    Pour chaque ligne : ouvrir la fiche -> extraction (bio, photo, stats) ->
+    qualification IA -> filtres -> follow -> ecritures DB -> retour a la liste.
+    """
+    max_profiles = int(p.get("max", 1))
+    res = a.feed.visit_discover_suggestions(
+        _visit_config(p), max_profiles=max_profiles,
+        max_scrolls=int(p.get("max_scrolls", 8)),
+        delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
+    )
+    return {"success": res.get("processed", 0) > 0,
+            "message": _visit_summary(res, max_profiles), "details": res}
+
+
+@action("suggestions.run_visit_pass")
+def run_visit_pass(a, p):
+    """Passe qualifiee complete : accueil -> carousel -> liste -> visites -> retour feed."""
+    max_profiles = int(p.get("max", 1))
+    res = a.feed.run_discover_visit_pass(
+        _visit_config(p), max_profiles=max_profiles,
+        max_carousel_scrolls=int(p.get("max_carousel_scrolls", 12)),
+        max_scrolls=int(p.get("max_scrolls", 8)),
+        delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
+    )
+    if not res.get("entered"):
+        stop = res.get("stop_reason", "?")
+        return {"success": False,
+                "message": f"Passe non entree — {_STOP_LABELS.get(stop, stop)}",
+                "details": res}
+    return {"success": True,
+            "message": _visit_summary(res, max_profiles)
+                       + f" — modale contacts: {res.get('contacts_dialog')}",
+            "details": res}

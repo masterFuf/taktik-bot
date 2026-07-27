@@ -21,14 +21,17 @@ surface et le sequencage de la boucle.
 
 from __future__ import annotations
 
-import random
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+from ....actions.business.workflows.common.suggestion_visit import (
+    SuggestionSurface,
+    visit_suggestions,
+)
 from .suggestions_parsing import (
     find_suggestions_header_y,
-    iter_text_nodes,
     followable_suggestions,
+    iter_text_nodes,
     parse_notification_suggestions,
 )
 
@@ -263,32 +266,21 @@ class NotificationSuggestionsMixin:
                           ) -> Dict[str, Any]:
         """Visiter et qualifier les comptes proposes en bas de l'ecran Notifications.
 
-        Chaque profil traverse le pipeline de production complet : extraction (bio,
-        photo, stats), qualification IA, filtres, follow, ecritures DB. Le libelle
-        affiche ne sert qu'a viser la ligne ; c'est le @handle lu SUR le profil qui est
-        persiste.
-
-        Regle metier identique aux autres surfaces (arbitrage Kevin) : seul un bouton
-        dont l'etat est exactement 'follow' est retenu. Un 'follow back' appartient au
-        flux de follow-back de cet ecran, un 'following' est deja fait.
+        Le SEQUENCAGE (lire, ouvrir, qualifier, revenir, suivant) est celui du service
+        partage ``common/suggestion_visit`` : il est identique sur l'ecran « Decouvrir
+        des personnes », et le dupliquer ferait diverger les deux surfaces sur des
+        regles fines — deduplication par identite, erreurs dites et non sautees,
+        cadence entre deux profils. Ce module ne garde que la NAVIGATION propre a la
+        zone Notifications, exposee via l'adaptateur ci-dessous.
         """
-        result: Dict[str, Any] = {
-            "visited": 0, "processed": 0, "follows": 0, "filtered": 0,
-            "errors": 0, "attempts": 0, "scrolls": 0, "skipped_follow_back": 0,
-            "profiles": [], "stop_reason": "max_reached",
-        }
-        if max_profiles <= 0:
-            result["stop_reason"] = "disabled"
-            return result
-
-        pipeline = getattr(self, "profile_pipeline", None)
-        if pipeline is None:
+        if max_profiles > 0 and getattr(self, "profile_pipeline", None) is None:
             # Refus FRANC : sans pipeline il ne resterait que le follow a l'aveugle
             # depuis la liste, c'est-a-dire exactement ce que ce mode remplace.
-            result["stop_reason"] = "no_pipeline"
             self.logger.error("Suggestions visit skipped: no per-profile pipeline injected")
             self._notify("suggestions", "failed", "Pipeline profil indisponible")
-            return result
+            return {"visited": 0, "processed": 0, "follows": 0, "filtered": 0,
+                    "skipped_known": 0, "errors": 0, "attempts": 0, "scrolls": 0,
+                    "skipped_follow_back": 0, "profiles": [], "stop_reason": "no_pipeline"}
 
         self._optimize_locale()  # l'en-tete de la zone et les boutons sont du TEXTE
         if refresh_first:
@@ -296,102 +288,72 @@ class NotificationSuggestionsMixin:
             # de personnes, qui est a un ou deux ecrans du haut sur une liste repliee, se
             # retrouve alors des dizaines d'ecrans plus bas. Sortir et rentrer la replie.
             self.refresh_notifications_screen()
-        low, high = (delay_range if delay_range and len(delay_range) == 2 else (4, 12))
-        attempted: set = set()
-        seen_follow_back: set = set()
         self._reported_unreadable_suggestions = False
-        empty_dump_streak = 0
 
-        while result["visited"] < max_profiles:
-            if not self.reach_suggestions_zone(max_descent_scrolls):
-                # 'no_suggestions_offered' n'est pas un echec : Instagram ne sert pas de
-                # section de suggestions a cet instant. Le confondre avec un probleme de
-                # navigation ferait chercher un bug la ou il n'y en a pas.
-                result["stop_reason"] = self.descent_outcome
-                break
+        return visit_suggestions(
+            _NotificationsSuggestionSurface(self, max_descent_scrolls),
+            max_profiles=max_profiles, max_scrolls=max_scrolls,
+            delay_range=delay_range, on_profile=on_profile,
+        )
 
-            rows = self.scan_suggestions()
-            # Comptes par IDENTITE et non par ecran : la meme ligne reste visible sur
-            # plusieurs dumps successifs, un cumul la compterait autant de fois qu'on la voit.
-            seen_follow_back.update(self._row_key(row) for row in rows
-                                    if row.get("state") == "follow_back")
-            result["skipped_follow_back"] = len(seen_follow_back)
-            self._report_unreadable_rows(rows)
 
-            candidates = [row for row in followable_suggestions(rows)
-                          if self._row_key(row) not in attempted]
+class _NotificationsSuggestionSurface(SuggestionSurface):
+    """Adaptateur : ce que la zone Notifications a de particulier, et rien d'autre.
 
-            if not candidates:
-                empty_dump_streak = empty_dump_streak + 1 if not rows else 0
-                if empty_dump_streak >= self._SUGGESTIONS_EMPTY_DUMP_RUNS:
-                    result["stop_reason"] = "list_exhausted"
-                    break
-                if result["scrolls"] >= max_scrolls:
-                    result["stop_reason"] = "max_scrolls"
-                    break
-                self._scroll_down(1)
-                result["scrolls"] += 1
-                continue
+    Sa singularite est la DESCENTE — la zone vit au fond d'une liste dont la longueur
+    depend du compte, et elle n'est pas toujours servie. C'est le seul endroit ou cette
+    surface differe de « Decouvrir des personnes ».
+    """
 
-            empty_dump_streak = 0
-            row = candidates[0]
-            label = row.get("label") or "(sans libelle)"
-            attempted.add(self._row_key(row))
-            result["attempts"] += 1
-            self._notify("suggestion_visit", "running", label, label=label)
+    name = "notifications"
 
-            if not self.open_suggestion_profile(row):
-                # Ni un profil, ni une erreur silencieuse : le tap a rate sa cible ou la
-                # page n'a pas charge. On le dit, on revient, et on passe a la suivante.
-                self.logger.warning(f"Suggestion '{label}': profile did not open")
-                self._notify("suggestion_visit", "failed", f"{label}: profil non ouvert", label=label)
-                result["errors"] += 1
-                result["profiles"].append({"label": label, "username": None, "status": "not_opened"})
-                self.leave_suggestion_profile()
-                continue
+    def __init__(self, workflow, max_descent_scrolls: int):
+        self._wf = workflow
+        self._max_descent_scrolls = max_descent_scrolls
+        self.reach_failure_reason = "zone_not_reached"
 
-            result["visited"] += 1
-            username = pipeline.read_username()
-            if not username:
-                self.logger.warning(f"Suggestion '{label}': profile open but @handle unreadable")
-                self._notify("suggestion_visit", "failed", f"{label}: @handle illisible", label=label)
-                result["errors"] += 1
-                result["profiles"].append({"label": label, "username": None, "status": "no_username"})
-                self.leave_suggestion_profile()
-                continue
+    def reach(self) -> bool:
+        if self._wf.reach_suggestions_zone(self._max_descent_scrolls):
+            return True
+        # 'no_suggestions_offered' n'est pas un echec : Instagram ne sert pas de section
+        # de suggestions a cet instant. Le confondre avec un probleme de navigation
+        # ferait chercher un bug la ou il n'y en a pas.
+        self.reach_failure_reason = self._wf.descent_outcome
+        return False
 
-            outcome = pipeline.process(username)
-            result["processed"] += 1
-            follows = outcome.follows
-            result["follows"] += follows
-            if outcome.was_filtered:
-                result["filtered"] += 1
-            if outcome.was_error:
-                result["errors"] += 1
-            entry = {
-                "label": label, "username": username, "status": outcome.status,
-                "follows": follows, "reasons": list(outcome.filter_reasons or []),
-            }
-            result["profiles"].append(entry)
-            self.logger.info(f"Suggestion '{label}' -> @{username}: {outcome.status} "
-                             f"({result['visited']}/{max_profiles})")
-            # `outcome=` et non `status=` : `_notify` porte deja un parametre `status`
-            # (running/done/failed) et la collision faisait echouer la narration.
-            self._notify("suggestion_visit", "done", f"@{username}: {outcome.status}",
-                         label=label, username=username, outcome=outcome.status)
-            if on_profile:
-                try:
-                    on_profile(entry)
-                except Exception as exc:  # noqa: BLE001 — un callback ne casse pas la passe
-                    self.logger.debug(f"suggestion callback failed: {exc}")
+    def scan(self) -> List[Dict[str, Any]]:
+        rows = self._wf.scan_suggestions()
+        self._wf._report_unreadable_rows(rows)
+        return rows
 
-            self.leave_suggestion_profile()
-            # Cadence humaine ENTRE deux profils : le follow est le geste le plus
-            # surveille, on ne l'enchaine jamais a vitesse machine.
-            if result["visited"] < max_profiles:
-                time.sleep(random.uniform(min(low, high), max(low, high)))
+    def followable(self, rows):
+        return followable_suggestions(rows)
 
-        return result
+    def row_key(self, row):
+        return self._wf._row_key(row)
 
+    def open_profile(self, row) -> bool:
+        return self._wf.open_suggestion_profile(row)
+
+    def read_username(self):
+        return self._wf.profile_pipeline.read_username()
+
+    def process(self, username):
+        return self._wf.profile_pipeline.process(username)
+
+    def leave(self) -> bool:
+        return self._wf.leave_suggestion_profile()
+
+    def scroll(self) -> None:
+        self._wf._scroll_down(1)
+
+    def log_info(self, message: str) -> None:
+        self._wf.logger.info(f"Suggestion {message}")
+
+    def log_warning(self, message: str) -> None:
+        self._wf.logger.warning(f"Suggestion {message}")
+
+    def notify(self, step: str, status: str, message: str = "", **extra) -> None:
+        self._wf._notify(step, status, message, **extra)
 
 __all__ = ["NotificationSuggestionsMixin"]
