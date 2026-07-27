@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.database import configure_db_service, get_db_service
 from taktik.core.database.notifications import NotificationService
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.database.repositories.notifications import NotificationRepository
 
 _PLATFORM = "instagram"
@@ -65,6 +66,40 @@ def record_scan_notifications(
     except Exception as exc:
         logger.warning(f"[NOTIF] Failed to persist notifications: {exc}")
         return [False] * len(items)
+
+
+def record_suggestion_follows(account_username: Optional[str],
+                             labels: List[str]) -> int:
+    """Persist the follows made from the suggestions block; returns the rows written.
+
+    Same table and same action type as every other follow (`interactions`, 'FOLLOW'),
+    so a run made from this surface shows up in the session history and the daily
+    counters like any other — that was the whole point of doing it here.
+
+    Known limit of the surface: it exposes the DISPLAYED label, never the @handle, so
+    that label is what gets stored, with its provenance in `content`. The following_sync
+    reconciles the real handles later.
+    """
+    if not labels:
+        return 0
+    account_id = _account_id_for(account_username or "")
+    if account_id is None:
+        logger.warning("[NOTIF] No account resolved: suggestion follows NOT recorded")
+        return 0
+    written = 0
+    for label in labels:
+        try:
+            InstagramWorkflowStateService.record_individual_actions(
+                username=label,
+                action_type="FOLLOW",
+                count=1,
+                account_id=account_id,
+                content="Suggestion Instagram (notifications)",
+            )
+            written += 1
+        except Exception as exc:
+            logger.warning(f"[NOTIF] Failed to record a suggestion follow: {exc}")
+    return written
 
 
 def build_known_checker(account_username: Optional[str]):

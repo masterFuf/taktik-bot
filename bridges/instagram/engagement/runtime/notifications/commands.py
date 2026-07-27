@@ -6,7 +6,11 @@ import sys
 
 from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json, emit_notif_step
-from bridges.instagram.engagement.runtime.notifications.persistence import build_known_checker, record_scan_notifications
+from bridges.instagram.engagement.runtime.notifications.persistence import (
+    build_known_checker,
+    record_scan_notifications,
+    record_suggestion_follows,
+)
 from bridges.instagram.runtime.ipc import logger
 
 
@@ -23,7 +27,8 @@ def _connect(device_id: str, package_name: str = None, *, restart: bool = True) 
     return bridge
 
 
-def cmd_scan(device_id: str, limit: int, account_username: str = None, package_name: str = None) -> None:
+def cmd_scan(device_id: str, limit: int, account_username: str = None,
+             package_name: str = None, follow_suggestions: int = 0) -> None:
     """Read + classify the activity feed (all notification families).
 
     The scan is a complete run: it force-restarts Instagram to a known state at the
@@ -61,6 +66,28 @@ def cmd_scan(device_id: str, limit: int, account_username: str = None, package_n
     except Exception as exc:  # never break the scan on persistence
         logger.warning(f"notifications persistence skipped: {exc}")
 
+    # Suggestions: the block at the very BOTTOM of this screen, which the scan has just
+    # scrolled to. Opt-in, and only after the notifications themselves are persisted — a
+    # follow must never cost us the scan it rode in on.
+    suggestions = {"follows": 0, "attempts": 0, "recorded": 0, "stop_reason": "disabled"}
+    if follow_suggestions > 0:
+        followed: list[str] = []
+        try:
+            emit_notif_step(step="suggestions", status="running",
+                            message="Following suggested accounts")
+            suggestions = workflow.follow_suggestions(
+                max_follows=follow_suggestions,
+                on_follow=lambda label, _ctx: followed.append(label),
+            )
+        except Exception as exc:
+            logger.warning(f"[NOTIF] Suggestions pass failed: {exc}")
+            suggestions["stop_reason"] = "error"
+        # Recorded even on a partial pass: the taps already landed on Instagram, so not
+        # writing them would under-count the day and let the caps drift.
+        suggestions["recorded"] = record_suggestion_follows(account_username, followed)
+        emit_notif_step(step="suggestions", status="done",
+                        message=f"{suggestions['follows']} suggested account(s) followed")
+
     # Leave the phone clean: the scan opened Instagram, the scan closes it.
     bridge.stop()
 
@@ -77,6 +104,7 @@ def cmd_scan(device_id: str, limit: int, account_username: str = None, package_n
         "requests": result.get("requests", []),
         "has_grouped_requests": result.get("has_grouped_requests", False),
         "message": result.get("message", ""),
+        "suggestions": suggestions,
     }, flush=True)
 
 
@@ -155,6 +183,18 @@ def run_notifications_cli(args: list[str]) -> None:
             account_username = args[idx + 1]
             args = args[:idx] + args[idx + 2:]
 
+    # Opt-in: how many suggested accounts to follow at the END of a scan, from the block
+    # at the bottom of the activity screen. Absent / 0 = the scan behaves exactly as before.
+    follow_suggestions = 0
+    if "--follow-suggestions" in args:
+        idx = args.index("--follow-suggestions")
+        if idx + 1 < len(args):
+            try:
+                follow_suggestions = max(0, int(args[idx + 1]))
+            except ValueError:
+                follow_suggestions = 0
+            args = args[:idx] + args[idx + 2:]
+
     if not args:
         emit_notif_error(
             "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
@@ -176,6 +216,7 @@ def run_notifications_cli(args: list[str]) -> None:
                 emit_notif_error("Usage: notifications.py scan <device_id> [scroll] [--account <username>]")
                 sys.exit(1)
             cmd_scan(args[1], int(args[2]) if len(args) > 2 else 3,
+                     follow_suggestions=follow_suggestions,
                      account_username=account_username, package_name=package_name)
 
         elif command == "list_requests":
