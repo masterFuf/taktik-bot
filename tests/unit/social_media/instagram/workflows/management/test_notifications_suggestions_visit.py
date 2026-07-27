@@ -52,6 +52,7 @@ class _Workflow(NotificationsEngagementWorkflow):
         self.returns = 0
         self.scrolls = 0
         self.zone_reached = True
+        self.refreshes = 0
         import loguru
         self.logger = loguru.logger.bind(module="test")
         self._notify_cb = None
@@ -65,6 +66,10 @@ class _Workflow(NotificationsEngagementWorkflow):
 
     def reach_suggestions_zone(self, max_scrolls=8):
         return self.zone_reached
+
+    def refresh_notifications_screen(self):
+        self.refreshes += 1
+        return True
 
     def _tap_point(self, point, name):
         self.taps.append((point, name))
@@ -174,15 +179,38 @@ def test_each_visit_returns_to_the_notifications_screen():
 
 
 def test_the_zone_must_be_reachable_before_anything_is_touched():
-    """Zone hors ecran = on n'est pas descendu assez bas, pas "plus de suggestions"."""
+    """Sans zone, rien n'est touche — et le motif d'arret dit LAQUELLE des trois
+    issues on a rencontree, parce qu'elles n'appellent pas la meme reaction."""
     pipeline = _FakePipeline()
     wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
     wf.zone_reached = False
+    wf.descent_outcome = "no_suggestions_offered"
 
     result = wf.visit_suggestions(max_profiles=1, delay_range=NO_DELAY)
 
-    assert result["stop_reason"] == "zone_not_reached"
+    assert result["stop_reason"] == "no_suggestions_offered"
     assert wf.taps == []
+
+
+def test_the_list_is_collapsed_before_the_first_descent():
+    """Le scan a deplie la liste a coups de « Voir plus » : chaque appui a insere une
+    page de notifications entre nous et la section. Sortir/rentrer la replie."""
+    pipeline = _FakePipeline(username="inconnu")
+    wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
+
+    wf.visit_suggestions(max_profiles=1, delay_range=NO_DELAY)
+
+    assert wf.refreshes == 1
+
+
+def test_the_collapse_can_be_skipped_for_an_isolated_probe():
+    """Depuis le Lab on teste la zone sur l'ecran ou l'operateur s'est place."""
+    pipeline = _FakePipeline(username="inconnu")
+    wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
+
+    wf.visit_suggestions(max_profiles=1, refresh_first=False, delay_range=NO_DELAY)
+
+    assert wf.refreshes == 0
 
 
 def test_a_filtered_profile_counts_as_processed_not_as_a_follow():
@@ -303,3 +331,44 @@ def test_the_safety_cap_is_a_guard_rail_not_a_stop_policy():
 
     assert wf.reach_suggestions_zone(max_scrolls=5) is False
     assert wf.scrolls == 6
+
+
+def _people_section_xml(marker, header):
+    """Le bas de l'ecran : une section de PERSONNES qui n'est pas les suggestions.
+
+    Instagram sert a cet endroit une section dont l'identite VARIE — "Suggestions"
+    une fois, "Followers que vous ne suivez pas" une autre (dump 19:55), rien
+    parfois. Les confondre avec une panne de navigation ferait chercher un bug la ou
+    il n'y en a pas.
+    """
+    return etree.fromstring(
+        ("<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
+         f'<node class="android.widget.TextView" text="notification {marker}"'
+         f' bounds="[253,300][893,460]"/>'
+         f'<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
+         f' text="{header}" bounds="[44,949][737,1002]"/>'
+         "</hierarchy>").encode("utf-8")
+    )
+
+
+def test_a_bottom_without_suggestions_is_reported_as_such_not_as_a_failure():
+    other = "Followers que vous ne suivez pas"
+    wf = _Descent([_people_section_xml(0, other)] + [_people_section_xml(1, other)] * 5)
+
+    assert wf.reach_suggestions_zone() is False
+    assert wf.descent_outcome == "no_suggestions_offered"
+
+
+def test_hitting_the_guard_rail_is_not_reported_as_an_absent_section():
+    """La liste bougeait encore : on ne sait PAS si la zone existait plus bas."""
+    wf = _Descent([_screen_xml(i) for i in range(50)])
+
+    assert wf.reach_suggestions_zone(max_scrolls=5) is False
+    assert wf.descent_outcome == "cap_hit"
+
+
+def test_reaching_the_zone_is_reported_as_reached():
+    wf = _Descent([_screen_xml(0), _screen_xml(1, with_header=True)])
+
+    assert wf.reach_suggestions_zone() is True
+    assert wf.descent_outcome == "reached"

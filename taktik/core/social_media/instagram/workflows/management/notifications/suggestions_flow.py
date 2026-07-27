@@ -40,6 +40,11 @@ class NotificationSuggestionsMixin:
     # prouve rien : un rendu en cours donne le meme resultat qu'une liste finie.
     _SUGGESTIONS_EMPTY_DUMP_RUNS = 2
 
+    # Pourquoi la derniere descente s'est arretee : 'reached' | 'no_suggestions_offered'
+    # | 'cap_hit'. Renseigne par reach_suggestions_zone, lu par visit_suggestions pour
+    # que le motif d'arret remonte tel quel jusqu'au front.
+    descent_outcome = "reached"
+
     # ------------------------------------------------------------------
     # Geometrie vivante de l'ecran
     # ------------------------------------------------------------------
@@ -120,6 +125,32 @@ class NotificationSuggestionsMixin:
             return ""
         return "|".join(f"{text}@{bounds[1]}" for _node, text, bounds in iter_text_nodes(root))
 
+    def refresh_notifications_screen(self) -> bool:
+        """Ressortir puis rouvrir l'ecran d'activite, pour REPLIER la liste.
+
+        Ce que montre le dump du 2026-07-27 19:55 : a l'ouverture, l'ecran tient en
+        deux blocs — les notifications du jour, un bouton « Voir plus », puis la
+        section de personnes. Celle-ci est donc a UN ou DEUX ecrans du haut.
+
+        Mais le scan qui precede tape « Voir plus » a chaque fois qu'il ne trouve plus
+        rien de neuf, pour lire l'historique : chaque appui insere une page de
+        notifications ENTRE nous et la section, et c'est ce qui transformait la
+        descente en dizaines de scrolls. Sortir et rentrer replie la liste, et rend a
+        la section sa distance d'origine.
+        """
+        for _ in range(3):
+            if not self._on_notifications_screen():
+                break
+            try:
+                self.device.press("back")
+            except Exception as exc:  # noqa: BLE001
+                self.logger.debug(f"back before re-entering notifications failed: {exc}")
+                break
+            time.sleep(1.0)
+        if self._tap_activity_and_check():
+            return True
+        return self.ensure_notifications_screen()
+
     def reach_suggestions_zone(self, max_scrolls: int = 60) -> bool:
         """Descendre jusqu'a ce que l'en-tete "Suggestions" soit a l'ecran.
 
@@ -136,26 +167,50 @@ class NotificationSuggestionsMixin:
 
         On ne tape jamais "Voir plus" ici : ce bouton charge des notifications PLUS
         ANCIENNES, qui s'inserent entre nous et la zone — on s'en eloignerait.
+
+        En sortie, ``descent_outcome`` dit POURQUOI on s'est arrete. Les trois issues
+        n'ont pas du tout le meme sens et les confondre a deja coute une QA :
+        'reached', 'no_suggestions_offered' (fond de liste atteint — la section de
+        personnes qu'Instagram sert a cet instant n'est pas celle des suggestions) et
+        'cap_hit' (garde-fou touche alors que la liste bougeait encore).
         """
+        from .dump_parsing import parse_section_headers
+
         previous = None
         stale = 0
+        seen_sections: List[str] = []
         for index in range(max(int(max_scrolls), 0) + 1):
             root = self._dump_root()
             if find_suggestions_header_y(
                 root, self.selectors.suggestions_header_texts,
                 self.selectors.notification_section_header_resource_id,
             ) is not None:
-                if index:
-                    self.logger.info(f"Suggestions zone reached after {index} scroll(s)")
+                self.descent_outcome = "reached"
+                self.logger.info(f"Suggestions zone reached after {index} scroll(s)")
                 return True
+            for header in parse_section_headers(
+                root, self.selectors.notification_section_header_resource_id
+            ):
+                if header not in seen_sections:
+                    seen_sections.append(header)
             signature = self._feed_signature(root)
             stale = stale + 1 if signature and signature == previous else 0
             if stale >= 2:
-                self.logger.info(f"Bottom of the notifications list reached after {index} "
-                                 f"scroll(s) without a suggestions zone")
+                self.descent_outcome = "no_suggestions_offered"
+                # Nommer les sections traversees : Instagram sert au bas de cet ecran une
+                # section de personnes dont l'identite VARIE ("Suggestions" une fois,
+                # "Followers que vous ne suivez pas" une autre, rien parfois). Sans ces
+                # noms dans les logs, "pas de suggestions" est indiscernable d'une panne.
+                sections = ", ".join(repr(s) for s in seen_sections[-4:]) or "aucune"
+                self.logger.info(
+                    f"Bottom of the notifications list reached after {index} scroll(s): "
+                    f"Instagram is not serving a suggestions section right now "
+                    f"(sections seen: {sections})"
+                )
                 return False
             previous = signature
             self._scroll_down(1)
+        self.descent_outcome = "cap_hit"
         self.logger.warning(f"Suggestions zone not reached: the {max_scrolls}-scroll safety "
                             f"cap was hit while the list was still moving")
         return False
@@ -202,6 +257,7 @@ class NotificationSuggestionsMixin:
     # ------------------------------------------------------------------
     def visit_suggestions(self, max_profiles: int = 5, max_scrolls: int = 8,
                           max_descent_scrolls: int = 60,
+                          refresh_first: bool = True,
                           delay_range: tuple = (4, 12),
                           on_profile: Optional[Callable[[Dict[str, Any]], None]] = None,
                           ) -> Dict[str, Any]:
@@ -235,6 +291,11 @@ class NotificationSuggestionsMixin:
             return result
 
         self._optimize_locale()  # l'en-tete de la zone et les boutons sont du TEXTE
+        if refresh_first:
+            # Le scan qui precede a DEPLIE la liste a coups de « Voir plus » : la section
+            # de personnes, qui est a un ou deux ecrans du haut sur une liste repliee, se
+            # retrouve alors des dizaines d'ecrans plus bas. Sortir et rentrer la replie.
+            self.refresh_notifications_screen()
         low, high = (delay_range if delay_range and len(delay_range) == 2 else (4, 12))
         attempted: set = set()
         seen_follow_back: set = set()
@@ -243,7 +304,10 @@ class NotificationSuggestionsMixin:
 
         while result["visited"] < max_profiles:
             if not self.reach_suggestions_zone(max_descent_scrolls):
-                result["stop_reason"] = "zone_not_reached"
+                # 'no_suggestions_offered' n'est pas un echec : Instagram ne sert pas de
+                # section de suggestions a cet instant. Le confondre avec un probleme de
+                # navigation ferait chercher un bug la ou il n'y en a pas.
+                result["stop_reason"] = self.descent_outcome
                 break
 
             rows = self.scan_suggestions()

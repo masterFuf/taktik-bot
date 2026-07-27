@@ -470,6 +470,9 @@ def visit_suggestions(a, p):
         max_profiles=max_profiles,
         max_scrolls=int(p.get("max_scrolls", 8)),
         max_descent_scrolls=int(p.get("max_descent_scrolls", 60)),
+        # Depuis le Lab, on teste la zone sur l'ecran ou l'operateur s'est place :
+        # replier la liste le ferait repartir du haut. En production c'est l'inverse.
+        refresh_first=str(p.get("refresh_first", "")).lower() in ("1", "true", "oui"),
         delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
     )
     return {"success": res.get("processed", 0) > 0,
