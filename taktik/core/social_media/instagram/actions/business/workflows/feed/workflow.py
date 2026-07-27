@@ -1,8 +1,10 @@
 """Feed workflow orchestration.
 
 Internal structure:
-- post_actions.py       — Post-level actions (like, comment, detect, scroll, metadata)
-- user_interactions.py  — User-level interactions (navigate to profile, like/follow/story, DB records)
+- post_actions.py         — Post-level actions (like, comment, detect, scroll, metadata)
+- suggestions.py          — "Follow suggestions" mode (netego carousel -> Discover people)
+- suggestions_parsing.py  — Pure XML-dump parsers for both suggestion surfaces
+- user_interactions.py    — User-level interactions (navigate to profile, like/follow/story, DB records)
 """
 
 import time
@@ -14,9 +16,10 @@ from ....core.base_business import BaseBusinessAction
 from ....core.stats import create_workflow_stats
 from ....core.ipc import IPCEmitter
 from .post_actions import FeedPostActionsMixin
+from .suggestions import FeedSuggestionsMixin
 
 
-class FeedBusiness(FeedPostActionsMixin, BaseBusinessAction):
+class FeedBusiness(FeedPostActionsMixin, FeedSuggestionsMixin, BaseBusinessAction):
     """Business logic for interacting with users from the home feed."""
 
     # Consecutive "filler" advances (only ads/suggestions) before the followed feed is
@@ -86,6 +89,24 @@ class FeedBusiness(FeedPostActionsMixin, BaseBusinessAction):
             
             time.sleep(2)
 
+            # Run "suggestions seules" : on ne vient PAS engager son fil, on vient
+            # chercher le carousel de suggestions. Aucun like, aucun commentaire,
+            # aucune story — on scrolle jusqu'a le trouver, on follow, on s'arrete.
+            if (effective_config.get('follow_suggestions', False)
+                    and effective_config.get('suggestions_only', False)):
+                self.logger.info("Suggestions-only run: no feed engagement")
+                run_result = self.run_suggestions_only(effective_config)
+                stats['suggestion_follows'] = run_result.get('follows', 0)
+                stats['follows_made'] = run_result.get('follows', 0)
+                stats['users_interacted'] = run_result.get('follows', 0)
+                stats['success'] = True
+                self.logger.info(
+                    f"Suggestions-only run finished: {run_result.get('follows', 0)} follow(s) "
+                    f"after {run_result.get('carousel_scrolls', 0)} scroll(s), "
+                    f"stop={run_result.get('stop_reason')}"
+                )
+                return stats
+
             if effective_config.get('view_feed_stories', False):
                 self.logger.info("Viewing friends' stories from feed tray")
                 story_result = self.story_business.view_feed_stories({
@@ -126,6 +147,15 @@ class FeedBusiness(FeedPostActionsMixin, BaseBusinessAction):
                 min_likes = effective_config.get('min_post_likes', 0)
                 max_likes = effective_config.get('max_post_likes', 0)
                 filler_streak = 0
+
+                # Mode "follow des suggestions" : on surveille l'apparition du carousel
+                # netego pendant le scroll pour partir follow en masse depuis Discover
+                # people, puis revenir liker le feed.
+                follow_suggestions = effective_config.get('follow_suggestions', False)
+                suggestion_passes_left = (
+                    int(effective_config.get('max_suggestion_passes', 1) or 0)
+                    if follow_suggestions else 0
+                )
 
                 while (posts_liked < effective_config['max_interactions'] and
                        posts_checked < effective_config['max_posts_to_check']):
@@ -214,6 +244,26 @@ class FeedBusiness(FeedPostActionsMixin, BaseBusinessAction):
                     # Copilot feed card (skip pure ad-skips, which leave feed_action None).
                     if feed_action is not None:
                         IPCEmitter.emit_feed_decision(post_author, feed_action, reason=feed_reason)
+
+                    # Le carousel de suggestions est arrive a l'ecran : on part follow
+                    # en masse, puis on revient poursuivre le feed la ou on en etait.
+                    if suggestion_passes_left > 0 and self.has_feed_suggestions_carousel():
+                        suggestion_passes_left -= 1
+                        pass_result = self.run_feed_suggestions_pass(effective_config)
+                        stats['suggestion_follows'] = (
+                            stats.get('suggestion_follows', 0) + pass_result.get('follows', 0)
+                        )
+                        stats['follows_made'] = (
+                            stats.get('follows_made', 0) + pass_result.get('follows', 0)
+                        )
+                        self.logger.info(
+                            f"Suggestions pass: {pass_result.get('follows', 0)} follow(s), "
+                            f"stop={pass_result.get('stop_reason')}, "
+                            f"contacts={pass_result.get('contacts_dialog')}"
+                        )
+                        if pass_result.get('entered') and not pass_result.get('returned_to_feed'):
+                            self.logger.info("Could not get back to the feed - stopping")
+                            break
 
                     # Avance humaine vers le prochain VRAI post (skip pubs/suggestions,
                     # stop-on-metadata, cadrage). Un seul point d'avance pour toute la boucle.

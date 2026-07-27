@@ -98,6 +98,22 @@ FEED_DEFAULTS: Dict[str, Any] = {
     'like_posts_directly': True,
     'min_post_likes': 0,
     'max_post_likes': 0,
+    # --- Mode "follow des suggestions" (OFF par defaut) ---
+    # Quand le carousel "Suggested for you" apparait dans le feed, ouvrir son CTA
+    # "See all" et follow en masse depuis l'ecran Discover people. Ne fait NI
+    # follow-back NI acceptation de demande de suivi (workflow Notifications).
+    'follow_suggestions': False,
+    # Run "suggestions seules" : le feed n'est qu'un couloir vers le carousel. Ni like,
+    # ni commentaire, ni story — on scrolle jusqu'au bloc, on follow, on s'arrete.
+    'suggestions_only': False,
+    'max_carousel_scrolls': 12,
+    'max_suggestion_follows': 20,
+    # 'deny' (defaut) = refuser l'acces au carnet d'adresses ; 'allow' = l'accorder.
+    'suggestions_contacts_choice': 'deny',
+    'suggestion_follow_delay_range': (4, 12),
+    'max_suggestion_scrolls': 15,
+    # Nombre de passes de suggestions autorisees dans un meme run de feed.
+    'max_suggestion_passes': 1,
 }
 
 

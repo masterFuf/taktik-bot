@@ -102,6 +102,19 @@ def _build_action_config(
             "skip_suggested": feed_config.get("skipSuggested", True),
             "read_captions": feed_config.get("readCaptions", True),
             "browse_carousels": feed_config.get("browseCarousels", True),
+            # Mode "follow des suggestions" : quand le carousel "Suggested for you"
+            # apparait dans le feed, ouvrir "See all" et follow en masse depuis
+            # Discover people. OFF par defaut ; ni follow-back ni demandes de suivi.
+            "follow_suggestions": bool(feed_config.get("followSuggestions", False)),
+            # Run "suggestions seules" : le feed n'est qu'un couloir vers le carousel,
+            # aucun like / commentaire / story n'est fait.
+            "suggestions_only": bool(feed_config.get("suggestionsOnly", False)),
+            "max_carousel_scrolls": int(feed_config.get("maxCarouselScrolls", 12) or 0),
+            "max_suggestion_follows": int(feed_config.get("maxSuggestionFollows", 20) or 0),
+            "suggestions_contacts_choice": (
+                "allow" if feed_config.get("allowContactsAccess", False) else "deny"
+            ),
+            "max_suggestion_passes": int(feed_config.get("maxSuggestionPasses", 1) or 0),
         }
 
     action_config: Dict[str, Any] = {
