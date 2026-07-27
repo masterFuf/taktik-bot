@@ -73,6 +73,21 @@ class NotificationSuggestionsMixin:
             screen_width=self._screen_width(),
         )
 
+    @staticmethod
+    def _row_key(row: Dict[str, Any]) -> str:
+        """Clef de deduplication d'une ligne entre deux dumps.
+
+        Le libelle suffit dans l'immense majorite des cas. Sans lui, on retombe sur la
+        bande verticale de la ligne : imparfait apres un scroll, mais infiniment mieux
+        que la chaine vide, qui ferait passer TOUTES les lignes sans libelle pour la
+        meme — donc une seule tentee, les autres ignorees en silence.
+        """
+        label = (row.get("label") or "").strip()
+        if label:
+            return label.lower()
+        top = row.get("row_top")
+        return f"row@{int(top) // 50}" if top is not None else "row@?"
+
     def _report_unreadable_rows(self, rows: List[Dict[str, Any]]) -> None:
         """Dire, une fois, qu'on n'a pas su lire des boutons.
 
@@ -192,13 +207,15 @@ class NotificationSuggestionsMixin:
                 break
 
             rows = self.scan_suggestions()
-            seen_follow_back.update(row["label"] for row in rows
-                                    if row.get("state") == "follow_back" and row.get("label"))
+            # Comptes par IDENTITE et non par ecran : la meme ligne reste visible sur
+            # plusieurs dumps successifs, un cumul la compterait autant de fois qu'on la voit.
+            seen_follow_back.update(self._row_key(row) for row in rows
+                                    if row.get("state") == "follow_back")
             result["skipped_follow_back"] = len(seen_follow_back)
             self._report_unreadable_rows(rows)
 
             candidates = [row for row in followable_suggestions(rows)
-                          if (row.get("label") or "") not in attempted]
+                          if self._row_key(row) not in attempted]
 
             if not candidates:
                 empty_dump_streak = empty_dump_streak + 1 if not rows else 0
@@ -215,7 +232,7 @@ class NotificationSuggestionsMixin:
             empty_dump_streak = 0
             row = candidates[0]
             label = row.get("label") or "(sans libelle)"
-            attempted.add(row.get("label") or "")
+            attempted.add(self._row_key(row))
             result["attempts"] += 1
             self._notify("suggestion_visit", "running", label, label=label)
 
