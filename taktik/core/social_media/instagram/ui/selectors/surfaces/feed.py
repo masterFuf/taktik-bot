@@ -92,6 +92,62 @@ FEED_SELECTORS = FeedSelectors()
 
 
 @dataclass
+class FeedSuggestionsSelectors:
+    """Carousel "Suggested for you" (netego) insere dans le feed.
+
+    Point d'entree du mode "follow des suggestions" : le carousel apparait apres
+    quelques posts, avec un CTA "See all" qui ouvre l'ecran Discover people
+    (cf. `DISCOVER_PEOPLE_SELECTORS`). Provenance : dump reel 9CHAY1PN, Instagram
+    v410.0.0.53.71, 2026-07-26.
+
+    Tous les marqueurs ci-dessous sont des resource-id, donc INDEPENDANTS de la
+    langue : la detection du carousel et le tap du CTA n'ont besoin d'aucun
+    libelle. Les textes ne servent qu'a l'observabilite (titre affiche).
+    """
+
+    # === Le bloc entier ===
+    carousel_container: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/netego_carousel_container_view"]',
+    ])
+    carousel_header: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/netego_carousel_header"]',
+    ])
+    carousel_title: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/netego_carousel_title"]',
+    ])
+
+    # === CTA "See all" / "Tout afficher" -> ecran Discover people ===
+    carousel_see_all: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/netego_carousel_cta"]',
+    ])
+
+    # === Cartes inline du carousel (follow sans quitter le feed) ===
+    card_container: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/suggested_entity_card_container"]',
+    ])
+    card_name: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/suggested_entity_card_name"]',
+    ])
+    card_follow_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/suggested_user_card_follow_button"]',
+    ])
+    card_dismiss: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/dismiss_button"]',
+    ])
+
+    # --- Fast-path dump XML : resource-id NUS (matches par sous-chaine) ---
+    carousel_container_id: str = "netego_carousel_container_view"
+    carousel_title_id: str = "netego_carousel_title"
+    carousel_cta_id: str = "netego_carousel_cta"
+    card_container_id: str = "suggested_entity_card_container"
+    card_name_id: str = "suggested_entity_card_name"
+    card_follow_button_id: str = "suggested_user_card_follow_button"
+
+
+FEED_SUGGESTIONS_SELECTORS = FeedSuggestionsSelectors()
+
+
+@dataclass
 class FeedScrollSelectors:
     """Signatures UI du SCROLL INTELLIGENT du feed, lues en fast-path sur le hierarchy dump
     (perception des ancres, lecture légende/carousel, récupération). Centralisées ici (regle

@@ -222,4 +222,33 @@ class PopupSelectors:
         '//*[@text="Ok"]',
     ])
 
+    # === Modale "Autoriser Instagram a acceder a vos contacts ?" ===
+    # S'intercale apres le CTA "See all" du carousel de suggestions du feed
+    # (dump reel 9CHAY1PN, IG v410.0.0.53.71, 2026-07-26).
+    #
+    # ATTENTION : les trois resource-id `igds_alert_dialog_*` sont la CARROSSERIE
+    # generique des alertes Instagram — la modale soft-ban "Try again later" les
+    # porte aussi. Ne JAMAIS taper le bouton primaire sur la seule foi de ces ids :
+    # il faut d'abord confirmer le HEADLINE via `contacts_access_headline_texts`.
+    contacts_access_dialog: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_headline"]',
+    ])
+    contacts_access_subtext: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_subtext"]',
+    ])
+    # Boutons : resource-id => independants de la langue. Le primaire ACCEPTE
+    # (upload du carnet d'adresses), le "cancel" REFUSE.
+    contacts_access_allow_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_primary_button"]',
+    ])
+    contacts_access_deny_button: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_cancel_button"]',
+    ])
+
+    @property
+    def contacts_access_headline_texts(self) -> List[str]:
+        """Fragments du headline (LIBELLES bruts, pas des xpaths) prouvant que
+        l'alerte affichee est bien la demande d'acces aux contacts."""
+        return L("popup.contacts_access_headline_texts")
+
 POPUP_SELECTORS = PopupSelectors()

@@ -319,6 +319,11 @@ STRINGS: Dict[str, List[str]] = {
         "Send",
         "Send message",
     ],
+    # --- discover people (account suggestions) ---
+    # Bare LABEL fragments (not xpaths): action-bar title of the suggestions screen.
+    "discover_people.screen_title_texts": [
+        "Discover people",
+    ],
     # --- feed ---
     "feed.already_liked_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/row_feed_button_like\" and contains(@content-desc, \"Unlike\")]",
@@ -585,6 +590,12 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Add a comment\")]",
         "//*[contains(@hint, \"Add a comment\")]",
         "//*[contains(@hint, \"What do you think\")]",
+    ],
+    # Bare LABEL fragments (not xpaths): proof that the igds alert on screen is the
+    # contacts-access request and not another alert wearing the same resource-ids.
+    "popup.contacts_access_headline_texts": [
+        "access your contacts",
+        "sync contacts",
     ],
     "popup.follow_suggestions_close_methods": [
         "//*[contains(@content-desc, \"Close\")]",

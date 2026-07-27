@@ -290,6 +290,12 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.send_button_descriptions": [
         "Envoyer",
     ],
+    # --- discover people (suggestions de comptes) ---
+    # LIBELLES bruts (pas des xpaths) : titre de la barre d'action de l'ecran suggestions.
+    "discover_people.screen_title_texts": [
+        "Découvrir des personnes",
+        "Decouvrir des personnes",
+    ],
     # --- feed ---
     "feed.already_liked_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/row_feed_button_like\" and contains(@content-desc, \"Ne plus aimer\")]",
@@ -545,6 +551,13 @@ STRINGS: Dict[str, List[str]] = {
     "popup.comments_view_indicators": [
         "//*[@text=\"Commentaires\"]",
         "//*[contains(@text, \"Ajouter un commentaire\")]",
+    ],
+    # LIBELLES bruts (pas des xpaths) : preuve que l'alerte igds affichee est bien la
+    # demande d'acces aux contacts et pas une autre alerte portant les memes resource-id.
+    "popup.contacts_access_headline_texts": [
+        "accéder à vos contacts",
+        "acceder a vos contacts",
+        "synchroniser vos contacts",
     ],
     "popup.follow_suggestions_close_methods": [
         "//*[contains(@content-desc, \"Fermer\")]",
