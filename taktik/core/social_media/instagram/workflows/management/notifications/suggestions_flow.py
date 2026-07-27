@@ -254,8 +254,10 @@ class NotificationSuggestionsMixin:
             result["profiles"].append(entry)
             self.logger.info(f"Suggestion '{label}' -> @{username}: {outcome.status} "
                              f"({result['visited']}/{max_profiles})")
+            # `outcome=` et non `status=` : `_notify` porte deja un parametre `status`
+            # (running/done/failed) et la collision faisait echouer la narration.
             self._notify("suggestion_visit", "done", f"@{username}: {outcome.status}",
-                         label=label, username=username, status=outcome.status)
+                         label=label, username=username, outcome=outcome.status)
             if on_profile:
                 try:
                     on_profile(entry)
