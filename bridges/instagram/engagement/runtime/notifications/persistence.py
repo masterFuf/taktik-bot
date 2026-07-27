@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.database import configure_db_service, get_db_service
 from taktik.core.database.notifications import NotificationService
-from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.database.repositories.notifications import NotificationRepository
 
 _PLATFORM = "instagram"
@@ -31,8 +30,13 @@ def _looks_like_handle(value: str) -> bool:
     return bool(value) and bool(_HANDLE_RE.match(value))
 
 
-def _account_id_for(username: str) -> Optional[int]:
-    """Map the connected-account username to an account id (created if needed)."""
+def resolve_account_id(username: str) -> Optional[int]:
+    """Map the connected-account username to an account id (created if needed).
+
+    Public because it is no longer only a persistence detail: the suggestions VISIT
+    binds its production pipeline to this account, and every follow it lands is
+    written under it.
+    """
     username = (username or "").strip().lower()
     if not _looks_like_handle(username):
         return None
@@ -56,7 +60,7 @@ def record_scan_notifications(
     """
     if not items:
         return []
-    account_id = _account_id_for(account_username or "")
+    account_id = resolve_account_id(account_username or "")
     if account_id is None:
         return [False] * len(items)
     try:
@@ -68,40 +72,6 @@ def record_scan_notifications(
         return [False] * len(items)
 
 
-def record_suggestion_follows(account_username: Optional[str],
-                             labels: List[str]) -> int:
-    """Persist the follows made from the suggestions block; returns the rows written.
-
-    Same table and same action type as every other follow (`interactions`, 'FOLLOW'),
-    so a run made from this surface shows up in the session history and the daily
-    counters like any other — that was the whole point of doing it here.
-
-    Known limit of the surface: it exposes the DISPLAYED label, never the @handle, so
-    that label is what gets stored, with its provenance in `content`. The following_sync
-    reconciles the real handles later.
-    """
-    if not labels:
-        return 0
-    account_id = _account_id_for(account_username or "")
-    if account_id is None:
-        logger.warning("[NOTIF] No account resolved: suggestion follows NOT recorded")
-        return 0
-    written = 0
-    for label in labels:
-        try:
-            InstagramWorkflowStateService.record_individual_actions(
-                username=label,
-                action_type="FOLLOW",
-                count=1,
-                account_id=account_id,
-                content="Suggestion Instagram (notifications)",
-            )
-            written += 1
-        except Exception as exc:
-            logger.warning(f"[NOTIF] Failed to record a suggestion follow: {exc}")
-    return written
-
-
 def build_known_checker(account_username: Optional[str]):
     """Predicate ``item -> bool`` = "already recorded for this account", for the scan's early-stop.
 
@@ -110,7 +80,7 @@ def build_known_checker(account_username: Optional[str]):
     when the account is unknown or nothing is recorded yet (=> the scan reads fully, as before).
     Best-effort: never raises into the scan.
     """
-    account_id = _account_id_for(account_username or "")
+    account_id = resolve_account_id(account_username or "")
     if account_id is None:
         return None
     try:
@@ -131,4 +101,4 @@ def build_known_checker(account_username: Optional[str]):
     return _is_known
 
 
-__all__ = ["record_scan_notifications", "build_known_checker"]
+__all__ = ["build_known_checker", "record_scan_notifications", "resolve_account_id"]

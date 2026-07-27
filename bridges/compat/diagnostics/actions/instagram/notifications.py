@@ -28,19 +28,48 @@ from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTO
 # Production workflow access + small shared helpers
 # =============================================================================
 
-def _workflow(a):
+def _workflow(a, p=None):
     """Build the production NotificationsEngagementWorkflow on the warm Lab device.
 
     No notifier / relauncher: narration + self-heal are no-ops for an isolated
     unit probe. The Lab session already optimized the selector catalog to the
     device language at start, so the workflow's text-only signatures (e.g. the
     grouped follow-requests header) resolve without re-detecting per action.
+
+    When ``p`` is given, the PER-PROFILE production pipeline is attached too — the
+    same object the bridge injects, so a suggestions probe exercises the real
+    extract / qualify / follow / persist path and not a Lab-only shortcut.
     """
     from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow,
     )
     device_id = getattr(a.device, "device_id", None) or "lab"
-    return NotificationsEngagementWorkflow(a.device, device_id)
+    return NotificationsEngagementWorkflow(
+        a.device, device_id, profile_pipeline=_pipeline(a, p) if p is not None else None,
+    )
+
+
+def _pipeline(a, p):
+    """Per-profile production pipeline, bound to the account given as ``account``.
+
+    The Lab has no session account of its own. Without an explicit ``account`` param
+    the pipeline falls back to the historical default id, exactly like every other Lab
+    action that writes — so pass it whenever the run must be attributed correctly.
+    """
+    from taktik.core.social_media.instagram.workflows.management.notifications import (
+        build_notifications_profile_pipeline,
+    )
+    account = (p.get("account") or "").strip().lstrip("@")
+    account_id = None
+    if account:
+        try:
+            from taktik.core.database import configure_db_service, get_db_service
+
+            configure_db_service()
+            account_id, _ = get_db_service().get_or_create_account(account, is_bot=True)
+        except Exception as exc:
+            logger.warning(f"Lab: could not resolve account @{account}: {exc}")
+    return build_notifications_profile_pipeline(a.device, account_id=account_id)
 
 
 def _detected(label, found):
@@ -343,21 +372,106 @@ def scan_suggestions(a, p):
             "details": {"rows": rows, "by_state": by_state}}
 
 
-@action("notifications.follow_suggestions")
-def follow_suggestions(a, p):
-    """Suivre depuis la zone suggestions (param ``max``, 1 par defaut).
+@action("notifications.reach_suggestions")
+def reach_suggestions(a, p):
+    """Descendre jusqu'a l'en-tete "Suggestions" (param ``max_scrolls``, 8 par defaut).
 
-    Ne tape que les boutons dont l'etat est exactement 'Suivre' : les
-    'Suivre en retour' sont comptes et laisses au flux de follow-back.
+    La zone vit tout en bas de l'ecran Notifications : sans cette descente, toutes
+    les sondes suivantes lisent un ecran ou la zone n'est simplement pas la.
     """
-    max_follows = int(p.get("max", 1))
-    res = _workflow(a).follow_suggestions(
-        max_follows=max_follows,
-        max_scrolls=int(p.get("max_scrolls", 4)),
+    max_scrolls = int(p.get("max_scrolls", 8))
+    ok = _workflow(a).reach_suggestions_zone(max_scrolls=max_scrolls)
+    msg = ("notifications.reach_suggestions: zone suggestions atteinte" if ok
+           else f"notifications.reach_suggestions: en-tete jamais vu apres {max_scrolls} scroll(s)")
+    (logger.info if ok else logger.warning)(msg)
+    return {"success": ok, "found": ok, "message": msg}
+
+
+@action("notifications.open_suggestion_profile")
+def open_suggestion_profile(a, p):
+    """Ouvrir le PROFIL de la premiere suggestion suivable, et le prouver.
+
+    Tape le corps de la ligne (jamais son bouton), puis exige une preuve de surface
+    profil. C'est ce qui distingue ce mode du follow a l'aveugle : sans la fiche, on
+    n'a que le libelle affiche et jamais le @handle.
+    Param ``account`` (optionnel) : compte sous lequel attribuer la suite.
+    """
+    wf = _workflow(a, p)
+    rows = wf.scan_suggestions()
+    from taktik.core.social_media.instagram.workflows.management.notifications.suggestions_parsing import (
+        followable_suggestions,
+    )
+    candidates = followable_suggestions(rows)
+    if not candidates:
+        msg = "notifications.open_suggestion_profile: aucune suggestion suivable a l'ecran"
+        logger.warning(msg)
+        return {"success": False, "message": msg}
+    row = candidates[0]
+    label = row.get("label") or "?"
+    ok = wf.open_suggestion_profile(row)
+    if not ok:
+        return {"success": False,
+                "message": f"notifications.open_suggestion_profile: '{label}' n'a pas ouvert de profil"}
+    username = wf.profile_pipeline.read_username()
+    return {"success": True,
+            "message": f"notifications.open_suggestion_profile: '{label}' -> @{username or '?'}",
+            "details": {"label": label, "username": username}}
+
+
+@action("notifications.qualify_suggestion_profile")
+def qualify_suggestion_profile(a, p):
+    """Appliquer le pipeline par-profil au profil DEJA ouvert a l'ecran.
+
+    Extraction (bio, photo, stats), qualification IA si un service est branche,
+    filtres, follow et ecritures DB — la meme fonction que target/hashtag.
+    Params : ``account`` (attribution), ``username`` (force le handle si la lecture
+    d'ecran echoue).
+    """
+    pipeline = _pipeline(a, p)
+    if not pipeline.wait_for_profile(timeout=float(p.get("timeout", 8))):
+        msg = "notifications.qualify_suggestion_profile: l'ecran courant n'est pas un profil"
+        logger.warning(msg)
+        return {"success": False, "message": msg}
+    username = (p.get("username") or "").strip().lstrip("@") or pipeline.read_username()
+    if not username:
+        msg = "notifications.qualify_suggestion_profile: @handle illisible sur ce profil"
+        logger.warning(msg)
+        return {"success": False, "message": msg}
+    outcome = pipeline.process(username)
+    return {"success": not outcome.was_error,
+            "message": (f"notifications.qualify_suggestion_profile: @{username} -> "
+                        f"{outcome.status} ({outcome.follows} follow)"),
+            "details": {"username": username, "status": outcome.status,
+                        "follows": outcome.follows,
+                        "reasons": list(outcome.filter_reasons or [])}}
+
+
+@action("notifications.leave_suggestion_profile")
+def leave_suggestion_profile(a, p):
+    """Revenir du profil vers l'ecran Notifications (backs bornes + auto-reparation)."""
+    ok = _workflow(a).leave_suggestion_profile()
+    msg = ("notifications.leave_suggestion_profile: retour aux notifications" if ok
+           else "notifications.leave_suggestion_profile: ecran notifications non retrouve")
+    (logger.info if ok else logger.warning)(msg)
+    return {"success": ok, "message": msg}
+
+
+@action("notifications.visit_suggestions")
+def visit_suggestions(a, p):
+    """Boucle complete : descendre -> ouvrir -> qualifier -> follow -> revenir -> suivante.
+
+    Params : ``max`` (profils, 1 par defaut), ``max_scrolls``, ``account``.
+    """
+    max_profiles = int(p.get("max", 1))
+    res = _workflow(a, p).visit_suggestions(
+        max_profiles=max_profiles,
+        max_scrolls=int(p.get("max_scrolls", 8)),
         delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
     )
-    return {"success": res.get("follows", 0) > 0,
-            "message": (f"{res.get('follows', 0)}/{max_follows} follow(s), "
-                        f"{res.get('skipped_follow_back', 0)} 'Suivre en retour' ignore(s), "
+    return {"success": res.get("processed", 0) > 0,
+            "message": (f"{res.get('visited', 0)}/{max_profiles} profil(s) visite(s), "
+                        f"{res.get('follows', 0)} follow(s), "
+                        f"{res.get('filtered', 0)} filtre(s), "
+                        f"{res.get('errors', 0)} erreur(s), "
                         f"arret: {res.get('stop_reason')}"),
             "details": res}

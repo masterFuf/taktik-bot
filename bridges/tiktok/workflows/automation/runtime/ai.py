@@ -1,6 +1,6 @@
 """AI service setup for the TikTok automation bridge runtime.
 
-Mirror of `bridges/instagram/automation/runtime/ai.py` — creates the optional OpenRouter
+Mirror of `bridges/instagram/runtime/ai.py` — creates the optional OpenRouter
 AI service from the run's `ai` config (injected main-side with the OpenRouter key).
 """
 

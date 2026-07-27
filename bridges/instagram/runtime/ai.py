@@ -1,4 +1,10 @@
-"""AI service setup for the Instagram desktop automation bridge runtime."""
+"""Service IA partage par les flows Instagram du bridge.
+
+Owner runtime plateforme (AGENTS) : plusieurs flows en ont besoin — l'automation
+(target / hashtag / feed) et l'engagement Notifications, dont la visite des
+suggestions applique le meme pipeline par-profil, qualification IA comprise. La
+fabrique vit donc ici et non chez l'un des deux appelants.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +20,7 @@ def create_instagram_ai_service(
     ipc: Any,
     log: LogCallback,
 ) -> tuple[bool, Any | None]:
-    """Create the optional OpenRouter AI service used by Instagram automation."""
+    """Create the optional OpenRouter AI service used by Instagram flows."""
     if not ai_config.get("enabled", False):
         return False, None
 
@@ -29,3 +35,6 @@ def create_instagram_ai_service(
     service = AIService(api_key=api_key, ipc=ipc, vision_model=vision_model)
     log("info", "AI mode enabled - Smart Comments / Profile Analysis / Post Analysis")
     return True, service
+
+
+__all__ = ["create_instagram_ai_service"]

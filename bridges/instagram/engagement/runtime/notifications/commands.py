@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import sys
 
+from bridges.instagram.engagement.runtime.notifications.ai import install_notifications_ai_hooks
 from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json, emit_notif_step
 from bridges.instagram.engagement.runtime.notifications.persistence import (
     build_known_checker,
     record_scan_notifications,
-    record_suggestion_follows,
+    resolve_account_id,
 )
 from bridges.instagram.runtime.ipc import logger
 
@@ -27,8 +29,49 @@ def _connect(device_id: str, package_name: str = None, *, restart: bool = True) 
     return bridge
 
 
+def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profiles: int,
+                           account_username: str | None, ai_config: dict | None,
+                           language: str) -> dict:
+    """Visiter et qualifier ``max_profiles`` comptes suggeres.
+
+    Chaque suggestion est un profil INCONNU : la surface n'affiche que son libelle, pas
+    son @handle. On ouvre donc sa fiche et on lui applique le pipeline par-profil de
+    production — extraction, qualification IA, filtres, follow, ecritures DB — comme le
+    fait un run target. Les follows sont ecrits par ce pipeline sous le VRAI handle, il
+    n'y a donc plus rien a enregistrer ici.
+    """
+    result = {"visited": 0, "processed": 0, "follows": 0, "filtered": 0, "errors": 0,
+              "profiles": [], "stop_reason": "disabled", "ai_qualification": False}
+    account_id = resolve_account_id(account_username or "")
+    if account_id is None:
+        # Refus FRANC : sans compte resolu, les follows partiraient sous l'id par defaut,
+        # c'est-a-dire sous un autre compte, dans la table que lisent les plafonds du jour.
+        result["stop_reason"] = "no_account"
+        logger.warning("[NOTIF] No account resolved: suggestions visit skipped")
+        emit_notif_step(step="suggestions", status="failed",
+                        message="Compte introuvable: visite des suggestions annulee")
+        return result
+
+    result["ai_qualification"] = install_notifications_ai_hooks(
+        ai_config=ai_config, device=bridge.device, language=language,
+    )
+    workflow.profile_pipeline = bridge.build_profile_pipeline(account_id=account_id)
+
+    emit_notif_step(step="suggestions", status="running",
+                    message="Visite des comptes suggeres")
+    visit = workflow.visit_suggestions(max_profiles=max_profiles)
+    result.update({k: visit[k] for k in
+                   ("visited", "processed", "follows", "filtered", "errors",
+                    "profiles", "stop_reason")})
+    emit_notif_step(step="suggestions", status="done",
+                    message=f"{visit['visited']} profil(s) suggere(s) visite(s), "
+                            f"{visit['follows']} follow(s)")
+    return result
+
+
 def cmd_scan(device_id: str, limit: int, account_username: str = None,
-             package_name: str = None, follow_suggestions: int = 0) -> None:
+             package_name: str = None, follow_suggestions: int = 0,
+             ai_config: dict = None, language: str = "en") -> None:
     """Read + classify the activity feed (all notification families).
 
     The scan is a complete run: it force-restarts Instagram to a known state at the
@@ -68,25 +111,19 @@ def cmd_scan(device_id: str, limit: int, account_username: str = None,
 
     # Suggestions: the block at the very BOTTOM of this screen, which the scan has just
     # scrolled to. Opt-in, and only after the notifications themselves are persisted — a
-    # follow must never cost us the scan it rode in on.
-    suggestions = {"follows": 0, "attempts": 0, "recorded": 0, "stop_reason": "disabled"}
+    # profile visit must never cost us the scan it rode in on.
+    suggestions = {"visited": 0, "processed": 0, "follows": 0, "filtered": 0,
+                   "errors": 0, "profiles": [], "stop_reason": "disabled",
+                   "ai_qualification": False}
     if follow_suggestions > 0:
-        followed: list[str] = []
         try:
-            emit_notif_step(step="suggestions", status="running",
-                            message="Following suggested accounts")
-            suggestions = workflow.follow_suggestions(
-                max_follows=follow_suggestions,
-                on_follow=lambda label, _ctx: followed.append(label),
+            suggestions = _run_suggestions_visit(
+                bridge, workflow, max_profiles=follow_suggestions,
+                account_username=account_username, ai_config=ai_config, language=language,
             )
         except Exception as exc:
-            logger.warning(f"[NOTIF] Suggestions pass failed: {exc}")
+            logger.warning(f"[NOTIF] Suggestions visit failed: {exc}")
             suggestions["stop_reason"] = "error"
-        # Recorded even on a partial pass: the taps already landed on Instagram, so not
-        # writing them would under-count the day and let the caps drift.
-        suggestions["recorded"] = record_suggestion_follows(account_username, followed)
-        emit_notif_step(step="suggestions", status="done",
-                        message=f"{suggestions['follows']} suggested account(s) followed")
 
     # Leave the phone clean: the scan opened Instagram, the scan closes it.
     bridge.stop()
@@ -183,7 +220,7 @@ def run_notifications_cli(args: list[str]) -> None:
             account_username = args[idx + 1]
             args = args[:idx] + args[idx + 2:]
 
-    # Opt-in: how many suggested accounts to follow at the END of a scan, from the block
+    # Opt-in: how many suggested accounts to VISIT at the END of a scan, from the block
     # at the bottom of the activity screen. Absent / 0 = the scan behaves exactly as before.
     follow_suggestions = 0
     if "--follow-suggestions" in args:
@@ -195,9 +232,33 @@ def run_notifications_cli(args: list[str]) -> None:
                 follow_suggestions = 0
             args = args[:idx] + args[idx + 2:]
 
+    # AI qualification for the visited profiles (same shape as the automation bridge's
+    # `ai` config block). Absent = the visit still extracts / persists / follows, but the
+    # profiles are not qualified — and the run log says so rather than staying silent.
+    ai_config = None
+    if "--ai-config" in args:
+        idx = args.index("--ai-config")
+        if idx + 1 < len(args):
+            raw = args[idx + 1]
+            try:
+                ai_config = json.loads(raw)
+            except (TypeError, ValueError) as exc:
+                logger.warning(f"[NOTIF] Unreadable --ai-config ({exc}): AI qualification off")
+                ai_config = None
+            args = args[:idx] + args[idx + 2:]
+
+    # App language: only used to pick the language of the AI's own wording.
+    language = "en"
+    if "--language" in args:
+        idx = args.index("--language")
+        if idx + 1 < len(args):
+            language = args[idx + 1] or "en"
+            args = args[:idx] + args[idx + 2:]
+
     if not args:
         emit_notif_error(
             "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
+            "       [--follow-suggestions <n>] [--ai-config <json>] [--language <code>]\n"
             "  scan <device_id> [scroll]\n"
             "  list_requests <device_id> [limit]\n"
             "  accept <device_id> <username>\n"
@@ -217,7 +278,8 @@ def run_notifications_cli(args: list[str]) -> None:
                 sys.exit(1)
             cmd_scan(args[1], int(args[2]) if len(args) > 2 else 3,
                      follow_suggestions=follow_suggestions,
-                     account_username=account_username, package_name=package_name)
+                     account_username=account_username, package_name=package_name,
+                     ai_config=ai_config, language=language)
 
         elif command == "list_requests":
             if len(args) < 2:

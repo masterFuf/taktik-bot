@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridges.instagram.automation.runtime.ai import create_instagram_ai_service
+from bridges.instagram.runtime.ai import create_instagram_ai_service
 from bridges.instagram.automation.runtime.decision_client import DesktopProfileDecisionClient
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
