@@ -72,6 +72,15 @@ class NotificationSelectors:
     # "Last 30 days"…). A bare-id TextView; its text is read as-is (language-agnostic)
     # to narrate which time bucket the scan is currently reading.
     notification_section_header_resource_id: str = "activity_feed_header_row"
+
+    @property
+    def suggestions_header_texts(self):
+        """En-tete de la zone "Suggestions" en bas de l'ecran (LIBELLES bruts).
+
+        Cette zone ne porte AUCUN resource-id — ni les lignes, ni les champs (dumps
+        18171JEC, 2026-07-27). Le texte de l'en-tete est donc le seul point d'ancrage,
+        et c'est la seule partie de cette surface qui depende de la langue."""
+        return L("notifications.suggestions_header_texts")
     follow_request_row_resource_id: str = "follow_list_container"
     follow_request_username_resource_id: str = "follow_list_username"
     follow_request_accept_resource_id: str = "row_requested_user_accept_secondary"

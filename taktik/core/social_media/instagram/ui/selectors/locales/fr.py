@@ -329,6 +329,13 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"publications\")]",
     ],
     "hashtag.reel_author_container": [],
+    # En-tete de la zone suggestions en BAS de l'ecran Notifications. Libelles bruts
+    # (pas des xpaths) : cette surface ne porte aucun resource-id, le texte est le
+    # seul point d'ancrage possible.
+    "notifications.suggestions_header_texts": [
+        "Suggestions",
+        "Suggestions pour vous",
+    ],
     # --- navigation ---
     "navigation.activity_tab": [
         "//*[contains(@content-desc, \"Activité\")]",
@@ -728,6 +735,15 @@ STRINGS: Dict[str, List[str]] = {
     # Radicaux volontairement courts pour absorber les variantes ("Suivi" couvre "Suivi(e)").
     # ATTENTION : l'ordre de test est porteur cote code (following > requested > follow_back >
     # follow) car "Suivre en retour" contient "Suivre".
+    # Teste AVANT tous les autres : "Ne plus suivre" CONTIENT "Suivre", et "Unfollow"
+    # contient "Follow". Sans cette famille, le bouton de desabonnement se lisait comme
+    # un bouton de suivi — inoffensif sur le header profil (resource-id scope) mais pas
+    # sur une ligne de liste, ou on l'aurait tape.
+    "profile.follow_state_labels_unfollow": [
+        "Ne plus suivre",
+        "Se désabonner",
+        "Se desabonner",
+    ],
     "profile.follow_state_labels_following": [
         "Abonné",
         "Suivi",

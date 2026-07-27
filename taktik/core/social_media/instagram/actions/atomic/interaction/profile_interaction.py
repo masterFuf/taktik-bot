@@ -42,6 +42,11 @@ def classify_follow_state(text: str, selectors) -> Optional[str]:
         return any(_normalize_label(lbl) in t
                    for lbl in (labels or []) if lbl and lbl.strip())
 
+    # AVANT tout le reste : "Ne plus suivre" contient "Suivre", "Unfollow" contient
+    # "Follow". Un bouton de desabonnement se lisait donc comme un bouton de suivi. On le
+    # rend 'following' — c'est ce qu'il signifie, et cet etat n'est jamais tape.
+    if _m(getattr(selectors, 'follow_state_labels_unfollow', None)):
+        return 'following'
     if _m(selectors.follow_state_labels_following):
         return 'following'
     if _m(selectors.follow_state_labels_requested):

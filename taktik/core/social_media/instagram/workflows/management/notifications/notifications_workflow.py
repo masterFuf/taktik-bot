@@ -55,6 +55,10 @@ from .dump_parsing import (
 # dump corrupts (so we re-read them via the element API to recover the real text).
 _EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "comment_like"}
 from .row_layout import parse_bounds
+from .suggestions_parsing import (
+    followable_suggestions,
+    parse_notification_suggestions,
+)
 from taktik.core.shared.behavior.tap import (
     tap_element_human,
     sample_tap_point,
@@ -458,6 +462,117 @@ class NotificationsEngagementWorkflow:
         if root is None:
             return []
         return self._parse_requests(root)
+
+    # ------------------------------------------------------------------
+    # Suggestions (bas de l'ecran Notifications)
+    # ------------------------------------------------------------------
+
+    def _screen_height(self) -> int:
+        """Hauteur d'ecran vivante — le pas entre deux lignes en depend."""
+        try:
+            return int(self.device.info.get("displayHeight", 2400))
+        except Exception:
+            return 2400
+
+    def _screen_width(self) -> int:
+        try:
+            return int(self.device.info.get("displayWidth", 1080))
+        except Exception:
+            return 1080
+
+    def scan_suggestions(self, root=None) -> List[Dict[str, Any]]:
+        """Lignes de suggestion visibles en bas de l'ecran, avec leur etat."""
+        from ....actions.atomic.interaction.profile_interaction import classify_follow_state
+        from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+        root = root if root is not None else self._dump_root()
+        return parse_notification_suggestions(
+            root,
+            self.selectors.suggestions_header_texts,
+            PROFILE_SELECTORS,
+            classify_follow_state,
+            screen_height=self._screen_height(),
+            screen_width=self._screen_width(),
+        )
+
+    def follow_suggestions(self, max_follows: int = 10, max_scrolls: int = 6,
+                           delay_range: tuple = (4, 12),
+                           on_follow=None) -> Dict[str, Any]:
+        """Suivre les comptes proposes en bas de l'ecran Notifications.
+
+        Pourquoi ici plutot que depuis le feed : le carousel du feed est servi par
+        l'algorithme, il est la ou il n'est pas. Cet ecran, le workflow le parcourt
+        deja jusqu'en bas a chaque passage — la zone suggestions est la suite de son
+        trajet, pas une navigation de plus.
+
+        Regle metier identique au mode feed : seul un bouton dont l'etat est
+        exactement 'follow' est tape. Les 'follow back' appartiennent au flux de
+        follow-back de cet ecran, les 'following' sont deja faits.
+        """
+        result = {"follows": 0, "attempts": 0, "scrolls": 0,
+                  "skipped_follow_back": 0, "stop_reason": "max_reached"}
+        if max_follows <= 0:
+            result["stop_reason"] = "disabled"
+            return result
+
+        low, high = (delay_range if delay_range and len(delay_range) == 2 else (4, 12))
+        attempted = set()
+        seen_follow_back = set()
+        reported_unreadable = False
+        empty_streak = 0
+
+        while result["follows"] < max_follows:
+            rows = self.scan_suggestions()
+            seen_follow_back.update(row["label"] for row in rows
+                                    if row.get("state") == "follow_back" and row.get("label"))
+            result["skipped_follow_back"] = len(seen_follow_back)
+
+            # Un libelle de bouton illisible est un TROU DE LOCALE, pas une ligne sans
+            # interet — et un ecran entier d'illisibles ressemble a un ecran sans
+            # suggestions. Le dire une fois, avec des exemples.
+            unreadable = [row for row in rows if row.get("state") is None]
+            if unreadable and not reported_unreadable:
+                reported_unreadable = True
+                samples = ", ".join(repr(row.get("state_label", "")) for row in unreadable[:3])
+                self.logger.warning(f"{len(unreadable)} suggestion row(s) unreadable "
+                                    f"(locale gap?): {samples}")
+
+            candidates = [row for row in followable_suggestions(rows)
+                          if (row.get("label") or "") not in attempted]
+
+            if not candidates:
+                empty_streak = empty_streak + 1 if not rows else 0
+                if empty_streak >= 2:
+                    result["stop_reason"] = "list_exhausted"
+                    break
+                if result["scrolls"] >= max_scrolls:
+                    result["stop_reason"] = "max_scrolls"
+                    break
+                self._scroll_down()
+                result["scrolls"] += 1
+                continue
+
+            empty_streak = 0
+            row = candidates[0]
+            label = row.get("label") or "(sans libelle)"
+            attempted.add(label)
+            result["attempts"] += 1
+
+            if not self._tap_point(row["follow_point"], f"Follow '{label}'"):
+                continue
+
+            # Cadence humaine ENTRE deux follows : c'est le geste le plus surveille.
+            time.sleep(random.uniform(min(low, high), max(low, high)))
+            result["follows"] += 1
+            self.logger.info(f"Followed suggestion '{label}' "
+                             f"({result['follows']}/{max_follows})")
+            if on_follow:
+                try:
+                    on_follow(label, row.get("social_context", ""))
+                except Exception as exc:
+                    self.logger.debug(f"follow callback failed: {exc}")
+
+        return result
 
     def scan(self, max_scrolls: int = 3, known_checker=None) -> Dict[str, Any]:
         """Read + classify the activity feed across a few screens (all families),

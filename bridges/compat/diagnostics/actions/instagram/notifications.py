@@ -315,3 +315,49 @@ def expand_more(a, p):
     tried = wf._expand_one_more()
     return {"success": bool(tried),
             "message": "expanded a truncated row" if tried else "no truncated row in view (or OCR unavailable)"}
+
+
+# =============================================================================
+# Suggestions (bas de l'ecran Notifications)
+# =============================================================================
+
+@action("notifications.scan_suggestions")
+def scan_suggestions(a, p):
+    """Lire la zone "Suggestions" en bas de l'ecran Notifications.
+
+    Cette surface ne porte AUCUN resource-id : les lignes sont regroupees par
+    proximite verticale et l'etat du bouton est lu par la meme fonction que le
+    header profil. Descendre en bas de l'ecran avant de lancer la sonde.
+    """
+    rows = _workflow(a).scan_suggestions()
+    if not rows:
+        return {"success": False, "found": False,
+                "message": "Aucune suggestion lue (en-tete hors ecran ?)"}
+    by_state = {}
+    for row in rows:
+        key = row.get("state") or "illisible"
+        by_state[key] = by_state.get(key, 0) + 1
+    summary = ", ".join(f"{count} {state}" for state, count in sorted(by_state.items()))
+    return {"success": True, "found": True,
+            "message": f"{len(rows)} suggestion(s): {summary}",
+            "details": {"rows": rows, "by_state": by_state}}
+
+
+@action("notifications.follow_suggestions")
+def follow_suggestions(a, p):
+    """Suivre depuis la zone suggestions (param ``max``, 1 par defaut).
+
+    Ne tape que les boutons dont l'etat est exactement 'Suivre' : les
+    'Suivre en retour' sont comptes et laisses au flux de follow-back.
+    """
+    max_follows = int(p.get("max", 1))
+    res = _workflow(a).follow_suggestions(
+        max_follows=max_follows,
+        max_scrolls=int(p.get("max_scrolls", 4)),
+        delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
+    )
+    return {"success": res.get("follows", 0) > 0,
+            "message": (f"{res.get('follows', 0)}/{max_follows} follow(s), "
+                        f"{res.get('skipped_follow_back', 0)} 'Suivre en retour' ignore(s), "
+                        f"arret: {res.get('stop_reason')}"),
+            "details": res}

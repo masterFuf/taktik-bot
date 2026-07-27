@@ -133,6 +133,10 @@ class ProfileSelectors:
         return L("profile.follow_state_labels_requested")
 
     @property
+    def follow_state_labels_unfollow(self) -> List[str]:
+        return L("profile.follow_state_labels_unfollow")
+
+    @property
     def follow_state_labels_follow_back(self) -> List[str]:
         return L("profile.follow_state_labels_follow_back")
 
