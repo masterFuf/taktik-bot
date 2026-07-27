@@ -133,6 +133,11 @@ def parse_notification_suggestions(
             "state_label": state_label,
             "social_context": social_context,
             "follow_point": center(button_bounds),
+            # Le corps de la ligne (colonne de gauche) : c'est LUI qu'on tape pour ouvrir
+            # le profil, quand on veut le @handle et les donnees de profil plutot qu'un
+            # follow a l'aveugle depuis la liste. Le libelle n'est pas cliquable, son
+            # ancetre l'est — meme mecanique que le bouton.
+            "row_point": center(siblings[0][1]) if siblings else None,
             "row_top": button_bounds[1],
         })
 
