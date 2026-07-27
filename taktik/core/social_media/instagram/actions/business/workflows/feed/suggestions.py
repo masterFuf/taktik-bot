@@ -272,6 +272,7 @@ class FeedSuggestionsMixin:
 
         low, high = (delay_range if delay_range and len(delay_range) == 2 else (4, 12))
         attempted = set()
+        self._reported_unreadable = False
         # Les 'Follow back' sont comptes par IDENTITE et non par ecran : la meme ligne
         # reste visible sur plusieurs dumps successifs, un simple cumul la compterait
         # autant de fois qu'on la voit.
@@ -291,6 +292,19 @@ class FeedSuggestionsMixin:
             result['skipped_follow_back'] = len(seen_follow_back)
             candidates = [row for row in followable_rows(rows)
                           if self._row_key(row) not in attempted]
+
+            # A row whose button we cannot READ is skipped in silence, and a screenful of them
+            # looks exactly like a screenful of legitimate 'Follow back' — the run comes back with
+            # zero follows and no reason why. That is how a missing locale label (Instagram FR
+            # says "S'abonner", our catalogue only had "Suivre") stayed invisible. Say it once.
+            unreadable = [row for row in rows if row.get('state') is None]
+            if unreadable and not self._reported_unreadable:
+                self._reported_unreadable = True
+                samples = ', '.join(repr(row.get('state_label', '')) for row in unreadable[:3])
+                self.logger.warning(
+                    f"{len(unreadable)} suggestion row(s) with an unreadable button state "
+                    f"(locale gap?): {samples}"
+                )
 
             if not candidates:
                 # Une liste peut aligner plusieurs ecrans entiers de 'Follow back' avant

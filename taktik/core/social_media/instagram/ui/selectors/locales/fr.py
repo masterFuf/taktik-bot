@@ -737,9 +737,15 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "profile.follow_state_labels_follow_back": [
         "Suivre en retour",
+        # Instagram FR alterne entre la famille "suivre" et la famille "s'abonner" selon la
+        # surface et la version. Il manquait la seconde : un bouton "S'abonner en retour" ne
+        # matchait aucun libelle, donc l'etat de la ligne restait None et elle etait ignoree
+        # en silence (QA 2026-07-27, mode suggestions du feed).
+        "S'abonner en retour",
     ],
     "profile.follow_state_labels_follow": [
         "Suivre",
+        "S'abonner",
     ],
     "profile.followers_link": [
         "//*[contains(@content-desc, \"abonnés\")]",

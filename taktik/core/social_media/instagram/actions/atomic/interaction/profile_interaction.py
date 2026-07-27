@@ -7,6 +7,21 @@ from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
+# Instagram renders a TYPOGRAPHIC apostrophe (U+2019) in "S'abonner"; our catalogues are typed
+# with the ASCII one. A plain substring test therefore never matched, and the row was skipped in
+# silence. Normalising both sides is the fix — never "just add the curly variant too", which only
+# moves the trap to the next label someone types.
+_APOSTROPHES = {'’': "'", 'ʼ': "'", '′': "'"}
+
+
+def _normalize_label(value: str) -> str:
+    """Lowercase, trim, and fold every apostrophe shape onto the ASCII one."""
+    text = (value or '').strip().lower()
+    for exotic, ascii_quote in _APOSTROPHES.items():
+        text = text.replace(exotic, ascii_quote)
+    return text
+
+
 def classify_follow_state(text: str, selectors) -> Optional[str]:
     """Traduit le TEXTE d'un bouton d'action (header profil OU ligne de liste) en etat de relation,
     via les libelles de la couche locale (`follow_state_labels_*` de `selectors`).
@@ -19,12 +34,13 @@ def classify_follow_state(text: str, selectors) -> Optional[str]:
     donc l'ordre reste correct meme si `L()` retombe sur l'union multi-langue (Lab / sans detection).
     Source de verite UNIQUE, partagee par la lecture header et la lecture ligne-de-liste.
     """
-    t = (text or '').strip().lower()
+    t = _normalize_label(text)
     if not t:
         return None
 
     def _m(labels) -> bool:
-        return any(lbl.strip().lower() in t for lbl in (labels or []) if lbl and lbl.strip())
+        return any(_normalize_label(lbl) in t
+                   for lbl in (labels or []) if lbl and lbl.strip())
 
     if _m(selectors.follow_state_labels_following):
         return 'following'

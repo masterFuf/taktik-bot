@@ -180,3 +180,47 @@ def test_parsers_tolerate_a_missing_dump(root):
     assert is_discover_people_screen(root, DISCOVER_PEOPLE_SELECTORS) is False
     assert parse_suggestion_rows(root, DISCOVER_PEOPLE_SELECTORS, PROFILE_SELECTORS,
                                  classify_follow_state) == []
+
+
+# --- libelles francais -------------------------------------------------------
+
+def test_french_follow_labels_are_classified():
+    """QA 2026-07-27 : en francais le mode suggestions ne suivait personne. Instagram FR
+    alterne entre la famille « suivre » et la famille « s'abonner », et le catalogue ne
+    portait que la premiere — un bouton « S'abonner » ne matchait donc AUCUN libelle,
+    l'etat restait None, et la ligne etait ignoree en silence.
+
+    L'apostrophe compte autant que le mot : Instagram rend une apostrophe TYPOGRAPHIQUE
+    (U+2019) et nos catalogues sont saisis avec l'ASCII."""
+    from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+    set_active_locale('fr')
+    try:
+        assert classify_follow_state("Suivre", PROFILE_SELECTORS) == 'follow'
+        assert classify_follow_state("S'abonner", PROFILE_SELECTORS) == 'follow'
+        assert classify_follow_state("S\u2019abonner", PROFILE_SELECTORS) == 'follow'
+        # L'ordre reste porteur : "S'abonner en retour" contient "S'abonner".
+        assert classify_follow_state("Suivre en retour", PROFILE_SELECTORS) == 'follow_back'
+        assert classify_follow_state("S\u2019abonner en retour", PROFILE_SELECTORS) == 'follow_back'
+        assert classify_follow_state("Abonn\u00e9", PROFILE_SELECTORS) == 'following'
+    finally:
+        set_active_locale(None)
+
+
+def test_only_the_french_follow_rows_are_followable():
+    """Le meme ecran, en francais : seules les lignes « S'abonner » partent."""
+    from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+    following, follow_back, follow = "Abonné", "S’abonner en retour", "S’abonner"
+    body = (_row(400, "Deja abonne", following) + _row(620, "Me suit", follow_back)
+            + _row(840, "Inconnu", follow))
+    xml = "<?xml version='1.0' encoding='UTF-8'?><hierarchy>" + body + "</hierarchy>"
+
+    set_active_locale('fr')
+    try:
+        rows = parse_suggestion_rows(_root(xml), DISCOVER_PEOPLE_SELECTORS,
+                                     PROFILE_SELECTORS, classify_follow_state)
+        assert [row['state'] for row in rows] == ['following', 'follow_back', 'follow']
+        assert [row['label'] for row in followable_rows(rows)] == ['Inconnu']
+    finally:
+        set_active_locale(None)
