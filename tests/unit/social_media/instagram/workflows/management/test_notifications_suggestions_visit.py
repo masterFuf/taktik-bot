@@ -212,3 +212,94 @@ def test_no_state_other_than_follow_is_ever_opened(state):
 
     assert wf.taps == []
     assert result["visited"] == 0
+
+
+# ---------------------------------------------------------------------------
+# La descente vers la zone (QA device 2026-07-27).
+#
+# La zone vit au fond de l'ecran d'activite, et sa distance depend du COMPTE : un
+# compte tres actif aligne des dizaines d'ecrans avant elle. Un budget fixe de scrolls
+# s'est arrete en plein milieu de la liste et la passe est repartie sans rien faire,
+# alors que la zone existait plus bas.
+# ---------------------------------------------------------------------------
+
+from lxml import etree
+
+from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+
+def _screen_xml(marker, with_header=False):
+    """Un ecran de notifications ; ``marker`` le rend different du precedent."""
+    header = ('<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
+              ' text="Suggestions" bounds="[44,1498][306,1551]"/>') if with_header else ""
+    return etree.fromstring(
+        ("<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
+         f'<node class="android.widget.TextView" text="notification {marker}"'
+         f' bounds="[253,300][893,460]"/>' + header + "</hierarchy>").encode("utf-8")
+    )
+
+
+class _Descent(_Workflow):
+    """Workflow reel, dont seul le defilement est simule."""
+
+    def __init__(self, screens):
+        super().__init__(rows=[], pipeline=None)
+        self._screens = list(screens)
+        self.selectors = NOTIFICATION_SELECTORS
+        self.show_more_taps = 0
+
+    def reach_suggestions_zone(self, max_scrolls=60):  # on teste la VRAIE methode
+        return NotificationsEngagementWorkflow.reach_suggestions_zone(self, max_scrolls)
+
+    def _dump_root(self):
+        return self._screens[min(self.scrolls, len(self._screens) - 1)]
+
+    def _tap_show_more(self):  # pragma: no cover — doit rester non appele
+        self.show_more_taps += 1
+        return True
+
+
+@pytest.fixture(autouse=True)
+def _french():
+    set_active_locale("fr")
+    yield
+    set_active_locale(None)
+
+
+def test_the_descent_goes_far_past_the_old_fixed_budget():
+    """Trente ecrans avant la zone : un compteur de 8 s'arretait a mi-liste."""
+    screens = [_screen_xml(i) for i in range(30)] + [_screen_xml(30, with_header=True)]
+    wf = _Descent(screens)
+
+    assert wf.reach_suggestions_zone() is True
+    assert wf.scrolls == 30
+
+
+def test_the_descent_stops_when_the_list_stops_moving():
+    """Deux ecrans identiques = fond de liste. Insister ne changerait rien."""
+    screens = [_screen_xml(0), _screen_xml(1)] + [_screen_xml(1)] * 20
+    wf = _Descent(screens)
+
+    assert wf.reach_suggestions_zone() is False
+    # Un seul ecran identique ne prouve rien (un rendu en cours y ressemble) ;
+    # on s'arrete au second, pas apres avoir epuise le garde-fou.
+    assert wf.scrolls == 3
+
+
+def test_the_descent_never_taps_show_more():
+    """« Voir plus » charge des notifications PLUS ANCIENNES : elles s'inserent
+    entre nous et la zone, donc le taper nous en eloigne."""
+    wf = _Descent([_screen_xml(0), _screen_xml(1), _screen_xml(1), _screen_xml(1)])
+
+    wf.reach_suggestions_zone()
+
+    assert wf.show_more_taps == 0
+
+
+def test_the_safety_cap_is_a_guard_rail_not_a_stop_policy():
+    """Si l'ecran change encore au plafond, on le dit — on ne pretend pas etre au fond."""
+    wf = _Descent([_screen_xml(i) for i in range(50)])
+
+    assert wf.reach_suggestions_zone(max_scrolls=5) is False
+    assert wf.scrolls == 6

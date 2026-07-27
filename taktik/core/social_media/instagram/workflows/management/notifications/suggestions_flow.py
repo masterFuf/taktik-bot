@@ -27,6 +27,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from .suggestions_parsing import (
     find_suggestions_header_y,
+    iter_text_nodes,
     followable_suggestions,
     parse_notification_suggestions,
 )
@@ -71,6 +72,9 @@ class NotificationSuggestionsMixin:
             classify_follow_state,
             screen_height=self._screen_height(),
             screen_width=self._screen_width(),
+            header_resource_id=self.selectors.notification_section_header_resource_id,
+            row_resource_id=self.selectors.suggestion_row_resource_id,
+            button_resource_id=self.selectors.suggestion_button_resource_id,
         )
 
     @staticmethod
@@ -106,19 +110,54 @@ class NotificationSuggestionsMixin:
     # ------------------------------------------------------------------
     # Navigation propre a la zone
     # ------------------------------------------------------------------
-    def reach_suggestions_zone(self, max_scrolls: int = 8) -> bool:
+    def _feed_signature(self, root) -> str:
+        """Empreinte de ce qui est affiche, pour savoir si la liste a AVANCE.
+
+        Deux dumps identiques = la liste ne bouge plus : soit on est au fond, soit le
+        geste n'a pas pris. Dans les deux cas insister ne sert a rien.
+        """
+        if root is None:
+            return ""
+        return "|".join(f"{text}@{bounds[1]}" for _node, text, bounds in iter_text_nodes(root))
+
+    def reach_suggestions_zone(self, max_scrolls: int = 60) -> bool:
         """Descendre jusqu'a ce que l'en-tete "Suggestions" soit a l'ecran.
 
-        La zone vit tout en bas de l'ecran Notifications, apres le bouton "Voir plus".
-        Le scan complet y arrive naturellement en fin de course ; une action isolee (ou
-        un retour de profil, qui repositionne la liste plus haut) doit y redescendre.
+        La zone vit tout en bas de l'ecran Notifications. **Sa distance depend du
+        compte, pas de nous** : un compte tres actif aligne des dizaines d'ecrans de
+        notifications avant elle. Un budget fixe de scrolls est donc le mauvais
+        critere — QA device du 2026-07-27 : huit scrolls sur un compte charge se sont
+        arretes en plein milieu de la liste et la passe est repartie sans rien faire,
+        alors que la zone existait bel et bien plus bas.
+
+        On s'arrete donc sur la PROGRESSION : tant que l'ecran change, on continue ;
+        deux ecrans identiques d'affilee signent le fond de liste. ``max_scrolls``
+        n'est plus qu'un garde-fou anti-boucle, pas une politique d'arret.
+
+        On ne tape jamais "Voir plus" ici : ce bouton charge des notifications PLUS
+        ANCIENNES, qui s'inserent entre nous et la zone — on s'en eloignerait.
         """
-        for _ in range(max(int(max_scrolls), 0) + 1):
+        previous = None
+        stale = 0
+        for index in range(max(int(max_scrolls), 0) + 1):
             root = self._dump_root()
-            if find_suggestions_header_y(root, self.selectors.suggestions_header_texts) is not None:
+            if find_suggestions_header_y(
+                root, self.selectors.suggestions_header_texts,
+                self.selectors.notification_section_header_resource_id,
+            ) is not None:
+                if index:
+                    self.logger.info(f"Suggestions zone reached after {index} scroll(s)")
                 return True
+            signature = self._feed_signature(root)
+            stale = stale + 1 if signature and signature == previous else 0
+            if stale >= 2:
+                self.logger.info(f"Bottom of the notifications list reached after {index} "
+                                 f"scroll(s) without a suggestions zone")
+                return False
+            previous = signature
             self._scroll_down(1)
-        self.logger.info("Suggestions zone not reached (header never came on screen)")
+        self.logger.warning(f"Suggestions zone not reached: the {max_scrolls}-scroll safety "
+                            f"cap was hit while the list was still moving")
         return False
 
     def open_suggestion_profile(self, row: Dict[str, Any],
@@ -162,6 +201,7 @@ class NotificationSuggestionsMixin:
     # Boucle complete
     # ------------------------------------------------------------------
     def visit_suggestions(self, max_profiles: int = 5, max_scrolls: int = 8,
+                          max_descent_scrolls: int = 60,
                           delay_range: tuple = (4, 12),
                           on_profile: Optional[Callable[[Dict[str, Any]], None]] = None,
                           ) -> Dict[str, Any]:
@@ -202,7 +242,7 @@ class NotificationSuggestionsMixin:
         empty_dump_streak = 0
 
         while result["visited"] < max_profiles:
-            if not self.reach_suggestions_zone(max_scrolls):
+            if not self.reach_suggestions_zone(max_descent_scrolls):
                 result["stop_reason"] = "zone_not_reached"
                 break
 

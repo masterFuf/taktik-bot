@@ -119,3 +119,139 @@ def test_an_unreadable_button_is_not_followed_blindly():
     """Un libelle qu'on ne sait pas classer peut tout aussi bien etre 'Se desabonner'."""
     xml = _screen(_row(1701, "Compte", "Ne plus suivre", "1 ami(e) en commun"))
     assert followable_suggestions(_parse(xml)) == []
+
+
+# ---------------------------------------------------------------------------
+# Structure REELLE de la surface (dump 18171JEC 19:41, 2026-07-27, anonymise).
+#
+# La premiere lecture avait conclu que rien ne portait de resource-id. C'est vrai des
+# CHAMPS, faux de la ligne et du bouton — et cette nuance decide tout : l'ecran melange
+# des suggestions et des NOTIFICATIONS qui portent, elles aussi, un bouton "Suivre".
+# ---------------------------------------------------------------------------
+
+def _cell(top, name, button_label, context=None):
+    """Une ligne de suggestion telle qu'IG la rend : une cellule, un bouton."""
+    ctx = _text(context, 231, top + 108, 534, top + 147) if context else ""
+    return (
+        f'<node class="android.view.View" resource-id="igds_people_cell" clickable="true"'
+        f' text="" bounds="[0,{top}][1080,{top + 198}]">'
+        + _text(name, 231, top + 51, 443, top + 97)
+        + ctx
+        + f'<node class="android.view.View" resource-id="igds_button" clickable="true"'
+          f' text="" bounds="[589,{top + 33}][970,{top + 165}]">'
+        + _text(button_label, 633, top + 76, 926, top + 122)
+        + "</node></node>"
+    )
+
+
+def _notification(top, text, button_label):
+    """Une NOTIFICATION avec son propre bouton — le piege de cet ecran."""
+    return (
+        f'<node class="android.view.View" resource-id="activity_feed_newsfeed_story_row"'
+        f' clickable="true" text="" bounds="[0,{top}][1080,{top + 210}]">'
+        + _text(text, 253, top + 32, 739, top + 178)
+        + f'<node class="android.view.View" resource-id="igds_button" clickable="true"'
+          f' text="" bounds="[772,{top + 23}][1036,{top + 155}]">'
+        + _text(button_label, 846, top + 66, 963, top + 112)
+        + "</node></node>"
+    )
+
+
+def _header(text, top):
+    return (f'<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
+            f' text="{text}" bounds="[44,{top}][306,{top + 53}]"/>')
+
+
+def _real_screen(body):
+    return "<?xml version='1.0' encoding='UTF-8'?><hierarchy>" + body + "</hierarchy>"
+
+
+def _parse_real(xml):
+    return parse_notification_suggestions(
+        _root(xml), NOTIFICATION_SELECTORS.suggestions_header_texts,
+        PROFILE_SELECTORS, classify_follow_state,
+        screen_height=2340, screen_width=1080,
+        header_resource_id=NOTIFICATION_SELECTORS.notification_section_header_resource_id,
+        row_resource_id=NOTIFICATION_SELECTORS.suggestion_row_resource_id,
+        button_resource_id=NOTIFICATION_SELECTORS.suggestion_button_resource_id,
+    )
+
+
+def test_a_notification_mentioning_suggestions_is_not_the_header():
+    """« Suggestions de suivi : X, Y et 3 autres personnes » CONTIENT « Suggestions ».
+
+    Un ancrage par sous-chaine tombait dessus 950px trop haut, et tout ce qui se
+    trouvait dessous — donc de vraies notifications — devenait des suggestions.
+    """
+    xml = _real_screen(
+        _notification(495, "Suggestions de suivi\u00a0: taktik-bot, Vic H. et 3 autres personnes", "Suivre")
+        + _header("Suggestions", 1498)
+        + _cell(1573, "Nina", "Suivre")
+    )
+    assert find_suggestions_header_y(
+        _root(xml), NOTIFICATION_SELECTORS.suggestions_header_texts,
+        NOTIFICATION_SELECTORS.notification_section_header_resource_id,
+    ) == 1498
+
+
+def test_notifications_carrying_their_own_follow_button_are_not_suggestions():
+    """Sous l'en-tete, seules les CELLULES sont des suggestions.
+
+    « lafontaine.zoe, que vous connaissez peut-etre, est sur Instagram » porte un
+    bouton « Suivre » : sans le discriminant de la ligne, elle se lit comme une
+    suggestion et le bot ouvre une notification en croyant ouvrir un profil suggere.
+    """
+    xml = _real_screen(
+        _header("Suggestions", 1000)
+        + _notification(1034, "lafontaine.zoe, que vous connaissez peut-\u00eatre, est sur Instagram", "Suivre")
+        + _cell(1573, "Nina", "Suivre")
+    )
+    assert [row["label"] for row in _parse_real(xml)] == ["Nina"]
+
+
+def test_a_cell_is_read_as_a_subtree_not_by_proximity():
+    xml = _real_screen(
+        _header("Suggestions", 1498)
+        + _cell(1573, "koulou6649", "Suivre en retour", "1\u00a0ami(e) en commun")
+        + _cell(1771, "Nina", "Suivre")
+    )
+    rows = _parse_real(xml)
+    assert [(row["label"], row["state"]) for row in rows] == [
+        ("koulou6649", "follow_back"), ("Nina", "follow"),
+    ]
+    # Une ligne sans contexte social n'invente rien.
+    assert rows[1]["social_context"] == ""
+    assert [row["label"] for row in followable_suggestions(rows)] == ["Nina"]
+
+
+def test_a_cell_above_the_header_is_ignored():
+    """Les cellules existent aussi ailleurs sur cet ecran : la borne reste l'en-tete."""
+    xml = _real_screen(
+        _cell(600, "Deja vu ailleurs", "Suivre")
+        + _header("Suggestions", 1498)
+        + _cell(1573, "Nina", "Suivre")
+    )
+    assert [row["label"] for row in _parse_real(xml)] == ["Nina"]
+
+
+def test_an_unreadable_button_inside_a_cell_is_surfaced_not_dropped():
+    """Un trou de locale doit SE VOIR, pas disparaitre.
+
+    Une ligne dont le bouton ne se classe pas (ici un libelle d'une langue absente du
+    catalogue) remonte avec ``state=None`` : l'appelant peut alors le dire dans les
+    logs. La faire disparaitre du resultat rendrait un ecran entier d'illisibles
+    indiscernable d'un ecran sans suggestions.
+    """
+    xml = _real_screen(_header("Suggestions", 1498) + _cell(1573, "Compte", "Seguir"))
+    rows = _parse_real(xml)
+    assert [row["state"] for row in rows] == [None]
+    assert [row["label"] for row in rows] == ["Compte"]
+    assert followable_suggestions(rows) == []
+
+
+def test_an_unfollow_button_inside_a_cell_is_never_followable():
+    """« Ne plus suivre » CONTIENT « Suivre » : le piege deja rencontre, cote cellule."""
+    xml = _real_screen(_header("Suggestions", 1498) + _cell(1573, "Compte", "Ne plus suivre"))
+    rows = _parse_real(xml)
+    assert [row["state"] for row in rows] == ["following"]
+    assert followable_suggestions(rows) == []

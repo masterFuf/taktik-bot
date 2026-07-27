@@ -374,12 +374,14 @@ def scan_suggestions(a, p):
 
 @action("notifications.reach_suggestions")
 def reach_suggestions(a, p):
-    """Descendre jusqu'a l'en-tete "Suggestions" (param ``max_scrolls``, 8 par defaut).
+    """Descendre jusqu'a l'en-tete "Suggestions" (param ``max_scrolls``, 60 par defaut).
 
     La zone vit tout en bas de l'ecran Notifications : sans cette descente, toutes
-    les sondes suivantes lisent un ecran ou la zone n'est simplement pas la.
+    les sondes suivantes lisent un ecran ou la zone n'est simplement pas la. La
+    descente s'arrete sur la PROGRESSION (deux ecrans identiques = fond de liste) ;
+    ``max_scrolls`` n'est qu'un garde-fou anti-boucle.
     """
-    max_scrolls = int(p.get("max_scrolls", 8))
+    max_scrolls = int(p.get("max_scrolls", 60))
     ok = _workflow(a).reach_suggestions_zone(max_scrolls=max_scrolls)
     msg = ("notifications.reach_suggestions: zone suggestions atteinte" if ok
            else f"notifications.reach_suggestions: en-tete jamais vu apres {max_scrolls} scroll(s)")
@@ -460,12 +462,14 @@ def leave_suggestion_profile(a, p):
 def visit_suggestions(a, p):
     """Boucle complete : descendre -> ouvrir -> qualifier -> follow -> revenir -> suivante.
 
-    Params : ``max`` (profils, 1 par defaut), ``max_scrolls``, ``account``.
+    Params : ``max`` (profils, 1 par defaut), ``max_descent_scrolls`` (garde-fou de
+    la descente), ``max_scrolls`` (scroll DANS la zone), ``account``.
     """
     max_profiles = int(p.get("max", 1))
     res = _workflow(a, p).visit_suggestions(
         max_profiles=max_profiles,
         max_scrolls=int(p.get("max_scrolls", 8)),
+        max_descent_scrolls=int(p.get("max_descent_scrolls", 60)),
         delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
     )
     return {"success": res.get("processed", 0) > 0,
