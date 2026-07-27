@@ -156,6 +156,14 @@ class FeedBusiness(FeedPostActionsMixin, FeedSuggestionsMixin, BaseBusinessActio
                     int(effective_config.get('max_suggestion_passes', 1) or 0)
                     if follow_suggestions else 0
                 )
+                # Say it out loud. A run log with NO trace of this mode cannot be told apart
+                # from one where it was off — that ambiguity cost a QA round.
+                self.logger.info(
+                    f"Suggestions mode: {'armed' if suggestion_passes_left > 0 else 'off'}"
+                    + (f" ({suggestion_passes_left} pass(es), "
+                       f"max {effective_config.get('max_suggestion_follows', 0)} follow(s))"
+                       if suggestion_passes_left > 0 else "")
+                )
 
                 while (posts_liked < effective_config['max_interactions'] and
                        posts_checked < effective_config['max_posts_to_check']):
@@ -267,7 +275,15 @@ class FeedBusiness(FeedPostActionsMixin, FeedSuggestionsMixin, BaseBusinessActio
 
                     # Avance humaine vers le prochain VRAI post (skip pubs/suggestions,
                     # stop-on-metadata, cadrage). Un seul point d'avance pour toute la boucle.
-                    res = self._advance_to_next_post(skip_ads, skip_suggested)
+                    # While a suggestions pass is still owed, the crawl must NOT skip
+                    # suggestion blocks: the netego carousel IS the block we are waiting
+                    # for, and `scroll_feed_to_next_post` is the advance to the next REAL
+                    # post — it scrolled straight past the carousel, so the probe above
+                    # never saw it and the pass never fired (QA 2026-07-27: the dump showed
+                    # the carousel on screen while the run kept liking posts).
+                    res = self._advance_to_next_post(
+                        skip_ads, skip_suggested and suggestion_passes_left <= 0
+                    )
                     stats['posts_skipped_ads'] += res.get('ads_skipped', 0)
                     stats['posts_skipped_suggested'] = (
                         stats.get('posts_skipped_suggested', 0) + res.get('suggested_skipped', 0)
