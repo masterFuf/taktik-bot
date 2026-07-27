@@ -339,18 +339,45 @@ class FeedSuggestionsMixin:
         return result
 
     def _suggestions_session_allows(self) -> bool:
-        """La session autorise-t-elle encore une action ? (plafonds de session)."""
+        """La session autorise-t-elle encore UN FOLLOW ?
+
+        Deux garde-fous distincts, et il faut les deux :
+
+        - ``should_continue()`` porte la duree, les plafonds de session et le
+          budget d'actions du jour ;
+        - le sous-quota ``max_follows_per_day`` n'est deliberement PAS un motif
+          d'arret de session : il desactive sa propre intention pour le reste de
+          la journee, via ``exhausted_daily_quotas()``. Le moteur d'interaction
+          le consulte pour retirer le follow du plan de chaque profil — un
+          chemin que ce mode ne traverse pas, puisqu'il ne visite aucun profil.
+          Sans cette lecture, une passe de suggestions depenserait le budget de
+          follows du jour d'un compte en montee en charge sans jamais le voir.
+
+        Fail-open comme le reste du garde-fou : une erreur de lecture ne doit pas
+        tuer le run.
+        """
         session = getattr(self, 'session_manager', None)
-        if not session or not hasattr(session, 'should_continue'):
+        if not session:
             return True
-        try:
-            should_continue, reason = session.should_continue()
-            if not should_continue:
-                self.logger.info(f"Suggestions follow stopped by session: {reason}")
-            return bool(should_continue)
-        except Exception as exc:
-            self.logger.debug(f"Session limit check failed: {exc}")
-            return True
+
+        if hasattr(session, 'should_continue'):
+            try:
+                should_continue, reason = session.should_continue()
+                if not should_continue:
+                    self.logger.info(f"Suggestions follow stopped by session: {reason}")
+                    return False
+            except Exception as exc:
+                self.logger.debug(f"Session limit check failed: {exc}")
+
+        if hasattr(session, 'exhausted_daily_quotas'):
+            try:
+                if 'follow' in (session.exhausted_daily_quotas() or set()):
+                    self.logger.info("Suggestions follow stopped: daily follow quota spent")
+                    return False
+            except Exception as exc:
+                self.logger.debug(f"Daily quota read failed: {exc}")
+
+        return True
 
     # ------------------------------------------------------------------
     # Orchestration complete

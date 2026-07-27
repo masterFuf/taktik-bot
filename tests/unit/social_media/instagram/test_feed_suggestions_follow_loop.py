@@ -346,3 +346,43 @@ def test_the_session_limit_stops_the_loop(no_pacing):
 
     assert result["stop_reason"] == "session_limit"
     assert device.taps == []
+
+
+def test_the_daily_follow_quota_stops_the_loop(no_pacing):
+    """Garde-fou de montee en charge : `max_follows_per_day` n'est PAS un motif d'arret
+    de session, il desactive sa propre intention. Le moteur d'interaction le lit pour
+    chaque profil — un chemin que ce mode ne traverse pas, il doit donc le lire lui-meme."""
+    class _Session:
+        def should_continue(self):
+            return True, ""
+
+        def exhausted_daily_quotas(self):
+            return {'follow'}
+
+    device = _FakeDevice([SCREEN_MIXED])
+    harness = _Harness(device)
+    harness.session_manager = _Session()
+
+    result = harness.follow_discover_suggestions(max_follows=5, delay_range=(0, 0), max_scrolls=2)
+
+    assert result["stop_reason"] == "session_limit"
+    assert device.taps == [], "aucun follow ne part quand le budget du jour est consomme"
+
+
+def test_a_spent_comment_quota_does_not_block_follows(no_pacing):
+    """Seul le quota de FOLLOW nous concerne : un quota de commentaires consomme
+    ne doit pas arreter une passe de suggestions."""
+    class _Session:
+        def should_continue(self):
+            return True, ""
+
+        def exhausted_daily_quotas(self):
+            return {'comment'}
+
+    device = _FakeDevice([SCREEN_MIXED, SCREEN_AFTER_FOLLOW])
+    harness = _Harness(device)
+    harness.session_manager = _Session()
+
+    result = harness.follow_discover_suggestions(max_follows=1, delay_range=(0, 0), max_scrolls=1)
+
+    assert result["follows"] == 1
