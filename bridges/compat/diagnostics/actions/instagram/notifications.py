@@ -17,6 +17,7 @@ resource-id / text / content-desc lives here.
 """
 
 import time
+from contextlib import contextmanager
 
 from loguru import logger
 
@@ -49,27 +50,61 @@ def _workflow(a, p=None):
     )
 
 
-def _pipeline(a, p):
-    """Per-profile production pipeline, bound to the account given as ``account``.
+def resolve_lab_account_id(p):
+    """Id du compte donne en parametre ``account``, ou None.
 
-    The Lab has no session account of its own. Without an explicit ``account`` param
-    the pipeline falls back to the historical default id, exactly like every other Lab
-    action that writes — so pass it whenever the run must be attributed correctly.
+    Le Lab n'a pas de compte de session a lui. Sans ce parametre, tout ce qu'une action
+    ecrit part sous l'id par defaut — c'est-a-dire sous un autre compte. Le passer est
+    donc la condition pour que le travail fait depuis le Lab COMPTE pour le bon client.
+    """
+    account = (p.get("account") or "").strip().lstrip("@")
+    if not account:
+        return None
+    try:
+        from taktik.core.database import configure_db_service, get_db_service
+
+        configure_db_service()
+        account_id, _ = get_db_service().get_or_create_account(account, is_bot=True)
+        return account_id
+    except Exception as exc:
+        logger.warning(f"Lab: could not resolve account @{account}: {exc}")
+        return None
+
+
+def _pipeline(a, p, session_id=None):
+    """Per-profile production pipeline, bound to the ``account`` param and a session.
+
+    ``session_id`` is what attaches every follow to a real session — without it the
+    interactions land in the database belonging to nothing, so they never surface in
+    the session history nor in the figures shown to the client.
     """
     from taktik.core.social_media.instagram.workflows.management.notifications import (
         build_notifications_profile_pipeline,
     )
-    account = (p.get("account") or "").strip().lstrip("@")
-    account_id = None
-    if account:
-        try:
-            from taktik.core.database import configure_db_service, get_db_service
+    return build_notifications_profile_pipeline(
+        a.device, account_id=resolve_lab_account_id(p), session_id=session_id,
+    )
 
-            configure_db_service()
-            account_id, _ = get_db_service().get_or_create_account(account, is_bot=True)
-        except Exception as exc:
-            logger.warning(f"Lab: could not resolve account @{account}: {exc}")
-    return build_notifications_profile_pipeline(a.device, account_id=account_id)
+
+@contextmanager
+def lab_suggestion_session(p, source):
+    """Une VRAIE session d'automatisation autour d'un run Lab.
+
+    Kevin veut pouvoir suivre depuis le logiciel — Lab compris — et que ce travail
+    apparaisse dans les chiffres du client. Une session par declenchement : c'est la
+    granularite honnete pour un banc de test, et elle porte son instantane `stats_*`
+    des la fin du run. Sans compte donne, pas de session : on ne va pas attribuer ce
+    travail a quelqu'un d'autre.
+    """
+    from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_session import (
+        suggestion_session,
+    )
+    account_id = resolve_lab_account_id(p)
+    if not account_id:
+        logger.warning(f"Lab: aucun compte donne (parametre 'account') — "
+                       f"le run {source} ne sera rattache a aucune session")
+    with suggestion_session(account_id, source=f"lab:{source}") as session_id:
+        yield session_id
 
 
 def _detected(label, found):
@@ -397,6 +432,7 @@ def open_suggestion_profile(a, p):
     profil. C'est ce qui distingue ce mode du follow a l'aveugle : sans la fiche, on
     n'a que le libelle affiche et jamais le @handle.
     Param ``account`` (optionnel) : compte sous lequel attribuer la suite.
+    Cette sonde n'ecrit rien : elle ouvre, elle ne suit pas. Pas de session ici.
     """
     wf = _workflow(a, p)
     rows = wf.scan_suggestions()
@@ -429,23 +465,25 @@ def qualify_suggestion_profile(a, p):
     Params : ``account`` (attribution), ``username`` (force le handle si la lecture
     d'ecran echoue).
     """
-    pipeline = _pipeline(a, p)
-    if not pipeline.wait_for_profile(timeout=float(p.get("timeout", 8))):
-        msg = "notifications.qualify_suggestion_profile: l'ecran courant n'est pas un profil"
-        logger.warning(msg)
-        return {"success": False, "message": msg}
-    username = (p.get("username") or "").strip().lstrip("@") or pipeline.read_username()
-    if not username:
-        msg = "notifications.qualify_suggestion_profile: @handle illisible sur ce profil"
-        logger.warning(msg)
-        return {"success": False, "message": msg}
-    outcome = pipeline.process(username)
-    return {"success": not outcome.was_error,
-            "message": (f"notifications.qualify_suggestion_profile: @{username} -> "
-                        f"{outcome.status} ({outcome.follows} follow)"),
-            "details": {"username": username, "status": outcome.status,
-                        "follows": outcome.follows,
-                        "reasons": list(outcome.filter_reasons or [])}}
+    with lab_suggestion_session(p, "qualify_profile") as session_id:
+        pipeline = _pipeline(a, p, session_id)
+        if not pipeline.wait_for_profile(timeout=float(p.get("timeout", 8))):
+            msg = "notifications.qualify_suggestion_profile: l'ecran courant n'est pas un profil"
+            logger.warning(msg)
+            return {"success": False, "message": msg}
+        username = (p.get("username") or "").strip().lstrip("@") or pipeline.read_username()
+        if not username:
+            msg = "notifications.qualify_suggestion_profile: @handle illisible sur ce profil"
+            logger.warning(msg)
+            return {"success": False, "message": msg}
+        outcome = pipeline.process(username)
+        return {"success": not outcome.was_error,
+                "message": (f"notifications.qualify_suggestion_profile: @{username} -> "
+                            f"{outcome.status} ({outcome.follows} follow) "
+                            f"[session {session_id or 'aucune'}]"),
+                "details": {"username": username, "status": outcome.status,
+                            "follows": outcome.follows, "session_id": session_id,
+                            "reasons": list(outcome.filter_reasons or [])}}
 
 
 @action("notifications.leave_suggestion_profile")
@@ -466,19 +504,24 @@ def visit_suggestions(a, p):
     la descente), ``max_scrolls`` (scroll DANS la zone), ``account``.
     """
     max_profiles = int(p.get("max", 1))
-    res = _workflow(a, p).visit_suggestions(
-        max_profiles=max_profiles,
-        max_scrolls=int(p.get("max_scrolls", 8)),
-        max_descent_scrolls=int(p.get("max_descent_scrolls", 60)),
-        # Depuis le Lab, on teste la zone sur l'ecran ou l'operateur s'est place :
-        # replier la liste le ferait repartir du haut. En production c'est l'inverse.
-        refresh_first=str(p.get("refresh_first", "")).lower() in ("1", "true", "oui"),
-        delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
-    )
+    with lab_suggestion_session(p, "notifications") as session_id:
+        wf = _workflow(a, p)
+        wf.profile_pipeline = _pipeline(a, p, session_id)
+        res = wf.visit_suggestions(
+            max_profiles=max_profiles,
+            max_scrolls=int(p.get("max_scrolls", 8)),
+            max_descent_scrolls=int(p.get("max_descent_scrolls", 60)),
+            # Depuis le Lab, on teste la zone sur l'ecran ou l'operateur s'est place :
+            # replier la liste le ferait repartir du haut. En production c'est l'inverse.
+            refresh_first=str(p.get("refresh_first", "")).lower() in ("1", "true", "oui"),
+            delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
+        )
+    res["session_id"] = session_id
     return {"success": res.get("processed", 0) > 0,
             "message": (f"{res.get('visited', 0)}/{max_profiles} profil(s) visite(s), "
                         f"{res.get('follows', 0)} follow(s), "
                         f"{res.get('filtered', 0)} filtre(s), "
                         f"{res.get('errors', 0)} erreur(s), "
-                        f"arret: {res.get('stop_reason')}"),
+                        f"arret: {res.get('stop_reason')} "
+                        f"[session {session_id or 'aucune'}]"),
             "details": res}

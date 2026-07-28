@@ -142,6 +142,7 @@ def build_notifications_profile_pipeline(
     session_manager: Any = None,
     automation: Any = None,
     account_id: Optional[int] = None,
+    session_id: Optional[int] = None,
     source_type: str = SUGGESTIONS_SOURCE_TYPE,
     source_name: str = SUGGESTIONS_SOURCE_NAME,
 ) -> NotificationsProfilePipeline:
@@ -154,6 +155,10 @@ def build_notifications_profile_pipeline(
     Sans ``session_manager`` injecte, on en cree un : c'est lui qui porte l'humeur
     d'humanisation partagee et le compteur de follows de session que ``_do_follow``
     incremente. Sans lui, ce compteur — donc le plafond de session — resterait mort.
+
+    ``session_id`` est l'id d'une session PERSISTEE ouverte par l'appelant. C'est lui
+    qui rattache chaque follow a une session, donc aux chiffres montres au client :
+    sans lui les interactions existent en base sans appartenir a rien.
     """
     from taktik.core.shared.device.facade import BaseDeviceFacade
 
@@ -165,6 +170,8 @@ def build_notifications_profile_pipeline(
     facade = device if isinstance(device, BaseDeviceFacade) else DeviceFacade(device)
     if session_manager is None:
         session_manager = SessionManager({"session_settings": config.get("session_settings", {})})
+    if session_id:
+        session_manager.session_id = session_id
 
     business = BaseBusinessAction(
         facade,

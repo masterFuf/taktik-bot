@@ -14,6 +14,7 @@ from bridges.instagram.engagement.runtime.notifications.persistence import (
     resolve_account_id,
 )
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_session import suggestion_session
 
 
 def _connect(device_id: str, package_name: str = None, *, restart: bool = True) -> NotificationsBridge:
@@ -55,7 +56,24 @@ def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profile
     result["ai_qualification"] = install_notifications_ai_hooks(
         ai_config=ai_config, device=bridge.device, language=language,
     )
-    workflow.profile_pipeline = bridge.build_profile_pipeline(account_id=account_id)
+
+    # UNE session pour toute la passe, repli compris. Sans elle, les follows partent en
+    # base sans `session_id` : ils existent, mais n'appartiennent a aucune session —
+    # donc ils ne remontent ni dans l'historique, ni dans l'instantane `stats_*`, ni
+    # dans ce qu'on montre au client. C'est precisement le chiffre qu'on veut produire.
+    with suggestion_session(account_id, source="notifications") as session_id:
+        result["session_id"] = session_id
+        _run_visit_with_session(bridge, workflow, result, account_id=account_id,
+                                session_id=session_id, max_profiles=max_profiles)
+    return result
+
+
+def _run_visit_with_session(bridge: NotificationsBridge, workflow, result: dict, *,
+                            account_id: int, session_id, max_profiles: int) -> None:
+    """La passe elle-meme, une fois la session ouverte."""
+    workflow.profile_pipeline = bridge.build_profile_pipeline(
+        account_id=account_id, session_id=session_id,
+    )
 
     emit_notif_step(step="suggestions", status="running",
                     message="Visite des comptes suggeres")
@@ -73,6 +91,7 @@ def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profile
         emit_notif_step(step="suggestions", status="running",
                         message="Aucune suggestion ici — repli sur Decouvrir des personnes")
         fallback = _run_discover_fallback(bridge, account_id=account_id,
+                                          session_id=session_id,
                                           max_profiles=remaining)
         result["fallback"] = fallback
         for key in ("visited", "processed", "follows", "filtered", "errors"):
@@ -83,11 +102,10 @@ def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profile
     emit_notif_step(step="suggestions", status="done",
                     message=f"{result['visited']} profil(s) suggere(s) visite(s), "
                             f"{result['follows']} follow(s)")
-    return result
 
 
 def _run_discover_fallback(bridge: NotificationsBridge, *, account_id: int,
-                           max_profiles: int) -> dict:
+                           session_id, max_profiles: int) -> dict:
     """Aller chercher les suggestions sur l'ecran dedie « Decouvrir des personnes ».
 
     Le workflow Feed possede cette surface — et, etant un ``BaseBusinessAction``, il
@@ -100,8 +118,16 @@ def _run_discover_fallback(bridge: NotificationsBridge, *, account_id: int,
         DEFAULT_SUGGESTION_INTERACTION_CONFIG,
     )
 
+    from taktik.core.social_media.instagram.workflows.management.session import SessionManager
+
     try:
-        feed = FeedBusiness(DeviceFacade(bridge.device))
+        # Meme session que la zone Notifications : c'est la MEME passe d'acquisition,
+        # elle a seulement change de surface faute de suggestions servies. Le
+        # SessionManager est ce que `_get_session_id()` lit pour rattacher chaque
+        # follow — sans lui, le repli ecrirait a nouveau des interactions orphelines.
+        session_manager = SessionManager({"session_settings": {}})
+        session_manager.session_id = session_id
+        feed = FeedBusiness(DeviceFacade(bridge.device), session_manager=session_manager)
         feed.active_account_id = account_id
         return feed.run_discover_visit_pass(
             dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG), max_profiles=max_profiles,

@@ -23,7 +23,14 @@ class SessionManager:
         """
         self.config = config
         self.session_start_time = datetime.now()
-        
+        # Id de la session PERSISTEE, quand l'appelant en a ouvert une. `_get_session_id`
+        # (StatsRecordingMixin) le lit deja par `hasattr`, mais l'attribut n'existait
+        # nulle part : toute execution sans `InstagramAutomation` — le Lab, le bridge
+        # Notifications — ecrivait donc ses interactions avec `session_id` NULL. Elles
+        # existaient en base sans jamais apparaitre dans une session, donc sans jamais
+        # remonter dans les chiffres montres au client.
+        self.session_id: Optional[int] = None
+
         # Séparation des phases : scraping vs interaction
         self.scraping_start_time = None
         self.scraping_end_time = None

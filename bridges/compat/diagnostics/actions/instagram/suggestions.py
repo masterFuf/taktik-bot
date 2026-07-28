@@ -272,6 +272,25 @@ def _visit_config(p):
     return dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG)
 
 
+def _attach_account_and_session(a, p, session_id):
+    """Rattacher le workflow Feed du Lab au bon compte ET a la session ouverte.
+
+    Le bundle Lab construit `FeedBusiness` sans compte ni session : tout ce qu'il
+    ecrivait partait donc sous l'id par defaut et sans `session_id`. C'est ce qui
+    rendait le travail fait depuis le Lab invisible dans les chiffres du client.
+    """
+    from bridges.compat.diagnostics.actions.instagram.notifications import resolve_lab_account_id
+    from taktik.core.social_media.instagram.workflows.management.session import SessionManager
+
+    account_id = resolve_lab_account_id(p)
+    if account_id:
+        a.feed.active_account_id = account_id
+    if a.feed.session_manager is None:
+        a.feed.session_manager = SessionManager({"session_settings": {}})
+    a.feed.session_manager.session_id = session_id
+    return account_id
+
+
 def _visit_summary(res, max_profiles):
     stop = res.get("stop_reason", "?")
     parts = [f"{res.get('visited', 0)}/{max_profiles} profil(s) visite(s)",
@@ -325,26 +344,38 @@ def visit_visible(a, p):
     Pour chaque ligne : ouvrir la fiche -> extraction (bio, photo, stats) ->
     qualification IA -> filtres -> follow -> ecritures DB -> retour a la liste.
     """
+    from bridges.compat.diagnostics.actions.instagram.notifications import lab_suggestion_session
+
     max_profiles = int(p.get("max", 1))
-    res = a.feed.visit_discover_suggestions(
-        _visit_config(p), max_profiles=max_profiles,
-        max_scrolls=int(p.get("max_scrolls", 8)),
-        delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
-    )
+    with lab_suggestion_session(p, "discover_people") as session_id:
+        _attach_account_and_session(a, p, session_id)
+        res = a.feed.visit_discover_suggestions(
+            _visit_config(p), max_profiles=max_profiles,
+            max_scrolls=int(p.get("max_scrolls", 8)),
+            delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
+        )
+    res["session_id"] = session_id
     return {"success": res.get("processed", 0) > 0,
-            "message": _visit_summary(res, max_profiles), "details": res}
+            "message": _visit_summary(res, max_profiles)
+                       + f" — session {session_id or 'aucune'}",
+            "details": res}
 
 
 @action("suggestions.run_visit_pass")
 def run_visit_pass(a, p):
     """Passe qualifiee complete : accueil -> carousel -> liste -> visites -> retour feed."""
+    from bridges.compat.diagnostics.actions.instagram.notifications import lab_suggestion_session
+
     max_profiles = int(p.get("max", 1))
-    res = a.feed.run_discover_visit_pass(
-        _visit_config(p), max_profiles=max_profiles,
-        max_carousel_scrolls=int(p.get("max_carousel_scrolls", 12)),
-        max_scrolls=int(p.get("max_scrolls", 8)),
-        delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
-    )
+    with lab_suggestion_session(p, "discover_people") as session_id:
+        _attach_account_and_session(a, p, session_id)
+        res = a.feed.run_discover_visit_pass(
+            _visit_config(p), max_profiles=max_profiles,
+            max_carousel_scrolls=int(p.get("max_carousel_scrolls", 12)),
+            max_scrolls=int(p.get("max_scrolls", 8)),
+            delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
+        )
+    res["session_id"] = session_id
     if not res.get("entered"):
         stop = res.get("stop_reason", "?")
         return {"success": False,
@@ -352,5 +383,6 @@ def run_visit_pass(a, p):
                 "details": res}
     return {"success": True,
             "message": _visit_summary(res, max_profiles)
-                       + f" — modale contacts: {res.get('contacts_dialog')}",
+                       + f" — modale contacts: {res.get('contacts_dialog')}"
+                       + f" — session {session_id or 'aucune'}",
             "details": res}
