@@ -38,8 +38,19 @@ import sqlite3
 import unicodedata
 from collections import Counter
 
-# Explicit, auditable list. Written against what the base actually holds — a mapping to a
-# name that appears nowhere would silently create a THIRD spelling.
+# Explicit, auditable list. Two constraints, both learned the hard way.
+#
+# A mapping to a name that appears nowhere in the base silently creates a THIRD spelling
+# instead of merging two — hence the `existing` guard in main().
+#
+# And every target here MUST be the spelling that `front/electron/database/shared/
+# geo-normalizer.ts` produces, because that normalizer runs on every AI qualification write.
+# Merging toward anything else buys one clean day: the next re-qualification writes the
+# normalizer's spelling and splits the region again. That is exactly what a first pass of
+# this script did — it merged "Berne" into "Bern" because Bern had more rows, against a
+# normalizer that canonicalizes both to "Berne" and a file whose stated policy is French
+# names for Swiss cantons (Genève, Neuchâtel, Bâle-Ville, Tessin). Row counts do not decide
+# this; the write path does.
 REGION_MERGES = {
     # France — English name -> French official name
     'new aquitaine': 'Nouvelle-Aquitaine',
@@ -71,15 +82,12 @@ REGION_MERGES = {
     'picardie': 'Hauts-de-France',
     'basse-normandie': 'Normandie',
     'haute-normandie': 'Normandie',
-    # Switzerland — English/German name -> French name, matching the rest of the base
+    # Switzerland — English/German name -> French name, the policy geo-normalizer.ts states
+    # and applies on write. "Zurich" is the exception it makes, so it is the exception here.
     'geneva': 'Genève',
-    'zurich': 'Zürich',
-    'berne': 'Bern',
+    'bern': 'Berne',
     'ticino': 'Tessin',
-    'valais': 'Valais',
-    'vaud': 'Vaud',
     'neuchatel': 'Neuchâtel',
-    'fribourg': 'Fribourg',
     'basel-city': 'Bâle-Ville',
     'basel city': 'Bâle-Ville',
 }
@@ -150,12 +158,17 @@ def main():
                 .format(t=table, c=column)):
             spellings_by_key.setdefault(fold(region), Counter())[region] += count
 
-    # Merge, never rename. A target that appears nowhere in the column is not the other
-    # half of a split region — rewriting to it would invent one more spelling and bump
-    # `updated_at` on every row for no repair. The region column, for instance, holds
-    # "Zurich" unanimously (177 rows); "Zürich" only exists as a CITY. Nothing is split
-    # there, so nothing is merged there.
+    # Merge, never rename. A target the automatic pass reaches must already exist in the
+    # column: that pass groups spellings by accent-folded key, so a target absent from the
+    # base is not the other half of a split region, and rewriting to it would invent one
+    # more spelling while bumping `updated_at` on every row for no repair.
+    #
+    # Targets named explicitly above are canonical by declaration — each is checked against
+    # geo-normalizer.ts, the write path — so they stand even while absent. That is what lets
+    # this script undo its own first pass: it collapsed "Berne" into "Bern", so "Berne" no
+    # longer exists in the column, and the guard alone would refuse to put it back.
     existing = {spelling for variants in spellings_by_key.values() for spelling in variants}
+    existing.update(REGION_MERGES.values())
 
     moves = Counter()
     skipped = set()
