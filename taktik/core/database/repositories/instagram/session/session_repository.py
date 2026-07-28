@@ -15,15 +15,39 @@ class SessionRepository(BaseRepository):
     # AUTOMATION SESSIONS
     # ============================================
     
+    @staticmethod
+    def _workflow_type_from_config(config_used: Optional[dict]) -> Optional[str]:
+        """The workflow a run belongs to, read out of the config it was launched with.
+
+        Every Instagram workflow already puts its name in `session_settings.workflow_type` — the
+        value was simply never lifted into the column beside it. Deriving it here rather than
+        adding a parameter keeps the two from ever disagreeing, and spares every call site a
+        signature change to pass something it is already passing.
+        """
+        if not isinstance(config_used, dict):
+            return None
+        settings = config_used.get('session_settings')
+        if not isinstance(settings, dict):
+            return None
+        value = settings.get('workflow_type')
+        return str(value)[:50] if value else None
+
     def create(
         self,
         account_id: int,
         session_name: str,
         target_type: str,
         target: str,
-        config_used: Optional[dict] = None
+        config_used: Optional[dict] = None,
+        workflow_type: Optional[str] = None
     ) -> Optional[int]:
-        """Create a new automation session (unified sessions_unified, platform='instagram')."""
+        """Create a new automation session (unified sessions_unified, platform='instagram').
+
+        `workflow_type` defaults to whatever the config declares. Left unset on the column, a
+        session records WHAT it targeted but never WHICH workflow produced it — which is what made
+        the Sessions page, Analytics and the workflow chooser guess. TikTok has always stored it;
+        Instagram never did, on 773 of 793 rows.
+        """
         try:
             # session_id = per-platform legacy_session_id, generated atomically (single
             # INSERT ... SELECT MAX+1 runs under SQLite's write lock -> collision-free
@@ -31,15 +55,16 @@ class SessionRepository(BaseRepository):
             cursor = self.execute(
                 """INSERT INTO sessions_unified
                        (platform, legacy_session_id, account_id, session_name, target_type, target,
-                        config_used, status, start_time, created_at, updated_at, sync_id)
+                        workflow_type, config_used, status, start_time, created_at, updated_at, sync_id)
                    SELECT 'instagram',
                           COALESCE((SELECT MAX(legacy_session_id) FROM sessions_unified WHERE platform='instagram'), 0) + 1,
-                          ?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), datetime('now'), datetime('now'), lower(hex(randomblob(16)))""",
+                          ?, ?, ?, ?, ?, ?, 'ACTIVE', datetime('now'), datetime('now'), datetime('now'), lower(hex(randomblob(16)))""",
                 (
                     account_id,
                     session_name[:100],
                     target_type,
                     target[:50],
+                    workflow_type or self._workflow_type_from_config(config_used),
                     json.dumps(self._redact_sensitive(config_used)) if config_used else None
                 )
             )
