@@ -229,6 +229,14 @@ class ProfileSelectors:
         '//*[contains(@resource-id, "full_name")]'
     ])
 
+    # Bare resource ids for the JSON-RPC re-read, same reason as `bio_resource_ids`:
+    # 10.9% of stored display names carry the dots the XML dumper leaves where an emoji
+    # was, and plenty of people put emoji in their name.
+    full_name_resource_ids: List[str] = field(default_factory=lambda: [
+        'com.instagram.android:id/profile_header_full_name_above_vanity',
+        'com.instagram.android:id/profile_header_full_name',
+    ])
+
     # === Profile picture (for screenshot + crop extraction) ===
     profile_picture_imageview: List[str] = field(default_factory=lambda: [
         # OLD layout: the header avatar ImageView.
