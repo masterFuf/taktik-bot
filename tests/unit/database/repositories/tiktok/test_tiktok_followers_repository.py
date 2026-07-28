@@ -49,7 +49,11 @@ def test_create_session_wraps_account_and_session_creation():
     assert session_ref.session_id == 99
     assert db.calls[0] == ("get_or_create_tiktok_account", "bot")
     assert db.calls[1][0] == "create_tiktok_session"
-    assert db.calls[1][1]["workflow_type"] == "FOLLOWERS"
+    # Lowercase, and the case is the assertion. Electron creates the same kind of session with
+    # `followers`, so while this writer shouted the column held two spellings of one workflow —
+    # 58 rows against 68 — and every grouping counted it twice. The rest of the TikTok vocabulary
+    # (`for_you`, `search`, `hashtag`) is lowercase, which is why that side won.
+    assert db.calls[1][1]["workflow_type"] == "followers"
 
 
 def test_repository_noops_without_account_context():

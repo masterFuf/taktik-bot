@@ -21,8 +21,15 @@ sessions were never as ambiguous as their names suggest — 656 are `target_foll
 `POST_URL` sessions are labelled `target_followers` too, because the bot drives post likers
 through the followers workflow; a reader mapping these onto the front's pages has to know that.
 
-The write path is fixed separately (`SessionRepository.create` now derives the column from the
-same config), so this runs once, over the history.
+It also settles a second defect on the same column: TikTok held `FOLLOWERS` (58) beside
+`followers` (68), two spellings of one workflow, so every grouping counted it twice. Two writers,
+one column, no normalizer between them — the bot shouted, Electron did not. Lowercase wins because
+it is what the rest of the TikTok vocabulary already uses (`for_you`, `search`, `hashtag`), and the
+bot writer is corrected in the same change.
+
+Both write paths are fixed separately (`SessionRepository.create` now derives the column from the
+same config; the TikTok followers repository now writes lowercase), so this runs once, over the
+history.
 
 Usage:
     python scripts/backfill_session_workflow_type.py            # dry run
@@ -83,6 +90,13 @@ def main():
         else:
             unrecoverable += 1
 
+    # Spellings that are the same workflow written two ways. Keyed lowercase, valued canonical,
+    # so adding a pair later needs no code — only a line.
+    NORMALIZE = {'FOLLOWERS': 'followers'}
+    miscased = con.execute(
+        "SELECT workflow_type, COUNT(*) FROM sessions_unified WHERE workflow_type IN (%s) GROUP BY workflow_type"
+        % ','.join('?' * len(NORMALIZE)), tuple(NORMALIZE)).fetchall()
+
     counts = Counter(workflow for workflow, _ in plan)
     print('sessions with an empty workflow_type : %d' % len(rows))
     print('recoverable from the config          : %d' % len(plan))
@@ -90,6 +104,12 @@ def main():
     print()
     for workflow, n in counts.most_common():
         print('    %-24s %d' % (workflow, n))
+
+    if miscased:
+        print()
+        print('graphies a normaliser :')
+        for value, n in miscased:
+            print('    %-24s %4d  ->  %s' % (value, n, NORMALIZE[value]))
 
     if not args.apply:
         print('\nDRY RUN — nothing written. Re-run with --apply.')
@@ -101,6 +121,10 @@ def main():
         con.execute(
             "UPDATE sessions_unified SET workflow_type = ?, updated_at = datetime('now') WHERE id = ?",
             (workflow, session_id))
+    for wrong, right in NORMALIZE.items():
+        con.execute(
+            "UPDATE sessions_unified SET workflow_type = ?, updated_at = datetime('now') WHERE workflow_type = ?",
+            (right, wrong))
     con.commit()
 
     (filled,) = con.execute(

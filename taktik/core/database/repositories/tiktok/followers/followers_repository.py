@@ -36,7 +36,11 @@ class TikTokFollowersRepository:
         session_id = self._db.create_tiktok_session(
             account_id=account_id,
             session_name=f"Followers @{target}",
-            workflow_type="FOLLOWERS",
+            # Lowercase, like every other TikTok workflow name: `for_you`, `search`, `hashtag`.
+            # This was the one writer shouting, and Electron creates the same kind of session with
+            # `followers` — so the column held both spellings of one workflow, 58 against 68, and
+            # any grouping counted it twice.
+            workflow_type="followers",
             target=target,
             config_used=config_used,
         )
