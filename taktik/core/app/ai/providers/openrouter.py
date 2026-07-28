@@ -622,6 +622,25 @@ class AIService:
         "cosmetics": "beauty_wellness",
         "fashion_and_beauty": "beauty_wellness",
         # lifestyle
+        # Business / commerce. `real_estate` is the agency's own call (Kevin, 2026-07-28):
+        # an estate agent's account sells a service, so it belongs with business.
+        "real_estate": "business_marketing",
+        "realestate": "business_marketing",
+        "property": "business_marketing",
+        "shopping": "business_marketing",
+        "retail": "business_marketing",
+        "ecommerce": "business_marketing",
+        # Unambiguous singles the token overlap cannot reach, because it compares whole
+        # tokens: "technology" never overlaps "tech", "books" never overlaps "art_design".
+        "technology": "tech_education",
+        "tech": "tech_education",
+        "education": "tech_education",
+        "books": "art_design",
+        "social_issues": "community_causes",
+        "nonprofit": "community_causes",
+        "non_profit": "community_causes",
+        "charity": "community_causes",
+        "activism": "community_causes",
         "personal_lifestyle": "lifestyle",
         "personal_blog": "lifestyle",
         "lifestyle_blog": "lifestyle",
@@ -679,6 +698,23 @@ class AIService:
     }
 
     @classmethod
+    def _synonyms_without_joiners(cls) -> Dict[str, str]:
+        """The synonym table keyed on its joiner-free form, built once.
+
+        `arts_and_culture` and `arts_culture` are the same key to a reader and two
+        different keys to a dict; this is what makes the lookup agree with the reader.
+        """
+        cached = getattr(cls, "_SYNONYMS_NO_JOINERS", None)
+        if cached is None:
+            stop = {"and", "the", "of", "a", "et"}
+            cached = {
+                "_".join(t for t in key.split("_") if t and t not in stop): value
+                for key, value in cls._NICHE_CATEGORY_SYNONYMS.items()
+            }
+            cls._SYNONYMS_NO_JOINERS = cached
+        return cached
+
+    @classmethod
     def _canonicalize_niche_category(cls, raw: Any) -> str:
         """Clamp a model-emitted niche_category onto the 16 canonical buckets.
 
@@ -695,11 +731,19 @@ class AIService:
             return "other"
         if slug in cls.NICHE_CATEGORIES:
             return slug
-        mapped = cls._NICHE_CATEGORY_SYNONYMS.get(slug)
+
+        # Look the synonym up on the JOINER-FREE form, on both sides. "arts & culture"
+        # slugifies to `arts_culture` while the table holds `arts_and_culture`: the same
+        # concept, spelled by the model with an ampersand instead of the word. Measured on
+        # the real base: 156 profiles fell to "other" on that difference alone.
+        stop = {"and", "the", "of", "a", "et"}
+        def _strip_joiners(value: str) -> str:
+            return "_".join(t for t in value.split("_") if t and t not in stop)
+
+        mapped = cls._NICHE_CATEGORY_SYNONYMS.get(slug) or cls._synonyms_without_joiners().get(_strip_joiners(slug))
         if mapped:
             return mapped
         # Last resort: token overlap with the canonical buckets (unique winner only).
-        stop = {"and", "the", "of", "a"}
         tokens = {t for t in slug.split("_") if t and t not in stop}
         best, best_overlap, tied = "other", 0, False
         for cat in cls.NICHE_CATEGORIES:

@@ -51,8 +51,26 @@ def test_formatting_noise_is_normalized():
 
 
 def test_ambiguous_token_overlap_fails_closed():
-    # "health_fitness" overlaps health_family AND fitness_sports equally -> no unique winner.
-    assert AIService._canonicalize_niche_category("health_fitness") == "other"
+    # "fashion_home" overlaps fashion AND home_interior equally -> no unique winner.
+    # (This used to test "health_fitness", which the synonym table now answers explicitly:
+    # `health_and_fitness` is in it, and the lookup no longer cares about the joiner, so
+    # that input resolves rather than falling through to the overlap. Asserting it still
+    # fails closed would be asserting that a known synonym is NOT applied.)
+    assert AIService._canonicalize_niche_category("fashion_home") == "other"
+    assert AIService._canonicalize_niche_category("travel_food") == "other"
+
+
+def test_joiner_spelling_does_not_change_the_bucket():
+    """"arts & culture" and "arts_and_culture" are one concept; the table holds one key.
+
+    The model writes both. Slugified they differ by a single token, which used to send
+    156 profiles on the real base into "other" while the very same concept, spelled with
+    the word "and", resolved fine.
+    """
+    assert (AIService._canonicalize_niche_category("arts & culture")
+            == AIService._canonicalize_niche_category("arts_and_culture")
+            == "music_entertainment")
+    assert AIService._canonicalize_niche_category("health_fitness") == "fitness_sports"
 
 
 def test_batch_classification_clamps_what_the_model_returned(monkeypatch):
