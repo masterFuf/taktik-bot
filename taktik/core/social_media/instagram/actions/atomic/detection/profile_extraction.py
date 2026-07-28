@@ -30,6 +30,31 @@ def _bio_text_looks_truncated(text: str, expander_words=None) -> bool:
     return False
 
 
+# A run of 2+ dots, or a single dot carrying an emoji variation selector. See
+# ``_text_lost_emoji`` for why that is the signature of a mangled emoji.
+_MANGLED_EMOJI_RE = re.compile(r"\.{2,}|\.[\uFE0E\uFE0F]")
+
+
+def _text_lost_emoji(text: Optional[str]) -> bool:
+    """Return whether an XML-dumped text lost emoji to Android's XML sanitiser.
+
+    UIAutomator serialises the hierarchy through AOSP's ``AccessibilityNodeInfoDumper``,
+    whose ``stripInvalidXMLChars`` walks the string **one UTF-16 code unit at a time** and
+    replaces anything outside the XML-legal ranges with ``"."``. UTF-16 surrogates are
+    outside those ranges, so an astral emoji — which is a surrogate PAIR — comes back as
+    exactly two dots, while a BMP symbol (heart, cloud, bullet: one code unit) survives.
+
+    Measured on the local base: 9 490 bios hold a dot run, even-length runs outnumber odd
+    ones 9.6 to 1, 828 runs are immediately followed by a variation selector (a character
+    that only ever trails an emoji), and NOT ONE of those bios still contains an astral
+    character — while 1 386 bios do carry BMP symbols intact.
+
+    A real ellipsis ("great photographer...") also matches, which is why the caller only
+    uses this as a hint to re-read the text through a channel that does not go through XML.
+    """
+    return bool(text) and bool(_MANGLED_EMOJI_RE.search(text))
+
+
 class ProfileExtractionMixin(BaseAction):
     """Mixin: profile flags, text extraction, enriched data (XML batch), bio more button."""
 
@@ -183,6 +208,15 @@ class ProfileExtractionMixin(BaseAction):
                             break
                 except Exception:
                     continue
+
+            # The XML dump replaces every emoji with dots (see ``_text_lost_emoji``), so a
+            # bio that looks mangled is re-read through the JSON-RPC channel, which carries
+            # the real text. Only when it looks mangled: the extra round-trip costs ~60ms
+            # and most bios come back clean.
+            if _text_lost_emoji(results['biography']):
+                recovered = self._read_text_without_xml(self.selectors.bio_resource_ids)
+                if recovered:
+                    results['biography'] = recovered
             
             if results['username']:
                 self.logger.debug(f"📊 Batch text: @{results['username']}, name={results['full_name']}")
@@ -192,6 +226,35 @@ class ProfileExtractionMixin(BaseAction):
         except Exception as e:
             self.logger.error(f"Error in batch text extraction: {e}")
             return results
+
+    def _read_text_without_xml(self, resource_ids) -> Optional[str]:
+        """Read an element's text through JSON-RPC instead of the XML dump.
+
+        ``d(resourceId=...).info['text']`` goes over the agent's JSON channel, where the
+        text travels as JSON and emoji survive; the XML dump does not (see
+        ``_text_lost_emoji``). Takes bare resource ids, declared beside the xpath they
+        mirror in the selector module — parsing an id back out of an xpath here is how the
+        two would drift apart, and it trips the selector-hardcode audit for good reason.
+
+        Best effort: any failure keeps the dumped value, since a bio with dots still beats
+        no bio at all.
+        """
+        raw_device = getattr(self.device, 'device', None)
+        if raw_device is None:
+            return None
+
+        for resource_id in (resource_ids or ()):
+            try:
+                element = raw_device(resourceId=resource_id)
+                if not element.exists:
+                    continue
+                text = (element.info or {}).get('text')
+                if text and text.strip():
+                    return text.strip()
+            except Exception as exc:
+                self.logger.debug(f"JSON-RPC text re-read failed: {exc}")
+                continue
+        return None
 
     # === Enriched profile extraction (XML) ===
 

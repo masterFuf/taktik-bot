@@ -38,6 +38,16 @@ class ProfileSelectors:
         '//*[contains(@resource-id, "profile_header_bio_text")]'
     ])
 
+    # The same nodes as `bio`, as bare resource ids for the JSON-RPC reader.
+    # The XML dump replaces every emoji with dots (AOSP `stripInvalidXMLChars` walks UTF-16
+    # code units and kills surrogates), so a mangled bio is re-read through
+    # `d(resourceId=...)`, which needs the id itself and not an xpath. Declared here rather
+    # than parsed out of the xpath above: a selector belongs to the selector module, and
+    # regexing one back out of another is how the two drift apart.
+    bio_resource_ids: List[str] = field(default_factory=lambda: [
+        'com.instagram.android:id/profile_header_bio_text',
+    ])
+
     posts_count: List[str] = field(default_factory=lambda: [
         # NEW IG UI (v410.0.0.53.71, real dump 2026-06-09): the clickable count
         # container is "*_front_familiar", not the legacy "*_container".
