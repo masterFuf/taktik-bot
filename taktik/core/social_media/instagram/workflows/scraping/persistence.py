@@ -259,6 +259,11 @@ class ScrapingPersistenceMixin:
             elif scraping_type == 'post_url':
                 source_type = 'POST_URL'
                 source_name = self.config.get('post_url', 'unknown')[:100]
+            elif scraping_type == 'usernames':
+                source_type = 'USERNAME_LIST'
+                names = self.config.get('usernames', [])
+                source_name = self.config.get('source_name') or 'manual selection'
+                source_name = f"{source_name} ({len(names)})"[:100]
             else:
                 source_type = 'UNKNOWN'
                 source_name = 'unknown'

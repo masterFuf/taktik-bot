@@ -137,6 +137,10 @@ class ScrapingWorkflow(
                 result = self._scrape_hashtag()
             elif scraping_type == 'post_url':
                 result = self._scrape_post_url()
+            elif scraping_type == 'usernames':
+                # No source screen: the operator hands over the profiles by name. Same per-profile
+                # qualification as every other source, only the way we reach each profile differs.
+                result = self._scrape_username_list()
             else:
                 self.logger.error(f"Unknown scraping type: {scraping_type}")
                 self._complete_scraping_session(error_message=f"Unknown scraping type: {scraping_type}")
@@ -171,6 +175,26 @@ class ScrapingWorkflow(
         """Check if scraping should continue based on time limit."""
         return should_continue_session(self.start_time, self.session_duration_minutes)
     
+    def _scrape_username_list(self) -> Dict[str, Any]:
+        """Qualify an explicit list of profiles handed over by the operator.
+
+        The other three sources start from a screen (a followers list, a hashtag grid, a post) and
+        discover WHO to qualify. Here the who is already known and there is no such screen: each
+        profile is reached by navigating to its username. What happens on the profile is the same
+        code in every case, so the resulting rows are identical.
+        """
+        usernames = self.config.get('usernames', []) or []
+        if not usernames:
+            return {"success": False, "error": "No usernames provided"}
+
+        scraped = self._scrape_usernames(usernames, source_name=self.config.get('source_name', 'manual selection'))
+        return {
+            "success": True,
+            "total_scraped": len(scraped),
+            "requested": len(usernames),
+            "profiles": scraped,
+        }
+
     def _scrape_target(self) -> Dict[str, Any]:
         """Scrape followers, following, or post likers/commenters from target accounts."""
         target_usernames = self.config.get('target_usernames', [])

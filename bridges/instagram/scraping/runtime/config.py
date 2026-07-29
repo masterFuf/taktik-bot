@@ -90,6 +90,11 @@ def build_scraping_config(config: dict) -> dict:
         scraping_config['scrape_likers'] = config.get('scrapePostUrlLikers', True)
         scraping_config['scrape_commenters'] = config.get('scrapePostUrlCommenters', False)
         scraping_config['post_id'] = _extract_post_id(post_urls[0] if post_urls else '')
+    elif config.get('type') == 'usernames':
+        # No source screen to walk: the operator hands over the profiles by name and each one is
+        # reached by navigating to it. `source_name` is free text kept for the scraping session row.
+        scraping_config['usernames'] = config.get('usernames', [])
+        scraping_config['source_name'] = config.get('sourceName', 'manual selection')
 
     ai_config = config.get('ai', {})
     if ai_config and ai_config.get('enabled'):

@@ -37,6 +37,205 @@ class ScrapingListMixin(DeepQualifyMixin):
             return True
         return bool(self.config.get('requireProfilePicture')) or bool(self.config.get('skipPrivateProfiles', True))
 
+    def _capture_profile_on_screen(
+        self,
+        username: str,
+        profile_data: Dict[str, Any],
+        profile_preexisted: bool = False,
+        deep_qualify: bool = False,
+        deep_qualify_max_following: int = 30,
+        navigate: bool = False,
+    ) -> Optional[str]:
+        """Read, qualify and screenshot the profile we are standing on. Fills `profile_data`.
+
+        Returns the reason to skip this profile, or None to keep it. Navigation is the CALLER's
+        business: the list scrape tapped a row and must go back to it afterwards, while a scrape
+        driven by a list of usernames navigates here itself (`navigate=True`) and has nowhere to
+        return to. Everything in between is identical, which is why it lives here once.
+        """
+        # Visiting the profile already reads followers/posts/bio/website/category — everything the
+        # filters and AI qualification need. The `enrich` flag ONLY adds the "About this account"
+        # navigation (country/city, date joined), a separate, slower screen whose back-press can
+        # overshoot. It is opt-in (fetchLocation, default off): most scrapes want the profile, not
+        # the location, and paying that navigation on every profile is both slow and a source of
+        # navigation bugs. emit_ipc=False / save_to_db=False: the caller owns the IPC + save.
+        enriched_data = self.profile_manager.get_complete_profile_info(
+            username=username,
+            navigate_if_needed=navigate,
+            enrich=bool(self.config.get('fetchLocation', False)),
+            emit_ipc=False,
+            save_to_db=False
+        )
+
+        if enriched_data:
+            profile_data['followers_count'] = enriched_data.get('followers_count', 0)
+            profile_data['following_count'] = enriched_data.get('following_count', 0)
+            profile_data['posts_count'] = enriched_data.get('posts_count', 0)
+            profile_data['is_private'] = enriched_data.get('is_private', False)
+            profile_data['biography'] = enriched_data.get('biography', '')
+            profile_data['full_name'] = enriched_data.get('full_name', '')
+            profile_data['is_verified'] = enriched_data.get('is_verified', False)
+            profile_data['is_business'] = enriched_data.get('is_business', False)
+            profile_data['business_category'] = enriched_data.get('business_category', '')
+            profile_data['website'] = enriched_data.get('website', '')
+            profile_data['linked_accounts'] = enriched_data.get('linked_accounts', [])
+            profile_data['date_joined'] = enriched_data.get('date_joined', '')
+            profile_data['account_based_in'] = enriched_data.get('account_based_in', '')
+            profile_data['profile_pic_base64'] = enriched_data.get('profile_pic_base64')
+
+            self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
+            # Re-emit the visit with complete profile stats immediately, so the desktop live card
+            # updates before deep qualify starts.
+            IPCEmitter.emit_scraping_profile_visit(username, profile_data)
+        else:
+            self.logger.warning(f"Could not get profile info for @{username}")
+
+        # No enriched data => the filters cannot be evaluated. Saving (and deep-qualifying, which
+        # costs AI credits) a profile we could not check would silently break the operator's
+        # criteria, so skip it — but only when filters were actually requested.
+        if enriched_data:
+            filter_reason = self._get_profile_filter_reason(profile_data)
+        elif self._has_profile_filters():
+            filter_reason = 'enrichment failed — cannot check filters'
+        else:
+            filter_reason = None
+        if filter_reason:
+            return filter_reason
+
+        # Deep qualify: open following list, collect usernames, cross-ref DB. Runs while still on
+        # the profile page, BEFORE taking the screenshot. Skip if the account is private — the
+        # following list is inaccessible and attempting to open it desynchronises navigation.
+        if deep_qualify:
+            if profile_data.get('is_private'):
+                self.logger.debug(f"⏭ @{username}: private account — skipping deep qualify")
+            else:
+                _dq = self._deep_qualify_collect(
+                    username=username,
+                    max_following=deep_qualify_max_following,
+                )
+                profile_data.update(_dq)
+
+        # Capture screenshot for AI vision analysis (while still on profile page).
+        # Skip if ai_rescrape_mode = 'stats_only' and the profile already existed in DB.
+        _ai_rescrape_mode = self.config.get('ai_rescrape_mode', 'full')
+        _skip_ai_for_existing = _ai_rescrape_mode == 'stats_only' and profile_preexisted
+        if getattr(self, '_ai_service', None) and not _skip_ai_for_existing:
+            try:
+                import tempfile as _tempfile, os as _os2
+                _tmp_dir = _os2.path.join(_tempfile.gettempdir(), 'taktik_ai')
+                _os2.makedirs(_tmp_dir, exist_ok=True)
+                _screenshot_path = _os2.path.join(_tmp_dir, f'profile_{username}.png')
+                self.device.screenshot().save(_screenshot_path, format='PNG')
+                profile_data['_screenshot_path'] = _screenshot_path
+            except Exception as _e:
+                self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
+
+        return None
+
+    def _scrape_usernames(self, usernames: List[str], source_name: str = 'usernames') -> List[Dict[str, Any]]:
+        """Qualify an explicit list of profiles: go to each one, read it, move on.
+
+        No source screen and no list to walk: the operator already knows who they want. Everything
+        per profile — enrichment, filters, deep qualify, AI screenshot, save — is the SAME code the
+        list scrape runs (`_capture_profile_on_screen`), so a profile qualified this way is
+        indistinguishable from one qualified any other way.
+
+        Written for a concrete case: followers won by outreach done by hand, whom we know by name
+        and know nothing else about. There is no list on screen holding them together.
+        """
+        scraped: List[Dict[str, Any]] = []
+        rescrape_after_days: int | None = self.config.get('rescrape_after_days')
+        deep_qualify = bool(self.config.get('deep_qualify', False))
+        deep_qualify_max_following = int(self.config.get('deep_qualify_max_following', 30))
+
+        _dedup_db = None
+        if rescrape_after_days != 0:
+            try:
+                _dedup_db = self._local_db()
+            except Exception as _e:
+                self.logger.warning(f"Could not initialize dedup DB: {_e}")
+
+        targets = []
+        seen = set()
+        for raw in usernames or []:
+            name = str(raw or '').strip().lstrip('@').lower()
+            if name and name not in seen:
+                seen.add(name)
+                targets.append(name)
+
+        console.print(f"\n[cyan]🔍 Qualifying {len(targets)} profile(s) by username...[/cyan]")
+
+        for index, username in enumerate(targets, start=1):
+            if not self._should_continue():
+                self.logger.info("Stop requested — ending username qualification")
+                break
+
+            profile_preexisted = False
+            if _dedup_db is not None:
+                try:
+                    if _dedup_db.profile_exists_in_db(username, days=rescrape_after_days):
+                        skip_reason = (f"in DB, created < {rescrape_after_days}d ago"
+                                       if rescrape_after_days else "already in DB")
+                        self.logger.info(f"⏭️  @{username} — skipped ({skip_reason})")
+                        IPCEmitter.emit_profile_skipped(username, skip_reason)
+                        continue
+                    profile_preexisted = _dedup_db.profile_exists_in_db(username, days=None)
+                except Exception as _dedup_err:
+                    self.logger.debug(f"Dedup check failed for @{username}: {_dedup_err}")
+
+            profile_data = {
+                'username': username,
+                'source_type': 'USERNAME_LIST',
+                'source_name': source_name,
+                'scraped_at': datetime.now().isoformat(),
+            }
+            IPCEmitter.emit_scraping_profile_visit(username, profile_data)
+
+            try:
+                filter_reason = self._capture_profile_on_screen(
+                    username=username,
+                    profile_data=profile_data,
+                    profile_preexisted=profile_preexisted,
+                    deep_qualify=deep_qualify,
+                    deep_qualify_max_following=deep_qualify_max_following,
+                    navigate=True,
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to qualify @{username}: {e}")
+                IPCEmitter.emit_profile_skipped(username, 'navigation failed')
+                continue
+
+            if filter_reason:
+                self.logger.info(f"⏭️  @{username} — skipped ({filter_reason})")
+                IPCEmitter.emit_profile_skipped(username, filter_reason)
+                continue
+
+            scraped.append(profile_data)
+            self.scraped_profiles.append(profile_data)
+            profile_id = self._save_profile_immediately(profile_data)
+
+            _pic_b64 = profile_data.pop('profile_pic_base64', None)
+            IPCEmitter.emit_profile_captured(username, profile_data, profile_pic_base64=_pic_b64)
+
+            if profile_id and getattr(self, '_ai_service', None) and not profile_data.get('is_private', False):
+                self._qualify_profile_ai(profile_data, profile_id)
+
+            console.print(f"[green]  {index}/{len(targets)} @{username}[/green]")
+
+        return scraped
+
+    def _back_to_list(self, strategy: ListScrapingStrategy) -> None:
+        """Return to the list we came from — Instagram can push extra screens on top."""
+        for _back_attempt in range(5):
+            self.device.press("back")
+            time.sleep(1.2)
+            if strategy.is_on_list():
+                if _back_attempt > 0:
+                    self.logger.debug(f"✅ Back on list after {_back_attempt + 1} press(es)")
+                return
+            self.logger.debug(f"⚠️ Not on target list after {_back_attempt + 1} back press(es), retrying...")
+        self.logger.warning("⚠️ Could not return to target list after 5 back presses")
+
     def _get_profile_filter_reason(self, profile: Dict[str, Any]) -> Optional[str]:
         min_followers = self.config.get('minFollowers')
         max_followers = self.config.get('maxFollowers')
@@ -267,111 +466,24 @@ class ScrapingListMixin(DeepQualifyMixin):
                             if not tap_element_human(self.device, element, logger=self.logger):
                                 element.click()
                             time.sleep(1.5)
-                            
-                            # Visiting the profile already reads followers/posts/bio/website/
-                            # category — everything the filters and AI qualification need. The
-                            # `enrich` flag ONLY adds the "About this account" navigation (country/
-                            # city, date joined), a separate, slower screen whose back-press can
-                            # overshoot. It is opt-in (fetchLocation, default off): most scrapes
-                            # want the profile, not the location, and paying that navigation on
-                            # every profile is both slow and a source of navigation bugs.
-                            # emit_ipc=False / save_to_db=False: list_scraping owns the IPC + save.
-                            enriched_data = self.profile_manager.get_complete_profile_info(
+
+                            # Everything done WHILE ON the profile — identical whether we got here
+                            # by tapping a row or by navigating to a username (see _scrape_usernames).
+                            filter_reason = self._capture_profile_on_screen(
                                 username=username,
-                                navigate_if_needed=False,
-                                enrich=bool(self.config.get('fetchLocation', False)),
-                                emit_ipc=False,
-                                save_to_db=False
+                                profile_data=profile_data,
+                                profile_preexisted=_profile_preexisted,
+                                deep_qualify=deep_qualify,
+                                deep_qualify_max_following=deep_qualify_max_following,
                             )
-                            
-                            if enriched_data:
-                                profile_data['followers_count'] = enriched_data.get('followers_count', 0)
-                                profile_data['following_count'] = enriched_data.get('following_count', 0)
-                                profile_data['posts_count'] = enriched_data.get('posts_count', 0)
-                                profile_data['is_private'] = enriched_data.get('is_private', False)
-                                profile_data['biography'] = enriched_data.get('biography', '')
-                                profile_data['full_name'] = enriched_data.get('full_name', '')
-                                profile_data['is_verified'] = enriched_data.get('is_verified', False)
-                                profile_data['is_business'] = enriched_data.get('is_business', False)
-                                profile_data['business_category'] = enriched_data.get('business_category', '')
-                                profile_data['website'] = enriched_data.get('website', '')
-                                profile_data['linked_accounts'] = enriched_data.get('linked_accounts', [])
-                                profile_data['date_joined'] = enriched_data.get('date_joined', '')
-                                profile_data['account_based_in'] = enriched_data.get('account_based_in', '')
-                                
-                                self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
-                                # Re-emit the visit with complete profile stats immediately,
-                                # so the desktop live card updates before deep qualify starts.
-                                IPCEmitter.emit_scraping_profile_visit(username, profile_data)
-                            else:
-                                self.logger.warning(f"Could not get profile info for @{username}")
-
-                            # Also carry over profile_pic_base64 for the profile_captured event below
-                            if enriched_data:
-                                profile_data['profile_pic_base64'] = enriched_data.get('profile_pic_base64')
-
-                            # No enriched data => the filters cannot be evaluated. Saving (and
-                            # deep-qualifying, which costs AI credits) a profile we could not
-                            # check would silently break the operator's criteria, so skip it —
-                            # but only when filters were actually requested.
-                            if enriched_data:
-                                filter_reason = self._get_profile_filter_reason(profile_data)
-                            elif self._has_profile_filters():
-                                filter_reason = 'enrichment failed — cannot check filters'
-                            else:
-                                filter_reason = None
                             if filter_reason:
                                 self.logger.info(f"⏭️  @{username} — skipped ({filter_reason})")
                                 IPCEmitter.emit_profile_skipped(username, filter_reason)
-                                for _back_attempt in range(5):
-                                    self.device.press("back")
-                                    time.sleep(1.2)
-                                    if strategy.is_on_list():
-                                        break
+                                self._back_to_list(strategy)
                                 continue
 
-                            # Deep qualify: open following list, collect usernames, cross-ref DB
-                            # Runs while still on the profile page, BEFORE taking the screenshot.
-                            # Skip if the account is private — following list is inaccessible and
-                            # attempting to open it desynchronises navigation (back-press loop).
-                            if deep_qualify:
-                                if profile_data.get('is_private'):
-                                    self.logger.debug(f"⏭ @{username}: private account — skipping deep qualify")
-                                else:
-                                    _dq = self._deep_qualify_collect(
-                                        username=username,
-                                        max_following=deep_qualify_max_following,
-                                    )
-                                    profile_data.update(_dq)
+                            self._back_to_list(strategy)
 
-                            # Capture screenshot for AI vision analysis (while still on profile page)
-                            # Skip if ai_rescrape_mode = 'stats_only' and profile already existed in DB
-                            _ai_rescrape_mode = self.config.get('ai_rescrape_mode', 'full')
-                            _skip_ai_for_existing = _ai_rescrape_mode == 'stats_only' and _profile_preexisted
-                            if getattr(self, '_ai_service', None) and not _skip_ai_for_existing:
-                                try:
-                                    import tempfile as _tempfile, os as _os2
-                                    _tmp_dir = _os2.path.join(_tempfile.gettempdir(), 'taktik_ai')
-                                    _os2.makedirs(_tmp_dir, exist_ok=True)
-                                    _screenshot_path = _os2.path.join(_tmp_dir, f'profile_{username}.png')
-                                    self.device.screenshot().save(_screenshot_path, format='PNG')
-                                    profile_data['_screenshot_path'] = _screenshot_path
-                                except Exception as _e:
-                                    self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
-
-                            # Go back to the list — retry up to 5 times
-                            # (Instagram can push extra screens: story preview, nested profile, etc.)
-                            for _back_attempt in range(5):
-                                self.device.press("back")
-                                time.sleep(1.2)
-                                if strategy.is_on_list():
-                                    if _back_attempt > 0:
-                                        self.logger.debug(f"✅ Back on list after {_back_attempt + 1} press(es)")
-                                    break
-                                self.logger.debug(f"⚠️ Not on target list after {_back_attempt + 1} back press(es), retrying...")
-                            else:
-                                self.logger.warning("⚠️ Could not return to target list after 5 back presses")
-                            
                         except Exception as e:
                             self.logger.warning(f"Failed to enrich @{username}: {e}")
                             # Try to go back anyway
