@@ -29,7 +29,10 @@ def main():
     device_id = config.get("deviceId", "unknown")
     logger.info(f"ðŸŽµ TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
 
-    reset_network_if_enabled(config, device_id)
+    # A requested-but-failed IP rotation stops the run: acting from the previous account's IP is
+    # exactly what the option exists to prevent.
+    if not reset_network_if_enabled(config, device_id):
+        sys.exit(1)
 
     try:
         success, workflow_type = dispatch_tiktok_workflow(config)

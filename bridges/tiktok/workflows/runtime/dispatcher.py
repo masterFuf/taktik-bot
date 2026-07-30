@@ -29,15 +29,27 @@ def load_dispatcher_config(argv: list[str]) -> Dict[str, Any] | None:
         return None
 
 
-def reset_network_if_enabled(config: Dict[str, Any], device_id: str) -> None:
-    """Perform the optional pre-session network reset requested by Electron."""
+def reset_network_if_enabled(config: Dict[str, Any], device_id: str) -> bool:
+    """Perform the optional pre-session network reset requested by Electron.
+
+    Returns False when a requested rotation provably did not happen — the workflow must not start on
+    the IP the previous account just used. An unreadable IP is reported but does not block (absence
+    of proof is not proof of failure).
+    """
     network_reset = config.get("networkReset", {})
     if not network_reset.get("enabled", False):
-        return
+        return True
 
     from bridges.common.device.network import perform_network_reset
 
-    perform_network_reset(device_id, method=network_reset.get("method", "data"), ipc=_ipc)
+    outcome = perform_network_reset(device_id, method=network_reset.get("method", "data"), ipc=_ipc)
+    if outcome.should_block_run:
+        send_error(
+            f"Workflow aborted: IP rotation was requested but {outcome.describe()}.",
+            error_code="NETWORK_RESET_FAILED",
+        )
+        return False
+    return True
 
 
 def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:

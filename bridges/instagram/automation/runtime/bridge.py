@@ -109,7 +109,11 @@ class DesktopBridge:
         if not self.runtime.connect_device():
             return 3
 
-        self.runtime.reset_network_if_enabled(_ipc)
+        # Before anything opens Instagram: if a fresh IP was requested and did not happen, stop here
+        # rather than run the account on the previous account's IP.
+        if not self.runtime.reset_network_if_enabled(_ipc):
+            return 6
+
         self.media_capture.start()
 
         if not self.runtime.launch_instagram():

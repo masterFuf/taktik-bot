@@ -76,14 +76,28 @@ class InstagramDesktopRuntime:
             logger.exception("Device connection failed")
             return False
 
-    def reset_network_if_enabled(self, ipc) -> None:
-        """Run optional network reset before launching Instagram."""
+    def reset_network_if_enabled(self, ipc) -> bool:
+        """Run the optional network reset before launching Instagram.
+
+        Returns False when the user asked for a fresh IP and the rotation provably did not happen —
+        the run must NOT start, because the account would then act from the IP the previous account
+        just used. An IP that simply could not be read is reported but does not block: absence of
+        proof is not proof of failure, and blocking on it would ground every phone whose shell has
+        no HTTP tool.
+        """
         if not self.network_reset_enabled:
-            return
+            return True
 
         from bridges.common.device.network import perform_network_reset
 
-        perform_network_reset(self.device_id, method=self.network_reset_method, ipc=ipc)
+        outcome = perform_network_reset(self.device_id, method=self.network_reset_method, ipc=ipc)
+        if outcome.should_block_run:
+            send_error(
+                f"Session aborted: IP rotation was requested but {outcome.describe()}.",
+                error_code="NETWORK_RESET_FAILED",
+            )
+            return False
+        return True
 
     def launch_instagram(self) -> bool:
         """Restart Instagram on the connected device for a clean, consistent initial state.
