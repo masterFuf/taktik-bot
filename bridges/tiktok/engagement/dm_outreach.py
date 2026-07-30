@@ -12,8 +12,9 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
+from bridges.common.device.network import enforce_pre_session_ip_rotation
 from bridges.tiktok.engagement.runtime.dm_outreach import run_dm_outreach_workflow
-from bridges.tiktok.runtime.ipc import logger, send_error
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error
 
 
 def main():
@@ -28,6 +29,11 @@ def main():
 
         config = json.loads(config_line)
         logger.info(f"Received config: {json.dumps(config, indent=2)[:500]}...")
+
+        # The page offers "reset IP before the run"; until now nothing here read it.
+        device_id = config.get("device_id") or config.get("deviceId") or ""
+        if device_id and not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="DM outreach"):
+            sys.exit(1)
 
         success = run_dm_outreach_workflow(config)
         if not success:

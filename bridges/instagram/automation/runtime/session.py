@@ -85,19 +85,14 @@ class InstagramDesktopRuntime:
         proof is not proof of failure, and blocking on it would ground every phone whose shell has
         no HTTP tool.
         """
-        if not self.network_reset_enabled:
-            return True
+        from bridges.common.device.network import enforce_pre_session_ip_rotation
 
-        from bridges.common.device.network import perform_network_reset
-
-        outcome = perform_network_reset(self.device_id, method=self.network_reset_method, ipc=ipc)
-        if outcome.should_block_run:
-            send_error(
-                f"Session aborted: IP rotation was requested but {outcome.describe()}.",
-                error_code="NETWORK_RESET_FAILED",
-            )
-            return False
-        return True
+        return enforce_pre_session_ip_rotation(
+            {"networkReset": {"enabled": self.network_reset_enabled, "method": self.network_reset_method}},
+            self.device_id,
+            ipc=ipc,
+            label="Session",
+        )
 
     def launch_instagram(self) -> bool:
         """Restart Instagram on the connected device for a clean, consistent initial state.

@@ -12,6 +12,7 @@ from bridges.common.device.network_reset import (
     reset_airplane_mode,
     reset_mobile_data,
 )
+from bridges.common.runtime.bridge_base import send_error
 
 #: How the rotation ended.
 #:
@@ -171,10 +172,47 @@ def perform_network_reset(device_id: str, method: str = "data", ipc=None) -> Net
     return outcome
 
 
+def enforce_pre_session_ip_rotation(
+    config: dict,
+    device_id: str,
+    ipc=None,
+    *,
+    label: str = "Workflow",
+) -> bool:
+    """
+    Honour the `networkReset` option a workflow config carries, before the session starts.
+
+    The single entry point every bridge shares, so the rule "a requested rotation that provably did
+    not happen stops the run" cannot drift between workflows — it was previously reimplemented per
+    bridge, and most bridges did not implement it at all: the toggle was displayed on their pages,
+    its config was sent, and nothing read it.
+
+    Returns False when the caller must abort. Emits the machine-readable error itself, so a bridge
+    only has to propagate the exit.
+    """
+    network_reset = config.get("networkReset") or {}
+    if not network_reset.get("enabled", False):
+        return True
+
+    outcome = perform_network_reset(
+        device_id,
+        method=network_reset.get("method", "data"),
+        ipc=ipc,
+    )
+    if outcome.should_block_run:
+        send_error(
+            f"{label} aborted: IP rotation was requested but {outcome.describe()}.",
+            error_code="NETWORK_RESET_FAILED",
+        )
+        return False
+    return True
+
+
 __all__ = [
     "MAX_ROTATION_ATTEMPTS",
     "NetworkResetOutcome",
     "NetworkResetVerdict",
+    "enforce_pre_session_ip_rotation",
     "get_device_external_ip",
     "perform_network_reset",
     "reset_airplane_cell",

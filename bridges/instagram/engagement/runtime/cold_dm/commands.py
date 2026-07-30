@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import sys
 
-from bridges.instagram.runtime.ipc import logger
+from bridges.common.device.network import enforce_pre_session_ip_rotation
+from bridges.instagram.runtime.ipc import _ipc, logger
 from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
 
 
@@ -27,6 +28,12 @@ def run_cold_dm_cli(args: list[str]) -> None:
             f"Starting Cold DM workflow for device: {device_id}"
             + (f" (package: {package_name})" if package_name else "")
         )
+
+        # The page offers "reset IP before the run"; until now nothing here read it. Done before
+        # connecting, so the app is never opened on the IP the previous account just used.
+        if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Cold DM"):
+            print(json.dumps({"success": False, "error": "IP rotation failed"}))
+            sys.exit(1)
 
         workflow = ColdDMWorkflow(device_id, package_name=package_name)
 

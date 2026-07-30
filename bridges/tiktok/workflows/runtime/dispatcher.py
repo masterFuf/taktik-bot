@@ -36,20 +36,9 @@ def reset_network_if_enabled(config: Dict[str, Any], device_id: str) -> bool:
     the IP the previous account just used. An unreadable IP is reported but does not block (absence
     of proof is not proof of failure).
     """
-    network_reset = config.get("networkReset", {})
-    if not network_reset.get("enabled", False):
-        return True
+    from bridges.common.device.network import enforce_pre_session_ip_rotation
 
-    from bridges.common.device.network import perform_network_reset
-
-    outcome = perform_network_reset(device_id, method=network_reset.get("method", "data"), ipc=_ipc)
-    if outcome.should_block_run:
-        send_error(
-            f"Workflow aborted: IP rotation was requested but {outcome.describe()}.",
-            error_code="NETWORK_RESET_FAILED",
-        )
-        return False
-    return True
+    return enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Workflow")
 
 
 def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:

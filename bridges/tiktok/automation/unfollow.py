@@ -12,8 +12,9 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
+from bridges.common.device.network import enforce_pre_session_ip_rotation
 from bridges.tiktok.automation.runtime.unfollow import run_unfollow_workflow
-from bridges.tiktok.runtime.ipc import logger, send_error
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error
 
 
 def main():
@@ -33,6 +34,10 @@ def main():
         config["deviceId"] = device_id
 
         logger.info(f"ðŸ“‹ Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
+
+        # The page offers "reset IP before the run"; until now nothing here read it.
+        if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
+            sys.exit(1)
 
         success = run_unfollow_workflow(config)
 
