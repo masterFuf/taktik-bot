@@ -114,3 +114,32 @@ def test_swapping_the_base_class_added_methods_without_taking_any_away():
     assert not (added & set(vars(FeedPostActionsMixin)))
     # and the feed's own behaviour still resolves to the feed mixin
     assert FeedBusiness._like_current_post is FeedPostActionsMixin._like_current_post
+
+
+# ─────────────────────────────────────────────────────── reachable from the page
+
+@pytest.mark.parametrize("camel,snake", [
+    ('interactWithPostAuthor', 'interact_with_post_author'),
+    ('interactWithPostLikers', 'interact_with_post_likers'),
+    ('skipReels', 'skip_reels'),
+])
+def test_the_page_key_reaches_the_workflow_key(camel, snake):
+    """These five spent their whole life reachable by nobody. The bot reading them is only
+    half the fix: without the page sending them, they stay exactly as dead as before."""
+    action = build_instagram_automation_config({
+        'workflowType': 'feed', 'feed': {camel: True},
+    })['actions'][0]
+    assert action[snake] is True
+
+
+def test_the_likers_budget_survives_the_chain_and_has_a_floor():
+    action = build_instagram_automation_config({
+        'workflowType': 'feed', 'feed': {'maxLikersPerPost': 12},
+    })['actions'][0]
+    assert action['max_likers_per_post'] == 12
+
+    # 0 or missing must not mean "walk nobody" silently — it falls back to the default.
+    zeroed = build_instagram_automation_config({
+        'workflowType': 'feed', 'feed': {'maxLikersPerPost': 0},
+    })['actions'][0]
+    assert zeroed['max_likers_per_post'] == 5
