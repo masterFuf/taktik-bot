@@ -201,9 +201,20 @@ def test_sweep_popup_suggestions_neutral_present_in_every_locale():
 
 def test_sweep_post_like_count_localized():
     set_active_locale("fr")
-    assert any("J'aime" in s for s in POST_SELECTORS.like_count_selectors)
+    assert any("aime" in s for s in POST_SELECTORS.like_count_selectors)
     set_active_locale("en")
-    assert not any("J'aime" in s for s in POST_SELECTORS.like_count_selectors)
+    assert not any("aime" in s for s in POST_SELECTORS.like_count_selectors)
+
+
+def test_fr_like_count_selector_does_not_hinge_on_the_apostrophe():
+    """The app renders the TYPOGRAPHIC apostrophe (U+2019): "Nombre de J’aime : 35".
+    A selector written with the straight one (U+0027) matches nothing at all — which is
+    what "found 0 elements" meant in run 714, on a reel whose counter was on screen."""
+    set_active_locale("fr")
+    localized = [s for s in POST_SELECTORS.like_count_selectors if "aime" in s]
+    assert localized, "the FR locale must still contribute a localized like-count selector"
+    for selector in localized:
+        assert "'" not in selector and "’" not in selector, selector
 
 
 def test_sweep_all_ig_selectors_evaluate_under_every_locale():

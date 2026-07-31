@@ -13,6 +13,7 @@ phone, hashtag #esthétique, 31/07/2026).
 import pytest
 
 from taktik.core.social_media.instagram.ui.extractors import (
+    InstagramUIExtractors,
     count_from_counter_label,
     username_from_media_label,
 )
@@ -79,3 +80,56 @@ def test_a_dot_inside_a_username_is_not_the_end_of_the_sentence():
 @pytest.mark.parametrize("label", ["", None, "Photo", "Reel"])
 def test_no_author_when_the_label_says_nothing(label):
     assert username_from_media_label(label) is None
+
+
+class _Element:
+    def __init__(self, text=None, content_desc=None):
+        self.text = text
+        self.info = {'contentDescription': content_desc}
+        self.attrib = {'clickable': 'true'}
+
+
+class _DeviceServing:
+    """Device whose like-count selector returns `element`, every other selector nothing."""
+
+    def __init__(self, element):
+        self._element = element
+
+    def xpath(self, selector):
+        served = [self._element] if 'id/like_count' in selector else []
+
+        class _Query:
+            def all(self_inner):
+                return served
+
+        return _Query()
+
+
+def _finder_for(element):
+    return InstagramUIExtractors(_DeviceServing(element)).find_like_count_element()
+
+
+@pytest.mark.parametrize("label", [
+    # verbatim from run 714 (French phone, reel at 35 likes)
+    "Nombre de J’aime : 35. Voir les J’aime",
+    "Like number is35. View likes",
+    "Anzahl der „Gefällt mir“-Angaben: 35",
+])
+def test_the_likers_counter_is_recognised_whatever_the_language(label):
+    """The element is found by resource-id — language-neutral — but used to be VALIDATED
+    with an English sentence ('Like number is' / 'View likes'). On a French phone it was
+    therefore found, then rejected, and the likers popup never opened: run 714 stopped
+    right there, on a reel whose 35 likes had been read correctly two log lines earlier."""
+    assert _finder_for(_Element(text=label, content_desc=label)) is not None
+
+
+def test_a_counter_with_no_number_is_not_a_likers_entry_point():
+    """The like BUTTON also carries a "J'aime" label. Clicking it would like the post
+    instead of opening the list — the number is what separates the two."""
+    assert _finder_for(_Element(content_desc="J’aime")) is None
+    assert _finder_for(_Element(content_desc="Nombre de J’aime : 0. Voir les J’aime")) is None
+
+
+def test_a_bare_number_still_works_on_a_regular_post():
+    """Post detail exposes the count as plain text ("35"), not as a sentence."""
+    assert _finder_for(_Element(text="35")) is not None

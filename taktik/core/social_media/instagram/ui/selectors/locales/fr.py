@@ -628,8 +628,15 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[contains(@content-desc, 'aime')]",
         "//android.widget.ImageView[contains(@content-desc, 'aime')]",
     ],
+    # L'app rend l'apostrophe TYPOGRAPHIQUE (U+2019) : « Nombre de J’aime : 35 ». Ce
+    # selecteur cherchait l'apostrophe DROITE (U+0027) et ne matchait donc jamais rien
+    # (run 714 : « found 0 elements » sur un reel dont le compteur etait a l'ecran). On
+    # matche desormais autour de l'apostrophe. « Nombre de » + « aime » reste le
+    # COMPTEUR : il exclut « Nombre de commentaires » (pas de "aime"), le bouton J'aime
+    # et l'etat « Je n'aime plus » (pas de "Nombre de") — un consommateur clique cette
+    # liste sans la valider, donc elargir a "aime" seul liquerait le post.
     "post.like_count_selectors": [
-        "//*[contains(@content-desc, \"J'aime\")]",
+        "//*[contains(@content-desc, \"Nombre de \") and contains(@content-desc, \"aime\")]",
     ],
     "post.liked_by_selectors": [
         "//*[starts-with(@text, \"Aimé par\")]",

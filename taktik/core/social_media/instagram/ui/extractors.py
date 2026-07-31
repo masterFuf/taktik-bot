@@ -287,11 +287,24 @@ class InstagramUIExtractors:
                         
                         logger_to_use.debug(f"Checking element - text: '{text}', content-desc: '{content_desc}' (clickable: {element.attrib.get('clickable', 'unknown')})")
                         
+                        # Cas 1 : le libelle EST le nombre ("35"), sur les posts classiques.
                         if text and self.is_like_count_text(text):
                             logger_to_use.info(f"✅ Valid like counter found (post): {selector} (text: '{text}')")
                             return element
-                        elif content_desc and ('Like number is' in content_desc or 'View likes' in content_desc):
-                            logger_to_use.info(f"✅ Valid like counter found (Reel): {selector} (content-desc: '{content_desc}')")
+
+                        # Cas 2 : le nombre est noye dans une phrase, sur les reels. Le
+                        # SELECTEUR designe deja le compteur de likes (resource-id `like_count`
+                        # ou `..._facepile`, premier bouton de la rangee, libelle localise) : il
+                        # ne reste qu'a verifier qu'il porte bien un NOMBRE. Cette verification
+                        # etait ecrite en anglais ('Like number is' / 'View likes'), donc sur un
+                        # telephone francais — content-desc « Nombre de J'aime : 35. Voir les
+                        # J'aime » — l'element etait TROUVE puis rejete, et la liste des likers
+                        # ne s'ouvrait jamais : le run 714 s'est arrete la, sur un reel a 35
+                        # likes deja lus correctement deux lignes plus haut.
+                        label = content_desc or text
+                        count = count_from_counter_label(label) if label else None
+                        if count:  # 0 comme None : rien a ouvrir, meme regle que is_like_count_text
+                            logger_to_use.info(f"✅ Valid like counter found ({count} likes): {selector} (label: '{label}')")
                             return element
                     except Exception as e:
                         logger_to_use.debug(f"Error checking element: {e}")
