@@ -103,6 +103,10 @@ def _build_action_config(
             "skip_suggested": feed_config.get("skipSuggested", True),
             "read_captions": feed_config.get("readCaptions", True),
             "browse_carousels": feed_config.get("browseCarousels", True),
+            # Recolte des PUBLICITES croisees pendant le run. Le crawl reconnait deja les
+            # posts sponsorises pour les eviter ; active, il les enregistre au passage au
+            # lieu de jeter cette reconnaissance. OFF par defaut, aucune pub n'est ouverte.
+            "capture_ads": bool(feed_config.get("captureAds", False)),
             # Mode "follow des suggestions" : quand le carousel "Suggested for you"
             # apparait dans le feed, ouvrir "See all" et follow en masse depuis
             # Discover people. OFF par defaut ; ni follow-back ni demandes de suivi.

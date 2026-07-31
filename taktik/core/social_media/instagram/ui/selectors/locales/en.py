@@ -373,9 +373,14 @@ STRINGS: Dict[str, List[str]] = {
     "feed.reel_indicators": [
         "//*[contains(@content-desc, \"Reel by\")]",
     ],
+    # "Ad" is matched EXACTLY, never by containment: `contains(@text, "Ad")` also matches
+    # "Add to story" — which sits in the feed's own story tray — plus every user called
+    # Adam and the "Ads you might like" unit. On an English phone that marked a normal post
+    # as sponsored and skipped it. The label itself is a standalone word, so equality is
+    # both correct and sufficient; "Sponsored" is discriminating enough to keep as contains.
     "feed.sponsored_indicators": [
         "//*[contains(@text, \"Sponsored\")]",
-        "//*[contains(@text, \"Ad\")]",
+        "//*[@text=\"Ad\"]",
     ],
     # --- hashtag ---
     "hashtag.hashtag_header": [

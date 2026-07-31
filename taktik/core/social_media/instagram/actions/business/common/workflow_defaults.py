@@ -104,6 +104,12 @@ FEED_DEFAULTS: Dict[str, Any] = {
     'read_captions': True,
     'browse_carousels': True,
     'like_posts_directly': True,
+    # Recolte des PUBLICITES croisees pendant le run (OFF par defaut). Le crawl reconnait
+    # deja les posts sponsorises pour les eviter ; active, il les capture au passage
+    # (capture d'ecran recadree, annonceur, texte, empreinte visuelle) au lieu de jeter
+    # cette reconnaissance. Aucune pub n'est ouverte : taper dessus signalerait de
+    # l'interet au classement, et n'apporte rien a la lecture qui compte.
+    'capture_ads': False,
     'min_post_likes': 0,
     'max_post_likes': 0,
     # --- Mode "follow des suggestions" (OFF par defaut) ---

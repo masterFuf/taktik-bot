@@ -16,7 +16,7 @@ the centralized `FeedScrollSelectors`; the humanized gesture/dwell toolkit lives
 import re
 import time
 import random
-from typing import Optional, Dict, Any, List
+from typing import Callable, Optional, Dict, Any, List
 from lxml import etree
 
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
@@ -375,7 +375,8 @@ class FeedScrollMixin(PostReadingMixin):
         return done
 
     def scroll_feed_to_next_post(self, max_gestures: int = 3, skip_ads: bool = True,
-                                 skip_suggested: bool = True, max_ad_skips: int = 2) -> Dict[str, Any]:
+                                 skip_suggested: bool = True, max_ad_skips: int = 2,
+                                 on_ad: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
         """ONE decisive human gesture that reveals the next post — never a burst of mini-flicks.
 
         Why this shape (proven by measuring real Lab dumps + a multi-agent analysis, iteration
@@ -404,6 +405,13 @@ class FeedScrollMixin(PostReadingMixin):
         1:1 drag.
         If we land on a Sponsored ad and `skip_ads`, we advance straight past it (smooth) without
         framing/reading it. Off-feed → targeted recovery.
+
+        `on_ad` is called with the current anchors at the ONE moment an ad is both identified
+        and still on screen — right before the flick that erases it. This layer stays dumb: it
+        reports "an ad, now" and the caller decides whether that is worth anything (the feed
+        workflow's opt-in capture). It is called once per ad actually skipped, so a caller
+        counting encounters counts them exactly; anything it raises is swallowed, because a
+        side effect must never break the crawl it observes.
         Returns {advanced, on_feed, on_reel, mode, land_ratio, corrected, reveal, full_post,
         metadata_visible, is_ad, ads_skipped, surface, gestures, dumps, advance_decision,
         framing_decision}."""
@@ -482,6 +490,11 @@ class FeedScrollMixin(PostReadingMixin):
                         break
                     if is_ad:
                         ads_skipped += 1
+                        if on_ad is not None:
+                            try:
+                                on_ad(anchors)
+                            except Exception as exc:
+                                self.logger.debug(f"on_ad callback failed: {exc}")
                     else:
                         sugg_skipped += 1
                 else:                                  # didn't advance (video-stuck) — retry a flick

@@ -47,7 +47,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             'likes_count_button': self._feed_sel.likes_count_button,
         }
     
-    def _advance_to_next_post(self, skip_ads: bool, skip_suggested: bool) -> Dict[str, Any]:
+    def _advance_to_next_post(self, skip_ads: bool, skip_suggested: bool,
+                              on_ad=None) -> Dict[str, Any]:
         """One human advance to the next real post via the shared crawl.
 
         Replaces the old fixed ~50% swipe (`_scroll_to_next_post`): a decisive flick/drag
@@ -55,10 +56,13 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
         frames the post at the top. Returns the scroll result dict (`on_feed`, `filler_run`,
         `ads_skipped`, `suggested_skipped`, ...); on error a safe off-feed result so the
         caller stops cleanly.
+
+        `on_ad` (opt-in) is handed straight to the crawl, which calls it while a sponsored
+        post is still on screen — see `ad_capture`.
         """
         try:
             return self.scroll_actions.scroll_feed_to_next_post(
-                skip_ads=skip_ads, skip_suggested=skip_suggested
+                skip_ads=skip_ads, skip_suggested=skip_suggested, on_ad=on_ad
             )
         except Exception as e:
             self.logger.debug(f"Feed advance error: {e}")
@@ -149,6 +153,20 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 min_likes = effective_config.get('min_post_likes', 0)
                 max_likes = effective_config.get('max_post_likes', 0)
                 filler_streak = 0
+
+                # Ad harvesting (opt-in). The crawl already recognises sponsored posts to
+                # skip them; this keeps what it recognised instead of throwing it away.
+                # Built once per run, and only when asked — the callback stays None
+                # otherwise, so the crawl behaves exactly as before.
+                on_ad = None
+                if effective_config.get('capture_ads', False):
+                    from .ad_capture import make_ad_capturer
+                    on_ad = make_ad_capturer(
+                        self.device,
+                        account_id=getattr(self.automation, 'active_account_id', None)
+                        if self.automation else None,
+                    )
+                    self.logger.info("Ad capture: ON (sponsored posts met will be recorded)")
 
                 # Mode "follow des suggestions" : on surveille l'apparition du carousel
                 # netego pendant le scroll pour partir follow en masse depuis Discover
@@ -284,7 +302,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     # never saw it and the pass never fired (QA 2026-07-27: the dump showed
                     # the carousel on screen while the run kept liking posts).
                     res = self._advance_to_next_post(
-                        skip_ads, skip_suggested and suggestion_passes_left <= 0
+                        skip_ads, skip_suggested and suggestion_passes_left <= 0,
+                        on_ad=on_ad,
                     )
                     stats['posts_skipped_ads'] += res.get('ads_skipped', 0)
                     stats['posts_skipped_suggested'] = (

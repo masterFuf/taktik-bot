@@ -280,5 +280,49 @@ class OcrService:
             ))
         return matches
 
+    @classmethod
+    def read_text(
+        cls,
+        image: ImageInput,
+        *,
+        min_confidence: float = 40.0,
+        lang: Optional[str] = None,
+        timeout_seconds: float = 5.0,
+    ) -> str:
+        """Every word tesseract recognises in the image, joined in reading order.
+
+        `locate` answers "where is this word?"; this answers "what does this picture say?".
+        An ad creative carries most of its message as text baked INTO the image, which no UI
+        dump can reach — that copy is exactly what makes a captured ad readable afterwards.
+
+        Returns "" when OCR is unavailable or nothing is legible: an empty read is a normal
+        outcome here, never an error.
+        """
+        command = cls._resolve_tesseract_cmd()
+        if command is None:
+            return ""
+        img = cls._load(image)
+        if img is None:
+            return ""
+        try:
+            tsv = cls._image_to_tsv(command, img, lang=lang, timeout_seconds=timeout_seconds)
+        except Exception as exc:
+            logger.debug(f"OCR read_text failed: {exc}")
+            return ""
+
+        words: List[str] = []
+        for row in csv.DictReader(io.StringIO(tsv), delimiter="	"):
+            raw = (row.get("text") or "").strip()
+            if not raw:
+                continue
+            try:
+                conf = float(row.get("conf") or -1)
+            except (TypeError, ValueError):
+                conf = -1.0
+            if conf < min_confidence:
+                continue
+            words.append(raw)
+        return " ".join(words)
+
 
 __all__ = ["OcrService", "TextMatch"]
