@@ -13,6 +13,7 @@ from ....atomic.navigation_actions import NavigationActions
 from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from .....ui.labels import is_friends_button
 from .models import UnfollowConfig, UnfollowStats
 
 
@@ -99,8 +100,10 @@ class UnfollowWorkflow:
                     btn_text = elem.text or ''
                     username = self._resolve_username(elem)
 
-                    # Skip mutual-follow ("Friends") if configured
-                    if 'Friends' in btn_text and not self.config.include_friends:
+                    # Skip mutual-follow ("Friends" / "Amis") if configured. The label was
+                    # hardcoded English, so on a French phone the option silently did
+                    # nothing and every mutual follow was unfollowed anyway.
+                    if is_friends_button(btn_text) and not self.config.include_friends:
                         self.stats.skipped_friends += 1
                         if self._on_skip:
                             self._on_skip(username)

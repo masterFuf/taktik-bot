@@ -4,6 +4,7 @@ import time
 from typing import List, Optional
 from datetime import datetime
 
+from taktik.core.shared.text import normalize_ui_label
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from .auto_reply_models import Conversation
 
@@ -111,6 +112,19 @@ class DMNavigationMixin:
         
         return conversations
 
+    def _is_presence_status(self, value: str) -> bool:
+        """Le texte est-il un STATUT de presence ("En ligne", "Active now") et non un pseudo ?
+
+        Le garde-fou testait `startswith("Active")` en dur : sur un telephone francais il ne
+        reconnaissait rien, et le statut etait renvoye comme nom de conversation. Les libelles
+        vivent maintenant dans la couche locale, et la comparaison normalise les deux cotes.
+        """
+        normalized = normalize_ui_label(value)
+        if not normalized:
+            return False
+        return any(normalized.startswith(normalize_ui_label(prefix))
+                   for prefix in DM_SELECTORS.presence_prefixes if prefix and prefix.strip())
+
     def _extract_username_from_thread(self, thread_element) -> Optional[str]:
         """Extraire le username d'un élément de thread."""
         try:
@@ -132,14 +146,14 @@ class DMNavigationMixin:
                 parts = content_desc.split(',')
                 if parts:
                     username = parts[0].strip()
-                    if username and not username.startswith("Active"):
+                    if username and not self._is_presence_status(username):
                         return username
             
             # Méthode 3: Fallback - chercher le premier TextView
             text_views = thread_element.child(**DM_SELECTORS.text_view_class_selector)
             if text_views.exists:
                 username = text_views.get_text()
-                if username and not username.startswith("Active"):
+                if username and not self._is_presence_status(username):
                     return username.strip()
                     
         except Exception as e:

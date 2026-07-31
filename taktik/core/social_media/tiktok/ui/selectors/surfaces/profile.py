@@ -88,6 +88,24 @@ class ProfileSelectors:
     def likes_count(self) -> List[str]:
         return L("profile.likes_count")
 
+    # Bare LABELS of the three profile stats, used to tell which value you are holding
+    # once the row has been paired by position. Read via `classify_profile_stat_label`.
+    @property
+    def stat_label_following(self) -> List[str]:
+        return L("profile.stat_label_following")
+
+    @property
+    def stat_label_followers(self) -> List[str]:
+        return L("profile.stat_label_followers")
+
+    @property
+    def stat_label_likes(self) -> List[str]:
+        return L("profile.stat_label_likes")
+
+    @property
+    def friends_button_labels(self) -> List[str]:
+        return L("profile.friends_button_labels")
+
     # === Bio ===
     bio: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[contains(@text, "For ") or contains(@text, "http")]',

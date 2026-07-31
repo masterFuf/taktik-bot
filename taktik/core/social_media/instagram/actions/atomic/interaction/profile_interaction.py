@@ -5,21 +5,16 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from ......shared.text import normalize_ui_label
 
 
 # Instagram renders a TYPOGRAPHIC apostrophe (U+2019) in "S'abonner"; our catalogues are typed
 # with the ASCII one. A plain substring test therefore never matched, and the row was skipped in
 # silence. Normalising both sides is the fix — never "just add the curly variant too", which only
-# moves the trap to the next label someone types.
-_APOSTROPHES = {'’': "'", 'ʼ': "'", '′': "'"}
-
-
-def _normalize_label(value: str) -> str:
-    """Lowercase, trim, and fold every apostrophe shape onto the ASCII one."""
-    text = (value or '').strip().lower()
-    for exotic, ascii_quote in _APOSTROPHES.items():
-        text = text.replace(exotic, ascii_quote)
-    return text
+# moves the trap to the next label someone types. The folding now lives in `shared/text.py` so
+# every label comparison shares it: it was MISSING in the notifications row matcher, where
+# "Bouton J'aime" consequently never matched what the device renders.
+_normalize_label = normalize_ui_label
 
 
 def classify_follow_state(text: str, selectors) -> Optional[str]:

@@ -75,3 +75,23 @@ def detect_text_language(text: Optional[str]) -> Optional[str]:
     if en_score >= 2 and en_score > fr_score * 1.5:
         return "en"
     return None
+
+
+# Every apostrophe shape an Android app can render, folded onto the ASCII one. Instagram and
+# TikTok render the TYPOGRAPHIC apostrophe (U+2019) in "S’abonner", "J’aime", "Don’t allow";
+# selector catalogues and label lists are typed with the ASCII one. A raw comparison therefore
+# never matched and the row was skipped IN SILENCE — no error, just nothing found.
+_APOSTROPHES = {"\u2019": "'", "\u02bc": "'", "\u2032": "'", "\u00b4": "'", "\u0060": "'"}
+
+
+def normalize_ui_label(value: Optional[str]) -> str:
+    """Fold a UI label to a comparable form: trimmed, lowercased, apostrophes unified.
+
+    Use this on BOTH sides of any comparison between a label we typed and a label the device
+    rendered. Normalising both sides is the fix; adding "the curly variant too" to a catalogue
+    only moves the trap to the next label someone types.
+    """
+    text = (value or "").strip().lower()
+    for exotic, ascii_quote in _APOSTROPHES.items():
+        text = text.replace(exotic, ascii_quote)
+    return text

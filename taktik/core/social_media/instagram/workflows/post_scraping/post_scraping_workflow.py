@@ -14,7 +14,6 @@ Internal structure (SRP split):
 - post_scraping_workflow.py — Orchestrator (this file)
 """
 
-import re
 import time
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -27,9 +26,11 @@ from taktik.core.social_media.instagram.actions.atomic.navigation import Navigat
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.database.local.service import get_local_database
+from taktik.core.shared.text import normalize_ui_label
+from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
-    POST_GRID_SELECTORS,
 )
 
 # Re-export models for backward compatibility
@@ -39,6 +40,31 @@ from .post_persistence import PostPersistenceMixin
 
 
 console = Console()
+
+
+def _classify_action_button(content_desc: str) -> Optional[str]:
+    """Name a post action-bar button: ``'like' | 'comment' | 'share' | 'save' | None``.
+
+    Both sides normalised (case, spacing, apostrophe shapes) and compared against the
+    locale catalogue instead of hardcoded English words.
+    """
+    text = normalize_ui_label(content_desc)
+    if not text:
+        return None
+
+    def _has(labels) -> bool:
+        return any(normalize_ui_label(lbl) in text
+                   for lbl in (labels or []) if lbl and lbl.strip())
+
+    if _has(BUTTON_SELECTORS.action_label_like):
+        return 'like'
+    if _has(BUTTON_SELECTORS.action_label_comment):
+        return 'comment'
+    if _has(BUTTON_SELECTORS.action_label_share):
+        return 'share'
+    if _has(BUTTON_SELECTORS.action_label_save):
+        return 'save'
+    return None
 
 
 class PostScrapingWorkflow(
@@ -191,17 +217,17 @@ class PostScrapingWorkflow(
             if author_elem.exists:
                 author = author_elem.get_text() or ""
             
-            # Try to get stats from carousel content-desc
-            carousel = self.device.xpath(POST_GRID_SELECTORS.carousel_indicators[2])
-            if carousel.exists:
-                desc = carousel.info.get('contentDescription', '')
-                # Parse "Photo X of Y by Author, N likes, M comments"
-                match = re.search(r'(\d+)\s*likes?,\s*(\d+)\s*comments?', desc)
-                if match:
-                    likes = int(match.group(1))
-                    comments = int(match.group(2))
-            
-            # Get individual counts from buttons
+            # Likes / comments: the SHARED extractors, which read the number and ignore the
+            # sentence around it. This used to be a regex on the carousel content-desc
+            # ("N likes, M comments") written in English only, so on a French phone both
+            # counts stayed at zero — the same trap that stopped the hashtag workflow.
+            extractors = InstagramUIExtractors(self.device)
+            likes = extractors.extract_likes_count_from_ui() or 0
+            comments = extractors.extract_comments_count_from_ui() or 0
+
+            # Shares / saves have no dedicated extractor: they are read positionally, from
+            # the counter that FOLLOWS an action button. Naming that button is the only
+            # language-dependent step, and it now goes through the locale catalogue.
             buttons = self.device.xpath(POST_DETAIL_SELECTORS.all_button_nodes_selector).all()
             for i, btn in enumerate(buttons):
                 text = btn.get_text() if hasattr(btn, 'get_text') else ''
@@ -210,13 +236,14 @@ class PostScrapingWorkflow(
                     # Check previous button to determine type
                     if i > 0:
                         prev_desc = buttons[i-1].info.get('contentDescription', '')
-                        if 'Like' in prev_desc and likes == 0:
+                        action = _classify_action_button(prev_desc)
+                        if action == 'like' and likes == 0:
                             likes = count
-                        elif 'Comment' in prev_desc and comments == 0:
+                        elif action == 'comment' and comments == 0:
                             comments = count
-                        elif 'Send' in prev_desc or 'Share' in prev_desc:
+                        elif action == 'share':
                             shares = count
-                        elif 'Save' in prev_desc:
+                        elif action == 'save':
                             saves = count
             
             # Get caption

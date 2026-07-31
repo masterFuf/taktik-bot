@@ -43,7 +43,7 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.ImageView[@content-desc=\"Instagram from Meta\"]",
     ],
     "auth.location_permission_dialog": [
-        "//*[contains(@text, \"Allow Instagram to access this device's location\")]",
+        "//*[(contains(@text, \"Allow Instagram to access this device's location\") or contains(@text, \"Allow Instagram to access this device’s location\"))]",
     ],
     "auth.log_into_another_account_button": [
         "//android.widget.Button[@content-desc=\"Log into another account\"]",
@@ -127,6 +127,23 @@ STRINGS: Dict[str, List[str]] = {
     "button.save_button": [
         "//*[contains(@content-desc, \"Save\")]",
     ],
+    # Bare LABELS of a post action bar's buttons (not xpaths). Post scraping identifies a
+    # counter by the button PRECEDING it, and used to read that button with hardcoded
+    # English, so shares and saves came back as zero in every other language. Compared
+    # through `normalize_ui_label` (apostrophe shapes folded).
+    "button.action_label_like": [
+        "Like",
+    ],
+    "button.action_label_comment": [
+        "Comment",
+    ],
+    "button.action_label_share": [
+        "Send",
+        "Share",
+    ],
+    "button.action_label_save": [
+        "Save",
+    ],
     "button.share_button": [
         "//*[contains(@content-desc, \"Share\")]",
     ],
@@ -187,7 +204,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"No more suggestions\")]",
         "//*[contains(@text, \"End of list\")]",
         "//*[contains(@text, \"No more\")]",
-        "//*[contains(@text, \"That's all\")]",
+        "//*[(contains(@text, \"That's all\") or contains(@text, \"That’s all\"))]",
     ],
     "detection.error_message_indicators": [
         "//*[contains(@text, \"Error\")]",
@@ -305,6 +322,14 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.inbox_top_visible_texts": [
         "Search or ask Meta AI",
         "Search",
+    ],
+    # PRESENCE prefixes: in a thread row the first content-desc segment is not always the
+    # username — when the contact is online the row opens with their status instead. This
+    # guard used to know only the English form, so other languages returned the STATUS as
+    # the conversation name.
+    "direct_message.presence_prefixes": [
+        "Active",
+        "Online",
     ],
     "direct_message.new_message_button": [],
     "direct_message.outgoing_digest_prefixes": [],
@@ -867,7 +892,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"No more suggestions\")]",
         "//*[contains(@text, \"End of list\")]",
         "//*[contains(@text, \"No more\")]",
-        "//*[contains(@text, \"That's all\")]",
+        "//*[(contains(@text, \"That's all\") or contains(@text, \"That’s all\"))]",
     ],
     "scroll.load_more_selectors": [
         "//*[contains(@text, \"See more\")]",

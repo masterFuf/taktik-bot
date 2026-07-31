@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional
 
 from ....core.utils import parse_count, extract_resource_id
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from .....ui.labels import classify_profile_stat_label
 
 
 def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict[str, Any]]:
@@ -63,12 +64,15 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
                         count_text = stat_counts[i].get_text() or '0'
                         label_text = stat_labels[i].get_text() or ''
                         count = parse_count(count_text)
-                        label_lower = label_text.lower()
-                        if 'following' in label_lower:
+                        # Same classification as `profile_actions` — shared, and localized:
+                        # comparing against English words made every count zero on a
+                        # French phone, with no error to show for it.
+                        stat = classify_profile_stat_label(label_text)
+                        if stat == 'following':
                             data['following_count'] = count
-                        elif 'follower' in label_lower:
+                        elif stat == 'followers':
                             data['followers_count'] = count
-                        elif 'like' in label_lower:
+                        elif stat == 'likes':
                             data['likes_count'] = count
                     except Exception:
                         pass

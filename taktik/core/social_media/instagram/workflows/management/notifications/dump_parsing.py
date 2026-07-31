@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .classifier import classify_row, clean_label, extract_time, row_has_action
 from .classifier import _TRUNCATION_RE
 from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
+from ......shared.text import normalize_ui_label
 
 
 def _iter_rows(root, bare_id: str):
@@ -117,14 +118,19 @@ def _find_row_control(
     — not DOM nesting — is the robust strategy. With an empty ``username`` the first
     row that owns a matching control is returned. Exact match avoids near-misses
     (e.g. "Unlike button" must NOT match "Like button").
+
+    Both sides go through ``normalize_ui_label``: the device renders "Bouton J'aime" with a
+    TYPOGRAPHIC apostrophe while the catalogue is typed with the ASCII one, so a raw exact
+    match found nothing at all — silently, since "no control on this row" is a legitimate
+    outcome that reads the same as "I could not recognise the control".
     """
-    wanted = {v.strip().lower() for v in values if v and v.strip()}
+    wanted = {normalize_ui_label(v) for v in values if v and v.strip()}
     if not wanted:
         return None
     controls: List[Tuple[Tuple[int, int], float]] = []
     for node in root.iter("node"):
         for attr in attrs:
-            val = (node.get(attr) or "").strip().lower()
+            val = normalize_ui_label(node.get(attr))
             if val and val in wanted:
                 box = parse_bounds(node.get("bounds", ""))
                 if box:

@@ -11,6 +11,7 @@ from ...core.base_action import BaseAction
 from ...core.utils import parse_count
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from ....ui.labels import classify_profile_stat_label
 
 
 @dataclass
@@ -127,19 +128,23 @@ class ProfileActions(BaseAction):
                 try:
                     # XMLElement uses .text property, not .get_text() method
                     label_text = label_elem.text or ''
-                    label_lower = label_text.lower()
-                    
+
                     if i < len(stat_values):
                         value_text = stat_values[i].text or '0'
                         count = parse_count(value_text)
-                        
-                        if 'following' in label_lower:
+
+                        # Which of the three stats is this? The row is paired by position
+                        # (language-neutral resource-ids), but the ANSWER is in the label —
+                        # and it used to be compared against English words, so a French
+                        # profile reported zero followers, following AND likes in silence.
+                        stat = classify_profile_stat_label(label_text)
+                        if stat == 'following':
                             following_count = count
                             logger.debug(f"Found following: {count}")
-                        elif 'follower' in label_lower:
+                        elif stat == 'followers':
                             followers_count = count
                             logger.debug(f"Found followers: {count}")
-                        elif 'like' in label_lower:
+                        elif stat == 'likes':
                             likes_count = count
                             logger.debug(f"Found likes: {count}")
                 except Exception as e:

@@ -310,7 +310,7 @@ STRINGS: Dict[str, List[str]] = {
     "popup.system_deny_button": [
         "//*[@text=\"DENY\"][@clickable=\"true\"]",
         "//*[@text=\"Deny\"][@clickable=\"true\"]",
-        "//*[@text=\"Don't allow\"][@clickable=\"true\"]",
+        "//*[(@text=\"Don't allow\" or @text=\"Don’t allow\")][@clickable=\"true\"]",
         "//*[@text=\"No\"][@clickable=\"true\"]",
     ],
     # --- profile ---
@@ -347,6 +347,24 @@ STRINGS: Dict[str, List[str]] = {
     "profile.likes_count": [
         "//*[contains(@resource-id, \":id/qfv\")][@text=\"Likes\"]/..//*[contains(@resource-id, \":id/qfw\")]",
         "//android.widget.TextView[@text=\"Likes\"]/preceding-sibling::android.widget.TextView",
+    ],
+    # Bare LABELS (not xpaths): the profile stat row is paired by POSITION (qfv/qfw
+    # resource-ids), but telling WHICH of the three values you hold means reading its
+    # label. That classification used to be hardcoded English, so a French TikTok
+    # reported zero for all three counts. Order matters in the caller: following
+    # before followers, since one contains the other.
+    "profile.stat_label_following": [
+        "Following",
+    ],
+    "profile.stat_label_followers": [
+        "Followers",
+    ],
+    "profile.stat_label_likes": [
+        "Likes",
+    ],
+    # Bare LABEL of a MUTUAL follow button (the unfollow workflow can skip those).
+    "profile.friends_button_labels": [
+        "Friends",
     ],
     "profile.privacy_blocked_message": [
         "//*[contains(@text, \"Cannot send message\")]",

@@ -22,7 +22,7 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@content-desc, \"Mot de passe\")]",
     ],
     "auth.username_field": [
-        "//android.widget.EditText[contains(@content-desc, \"E-mail ou nom d'utilisateur\")]",
+        "//android.widget.EditText[(contains(@content-desc, \"E-mail ou nom d'utilisateur\") or contains(@content-desc, \"E-mail ou nom d’utilisateur\"))]",
     ],
     # --- comment ---
     "comment.comment_input": [
@@ -73,7 +73,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@text=\"Activité\"]",
     ],
     "inbox.activity_status": [
-        "//*[contains(@content-desc, \"Statut d'activité\")]",
+        "//*[(contains(@content-desc, \"Statut d'activité\") or contains(@content-desc, \"Statut d’activité\"))]",
     ],
     "inbox.add_people_button": [
         "//android.widget.ImageView[@content-desc=\"Ajouter des personnes\"]",
@@ -215,6 +215,24 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Vidéos aimées\")]",
     ],
     "profile.likes_count": [],
+    # LIBELLES bruts (pas des xpaths) : la ligne de stats du profil est appariee par
+    # POSITION (resource-id qfv/qfw), mais dire LAQUELLE des trois valeurs on tient
+    # demande de lire son libelle. Ce classement etait ecrit en anglais dans le code
+    # ("following" / "follower" / "like"), donc sur un TikTok francais les TROIS
+    # compteurs restaient a zero. Ordre porteur cote code : abonnements avant abonnes.
+    "profile.stat_label_following": [
+        "Abonnements",
+    ],
+    "profile.stat_label_followers": [
+        "Abonnés",
+    ],
+    "profile.stat_label_likes": [
+        "J'aime",
+    ],
+    # LIBELLE brut du bouton d'un abonnement MUTUEL (le workflow unfollow peut le sauter).
+    "profile.friends_button_labels": [
+        "Amis",
+    ],
     "profile.privacy_blocked_message": [],
     "profile.private_indicator": [],
     "profile.private_videos_tab": [
@@ -316,7 +334,7 @@ STRINGS: Dict[str, List[str]] = {
     "search.view_all_button": [],
     # --- signup ---
     "signup.back_button": [
-        "//android.widget.Button[@content-desc=\"Retour à l'écran précédent\"]",
+        "//android.widget.Button[(@content-desc=\"Retour à l'écran précédent\" or @content-desc=\"Retour à l’écran précédent\")]",
     ],
     "signup.birthday_continue_button": [
         "//android.widget.Button[@text=\"Continuer\"]",
@@ -341,7 +359,7 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[contains(@text, \"anniversaire\")]",
     ],
     "signup.birthday_year_picker": [
-        "//android.widget.SeekBar[@content-desc=\"Sélecteur de l'année\"]",
+        "//android.widget.SeekBar[(@content-desc=\"Sélecteur de l'année\" or @content-desc=\"Sélecteur de l’année\")]",
     ],
     "signup.continue_button": [
         "//android.widget.Button[@text=\"Continuer\"]",
@@ -468,20 +486,20 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "video_state.subscribe_button": [],
     "video_state.unlike_indicator": [
-        "//*[contains(@content-desc, \"Retirer\") and contains(@content-desc, \"J'aime\")]",
-        "//*[contains(@content-desc, \"Supprimer\") and contains(@content-desc, \"J'aime\")]",
+        "//*[contains(@content-desc, \"Retirer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
+        "//*[contains(@content-desc, \"Supprimer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
     "video_state.user_followed_indicator": [],
     "video_state.video_already_liked": [
-        "//*[contains(@content-desc, \"Retirer\") and contains(@content-desc, \"J'aime\")]",
-        "//*[contains(@content-desc, \"Supprimer\") and contains(@content-desc, \"J'aime\")]",
+        "//*[contains(@content-desc, \"Retirer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
+        "//*[contains(@content-desc, \"Supprimer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
     "video_state.video_favorited_indicator": [
         "//*[contains(@content-desc, \"Retirer des favoris\")]",
     ],
     "video_state.video_liked_indicator": [
-        "//*[contains(@content-desc, \"Retirer\") and contains(@content-desc, \"J'aime\")]",
-        "//*[contains(@content-desc, \"Supprimer\") and contains(@content-desc, \"J'aime\")]",
+        "//*[contains(@content-desc, \"Retirer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
+        "//*[contains(@content-desc, \"Supprimer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
     "video_state.video_page_indicator": [],
 }

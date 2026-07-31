@@ -115,10 +115,28 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Commentaire\")]",
     ],
     "button.like_button": [
-        "//*[contains(@content-desc, \"J'aime\")]",
+        "//*[(contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
     "button.save_button": [
         "//*[contains(@content-desc, \"Ajouter aux enregistrements\")]",
+    ],
+    # LIBELLES bruts des boutons de la barre d'action d'un post (PAS des xpaths). Le
+    # scraping de post identifie un compteur par le bouton qui le PRECEDE, et lisait ce
+    # bouton avec des mots anglais en dur : en francais, partages et enregistrements
+    # restaient donc a zero. Compares via `normalize_ui_label` (apostrophes repliees).
+    "button.action_label_like": [
+        "J'aime",
+    ],
+    "button.action_label_comment": [
+        "Commentaire",
+    ],
+    "button.action_label_share": [
+        "Envoyer la publication",
+        "Partager",
+    ],
+    "button.action_label_save": [
+        "Ajouter aux enregistrements",
+        "Enregistrer",
     ],
     "button.share_button": [
         "//*[contains(@content-desc, \"Envoyer la publication\")]",
@@ -185,8 +203,8 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Ne plus aimer\")]",
     ],
     "detection.likes_count_selectors": [
-        "//*[contains(@content-desc, \"Nombre de J'aime\")]",
-        "//android.widget.TextView[contains(@text, \"J'aime\")]",
+        "//*[(contains(@content-desc, \"Nombre de J'aime\") or contains(@content-desc, \"Nombre de J’aime\"))]",
+        "//android.widget.TextView[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
     "detection.limited_followers_indicators": [
         "//*[contains(@text, \"Nous limitons le nombre\")]",
@@ -276,6 +294,15 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.inbox_top_visible_texts": [
         "Rechercher",
     ],
+    # PREFIXES de statut de presence : dans une ligne de conversation, le premier segment
+    # du content-desc n'est PAS toujours le pseudo — quand le contact est en ligne, la
+    # ligne s'ouvre sur son statut. Ce garde-fou ne connaissait que la forme anglaise
+    # ("Active now"), donc en francais le STATUT etait renvoye comme nom de conversation.
+    "direct_message.presence_prefixes": [
+        "En ligne",
+        "Actif",
+        "Active",
+    ],
     "direct_message.new_message_button": [
         "//*[@content-desc=\"Créer une publicité Envoyer un message\"]",
     ],
@@ -311,10 +338,10 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Publier\")]",
     ],
     "feed.like_button": [
-        "//*[contains(@content-desc, \"J'aime\")]",
+        "//*[(contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
     "feed.likes_count_button": [
-        "//*[contains(@text, \"J'aime\")]",
+        "//*[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
     "feed.reel_indicators": [
         "//*[contains(@content-desc, \"Reel de\")]",
@@ -437,7 +464,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Suggestions pour vous\")]",
     ],
     "notification.follow_requests_section": [
-        "//*[contains(@text, \"Demandes d'abonnement\")]",
+        "//*[(contains(@text, \"Demandes d'abonnement\") or contains(@text, \"Demandes d’abonnement\"))]",
     ],
     "notification.comment_mention_text": [
         "//android.widget.TextView[contains(@text, \"a mentionné votre nom dans un commentaire\")]",
@@ -542,7 +569,7 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- popup ---
     "popup.automation_popup_indicators": [
-        "//android.widget.TextView[@text='J'aime']",
+        "//android.widget.TextView[(@text=\"J'aime\" or @text=\"J’aime\")]",
         "//android.widget.EditText[contains(@text, 'Rechercher')]",
         "//android.widget.ImageView[@content-desc='Fermer']",
         "//android.widget.Button[@text='Suivre']",
@@ -571,7 +598,7 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "popup.follow_suggestions_indicators": [],
     "popup.likers_popup_indicators": [
-        "//*[contains(@text, \"J'aime\")]",
+        "//*[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
         "//*[contains(@text, \"En commun\")]",
     ],
     "popup.not_now_selectors": [
@@ -592,10 +619,10 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- post ---
     "post.automation_like_count_selectors": [
-        "//android.widget.TextView[contains(@text, 'J'aime')]",
+        "//android.widget.TextView[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
     "post.automation_like_indicators": [
-        "//android.widget.TextView[contains(@text, 'J'aime') and (contains(@text, '1') or contains(@text, '2') or contains(@text, '3') or contains(@text, '4') or contains(@text, '5') or contains(@text, '6') or contains(@text, '7') or contains(@text, '8') or contains(@text, '9'))]",
+        "//android.widget.TextView[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\")) and (contains(@text, '1') or contains(@text, '2') or contains(@text, '3') or contains(@text, '4') or contains(@text, '5') or contains(@text, '6') or contains(@text, '7') or contains(@text, '8') or contains(@text, '9'))]",
     ],
     "post.automation_reel_specific_indicators": [
         "//android.widget.TextView[contains(@text, 'Audio original')]",
@@ -622,7 +649,7 @@ STRINGS: Dict[str, List[str]] = {
         "Copier le lien",
     ],
     "post.like_button_advanced_selectors": [
-        "//*[contains(@content-desc, \"J'aime\")][@clickable=\"true\"]",
+        "//*[(contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))][@clickable=\"true\"]",
     ],
     "post.like_button_indicators": [
         "//android.widget.Button[contains(@content-desc, 'aime')]",
@@ -642,23 +669,23 @@ STRINGS: Dict[str, List[str]] = {
         "//*[starts-with(@text, \"Aimé par\")]",
     ],
     "post.likes_count_click_selectors": [
-        "//*[contains(@text, \"J'aime\")]",
+        "//*[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
     "post.next_post_button_selectors": [],
     "post.photo_comment_selectors": [
         "//*[@resource-id=\"com.instagram.android:id/row_feed_photo_imageview\" and contains(@content-desc, \"commentaire\")]",
-        "//*[contains(@content-desc, \"J'aime\") and contains(@content-desc, \"commentaire\")]",
+        "//*[(contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\")) and contains(@content-desc, \"commentaire\")]",
     ],
     "post.photo_like_selectors": [
-        "//*[@resource-id=\"com.instagram.android:id/row_feed_photo_imageview\" and contains(@content-desc, \"J'aime\")]",
-        "//*[contains(@content-desc, \"J'aime\") and contains(@content-desc, \"commentaire\")]",
+        "//*[@resource-id=\"com.instagram.android:id/row_feed_photo_imageview\" and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
+        "//*[(contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\")) and contains(@content-desc, \"commentaire\")]",
     ],
     "post.post_comment_button_selectors": [
         "//*[@text=\"Publier\" and @clickable=\"true\"]",
         "//*[contains(@content-desc, \"Publier\") and @clickable=\"true\"]",
     ],
     "post.post_detail_indicators": [
-        "//*[@content-desc=\"J'aime\"]",
+        "//*[(@content-desc=\"J'aime\" or @content-desc=\"J’aime\")]",
         "//*[@content-desc=\"Commenter\"]",
         "//*[contains(@content-desc, \"aime\")]",
     ],
@@ -669,7 +696,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Reel de\")]",
     ],
     "post.reel_like_selectors": [
-        "//android.widget.TextView[contains(@text, \"J'aime\")]",
+        "//android.widget.TextView[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
     "post.reel_player_indicators": [
         "//*[@content-desc=\"Couper le son\"]",
@@ -692,7 +719,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"heure\")]",
     ],
     "post.username_extraction_selectors": [
-        "//android.widget.TextView[contains(@content-desc, \"nom d'utilisateur\")]",
+        "//android.widget.TextView[(contains(@content-desc, \"nom d'utilisateur\") or contains(@content-desc, \"nom d’utilisateur\"))]",
     ],
     "post.video_controls": [],
     "post.video_player_selectors": [
@@ -721,7 +748,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Compte basé\")]/android.view.View[2]",
     ],
     "profile.about_account_date_joined_value": [
-        "//*[contains(@content-desc, \"Date d'inscription\")]/android.view.View[2]",
+        "//*[(contains(@content-desc, \"Date d'inscription\") or contains(@content-desc, \"Date d’inscription\"))]/android.view.View[2]",
     ],
     "profile.about_account_page_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/action_bar_title\" and @text=\"À propos de ce compte\"]",

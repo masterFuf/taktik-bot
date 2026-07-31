@@ -198,5 +198,25 @@ class ButtonSelectors:
     def share_button(self) -> List[str]:
         return self._share_button_base + L("button.share_button")
 
+    # Bare LABELS (not xpaths) of the same four buttons, for the cases where a button is
+    # already in hand and the question is "which one is it?" — post scraping reads the
+    # counter that FOLLOWS an action button, so it has to name the button first.
+    @property
+    def action_label_like(self) -> List[str]:
+        return L("button.action_label_like")
+
+    @property
+    def action_label_comment(self) -> List[str]:
+        return L("button.action_label_comment")
+
+    @property
+    def action_label_share(self) -> List[str]:
+        return L("button.action_label_share")
+
+    @property
+    def action_label_save(self) -> List[str]:
+        return L("button.action_label_save")
+
+
 NAVIGATION_SELECTORS = NavigationSelectors()
 BUTTON_SELECTORS = ButtonSelectors()

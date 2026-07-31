@@ -87,6 +87,12 @@ class DirectMessageSelectors:
     @property
     def inbox_recommendation_texts(self) -> List[str]:
         return self._inbox_recommendation_texts_base + L("direct_message.inbox_recommendation_texts")
+
+    @property
+    def presence_prefixes(self) -> List[str]:
+        """Bare LABELS that open a thread row when the contact is online, instead of the
+        username. Used to reject a presence status read as a conversation name."""
+        return L("direct_message.presence_prefixes")
     text_view_class_name: str = "android.widget.TextView"
     image_view_class_name: str = "android.widget.ImageView"
     bottom_tab_resource_ids: List[str] = field(default_factory=lambda: [
