@@ -30,6 +30,53 @@ def _connect(device_id: str, package_name: str = None, *, restart: bool = True) 
     return bridge
 
 
+def _refresh_own_account(bridge: NotificationsBridge, account_username: str | None) -> str | None:
+    """Visit our OWN profile before reading the activity feed, then come back to the feed.
+
+    Two things fall out of a step the scan never took. First, the account's followers /
+    following / posts counts are re-read and written to the DB — the activity screen shows
+    none of them, so they aged for as long as no other workflow ran. Second, the owning
+    account is READ instead of assumed: the activity screen carries no account header, so
+    `account_username` is passed in by the front, and when it is missing the whole
+    persistence + dedup half is skipped in silence.
+
+    Returns the username to file this scan under (the caller's value wins when it has one,
+    so a front that already knows the account keeps deciding).
+
+    Coming back to the feed is not optional: the activity entry lives on the HOME screen.
+    Leaving Instagram on the profile page would make `ensure_notifications_screen` fail its
+    first attempt and recover by RESTARTING the app — the scan would still work, and would
+    quietly cost a relaunch every time. Best-effort throughout: refreshing a counter must
+    never cost the scan it rides in on.
+    """
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+
+    resolved = account_username
+    try:
+        emit_notif_step(step="own_profile", status="running", message="Refreshing your account")
+        profile = ProfileBusiness(bridge.device).get_complete_profile_info(
+            username=None, navigate_if_needed=True,
+        )
+        if profile and profile.get("username"):
+            resolved = account_username or profile["username"]
+            emit_notif_step(
+                step="own_profile", status="done",
+                message=f"@{profile['username']} — {profile.get('followers_count', 0)} followers",
+            )
+        else:
+            emit_notif_step(step="own_profile", status="failed", message="Could not read your profile")
+    except Exception as exc:
+        logger.warning(f"[NOTIF] Own-profile refresh skipped: {exc}")
+        emit_notif_step(step="own_profile", status="failed", message="Profile refresh skipped")
+    finally:
+        try:
+            NavigationActions(bridge.device).navigate_to_home()
+        except Exception as exc:
+            logger.warning(f"[NOTIF] Could not return to the feed after the profile visit: {exc}")
+    return resolved
+
+
 def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profiles: int,
                            account_username: str | None, ai_config: dict | None,
                            language: str) -> dict:
@@ -150,6 +197,10 @@ def cmd_scan(device_id: str, limit: int, account_username: str = None,
     for "Instagram drifted elsewhere or was closed since the scan".
     """
     bridge = _connect(device_id, package_name, restart=True)
+    # Our own profile FIRST: refreshes the account's counters (the activity screen shows
+    # none of them) and reads the owning account instead of trusting the caller for it.
+    # Leaves Instagram back on the feed, where the activity entry lives.
+    account_username = _refresh_own_account(bridge, account_username)
     # `limit` is interpreted as how many extra screens to scroll (0 = visible only).
     workflow = bridge.build_workflow()
     # Early-stop: recognise notifications already recorded for this account (loaded once) so the
