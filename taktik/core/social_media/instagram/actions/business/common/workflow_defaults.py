@@ -93,8 +93,19 @@ FEED_DEFAULTS: Dict[str, Any] = {
     'max_feed_story_profiles': 5,
     'feed_story_reaction_percentage': 0,
     'feed_story_reaction': 'laugh',
+    # ACQUISITION depuis le fil (OFF par defaut). Le workflow Feed a longtemps engage
+    # uniquement TON propre fil, sans jamais visiter de profil — ces trois cles etaient donc
+    # dans le catalogue sans qu'aucun code ne les lise. Elles agissent desormais :
+    #   interact_with_post_author — visiter l'auteur du post et interagir (c'est LA que
+    #     `follow_percentage` et `story_watch_percentage` prennent enfin un sens : un post
+    #     du fil n'a ni bouton Suivre ni anneau de story, le profil si)
+    #   interact_with_post_likers — ouvrir les likers du post et les parcourir
+    #   skip_reels — ne pas engager les reels du fil
+    # Des qu'une des deux premieres est active, les filtres de RELATION redeviennent
+    # pertinents : il y a alors une vraie decision d'acquisition a gater.
     'interact_with_post_author': False,
     'interact_with_post_likers': False,
+    'max_likers_per_post': 5,
     'skip_reels': False,
     'skip_ads': True,
     # Human crawl (browse_feed/scroll_feed_to_next_post) toggles — default ON so the

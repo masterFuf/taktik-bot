@@ -12,7 +12,7 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ....core.base_business import BaseBusinessAction
+from ..common.likers_base import LikersWorkflowBase
 from ....core.stats import create_workflow_stats
 from ....core.ipc import IPCEmitter
 from .post_actions import FeedPostActionsMixin
@@ -21,8 +21,14 @@ from .suggestions_visit import DiscoverSuggestionsVisitMixin
 
 
 class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
-                   FeedSuggestionsMixin, BaseBusinessAction):
-    """Business logic for interacting with users from the home feed."""
+                   FeedSuggestionsMixin, LikersWorkflowBase):
+    """Business logic for interacting with users from the home feed.
+
+    Base swapped from `BaseBusinessAction` to `LikersWorkflowBase`, which only ADDS the
+    likers-walking loop to the same class (checked: no method of it collides with the feed
+    mixins). That loop is what `interact_with_post_likers` needs, and re-implementing a
+    second one here is exactly the duplication this project keeps paying for.
+    """
 
     # Consecutive "filler" advances (only ads/suggestions) before the followed feed is
     # considered exhausted. Mirrors the human crawl's session policy (feed-scroll #25).
@@ -67,6 +73,77 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
         except Exception as e:
             self.logger.debug(f"Feed advance error: {e}")
             return {'on_feed': False}
+
+    def _engage_post_author(self, username: str, config: Dict[str, Any],
+                            stats: Dict[str, Any]) -> bool:
+        """Visit the author of the post we just engaged, interact, come back to the feed.
+
+        This is where `follow_percentage` and `story_watch_percentage` finally mean
+        something: both were in the catalogue and read by nobody, because the feed workflow
+        never left the feed. A feed post carries no Follow button and no story ring — the
+        author's PROFILE does, so reaching them requires the visit.
+
+        Delegates to `_perform_interactions_on_profile`, the same engine target, hashtag and
+        post_url use: probabilities, caps, telemetry and the AI hooks are shared rather than
+        re-implemented for the feed. Returns True when something was actually done.
+        """
+        try:
+            self.logger.info(f"👤 Visiting the post author @{username}")
+            if not self.nav_actions.navigate_to_profile(username):
+                self.logger.debug(f"Could not reach @{username}")
+                return False
+
+            profile_data = self.profile_business.get_complete_profile_info(
+                username, navigate_if_needed=False,
+            )
+            result = self._perform_interactions_on_profile(username, config, profile_data=profile_data)
+
+            stats['likes_made'] += result.get('likes', 0)
+            stats['follows_made'] = stats.get('follows_made', 0) + result.get('follows', 0)
+            stats['comments_made'] += result.get('comments', 0)
+            stats['stories_watched'] = stats.get('stories_watched', 0) + result.get('stories', 0)
+            stats['stories_liked'] = stats.get('stories_liked', 0) + result.get('stories_liked', 0)
+            return bool(result.get('actually_interacted'))
+        except Exception as exc:
+            self.logger.debug(f"Author engagement failed: {exc}")
+            return False
+        finally:
+            # Always hand the feed back: the loop's next advance assumes we are on it, and a
+            # crawl that starts from a profile page walks somebody else's posts.
+            try:
+                self.nav_actions.navigate_to_home()
+            except Exception as exc:
+                self.logger.debug(f"Could not return to the feed: {exc}")
+
+    def _engage_post_likers(self, config: Dict[str, Any], stats: Dict[str, Any]) -> None:
+        """Open the likers of the post on screen and walk them, then come back to the feed.
+
+        Same loop as the hashtag and post_url workflows (`_interact_with_likers_list`), which
+        is why this class now extends `LikersWorkflowBase`: the feed had no way to reach it,
+        and a second implementation of "walk a likers sheet" is exactly the duplication this
+        project keeps paying for.
+        """
+        try:
+            if not self._open_likers_popup(is_reel=self._is_reel_post()):
+                self.logger.debug("No likers sheet on this post")
+                return
+
+            budget = int(config.get('max_likers_per_post', 5) or 5)
+            self.logger.info(f"👥 Walking the post likers (up to {budget})")
+            self._interact_with_likers_list(
+                stats=stats,
+                effective_config={**config, 'source': 'feed'},
+                max_interactions=budget,
+                source_type='FEED',
+                source_name='feed',
+            )
+        except Exception as exc:
+            self.logger.debug(f"Likers engagement failed: {exc}")
+        finally:
+            try:
+                self.nav_actions.navigate_to_home()
+            except Exception as exc:
+                self.logger.debug(f"Could not return to the feed: {exc}")
 
     def interact_with_feed(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -152,6 +229,12 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 browse_carousels = effective_config.get('browse_carousels', True)
                 min_likes = effective_config.get('min_post_likes', 0)
                 max_likes = effective_config.get('max_post_likes', 0)
+                # Ces trois reglages existaient dans le catalogue sans qu'AUCUN code ne les
+                # lise : la page pouvait les envoyer, il ne se passait rien. Ils agissent
+                # desormais, et restent a leurs valeurs historiques par defaut.
+                skip_reels = effective_config.get('skip_reels', False)
+                visit_author = effective_config.get('interact_with_post_author', False)
+                visit_likers = effective_config.get('interact_with_post_likers', False)
                 filler_streak = 0
 
                 # Ad harvesting (opt-in). The crawl already recognises sponsored posts to
@@ -199,6 +282,13 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     if skip_ads and self._is_sponsored_post():
                         self.logger.debug("⏭️ Skipping sponsored post")
                         stats['posts_skipped_ads'] += 1
+                        process_post = False
+
+                    # Un reel se regarde, il ne se parcourt pas : l'operateur qui coche ceci
+                    # veut engager des posts, pas se faire happer par la visionneuse.
+                    if process_post and skip_reels and self._is_reel_post():
+                        self.logger.debug("⏭️ Skipping reel")
+                        stats['posts_skipped_reels'] = stats.get('posts_skipped_reels', 0) + 1
                         process_post = False
 
                     # Taktik Agent copilot: one feed card per real (non-ad) post.
@@ -268,6 +358,20 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         self.scroll_actions.human_reading_pause(
                             read_captions=read_captions, browse_carousels=browse_carousels
                         )
+
+                        # ACQUISITION depuis le fil (opt-in). Le workflow n'a longtemps
+                        # engage que ses propres posts ; ces deux modes le font sortir du
+                        # fil pour aller chercher des profils. Ils sont donc OFF par defaut,
+                        # et les filtres de RELATION redeviennent pertinents des qu'ils sont
+                        # actifs — contrairement au mode "j'aime mon fil", il y a ici une
+                        # vraie decision d'acquisition a gater.
+                        if visit_author and post_author:
+                            stats['users_interacted'] = stats.get('users_interacted', 0) + (
+                                1 if self._engage_post_author(post_author, effective_config, stats) else 0
+                            )
+
+                        if visit_likers:
+                            self._engage_post_likers(effective_config, stats)
 
                     # Copilot feed card (skip pure ad-skips, which leave feed_action None).
                     if feed_action is not None:

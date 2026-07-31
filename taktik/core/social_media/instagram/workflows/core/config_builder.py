@@ -107,6 +107,13 @@ def _build_action_config(
             # posts sponsorises pour les eviter ; active, il les enregistre au passage au
             # lieu de jeter cette reconnaissance. OFF par defaut, aucune pub n'est ouverte.
             "capture_ads": bool(feed_config.get("captureAds", False)),
+            # Acquisition depuis le fil : visiter l'auteur du post, parcourir ses
+            # likers, sauter les reels. Whitelist — sans ces entrees le reglage de la
+            # page n'atteint jamais le workflow.
+            "interact_with_post_author": bool(feed_config.get("interactWithPostAuthor", False)),
+            "interact_with_post_likers": bool(feed_config.get("interactWithPostLikers", False)),
+            "max_likers_per_post": int(feed_config.get("maxLikersPerPost", 5) or 5),
+            "skip_reels": bool(feed_config.get("skipReels", False)),
             # Mode "follow des suggestions" : quand le carousel "Suggested for you"
             # apparait dans le feed, ouvrir "See all" et follow en masse depuis
             # Discover people. OFF par defaut ; ni follow-back ni demandes de suivi.
