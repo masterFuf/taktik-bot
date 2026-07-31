@@ -596,6 +596,19 @@ def parse_number_from_text(text: str) -> int:
         return 0
 
 
+def post_signature(likes: Optional[int], comments: Optional[int], is_reel: bool) -> str:
+    """Cheap identity of the post on screen: like count + comment count + reel flag.
+
+    Instagram exposes no post id in the UI tree, so this triplet is what the bot uses to
+    answer "am I still on the same post?" — after a scroll, after reading a caption, after
+    a navigation that may not have moved. It lives here, next to the extractors that read
+    those counters, because two places were about to spell the same convention themselves:
+    the profile post sequence (`like/orchestration.py`) and the hashtag post viewer. Two
+    spellings would mean two answers to the same question the day one of them is changed.
+    """
+    return f"{likes}_{comments}_{is_reel}"
+
+
 def get_text_from_element(element) -> str:
 
     try:

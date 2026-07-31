@@ -1,7 +1,9 @@
 ﻿"""Post type detection, reel handling, grid detection for hashtag workflow."""
 
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+from taktik.core.social_media.instagram.ui.extractors import post_signature
 
 
 class HashtagPostDetectionMixin:
@@ -81,10 +83,72 @@ class HashtagPostDetectionMixin:
             self.logger.debug(f"Error checking elements: {e}")
             return False
     
-    def _swipe_to_next_post(self):
-        """Swipe vertical pour passer au post suivant (humanized controlled scroll)."""
+    # Escalating travel for one advance. A post is not a fixed height: a reel fills the
+    # screen, a photo with a long caption can exceed it, a short one takes half. Half a
+    # screen — the value this used to send blindly — lands back on the SAME post often
+    # enough to matter, so each retry pushes further instead of repeating what failed.
+    _NEXT_POST_RATIOS = (0.5, 0.8, 1.0)
+
+    def _current_post_signature(self) -> str:
+        """Identity of the post on screen — shared convention (`ui.extractors.post_signature`)."""
         try:
-            self.device.human_scroll("down", distance_ratio=0.5)
-            self.logger.debug("📜 Swiped to next post")
+            is_reel = self._is_reel_post()
+            return post_signature(
+                self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
+                self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel),
+                is_reel,
+            )
         except Exception as e:
-            self.logger.debug(f"Error swiping to next post: {e}")
+            self.logger.debug(f"Error reading post signature: {e}")
+            return ""
+
+    def _signature_of(self, metadata: Optional[Dict[str, Any]]) -> Optional[str]:
+        """Signature of a post whose counters were JUST read — no second UI dump."""
+        if not metadata:
+            return None
+        return post_signature(
+            metadata.get('likes_count'),
+            metadata.get('comments_count'),
+            metadata.get('is_reel', False),
+        )
+
+    def _swipe_to_next_post(self, known_signature: Optional[str] = None) -> bool:
+        """Advance to the next post — and CONFIRM the post actually changed.
+
+        This used to be a blind half-screen scroll that logged "swiped to next post"
+        whatever happened. When the travel was too short (reels, long captions), the
+        caller re-read the SAME post, found it already processed, scrolled again, and
+        burned its whole post budget on one post before opening the likers of a post it
+        had just rejected. Nothing in the logs said so — the swipe claimed success.
+
+        Returns True only when the post on screen is no longer the one we came from.
+
+        Args:
+            known_signature: signature of the current post if the caller already read it
+                (saves one UI dump per advance — this runs on every post).
+        """
+        before = known_signature if known_signature is not None else self._current_post_signature()
+
+        for attempt, ratio in enumerate(self._NEXT_POST_RATIOS, start=1):
+            try:
+                self.device.human_scroll("down", distance_ratio=ratio)
+            except Exception as e:
+                self.logger.debug(f"Error swiping to next post: {e}")
+                return False
+
+            time.sleep(1.2)
+            after = self._current_post_signature()
+
+            # An unreadable screen is not a proven arrival: treat it as "changed" only if
+            # we could read it. Otherwise the caller's own extraction decides.
+            if after and after != before:
+                self.logger.debug(f"📜 Next post reached (attempt {attempt}, ratio {ratio})")
+                return True
+
+            self.logger.debug(
+                f"📜 Still on the same post after scrolling {ratio} of the screen "
+                f"(attempt {attempt}/{len(self._NEXT_POST_RATIOS)})"
+            )
+
+        self.logger.warning("⚠️ Could not advance to the next post - end of list, or the viewer is stuck")
+        return False

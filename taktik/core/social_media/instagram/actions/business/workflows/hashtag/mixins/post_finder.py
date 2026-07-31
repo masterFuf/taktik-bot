@@ -65,9 +65,9 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                             # Swiper pour passer au suivant
                             posts_tested += 1
                             if posts_tested < max_attempts:
-                                # Humanized controlled advance to the next post (was fixed-centre).
-                                self.device.human_scroll("down", distance_ratio=0.62)
-                                time.sleep(3)
+                                if not self._swipe_to_next_post(known_signature=self._signature_of(metadata)):
+                                    self.logger.warning("Stopped searching: cannot reach the next post")
+                                    return None
                                 is_reel = self._is_reel_post()
                             continue
                         
@@ -91,13 +91,15 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                     self.logger.debug(f"Post #{posts_tested + 1}: unable to extract metadata")
                 
                 posts_tested += 1
-                
+
                 if posts_tested < max_attempts:
-                    # Humanized controlled advance to the next post (was fixed-centre swipe).
-                    self.device.human_scroll("down", distance_ratio=0.62)
-                    time.sleep(3)
+                    # Advance AND confirm we moved. Scrolling blind here meant re-reading the
+                    # same post up to `max_attempts` times and calling it "no valid post found".
+                    if not self._swipe_to_next_post(known_signature=self._signature_of(metadata)):
+                        self.logger.warning(f"Stopped searching after {posts_tested} post(s): cannot reach the next post")
+                        return None
                     is_reel = self._is_reel_post()
-            
+
             self.logger.warning(f"No valid post found after {max_attempts} attempts")
             return None
             

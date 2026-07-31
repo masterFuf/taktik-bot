@@ -15,6 +15,7 @@ from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAV
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.extractors import post_signature
 
 
 class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
@@ -258,14 +259,14 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     current_likes = self._extract_likes_count_from_ui(is_reel=is_reel)
                     current_comments = self._extract_comments_count_from_ui(is_reel=is_reel)
                     
-                    post_signature = f"{current_likes}_{current_comments}_{is_reel}"
-                    
-                    self.logger.debug(f"Extracted signature: {post_signature} | Already seen: {len(seen_posts_signatures)} posts")
-                    
-                    is_new_post = post_signature not in seen_posts_signatures
-                    
+                    signature = post_signature(current_likes, current_comments, is_reel)
+
+                    self.logger.debug(f"Extracted signature: {signature} | Already seen: {len(seen_posts_signatures)} posts")
+
+                    is_new_post = signature not in seen_posts_signatures
+
                     if is_new_post:
-                        seen_posts_signatures.add(post_signature)
+                        seen_posts_signatures.add(signature)
                         unique_posts_seen += 1
                         consecutive_identical_posts = 0
                         
@@ -273,7 +274,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         self.logger.info(f"{post_type} #{unique_posts_seen} UNIQUE (scroll #{posts_seen}) - {current_likes} likes, {current_comments} comments - Likes: {posts_liked}/{max_likes}")
                     else:
                         consecutive_identical_posts += 1
-                        self.logger.debug(f"Already seen post (signature: {post_signature}) - scroll #{consecutive_identical_posts}/6")
+                        self.logger.debug(f"Already seen post (signature: {signature}) - scroll #{consecutive_identical_posts}/6")
                         
                         if consecutive_identical_posts >= 6:
                             self.logger.warning(f"End of feed detected after {unique_posts_seen} unique posts - stopping scroll")
@@ -422,9 +423,11 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         act. Empty string if it can't be read."""
         try:
             is_reel = self._is_current_post_reel()
-            likes = self._extract_likes_count_from_ui(is_reel=is_reel)
-            comments = self._extract_comments_count_from_ui(is_reel=is_reel)
-            return f"{likes}_{comments}_{is_reel}"
+            return post_signature(
+                self._extract_likes_count_from_ui(is_reel=is_reel),
+                self._extract_comments_count_from_ui(is_reel=is_reel),
+                is_reel,
+            )
         except Exception:
             return ""
 

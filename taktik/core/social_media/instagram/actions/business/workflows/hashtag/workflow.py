@@ -33,7 +33,18 @@ class HashtagBusiness(
     def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None,
                                      finalize: bool = True) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
-        
+
+        # Le critère de likes arrive sous DEUX formes : à plat (`min_likes`, défauts du
+        # workflow) et imbriqué (`post_criteria`, ce qu'envoient le runner et la CLI). Les
+        # deux moitiés du workflow n'en lisaient pas la même : la recherche du premier post
+        # lisait la forme plate, la boucle de swipe la forme imbriquée. Tant que l'opérateur
+        # ne renseigne rien les deux valent 100-50000 et ça ne se voit pas ; dès qu'il fixe
+        # un seuil, un post accepté par la recherche est rejeté par la boucle — et le
+        # workflow tourne en rond. On résout ici, une fois, et tout le monde lit à plat.
+        post_criteria = effective_config.get('post_criteria') or {}
+        effective_config['min_likes'] = post_criteria.get('min_likes', effective_config.get('min_likes', 100))
+        effective_config['max_likes'] = post_criteria.get('max_likes', effective_config.get('max_likes', 50000))
+
         self.logger.info(f"Hashtag config received: {config}")
         self.logger.info(f"Hashtag config effective: max_interactions={effective_config.get('max_interactions', 'N/A')}")
         
@@ -69,7 +80,12 @@ class HashtagBusiness(
             valid_post = None
             post_metadata = None
             need_to_open_post = True  # Flag pour savoir si on doit ouvrir un post depuis la grille
-            
+            # Un post RETENU, pas simplement le dernier examiné. Sans ce drapeau, une boucle
+            # qui s'épuise (20 posts tous écartés) laissait `valid_post` renseigné : la garde
+            # plus bas ne voyait rien et le workflow ouvrait les likers d'un post qu'il venait
+            # de rejeter — celui-là même qu'il avait déjà traité il y a moins de 7 jours.
+            post_ready = False
+
             while posts_tried < max_posts_to_try:
                 # Ouvrir un post depuis la grille seulement si nécessaire
                 if need_to_open_post:
@@ -89,14 +105,14 @@ class HashtagBusiness(
                         'comments_count': comments_count,
                         'is_reel': is_reel
                     }
-                    # Vérifier si le post correspond aux critères
-                    min_likes = effective_config.get('post_criteria', {}).get('min_likes', 100)
-                    max_likes = effective_config.get('post_criteria', {}).get('max_likes', 50000)
+                    # Critères résolus une seule fois en tête de méthode (plate = source unique).
+                    min_likes = effective_config['min_likes']
+                    max_likes = effective_config['max_likes']
                     if not (min_likes <= likes_count <= max_likes):
                         self.logger.info(f"⏭️ Post has {likes_count} likes (criteria: {min_likes}-{max_likes}), swiping to next...")
-                        self._swipe_to_next_post()
-                        time.sleep(1.5)
                         posts_tried += 1
+                        if not self._swipe_to_next_post(known_signature=self._signature_of(valid_post)):
+                            break
                         continue
                 
                 posts_tried += 1
@@ -140,24 +156,32 @@ class HashtagBusiness(
                             )
                         except Exception as e:
                             self.logger.debug(f"Failed to send post_skipped: {e}")
-                        # Swiper verticalement pour passer au post suivant
-                        self._swipe_to_next_post()
-                        time.sleep(1.5)
+                        # Passer au post suivant — et s'arrêter si on n'y arrive pas, plutôt
+                        # que de re-lire le même post jusqu'à épuiser le budget.
+                        if not self._swipe_to_next_post(known_signature=self._signature_of(valid_post)):
+                            break
                         self._human_like_delay('navigation')
                         need_to_open_post = False  # On est déjà sur un post après le swipe
                         continue
                     else:
                         self.logger.info(f"✅ New post by @{post_metadata['author']} - proceeding with interactions")
                         stats['posts_selected'] += 1
+                        post_ready = True
                         break
                 else:
                     # Si on ne peut pas extraire les métadonnées, on continue quand même
                     self.logger.warning("⚠️ Could not extract post metadata, proceeding anyway")
                     stats['posts_selected'] += 1
+                    post_ready = True
                     break
-            
-            if not valid_post:
-                self.logger.warning("No unprocessed post found after trying multiple posts")
+
+            if not post_ready:
+                # `valid_post` peut être renseigné (le dernier post examiné) sans avoir été
+                # RETENU : ne pas ouvrir ses likers, c'est justement celui qu'on a écarté.
+                self.logger.warning(
+                    f"No unprocessed post found for #{hashtag} after {posts_tried} post(s) examined"
+                )
+                stats['stop_reason'] = 'no_new_post'
                 return stats
             
             validation_result = self._validate_hashtag_limits(valid_post, effective_config)
