@@ -60,16 +60,28 @@ def _safe_story_advance_zone(screen_width: int, screen_height: int, sticker: Opt
 class SearchNavigationMixin(BaseAction):
     """Mixin: navigate via search (profiles, hashtags) and content navigation (posts, stories, lists)."""
 
-    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 90, force_search: bool = False) -> bool:
+    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 0, force_search: bool = False) -> bool:
         """
         Navigate to a user's profile.
-        
+
+        Search FIRST, deep link only as a fallback. A deep link is not an app gesture: it is
+        an external ADB intent (`am start -a android.intent.action.VIEW -d
+        "https://www.instagram.com/<user>/"`), visible as such to the system and to the app —
+        no human has ever opened a profile that way. It used to be the default NINE times out
+        of ten, on every profile entry of every workflow. The search path is the one a person
+        takes and the one we already use for hashtags: search tab, search bar, typed query,
+        tap the result.
+
+        The fallback below is unchanged, so a search that fails still lands via deep link:
+        this inverts the preference, it does not remove a capability. Cost: a search costs
+        roughly 5-8s against ~2s, paid once per profile entry.
+
         Args:
             username: The username to navigate to
-            deep_link_usage_percentage: Percentage chance to use deep link (0-100)
-                                        Set to 0 to always use search
-            force_search: If True, always use search (ignores deep_link_usage_percentage)
-            
+            deep_link_usage_percentage: Percentage chance to try the deep link FIRST (0-100).
+                                        0 (default) = always start with search.
+            force_search: If True, never use the deep link at all — not even as a fallback.
+
         Returns:
             True if navigation successful, False otherwise
         """

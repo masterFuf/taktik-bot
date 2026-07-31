@@ -37,7 +37,7 @@ class ModernInstagramActions(BaseAction):
         
         self.logger.info("ModernInstagramActions initialized with BaseStatsManager and new architecture")
     
-    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 90) -> bool:
+    def navigate_to_profile(self, username: str, deep_link_usage_percentage: int = 0) -> bool:
         self.logger.debug(f"[COMPAT] Navigating to @{username}")
         self.stats.increment('profiles_visited')
         

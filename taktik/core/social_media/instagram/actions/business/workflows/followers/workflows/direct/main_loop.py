@@ -59,8 +59,12 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
         # profile off-limits FOR THIS ACCOUNT). Single owner of the semantic.
         revisit_policy = RevisitPolicy.from_filters(interaction_config['filter_criteria'])
 
-        # Navigation configuration
-        deep_link_percentage = config.get('deep_link_percentage', 90)
+        # Navigation configuration. 0 = go through the SEARCH BAR like a person (and like the
+        # hashtag flow already does); the deep link stays available as a fallback inside
+        # `navigate_to_profile`. This default used to be 90, and since no config, no config
+        # builder and no page ever set the key, 90 was what every target run actually used —
+        # an ADB intent to open the target profile.
+        deep_link_percentage = config.get('deep_link_percentage', 0)
         force_search_for_target = config.get('force_search_for_target', False)
         max_consecutive_known_usernames = config.get('max_consecutive_known_usernames')
         if max_consecutive_known_usernames is not None:

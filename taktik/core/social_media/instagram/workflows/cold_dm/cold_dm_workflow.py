@@ -191,7 +191,10 @@ class ColdDMWorkflow:
             self.logger.info(f"📨 Sending DM to @{username}")
             
             # Navigate to user profile to check filters
-            if not self.nav_actions.navigate_to_profile(username, deep_link_usage_percentage=50):
+            # Search first like every other entry point; the deep link stays as a fallback
+            # inside `navigate_to_profile`. A cold DM is the least discreet thing we do —
+            # opening the profile through an ADB intent first made it worse.
+            if not self.nav_actions.navigate_to_profile(username):
                 self.logger.warning(f"Failed to navigate to @{username}")
                 return False
             
