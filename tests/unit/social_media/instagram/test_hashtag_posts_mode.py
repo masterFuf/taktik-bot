@@ -271,3 +271,32 @@ def test_a_page_that_says_nothing_leaves_the_mode_unset():
     )
     built = build_instagram_automation_config({'workflowType': 'hashtags', 'target': 'esthetique'})
     assert built['actions'][0].get('interaction_mode') is None
+
+
+# ─────────────────────────────────────────────────────── commenters source
+
+def test_the_three_modes_are_documented_in_the_defaults():
+    """'commenters' walks the same post, but the people who WROTE something. It reuses the
+    post_url list source as-is, so only the row plumbing differs — everything downstream of
+    the click is the shared loop."""
+    from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+        HASHTAG_DEFAULTS,
+    )
+    import inspect
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow
+
+    assert HASHTAG_DEFAULTS['interaction_mode'] == 'likers'
+    source = inspect.getsource(workflow)
+    assert "resolve_list_source(self, source_mode)" in source
+    assert "if source_mode == 'commenters':" in source
+
+
+def test_an_unknown_mode_falls_back_to_likers_instead_of_failing():
+    """A typo in a saved preset must not abort a run, and must not silently pick the wrong
+    population either — likers is the historical, safe answer."""
+    import inspect
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow
+
+    source = inspect.getsource(workflow)
+    assert "if source_mode not in ('likers', 'commenters'):" in source
+    assert "falling back to likers" in source

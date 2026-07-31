@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from ..common.likers_base import LikersWorkflowBase
+from ..common.list_sources import resolve_list_source
 from ....core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
@@ -401,12 +402,25 @@ class HashtagBusiness(
                     effective_config['max_interactions'] = validation_result['adjusted_max']
                     self.logger.info(f"✅ Adjusted max interactions to {validation_result['adjusted_max']}")
             
-            # Ouvrir la liste des likers et interagir directement (comme Target Followers)
+            # Ouvrir la source de profils choisie et interagir directement (comme Target Followers)
             max_interactions_target = effective_config['max_interactions']
             effective_config['source'] = f"#{hashtag}"
-            
-            # Ouvrir la popup des likers
-            if not self._open_likers_popup(is_reel):
+
+            # Un post rassemble DEUX populations : ceux qui l'ont like, et ceux qui ont pris
+            # le temps d'ecrire un commentaire (signal plus fort). Meme boucle en aval, seule
+            # la liste d'ou viennent les profils change — exactement comme le workflow
+            # post_url, dont on reutilise la source telle quelle.
+            source_mode = str(effective_config.get('interaction_mode') or 'likers').strip().lower()
+            if source_mode not in ('likers', 'commenters'):
+                self.logger.warning(f"Unknown interaction_mode '{source_mode}' — falling back to likers")
+                source_mode = 'likers'
+
+            if source_mode == 'commenters':
+                if not self._open_comments_view():
+                    self.logger.error("Failed to open the comments thread")
+                    stats['errors'] += 1
+                    return stats
+            elif not self._open_likers_popup(is_reel):
                 self.logger.error("Failed to open likers popup")
                 stats['errors'] += 1
                 return stats
@@ -415,8 +429,11 @@ class HashtagBusiness(
             if self.session_manager:
                 self.session_manager.start_interaction_phase()
             
-            self.logger.info(f"🚀 Starting direct interactions in likers list (target: {max_interactions_target})")
-            
+            self.logger.info(
+                f"🚀 Starting direct interactions in the {source_mode} list "
+                f"(target: {max_interactions_target})"
+            )
+
             # Shared interaction loop (from LikersWorkflowBase)
             self._interact_with_likers_list(
                 stats=stats,
@@ -424,6 +441,7 @@ class HashtagBusiness(
                 max_interactions=max_interactions_target,
                 source_type='HASHTAG',
                 source_name=f"#{hashtag}",
+                list_source=resolve_list_source(self, source_mode),
             )
             
             stats['success'] = stats['users_interacted'] > 0
