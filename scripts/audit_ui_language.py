@@ -62,6 +62,13 @@ ALLOWLIST = {
     "taktik/core/social_media/tiktok/actions/atomic/video_detector.py",
     # "connected as" / "connecté en tant que", EN + FR
     "taktik/core/app/email/gmail/workflows/account.py",
+    # already-liked guard on a feed post ("unlike"/"liked"/"ne plus aimer"), EN + FR. High
+    # stakes — a miss re-taps a liked post, i.e. UNLIKES it — but covered on both languages.
+    "taktik/core/social_media/instagram/actions/business/workflows/feed/post_actions.py",
+    # counter-extraction FALLBACKS ("N likes"/"N J'aime", "N comments"/"N commentaires"),
+    # EN + FR with re.IGNORECASE. The PRIMARY path is `count_from_counter_label`, which is
+    # language-free; these only run when the counter element itself was not found.
+    "taktik/core/social_media/instagram/ui/extractors.py",
 }
 
 # `info` is deliberately absent: `'hashtag' in workflow_info` is a dict-key test on our own
@@ -70,7 +77,7 @@ ALLOWLIST = {
 # resolves to that key anyway.
 UI_VARS = re.compile(
     r"(content_?desc|contentDescription|text$|_text$|label|title|caption|desc|"
-    r"button|element|screen|node|item|name|value|line|row|entry|attrib)",
+    r"button|element|screen|node|name|value|line|row)",
     re.IGNORECASE,
 )
 NOT_UI = re.compile(
@@ -79,7 +86,8 @@ NOT_UI = re.compile(
     re.IGNORECASE,
 )
 TECH = re.compile(r"[._/:=\d]")
-KEYWORDS = {"true", "false", "none", "null", "yes", "no", "ok", "utf", "and", "or", "not"}
+KEYWORDS = {"true", "false", "none", "null", "yes", "no", "ok", "utf", "and", "or", "not",
+            "json", "xml", "html", "notification"}
 
 
 @dataclass(frozen=True)
@@ -155,7 +163,7 @@ def audit_locales() -> List[Finding]:
         for path in sorted(directory.glob("*.py")):
             if path.name == "__init__.py":
                 continue
-            tree = ast.parse(path.read_text(encoding="utf-8"))
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
             for node in ast.walk(tree):
                 if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
                     continue
@@ -194,8 +202,16 @@ def audit_code() -> List[Finding]:
             if "/tests/" in f"/{relative}":
                 continue
             try:
-                tree = ast.parse(path.read_text(encoding="utf-8"))
-            except (SyntaxError, UnicodeDecodeError):
+                tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            except (SyntaxError, UnicodeDecodeError) as exc:
+                # NOT `continue`. A file the audit cannot read is a file the audit does not
+                # guard, and silence makes that indistinguishable from a clean file — the
+                # exact failure mode this whole script exists to catch. 17 files opened with
+                # a UTF-8 BOM used to be swallowed here (ast.parse rejects U+FEFF in an
+                # already-decoded string), among them `ui/extractors.py` and `likers_base.py`
+                # — the hottest UI-reading code we own. Reading as utf-8-sig fixed those;
+                # anything else left unreadable must be shouted about, not hidden.
+                findings.append(Finding("fichier-illisible", relative, 1, str(exc)[:80]))
                 continue
             for node in ast.walk(tree):
                 if isinstance(node, ast.Compare):
@@ -209,7 +225,11 @@ def audit_code() -> List[Finding]:
                                 "langue-en-dur", relative, node.lineno,
                                 f"'{node.left.value}' in {var_name(comparator)}",
                             ))
+                        # A VARIABLE compared to a literal can hold screen text; a CALL
+                        # result cannot — `classify_action_button(desc) == 'like'` compares
+                        # our own enum, not what the phone renders.
                         if (isinstance(op, ast.Eq)
+                                and isinstance(node.left, (ast.Name, ast.Attribute))
                                 and isinstance(comparator, ast.Constant)
                                 and isinstance(comparator.value, str)
                                 and ui_target(var_name(node.left))

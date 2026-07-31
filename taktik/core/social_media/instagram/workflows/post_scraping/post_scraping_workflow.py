@@ -26,9 +26,8 @@ from taktik.core.social_media.instagram.actions.atomic.navigation import Navigat
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
 from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.database.local.service import get_local_database
-from taktik.core.shared.text import normalize_ui_label
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
-from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
+from taktik.core.social_media.instagram.ui.labels import classify_action_button
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
 )
@@ -40,31 +39,6 @@ from .post_persistence import PostPersistenceMixin
 
 
 console = Console()
-
-
-def _classify_action_button(content_desc: str) -> Optional[str]:
-    """Name a post action-bar button: ``'like' | 'comment' | 'share' | 'save' | None``.
-
-    Both sides normalised (case, spacing, apostrophe shapes) and compared against the
-    locale catalogue instead of hardcoded English words.
-    """
-    text = normalize_ui_label(content_desc)
-    if not text:
-        return None
-
-    def _has(labels) -> bool:
-        return any(normalize_ui_label(lbl) in text
-                   for lbl in (labels or []) if lbl and lbl.strip())
-
-    if _has(BUTTON_SELECTORS.action_label_like):
-        return 'like'
-    if _has(BUTTON_SELECTORS.action_label_comment):
-        return 'comment'
-    if _has(BUTTON_SELECTORS.action_label_share):
-        return 'share'
-    if _has(BUTTON_SELECTORS.action_label_save):
-        return 'save'
-    return None
 
 
 class PostScrapingWorkflow(
@@ -236,7 +210,7 @@ class PostScrapingWorkflow(
                     # Check previous button to determine type
                     if i > 0:
                         prev_desc = buttons[i-1].info.get('contentDescription', '')
-                        action = _classify_action_button(prev_desc)
+                        action = classify_action_button(prev_desc)
                         if action == 'like' and likes == 0:
                             likes = count
                         elif action == 'comment' and comments == 0:

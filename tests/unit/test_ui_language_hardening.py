@@ -24,8 +24,8 @@ from taktik.core.social_media.tiktok.ui.labels import (
     classify_profile_stat_label,
     is_friends_button,
 )
-from taktik.core.social_media.instagram.workflows.post_scraping.post_scraping_workflow import (
-    _classify_action_button,
+from taktik.core.social_media.instagram.ui.labels import (
+    classify_action_button as _classify_action_button,
 )
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     find_inline_like_target,
