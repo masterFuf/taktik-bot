@@ -4,6 +4,8 @@ import re
 import time
 from typing import Dict, Any, Optional
 
+from taktik.core.social_media.instagram.ui.extractors import username_from_media_label
+
 
 class PostUrlHandlingMixin:
     """Mixin: validate URLs, extract post metadata, extract author username."""
@@ -28,18 +30,20 @@ class PostUrlHandlingMixin:
     
     def _extract_author_username(self) -> Optional[str]:
         try:
-            # PRIORITY 1: Try extracting from Reel-specific content-desc (e.g., "Reel by username")
+            # PRIORITE 1 : le libelle du media porte l'auteur ("Reel de X" / "Reel by X").
+            # Lu quelle que soit la langue : la forme anglaise etait codee en dur ici comme
+            # elle l'etait dans le workflow hashtag, ou elle a fait perdre l'auteur de CHAQUE
+            # reel sur un telephone francais.
             try:
                 reel_container = self.device.xpath(self._hashtag_sel.reel_author_container[0])
                 if reel_container.exists:
-                    content_desc = reel_container.info.get('contentDescription', '')
+                    info = reel_container.info
+                    content_desc = info.get('contentDescription') or info.get('text') or ''
                     self.logger.debug(f"Reel container content-desc: '{content_desc}'")
-                    username_match = re.search(r'Reel by ([a-zA-Z0-9_.]+)', content_desc)
-                    if username_match:
-                        username = username_match.group(1)
-                        if self._is_valid_username(username):
-                            self.logger.debug(f"Username found from Reel content-desc: @{username}")
-                            return username
+                    username = username_from_media_label(content_desc)
+                    if username and self._is_valid_username(username):
+                        self.logger.debug(f"Username found from Reel media label: @{username}")
+                        return username
             except Exception as e:
                 self.logger.debug(f"Error extracting from Reel content-desc: {e}")
             
