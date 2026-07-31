@@ -67,23 +67,36 @@ def scroll_hashtag_next_post(a, p):
     """Post viewer (hashtag) -> advance to the next post AND prove it changed.
 
     The exact production function used by the hashtag workflow — not a Lab-only path. It
-    reads the post identity (likes/comments/reel), scrolls, re-reads, and retries with a
-    longer travel while the post has not changed. Run it on a REEL: that is where half a
-    screen was not enough, and where the workflow used to loop on the same post until its
-    budget ran out."""
+    reads the post identity (likes/comments/reel), advances, re-reads, and retries with a
+    longer travel while the post has not changed. The gesture follows the surface: a REEL is
+    a pager and gets a real fling (below its velocity threshold it springs back to the same
+    reel — that is what "it takes several tries to change reel" was), a post detail is a list
+    and keeps the controlled curve so the extractor never reads the wrong post. Run it on a
+    reel: that is where the workflow used to loop on one post until its budget ran out."""
     from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
 
     hashtag = HashtagBusiness(a.device)
+    is_reel = hashtag._is_reel_post()
+    ratios = HashtagBusiness._NEXT_REEL_RATIOS if is_reel else HashtagBusiness._NEXT_POST_RATIOS
+    gesture = "flick" if is_reel else "scroll controle"
+
     before = hashtag._current_post_signature()
     moved = hashtag._swipe_to_next_post(known_signature=before)
     after = hashtag._current_post_signature()
 
-    details = {"signature_before": before, "signature_after": after, "moved": moved}
+    details = {
+        "signature_before": before, "signature_after": after, "moved": moved,
+        "is_reel": is_reel, "gesture": gesture, "ratios": list(ratios),
+    }
     if moved:
-        return {"success": True, "message": f"post suivant atteint ({before} -> {after})", "details": details}
+        return {
+            "success": True,
+            "message": f"post suivant atteint en {gesture} ({before} -> {after})",
+            "details": details,
+        }
     return {
         "success": False,
-        "message": f"toujours sur le meme post apres {len(HashtagBusiness._NEXT_POST_RATIOS)} tentatives "
+        "message": f"toujours sur le meme post apres {len(ratios)} {gesture} "
                    f"(signature {before}) — fin de liste, ou visionneuse bloquee",
         "details": details,
     }

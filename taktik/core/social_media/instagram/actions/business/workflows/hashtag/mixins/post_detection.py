@@ -96,6 +96,19 @@ class HashtagPostDetectionMixin:
     # enough to matter, so each retry pushes further instead of repeating what failed.
     _NEXT_POST_RATIOS = (0.5, 0.8, 1.0)
 
+    # A REEL is a pager, not a list: it snaps to the next page past a velocity threshold, and
+    # springs BACK to the current one below it. A 1:1 controlled curve — which is what the
+    # default gesture is — never reaches that threshold, so it visibly "tries several times
+    # without changing reel". The fling is the right gesture here, and the reason the rest of
+    # this file avoids it (overshoot makes the extractor read the wrong post) does not apply:
+    # the pager lands on exactly one page, whatever momentum it was given.
+    #
+    # These values are FINGER travel, and the flick clamps it to 0.45h (`_strong_flick`,
+    # `dist_cap_h=0.45`) — ask for a full screen and the three attempts become the same
+    # clamped gesture, i.e. an escalation that escalates nothing. The content still coasts
+    # ~2.5-4x the finger, so even the smallest value here moves about a screen of reel.
+    _NEXT_REEL_RATIOS = (0.30, 0.40, 0.45)
+
     def _current_post_signature(self) -> str:
         """Identity of the post on screen — shared convention (`ui.extractors.post_signature`).
 
@@ -156,9 +169,14 @@ class HashtagPostDetectionMixin:
         """
         before = known_signature if known_signature is not None else self._current_post_signature()
 
-        for attempt, ratio in enumerate(self._NEXT_POST_RATIOS, start=1):
+        # Le geste dépend de la surface : fling sur un reel (pager à seuil), courbe contrôlée
+        # sur un post classique (liste, où un dépassement ferait lire le mauvais post).
+        is_reel = self._is_reel_post()
+        ratios = self._NEXT_REEL_RATIOS if is_reel else self._NEXT_POST_RATIOS
+
+        for attempt, ratio in enumerate(ratios, start=1):
             try:
-                self.device.human_scroll("down", distance_ratio=ratio)
+                self.device.human_scroll("down", distance_ratio=ratio, coast=is_reel)
             except Exception as e:
                 self.logger.debug(f"Error swiping to next post: {e}")
                 return False
@@ -169,12 +187,13 @@ class HashtagPostDetectionMixin:
             # An unreadable screen is not a proven arrival: treat it as "changed" only if
             # we could read it. Otherwise the caller's own extraction decides.
             if after and after != before:
-                self.logger.debug(f"📜 Next post reached (attempt {attempt}, ratio {ratio})")
+                gesture = "flick" if is_reel else "scroll"
+                self.logger.debug(f"📜 Next post reached ({gesture} {ratio}, attempt {attempt})")
                 return True
 
             self.logger.debug(
-                f"📜 Still on the same post after scrolling {ratio} of the screen "
-                f"(attempt {attempt}/{len(self._NEXT_POST_RATIOS)})"
+                f"📜 Still on the same post after a {'flick' if is_reel else 'scroll'} of "
+                f"{ratio} of the screen (attempt {attempt}/{len(ratios)})"
             )
 
         self.logger.warning("⚠️ Could not advance to the next post - end of list, or the viewer is stuck")
