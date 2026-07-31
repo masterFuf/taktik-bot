@@ -114,6 +114,12 @@ class WorkflowRunner:
 
         config['post_criteria'] = action.get('post_criteria', {'min_likes': 100, 'max_likes': 50000})
         config['max_likes_per_profile'] = action.get('max_likes_per_profile', 2)
+        # WHAT this run engages: the likers of one post, or the posts themselves. This copy
+        # is not optional — `build_interaction_config` is selective, so a key absent here
+        # never reaches the workflow, whatever the page and the config builder agreed on.
+        # That is exactly how the post-like bounds were lost before.
+        if action.get('interaction_mode'):
+            config['interaction_mode'] = action['interaction_mode']
 
         budget = config.get('max_interactions', action.get('max_interactions', 10))
         distribution = normalize_distribution(action.get('distribution'))

@@ -146,6 +146,10 @@ def _build_action_config(
         # comment thread. This builder is a whitelist, so an unnamed key never reaches the
         # workflow; `None` here means "not specified", and the workflow keeps its default.
         "source_mode": raw_config.get("source_mode"),
+        # Hashtag — WHAT the run engages: 'likers' (the people who liked one post, the
+        # historical behaviour) or 'posts' (the posts themselves, no people list at all).
+        # Whitelist again: unnamed here means the workflow keeps 'likers'.
+        "interaction_mode": raw_config.get("interactionMode"),
         "like_comments": raw_config.get("like_comments"),
         "reply_to_comments": raw_config.get("reply_to_comments"),
         "max_comment_likes": raw_config.get("max_comment_likes"),

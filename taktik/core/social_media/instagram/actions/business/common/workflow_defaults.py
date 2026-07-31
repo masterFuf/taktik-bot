@@ -56,6 +56,14 @@ HASHTAG_DEFAULTS: Dict[str, Any] = {
     'max_likes': 50000,
     'max_interactions': 30,
     'max_likes_per_profile': 2,
+    # WHAT the run engages, from the same hashtag search:
+    #   'likers' — open ONE post and walk the people who liked it (historical default)
+    #   'posts'  — no people list at all: like/comment the POSTS themselves, one after
+    #              another, the way the Feed workflow engages your own feed.
+    # In 'posts' mode `max_interactions` counts POSTS, not profiles — there is no profile.
+    # (A 'commenters' source exists for the post_url workflow; the hashtag flow has never
+    # had it, so it is not offered here rather than being half-wired.)
+    'interaction_mode': 'likers',
 }
 
 

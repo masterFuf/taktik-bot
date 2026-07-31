@@ -63,6 +63,179 @@ class HashtagBusiness(
         self.default_config = {**HASHTAG_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS
     
+    def _interact_with_hashtag_posts(self, hashtag: str, effective_config: Dict[str, Any],
+                                     stats: Dict[str, Any], account_id,
+                                     finalize: bool = True) -> Dict[str, Any]:
+        """Mode 'posts' — engage the POSTS of a hashtag, never a list of people.
+
+        The 'likers' mode opens ONE post and spends the whole run on the people who liked
+        it. This one keeps walking the hashtag instead: a post is chosen by the same
+        criteria (like bounds, 7-day dedup), liked and/or commented where it stands, and the
+        run moves on to the next. Same discovery machinery, different thing engaged — which
+        is why it is a mode of this workflow and not a workflow of its own.
+
+        `max_interactions` counts POSTS here: no profile is ever visited, so there is
+        nothing else to count. Every action goes through the production atomics
+        (`like_business.like_current_post`, `comment_business.comment_on_post`), so smart
+        comments, telemetry and daily caps behave exactly as everywhere else.
+        """
+        max_posts = int(effective_config.get('max_interactions') or 0)
+        max_to_examine = int(effective_config.get('max_posts_to_analyze') or 20)
+        like_pct = int(effective_config.get('like_percentage') or 0)
+        comment_pct = int(effective_config.get('comment_percentage') or 0)
+        min_likes, max_likes = effective_config['min_likes'], effective_config['max_likes']
+
+        self.logger.info(
+            f"📝 Posts mode on #{hashtag}: up to {max_posts} post(s), "
+            f"like {like_pct}%, comment {comment_pct}%"
+        )
+
+        if self.session_manager:
+            self.session_manager.start_interaction_phase()
+
+        posts_engaged = 0
+        examined = 0
+        need_to_open_post = True
+        stop_reason = ''
+
+        while posts_engaged < max_posts and examined < max_to_examine:
+            if need_to_open_post:
+                current = self._find_first_valid_post(hashtag, effective_config, skip_count=0)
+                if not current:
+                    stop_reason = 'no_valid_post'
+                    self.logger.warning("No post matching the criteria")
+                    break
+                need_to_open_post = False
+            else:
+                is_reel = self._is_reel_post()
+                current = {
+                    'likes_count': self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
+                    'comments_count': self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel),
+                    'is_reel': is_reel,
+                }
+
+            examined += 1
+            stats['posts_analyzed'] = examined
+
+            likes_count = current.get('likes_count') or 0
+            if not (min_likes <= likes_count <= max_likes):
+                self.logger.info(
+                    f"⏭️ {likes_count} likes outside {min_likes}-{max_likes}, next post"
+                )
+                stats['already_filtered'] = stats.get('already_filtered', 0) + 1
+                if not self._swipe_to_next_post(known_signature=self._signature_of(current)):
+                    stop_reason = 'no_new_post'
+                    break
+                continue
+
+            metadata = self._extract_current_post_metadata(current.get('is_reel', False))
+            author = (metadata or {}).get('author')
+
+            if author:
+                try:
+                    IPCEmitter.emit_current_post(
+                        author=author,
+                        likes_count=(metadata or {}).get('likes_count'),
+                        comments_count=(metadata or {}).get('comments_count'),
+                        caption=(metadata or {}).get('caption'),
+                        hashtag=hashtag,
+                    )
+                except Exception as exc:
+                    self.logger.debug(f"Failed to send current_post: {exc}")
+
+                # Same 7-day guard as the likers mode: a post we already engaged must not be
+                # engaged twice, and re-liking a liked post would UNLIKE it.
+                if InstagramHashtagPostService.is_processed(
+                    hashtag=hashtag, post_author=author,
+                    post_caption_hash=(metadata or {}).get('caption_hash'),
+                    account_id=account_id, hours_limit=168,
+                ):
+                    self.logger.info(f"⏭️ Post by @{author} already processed, next post")
+                    stats['already_processed'] = stats.get('already_processed', 0) + 1
+                    try:
+                        IPCEmitter.emit_post_skipped(
+                            author=author, reason="already_processed", hashtag=hashtag,
+                        )
+                    except Exception as exc:
+                        self.logger.debug(f"Failed to send post_skipped: {exc}")
+                    if not self._swipe_to_next_post(known_signature=self._signature_of(current)):
+                        stop_reason = 'no_new_post'
+                        break
+                    self._human_like_delay('navigation')
+                    continue
+
+            stats['posts_selected'] = stats.get('posts_selected', 0) + 1
+
+            liked = False
+            if like_pct > 0 and random.randint(1, 100) <= like_pct:
+                if self.like_business.like_current_post():
+                    liked = True
+                    stats['likes_made'] += 1
+                    self.stats_manager.increment('likes')
+                    self.logger.info(f"❤️ Post liked (@{author or 'unknown'})")
+
+            commented = False
+            if comment_pct > 0 and random.randint(1, 100) <= comment_pct:
+                result = self.comment_business.comment_on_post(
+                    custom_comments=effective_config.get('custom_comments'),
+                    config=effective_config,
+                    username=author,
+                )
+                if result and result.get('commented'):
+                    commented = True
+                    stats['comments_made'] += 1
+                    self.stats_manager.increment('comments')
+                    self.logger.info(f"💬 Comment posted (@{author or 'unknown'})")
+
+            if liked or commented:
+                posts_engaged += 1
+                stats['users_interacted'] = posts_engaged
+                if author and account_id:
+                    InstagramHashtagPostService.record_processed(
+                        hashtag=hashtag, post_author=author,
+                        post_caption_hash=(metadata or {}).get('caption_hash'),
+                        post_caption_preview=((metadata or {}).get('caption') or '')[:100] or None,
+                        likes_count=(metadata or {}).get('likes_count'),
+                        comments_count=(metadata or {}).get('comments_count'),
+                        likers_processed=0,
+                        interactions_made=1,
+                        account_id=account_id,
+                    )
+
+            # Read the post like a person before moving on (carousel + caption + dwell),
+            # the same pause the Feed workflow takes between two posts.
+            try:
+                self.scroll_actions.human_reading_pause(
+                    read_captions=effective_config.get('read_captions', True),
+                    browse_carousels=effective_config.get('browse_carousels', True),
+                )
+            except Exception as exc:
+                self.logger.debug(f"Reading pause skipped: {exc}")
+
+            if posts_engaged >= max_posts:
+                stop_reason = 'budget_reached'
+                break
+            if not self._swipe_to_next_post(known_signature=self._signature_of(current)):
+                stop_reason = 'no_new_post'
+                break
+
+        if not stop_reason and examined >= max_to_examine:
+            stop_reason = 'max_posts_examined'
+
+        stats['stop_reason'] = stop_reason or 'budget_reached'
+        stats['success'] = posts_engaged > 0
+        self.logger.info(
+            f"✅ Posts mode finished: {posts_engaged} post(s) engaged "
+            f"({stats['likes_made']} like(s), {stats['comments_made']} comment(s)) "
+            f"out of {examined} examined — stop={stats['stop_reason']}"
+        )
+        self.stats_manager.display_final_stats(workflow_name="HASHTAG")
+
+        if finalize and self.automation and hasattr(self.automation, 'helpers'):
+            self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
+
+        return stats
+
     def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None,
                                      finalize: bool = True) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
@@ -94,12 +267,21 @@ class HashtagBusiness(
                 self.logger.error("Failed to navigate to hashtag")
                 stats['errors'] += 1
                 return stats
-            
+
             time.sleep(1.5)
-            
+
             # Récupérer account_id pour la vérification des posts déjà traités
             account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
-            
+
+            # Mode 'posts' : on n'ouvre AUCUNE liste de personnes. On enchaîne les posts du
+            # hashtag et on les like/commente directement, comme le workflow Feed le fait sur
+            # ton propre fil. Chemin séparé de bout en bout : la voie 'likers' ci-dessous est
+            # la voie historique, inchangée.
+            if str(effective_config.get('interaction_mode') or 'likers').strip().lower() == 'posts':
+                return self._interact_with_hashtag_posts(
+                    hashtag, effective_config, stats, account_id, finalize=finalize,
+                )
+
             # Boucle pour trouver un post non encore traité
             max_posts_to_try = effective_config.get('max_posts_to_analyze', 20)
             posts_tried = 0
