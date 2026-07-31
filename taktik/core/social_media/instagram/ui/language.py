@@ -195,8 +195,16 @@ _VISIBLE_ATTR_RE = re.compile(r'(?:text|content-desc)="([^"]*)"')
 # A wrong language is WORSE than no language: it strips the correct selectors, whereas 'unknown'
 # keeps them all (overlay union). So we only commit when the winner is both solid and clearly
 # ahead; otherwise we stay 'unknown' and keep every locale.
-_MIN_SCORE = 2.0
-_MIN_MARGIN = 1.0
+#
+# The bar is expressed on the FULL vocabulary below (113 FR / 119 EN words), not on the five nav
+# probes it replaced: those five only exist on the navigation bar, so any content screen scored
+# 0-0 and detection gave up. Measured on realistic screens (run 714 strings), five probes decided
+# 3 screens out of 6 — a reel scored 0.0/0.0 — where the vocabulary decides 6 out of 6 with the
+# nearest miss at 5.5 against 0.5. A higher floor and a RATIO margin therefore make the rule
+# stricter than the old one while firing far more often: at these score levels "2 vs 1.5" is
+# noise, and demanding twice the loser rejects it.
+_MIN_SCORE = 3.0
+_MIN_RATIO = 2.0
 
 
 def _visible_strings(xml: str) -> list:
@@ -204,21 +212,42 @@ def _visible_strings(xml: str) -> list:
     return _VISIBLE_ATTR_RE.findall(xml or '')
 
 
+def _word_pattern(word: str) -> re.Pattern:
+    return re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
+
+
+# Compiled once: detection scores ~230 words against every visible string of a dump.
+_FR_PATTERNS = tuple((w, _word_pattern(w)) for w in sorted(_FR_WORDS))
+_EN_PATTERNS = tuple((w, _word_pattern(w)) for w in sorted(_EN_WORDS))
+
+
 def _score_probes(probes, values) -> float:
     """Score probes against visible strings: exact value = 1, whole-word match = 0.5.
 
     Whole-word matching matters: 'Profil' (FR) must not score on 'Profile' (EN).
     """
+    return _score_patterns([(p, _word_pattern(p)) for p in probes], values)[0]
+
+
+def _score_patterns(patterns, values) -> tuple:
+    """Return ``(score, matched_words)``: exact value = 1 point, whole-word match = 0.5.
+
+    Matched words are reported so an undecided detection can say WHY in one log line —
+    the run that started this investigation printed only a score, and the line was cut.
+    """
     score = 0.0
-    for probe in probes:
-        needle = probe.strip().lower()
-        if any(v.strip().lower() == needle for v in values):
+    matched = []
+    lowered = [v.strip().lower() for v in values]
+    for word, pattern in patterns:
+        needle = word.strip().lower()
+        if needle in lowered:
             score += 1.0
+            matched.append(word)
             continue
-        pattern = re.compile(rf'\b{re.escape(probe)}\b', re.IGNORECASE)
         if any(pattern.search(v) for v in values):
             score += 0.5
-    return score
+            matched.append(word)
+    return score, matched
 
 
 # ──────────────────────────────────────────────────────────────
@@ -231,6 +260,26 @@ _detected_lang: Optional[str] = None  # 'en', 'fr', 'unknown'
 def get_detected_language() -> Optional[str]:
     """Return the currently detected language, or None if not yet detected."""
     return _detected_lang
+
+
+def redetect_if_unknown(device) -> Optional[str]:
+    """Try detection again, but ONLY if the language is still undecided.
+
+    Detection runs once at startup, on whatever screen the app happens to open on — which is
+    a loading feed, sometimes an interstitial, and in run 714 something that scored nothing at
+    all. The log then promised the language would be "re-detected on a richer screen", and
+    nothing ever did: a single undecided dump left the whole session in union mode.
+
+    This is that second chance. Call it once the bot is standing on a screen it CHOSE — the
+    account's own profile is the richest one available ("Modifier le profil", "publications",
+    "abonnés", "abonnements") and the startup sequence goes there anyway to identify the
+    account. A language already decided is never re-opened: re-running detection on a later
+    screen could only turn a good answer into a worse one.
+    """
+    if _detected_lang not in (None, 'unknown'):
+        return _detected_lang
+    log.info("🌐 Language still undecided — retrying detection on the current screen")
+    return detect_and_optimize(device)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -273,12 +322,12 @@ def detect_language(device) -> str:
         # Score ONLY the visible strings (see _VISIBLE_ATTR_RE): scoring the raw dump let the
         # always-English resource-ids inflate the English score on a French app.
         values = _visible_strings(xml)
-        fr_score = _score_probes(_FR_PROBES, values)
-        en_score = _score_probes(_EN_PROBES, values)
+        fr_score, fr_words = _score_patterns(_FR_PATTERNS, values)
+        en_score, en_words = _score_patterns(_EN_PATTERNS, values)
 
-        if fr_score >= _MIN_SCORE and fr_score - en_score >= _MIN_MARGIN:
+        if fr_score >= _MIN_SCORE and fr_score >= en_score * _MIN_RATIO:
             _detected_lang = 'fr'
-        elif en_score >= _MIN_SCORE and en_score - fr_score >= _MIN_MARGIN:
+        elif en_score >= _MIN_SCORE and en_score >= fr_score * _MIN_RATIO:
             _detected_lang = 'en'
         else:
             # Not confident enough. 'unknown' keeps EVERY locale's selectors (overlay union), so
@@ -286,10 +335,14 @@ def detect_language(device) -> str:
             _detected_lang = 'unknown'
 
         log.info(f"🌐 Language detected: {_detected_lang} (FR={fr_score}, EN={en_score})")
-        if _detected_lang == 'unknown' and (fr_score or en_score):
+        if _detected_lang == 'unknown':
+            # Say WHAT was seen, not just the score: an undecided detection is only actionable
+            # if the next reader can tell "empty screen" from "scores too close".
             log.info(
-                "🌐 Language undecided on this screen (too few visible words or scores too close) "
-                "— keeping all locales. It is re-detected on a richer screen."
+                f"🌐 Language undecided on this screen — keeping all locales "
+                f"({len(values)} visible strings; FR matched {fr_words[:6] or 'nothing'}; "
+                f"EN matched {en_words[:6] or 'nothing'}). "
+                "Re-detected later on the account's own profile."
             )
         return _detected_lang
 

@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
 from .....database.local.service import get_local_database
+from ...ui.language import redetect_if_unknown
 
 
 class WorkflowHelpers:
@@ -191,6 +192,15 @@ class WorkflowHelpers:
                     profile_info = self.automation.get_profile_info(username=None, save_to_db=True, log_result=False)
                 else:
                     self.logger.warning("Failed to restart Instagram during account-detection recovery")
+
+            # We are standing on the account's own profile — the richest screen of the app
+            # ("Modifier le profil", "publications", "abonnés", "abonnements"). If the startup
+            # dump was too poor to decide the language, this is the second chance the log has
+            # been promising; a language already decided is left alone.
+            try:
+                redetect_if_unknown(self.automation.device)
+            except Exception as exc:
+                self.logger.debug(f"Language re-detection skipped: {exc}")
 
             if profile_info and profile_info.get('username'):
                 import json

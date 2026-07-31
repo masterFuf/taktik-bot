@@ -134,6 +134,69 @@ _XPATH_TEXT_RE = re.compile(
 _FR_PROBES = ["Accueil", "Profil", "Boîte de réception", "Créer", "Amis"]
 _EN_PROBES = ["Home", "Profile", "Inbox", "Create", "Friends"]
 
+# Only the VALUES of the visible-text attributes are scored. NEVER the raw XML: an Android
+# dump always carries English identifiers (`:id/profile_tab`, `:id/inbox_tab`, `:id/home_tab`,
+# `:id/friends_tab`…), so a raw substring test handed English one free point per probe,
+# language-INDEPENDENTLY. Measured on a French dump whose only visible strings were
+# "Abonnements" and "Abonnés": the old rule returned `en (FR=0.5, EN=2.5)` — and committing to
+# the WRONG language is worse than 'unknown', because it strips the right selectors instead of
+# keeping them all. Instagram was fixed this way on 2026-07-12; TikTok still had the bug.
+_VISIBLE_ATTR_RE = re.compile(r'(?:text|content-desc)="([^"]*)"')
+
+# Scored against the full vocabulary (101 FR / 118 EN words), not the five navigation probes:
+# those words live on the bottom bar and nowhere else, so any content screen scored nothing at
+# all. Higher floor plus a RATIO margin makes the rule stricter than the old one — "2 vs 1.5"
+# was a coin flip that stripped a whole locale — while firing on far more screens.
+_MIN_SCORE = 3.0
+_MIN_RATIO = 2.0
+
+
+def _visible_strings(xml: str) -> list:
+    """The text/content-desc values of the dump (what the USER can read)."""
+    return _VISIBLE_ATTR_RE.findall(xml or "")
+
+
+def _word_pattern(word: str) -> "re.Pattern":
+    return re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+
+
+# Compiled once: detection scores ~220 words against every visible string of a dump.
+_FR_PATTERNS = tuple((w, _word_pattern(w)) for w in sorted(_FR_WORDS))
+_EN_PATTERNS = tuple((w, _word_pattern(w)) for w in sorted(_EN_WORDS))
+
+
+def _score_patterns(patterns, values) -> tuple:
+    """Return ``(score, matched_words)``: exact value = 1 point, whole-word match = 0.5.
+
+    Whole-word matching matters in both directions: FR "Profil" must not score inside EN
+    "Profile", and the substring test it replaces did exactly that.
+    """
+    score = 0.0
+    matched = []
+    lowered = [v.strip().lower() for v in values]
+    for word, pattern in patterns:
+        needle = word.strip().lower()
+        if needle in lowered:
+            score += 1.0
+            matched.append(word)
+            continue
+        if any(pattern.search(v) for v in values):
+            score += 0.5
+            matched.append(word)
+    return score, matched
+
+
+def redetect_if_unknown(device) -> Optional[str]:
+    """Try detection again, but ONLY if the language is still undecided.
+
+    Detection runs once, on whatever screen TikTok happens to show. A language already
+    decided is never re-opened: a later screen could only turn a good answer into a worse one.
+    """
+    if _detected_lang not in (None, "unknown"):
+        return _detected_lang
+    log.info("🌐 TikTok language still undecided — retrying detection on the current screen")
+    return detect_and_optimize(device)
+
 
 # ──────────────────────────────────────────────────────────────
 # État singleton
@@ -189,29 +252,28 @@ def detect_language(device) -> str:
             _detected_lang = "unknown"
             return _detected_lang
 
-        fr_score = 0.0
-        en_score = 0.0
+        # Score ONLY the visible strings (see _VISIBLE_ATTR_RE): scoring the raw dump let the
+        # always-English resource-ids inflate the English score on a French app.
+        values = _visible_strings(xml)
+        fr_score, fr_words = _score_patterns(_FR_PATTERNS, values)
+        en_score, en_words = _score_patterns(_EN_PATTERNS, values)
 
-        for probe in _FR_PROBES:
-            if f'content-desc="{probe}"' in xml or f"content-desc='{probe}'" in xml:
-                fr_score += 1
-            elif probe.lower() in xml.lower():
-                fr_score += 0.5
-
-        for probe in _EN_PROBES:
-            if f'content-desc="{probe}"' in xml or f"content-desc='{probe}'" in xml:
-                en_score += 1
-            elif probe.lower() in xml.lower():
-                en_score += 0.5
-
-        if fr_score > en_score and fr_score >= 2:
+        if fr_score >= _MIN_SCORE and fr_score >= en_score * _MIN_RATIO:
             _detected_lang = "fr"
-        elif en_score > fr_score and en_score >= 2:
+        elif en_score >= _MIN_SCORE and en_score >= fr_score * _MIN_RATIO:
             _detected_lang = "en"
         else:
+            # Not confident enough. 'unknown' keeps EVERY locale's selectors (overlay union),
+            # so the bot still works; committing to the wrong language strips the right ones.
             _detected_lang = "unknown"
 
         log.info(f"🌐 TikTok language detected: {_detected_lang} (FR={fr_score}, EN={en_score})")
+        if _detected_lang == "unknown":
+            log.info(
+                f"🌐 TikTok language undecided on this screen — keeping all locales "
+                f"({len(values)} visible strings; FR matched {fr_words[:6] or 'nothing'}; "
+                f"EN matched {en_words[:6] or 'nothing'})."
+            )
         return _detected_lang
 
     except Exception as e:
