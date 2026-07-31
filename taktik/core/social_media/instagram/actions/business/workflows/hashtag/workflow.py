@@ -16,6 +16,39 @@ from .mixins.post_finder import HashtagPostFinderMixin
 from .mixins.extractors import HashtagExtractorsMixin
 
 
+# « Pas de maximum » : une borne haute reste plus simple à lire qu'un `None` à tester dans
+# chacune des trois comparaisons. Aucun post Instagram n'approche ce nombre.
+NO_LIKES_CEILING = 10 ** 9
+
+# Valeurs historiques du catalogue, appliquées quand personne ne dit rien.
+DEFAULT_MIN_POST_LIKES = 100
+DEFAULT_MAX_POST_LIKES = 50000
+
+
+def resolve_post_like_bounds(config: Dict[str, Any]) -> tuple:
+    """Les bornes de likes du post retenu, quelle que soit la forme reçue.
+
+    Le critère arrive sous DEUX formes : à plat (`min_likes`, défauts du workflow) et
+    imbriqué (`post_criteria`, ce qu'envoient la page Hashtag, le runner et la CLI). Les deux
+    moitiés du workflow n'en lisaient pas la même — la recherche du premier post lisait la
+    forme plate, la boucle de swipe la forme imbriquée. Tant que l'opérateur ne renseigne
+    rien les deux valent 100-50000 et ça ne se voit pas ; dès qu'il fixe un seuil, un post
+    accepté par la recherche est rejeté par la boucle, et le workflow tourne en rond.
+
+    `0` = PAS DE BORNE, exactement comme dans le workflow Feed (`min_post_likes` /
+    `max_post_likes`, qui ne testent que si la valeur est > 0). Sans cette convention,
+    « aucun minimum » serait inexprimable : c'est pourtant ce qu'il faut pour travailler un
+    hashtag dont les posts font vingt likes.
+    """
+    post_criteria = config.get('post_criteria') or {}
+    min_likes = post_criteria.get('min_likes', config.get('min_likes', DEFAULT_MIN_POST_LIKES))
+    max_likes = post_criteria.get('max_likes', config.get('max_likes', DEFAULT_MAX_POST_LIKES))
+    return (
+        min_likes if min_likes and min_likes > 0 else 0,
+        max_likes if max_likes and max_likes > 0 else NO_LIKES_CEILING,
+    )
+
+
 class HashtagBusiness(
     HashtagPostFinderMixin,
     HashtagExtractorsMixin,
@@ -34,16 +67,9 @@ class HashtagBusiness(
                                      finalize: bool = True) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
 
-        # Le critère de likes arrive sous DEUX formes : à plat (`min_likes`, défauts du
-        # workflow) et imbriqué (`post_criteria`, ce qu'envoient le runner et la CLI). Les
-        # deux moitiés du workflow n'en lisaient pas la même : la recherche du premier post
-        # lisait la forme plate, la boucle de swipe la forme imbriquée. Tant que l'opérateur
-        # ne renseigne rien les deux valent 100-50000 et ça ne se voit pas ; dès qu'il fixe
-        # un seuil, un post accepté par la recherche est rejeté par la boucle — et le
-        # workflow tourne en rond. On résout ici, une fois, et tout le monde lit à plat.
-        post_criteria = effective_config.get('post_criteria') or {}
-        effective_config['min_likes'] = post_criteria.get('min_likes', effective_config.get('min_likes', 100))
-        effective_config['max_likes'] = post_criteria.get('max_likes', effective_config.get('max_likes', 50000))
+        # Une seule lecture des bornes du post, pour les deux moitiés du workflow (voir
+        # `resolve_post_like_bounds`). Écrites à plat : tout le reste lit cette forme.
+        effective_config['min_likes'], effective_config['max_likes'] = resolve_post_like_bounds(effective_config)
 
         self.logger.info(f"Hashtag config received: {config}")
         self.logger.info(f"Hashtag config effective: max_interactions={effective_config.get('max_interactions', 'N/A')}")

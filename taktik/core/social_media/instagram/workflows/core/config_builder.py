@@ -49,6 +49,7 @@ def _build_action_config(
     comments_config = raw_config.get("comments", {})
     feed_stories_config = raw_config.get("feedStories", {})
     unfollow_config = raw_config.get("unfollow", {})
+    post_criteria_config = raw_config.get("postCriteria") or {}
 
     if action_type == "sync_following":
         return {
@@ -132,6 +133,15 @@ def _build_action_config(
         # How the interaction budget is split across several sources (targets, hashtags,
         # post URLs): balanced (default) / sequential / interleaved.
         "distribution": normalize_distribution(raw_config.get("distribution")),
+        # WHICH post of a hashtag is worth opening — the profile filters above say who, among
+        # its likers, deserves an interaction. This builder is a whitelist: without this entry
+        # the operator's setting never reached the workflow, which then applied its catalogue
+        # defaults (100-50000) whatever the page said. `None` = not specified, and the workflow
+        # keeps those defaults; a bound at 0 means "no bound", as in the Feed workflow.
+        "post_criteria": {
+            "min_likes": int(post_criteria_config.get("minLikes", 0) or 0),
+            "max_likes": int(post_criteria_config.get("maxLikes", 0) or 0),
+        } if post_criteria_config else None,
         # Post URL — which population of the post to walk, and whether to act inside its
         # comment thread. This builder is a whitelist, so an unnamed key never reaches the
         # workflow; `None` here means "not specified", and the workflow keeps its default.
