@@ -3,7 +3,7 @@
 import time
 from typing import Any, Dict, Optional
 
-from taktik.core.social_media.instagram.ui.extractors import post_signature
+from taktik.core.social_media.instagram.ui.extractors import post_signature, username_from_media_label
 
 
 class HashtagPostDetectionMixin:
@@ -11,13 +11,20 @@ class HashtagPostDetectionMixin:
 
     def _detect_opened_post_type(self) -> str:
         try:
-            reel_player_indicators = self.post_selectors.reel_player_indicators
-            
-            for indicator in reel_player_indicators:
+            # UNE seule question « est-ce un reel ? », celle de la production (`is_reel_post`,
+            # sur `post.reel_indicators`). Ce mixin avait sa propre liste — le bouton son —
+            # qui n'existe pas sur tous les reels : le 31/07 un reel du hashtag #esthétique a
+            # donc été classé "post_detail", et la barre d'action n'a jamais été révélée.
+            # Deux listes pour une même question finissent toujours par répondre différemment.
+            if self._is_reel_post():
+                self.logger.debug("Reel detected (production detector)")
+                return "reel_player"
+
+            for indicator in self.post_selectors.reel_player_indicators:
                 if self.device.xpath(indicator).exists:
                     self.logger.debug(f"Reel player detected via: {indicator}")
                     return "reel_player"
-            
+
             carousel_indicators = self.post_selectors.carousel_indicators
             
             for indicator in carousel_indicators:
@@ -90,17 +97,37 @@ class HashtagPostDetectionMixin:
     _NEXT_POST_RATIOS = (0.5, 0.8, 1.0)
 
     def _current_post_signature(self) -> str:
-        """Identity of the post on screen — shared convention (`ui.extractors.post_signature`)."""
+        """Identity of the post on screen — shared convention (`ui.extractors.post_signature`).
+
+        Counters alone are not enough: when they cannot be read they BOTH come back as zero,
+        so every unreadable post shares the signature "0_0_True" and the advance guard can no
+        longer tell "still on the same post" from "two posts I cannot read" — which is exactly
+        how a hashtag run stopped on 31/07 after one post. The author is therefore appended
+        when it is available: it is the one identity that survives an unreadable counter.
+        """
         try:
             is_reel = self._is_reel_post()
-            return post_signature(
+            base = post_signature(
                 self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
                 self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel),
                 is_reel,
             )
+            author = self._current_post_author() if is_reel else None
+            return f"{base}_{author}" if author else base
         except Exception as e:
             self.logger.debug(f"Error reading post signature: {e}")
             return ""
+
+    def _current_post_author(self) -> Optional[str]:
+        """The reel author, read from its media label. `None` if unreadable."""
+        try:
+            element = self.device.xpath(self._hashtag_sel.reel_author_container[-1])
+            if not element.exists:
+                return None
+            info = element.info
+            return username_from_media_label(info.get('contentDescription') or info.get('text') or '')
+        except Exception:
+            return None
 
     def _signature_of(self, metadata: Optional[Dict[str, Any]]) -> Optional[str]:
         """Signature of a post whose counters were JUST read — no second UI dump."""

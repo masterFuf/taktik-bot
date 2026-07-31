@@ -112,16 +112,14 @@ class InstagramUIExtractors:
                 try:
                     element = self.device.xpath(self.detection_selectors.reel_like_count_selector)
                     if element.exists:
-                        content_desc = element.info.get('contentDescription', '')
-                        if content_desc:
-                            # Parse "Like number is16. View likes" or "Like number is16"
-                            like_match = re.search(r'Like number is\s*(\d+(?:[,.]?\d+)?(?:\s?[KkMmBb])?)', content_desc, re.IGNORECASE)
-                            if like_match:
-                                likes_text = like_match.group(1)
-                                likes_count = self.parse_instagram_number(likes_text)
-                                if likes_count >= 0:
-                                    log.debug(f"✅ Likes extracted from Reel format: {likes_count}")
-                                    return likes_count
+                        info = element.info
+                        # content-desc AND text carry the same label on this surface; some
+                        # builds fill only one of the two.
+                        label = info.get('contentDescription') or info.get('text') or ''
+                        likes_count = count_from_counter_label(label)
+                        if likes_count is not None:
+                            log.debug(f"✅ Likes extracted from Reel counter: {likes_count}")
+                            return likes_count
                 except Exception as e:
                     log.debug(f"Reel like selector not found or error: {e}")
             
@@ -199,15 +197,12 @@ class InstagramUIExtractors:
                 try:
                     element = self.device.xpath(self.detection_selectors.reel_comment_count_selector)
                     if element.exists:
-                        content_desc = element.info.get('contentDescription', '')
-                        if content_desc:
-                            comment_match = re.search(r'Comment number is\s*(\d+(?:[,.]?\d+)?(?:\s?[KkMmBb])?)', content_desc, re.IGNORECASE)
-                            if comment_match:
-                                comments_text = comment_match.group(1)
-                                comments_count = self.parse_instagram_number(comments_text)
-                                if comments_count >= 0:
-                                    log.debug(f"✅ Comments extracted from Reel format: {comments_count}")
-                                    return comments_count
+                        info = element.info
+                        label = info.get('contentDescription') or info.get('text') or ''
+                        comments_count = count_from_counter_label(label)
+                        if comments_count is not None:
+                            log.debug(f"✅ Comments extracted from Reel counter: {comments_count}")
+                            return comments_count
                 except Exception as e:
                     log.debug(f"Reel comment selector not found or error: {e}")
             
@@ -551,6 +546,37 @@ def parse_instagram_number(text: str) -> int:
     return parse_number_from_text(text)
 
 
+# The first number inside a counter label, and nothing else. Digits, thousand separators
+# (space, non-breaking space, comma, dot) and an optional K/M/B suffix — the suffix only
+# counts when no letter follows it, so a German "12 Kommentare" is not read as 12 000.
+_COUNTER_VALUE = re.compile(r'\d[\d\s .,]*(?:\s?[KkMmBb](?![^\W\d_]))?')
+
+
+def count_from_counter_label(label: Optional[str]) -> Optional[int]:
+    """The number carried by a counter label, WHATEVER the app language.
+
+    Instagram labels its reel counters in the phone's language: "Nombre de J'aime : 14.
+    Voir les J'aime" (fr), "Like number is16. View likes" (en). The element itself is found
+    by resource-id, which is language-neutral — but the value used to be read with an
+    English sentence pattern, so on a French device every reel reported ZERO likes. A whole
+    hashtag run was then filtered out as "too few likes" whatever threshold the operator set,
+    and nothing in the logs pointed at the language.
+
+    We therefore read the FIRST number of the label and ignore the words around it. Taking
+    the first token matters: a label that also mentions comments or reshares would otherwise
+    have its digits concatenated into one absurd number.
+
+    `None` = no number in the label (unreadable), which is NOT the same as zero.
+    """
+    if not label:
+        return None
+    match = _COUNTER_VALUE.search(label)
+    if not match:
+        return None
+    token = match.group(0).strip(' ., ')
+    return parse_number_from_text(token) if token else None
+
+
 def parse_number_from_text(text: str) -> int:
     """Parse a number from text, handling formats like '166 K', '1.2M', '1,234', etc."""
     if not text:
@@ -594,6 +620,30 @@ def parse_number_from_text(text: str) -> int:
         
     except (ValueError, AttributeError):
         return 0
+
+
+# "Reel de dolce_cocoon. Appuyez deux fois…" / "Reel by john.doe. Double-tap…" — two words
+# of label, then the username, then the end of the sentence. The username is matched lazily
+# and the sentence must end with a dot FOLLOWED BY a space (or the string end), so a dot
+# INSIDE a username ("marie.dupont") is not mistaken for the end of the sentence.
+_MEDIA_LABEL_AUTHOR = re.compile(r'^\S+\s+\S+\s+([A-Za-z0-9._]+?)(?:\.\s|\.?$)')
+
+
+def username_from_media_label(label: Optional[str]) -> Optional[str]:
+    """The account behind a reel, WHATEVER the app language.
+
+    Same trap as the counters: this label is translated ("Reel de X" in French, "Reel by X"
+    in English) and the code only knew the English form, so on a French phone a reel had no
+    author at all — which silently disabled the 7-day "already processed" dedup of the
+    hashtag workflow, since it keys on the author.
+    """
+    if not label:
+        return None
+    match = _MEDIA_LABEL_AUTHOR.search(label.strip())
+    if not match:
+        return None
+    username = match.group(1).strip('.').lower()
+    return username or None
 
 
 def post_signature(likes: Optional[int], comments: Optional[int], is_reel: bool) -> str:

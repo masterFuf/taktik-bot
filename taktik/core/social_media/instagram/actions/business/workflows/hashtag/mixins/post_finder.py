@@ -9,7 +9,7 @@ import time
 from typing import Dict, List, Any, Optional
 
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
-from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
+from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text, username_from_media_label
 from .post_detection import HashtagPostDetectionMixin
 
 
@@ -246,29 +246,28 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                     self.logger.debug(f"Author selector {selector} failed: {e}")
                     continue
             
-            # Fallback: extraire depuis "Reel by username" dans content-desc
+            # Repli : l'auteur vit dans le libellé du média ("Reel de X" / "Reel by X").
             if not metadata['author'] and is_reel:
-                self.logger.debug("Trying fallback: extracting author from 'Reel by' content-desc")
+                self.logger.debug("Trying fallback: extracting author from the reel media label")
                 try:
-                    # Chercher l'élément clips_media_component qui contient "Reel by username" (depuis selectors.py)
                     reel_element = self.device.xpath(self._hashtag_sel.reel_author_container[-1])
                     if reel_element.exists:
                         info = reel_element.info
-                        # Essayer plusieurs clés possibles pour content-desc
                         content_desc = info.get('contentDescription') or info.get('content-desc') or info.get('contentDesc') or ''
-                        self.logger.debug(f"clips_media_component info keys: {list(info.keys())}")
                         self.logger.debug(f"clips_media_component content-desc: '{content_desc[:100] if content_desc else 'empty'}'")
-                        
-                        # Format: "Reel by username. Double-tap to play or pause."
-                        if 'Reel by ' in content_desc:
-                            username = content_desc.split('Reel by ')[1].split('.')[0].strip()
-                            if username:
-                                metadata['author'] = username.lower()
-                                self.logger.debug(f"📝 Post author (from Reel by): @{metadata['author']}")
+
+                        # Lu quelle que soit la langue : ce libellé est traduit, et n'en
+                        # connaître que la forme anglaise revenait à n'avoir AUCUN auteur sur
+                        # un téléphone français — donc plus de dédoublonnage 7 jours, qui
+                        # s'appuie dessus.
+                        username = username_from_media_label(content_desc)
+                        if username:
+                            metadata['author'] = username
+                            self.logger.debug(f"📝 Post author (from media label): @{metadata['author']}")
                     else:
                         self.logger.debug("clips_media_component not found")
                 except Exception as e:
-                    self.logger.debug(f"Fallback Reel by extraction failed: {e}")
+                    self.logger.debug(f"Reel media label extraction failed: {e}")
             
             # Extraire la caption (et la date pour les Reels)
             if is_reel:
