@@ -8,6 +8,7 @@ from loguru import logger
 
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
+from .interaction_plan import resolve_interaction_plan
 from ....core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
@@ -64,6 +65,111 @@ class HashtagBusiness(
         self.default_config = {**HASHTAG_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS
     
+    def _engage_one_post(self, hashtag: str, plan, effective_config: Dict[str, Any],
+                         stats: Dict[str, Any], is_reel: bool, author: Optional[str]) -> bool:
+        """Do everything the plan asks of the post currently on screen.
+
+        The three things a post is worth are independent — like/comment it, walk the people
+        who liked it, walk the people who wrote under it — and this runs whichever ones are
+        enabled, in that order. Each population keeps its OWN per-post budget, because "five
+        likers and two commenters" is the sentence operators actually want to write.
+
+        Order matters: engaging the post happens while we are still on it, and each people
+        walk ends by closing what it opened, so the next one starts from the post again.
+
+        Returns True when anything at all was done — the caller counts engaged posts, not
+        attempts.
+        """
+        did_something = False
+
+        if plan.engage_posts:
+            if self._engage_post_itself(effective_config, stats, author):
+                did_something = True
+
+        # A people walk LEAVES the post. Only the populations asked for are opened, and each
+        # one is closed again so the loop can advance from a known place.
+        for enabled, mode, budget in (
+            (plan.walk_likers, 'likers', plan.max_likers_per_post),
+            (plan.walk_commenters, 'commenters', plan.max_commenters_per_post),
+        ):
+            if not enabled:
+                continue
+            if self._walk_post_people(hashtag, mode, budget, effective_config, stats, is_reel):
+                did_something = True
+
+        return did_something
+
+    def _engage_post_itself(self, effective_config: Dict[str, Any], stats: Dict[str, Any],
+                            author: Optional[str]) -> bool:
+        """Like and/or comment the post on screen, through the production atomics."""
+        like_pct = int(effective_config.get('like_percentage') or 0)
+        comment_pct = int(effective_config.get('comment_percentage') or 0)
+        touched = False
+
+        if like_pct > 0 and random.randint(1, 100) <= like_pct:
+            if self.like_business.like_current_post():
+                stats['likes_made'] += 1
+                self.stats_manager.increment('likes')
+                self.logger.info(f"❤️ Post liked (@{author or 'unknown'})")
+                touched = True
+
+        if comment_pct > 0 and random.randint(1, 100) <= comment_pct:
+            result = self.comment_business.comment_on_post(
+                custom_comments=effective_config.get('custom_comments'),
+                config=effective_config,
+                username=author,
+            )
+            if result and result.get('commented'):
+                stats['comments_made'] += 1
+                self.stats_manager.increment('comments')
+                self.logger.info(f"💬 Comment posted (@{author or 'unknown'})")
+                touched = True
+
+        return touched
+
+    def _walk_post_people(self, hashtag: str, mode: str, budget: int,
+                          effective_config: Dict[str, Any], stats: Dict[str, Any],
+                          is_reel: bool) -> bool:
+        """Open one population of the post and walk it, then close it again.
+
+        Same shared loop as post_url and target (`_interact_with_likers_list`); only the row
+        plumbing differs, which is what `resolve_list_source` decides.
+        """
+        try:
+            if mode == 'commenters':
+                opened = self._open_comments_view()
+            else:
+                opened = self._open_likers_popup(is_reel)
+            if not opened:
+                self.logger.warning(f"Could not open the {mode} of this post")
+                return False
+
+            before = stats.get('users_interacted', 0)
+            self.logger.info(f"🚀 Walking the {mode} of this post (up to {budget})")
+            self._interact_with_likers_list(
+                stats=stats,
+                effective_config={**effective_config, 'source': f"#{hashtag}"},
+                max_interactions=budget,
+                source_type='HASHTAG',
+                source_name=f"#{hashtag}",
+                list_source=resolve_list_source(self, mode),
+            )
+            return stats.get('users_interacted', 0) > before
+        except Exception as exc:
+            self.logger.error(f"Error while walking the {mode}: {exc}")
+            stats['errors'] += 1
+            return False
+        finally:
+            # Whatever happened, come back to the post: the next population — and the next
+            # advance — both assume we are standing on it.
+            try:
+                if mode == 'commenters':
+                    self._close_comments_view()
+                else:
+                    self._close_likers_popup()
+            except Exception as exc:
+                self.logger.debug(f"Could not close the {mode} view: {exc}")
+
     def _interact_with_hashtag_posts(self, hashtag: str, effective_config: Dict[str, Any],
                                      stats: Dict[str, Any], account_id,
                                      finalize: bool = True) -> Dict[str, Any]:
