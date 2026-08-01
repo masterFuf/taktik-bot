@@ -241,42 +241,54 @@ class WorkflowHelpers:
                 self.logger.error("Cannot get active account ID to create session")
                 return None
             
-            # Determine target type and target from action
+            # Determine target type and target from action.
+            #
+            # A MAPPING, not a chain of elifs, and an explicit entry for the workflows that
+            # have no target of their own. Those four (feed, unfollow, the two syncs) used to
+            # fall through to the default below and were recorded as USER / "unknown": the
+            # session existed, the history simply called it a target run. That is why no Feed
+            # line ever appeared in the sessions page — nothing was lost, everything was
+            # mislabelled. An unmapped type now says so in the log instead of borrowing an
+            # identity from whatever the default happens to be.
             target_type = "USER"
             target = "unknown"
-            
+
+            # action type -> (target_type, key holding the target, or None when there is none)
+            _ACTION_TARGETS = {
+                'interact_with_followers': ("USER", 'target_username'),
+                'hashtag': ("HASHTAG", 'hashtag'),
+                'post_url': ("POST_URL", 'post_url'),
+                # No target: the run works on our own feed / our own following list.
+                'feed': ("FEED", None),
+                'unfollow': ("UNFOLLOW", None),
+                'sync_following': ("SYNC_FOLLOWING", None),
+                'sync_followers_following': ("SYNC_FOLLOWING", None),
+            }
+
             if action_override:
                 action_type = action_override.get('type')
-                if action_type == 'interact_with_followers':
-                    target_type = "USER"
-                    target = action_override.get('target_username', 'unknown')
-                elif action_type == 'hashtag':
-                    target_type = "HASHTAG"
-                    target = action_override.get('hashtag', 'unknown')
-                elif action_type == 'post_url':
-                    target_type = "POST_URL"
-                    target = action_override.get('post_url', 'unknown')
+                mapping = _ACTION_TARGETS.get(action_type)
+                if mapping:
+                    target_type, target_key = mapping
+                    target = action_override.get(target_key, 'unknown') if target_key else target_type.lower()
+                elif action_type:
+                    self.logger.warning(
+                        f"Unmapped action type '{action_type}' for the session label — "
+                        f"recorded as {target_type}. Add it to _ACTION_TARGETS."
+                    )
             else:
                 # Try to get from config (check both 'steps' and 'actions' for compatibility)
                 steps_or_actions = self.automation.config.get('steps') or self.automation.config.get('actions', [])
                 
                 if steps_or_actions:
                     for action in steps_or_actions:
-                        if action.get('type') == 'interact_with_followers':
-                            target_type = "USER"
-                            target = action.get('target_username', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                        elif action.get('type') == 'hashtag':
-                            target_type = "HASHTAG"
-                            target = action.get('hashtag', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
-                        elif action.get('type') == 'post_url':
-                            target_type = "POST_URL"
-                            target = action.get('post_url', 'unknown')
-                            self.logger.debug(f"Session target determined: {target_type} = {target}")
-                            break
+                        mapping = _ACTION_TARGETS.get(action.get('type'))
+                        if not mapping:
+                            continue
+                        target_type, target_key = mapping
+                        target = action.get(target_key, 'unknown') if target_key else target_type.lower()
+                        self.logger.debug(f"Session target determined: {target_type} = {target}")
+                        break
                 
                 # Fallback to workflow info if available
                 if target == "unknown" and hasattr(self.automation, 'current_workflow_info'):
