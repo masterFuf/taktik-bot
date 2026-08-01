@@ -114,7 +114,8 @@ class SessionRepository(BaseRepository):
         session_id: int,
         status: str,
         duration_seconds: Optional[int] = None,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
+        posts_engaged: Optional[int] = None
     ) -> bool:
         """Terminal update: status + end_time + the stats_* snapshot aggregated from
         `interactions`.
@@ -158,6 +159,15 @@ class SessionRepository(BaseRepository):
         ]
         values: List[Any] = [status, total, likes, follows, unfollows, comments,
                              story_views, story_likes, profile_visits]
+
+        # POSTS engages. Le reste du snapshot s'agrege depuis `interactions`, qui est une
+        # table PAR PROFIL : un run qui n'ouvre aucun profil (feed, plan hashtag « posts
+        # seuls ») n'y ecrit rien et ressortait donc entierement a zero — puis masque comme
+        # session vide. Ce compteur vient du run lui-meme, pas d'une agregation.
+        if posts_engaged is not None:
+            updates.append('posts_watched = ?')
+            values.append(int(posts_engaged))
+
 
         if duration_seconds is not None:
             updates.append('duration_seconds = ?')

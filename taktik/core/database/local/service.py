@@ -486,7 +486,8 @@ class LocalDatabaseService:
 
     def finalize_session(self, session_id: int, status: str,
                          duration_seconds: Optional[int] = None,
-                         error_message: Optional[str] = None) -> bool:
+                         error_message: Optional[str] = None,
+                         posts_engaged: Optional[int] = None) -> bool:
         """Terminal session update: status + end_time + stats_* snapshot from interactions.
 
         Use this (not update_session) for every end-of-session path the bot owns
@@ -497,7 +498,8 @@ class LocalDatabaseService:
         result = self.sessions.finalize(
             session_id, status,
             duration_seconds=duration_seconds,
-            error_message=error_message
+            error_message=error_message,
+            posts_engaged=posts_engaged
         )
         if result and status in ('COMPLETED', 'FAILED', 'ERROR'):
             session = self.get_session(session_id)

@@ -49,6 +49,11 @@ class BaseStatsManager:
             'comments_made': 0,
             'stories_watched': 0,
             'story_likes': 0,
+            # POSTS engages (like/commentaire sur le post lui-meme, sans ouvrir de profil).
+            # C'est la seule production d'un run feed ou d'un plan hashtag « posts seuls » :
+            # sans ce compteur ils rapportaient zero partout, le panneau affichait des vides
+            # et la session etait classee comme vide donc masquee.
+            'posts_engaged': 0,
             
             'errors': 0,
             'error_list': [],

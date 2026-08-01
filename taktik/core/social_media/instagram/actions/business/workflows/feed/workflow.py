@@ -347,6 +347,12 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                                 self.logger.info(f"💬 Comment posted")
                                 commented = True
 
+                        if liked or commented:
+                            # Un post du fil engage EST la production de ce workflow : il ne
+                            # visite aucun profil, donc rien d'autre ne le compte.
+                            stats['posts_engaged'] = stats.get('posts_engaged', 0) + 1
+                            self.stats_manager.increment('posts_engaged')
+
                         if liked:
                             feed_action = 'like_comment' if commented else 'like'
                             feed_reason = 'Commenté' if commented else 'Liké'

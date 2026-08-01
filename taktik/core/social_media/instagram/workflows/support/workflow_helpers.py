@@ -341,7 +341,23 @@ class WorkflowHelpers:
 
             try:
                 local_db = get_local_database()
-                success = local_db.finalize_session(session_id, status, duration_seconds=session_duration)
+                # Le compteur de POSTS vient du run, pas de l'agregation par profil : un
+                # workflow qui n'ouvre aucun profil (feed, plan hashtag « posts seuls »)
+                # n'ecrit rien dans `interactions` et ressortait donc a zero, puis masque
+                # comme session vide.
+                posts_engaged = 0
+                try:
+                    manager = getattr(self.automation.actions, 'stats_manager', None)
+                    if manager is not None:
+                        posts_engaged = int(manager.stats.get('posts_engaged', 0) or 0)
+                except Exception:
+                    posts_engaged = 0
+
+                success = local_db.finalize_session(
+                    session_id, status,
+                    duration_seconds=session_duration,
+                    posts_engaged=posts_engaged,
+                )
 
                 if success:
                     self.logger.info(f"✅ Session {session_id} finalized ({status})")

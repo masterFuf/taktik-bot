@@ -16,6 +16,7 @@ class InstagramIpcMixin:
         stories_watched: int = 0,
         story_likes: int = 0,
         errors: int = 0,
+        posts_engaged: int = 0,
     ) -> None:
         """Send comprehensive Instagram stats update."""
         self.send("instagram_stats", stats={
@@ -29,6 +30,9 @@ class InstagramIpcMixin:
             "stories_watched": stories_watched,
             "story_likes": story_likes,
             "errors": errors,
+            # What a run that never opens a profile produces. Without it the feed workflow
+            # and the posts-only hashtag plan reported nothing at all.
+            "posts_engaged": posts_engaged,
         })
 
     def instagram_action(self, action: str, username: str, details: dict = None) -> None:

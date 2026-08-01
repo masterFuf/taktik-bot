@@ -148,11 +148,21 @@ def _no_persistence(monkeypatch):
 
 
 def _run(host, service, **config_overrides):
+    """Runs the unified loop with a posts-only plan — the shape the old `posts` mode
+    resolves to, so these behaviours are pinned across the refactor rather than dropped."""
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+        resolve_interaction_plan,
+    )
     service.host = host
+    config = _config(**config_overrides)
+    plan = resolve_interaction_plan({
+        'engage_posts': True,
+        'max_posts': config['max_interactions'],
+    })
     stats = {'posts_analyzed': 0, 'posts_selected': 0, 'likes_made': 0,
              'comments_made': 0, 'users_interacted': 0, 'errors': 0}
-    return host._interact_with_hashtag_posts(
-        'esthetique', _config(**config_overrides), stats, account_id=42, finalize=False,
+    return host._run_interaction_plan(
+        'esthetique', plan, config, stats, account_id=42, finalize=False,
     )
 
 
@@ -175,7 +185,7 @@ def test_it_engages_several_posts_and_never_opens_a_people_list(_no_persistence)
 
     assert host.recorder.likes == ['a', 'b', 'c']
     assert stats['likes_made'] == 3
-    assert stats['users_interacted'] == 3
+    assert stats['posts_engaged'] == 3
     assert host.likers_popup_opened is False
 
 
@@ -275,28 +285,20 @@ def test_a_page_that_says_nothing_leaves_the_mode_unset():
 
 # ─────────────────────────────────────────────────────── commenters source
 
-def test_the_three_modes_are_documented_in_the_defaults():
-    """'commenters' walks the same post, but the people who WROTE something. It reuses the
-    post_url list source as-is, so only the row plumbing differs — everything downstream of
-    the click is the shared loop."""
-    from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
-        HASHTAG_DEFAULTS,
+def test_the_default_plan_is_still_the_historical_one():
+    """No plan stated and no mode stated -> what the workflow has always done."""
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+        resolve_interaction_plan,
     )
-    import inspect
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow
-
-    assert HASHTAG_DEFAULTS['interaction_mode'] == 'likers'
-    source = inspect.getsource(workflow)
-    assert "resolve_list_source(self, source_mode)" in source
-    assert "if source_mode == 'commenters':" in source
+    plan = resolve_interaction_plan({})
+    assert plan.walk_likers is True and plan.max_posts == 1
 
 
-def test_an_unknown_mode_falls_back_to_likers_instead_of_failing():
-    """A typo in a saved preset must not abort a run, and must not silently pick the wrong
-    population either — likers is the historical, safe answer."""
-    import inspect
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow
 
-    source = inspect.getsource(workflow)
-    assert "if source_mode not in ('likers', 'commenters'):" in source
-    assert "falling back to likers" in source
+def test_an_unknown_mode_still_falls_back_to_likers():
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+        resolve_interaction_plan,
+    )
+    assert resolve_interaction_plan({'interaction_mode': 'nonsense'}).walk_likers is True
+
+

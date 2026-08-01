@@ -21,8 +21,14 @@ def send_instagram_stats(
     stories_watched: int = 0,
     story_likes: int = 0,
     errors: int = 0,
+    posts_engaged: int = 0,
 ):
-    """Send comprehensive Instagram stats update to desktop app."""
+    """Send comprehensive Instagram stats update to desktop app.
+
+    `posts_engaged` is what a run that never opens a profile actually produces — the feed
+    workflow, and the hashtag plan that only engages posts. Without it those runs reported
+    nothing at all: the panel showed zeroes, and the session was filed as empty and hidden.
+    """
     _ipc.instagram_stats(
         profiles_visited=profiles_visited,
         profiles_interacted=profiles_interacted,
@@ -34,6 +40,7 @@ def send_instagram_stats(
         stories_watched=stories_watched,
         story_likes=story_likes,
         errors=errors,
+        posts_engaged=posts_engaged,
     )
 
 
@@ -50,6 +57,7 @@ def _on_stats_update(stats_dict: dict):
         stories_watched=stats_dict.get("stories_watched", 0),
         story_likes=stats_dict.get("story_likes", 0),
         errors=stats_dict.get("errors", 0),
+        posts_engaged=stats_dict.get("posts_engaged", 0),
     )
 
 
