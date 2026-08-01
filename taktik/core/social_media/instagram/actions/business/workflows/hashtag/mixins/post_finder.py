@@ -368,6 +368,21 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 except Exception:
                     continue
             
+            # Retombée REEL. Les deux boucles ci-dessus interrogent des sélecteurs de POST ;
+            # sur un reel elles reviennent souvent bredouilles et les compteurs restent à
+            # None — ce que le panneau affiche alors comme rien du tout, alors que le même
+            # run lit ce compteur sans peine deux lignes plus loin via l'extracteur partagé,
+            # qui lui est reel-aware. On lui redemande donc plutôt que de renoncer.
+            # `None` reste possible et reste un état légitime : « illisible » n'est pas zéro.
+            if metadata['likes_count'] is None or metadata['comments_count'] is None:
+                try:
+                    if metadata['likes_count'] is None:
+                        metadata['likes_count'] = self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel)
+                    if metadata['comments_count'] is None:
+                        metadata['comments_count'] = self.ui_extractors.extract_comments_count_from_ui(is_reel=is_reel)
+                except Exception as exc:
+                    self.logger.debug(f"Shared counter fallback failed: {exc}")
+
             # Vérifier qu'on a au moins l'auteur
             if metadata['author']:
                 date_info = f" | date: {metadata['post_date']}" if metadata.get('post_date') else ""
