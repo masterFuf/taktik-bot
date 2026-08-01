@@ -157,10 +157,17 @@ def _build_action_config(
         # comment thread. This builder is a whitelist, so an unnamed key never reaches the
         # workflow; `None` here means "not specified", and the workflow keeps its default.
         "source_mode": raw_config.get("source_mode"),
-        # Hashtag — WHAT the run engages: 'likers' (the people who liked one post, the
-        # historical behaviour) or 'posts' (the posts themselves, no people list at all).
-        # Whitelist again: unnamed here means the workflow keeps 'likers'.
+        # Hashtag — ce que vaut CHAQUE post. Les trois se cumulent, avec un budget par
+        # population et par post. `interaction_mode` reste accepte : c'est l'ancienne forme
+        # exclusive, traduite par `resolve_interaction_plan` pour qu'un preset enregistre
+        # continue de tourner. Whitelist : une cle absente ici n'atteint jamais le workflow.
         "interaction_mode": raw_config.get("interactionMode"),
+        "engage_posts": raw_config.get("engagePosts"),
+        "walk_likers": raw_config.get("walkLikers"),
+        "walk_commenters": raw_config.get("walkCommenters"),
+        "max_posts": raw_config.get("maxPosts"),
+        "max_likers_per_post": raw_config.get("maxLikersPerPost"),
+        "max_commenters_per_post": raw_config.get("maxCommentersPerPost"),
         "like_comments": raw_config.get("like_comments"),
         "reply_to_comments": raw_config.get("reply_to_comments"),
         "max_comment_likes": raw_config.get("max_comment_likes"),

@@ -120,6 +120,13 @@ class WorkflowRunner:
         # That is exactly how the post-like bounds were lost before.
         if action.get('interaction_mode'):
             config['interaction_mode'] = action['interaction_mode']
+        # Le plan explicite (trois cases + budgets par post). Recopie cle par cle comme le
+        # reste : `build_interaction_config` est selectif, donc une cle absente ici n'atteint
+        # jamais le workflow — c'est ainsi que les bornes de likes s'etaient perdues.
+        for key in ('engage_posts', 'walk_likers', 'walk_commenters',
+                    'max_posts', 'max_likers_per_post', 'max_commenters_per_post'):
+            if action.get(key) is not None:
+                config[key] = action[key]
 
         budget = config.get('max_interactions', action.get('max_interactions', 10))
         distribution = normalize_distribution(action.get('distribution'))
