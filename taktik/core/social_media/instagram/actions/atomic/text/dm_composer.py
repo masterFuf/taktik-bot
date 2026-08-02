@@ -111,14 +111,19 @@ def type_message(
     message: str = "",
     *,
     element: Optional[Any] = None,
-    typos: bool = False,
+    typos: bool = True,
     logger=None,
 ) -> bool:
     """Focus the composer and type `message`, falling back until something lands.
 
-    `typos=True` routes through the humanised typing plan (adjacent-key mistakes that get
-    corrected, think-pauses). The plan's rendering equals the target exactly, so a mistake is
-    never committed — but it stays opt-in per caller.
+    Typing is humanised by default: occasional adjacent-key mistakes that get noticed and
+    corrected, plus think-pauses at word and sentence boundaries. The plan's rendering equals
+    the target string exactly — `render_plan` exists to prove it — so a mistake is visible on
+    screen for a moment and never committed.
+
+    A DM is the longest text this bot produces and the one a human would most obviously
+    re-read while typing. Pass `typos=False` for a field where even a momentary wrong
+    character is unacceptable.
     """
     log = logger or _default_logger
     if not message:
