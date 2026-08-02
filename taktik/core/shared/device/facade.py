@@ -50,7 +50,19 @@ class BaseDeviceFacade:
     
     def __getattr__(self, name: str) -> Any:
         return getattr(self._device, name)
-    
+
+    def __call__(self, *args: Any, **kwargs: Any):
+        """Select a UI element the uiautomator2 way: ``facade(resourceId=...)``.
+
+        `__getattr__` already forwards every attribute to the wrapped device, so the facade
+        is a superset of it in every respect but one: Python resolves ``obj(...)`` on the
+        TYPE, never through `__getattr__`. That single gap is why the bridges had to keep a
+        raw uiautomator2 device — 50 call sites use this idiom — while the workflows moved to
+        the facade. Delegating here makes the facade a drop-in replacement, so a caller can
+        hold one object instead of choosing between two vocabularies.
+        """
+        return self._device(*args, **kwargs)
+
     @property
     def device(self):
         return self._device
