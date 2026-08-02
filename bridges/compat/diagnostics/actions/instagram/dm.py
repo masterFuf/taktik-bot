@@ -17,18 +17,21 @@ from bridges.compat.diagnostics.actions.instagram import action
 
 
 def _dm_runtime(a):
-    """Compose the production DM mixins (engagement/runtime/dm) onto the warm Lab device.
+    """Bind the production DM runtime (engagement/runtime/dm) to the warm Lab device.
 
-    The prod mixins operate on a raw uiautomator2 device and read only a small attribute surface
-    (``device``, ``screen_width/height``, ``_keyboard``) — no other bridge coupling — so we bind
-    the raw device under the Lab facade and supply those attributes. Every method then runs the
-    exact prod code on the warm device (no second connection, no app restart)."""
-    from bridges.instagram.engagement.runtime.dm.navigation import DMInboxNavigationMixin
-    from bridges.instagram.engagement.runtime.dm.reader import DMConversationReaderMixin
-    from bridges.instagram.engagement.runtime.dm.sender import DMSenderMixin
+    Extends ``DMRuntime`` — the very composition ``DMBridge`` is built on — rather than
+    re-listing its mixins here: a mixin added to the prod runtime then reaches the Lab
+    on its own, where a parallel mixin list would have kept passing while testing an
+    older capability set.
+
+    The runtime reads a small attribute surface (``device``, ``screen_width/height``,
+    ``_keyboard``), so we bind the raw uiautomator2 device the Lab facade exposes and
+    supply the rest. Every method runs the exact prod code on the warm device — no
+    second connection, no app restart."""
+    from bridges.instagram.engagement.runtime.dm.bridge import DMRuntime
     from bridges.common.input.keyboard import KeyboardService
 
-    class _LabDMRuntime(DMSenderMixin, DMConversationReaderMixin, DMInboxNavigationMixin):
+    class _LabDMRuntime(DMRuntime):
         def __init__(self, facade):
             # The prod mixins expect a raw u2 device (self.device(...), .xpath, .long_click, .info);
             # the Lab facade exposes it as `.device`.
