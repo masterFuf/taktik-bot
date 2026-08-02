@@ -25,6 +25,11 @@ class WorkflowTestRequest:
     max_consecutive_known: int | None = None
     # Pacing/behaviour profile mirroring the real workflow ({"profileId": "balanced"|...}).
     behavior_policy: dict | None = None
+    # Page-level workflow settings, in the desktop bridge's camelCase vocabulary
+    # (`engagePosts`, `walkLikers`, `feed: {...}`, …). Passed verbatim to the production
+    # config builder, which owns their whitelist — so a setting added to a workflow page
+    # reaches the bench without a single change in this bridge.
+    options: dict | None = None
 
 
 def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
@@ -77,6 +82,7 @@ def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
         filters=config.get("filters") or None,
         max_consecutive_known=config.get("maxConsecutiveKnownUsernames"),
         behavior_policy=config.get("behaviorPolicy") or None,
+        options=config.get("options") or None,
     )
 
 

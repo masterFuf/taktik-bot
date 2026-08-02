@@ -1,6 +1,39 @@
-"""Instagram automation config builder for compat workflow diagnostics."""
+"""Instagram automation config for compat workflow diagnostics.
 
-import math
+The bench does NOT build this config itself any more. It assembles the same camelCase payload
+the desktop bridge sends and hands it to the PRODUCTION builder.
+
+It used to keep a parallel builder, and every setting added to a workflow page had to be
+re-declared here. None ever was, so the bench quietly drifted behind production:
+
+  - a feed run carried none of the acquisition options (`interactWithPostAuthor`,
+    `interactWithPostLikers`, `maxLikersPerPost`, `skipReels`) — it scrolled and liked, and
+    never visited an author or opened a post's likers;
+  - a hashtag run carried none of the plan keys, so `resolve_interaction_plan` fell through
+    to the legacy exclusive mode. The bench validated ONE post and its likers — a shape the
+    production page no longer emits.
+
+A green run on a divergent config proves nothing about production, which is the one thing
+this bench exists to do.
+"""
+
+from taktik.core.social_media.instagram.workflows.core.config_builder import (
+    build_instagram_automation_config,
+)
+
+
+# Bench workflow value -> the vocabulary the production builder speaks. Explicit rather than a
+# pass-through because that builder fails loudly on an unknown type instead of guessing, and
+# because the two vocabularies genuinely differ (`hashtag` here, `hashtags` there).
+_PROD_WORKFLOW_TYPES = {
+    "target_followers": "target_followers",
+    "target_following": "target_following",
+    "hashtag": "hashtags",
+    "post_likers": "post_url",
+    "post_url": "post_url",
+    "feed": "feed",
+    "unfollow": "unfollow",
+}
 
 
 def build_workflow_config(
@@ -13,146 +46,149 @@ def build_workflow_config(
     filters: dict | None = None,
     max_consecutive_known: int | None = None,
     behavior_policy: dict | None = None,
+    options: dict | None = None,
 ) -> dict:
-    """Build a workflow config matching the format expected by InstagramAutomation.
+    """Build the workflow config for a bench run, through the production builder.
 
-    When ``filters`` is provided (mirroring the real workflow's profile-filter
-    card) it is honoured verbatim, so a test run applies the exact same profile
-    selection as production instead of a permissive stub.
-
-    Mirroring the real config surface (Lot 4): when ``delays`` is None the run is
-    rhythm-driven, so ``delay_between_actions`` is omitted and the SessionManager
-    derives the pace from ``behavior_policy`` (the pacing profile). When ``delays``
-    is provided it wins for back-compat, exactly like the production path.
+    ``options`` carries the page-level settings verbatim (`engagePosts`, `walkLikers`,
+    `feed: {...}`, …). It is deliberately opaque here: the production builder owns their
+    whitelist, so a NEW page setting reaches the bench without touching this file — which is
+    the whole point of delegating.
     """
-    max_profiles = limits.get("maxProfiles", 3)
-    min_likes = limits.get("minLikesPerProfile", 1)
-    max_likes = limits.get("maxLikesPerProfile", 1)
-    like_pct = probs.get("like", 80)
-    follow_pct = probs.get("follow", 0)
-    comment_pct = probs.get("comment", 0)
-    story_pct = probs.get("watchStories", 0)
-    story_like_pct = probs.get("likeStories", 0)
+    prod_type = _PROD_WORKFLOW_TYPES.get(workflow_type)
+    if prod_type is None:
+        return _notifications_config(workflow_type, limits, probs, session_duration, filters)
 
-    action_type, interaction_type, session_wf_type = _resolve_workflow_types(workflow_type)
-    target_list = [value.strip() for value in target.split(",") if value.strip()]
-
-    action_config = {
-        "type": action_type,
-        "target_username": target_list[0] if target_list else target,
-        "target_usernames": target_list,
-        # Same contract as the production config builder: canonical plural lists, the
-        # singular keys carrying the first entry. The raw `target` here used to reach the
-        # hashtag runner as one comma-joined string — the exact production bug the Lab
-        # exists to catch, reproduced in the Lab's own harness.
-        "hashtag": (target_list[0] if target_list else target) if action_type == "hashtag" else None,
-        "hashtags": target_list if action_type == "hashtag" else [],
-        "interaction_type": interaction_type,
-        "max_interactions": max_profiles,
-        "like_posts": True,
-        "min_likes_per_profile": min_likes,
-        "max_likes_per_profile": max_likes,
-        "probabilities": {
-            "like_percentage": like_pct,
-            "follow_percentage": follow_pct,
-            "comment_percentage": comment_pct,
-            "story_percentage": story_pct,
-            "story_like_percentage": story_like_pct,
+    raw_config: dict = {
+        "target": target,
+        "workflowType": prod_type,
+        "limits": {
+            "maxProfiles": limits.get("maxProfiles", 3),
+            "minLikesPerProfile": limits.get("minLikesPerProfile", 1),
+            "maxLikesPerProfile": limits.get("maxLikesPerProfile", 1),
         },
-        "like_settings": {"enabled": like_pct > 0, "like_carousels": True, "like_reels": True},
-        "follow_settings": {"enabled": follow_pct > 0},
-        "story_settings": {"enabled": story_pct > 0},
-        "story_like_settings": {"enabled": story_like_pct > 0},
-        "comment_settings": {"enabled": comment_pct > 0, "custom_comments": []},
+        "probabilities": {
+            "like": probs.get("like", 80),
+            "follow": probs.get("follow", 0),
+            "comment": probs.get("comment", 0),
+            "watchStories": probs.get("watchStories", 0),
+            "likeStories": probs.get("likeStories", 0),
+        },
+        # The bench's filter card is permissive by default where production is restrictive;
+        # seeding the keys keeps the bench's own defaults instead of inheriting the other set.
+        "filters": _filters_payload(filters or {}),
+        "session": _session_payload(session_duration, delays, max_consecutive_known),
     }
+    if behavior_policy:
+        raw_config["behaviorPolicy"] = behavior_policy
+    for key, value in (options or {}).items():
+        raw_config[key] = value
+    if prod_type == "hashtags":
+        _seed_legacy_hashtag_plan(raw_config, raw_config["limits"]["maxProfiles"])
 
-    if action_type == "feed":
-        action_config = {
-            "type": "feed",
-            "max_interactions": max_profiles,
-            "like_percentage": like_pct,
-            "follow_percentage": follow_pct,
-            "comment_percentage": comment_pct,
-            "story_watch_percentage": story_pct,
-        }
-    elif action_type == "notifications":
-        action_config = {
-            "type": "notifications",
-            "max_interactions": limits.get("maxInteractions", max_profiles),
-            "like_percentage": like_pct,
-            "follow_percentage": follow_pct,
-            "comment_percentage": comment_pct,
-        }
-    elif action_type == "unfollow":
-        action_config = {
-            "type": "unfollow",
-            "max_unfollows": limits.get("maxUnfollows", 10),
-            "unfollow_mode": "non_followers",
-            "skip_verified": False,
-            "skip_business": False,
-        }
-    elif action_type == "post_url":
-        action_config["type"] = "post_url"
-        action_config["post_url"] = target_list[0] if target_list else target
-        action_config["post_urls"] = target_list
+    built = build_instagram_automation_config(raw_config)
+    _apply_bench_profile_filters(built, filters or {})
+    return built
 
-    f = filters or {}
+
+def _seed_legacy_hashtag_plan(raw_config: dict, max_interactions: int) -> None:
+    """Give a caller that states no plan the bench's historical hashtag behaviour.
+
+    The production builder always WRITES the three plan keys, even as ``None``, and
+    ``resolve_interaction_plan`` keys off their PRESENCE — so an absent plan no longer falls
+    through to the legacy mode, it yields a plan with all three false: a run that opens posts
+    and engages nothing. The front always states a plan; this covers everyone else by
+    reproducing what the legacy `likers` mode did — one post, its likers walked up to the
+    interaction budget.
+    """
+    if any(key in raw_config for key in ("engagePosts", "walkLikers", "walkCommenters")):
+        return
+    raw_config["engagePosts"] = False
+    raw_config["walkLikers"] = True
+    raw_config["walkCommenters"] = False
+    raw_config.setdefault("maxPosts", 1)
+    raw_config.setdefault("maxLikersPerPost", max_interactions)
+
+
+def _filters_payload(f: dict) -> dict:
+    payload = dict(f)
+    payload.setdefault("minFollowers", 0)
+    payload.setdefault("maxFollowers", 999999999)
+    payload.setdefault("minPosts", 0)
+    payload.setdefault("maxFollowing", 999999999)
+    return payload
+
+
+def _session_payload(session_duration: int, delays: dict | None, max_consecutive_known: int | None) -> dict:
+    payload: dict = {"durationMinutes": session_duration}
+    # Explicit delays win for back-compat; absent => the pacing profile drives the rhythm,
+    # exactly like the production path.
+    if delays:
+        payload["minDelay"] = delays.get("min")
+        payload["maxDelay"] = delays.get("max")
+    if max_consecutive_known is not None:
+        payload["maxConsecutiveKnownUsernames"] = max_consecutive_known
+    return payload
+
+
+def _apply_bench_profile_filters(built: dict, f: dict) -> None:
+    """Re-apply the bench's profile-filter card on top of the production filters.
+
+    The production builder pins ``privacy_relation`` and emits no ``allow_*`` flags, so these
+    three toggles would become decorative the moment the bench delegates. They stay local on
+    purpose: the real pages send them too, so whether production should carry them is its own
+    question — not something to settle as a side effect of this refactor.
+    """
     allow_private = f.get("allowPrivate", True)
-    filters_config = {
-        "min_followers": f.get("minFollowers", 0),
-        "max_followers": f.get("maxFollowers", 999999999),
-        "min_followings": 0,
-        "max_followings": f.get("maxFollowing", 999999999),
-        "min_posts": f.get("minPosts", 0),
+    built["filters"].update({
         "privacy_relation": "public_and_private" if allow_private else "public",
-        # Real workflows read these allow_* flags from the filter criteria.
         "allow_private": allow_private,
         "allow_verified": f.get("allowVerified", True),
         "allow_business": f.get("allowBusiness", True),
-        "blacklist_words": [],
+    })
+
+
+def _notifications_config(workflow_type: str, limits: dict, probs: dict, session_duration: int,
+                          filters: dict | None) -> dict:
+    """Local shape for `notifications`, which the production builder refuses by design.
+
+    Reading the activity feed belongs to the notifications ENGAGEMENT bridge, which owns its
+    own persistence and app lifecycle; `build_instagram_automation_config` raises rather than
+    turn it into a follower run. The bench still lists it as a workflow, so it keeps a config
+    of its own here instead of crashing on that guard.
+    """
+    if workflow_type != "notifications":
+        raise ValueError(f"Unknown bench workflow type {workflow_type!r}")
+
+    f = filters or {}
+    max_interactions = limits.get("maxInteractions", limits.get("maxProfiles", 3))
+    built = {
+        # Consumed shape is snake_case, like the production builder's output — `_filters_payload`
+        # above produces the camelCase INPUT and would not be read here.
+        "filters": {
+            "min_followers": f.get("minFollowers", 0),
+            "max_followers": f.get("maxFollowers", 999999999),
+            "min_followings": 0,
+            "max_followings": f.get("maxFollowing", 999999999),
+            "min_posts": f.get("minPosts", 0),
+            "blacklist_words": [],
+        },
+        "session_settings": {
+            "workflow_type": "notifications",
+            "total_profiles_limit": max_interactions,
+            "session_duration_minutes": session_duration,
+            "randomize_actions": False,
+        },
+        "actions": [{
+            "type": "notifications",
+            "max_interactions": max_interactions,
+            "like_percentage": probs.get("like", 80),
+            "follow_percentage": probs.get("follow", 0),
+            "comment_percentage": probs.get("comment", 0),
+        }],
     }
-
-    session_settings = {
-        "workflow_type": session_wf_type,
-        "total_profiles_limit": max_profiles,
-        "total_follows_limit": math.ceil(max_profiles * follow_pct / 100) if follow_pct else 0,
-        "total_likes_limit": math.ceil(max_profiles * max_likes * like_pct / 100) if like_pct else 0,
-        "session_duration_minutes": session_duration,
-        "randomize_actions": False,
-    }
-    # Explicit delays win for back-compat; absent => the pacing profile drives the rhythm.
-    if delays:
-        session_settings["delay_between_actions"] = delays
-    if max_consecutive_known is not None:
-        session_settings["max_consecutive_known_usernames"] = max_consecutive_known
-
-    config = {
-        "filters": filters_config,
-        "session_settings": session_settings,
-        "actions": [action_config],
-    }
-    # Top-level behaviorPolicy mirrors the production config: SessionManager reads it to
-    # resolve the pacing profile (taktik/core/shared/behavior/profiles.py).
-    if behavior_policy:
-        config["behaviorPolicy"] = behavior_policy
-    return config
-
-
-def _resolve_workflow_types(workflow_type: str) -> tuple[str, str, str]:
-    if workflow_type in ("target_followers", "target_following"):
-        interaction_type = "followers" if workflow_type == "target_followers" else "following"
-        return "interact_with_followers", interaction_type, "target_followers"
-    if workflow_type == "hashtag":
-        return "hashtag", "hashtag", "hashtag"
-    if workflow_type in ("post_likers", "post_url"):
-        return "post_url", "post_likers", "post_url"
-    if workflow_type == "feed":
-        return "feed", "feed", "feed"
-    if workflow_type == "notifications":
-        return "notifications", "notifications", "notifications"
-    if workflow_type == "unfollow":
-        return "unfollow", "unfollow", "unfollow"
-    return "interact_with_followers", "followers", "target_followers"
+    _apply_bench_profile_filters(built, filters or {})
+    return built
 
 
 __all__ = ["build_workflow_config"]

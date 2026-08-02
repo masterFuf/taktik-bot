@@ -49,6 +49,8 @@ def main():
     delays = request.delays
     filters = request.filters
     max_consecutive_known = request.max_consecutive_known
+    behavior_policy = request.behavior_policy
+    options = request.options
 
     setup_log_sink(ipc)
     setup_action_hooks(ipc)
@@ -75,6 +77,8 @@ def main():
         delays=delays,
         filters=filters,
         max_consecutive_known=max_consecutive_known,
+        behavior_policy=behavior_policy,
+        options=options,
         conn=session.connection,
         device=session.device,
         automation=session.automation,
