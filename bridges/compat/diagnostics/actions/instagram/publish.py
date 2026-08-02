@@ -3,6 +3,11 @@
 Selector-only (NO hardcoded coordinates): each step finds its element by resource-id or
 text and reports whether the selector matched, so the Cartography Lab can validate the
 publish flow step by step before assembling the bot publish bridge.
+
+Every selector group comes from the centralized ``CONTENT_CREATION_SELECTORS`` catalog,
+which owns the XPath construction (``draft_dismiss_xpaths``, ``next_button_xpaths``…).
+Rebuilding those strings here would fork the publish flow's selectors from the ones the
+production workflow consumes — the module that owns them states the rule explicitly.
 """
 
 from loguru import logger
@@ -11,20 +16,6 @@ from bridges.compat.diagnostics.actions.instagram import action
 from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import (
     CONTENT_CREATION_SELECTORS as CC,
 )
-
-
-def _rid(resource_id: str) -> str:
-    """XPath matching a resource-id (suffix-tolerant)."""
-    return f'//*[contains(@resource-id, "{resource_id.split("/")[-1]}")]'
-
-
-def _by_texts(texts) -> list:
-    """XPath list matching any of the given text/content-desc labels."""
-    selectors = []
-    for t in texts:
-        selectors.append(f'//*[@text="{t}"]')
-        selectors.append(f'//*[@content-desc="{t}"]')
-    return selectors
 
 
 def _result(found: bool, ok_msg: str, ko_msg: str, **details):
@@ -38,8 +29,7 @@ def _result(found: bool, ok_msg: str, ko_msg: str, **details):
 @action("publish.dismiss_reel_draft")
 def publish_dismiss_reel_draft(a, p):
     """Dismiss the 'keep editing your draft?' modal if present (optional)."""
-    selectors = [_rid(CC.auxiliary_button)] + _by_texts(CC.reel_draft_start_new_texts)
-    ok = a.click._find_and_click(selectors, timeout=2)
+    ok = a.click._find_and_click(CC.draft_dismiss_xpaths(), timeout=2)
     # Non-blocking: the modal is conditional.
     return {"success": True, "message": "draft modal ferme" if ok else "pas de draft modal",
             "details": {"dismissed": ok}}
@@ -50,8 +40,7 @@ def publish_open_creation(a, p):
     """Open the creation screen. Selector-only: bottom-bar create tab, else the clickable
     ImageView in the top-left action bar container (no resource-id/content-desc on some
     versions), else a 'Create' label. No hardcoded coordinate."""
-    selectors = list(CC.create_button_xpaths) + _by_texts(CC.create_button_texts)
-    ok = a.click._find_and_click(selectors, timeout=4)
+    ok = a.click._find_and_click(CC.create_button_flow_xpaths(), timeout=4)
     return _result(ok, "creation ouverte", "bouton creer introuvable", selector="create_button")
 
 
@@ -152,24 +141,21 @@ def publish_select_reel_tab(a, p):
 @action("publish.next")
 def publish_next(a, p):
     """Tap the Next button (gallery -> filters, or filters -> caption)."""
-    selectors = [_rid(CC.creation_next_button), _rid(CC.next_button)] + _by_texts(CC.next_texts)
-    ok = a.click._find_and_click(selectors, timeout=4)
+    ok = a.click._find_and_click(CC.next_button_xpaths(), timeout=4)
     return _result(ok, "Next clique", "Next introuvable")
 
 
 @action("publish.dismiss_modal_ok")
 def publish_dismiss_modal_ok(a, p):
     """Dismiss an optional post-selection modal (OK), if present."""
-    selectors = [_rid(CC.bb_primary_action_container)] + _by_texts(["OK"])
-    ok = a.click._find_and_click(selectors, timeout=2)
+    ok = a.click._find_and_click(CC.post_selection_ok_xpaths(), timeout=2)
     return {"success": True, "message": "modal OK ferme" if ok else "pas de modal", "details": {"dismissed": ok}}
 
 
 @action("publish.tap_caption")
 def publish_tap_caption(a, p):
     """Tap the caption field to focus it."""
-    selectors = [_rid(CC.caption_input_text_view), _rid(CC.caption_text_view)]
-    ok = a.click._find_and_click(selectors, timeout=4)
+    ok = a.click._find_and_click(CC.composer_xpaths(), timeout=4)
     return _result(ok, "champ caption ouvert", "caption introuvable", selector="caption_input_text_view")
 
 
