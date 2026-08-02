@@ -115,36 +115,22 @@ def _detected(label, found):
 
 
 def _tap_first(a, selectors, label):
-    """Tap the FIRST element matching any selector (human tap on its real bounds).
+    """Tap the FIRST element matching any selector, through the production finder.
 
     Used only by the probes the production workflow does not drive
     (``open_filter`` / ``confirm_inline_request``); every other probe reuses a
     workflow primitive.
+
+    Delegates to ``_find_and_click`` — the same ordered search + humanized tap
+    (varied point inside the real bounds, centre click as fallback) every business
+    action uses. A local walk over ``device.xpath`` would have been a second
+    implementation of that search, and it also bypassed the selector tracing the
+    Lab reports on: probes tapped through it recorded 0/0 selectors.
     """
-    for selector in selectors:
-        try:
-            element = a.device.xpath(selector).get(timeout=2.0)
-        except Exception:
-            continue
-        if not element:
-            continue
-        try:
-            bounds = tuple(element.bounds)
-        except Exception:
-            bounds = None
-        if bounds:
-            point = a.device.human_tap(bounds)
-            if point:
-                logger.info(f"{label}: tapped @ {point}")
-                return {"success": True, "message": f"{label}: tapped @ {point}"}
-        # Fallback: click the element directly when bounds are unavailable.
-        try:
-            element.click()
-            logger.info(f"{label}: clicked element")
-            return {"success": True, "message": f"{label}: clicked element"}
-        except Exception as exc:
-            logger.error(f"{label}: click failed: {exc}")
-            return {"success": False, "message": f"{label}: click failed: {str(exc)[:120]}"}
+    ok = a.click._find_and_click(list(selectors), timeout=2)
+    if ok:
+        logger.info(f"{label}: tapped")
+        return {"success": True, "message": f"{label}: tapped"}
     logger.warning(f"{label}: no matching element")
     return {"success": False, "message": f"{label}: no matching element"}
 
