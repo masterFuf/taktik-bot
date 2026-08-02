@@ -290,22 +290,40 @@ def artifact_dir_for(
 
 
 def _resolve_package_name(bundle: Any, platform: str, *, current_app: dict | None = None) -> str | None:
+    """Resolve the package whose installed version stamps the run.
+
+    The platform under test owns the stamp. Reading the foreground package first
+    files runs under whatever happens to be on screen: ``app.launch`` starts from
+    the home screen by definition, so the launcher wins and its ``versionName``
+    (the Android release: "12", "14", "16") becomes the reported app version. The
+    session context is resolved once and reused, so a single session started from
+    the home screen mislabels every one of its runs.
+
+    The foreground package still wins when it belongs to the platform, so clones
+    (``com.instagram.android.c1``) keep stamping their own version.
+    """
     current = current_app if current_app is not None else _get_current_app(bundle)
-    package_name = current.get("package") if current else None
-    if package_name:
-        return package_name
+    foreground = current.get("package") if current else None
 
     try:
-        from bridges.common.device.apps import get_app_config
+        from bridges.common.device.apps import get_app_config, packages_for_platform
+
+        known = packages_for_platform(platform)
+        if foreground and (
+            foreground in known
+            or any(foreground.startswith(f"{package}.") for package in known)
+        ):
+            return foreground
 
         config = get_app_config(platform)
         if config:
             package = config.get("package")
-            return str(package) if package else None
+            if package:
+                return str(package)
     except Exception as exc:
         logger.debug(f"Could not resolve default package for {platform}: {exc}")
 
-    return None
+    return foreground
 
 
 def _resolve_app_version(device_id: str, package_name: str | None, platform: str) -> str | None:
