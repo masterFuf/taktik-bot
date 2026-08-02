@@ -37,6 +37,9 @@ def _dm_runtime(a):
             # the Lab facade exposes it as `.device`.
             self.device = getattr(facade, "device", facade)
             device_id = getattr(facade, "device_id", None) or "lab"
+            # The shared composer atomic types on a NAMED device: without this the Lab runtime
+            # would hit its "device_id is required" guard instead of silently typing elsewhere.
+            self.device_id = device_id
             try:
                 info = self.device.info
                 self.screen_width = int(info.get("displayWidth") or 1080)

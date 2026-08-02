@@ -4,6 +4,7 @@ import time
 from typing import Optional
 
 from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
+from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 
 
 class OutreachActionsMixin:
@@ -60,8 +61,12 @@ class OutreachActionsMixin:
             if search_field.exists(timeout=5):
                 search_field.click()
                 time.sleep(1)
-                # Use Taktik Keyboard for reliable text input
-                device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+                # Champ de RECHERCHE, pas le composer : frappe directe, sans faute de frappe
+                # (une lettre erronee momentanee deplace la liste de suggestions). Le device_id
+                # est resolu depuis le device — plus de repli vers un emulateur imaginaire.
+                device_id = dm_composer.resolve_device_id(
+                    self.device, getattr(self.device_manager, 'device_id', None)
+                )
                 if not type_with_taktik_keyboard(device_id, username):
                     self.logger.warning("Taktik Keyboard failed, falling back to set_text")
                     search_field.set_text(username)
@@ -153,52 +158,20 @@ class OutreachActionsMixin:
         """
         try:
             self.logger.debug(f"Sending message ({len(message)} chars)...")
-            
-            # Trouver le champ de saisie avec les nouveaux sélecteurs
-            message_input = None
-            for selector in self.dm_selectors.message_input:
-                msg_input = self.device.xpath(selector)
-                if msg_input.exists:
-                    message_input = msg_input
-                    break
-            
-            if not message_input:
-                # Fallback générique
-                message_input = self.device(**self.dm_selectors.message_input_class_selector)
-                if not message_input.exists(timeout=5):
-                    self.logger.error("Message input field not found")
-                    return False
-            
-            # Saisir le message
-            message_input.click()
-            time.sleep(0.5)
-            # Use Taktik Keyboard for reliable text input
-            device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
-            if not type_with_taktik_keyboard(device_id, message):
-                self.logger.warning("Taktik Keyboard failed, falling back to set_text")
-                message_input.set_text(message)
-            time.sleep(1)
-            
-            # Envoyer le message avec les nouveaux sélecteurs
-            for selector in self.dm_selectors.send_button:
-                send_btn = self.device.xpath(selector)
-                if send_btn.exists:
-                    send_btn.click()
-                    time.sleep(1)
-                    self.logger.debug("✅ Message sent")
-                    return True
-            
-            # Fallback: chercher par content-desc
-            for description in self.dm_selectors.send_button_content_descriptions:
-                send_btn = self.device(contentDescription=description)
-                if send_btn.exists(timeout=3):
-                    send_btn.click()
-                    time.sleep(1)
-                    return True
-            
-            self.logger.error("Send button not found")
-            return False
-            
+
+            # Localisation, frappe et envoi : atomique de composer partagee. Le device_id vient
+            # du device — le repli 'emulator-5554' tapait dans un telephone hors session.
+            sent = dm_composer.send_message(
+                self.device,
+                getattr(self.device_manager, 'device_id', None),
+                message,
+                settle=1.0,
+                logger=self.logger,
+            )
+            if sent:
+                self.logger.debug("✅ Message sent")
+            return sent
+
         except Exception as e:
             self.logger.error(f"Error sending message: {e}")
             return False

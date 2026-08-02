@@ -8,6 +8,10 @@ import time
 from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
+    find_message_input,
+    type_message,
+)
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -25,44 +29,24 @@ class DMSenderMixin:
         time.sleep(total_time)
 
     def _find_message_input(self):
-        message_input_ids = DM_SELECTORS.message_input_resource_ids
-        msg_input = self.device(resourceId=message_input_ids[0])
-        if not msg_input.exists and len(message_input_ids) > 1:
-            logger.info("Trying alternative input selector...")
-            msg_input = self.device(resourceId=message_input_ids[1])
-        if not msg_input.exists:
-            logger.info("Trying EditText class...")
-            msg_input = self.device(className=DM_SELECTORS.edit_text_class_name)
-        if not msg_input.exists:
-            logger.info("Trying hint text...")
-            for text in DM_SELECTORS.message_input_text_contains:
-                msg_input = self.device(textContains=text)
-                if msg_input.exists:
-                    break
-        return msg_input
+        """Delegates to the shared composer atomic — see `dm_composer.find_message_input`."""
+        return find_message_input(self.device, logger=logger)
 
     def _type_dm_message(self, msg_input, message: str) -> bool:
+        """Delegates to the shared composer atomic.
+
+        The simulated typing delay stays here: this runtime paced itself before typing, and the
+        shared function only types. Once humanised typing is on, its own think-pauses make this
+        wait redundant — that is a rhythm change, not a refactor, so it is left alone.
+        """
         self._simulate_typing_delay(message)
-
-        if self._keyboard.type_text(message):
-            logger.info("Text set via Taktik Keyboard")
-            return True
-
-        logger.warning("Taktik Keyboard failed, trying fallback methods...")
-        try:
-            msg_input.set_text(message)
-            logger.info("Text set via set_text")
-            return True
-        except Exception as e:
-            logger.warning(f"set_text failed: {e}, trying send_keys...")
-
-        try:
-            msg_input.send_keys(message)
-            logger.info("Text set via send_keys")
-            return True
-        except Exception as e:
-            logger.error(f"send_keys also failed: {e}")
-            return False
+        return type_message(
+            self.device,
+            getattr(self, "device_id", None),
+            message,
+            element=msg_input,
+            logger=logger,
+        )
 
     def _find_send_button(self):
         send_btn = None

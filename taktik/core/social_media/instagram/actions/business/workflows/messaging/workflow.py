@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 
 from ....core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
     BUTTON_SELECTORS,
     NAVIGATION_SELECTORS,
@@ -85,44 +86,17 @@ class MessagingBusiness(BaseAction):
         return False
     
     def _type_message(self, message: str) -> bool:
-        """Type a message in the DM input field."""
-        input_selectors = DM_SELECTORS.message_input
-        
-        for selector in input_selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not self._human_tap_element(element):
-                        element.click()
-                    time.sleep(0.3)
-                    # Taktik Keyboard (own fallback chain: ADB keyboard -> adb input -> send_keys).
-                    # NB: the former call self._type_text_human_like did not exist on this class —
-                    # the AttributeError was swallowed by `except: continue` below, so the message
-                    # body was never typed. Use the real humanized typing method.
-                    if not self._type_with_taktik_keyboard(message):
-                        self._type_like_human(message)
-                    self.logger.debug(f"✅ Typed message ({len(message)} chars)")
-                    return True
-            except Exception:
-                continue
-        
+        """Type a message in the DM input field — shared composer atomic."""
+        if dm_composer.type_message(self.device, None, message, logger=self.logger):
+            self.logger.debug(f"✅ Typed message ({len(message)} chars)")
+            return True
         return False
     
     def _click_send_button(self) -> bool:
-        """Click the Send button to send the DM."""
-        send_selectors = DM_SELECTORS.send_button
-        
-        for selector in send_selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not self._human_tap_element(element):
-                        element.click()
-                    self.logger.debug("✅ Clicked Send button")
-                    return True
-            except Exception:
-                continue
-        
+        """Click the Send button to send the DM — shared composer atomic."""
+        if dm_composer.click_send_button(self.device, logger=self.logger):
+            self.logger.debug("✅ Clicked Send button")
+            return True
         return False
 
 

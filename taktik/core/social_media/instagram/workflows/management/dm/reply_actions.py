@@ -4,7 +4,7 @@ import time
 from typing import Dict, List, Optional
 from datetime import datetime
 
-from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
+from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from ....ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from .auto_reply_models import ConversationMessage
 
@@ -92,39 +92,16 @@ class DMReplyActionsMixin:
     def _send_reply(self, reply: str) -> bool:
         """Envoyer la réponse dans la conversation."""
         try:
-            # Trouver le champ de saisie
-            message_input = self.device(**DM_SELECTORS.message_input_class_selector)
-            if not message_input.exists(timeout=5):
-                self.logger.error("Message input not found")
-                return False
-            
-            # Saisir le message
-            message_input.click()
-            time.sleep(0.5)
-            # Use Taktik Keyboard for reliable text input
-            device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
-            if not type_with_taktik_keyboard(device_id, reply):
-                self.logger.warning("Taktik Keyboard failed, falling back to set_text")
-                message_input.set_text(reply)
-            time.sleep(0.5)
-            
-            # Envoyer
-            send_btn = None
-            for description in DM_SELECTORS.send_button_content_descriptions:
-                send_btn = self.device(
-                    **DM_SELECTORS.send_button_selector_for_description(description)
-                )
-                if send_btn.exists(timeout=3):
-                    break
-            
-            if send_btn and send_btn.exists(timeout=3):
-                send_btn.click()
-                time.sleep(1)
-                return True
-            
-            self.logger.error("Send button not found")
-            return False
-            
+            # Localisation, frappe et envoi : atomique de composer partagee (tap humanise, clavier
+            # Taktik puis set_text puis send_keys). Le device_id vient du device lui-meme — le
+            # repli 'emulator-5554' visait un telephone qui n'est pas celui de la session.
+            return dm_composer.send_message(
+                self.device,
+                getattr(self.device_manager, 'device_id', None),
+                reply,
+                logger=self.logger,
+            )
+
         except Exception as e:
             self.logger.error(f"Error sending reply: {e}")
             return False
