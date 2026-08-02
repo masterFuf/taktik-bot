@@ -443,6 +443,57 @@ def scroll_human_down(a, p):
     return {"success": bool(ok), "message": "swipe humain (down)" if ok else "echec swipe", "details": {}}
 
 
+def _generic_scroll(a, p, direction: str):
+    """Run the production generic scroll and report which gesture profile it took."""
+    try:
+        distance_ratio = float(p.get("distance_ratio", 0.4))
+    except (TypeError, ValueError):
+        distance_ratio = 0.4
+    speed = str(p.get("speed", "normal")).strip().lower()
+    if speed not in ("normal", "slow"):
+        speed = "normal"
+    runner = a.scroll.scroll_up if direction == "up" else a.scroll.scroll_down
+    ok = runner(distance_ratio=distance_ratio, speed=speed)
+    decision = dict(getattr(a.scroll, "_last_behavior_gesture", {}) or {})
+    profile = "curve echantillonnee" if speed == "slow" else "flick decisif"
+    style = f" style={decision.get('style')}" if decision.get("style") else ""
+    return {
+        "success": bool(ok),
+        "message": f"scroll {direction} [{profile}] ratio={distance_ratio}{style}",
+        "details": {
+            "direction": direction,
+            "distance_ratio": distance_ratio,
+            "speed": speed,
+            "gesture_decision": decision,
+            "behavior_state": getattr(a.scroll, "_behavior_snapshot", lambda: {})(),
+        },
+    }
+
+
+@action("scroll.generic_up")
+def scroll_generic_up(a, p):
+    """The production generic scroll (``ScrollActions.scroll_up``) — the entry point the
+    workflows call, not one of the primitives underneath it.
+
+    Covers the whole composition in one run: direction routing, ``distance_ratio`` resolved
+    against the real screen height, the decisive flick (``speed='normal'``) or the sampled
+    curve (``speed='slow'``), then the human settle delay. ``scroll.human_up`` and
+    ``scroll.feed_flick`` each exercise ONE primitive underneath; this exercises what
+    production actually invokes, so a routing regression cannot hide between them.
+
+    params (optional):
+      - distance_ratio: fraction of the screen height (production default 0.4).
+      - speed: 'normal' (decisive flick, default) or 'slow' (sampled curve).
+    """
+    return _generic_scroll(a, p, "up")
+
+
+@action("scroll.generic_down")
+def scroll_generic_down(a, p):
+    """Same production entry point, backward (``ScrollActions.scroll_down``). Same params."""
+    return _generic_scroll(a, p, "down")
+
+
 @action("scroll.left")
 def scroll_left(a, p):
     scale = float(p.get("scale", 0.8))
