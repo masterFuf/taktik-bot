@@ -62,7 +62,26 @@ class PlatformBridgeBase:
         )
 
         self._after_connect()
+        # Facade LAST, on purpose: `_after_connect` may swap the device for a proxy (the
+        # Instagram clone rewriter does), and the facade has to wrap whatever ends up in play
+        # or that proxy drops out of the chain.
+        self.device = self._wrap_in_facade(self.device)
         return True
+
+    def _wrap_in_facade(self, device):
+        """Expose a DeviceFacade rather than the raw uiautomator2 device.
+
+        The facade is a superset: `__getattr__` forwards every attribute and `__call__`
+        forwards the selector idiom, so the 50 call sites written as `self.device(resourceId=…)`
+        keep working untouched. What the bridges gain is everything the workflows already had —
+        humanised taps and gestures, `xpath`, XML dumps — which was unreachable from here for no
+        reason other than the facade not being callable.
+        """
+        from taktik.core.shared.device.facade import BaseDeviceFacade
+
+        if device is None or isinstance(device, BaseDeviceFacade):
+            return device
+        return BaseDeviceFacade(device, module_name=f"{self.PLATFORM or 'platform'}-bridge-device")
 
     def _after_connect(self) -> None:
         """Hook for subclasses to inject post-connection logic."""
