@@ -322,6 +322,90 @@ def cmd_like(device_id: str, username: str, package_name: str = None) -> None:
     emit_notif_json({"type": "result", "command": "like", **result}, flush=True)
 
 
+def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> None:
+    """Run a LIST of notification actions inside ONE session.
+
+    Every action used to be its own bridge invocation: a Python process, a fresh uiautomator2
+    connection, a walk back to the activity feed — and, front-side, a network-pool lease taken and
+    released. Liking four comments paid that four times, and answering ten reviewed AI drafts paid
+    it ten times. Here the connection is made once and the workflow is reused, which is what
+    ``accept_all`` has always done for follow requests; this generalises it to the other actions.
+
+    A ``notification_step`` is emitted BEFORE each action and after each result, so the front can
+    show real progress — and so that a batch killed mid-way has already reported everything that
+    did happen. Stop is a process kill by design (the operator asked to stop, not to finish the
+    current one), so nothing here polls a flag: the last emitted step IS the record.
+
+    Each action is ``{"action": "like"|"reply"|"accept"|"ignore", "username": str, "text": str?}``.
+    One failing action does not abort the rest — a comment whose row scrolled out of reach must not
+    cancel the nine others.
+    """
+    bridge = _connect(device_id, package_name, restart=False)
+    workflow = bridge.build_workflow()
+
+    total = len(actions)
+    results: list[dict] = []
+    done = 0
+    failed = 0
+
+    for index, entry in enumerate(actions):
+        action = (entry.get("action") or "").strip()
+        username = (entry.get("username") or "").strip()
+        text = entry.get("text") or ""
+
+        emit_notif_json({
+            "type": "notification_step",
+            "step": "batch_action",
+            "index": index,
+            "total": total,
+            "action": action,
+            "username": username,
+            "message": f"[{index + 1}/{total}] {action} @{username}",
+        }, flush=True)
+
+        try:
+            if action == "like":
+                result = workflow.like_comment(username)
+            elif action == "reply":
+                result = workflow.reply_to_comment(username, text)
+            elif action == "accept":
+                result = workflow.accept_request(username)
+            elif action == "ignore":
+                result = workflow.ignore_request(username)
+            else:
+                result = {"success": False, "error": f"Unknown action: {action}"}
+        except Exception as exc:  # noqa: BLE001
+            # Isolated per action, on purpose: see the docstring.
+            logger.error(f"[NOTIF] batch {action} @{username} failed: {exc}")
+            result = {"success": False, "error": str(exc)}
+
+        ok = bool(result.get("success"))
+        done += 1 if ok else 0
+        failed += 0 if ok else 1
+        results.append({"action": action, "username": username, **result})
+
+        emit_notif_json({
+            "type": "notification_step",
+            "step": "batch_result",
+            "index": index,
+            "total": total,
+            "action": action,
+            "username": username,
+            "success": ok,
+            "message": f"[{index + 1}/{total}] {action} @{username} {'ok' if ok else 'failed'}",
+        }, flush=True)
+
+    emit_notif_json({
+        "type": "result",
+        "command": "batch",
+        "success": failed == 0,
+        "total": total,
+        "done": done,
+        "failed": failed,
+        "results": results,
+    }, flush=True)
+
+
 def run_notifications_cli(args: list[str]) -> None:
     """Parse notifications bridge CLI args and dispatch the selected command."""
     package_name = None
@@ -385,7 +469,8 @@ def run_notifications_cli(args: list[str]) -> None:
             "  ignore <device_id> <username>\n"
             "  accept_all <device_id> [max]\n"
             "  reply <device_id> <username> [text]\n"
-            "  like <device_id> <username>"
+            "  like <device_id> <username>\n"
+            '  batch <device_id> \'[{"action":"like","username":"x"},...]\''
         )
         sys.exit(1)
 
@@ -437,6 +522,22 @@ def run_notifications_cli(args: list[str]) -> None:
                 emit_notif_error("Usage: notifications.py like <device_id> <username>")
                 sys.exit(1)
             cmd_like(args[1], args[2], package_name=package_name)
+
+        elif command == "batch":
+            # The action list travels as ONE argv element (spawn, no shell), so unicode and spaces
+            # in reply texts survive without quoting rules.
+            if len(args) < 3:
+                emit_notif_error('Usage: notifications.py batch <device_id> <json_actions>')
+                sys.exit(1)
+            try:
+                parsed = json.loads(args[2])
+            except (TypeError, ValueError) as exc:
+                emit_notif_error(f"Unreadable batch actions: {exc}")
+                sys.exit(1)
+            if not isinstance(parsed, list) or not parsed:
+                emit_notif_error("Batch actions must be a non-empty list")
+                sys.exit(1)
+            cmd_batch(args[1], parsed, package_name=package_name)
 
         else:
             emit_notif_error(f"Unknown command: {command}")
