@@ -398,6 +398,21 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     private_zone_jumps += 1
                     scroll_attempts += moved
 
+                    # Persist the DETECTION, not just the reaction. This reordering is the only
+                    # observable symptom we have of Instagram flagging the account, so each
+                    # occurrence is a dated measurement of that account's standing: since when,
+                    # how often, on which sources — and when it STOPS, which reads as detections
+                    # ceasing on runs that used to produce them.
+                    self._record_restriction_signal(
+                        account_username=account_username,
+                        source_name=target_username,
+                        source_followers=target_followers_count,
+                        streak=private_streak_policy.threshold,
+                        encounter_order=total_usernames_seen,
+                        jump_index=private_zone_jumps,
+                        gestures=moved,
+                    )
+
                     # The four gates that would otherwise read a deliberate transport as a fault.
                     # Missing any one of them turns the rescue into the thing that ends the run:
                     #  - empty screens: a fling outruns the loading, and 4 empty scans stop the run

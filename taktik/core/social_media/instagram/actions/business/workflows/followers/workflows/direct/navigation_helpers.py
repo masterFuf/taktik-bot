@@ -40,6 +40,31 @@ class DirectNavigationMixin:
                 return True
         return False
 
+    def _record_restriction_signal(self, account_username, source_name, source_followers,
+                                   streak, encounter_order, jump_index, gestures):
+        """Persist one detection. Never raises — losing a measurement must not lose the run."""
+        if not account_username or account_username == "unknown":
+            return
+        try:
+            # Through the service's repository, like every other bot write — never a
+            # connection opened on the side (AGENTS.md: no direct SQL in a workflow).
+            from taktik.core.database.local.service import LocalDatabaseService
+
+            LocalDatabaseService().account_restrictions.record_signal(
+                account_username,
+                platform="instagram",
+                source_type="FOLLOWERS",
+                source_name=source_name,
+                source_followers=source_followers,
+                streak=streak,
+                encounter_order=encounter_order,
+                jump_index=jump_index,
+                gestures=gestures,
+                session_id=self._get_session_id() if hasattr(self, "_get_session_id") else None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.debug(f"Could not persist restriction signal: {exc}")
+
     def _escape_private_zone(self, policy, jumps_done, source_followers=None):
         """Transport the list past a run of private profiles. Returns the gestures that
         actually moved something.

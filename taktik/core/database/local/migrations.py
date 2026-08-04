@@ -39,6 +39,7 @@ from .migration_steps.gmail import run_gmail_accounts_fold
 from .migration_steps.social_profiles import run_social_profiles_unification_migrations
 from .migration_steps.messaging import run_messaging_migrations
 from .migration_steps.notifications import run_notifications_migrations
+from .migration_steps.account_restrictions import run_account_restriction_migrations
 from .migration_steps.posted_comments import run_posted_comments_migrations
 
 
@@ -67,6 +68,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_gmail_accounts_fold(cursor)  # Vague F2: gmail_accounts -> accounts + compat view
     run_messaging_migrations(cursor)  # additive: dm_messages.displayed_at (raw IG date label)
     run_notifications_migrations(cursor)  # additive: cross-platform notifications table (dedup + attribution)
+    run_account_restriction_migrations(cursor)  # additive: observable platform-flag signals per account
     run_posted_comments_migrations(cursor)  # additive: kind ('comment' | 'reply') + reply_to_*
     run_feed_ads_migrations(cursor)  # additive: sponsored creatives met in the feed (local-only corpus)
     drop_legacy_discovery_tables(cursor)

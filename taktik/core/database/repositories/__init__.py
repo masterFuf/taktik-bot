@@ -17,12 +17,14 @@ from .instagram import (
     SocialGraphRepository,
     StatsRepository,
 )
+from .restrictions import AccountRestrictionRepository
 from .tiktok import TikTokRepository
 
 __all__ = [
     'BaseRepository',
     'get_repository',
     'SentDMRepository',
+    'AccountRestrictionRepository',
     'AccountRepository',
     'ProfileRepository',
     'InteractionRepository',
