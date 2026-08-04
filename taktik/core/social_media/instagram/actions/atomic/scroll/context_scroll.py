@@ -59,6 +59,28 @@ class ContextScrollMixin(BaseAction):
             self.logger.error(f"Error scrolling followers list: {e}")
             return False
 
+    def scroll_followers_list_fling(self, distance_ratio: float = 0.55) -> bool:
+        """Fling the followers list — TRANSPORT, not reading.
+
+        `scroll_followers_list_down` deliberately uses `coast=False` so the travel stays
+        precise and no row is skipped. This is its opposite: `coast=True` fires a real
+        Android fling and the content carries 2.5-4x past the finger, so a few gestures
+        cross a large part of a list.
+
+        Skipping rows is the POINT here, not a defect. The only caller is the private-zone
+        escape, which is trying to leave a region of the list rather than read it — and
+        the gesture itself is the ordinary one anybody makes when hunting for someone in
+        their followers.
+        """
+        self.logger.debug("👥 Flinging followers list (transport)")
+
+        try:
+            self.device.human_scroll("down", distance_ratio=distance_ratio, coast=True)
+            return True
+        except Exception as e:
+            self.logger.error(f"Error flinging followers list: {e}")
+            return False
+
     def scroll_comments_down(self) -> bool:
         """Scroll down in the comments bottom sheet view.
 

@@ -9,6 +9,7 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from ....common.revisit_policy import RevisitPolicy
+from ....common.private_streak_policy import PrivateStreakPolicy
 from ....common.followers_tracker import FollowersTracker
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
@@ -58,6 +59,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
         # Operator-set revisit delays (how long an interaction / a stored filter keeps a
         # profile off-limits FOR THIS ACCOUNT). Single owner of the semantic.
         revisit_policy = RevisitPolicy.from_filters(interaction_config['filter_criteria'])
+        # Escape hatch for an account served its private followers first. Disarmed on its own
+        # when the operator ALLOWS private profiles — nothing is being rejected, so there is no
+        # zone to leave.
+        private_streak_policy = PrivateStreakPolicy.from_filters(interaction_config['filter_criteria'])
 
         # Navigation configuration. 0 = go through the SEARCH BAR like a person (and like the
         # hashtag flow already does); the deep link stays available as a fallback inside
@@ -125,6 +130,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # list being handled), but a long streak means the list is gone (e.g. the
             # "Suggestions" screen) — stop instead of scrolling into the void.
             consecutive_empty_screens = 0
+            # Consecutive PRIVATE profiles among those actually VISITED. A flagged account is
+            # served its private followers first, so a long run of them means we are inside a
+            # head of list that was handed to us, not that this source is private-heavy.
+            # Skips that never opened a profile (already known, relationship, own/target account)
+            # leave this untouched: they say nothing about the zone, and counting them would stop
+            # the streak from ever forming on a list we have already worked.
+            private_streak = 0
+            private_zone_jumps = 0
 
             while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
                 # Vérifier si on doit prendre une pause
@@ -314,6 +327,13 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         session_stop_reason = session_stop_reason or 'navigation_lost'
                         break
 
+                    # Consecutive-private streak. `None` = no profile was opened, so the visit
+                    # says nothing about the zone and the streak is left as it is.
+                    if self._last_visit_was_private is True:
+                        private_streak += 1
+                    elif self._last_visit_was_private is False:
+                        private_streak = 0
+
                     # Outcome ledger: the rich reason (private/filtered/error) is recorded
                     # inside _process_single_follower_direct; here we mark interacted vs not.
                     if interaction_ok:
@@ -356,6 +376,46 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 if navigation_lost:
                     self.logger.error("🛑 Navigation lost — ending run (no blind scrolling on an unknown screen)")
                     break
+
+                # === PRIVATE ZONE ESCAPE ===
+                # Enough consecutive private profiles to conclude we are in a head of list that
+                # was handed to this account rather than in a private-heavy source. Transport
+                # past it instead of spending the whole session budget there.
+                if private_streak_policy.should_escape(private_streak, private_zone_jumps):
+                    emit_step("private_zone_escape", action="transport_start",
+                              streak=private_streak, jump=private_zone_jumps + 1,
+                              source_type="FOLLOWERS", target=target_username)
+                    IPCEmitter.emit_action('private_zone_escape', target_username, {
+                        'streak': private_streak,
+                        'jump': private_zone_jumps + 1,
+                        'max_jumps': private_streak_policy.max_jumps,
+                        'source_followers': target_followers_count,
+                    })
+
+                    moved = self._escape_private_zone(
+                        private_streak_policy, private_zone_jumps, target_followers_count
+                    )
+                    private_zone_jumps += 1
+                    scroll_attempts += moved
+
+                    # The four gates that would otherwise read a deliberate transport as a fault.
+                    # Missing any one of them turns the rescue into the thing that ends the run:
+                    #  - empty screens: a fling outruns the loading, and 4 empty scans stop the run
+                    #  - top loops:     the landing zone is unknown to the anti-loop check
+                    #  - scroll end:    a large jump looks exactly like reaching the bottom
+                    #  - known streak:  landing in already-worked territory would trip the
+                    #                   stop-this-source rule and cancel the benefit of the jump
+                    private_streak = 0
+                    consecutive_empty_screens = 0
+                    consecutive_top_loops = 0
+                    known_usernames_streak = 0
+                    scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
+
+                    tracker.log_scroll("private_zone_transport")
+                    emit_step("private_zone_escape", action="transport_done",
+                              gestures=moved, jump=private_zone_jumps,
+                              source_type="FOLLOWERS", target=target_username)
+                    continue
 
                 # Notify the scroll-end detector ONLY when the visible page is exhausted
                 # (every follower on it already processed this session). While a fresh follower

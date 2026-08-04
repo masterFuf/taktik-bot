@@ -131,6 +131,28 @@ def scroll_feed_flick(a, p):
     return {"success": bool(ok), "message": "flick fort (up)" if ok else "echec flick", "details": {}}
 
 
+@action("scroll.followers_list_fling")
+def scroll_followers_list_fling(a, p):
+    """Transport fling inside a followers/following list — the gesture the private-zone
+    escape uses to leave a head of list served full of private profiles.
+
+    Calls the PRODUCTION atomic (`scroll_followers_list_fling`), not a Lab copy, so what is
+    measured here is what a run does. Open a followers list first; run it a few times to see
+    how far one fling really carries on this device — that distance is what the escape's
+    amplitude is calibrated against.
+    """
+    before = [f["username"] for f in a.detection.get_visible_followers_with_elements()]
+    ok = a.scroll.scroll_followers_list_fling()
+    after = [f["username"] for f in a.detection.get_visible_followers_with_elements()]
+    moved = bool(after and after != before)
+    return {
+        "success": bool(ok) and moved,
+        "message": (f"fling ok, liste avancee ({len(before)} -> {len(after)} lignes visibles)"
+                    if moved else "la liste n'a pas bouge (pas encore chargee, ou fin de liste)"),
+        "details": {"before": before, "after": after, "moved": moved},
+    }
+
+
 @action("scroll.feed_drag")
 def scroll_feed_drag(a, p):
     """Regression probe for the post Share long-press.
