@@ -19,7 +19,7 @@ import base64
 import json
 import os
 import re
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Union
 from loguru import logger
 
 from taktik.core.shared.actions.optional_call import run_bounded_optional
@@ -56,6 +56,28 @@ _PLATFORM_LABELS = {"instagram": "Instagram", "tiktok": "TikTok"}
 
 def _platform_label(platform: str) -> str:
     return _PLATFORM_LABELS.get((platform or "instagram").lower(), (platform or "Instagram").title())
+
+
+def cacheable_system(stable: str, variable: str = "") -> list:
+    """Build a system message split into a CACHED prefix and a per-call remainder.
+
+    Gemini bills a cache hit at a tenth of the normal input price
+    ($0.025 vs $0.25 per M on the analysis model), but the discount is NOT automatic:
+    measured against production prompts, implicit caching never fired once — every call
+    paid full price for a prefix that was byte-identical each time. An explicit
+    `cache_control` breakpoint is what activates it.
+
+    `stable` must be identical across calls (taxonomy + generic instructions); anything
+    that varies per account, per language or per profile belongs in `variable`, AFTER the
+    breakpoint, or every call writes a fresh cache entry instead of reading one.
+
+    A prefix shorter than roughly 1.5k tokens is silently not cached by the provider (the
+    standalone bot, which gets no injected taxonomy, lands there) — harmless, just no gain.
+    """
+    blocks = [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral"}}]
+    if variable:
+        blocks.append({"type": "text", "text": variable})
+    return blocks
 
 
 def parse_json_response(text: str) -> Any:
@@ -194,6 +216,10 @@ class AIService:
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            # Asks for the cost + cache breakdown alongside the token counts, so a run log
+            # can prove whether the cached prefix is actually being HIT. Without it a
+            # regression that silently kills caching reads exactly like a working setup.
+            "usage": {"include": True},
         }).encode("utf-8")
 
         req = urllib.request.Request(OPENROUTER_API_URL, data=body, headers=headers, method="POST")
@@ -278,9 +304,13 @@ class AIService:
             cost_txt = f"${cost:.6f}" if isinstance(cost, (int, float)) else "n/a"
             served = result.get("model") or model
             routed = "" if served == model else f" (requested {model})"
+            # Cached prompt tokens bill at a tenth of the normal input price. Log them so a
+            # cache that stops being hit is visible in the run log instead of only in the bill.
+            cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+            cached_txt = f" (cached {cached})" if cached else ""
             logger.info(
                 f"[AIService] {label or 'call'} · model={served}{routed} · "
-                f"tokens={usage.get('prompt_tokens', '?')}+{usage.get('completion_tokens', '?')} · "
+                f"tokens={usage.get('prompt_tokens', '?')}{cached_txt}+{usage.get('completion_tokens', '?')} · "
                 f"cost={cost_txt}"
             )
         return result
@@ -483,10 +513,13 @@ class AIService:
     # Vision completion
     # ------------------------------------------------------------------
 
-    def vision_completion(self, system_prompt: str, user_prompt: str, image_path: str,
+    def vision_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                           temperature: float = 0.3, max_tokens: int = 1500,
                           label: str = "vision") -> Dict[str, Any]:
-        """Vision completion — sends an image + prompt to the vision model."""
+        """Vision completion — sends an image + prompt to the vision model.
+
+        `system_prompt` is either a plain string or the block list built by
+        `cacheable_system()` when the prefix is worth caching."""
         # Downscaled + JPEG (see _image_for_vision): device screenshots are huge PNGs and
         # the image dominates each vision call's token cost. Never sends more than the raw.
         image_url = self._image_for_vision(image_path)
@@ -503,7 +536,7 @@ class AIService:
         return self._call_openrouter(self.vision_model, messages, temperature, max_tokens,
                                      label=label)
 
-    def vision_json_completion(self, system_prompt: str, user_prompt: str, image_path: str,
+    def vision_json_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                                temperature: float = 0.3, max_tokens: int = 1500,
                                label: str = "vision") -> Dict[str, Any]:
         """Vision completion whose answer must be JSON — retried once if it comes back unusable.
@@ -1083,7 +1116,13 @@ class AIService:
                 '"score": "<number 0.0-1.0>", "reason": "<short reason>"}'
             )
 
-        system_prompt = (
+        # The prompt is deliberately split in two. Everything down to `age_group` is
+        # byte-identical on every call — ~2.2k tokens in production, taxonomy included — so it
+        # is sent as a cached prefix billed at a tenth of the input price. The output language
+        # and the engagement block depend on the app language and on the operated account, so
+        # they sit AFTER the breakpoint: putting them earlier would give each account its own
+        # cache entry and cancel most of the saving. See `cacheable_system`.
+        stable_prompt = (
             f"You are a {_plat_label} profile classifier.\n"
             "Analyze this profile screenshot and identify the account's niche.\n"
             "Choose niche_category from the keys below, then choose niche from that category's sub-niches:\n"
@@ -1099,14 +1138,16 @@ class AIService:
             "For 'summary': write 2-3 sentences describing who this person is, their content style, typical audience, and likely purpose. Be specific and insightful — avoid generic descriptions.\n"
             "For 'following_insights': if a following sample was provided, write 1-2 sentences explaining what it reveals about this person (interests, community circles, cultural background, location signals, professional network, etc.). "
             "Be concrete: name specific patterns you observe. Set to null if no following data was provided.\n"
-            f"Write the human-readable text fields — 'summary', 'following_insights' and the engagement 'reason' — in {_lang_full} (they are shown to the user in the app). "
-            "All structured fields (niche_category, niche, language, content_type, tags, cities, country, profession, profession_tags, gender, age_group) must remain in English.\n"
             "For 'country': the country this account is most likely based in, as an English country name "
             "(e.g. 'France', 'Switzerland', 'United States'). Infer it from the bio, the cities, the writing "
             "language and the following sample. Only answer when the signals reasonably support one country; "
             "set null when you would just be guessing.\n"
             "For 'gender': determine if this is a 'female', 'male', 'brand' (company/organization/product page), or 'unknown' account. Base this on profile photo, name, and bio cues.\n"
             "For 'age_group': estimate the person's age range as 'teen' (<18), 'young_adult' (18-24), 'adult' (25-34), 'mature' (35+), or 'unknown'. Use 'unknown' for brands or if unclear.\n"
+        )
+        variable_prompt = (
+            f"Write the human-readable text fields — 'summary', 'following_insights' and the engagement 'reason' — in {_lang_full} (they are shown to the user in the app). "
+            "All structured fields (niche_category, niche, language, content_type, tags, cities, country, profession, profession_tags, gender, age_group) must remain in English.\n"
             + engagement_instr +
             "Respond ONLY with valid JSON — no extra text:\n"
             '{"niche_category": "travel", "niche": "Adventure & Backpacking", '
@@ -1117,6 +1158,7 @@ class AIService:
             '"gender": "female", "age_group": "young_adult"'
             + engagement_json + '}'
         )
+        system_prompt = cacheable_system(stable_prompt, variable_prompt)
 
         # Build user prompt — include enriched text context when available
         user_prompt = f"Classify this {_plat_label} profile: @{username}"
