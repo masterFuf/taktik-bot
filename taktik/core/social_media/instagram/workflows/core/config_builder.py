@@ -249,6 +249,12 @@ def _build_action_config(
         # back). Absent -> RevisitPolicy defaults, so a standalone run is unchanged.
         "reinteraction_days": filters.get("reinteractionDays"),
         "refilter_days": filters.get("refilterDays"),
+        # Private-zone escape. BOTH keys must travel: `allow_private` is what disarms the
+        # mechanism (nothing rejected -> no zone to leave), and without it here the policy
+        # would read the dataclass default and stay armed even when the operator accepts
+        # private profiles. Absent -> PrivateStreakPolicy defaults, standalone unchanged.
+        "allow_private": bool(filters.get("allowPrivate", False)),
+        "max_consecutive_private_profiles": filters.get("maxConsecutivePrivateProfiles"),
     }
     action_config.update(action_filters)          # cles plates -> FilterCriteria.from_action
     action_config["filters"] = dict(action_filters)  # dict imbrique -> action.get('filters')

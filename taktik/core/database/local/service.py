@@ -14,6 +14,7 @@ from loguru import logger
 
 # Import repositories for new code
 from ..repositories import (
+    AccountRestrictionRepository,
     AccountRepository,
     ProfileRepository,
     InteractionRepository,
@@ -78,6 +79,7 @@ class LocalDatabaseService:
         self._social_graph: Optional[SocialGraphRepository] = None
         self._stats: Optional[StatsRepository] = None
         self._tiktok: Optional[TikTokRepository] = None
+        self._account_restrictions: Optional[AccountRestrictionRepository] = None
         
         self._ensure_database()
     
@@ -143,6 +145,7 @@ class LocalDatabaseService:
         self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn, orm)
         self._social_graph = SocialGraphRepository(conn, orm)
+        self._account_restrictions = AccountRestrictionRepository(conn, orm)
         self._stats = StatsRepository(conn, orm)
         self._tiktok = TikTokRepository(conn, orm)
     
@@ -168,6 +171,14 @@ class LocalDatabaseService:
             self._init_repositories()
         return self._interactions
     
+    @property
+    def account_restrictions(self) -> AccountRestrictionRepository:
+        """Access AccountRestrictionRepository — dated evidence that a platform flagged one
+        of our accounts (currently: private followers served first)."""
+        if not self._account_restrictions:
+            self._init_repositories()
+        return self._account_restrictions
+
     @property
     def posted_comments(self) -> PostedCommentRepository:
         """Access PostedCommentRepository for the comments we leave on other people's posts."""

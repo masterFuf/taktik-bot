@@ -8,6 +8,93 @@ from typing import Dict, Any, Optional
 class DirectNavigationMixin:
     """Mixin: setup, recovery, empty screen handling, scroll/end detection."""
 
+    # A fling only produces travel once the rows it is flinging exist. On a slow phone the
+    # list is still loading, so the gesture lands on nothing and the workflow would believe
+    # it moved when it did not. Both numbers below bound the WAIT, never the run: at worst
+    # the transport stops early and the normal scan resumes where it stands.
+    _TRANSPORT_SETTLE_POLL_S = 0.3
+    _TRANSPORT_SETTLE_BUDGET_S = 4.0
+
+    def _visible_usernames_now(self):
+        """Snapshot of what the list shows, used to tell real travel from a fling into a
+        not-yet-loaded list. Empty is a legitimate answer here (still loading)."""
+        try:
+            return [f['username'] for f in self.detection_actions.get_visible_followers_with_elements()]
+        except Exception:
+            return []
+
+    def _wait_for_list_to_settle(self, before):
+        """Wait — briefly, and never blocking — until the list shows something DIFFERENT.
+
+        Returns True as soon as the content changed. Returns False when the budget runs out,
+        which the caller must treat as "stop transporting", not as an error: an unchanged
+        screen after a fling means either the list has not loaded or we reached its end, and
+        both are answered the same way — stop here and resume the normal scan.
+        """
+        waited = 0.0
+        while waited < self._TRANSPORT_SETTLE_BUDGET_S:
+            time.sleep(self._TRANSPORT_SETTLE_POLL_S)
+            waited += self._TRANSPORT_SETTLE_POLL_S
+            now = self._visible_usernames_now()
+            if now and now != before:
+                return True
+        return False
+
+    def _record_restriction_signal(self, account_username, source_name, source_followers,
+                                   streak, encounter_order, jump_index, gestures):
+        """Persist one detection. Never raises — losing a measurement must not lose the run."""
+        if not account_username or account_username == "unknown":
+            return
+        try:
+            # Through the service's repository, like every other bot write — never a
+            # connection opened on the side (AGENTS.md: no direct SQL in a workflow).
+            from taktik.core.database.local.service import LocalDatabaseService
+
+            LocalDatabaseService().account_restrictions.record_signal(
+                account_username,
+                platform="instagram",
+                source_type="FOLLOWERS",
+                source_name=source_name,
+                source_followers=source_followers,
+                streak=streak,
+                encounter_order=encounter_order,
+                jump_index=jump_index,
+                gestures=gestures,
+                session_id=self._get_session_id() if hasattr(self, "_get_session_id") else None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.debug(f"Could not persist restriction signal: {exc}")
+
+    def _escape_private_zone(self, policy, jumps_done, source_followers=None):
+        """Transport the list past a run of private profiles. Returns the gestures that
+        actually moved something.
+
+        A flagged account is served its private followers FIRST (rho = +0.12 between two
+        accounts on the same source, private profiles shifted -0.63 against +0.08 for public
+        ones, p = 0.0015). The rate of private profiles is unchanged — only their position —
+        so the session budget burns in a head of list it was handed. This walks out of it.
+
+        Each gesture is confirmed before the next: without that, a burst of flings on a slow
+        connection scrolls a list that has not loaded, moves nothing, and leaves the workflow
+        interacting where it believes it is rather than where it is.
+        """
+        planned = policy.flings_for_jump(jumps_done, source_followers)
+        self.logger.warning(
+            f"🚧 Private zone: transporting past it ({planned} flings, jump {jumps_done + 1}/{policy.max_jumps})"
+        )
+
+        effective = 0
+        for _ in range(planned):
+            before = self._visible_usernames_now()
+            self.scroll_actions.scroll_followers_list_fling()
+            if not self._wait_for_list_to_settle(before):
+                self.logger.info("🚧 List stopped moving (loading or end of list) — ending transport here")
+                break
+            effective += 1
+
+        self.logger.info(f"🚧 Transport done: {effective}/{planned} gestures moved the list")
+        return effective
+
     def _setup_direct_workflow(self, target_username, stats, config, deep_link_percentage, force_search_for_target):
         """Navigate to target profile, open followers/following list. Returns (followers_count, profile_info) or (None, None) on failure."""
         self.logger.info(f"🎯 Opening followers list of @{target_username}")

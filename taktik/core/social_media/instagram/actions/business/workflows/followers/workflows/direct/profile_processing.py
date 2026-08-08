@@ -8,6 +8,17 @@ from ......core.base_business.profile_processing import ProfileProcessingResult
 class DirectProfileProcessingMixin:
     """Mixin: _process_single_follower_direct — handle one profile from the followers list."""
 
+    #: Was the profile just VISITED a private one? Read by the main loop to keep its
+    #: consecutive-private streak, which is what detects a poisoned head of list.
+    #:
+    #: Carried on the instance rather than returned, on purpose: the return value is a
+    #: three-state contract (interacted / skipped / unrecoverable) that several callers
+    #: already branch on, and widening it to carry a filter reason would change all of
+    #: them to answer a question only one of them asks. `None` means "no visit happened",
+    #: which is NOT the same as "the visit found a public profile" — a skip that never
+    #: opened a profile must leave the streak untouched.
+    _last_visit_was_private = None
+
     def _process_single_follower_direct(
         self, username, idx, stats, interaction_config, account_id,
         target_username, target_followers_count, total_usernames_seen,
@@ -19,6 +30,7 @@ class DirectProfileProcessingMixin:
         Returns:
             True if interaction happened, False if skipped/filtered, None if critical error (can't recover)
         """
+        self._last_visit_was_private = None
         # === Skip niveau-LISTE (le moins cher de tous) ===
         # La LIGNE du follower montre deja notre relation via son bouton (Suivre / Suivi(e) / Suivre
         # en retour), lisible SANS ouvrir le profil. Si une relation existe et que l'operateur veut
@@ -96,6 +108,7 @@ class DirectProfileProcessingMixin:
             return False
         
         if result.was_private:
+            self._last_visit_was_private = True
             stats['skipped'] += 1
             tracker.log_profile_filtered(username, "Private profile", result.profile_data)
             if not self._ensure_on_followers_list(target_username, force_back=True):
@@ -103,6 +116,10 @@ class DirectProfileProcessingMixin:
             return False
         
         if result.was_filtered:
+            # A profile rejected for "too few posts" is PUBLIC — we could read its posts.
+            # It therefore proves we are out of the private zone and must clear the streak,
+            # exactly like a profile we interacted with.
+            self._last_visit_was_private = False
             stats['filtered'] += 1
             tracker.log_profile_filtered(username, ', '.join(result.filter_reasons), result.profile_data)
             if not self._ensure_on_followers_list(target_username, force_back=True):
@@ -111,6 +128,7 @@ class DirectProfileProcessingMixin:
 
         # Profile passed the filters — THIS is a visit in the persisted sense (the DB records
         # PROFILE_VISIT for processed profiles only, probability-skipped included).
+        self._last_visit_was_private = False
         stats['visited'] += 1
         self.stats_manager.increment('profiles_visited')
 

@@ -13,6 +13,10 @@ from .schemas.enrichment import create_enrichment_tables, create_enrichment_inde
 from .schemas.instagram import create_instagram_tables, create_instagram_indexes
 from .schemas.messaging import create_messaging_tables, create_messaging_indexes
 from .schemas.notifications import create_notifications_tables, create_notifications_indexes
+from .schemas.account_restrictions import (
+    create_account_restriction_tables,
+    create_account_restriction_indexes,
+)
 from .schemas.post_analysis import (
     create_post_analysis_tables,
     create_post_analysis_indexes,
@@ -44,6 +48,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_messaging_indexes(cursor)
     create_notifications_tables(cursor)
     create_notifications_indexes(cursor)
+    create_account_restriction_tables(cursor)
+    create_account_restriction_indexes(cursor)
     create_posted_comments_tables(cursor)
     create_posted_comments_indexes(cursor)
     create_post_analysis_tables(cursor)
