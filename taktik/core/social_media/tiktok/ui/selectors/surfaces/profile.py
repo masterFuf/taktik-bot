@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour les profils utilisateurs TikTok."""
+"""UI selectors for TikTok user profiles."""
 
 from typing import Any, Dict, List
 from dataclasses import dataclass, field
@@ -8,20 +8,20 @@ from ..locales import L
 
 @dataclass
 class ProfileSelectors:
-    """Sélecteurs pour les profils utilisateurs TikTok.
+    """Selectors for TikTok user profiles.
 
-    Basé sur UI dump: ui_dump_20260107_210156.xml (Profile page)
+    Based on a real dump of the profile page.
     Resource-IDs identifiés:
     - qf8: Display name
     - qh5: @username
     - qfw: Compteurs (following/followers/likes)
-    - qfv: Labels des compteurs
+    - the counter labels
     - b5s: Profile photo
     - h9p: Profile views button
     - xvy: Profile views count
     """
 
-    # === Header profil ===
+    # === Profile header ===
     _profile_photo_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b5s")]',
     ])
@@ -50,7 +50,7 @@ class ProfileSelectors:
     def profile_menu_button(self) -> List[str]:
         return L("profile.profile_menu_button")
 
-    # === Informations profil ===
+    # === Profile information ===
     display_name: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qf8")]',
     ])
@@ -67,7 +67,7 @@ class ProfileSelectors:
     def edit_profile_button(self) -> List[str]:
         return L("profile.edit_profile_button")
 
-    # === Compteurs (utilise qfw pour les valeurs, qfv pour les labels) ===
+    # === Counters (one id for the values, another for the labels) ===
     stat_value: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qfw")]',
     ])
@@ -117,7 +117,7 @@ class ProfileSelectors:
         '//*[@text="TikTok Studio"]',
     ])
 
-    # === Onglets de contenu profil ===
+    # === Profile content tabs ===
     @property
     def videos_tab(self) -> List[str]:
         return L("profile.videos_tab")
@@ -152,7 +152,7 @@ class ProfileSelectors:
         '//*[contains(@resource-id, ":id/xxy")]',
     ])
 
-    # === Boutons d'action profil (sur profil d'un autre utilisateur) ===
+    # === Profile action buttons, on someone else's profile ===
     @property
     def follow_button(self) -> List[str]:
         return L("profile.follow_button")

@@ -1,20 +1,18 @@
 """Followers Workflow for TikTok automation.
 
-Dernière mise à jour: 11 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
-Ce workflow permet d'interagir avec les followers d'un utilisateur cible:
+Interacts with the followers of a target user:
 1. Rechercher un utilisateur cible
-2. Cliquer sur l'onglet Users
-3. Ouvrir le profil de l'utilisateur cible
-4. Cliquer sur le compteur Followers
-5. Pour chaque follower dans la liste:
-   a. Cliquer sur le profil du follower (pas le bouton Follow)
-   b. Ouvrir un de ses posts
+2. tap the users tab
+3. open the target user profile
+4. tap the followers counter
+5. for each follower of the list:
+   a. tap the follower profile, never the follow button
+   b. open one of their posts
    c. Interagir (like, comment, share, favorite selon config)
-   d. Retour au profil
-   e. Retour à la liste des followers
-   f. Passer au follower suivant
+   d. back to the profile
+   e. back to the followers list
+   f. move on to the next follower
 """
 
 from typing import Optional, Dict, Any, List, Callable, Set
@@ -58,7 +56,7 @@ class FollowersWorkflow(
     NavigationMixin,
     BaseTikTokWorkflow,
 ):
-    """Workflow pour interagir avec les followers d'un utilisateur cible sur TikTok.
+    """Workflow interacting with the followers of a target TikTok user.
     
     Inherits from BaseTikTokWorkflow:
         - atomic actions (click, navigation, scroll, detection)

@@ -1,16 +1,16 @@
-"""Mixin pour gérer les interruptions du feed vidéo TikTok.
+"""Mixin handling the interruptions of the TikTok video feed.
 
-Gère les pages de suggestion (Follow back / Not interested) et les sections
-de commentaires ouvertes accidentellement pendant le scroll.
+Handles the suggestion pages and the comment sections opened by accident
+during the scroll.
 
-Utilisable par tout workflow qui hérite de BaseVideoWorkflow.
+Usable by any workflow inheriting the base video workflow.
 """
 
 import time
 
 
 class FeedInterruptionsMixin:
-    """Mixin pour gérer les interruptions courantes du feed vidéo.
+    """Mixin handling the common interruptions of the video feed.
     
     Requires:
         self.detection  — PopupDetector (has_suggestion_page, has_comments_section_open)

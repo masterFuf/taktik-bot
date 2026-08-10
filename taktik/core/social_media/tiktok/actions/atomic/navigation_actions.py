@@ -1,7 +1,5 @@
 """Atomic navigation actions for TikTok.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
 This module aggregates SearchActions and adds bottom-nav, header-tab,
 and go_back helpers.  Existing code can continue to
@@ -19,8 +17,8 @@ class NavigationActions(SearchActions):
     """Backward-compatible aggregate of all atomic navigation actions.
     
     Inherits search actions and adds bottom nav, header tabs, go_back, etc.
-    Toutes les actions utilisent des sélecteurs basés sur resource-id/content-desc
-    pour garantir la compatibilité multi-résolution.
+    Every action uses resource-id or content-desc based selectors,
+    so they hold across resolutions.
     """
     
     def __init__(self, device):

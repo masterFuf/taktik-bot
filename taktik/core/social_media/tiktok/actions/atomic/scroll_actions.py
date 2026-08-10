@@ -1,7 +1,5 @@
 """Atomic scroll actions for TikTok.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from loguru import logger

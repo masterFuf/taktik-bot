@@ -10,15 +10,15 @@ import time
 
 @dataclass
 class DMConfig:
-    """Configuration pour le workflow DM."""
+    """Configuration of the DM workflow."""
     
     # Nombre de conversations à lire
     max_conversations: int = 20
     
     # Filtres
     skip_notifications: bool = True  # Ignorer New followers, Activity, System
-    skip_groups: bool = False  # Ignorer les conversations de groupe
-    only_unread: bool = False  # Seulement les conversations non lues
+    skip_groups: bool = False  # Skip the group conversations
+    only_unread: bool = False  # Unread conversations only
     
     # Délais
     delay_between_conversations: float = 1.0
@@ -26,12 +26,12 @@ class DMConfig:
     
     # Comportement
     mark_as_read: bool = True  # Marquer comme lu après lecture
-    close_sticker_suggestions: bool = True  # Fermer les suggestions de stickers
+    close_sticker_suggestions: bool = True  # Close the sticker suggestions
 
 
 @dataclass
 class DMStats:
-    """Statistiques du workflow DM."""
+    """Statistics of the DM workflow."""
     
     conversations_read: int = 0
     messages_read: int = 0

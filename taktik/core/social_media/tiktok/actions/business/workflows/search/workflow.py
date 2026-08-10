@@ -1,13 +1,11 @@
 """Search/Target Workflow for TikTok automation.
 
-Dernière mise à jour: 11 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
-Ce workflow permet d'automatiser les interactions sur les vidéos trouvées via recherche:
+Automates the interactions on the videos found through search:
 - Rechercher un terme (hashtag, username, keyword)
-- Cliquer sur l'onglet Videos
-- Ouvrir la première vidéo
-- Scroller et interagir avec les vidéos (like, follow, favorite)
+- tap the videos tab
+- open the first video
+- scroll and interact with the videos
 """
 
 from typing import Optional, Dict, Any
@@ -29,9 +27,9 @@ class SearchWorkflow(BaseVideoWorkflow):
     
     Ce workflow permet de:
     - Rechercher un terme (hashtag, username, keyword)
-    - Naviguer vers les vidéos correspondantes
-    - Scroller et interagir avec les vidéos
-    - Respecter les limites et pauses
+    - navigate to the matching videos
+    - scroll and interact with the videos
+    - honour the caps and the breaks
     """
     
     def __init__(self, device, config: Optional[SearchConfig] = None):

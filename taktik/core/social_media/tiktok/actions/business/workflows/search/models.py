@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass
 class SearchConfig:
-    """Configuration pour le workflow Search/Target."""
+    """Configuration of the search workflow."""
     
     # Search query (required)
     search_query: str = ""

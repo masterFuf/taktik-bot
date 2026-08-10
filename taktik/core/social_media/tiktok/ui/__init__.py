@@ -1,7 +1,5 @@
 """UI module for TikTok - Selectors and detectors.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from .selectors import (
@@ -28,7 +26,7 @@ from .selectors import (
     PUBLISH_MEDIA_PICKER_SELECTORS,
     PUBLISH_PROGRESS_SELECTORS,
     PUBLISH_SELECTORS,
-    # Classes pour typage
+    # Classes exposed for typing
     AuthSelectors,
     NavigationSelectors,
     ProfileSelectors,

@@ -1,16 +1,16 @@
 """
 TikTok Upload Workflow
 ======================
-Publie une vidéo ou une image sur TikTok depuis un fichier local.
+Publish a video or an image on TikTok from a local file.
 
 Flow :
-  1. Pousse le fichier via ADB vers /sdcard/DCIM/Camera/
-  2. Déclenche le media scan pour qu'il apparaisse dans la galerie
-  3. Ouvre TikTok → tap bouton "+"
-  4. Tap "Upload" pour ouvrir la galerie (au lieu de l'enregistrement caméra)
-  5. Sélectionne le premier fichier (le plus récent = celui qu'on vient de pousser)
-  6. Tape "Next" / "Suivant" autant que nécessaire
-  7. Saisit la description (caption + hashtags)
+  1. push the file to the device camera folder
+  2. trigger the media scan so it appears in the gallery
+  3. open the app and tap the create button
+  4. tap the upload entry to open the gallery, rather than the camera
+  5. select the first file, the most recent being the one just pushed
+  6. tap the next button as many times as needed
+  7. type the description, caption and hashtags
   8. Tape "Post" / "Publier"
 """
 
@@ -86,13 +86,13 @@ _NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context(
 # ---------------------------------------------------------------------------
 # Sélecteurs
 # ---------------------------------------------------------------------------
-# Tous les sélecteurs sont centralisés dans
+# Every selector is centralized in
 #   taktik/core/social_media/tiktok/ui/selectors/flows/publish/
-# Voir ce fichier pour l'historique des resource-ids par version d'app TikTok.
+# See that file for the resource-id history per app version.
 #
-# Les sélecteurs des popups système Android (autorisations) sont gérés par
-# `PermissionHandler` (taktik/core/shared/device/permissions.py), qui sait
-# détecter la version d'Android et la langue système.
+# The Android permission popups are handled by the permission handler, which
+# knows how to detect the Android version and the system language.
+#
 
 # ---------------------------------------------------------------------------
 # Workflow class
@@ -100,7 +100,7 @@ _NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context(
 
 class TikTokUploadWorkflow:
     """
-    Publie un fichier média sur TikTok.
+    Publish a media file on TikTok.
 
     Parameters
     ----------
@@ -136,11 +136,11 @@ class TikTokUploadWorkflow:
         package_name: str | None = None,
     ) -> dict:
         """
-        Publie le fichier local_path sur TikTok.
+        Publish the given local file on TikTok.
 
         Returns
         -------
-        dict avec keys :  success (bool), message (str), error_type (str | None)
+        dict with keys: success, message, error_type
         """
         token = _CURRENT_NOTIFIER.set(self._notifier)
         try:
@@ -152,7 +152,7 @@ class TikTokUploadWorkflow:
                     f"{dropped_hashtags} extra hashtag(s) were removed."
                 )
 
-            # 1. Vérifier que le fichier existe
+            # 1. Check the file exists
             if not os.path.isfile(local_path):
                 return self._error("file_not_found", f"File not found: {local_path}")
 
@@ -194,7 +194,7 @@ class TikTokUploadWorkflow:
 
             dismiss_post_popups(self.device, log=_ipc.log)
 
-            # 6. Appuyer sur le bouton Create
+            # 6. Tap the create button
             _ipc.status("navigating", "Tapping Create button...")
             if not tap_create_button(self.device, log=_ipc.log):
                 return self._error("create_btn_not_found", "Create button not found")
@@ -203,7 +203,7 @@ class TikTokUploadWorkflow:
                 time.sleep(1.0)
             self._capture("02_create")
 
-            # 7. Taper le bouton Upload/Gallery dans le panneau de création caméra
+            # 7. Tap the upload entry of the camera creation panel
             _ipc.status("navigating", "Tapping Upload/Gallery button...")
             if not tap_upload_button(self.device, log=_ipc.log):
                 dismiss_post_popups(self.device, log=_ipc.log)
@@ -215,7 +215,7 @@ class TikTokUploadWorkflow:
                 return self._error("gallery_not_opened", "TikTok gallery did not open after tapping Upload")
             self._capture("03_gallery")
 
-            # 8. Sélectionner le premier fichier de la galerie
+            # 8. Select the first file of the gallery
             _ipc.status("selecting", "Selecting media from gallery...")
             if not select_first_gallery_item(self.device, log=_ipc.log):
                 return self._error("gallery_item_not_found", "Could not select media from gallery")
@@ -228,7 +228,7 @@ class TikTokUploadWorkflow:
                 return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
             self._capture("05_post_screen")
 
-            # 9. Saisir la description
+            # 9. Type the description
             full_caption = build_caption(caption, hashtags)
             if full_caption:
                 _ipc.status("filling", "Entering caption...")

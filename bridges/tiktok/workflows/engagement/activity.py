@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """TikTok activity / system notifications bridge runner (inbox v2 - Phase 4, lecture seule).
 
-Scrape les sections Activité / Notifications système de l'inbox et émet un event
-``activity_notification`` par section. Aucune action device (lecture seule).
+Scrapes the activity and system-notification sections of the inbox and emits one
+event per section. No device action: read-only.
 """
 
 from typing import Any, Dict

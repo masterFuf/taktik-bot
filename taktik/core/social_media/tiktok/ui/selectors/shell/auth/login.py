@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour l'authentification et le login TikTok."""
+"""UI selectors for TikTok authentication and login."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -10,7 +10,7 @@ TIKTOK_PACKAGE = "com.zhiliaoapp.musically"
 
 @dataclass
 class AuthSelectors:
-    """Sélecteurs pour l'authentification et le login TikTok."""
+    """Selectors for TikTok authentication and login."""
 
     # === Champs de saisie (multilingue) ===
     _username_field_base: List[str] = field(default_factory=lambda: [
@@ -36,7 +36,7 @@ class AuthSelectors:
     def login_button(self) -> List[str]:
         return L("auth.login_button")
 
-    # === Détection de la page de login ===
+    # === Login page detection ===
     _login_screen_indicators_base: List[str] = field(default_factory=lambda: [
         '//android.widget.ImageView[contains(@content-desc, "TikTok")]',
     ])

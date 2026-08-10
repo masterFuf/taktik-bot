@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour la liste des followers TikTok."""
+"""UI selectors for the TikTok followers list."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,9 +8,9 @@ from ..locales import L
 
 @dataclass
 class FollowersSelectors:
-    """Sélecteurs pour la liste des followers d'un utilisateur TikTok.
+    """Selectors for the followers list of a TikTok user.
 
-    Basé sur UI dumps:
+    Based on real UI dumps:
     - ui_dump_20260111_135605.xml (Search results - Users tab)
     - ui_dump_20260111_135614.xml (User profile page)
     - ui_dump_20260111_135622.xml (Followers list page)
@@ -59,7 +59,7 @@ class FollowersSelectors:
     def followers_counter(self) -> List[str]:
         return L("followers.followers_counter")
 
-    # Following counter — langue-dependant (overlay locales/)
+    # Following counter — language-dependent (locales overlay)
     @property
     def following_counter(self) -> List[str]:
         return L("followers.following_counter")
@@ -101,12 +101,12 @@ class FollowersSelectors:
         '//android.widget.TextView[contains(@resource-id, ":id/ygv")]',
     ])
 
-    # Follow button in followers list — langue-dependant (overlay locales/)
+    # Follow button in the followers list — language-dependent (locales overlay)
     @property
     def follower_follow_button(self) -> List[str]:
         return L("followers.follower_follow_button")
 
-    # Already following button — langue-dependant (overlay locales/)
+    # Already-following button — language-dependent (locales overlay)
     @property
     def follower_following_button(self) -> List[str]:
         return L("followers.follower_following_button")
@@ -147,12 +147,12 @@ class FollowersSelectors:
         '//*[contains(@resource-id, ":id/xxy")]',
     ])
 
-    # langue-dependant (overlay locales/)
+    # language-dependent (locales overlay)
     @property
     def profile_videos_tab(self) -> List[str]:
         return L("followers.profile_videos_tab")
 
-    # langue-dependant (overlay locales/)
+    # language-dependent (locales overlay)
     @property
     def profile_reposted_tab(self) -> List[str]:
         return L("followers.profile_reposted_tab")
@@ -164,12 +164,12 @@ class FollowersSelectors:
         '//android.widget.ImageView[contains(@resource-id, ":id/b9b")]',
     ])
 
-    # === Followers list page detection === — langue-dependant (overlay locales/)
+    # === Followers list page detection === — language-dependent (locales overlay)
     @property
     def followers_tab_selected(self) -> List[str]:
         return L("followers.followers_tab_selected")
 
-    # === Unfollow-related === — langue-dependant (overlay locales/)
+    # === Unfollow-related === — language-dependent (locales overlay)
     @property
     def following_or_friends_button(self) -> List[str]:
         return L("followers.following_or_friends_button")

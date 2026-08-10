@@ -1,17 +1,17 @@
 """
-Détection de langue et optimisation des sélecteurs TikTok.
+TikTok language detection and selector optimization.
 
-Détecte la langue de l'app TikTok (EN/FR) depuis un dump UI, puis filtre
-les sélecteurs qui ciblent l'autre langue afin de ne pas perdre de temps
-sur des XPath qui ne matcheront jamais.
+Detects the app language from a single UI dump, then filters out the selectors
+that target another language, so no time is spent on xpaths that will never
+match.
 
 Adapté depuis ``social_media/instagram/ui/language.py`` (même API).
 
-Usage (tôt dans un workflow) :
+Usage, early in a workflow:
     from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
 
     lang = detect_and_optimize(device)   # 'en', 'fr', or 'unknown'
-    # Tous les sélecteurs ``*_SELECTORS`` sont maintenant filtrés in-place.
+    # Every selector singleton is now filtered in place.
 """
 
 import re
@@ -22,10 +22,10 @@ from loguru import logger
 log = logger.bind(module="tiktok-language")
 
 # ──────────────────────────────────────────────────────────────
-# Vocabulaire — mots qui n'apparaissent QUE dans une langue
+# Vocabulary: words that appear in ONE language only.
 # Distillé depuis ``tiktok/ui/selectors/*.py`` (collecté automatiquement).
-# Utilisé à la fois pour la détection (dans le dump XML) et pour la
-# classification des sélecteurs (lors du filtrage).
+# Used both for detection, against the dump, and for classifying the
+# selectors when filtering.
 # ──────────────────────────────────────────────────────────────
 
 # Mots/expressions exclusivement FR
@@ -120,15 +120,15 @@ _EN_WORDS: Set[str] = {
     "private", "following",
 }
 
-# Regex pour extraire les valeurs texte d'un XPath.
+# Regex extracting the text values of an xpath.
 # Capture @text="...", @content-desc="...", @hint="...", contains(@text, "..."), etc.
-# Deux alternances pour gérer les apostrophes (ex. "E-mail ou nom d'utilisateur").
+# Two alternations, to cope with apostrophes inside the quoted values.
 _XPATH_TEXT_RE = re.compile(
     r'''(?:@text|@content-desc|@hint|text\(\))\s*[,=]\s*(?:"([^"]+)"|'([^']+)')'''
 )
 
 # ──────────────────────────────────────────────────────────────
-# Probes de détection — content-desc à chercher dans le dump XML
+# Detection probes: content-desc values to look for in the dump
 # ──────────────────────────────────────────────────────────────
 
 _FR_PROBES = ["Accueil", "Profil", "Boîte de réception", "Créer", "Amis"]
@@ -206,26 +206,26 @@ _detected_lang: Optional[str] = None  # 'en', 'fr', 'unknown'
 
 
 def get_detected_language() -> Optional[str]:
-    """Retourne la langue détectée, ou None si pas encore détectée."""
+    """The detected language, or None when detection has not run yet."""
     return _detected_lang
 
 
 def reset_detected_language():
-    """Réinitialise l'état (utile entre deux comptes sur un même device)."""
+    """Reset the state, which matters between two accounts on the same device."""
     global _detected_lang
     _detected_lang = None
 
 
 # ──────────────────────────────────────────────────────────────
-# Détection de langue depuis un dump UI
+# Language detection from a UI dump
 # ──────────────────────────────────────────────────────────────
 
 def detect_language(device) -> str:
     """
-    Détecte la langue de TikTok depuis un seul dump UI.
+    Detect the TikTok language from a single UI dump.
 
-    Cherche les content-desc connus du bottom nav pour déterminer si
-    l'app est en français ou anglais.
+    Looks for the known bottom-nav content-desc values to decide which
+    language the app runs in.
 
     Args:
         device: DeviceFacade (doit exposer ``get_xml_dump()`` ou ``dump_hierarchy()``).
@@ -290,15 +290,15 @@ def _classify_selector(xpath: str) -> str:
     """
     Classe un XPath comme 'fr', 'en', ou 'neutral'.
 
-    - Pas de valeur texte → ``neutral`` (resource-id, class, position)
+    - no text value -> neutral (resource-id, class, position)
     - Valeur(s) FR exclusivement → ``fr``
     - Valeur(s) EN exclusivement → ``en``
-    - Mixte (OR combos) → ``neutral`` (à conserver par sécurité)
+    - mixed forms -> neutral, kept for safety
 
     Gère :
-    - Apostrophes échappées dans XPath (``\\'`` → ``'``)
-    - Collisions de substring (ex. EN "Post" vs FR "Posté") : le match le
-      plus long gagne.
+    - escaped apostrophes inside the xpath
+    - substring collisions between languages: the longest match
+      wins.
     """
     raw_matches = _XPATH_TEXT_RE.findall(xpath)
     text_values = [m[0] or m[1] for m in raw_matches]
@@ -342,14 +342,14 @@ def _classify_selector(xpath: str) -> str:
 
 def filter_selectors(selectors: List[str], lang: str) -> List[str]:
     """
-    Filtre une liste de sélecteurs en retirant ceux qui ciblent la mauvaise langue.
+    Filter a selector list, dropping those targeting the wrong language.
 
     Args:
-        selectors: Liste originale.
-        lang: Langue détectée ('en', 'fr', 'unknown').
+        selectors: the original list.
+        lang: the detected language.
 
     Returns:
-        Liste filtrée (si lang == 'unknown', retourne la liste inchangée).
+        The filtered list; an undecided language returns it unchanged.
     """
     if lang == "unknown" or not lang:
         return selectors
@@ -360,22 +360,22 @@ def filter_selectors(selectors: List[str], lang: str) -> List[str]:
 
 
 # ──────────────────────────────────────────────────────────────
-# Optimisation in-place d'une dataclass de sélecteurs
+# In-place optimization of a selector dataclass
 # ──────────────────────────────────────────────────────────────
 
 def optimize_selector_dataclass(instance, lang: str) -> int:
     """
-    Optimise une dataclass de sélecteurs in-place en retirant les
-    sélecteurs de la mauvaise langue de tous les champs ``List[str]``.
+    Optimize a selector dataclass in place, removing the wrong-language
+    selectors from every list field.
 
-    Compatible avec les dataclasses qui exposent des sélecteurs concaténés
-    via ``@property`` (ex. ``PublishSelectors``) : ces propriétés ne sont
-    pas des fields, donc seules les listes internes ``_xxx_en`` / ``_xxx_fr``
-    sont filtrées.
+    Works with the dataclasses exposing concatenated selectors as properties:
+    those are not fields, so only the internal per-language lists are
+    filtered.
+    
 
     Args:
         instance: Singleton de sélecteurs (ex. ``VIDEO_SELECTORS``).
-        lang: Langue détectée.
+        lang: the detected language.
 
     Returns:
         Nombre de sélecteurs retirés.
@@ -401,19 +401,19 @@ def optimize_selector_dataclass(instance, lang: str) -> int:
 
 def detect_and_optimize(device, override: Optional[str] = None) -> str:
     """
-    Détecte la langue de l'app TikTok (ou la force via `override`) ET optimise
-    tous les singletons de sélecteurs connus.
+    Detect the app language, or force it through ``override``, AND optimize every
+    known selector singleton.
 
-    À appeler une fois, tôt dans un workflow, après connexion au device
-    et ouverture de TikTok (n'importe quel écran exposant le bottom nav suffit).
+    Call once, early in a workflow, after connecting to the device and opening the
+    app; any screen exposing the bottom navigation is enough.
 
     Args:
         device: DeviceFacade.
-        override: Force une langue ('en'/'fr', ex. depuis le Cartography Lab) au
-            lieu de la détecter ; une valeur inconnue retombe sur 'unknown'.
+        override: force a language instead of detecting it; an unknown value
+            falls back on undecided.
 
     Returns:
-        Langue active ('en', 'fr', 'unknown').
+        The active language.
     """
     if override:
         lang = override if override in ("en", "fr") else "unknown"
@@ -421,7 +421,7 @@ def detect_and_optimize(device, override: Optional[str] = None) -> str:
     else:
         lang = detect_language(device)
 
-    # Overlay : les sélecteurs migrés lisent L() depuis la locale active.
+    # Overlay: the migrated selectors read from the active locale.
     from .selectors.locales import set_active_locale
     set_active_locale(lang if lang != "unknown" else None)
 
@@ -429,7 +429,7 @@ def detect_and_optimize(device, override: Optional[str] = None) -> str:
         log.info("Language unknown — overlay union + no in-place filtering")
         return lang
 
-    # Import tous les singletons depuis le barrel selectors/
+    # Import every singleton from the selectors barrel
     from .selectors import (
         AUTH_SELECTORS, SIGNUP_SELECTORS, LOGOUT_SELECTORS,
         COUNTRY_PICKER_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS,

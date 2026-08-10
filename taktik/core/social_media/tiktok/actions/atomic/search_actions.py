@@ -4,8 +4,6 @@ Extracted from navigation_actions.py — contains search-specific navigation:
 open search, type query, submit, click tabs/results, navigate to user profile,
 search hashtag.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from loguru import logger

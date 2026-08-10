@@ -2,8 +2,6 @@
 
 Extracted from detection_actions.py — contains only popup-presence checks.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from loguru import logger

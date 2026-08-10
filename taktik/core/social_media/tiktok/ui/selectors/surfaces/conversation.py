@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour les conversations DM TikTok."""
+"""UI selectors for TikTok DM conversations."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,10 +8,10 @@ from ..locales import L
 
 @dataclass
 class ConversationSelectors:
-    """Sélecteurs pour les conversations DM TikTok.
+    """Selectors for TikTok DM conversations.
     
-    Basé sur UI dumps:
-    - ui_dump_20260107_231514.xml (conversation simple avec @lobinho)
+    Based on real UI dumps:
+    - a one-to-one conversation
     - ui_dump_20260107_231534.xml (conversation de groupe "Hyper Shadic & FNF Crews")
     
     Resource-IDs identifiés:

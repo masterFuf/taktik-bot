@@ -1,7 +1,5 @@
 """Atomic actions for TikTok - Low level UI interactions.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
 Aggregate classes (backward-compatible):
     ClickActions      — VideoActions + PopupActions + profile/nav clicks

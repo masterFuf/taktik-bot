@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour les commentaires TikTok."""
+"""UI selectors for TikTok comments."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,7 +8,7 @@ from ...locales import L
 
 @dataclass
 class CommentSelectors:
-    """Sélecteurs pour les commentaires TikTok."""
+    """Selectors for TikTok comments."""
 
     _comment_input_base: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[contains(@resource-id, "comment_input")]'

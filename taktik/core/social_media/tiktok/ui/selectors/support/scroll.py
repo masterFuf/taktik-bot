@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour le scroll et le chargement TikTok."""
+"""UI selectors for TikTok scrolling and loading."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,7 +8,7 @@ from ..locales import L
 
 @dataclass
 class ScrollSelectors:
-    """Sélecteurs pour le scroll et le chargement TikTok."""
+    """Selectors for TikTok scrolling and loading."""
 
     loading_indicator: List[str] = field(default_factory=lambda: [
         '//android.widget.ProgressBar',

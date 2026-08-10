@@ -3,8 +3,6 @@
 Extracted from click_actions.py — contains only video-specific actions
 (like, comment, share, favorite, sound, creator profile, follow on video).
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from loguru import logger

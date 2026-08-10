@@ -1,7 +1,5 @@
 """Atomic click actions for TikTok.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
 This module aggregates VideoActions, PopupActions and adds profile + navigation
 click helpers.  Existing code can continue to ``from ...atomic.click_actions import ClickActions``
@@ -20,8 +18,8 @@ class ClickActions(VideoActions, PopupActions):
     """Backward-compatible aggregate of all atomic click actions.
     
     Inherits video + popup actions and adds profile + navigation methods.
-    Toutes les actions utilisent des sélecteurs basés sur resource-id/content-desc
-    pour garantir la compatibilité multi-résolution.
+    Every action uses resource-id or content-desc based selectors,
+    so they hold across resolutions.
     """
     
     def __init__(self, device):

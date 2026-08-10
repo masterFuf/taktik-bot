@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """TikTok message-requests workflow bridge runner (inbox v2 - Phase 3).
 
-Deux modes (champ ``mode``) :
-- ``scrape`` (défaut) : ouvre la page « Demandes de messages », liste les demandes et émet un
-  event ``message_request`` par item (sans agir).
-- ``execute`` : applique les décisions (champ ``decisions`` : liste de
+Two modes, set by the config:
+- scrape, the default: open the message-requests page, list the requests and emit
+    one event per item, without acting.
+- execute: apply the decisions, replying
   {username, action: 'accept'|'decline', message?}) — accepte/refuse, et répond après acceptation
-  si un message est fourni. Émet un ``request_result`` par décision.
+    when a message is provided. Emits one result per decision.
 """
 
 from typing import Any, Dict

@@ -11,8 +11,6 @@ Main components:
 - Models: Data models
 - Utils: Utility functions
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from .core.manager import TikTokManager

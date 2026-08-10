@@ -1,7 +1,5 @@
 """Atomic detection actions for TikTok.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
 This module aggregates VideoDetector and PopupDetector and adds
 page-detection, error/state detection, and app-state helpers.
@@ -35,8 +33,8 @@ class DetectionActions(VideoDetector, PopupDetector):
         """Check if currently on For You feed.
         
         Détecte via:
-        - Tab "For You" sélectionné dans le header
-        - Présence des boutons d'interaction vidéo
+        - the For You tab selected in the header
+        - the video interaction buttons present
         """
         # Check if For You tab is visible and selected
         if self._element_exists(self.navigation_selectors.for_you_tab, timeout=2):
@@ -52,7 +50,7 @@ class DetectionActions(VideoDetector, PopupDetector):
         
         Détecte via:
         - Titre "Inbox"
-        - Présence des sections de notification
+        - the notification sections present
         """
         if self._element_exists(self.inbox_selectors.inbox_title, timeout=2):
             return True

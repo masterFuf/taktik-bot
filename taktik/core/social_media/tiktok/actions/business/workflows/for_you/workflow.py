@@ -1,13 +1,11 @@
 """For You Feed Workflow for TikTok automation.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
-Ce workflow permet d'automatiser les interactions sur le feed For You:
-- Scroller les vidéos
-- Liker les vidéos selon des critères
-- Suivre les créateurs selon des filtres
-- Extraire les informations des vidéos
+Automates the interactions on the For You feed:
+- scroll the videos
+- like the videos against criteria
+- follow the creators against filters
+- extract the video information
 """
 
 from typing import Optional, Dict, Any
@@ -25,14 +23,14 @@ ForYouStats = VideoWorkflowStats
 
 
 class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
-    """Workflow d'automatisation du feed For You TikTok.
+    """TikTok For You feed automation workflow.
     
     Ce workflow permet de:
-    - Naviguer vers le feed For You
-    - Scroller les vidéos avec un temps de visionnage variable
-    - Liker/Follow/Favoriser selon des probabilités et filtres
-    - Extraire les informations des vidéos
-    - Respecter les limites et pauses
+    - navigate to the For You feed
+    - scroll the videos with a varying watch time
+    - like, follow and favourite against probabilities and filters
+    - extract the video information
+    - honour the caps and the breaks
     """
     
     def __init__(self, device, config: Optional[ForYouConfig] = None):

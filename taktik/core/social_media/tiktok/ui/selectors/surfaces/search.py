@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour la recherche et découverte TikTok."""
+"""UI selectors for TikTok search and discovery."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,9 +8,9 @@ from ..locales import L
 
 @dataclass
 class SearchSelectors:
-    """Sélecteurs pour la recherche et découverte TikTok.
+    """Selectors for TikTok search and discovery.
     
-    Basé sur UI dumps:
+    Based on real UI dumps:
     - ui_dump_20260111_121059.xml (For You page with search icon)
     - ui_dump_20260111_121110.xml (Search input page)
     - ui_dump_20260111_121127.xml (Search results page)
@@ -167,7 +167,7 @@ class SearchSelectors:
         '//android.widget.FrameLayout[contains(@resource-id, ":id/sq1")]',
     ])
     
-    # View all button — langue-dependant (overlay locales/)
+    # View-all button — language-dependent (locales overlay)
     @property
     def view_all_button(self) -> List[str]:
         return L("search.view_all_button")

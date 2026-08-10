@@ -1,7 +1,7 @@
 """OpenRouter AI message generation for the TikTok DM outreach bridge.
 
-Le texte (génération de messages) passe par OpenRouter, jamais par fal.ai (réservé
-aux images/vidéos/TTS). Mirror du Cold DM Instagram
+Message generation goes through the text provider, never the media one. Mirrors the
+Instagram cold-DM path
 (`bridges/instagram/engagement/runtime/cold_dm/ai.py`).
 """
 
@@ -50,9 +50,9 @@ def generate_ai_message(username: str, ai_prompt: str, openrouter_api_key: str) 
             "X-Title": "TAKTIK Bot",
         }
         body = json.dumps({
-            # Modele lu depuis la constante partagee (generation), jamais code en dur ici : un slug
-            # fige dans un bridge survit aux migrations et meurt en silence (cf. claude-3.5-haiku
-            # retire d'OpenRouter le 2026-07-15, migre partout sauf ici). Cold DM = generation.
+            # The model is read from the shared constant, never hardcoded here: a slug frozen in
+            # a bridge survives the migrations and then dies silently, which already happened
+            # once when a retired model stayed here while every other call site had moved.
             "model": MODEL_GENERATION,
             "messages": [
                 {"role": "system", "content": system_prompt},

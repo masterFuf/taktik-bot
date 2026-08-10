@@ -3,8 +3,6 @@
 Extracted from detection_actions.py — contains video-specific detection:
 like/favorite/follow state, video info extraction, ad detection, profile info.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 import re

@@ -93,8 +93,8 @@ def run_dm_outreach_workflow(config: Dict[str, Any]):
     account_id = config.get("accountId", config.get("account_id", 1))
     session_id = config.get("sessionId", config.get("session_id", device_id))
 
-    # Mode IA : génération de message par destinataire via OpenRouter (texte = OpenRouter,
-    # jamais fal.ai). Injecté dans le core comme callback ; repli sur la liste statique si KO.
+    # Generated mode: one message per recipient through the text provider, never the
+    # media one. Injected as a callback; falls back on the static list on failure.
     message_mode = config.get("messageMode", config.get("message_mode", "manual"))
     ai_prompt = config.get("aiPrompt", config.get("ai_prompt", ""))
     openrouter_api_key = config.get("openrouterApiKey", config.get("openrouter_api_key", ""))

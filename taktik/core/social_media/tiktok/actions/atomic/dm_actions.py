@@ -1,9 +1,8 @@
-﻿"""Atomic DM actions for TikTok.
+"""Atomic DM actions for TikTok.
 
-Actions pour la lecture et l'envoi de messages directs TikTok.
+Reading and sending TikTok direct messages.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps:
+Based on the UI dumps:
 - ui_dump_20260107_231412.xml (Inbox)
 - ui_dump_20260107_231514.xml (Conversation simple)
 - ui_dump_20260107_231534.xml (Conversation groupe)
@@ -24,8 +23,8 @@ from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
 class DMActions(BaseAction):
     """Low-level DM actions for TikTok.
     
-    Gère la lecture des conversations et l'envoi de messages.
-    Toutes les actions utilisent des sélecteurs basés sur resource-id/content-desc.
+    Handles reading conversations and sending messages.
+    Every action uses resource-id or content-desc based selectors.
     """
     
     def __init__(self, device):
@@ -43,7 +42,7 @@ class DMActions(BaseAction):
         """
         return extract_resource_id(selectors)
 
-    # Marques bidi / format invisibles dont TikTok entoure les usernames (o0f) :
+    # Invisible bidi and formatting marks TikTok wraps usernames with:
     # LRM/RLM, isolats FSI/PDI/LRI/RLI, embeddings/overrides, word-joiner.
     _BIDI_FORMAT_CHARS = dict.fromkeys(
         [0x200E, 0x200F, 0x2060, 0x2066, 0x2067, 0x2068, 0x2069,
@@ -53,11 +52,11 @@ class DMActions(BaseAction):
 
     @staticmethod
     def _clean_username(text: str) -> str:
-        """Retire les marques bidi/format invisibles d'un username TikTok (o0f).
+        """Strip the invisible bidi and formatting marks from a TikTok username.
 
-        Ex. '\\u200e\\u2068NK19\\u2069' -> 'NK19'. Indispensable pour l'affichage front ET pour
-        que le sélecteur `contains(@text, name)` (follow_back) matche (le texte du noeud garde
-        ces marques, donc on matche par `contains` sur le nom nettoyé).
+        Needed both for display AND so the containment selector used by the follow-back
+        matches: the node text KEEPS those marks, so the match is done by containment on
+        the cleaned name.
         """
         return (text or '').translate(DMActions._BIDI_FORMAT_CHARS).strip()
 
@@ -65,11 +64,11 @@ class DMActions(BaseAction):
     def _resource_id_pattern(selectors: List[str]) -> str:
         """Build a `resourceIdMatches` regex from a centralized resource-id selector.
 
-        Les sélecteurs inbox/conversation sont en forme xpath `contains(@resource-id, ":id/xxx")`
-        (token partiel, sans le package) → un match EXACT `resourceId="..."` échoue. On extrait le
-        token et on construit une regex full-match pour `resourceIdMatches` :
+        The inbox and conversation selectors are written as an xpath containment on a partial
+        token, without the package, so an EXACT resource-id match fails. The token is extracted
+        and turned into a full-match regular expression:
         - forme exacte `@resource-id="com...:id/x"` → `com\\.\\.\\.:id/x` (échappé)
-        - forme contains `contains(@resource-id, ":id/x")` → `.*:id/x.*` (réplique le « contains »)
+        - containment form -> a pattern that replicates the containment
         """
         for sel in selectors:
             m = re.search(r'@resource-id\s*=\s*"([^"]+)"', sel)
@@ -83,8 +82,8 @@ class DMActions(BaseAction):
     def _find_all_by_rid(self, selectors: List[str]):
         """Return the uiautomator2 UiObject collection for a centralized resource-id selector.
 
-        Robuste à la forme `contains(...)` (cf. _resource_id_pattern) — remplace l'ancien
-        `raw_device(resourceId=extract(...))` qui renvoyait `resourceId=''` (0 match) pour les
+        Robust to the containment form (see _resource_id_pattern). It replaces the old naive
+        extraction, which returned an empty resource-id, and therefore zero matches, for the
         sélecteurs en forme contains. API UiObject identique (.exists/.count/[i]/.get_text()).
         """
         pattern = self._resource_id_pattern(selectors)
@@ -149,12 +148,12 @@ class DMActions(BaseAction):
     def _get_notification_sections(self) -> List[Dict[str, Any]]:
         """Get notification sections (New followers, Activity, System).
 
-        Utilise les sélecteurs langue-aware (FR/EN filtrés par detect_and_optimize) plutôt que
-        des titres en dur — sinon la détection échoue quand l'app n'est pas en anglais.
+        Uses the language-aware selectors rather than hardcoded titles: otherwise the
+        detection fails as soon as the app is not in English.
         """
         notifications = []
 
-        # (sélecteurs langue-aware, notification_type, libellé stable)
+        # (language-aware selectors, notification type, stable label)
         notification_types = [
             (self.inbox_selectors.new_followers_section, 'new_followers'),
             (self.inbox_selectors.activity_section, 'activity'),
@@ -185,7 +184,7 @@ class DMActions(BaseAction):
         
         try:
             # Find all username elements via centralized conversation_username resource-id
-            # (resourceIdMatches : robuste à la forme contains, cf. _find_all_by_rid)
+            # (pattern match: robust to the containment form, see _find_all_by_rid)
             username_elements = self._find_all_by_rid(self.inbox_selectors.conversation_username)
 
             if username_elements is None or not username_elements.exists:
@@ -229,16 +228,16 @@ class DMActions(BaseAction):
     # ==========================================================================
 
     def open_new_followers_page(self) -> bool:
-        """Ouvre la page dédiée « Nouveaux followers » depuis l'onglet Messages.
+        """Open the dedicated new-followers page from the messages tab.
 
-        Navigue vers l'inbox, puis tape la section « Nouveaux followers » (ou « Tout voir »).
-        Sélecteurs langue-aware (FR/EN filtrés au démarrage par detect_and_optimize).
+        Navigates to the inbox, then taps the new-followers section or its see-all entry.
+        Language-aware selectors, filtered at startup.
         """
         if not self.navigate_to_inbox():
             self.logger.warning("Inbox inatteignable -> nouveaux followers")
             return False
 
-        # La section et le « Tout voir » mènent à la même page dédiée
+        # The section and its see-all entry lead to the same dedicated page
         if self._find_and_click(self.inbox_selectors.new_followers_section, timeout=3):
             time.sleep(1)
             return self._is_on_new_followers_page()
@@ -251,19 +250,19 @@ class DMActions(BaseAction):
         return False
 
     def _is_on_new_followers_page(self) -> bool:
-        """Heuristique : page dédiée présente si des items de followers sont rendus."""
+        """Heuristic: the dedicated page is up when follower items are rendered."""
         return self._element_exists(self.inbox_selectors.new_followers_page_item, timeout=2)
 
     def get_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
-        """Scrape la liste des nouveaux followers (page dédiée) SANS agir.
+        """Scrape the new-followers list from its dedicated page, WITHOUT acting.
 
         Returns:
-            Liste de {username, activity, can_follow_back}
+            List of {username, activity, can_follow_back}
         """
         followers: List[Dict[str, Any]] = []
 
         try:
-            # resourceIdMatches : robuste à la forme contains des sélecteurs (cf. _find_all_by_rid)
+            # Pattern match: robust to the containment form of the selectors
             username_elements = self._find_all_by_rid(self.inbox_selectors.new_followers_page_username)
             if username_elements is None or not username_elements.exists:
                 self.logger.debug("Aucun nouveau follower trouvé")
@@ -288,7 +287,7 @@ class DMActions(BaseAction):
                         except Exception:
                             activity = ''
 
-                    # Le bouton « Suivre en retour » n'existe que si on ne le suit pas déjà
+                    # The follow-back button exists only when we do not already follow them
                     can_follow_back = self.device.xpath(
                         self.inbox_selectors.follow_back_for_username(name)
                     ).exists
@@ -308,10 +307,10 @@ class DMActions(BaseAction):
         return followers
 
     def follow_back(self, username: str) -> bool:
-        """Tape « Suivre en retour » sur l'item du follower `username`.
+        """Tap the follow-back button on the item of `username`.
 
-        Sélecteur dynamique scopé à l'item (follow_back_for_username) -> ne tape jamais le
-        bouton d'un autre follower.
+        The selector is built dynamically and scoped to that item, so it never taps another
+        follower's button.
         """
         username = self._clean_username(username)
         if not username:
@@ -331,14 +330,14 @@ class DMActions(BaseAction):
     # ==========================================================================
 
     def get_inbox_conversations(self, max_items: int = 30) -> List[Dict[str, Any]]:
-        """Scrape les conversations de l'inbox avec l'indice « non-répondu ».
+        """Scrape the inbox conversations, flagging the unanswered ones.
 
-        Lit le username (z05) + l'aperçu du dernier message (l35), appariés par index. Classe
+        Reads the username and the last-message preview, paired by index, and classifies
         `unreplied=True` quand l'aperçu n'indique PAS qu'on a parlé en dernier (préfixes
-        Envoyé/Sent/Vu/Seen). Exclut la ligne « Demandes de messages » (phase 3).
+        them. The message-requests row is excluded.
 
         Returns:
-            Liste de {username, preview, unreplied}
+            List of {username, preview, unreplied}
         """
         conversations: List[Dict[str, Any]] = []
 
@@ -363,7 +362,7 @@ class DMActions(BaseAction):
                     if not name:
                         continue
 
-                    # Exclure la ligne « Demandes de messages » (relève de la phase 3)
+                    # Exclude the message-requests row
                     low_name = name.lower()
                     if any(m in low_name for m in request_markers):
                         continue
@@ -395,7 +394,7 @@ class DMActions(BaseAction):
     # ==========================================================================
 
     def open_message_requests_page(self) -> bool:
-        """Ouvre la page dédiée « Demandes de messages » depuis l'onglet Messages."""
+        """Open the dedicated message-requests page from the messages tab."""
         if not self.navigate_to_inbox():
             self.logger.warning("Inbox inatteignable -> demandes de messages")
             return False
@@ -408,17 +407,17 @@ class DMActions(BaseAction):
         return False
 
     def _is_on_message_requests_page(self) -> bool:
-        """Heuristique : page demandes si le titre dédié OU des items de demande sont présents."""
+        """Heuristic: the requests page is up when its title OR request items are present."""
         return (
             self._element_exists(self.inbox_selectors.message_requests_page_title, timeout=2)
             or self._element_exists(self.inbox_selectors.message_request_item, timeout=1)
         )
 
     def get_message_requests(self, max_items: int = 30) -> List[Dict[str, Any]]:
-        """Scrape les demandes de messages (page dédiée) SANS agir.
+        """Scrape the message requests from their dedicated page, WITHOUT acting.
 
         Returns:
-            Liste de {username, preview, timestamp}
+            List of {username, preview, timestamp}
         """
         requests: List[Dict[str, Any]] = []
         try:
@@ -451,7 +450,7 @@ class DMActions(BaseAction):
         return requests
 
     def open_request(self, username: str) -> bool:
-        """Ouvre la demande de message du `username` (tape l'item t5a scopé au username)."""
+        """Open the message request of `username`, tapping the item scoped to that name."""
         username = self._clean_username(username)
         if not username:
             return False
@@ -463,7 +462,7 @@ class DMActions(BaseAction):
         return False
 
     def accept_request(self) -> bool:
-        """Accepte la demande ouverte (bouton c6b « Accepter »)."""
+        """Accept the open request."""
         if self._find_and_click(self.inbox_selectors.accept_request_button, timeout=3):
             self.logger.info("Demande acceptée")
             time.sleep(1)
@@ -472,7 +471,7 @@ class DMActions(BaseAction):
         return False
 
     def decline_request(self) -> bool:
-        """Refuse/supprime la demande ouverte (bouton c8q « Supprimer »)."""
+        """Decline and delete the open request."""
         if self._find_and_click(self.inbox_selectors.decline_request_button, timeout=3):
             self.logger.info("Demande refusée")
             time.sleep(1)
@@ -485,13 +484,13 @@ class DMActions(BaseAction):
     # ==========================================================================
 
     def get_inbox_notifications(self, max_items: int = 20) -> List[Dict[str, Any]]:
-        """Scrape les sections Activité / Notifications système sur l'inbox (LECTURE SEULE).
+        """Scrape the activity and system-notification sections of the inbox (READ ONLY).
 
-        Chaque section est un item `s28` : titre `b8h` + aperçu `ln_`. Exclut « Nouveaux followers »
+        Each section is one item carrying a title and a preview. The new-followers section is
         (phase 1). Aucune action device.
 
         Returns:
-            Liste de {title, preview, category} (category: 'activity'|'system'|'other')
+            List of {title, preview, category}
         """
         notifications: List[Dict[str, Any]] = []
         try:
@@ -546,7 +545,7 @@ class DMActions(BaseAction):
         
         try:
             # Find all username elements and match by text
-            # (resourceIdMatches : robuste à la forme contains, cf. _find_all_by_rid)
+            # (pattern match: robust to the containment form, see _find_all_by_rid)
             username_elements = self._find_all_by_rid(self.inbox_selectors.conversation_username)
 
             if username_elements is not None and username_elements.exists:
@@ -652,7 +651,7 @@ class DMActions(BaseAction):
         
         try:
             # Find all text message elements via centralized message_text resource-id
-            # (resourceIdMatches : robuste à la forme contains, cf. _find_all_by_rid)
+            # (pattern match: robust to the containment form, see _find_all_by_rid)
             text_elements = self._find_all_by_rid(self.conversation_selectors.message_text)
 
             if text_elements is not None and text_elements.exists:

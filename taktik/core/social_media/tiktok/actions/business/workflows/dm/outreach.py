@@ -167,9 +167,9 @@ class TikTokDMOutreachWorkflow:
     ) -> dict[str, Any]:
         """Run the cold DM outreach workflow.
 
-        ``message_provider`` (optionnel) génère un message personnalisé par destinataire
-        (mode IA, injecté par le bridge — le core ne dépend d'aucun provider). En son absence,
-        ou s'il renvoie un message vide, on retombe sur la liste ``messages`` statique.
+        ``message_provider`` (optional) generates a personalised message per recipient.
+        It is injected, so the core depends on no provider. Without it, or when it
+        returns an empty message, the static ``messages`` list is used instead.
         """
         logger.info(
             f"Starting TikTok DM Outreach: {len(recipients)} recipients, "
@@ -289,8 +289,8 @@ class TikTokDMOutreachWorkflow:
             )
             return False
 
-        # Mode IA : message personnalisé par destinataire (provider injecté) ; repli sur la
-        # liste statique si le provider est absent ou renvoie vide (robuste + standalone-safe).
+        # Personalised message per recipient through the injected provider, falling back
+        # on the static list when it is absent or returns nothing.
         message = ""
         if message_provider:
             try:

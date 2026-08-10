@@ -1,6 +1,5 @@
 """Actions module for TikTok automation.
 
-Dernière mise à jour: 7 janvier 2026
 """
 
 from .atomic import ClickActions, NavigationActions, ScrollActions, DetectionActions

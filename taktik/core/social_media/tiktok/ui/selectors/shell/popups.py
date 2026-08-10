@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour les popups et modales TikTok."""
+"""UI selectors for TikTok popups and modals."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,7 +8,7 @@ from ..locales import L
 
 @dataclass
 class PopupSelectors:
-    """Sélecteurs pour les popups et modales TikTok."""
+    """Selectors for TikTok popups and modals."""
     
     # === Boutons de fermeture ===
     _close_button_base: List[str] = field(default_factory=lambda: [

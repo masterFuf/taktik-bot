@@ -111,9 +111,9 @@ class PopupHandler:
         Falls back transparently to sequential polling when lxml is
         unavailable or when the hierarchy dump fails.
 
-        ``skip_inbox_escape``: ne PAS quitter la page Inbox même si elle est
-        détectée. Indispensable pour le workflow DM read, dont l'Inbox est la
-        cible (sinon le handler de popup la fuit et on lit 0 conversation).
+        ``skip_inbox_escape``: do NOT leave the inbox page even when it is
+        detected. Required by the DM reading workflow, whose target IS the inbox:
+        without it the popup handler flees the very screen to read, and zero
         """
         detected = self._fast_detect()
 
@@ -141,7 +141,7 @@ class PopupHandler:
                 time.sleep(0.5)
                 return True
 
-        # Accidentally on Inbox page (sauf si l'Inbox est la cible — ex. DM read)
+        # Accidentally on the inbox page (unless the inbox IS the target)
         if 'inbox_page' in detected and not skip_inbox_escape:
             self.click.escape_inbox_page()
             self.logger.info("✅ Escaped from Inbox page")
@@ -213,7 +213,7 @@ class PopupHandler:
             time.sleep(0.5)
             return True
 
-        # Accidentally on Inbox page (sauf si l'Inbox est la cible — ex. DM read)
+        # Accidentally on the inbox page (unless the inbox IS the target)
         if not skip_inbox_escape and self.detection.is_on_inbox_page():
             self.click.escape_inbox_page()
             self.logger.info("✅ Escaped from Inbox page")

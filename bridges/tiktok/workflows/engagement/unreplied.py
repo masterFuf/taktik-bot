@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """TikTok unreplied-conversations workflow bridge runner (inbox v2 - Phase 2).
 
-Mode SCRAPE uniquement : ouvre la messagerie, liste les conversations en marquant celles
-non-répondues (dernier message = eux), et émet un event ``unreplied_conversation`` par item.
-La RÉPONSE aux conversations sélectionnées réutilise le workflow ``dm_send`` existant.
+SCRAPE mode only: open the messaging screen, list the conversations flagging the
+unanswered ones, whose last message came from them, and emit one event per item.
+REPLYING to the selected conversations reuses the existing send workflow.
 """
 
 from typing import Any, Dict

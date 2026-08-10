@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour la navigation principale TikTok."""
+"""UI selectors for the TikTok main navigation."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,9 +8,9 @@ from ..locales import L
 
 @dataclass
 class NavigationSelectors:
-    """Sélecteurs pour la navigation principale TikTok.
+    """Selectors for the TikTok main navigation.
 
-    Basé sur UI dump: ui_dump_20260107_205804.xml (For You page)
+    Based on a real dump of the For You page.
     Resource-IDs identifiés:
     - mky: Bottom navigation container
     - mkq: Home tab

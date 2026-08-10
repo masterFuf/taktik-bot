@@ -6,29 +6,29 @@ from dataclasses import dataclass, field
 from ...locales import L
 
 # ---------------------------------------------------------------------------
-# Sélecteurs pour la déconnexion (logout)
+# Logout selectors
 # ---------------------------------------------------------------------------
 
 @dataclass
 class LogoutSelectors:
-    """Sélecteurs pour le flow de déconnexion TikTok.
+    """Selectors for the TikTok logout flow.
 
     Flow observé (app en anglais, dumps 02/05/2026) :
-      1. Écran For You (ou tout écran avec barre de nav)
+      1. the For You screen, or any screen with the navigation bar
          → onglet "Profile" en bas à droite
-      2. Page profil
-         → bouton burger ≡ (content-desc="Profile menu") en haut à droite
+      2. the profile page
+         -> the menu button at the top right
       3. Menu burger (panneau latéral)
          → "Settings and privacy"
       4. Page Settings and privacy
          → scroll jusqu'en bas → "Log out" (section "Login")
       5. Popup de confirmation (bottom sheet)
-         → bouton "Log out" (en rouge, content-desc="Log out")
+         -> the log-out button
     """
 
-    # ── Barre de navigation du bas ────────────────────────────────────
+    # -- Bottom navigation bar ---------------------------------------
 
-    # Onglet "Profile" dans la barre de navigation du bas
+    # Profile tab of the bottom navigation bar
     # resource-id: com.zhiliaoapp.musically:id/nce  content-desc="Profile"
     _profile_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nce")]',
@@ -38,9 +38,9 @@ class LogoutSelectors:
     def profile_tab(self) -> List[str]:
         return self._profile_tab_base + L("logout.profile_tab")
 
-    # ── Page de profil ────────────────────────────────────────────────
+    # -- Profile page ------------------------------------------------
 
-    # Bouton burger ≡ en haut à droite de la page profil
+    # Menu button at the top right of the profile page
     # content-desc="Profile menu"
     @property
     def profile_menu_button(self) -> List[str]:
@@ -48,7 +48,7 @@ class LogoutSelectors:
 
     # ── Menu burger (panneau latéral) ─────────────────────────────────
 
-    # Élément "Settings and privacy" dans le menu burger
+    # Settings entry of the menu
     # resource-id: com.zhiliaoapp.musically:id/d_w  content-desc="Settings and privacy"
     settings_and_privacy: List[str] = field(default_factory=lambda: [
         '//android.widget.FrameLayout[contains(@resource-id, ":id/d_w") and @content-desc="Settings and privacy"]',
@@ -58,14 +58,14 @@ class LogoutSelectors:
 
     # ── Page Settings and privacy ─────────────────────────────────────
 
-    # Indicateur de la page Settings and privacy (titre, pour confirmer la navigation)
-    # Pas de resource-id — repéré par text + content-desc
+    # Settings page marker, its title, used to confirm the navigation
+    # No resource-id: matched by text and content-desc
     settings_screen_indicator: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Settings and privacy" and @text="Settings and privacy"]',
     ])
 
-    # Bouton "Log out" dans la page Settings (section "Login", tout en bas)
-    # Pas de resource-id – seulement le text
+    # Log-out button of the settings page, at the very bottom
+    # No resource-id: text only
     @property
     def logout_button(self) -> List[str]:
         return L("logout.logout_button")
@@ -79,13 +79,13 @@ class LogoutSelectors:
         '//*[@content-desc="Bottom sheet"]',
     ])
 
-    # Bouton "Log out" dans la popup (en rouge) — confirme la déconnexion
-    # Dans la popup : content-desc="Log out" (différent de la page settings qui n'a que @text)
+    # Log-out button of the confirmation popup
+    # In the popup the button carries a content-desc, unlike the settings page
     @property
     def logout_confirm_button(self) -> List[str]:
         return L("logout.logout_confirm_button")
 
-    # Bouton "Cancel" dans la popup
+    # Cancel button of the popup
     # content-desc="Cancel", resource-id: com.zhiliaoapp.musically:id/wk
     logout_cancel_button: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Cancel"]',

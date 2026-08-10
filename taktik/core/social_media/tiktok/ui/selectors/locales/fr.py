@@ -215,11 +215,11 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Vidéos aimées\")]",
     ],
     "profile.likes_count": [],
-    # LIBELLES bruts (pas des xpaths) : la ligne de stats du profil est appariee par
+    # Raw LABELS, not xpaths. The profile stats row is matched by POSITION, since the
     # POSITION (resource-id qfv/qfw), mais dire LAQUELLE des trois valeurs on tient
-    # demande de lire son libelle. Ce classement etait ecrit en anglais dans le code
-    # ("following" / "follower" / "like"), donc sur un TikTok francais les TROIS
-    # compteurs restaient a zero. Ordre porteur cote code : abonnements avant abonnes.
+    # three values share an identifier, so telling WHICH one is held requires reading
+    # its label. Order matters here: the following label is a prefix of the followers
+    # one, so it must be tested first.
     "profile.stat_label_following": [
         "Abonnements",
     ],
@@ -229,7 +229,7 @@ STRINGS: Dict[str, List[str]] = {
     "profile.stat_label_likes": [
         "J'aime",
     ],
-    # LIBELLE brut du bouton d'un abonnement MUTUEL (le workflow unfollow peut le sauter).
+    # Raw LABEL of a MUTUAL follow button, which the unfollow workflow may skip.
     "profile.friends_button_labels": [
         "Amis",
     ],

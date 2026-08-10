@@ -1,12 +1,10 @@
-﻿"""DM Workflow for TikTok automation.
+"""DM Workflow for TikTok automation.
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 
-Ce workflow permet d'automatiser les messages directs:
-- Lire les conversations
-- Envoyer des réponses (manuel ou IA)
-- Gérer les conversations de groupe
+Automates the direct messages:
+- read the conversations
+- send replies, manual or generated
+- handle the group conversations
 """
 
 from typing import Optional, Dict, Any, List, Callable
@@ -19,7 +17,7 @@ from .models import DMConfig, DMStats, ConversationData
 
 
 class DMWorkflow(BaseTikTokWorkflow):
-    """Workflow d'automatisation des DM TikTok.
+    """TikTok DM automation workflow.
     
     Inherits from BaseTikTokWorkflow:
         - atomic actions (click, navigation, scroll, detection)
@@ -117,8 +115,8 @@ class DMWorkflow(BaseTikTokWorkflow):
             no_new_items_count = 0
             
             while self.stats.conversations_read < target_count and self._running:
-                # Handle any popups that might block interaction — mais NE PAS quitter l'Inbox :
-                # c'est la cible du DM read (sinon close_all la fuit -> 0 conversation lue).
+                # Handle any popup that might block the interaction, but do NOT leave the inbox:
+                # it is the target of the DM read, and fleeing it would read zero conversation.
                 self._handle_popups(skip_inbox_escape=True)
                 
                 # Get visible inbox items
@@ -418,25 +416,25 @@ class DMWorkflow(BaseTikTokWorkflow):
         return self.stats
 
     # ==========================================================================
-    # NEW FOLLOWERS (Phase 1 inbox v2) — scrape liste + follow-back sélectionnés
+    # NEW FOLLOWERS: scrape the list, then follow back the selected ones
     # ==========================================================================
 
     def set_on_new_follower_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Callback appelé pour chaque nouveau follower scrapé (streaming front)."""
+        """Callback invoked for each scraped new follower."""
         self._on_new_follower_callback = callback
 
     def set_on_follow_back_result_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Callback appelé pour chaque résultat de follow-back."""
+        """Callback invoked for each follow-back result."""
         self._on_follow_back_result_callback = callback
 
     def read_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
-        """Ouvre la page « Nouveaux followers » et scrape la liste SANS agir.
+        """Open the new-followers page and scrape the list WITHOUT acting.
 
-        Scrolle pour charger davantage jusqu'à `max_items` (ou épuisement). Émet chaque
-        follower via le callback.
+        Scrolls to load more up to ``max_items``, or until exhaustion, emitting each
+        follower through the callback.
 
         Returns:
-            Liste de {username, activity, can_follow_back}
+            List of {username, activity, can_follow_back}
         """
         self._running = True
         self.logger.info("👥 Lecture des nouveaux followers")
@@ -492,13 +490,13 @@ class DMWorkflow(BaseTikTokWorkflow):
             return []
 
     def follow_back_users(self, usernames: List[str]) -> List[Dict[str, Any]]:
-        """Suit en retour les followers sélectionnés (par username).
+        """Follow back the selected followers, by username.
 
-        Ré-ouvre la page dédiée puis tape « Suivre en retour » pour chaque username.
-        Émet un résultat par username via le callback.
+        Re-opens the dedicated page, then taps the follow-back button for each name.
+        Emits one result per name through the callback.
 
         Returns:
-            Liste de {username, success}
+            List of {username, success}
         """
         self._running = True
         results: List[Dict[str, Any]] = []
@@ -551,21 +549,21 @@ class DMWorkflow(BaseTikTokWorkflow):
     # ==========================================================================
 
     def set_on_unreplied_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Callback appelé pour chaque conversation listée (avec l'indice `unreplied`)."""
+        """Callback invoked for each listed conversation, with its unanswered flag."""
         self._on_unreplied_callback = callback
 
     def read_unreplied_conversations(
         self, max_items: int = 30, only_unreplied: bool = True
     ) -> List[Dict[str, Any]]:
-        """Liste les conversations de l'inbox en marquant celles non-répondues (dernier message
-        = eux), SANS répondre. La réponse aux sélectionnées réutilise `send_bulk_messages`.
+        """List the inbox conversations, flagging the unanswered ones (their last message
+        came from them), WITHOUT replying. Replying reuses the bulk-send path.
 
         Args:
             max_items: nombre max de conversations à parcourir.
-            only_unreplied: ne remonter/émettre que les non-répondues (sinon toutes, avec le flag).
+            only_unreplied: report only the unanswered ones, or all of them with the flag.
 
         Returns:
-            Liste de {username, preview, unreplied}
+            List of {username, preview, unreplied}
         """
         self._running = True
         self.logger.info("📨 Lecture des conversations (non-répondues)")
@@ -626,18 +624,18 @@ class DMWorkflow(BaseTikTokWorkflow):
     # ==========================================================================
 
     def set_on_message_request_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Callback appelé pour chaque demande de message scrapée."""
+        """Callback invoked for each scraped message request."""
         self._on_message_request_callback = callback
 
     def set_on_request_result_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Callback appelé pour chaque résultat (accept/decline/reply)."""
+        """Callback invoked for each result (accept, decline, reply)."""
         self._on_request_result_callback = callback
 
     def read_message_requests(self, max_items: int = 30) -> List[Dict[str, Any]]:
-        """Ouvre la page « Demandes de messages » et liste les demandes SANS agir.
+        """Open the message-requests page and list the requests WITHOUT acting.
 
         Returns:
-            Liste de {username, preview, timestamp}
+            List of {username, preview, timestamp}
         """
         self._running = True
         self.logger.info("📥 Lecture des demandes de messages")
@@ -662,14 +660,14 @@ class DMWorkflow(BaseTikTokWorkflow):
             return []
 
     def process_message_requests(self, decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Exécute les décisions sur les demandes sélectionnées.
+        """Apply the decisions on the selected requests.
 
         Args:
-            decisions: liste de {username, action: 'accept'|'decline', message?: str}.
+            decisions: list of {username, action, optional message}.
                 'accept' + message non vide → accepte puis répond (flux conversation).
 
         Returns:
-            Liste de {username, action, success, replied}
+            List of {username, action, success, replied}
         """
         self._running = True
         results: List[Dict[str, Any]] = []
@@ -686,7 +684,7 @@ class DMWorkflow(BaseTikTokWorkflow):
             success = False
             replied = False
             try:
-                # Ré-ouvre la liste avant chaque demande (état UI propre)
+                # Re-open the list before each request, for a clean UI state
                 if not self.dm.open_message_requests_page():
                     raise RuntimeError('requests_page_unavailable')
                 if not self.dm.open_request(username):
@@ -697,7 +695,7 @@ class DMWorkflow(BaseTikTokWorkflow):
                 else:  # accept (+ éventuelle réponse)
                     success = self.dm.accept_request()
                     if success and message:
-                        # Après acceptation, on est dans la conversation → répondre
+                        # Once accepted, we are inside the conversation, so reply
                         if self.dm.is_in_conversation():
                             replied = self.dm.send_text_message(message)
                         else:
@@ -723,14 +721,14 @@ class DMWorkflow(BaseTikTokWorkflow):
     # ==========================================================================
 
     def set_on_notification_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Callback appelé pour chaque section de notification (activité/système) lue."""
+        """Callback invoked for each read notification section."""
         self._on_notification_callback = callback
 
     def read_notifications(self, max_items: int = 20) -> List[Dict[str, Any]]:
-        """Lit les sections Activité / Notifications système de l'inbox (LECTURE SEULE).
+        """Read the activity and system-notification sections of the inbox (READ ONLY).
 
         Returns:
-            Liste de {title, preview, category}
+            List of {title, preview, category}
         """
         self._running = True
         self.logger.info("🔔 Lecture activité / notifications système")

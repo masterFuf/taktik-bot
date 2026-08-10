@@ -1,4 +1,4 @@
-"""Sélecteurs UI pour la détection d'états et debug TikTok."""
+"""UI selectors for TikTok state detection and debugging."""
 
 from typing import List
 from dataclasses import dataclass, field
@@ -8,7 +8,7 @@ from ..locales import L
 
 @dataclass
 class DetectionSelectors:
-    """Sélecteurs pour la détection d'états et debug TikTok."""
+    """Selectors for TikTok state detection and debugging."""
 
     # === Détection de pages problématiques ===
     @property

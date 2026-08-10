@@ -14,7 +14,7 @@ Known screens and transitions :
                     → click "Inscription" link at bottom (id=mfb)
                     → next: SIGNUP_POPUP
   SIGNUP_POPUP    – "Inscription à TikTok" modal
-                    → click "Utiliser un numéro de téléphone ou une adresse e-mail"
+                    -> tap the phone-or-email option
                     → next: BIRTHDAY_SIGNUP  (or directly PHONE_EMAIL on some versions)
   BIRTHDAY_SIGNUP – birthday inside signup flow (no "Inscription" link at bottom)
                     → fill day/month/year, click Continuer
@@ -184,7 +184,7 @@ class TikTokSignupWorkflow:
 
                 # ── SIGNUP_POPUP ─────────────────────────────────────────
                 elif screen == "signup_popup":
-                    # Click "Utiliser un numéro de téléphone ou une adresse e-mail"
+                    # Tap the phone-or-email option
                     if not self._click_selector(SIGNUP_SELECTORS.use_phone_or_email_button, timeout=5.0):
                         return self._error("use_phone_email_not_found",
                                            "Could not click 'Use phone or email' on signup popup")

@@ -3,8 +3,6 @@
 Extracted from click_actions.py — contains only popup-related actions
 (close popups, dismiss banners, handle suggestions, close comments, system popups).
 
-Dernière mise à jour: 7 janvier 2026
-Basé sur les UI dumps réels de TikTok.
 """
 
 from loguru import logger
@@ -250,7 +248,7 @@ class PopupActions(BaseAction):
         """Close Android system popups that may block the app.
         
         This handles popups like:
-        - Input method selection ("Sélectionnez le mode de saisie" / "Choose input method")
+        - input method selection
         - Permission dialogs (contacts, notifications, etc.) - auto-deny
         - System alerts
         

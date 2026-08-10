@@ -6,23 +6,23 @@ from dataclasses import dataclass, field
 from ...locales import L
 
 # ---------------------------------------------------------------------------
-# Sélecteurs pour le sélecteur de pays (country picker)
+# Country picker selectors
 # ---------------------------------------------------------------------------
 
 @dataclass
 class CountryPickerSelectors:
-    """Sélecteurs pour l'écran "Select country/region".
+    """Selectors for the country/region picker screen.
 
     Dump observé : ui_dump_20260502_141800.xml
-    Apparaît quand l'utilisateur tape sur le bouton de code pays (+XX)
-    dans l'onglet Téléphone de l'écran d'inscription.
+    Appears when the country-code button is tapped in the phone tab of the
+    signup screen.
 
     Éléments clés :
       - Titre           : id=title  text="Select country/region"
-      - Bouton fermer   : id=be6    content-desc="Close"
+      - close button
       - Champ recherche : id=tlr    hint="Search countries and regions"  (EditText)
-      - Liste pays      : id=t7v    (RecyclerView)
-        - Ligne         : id=eqo    (LinearLayout)
+      - country list
+        - one row
           - Nom pays    : id=z83    (TextView)
           - Code phone  : id=ynw    (TextView, ex: "+33")
     """
@@ -33,13 +33,13 @@ class CountryPickerSelectors:
     def screen_indicator(self) -> List[str]:
         return L("country_picker.screen_indicator")
 
-    # Bouton fermer (croix en haut à gauche)
+    # Close button, at the top left
     # resource-id: com.zhiliaoapp.musically:id/be6  content-desc="Close"
     @property
     def close_button(self) -> List[str]:
         return L("country_picker.close_button")
 
-    # Champ de recherche des pays
+    # Country search field
     # resource-id: com.zhiliaoapp.musically:id/tlr  hint="Search countries and regions"
     _search_input_base: List[str] = field(default_factory=lambda: [
         '//android.widget.EditText[contains(@resource-id, ":id/tlr")]',
@@ -49,7 +49,7 @@ class CountryPickerSelectors:
     def search_input(self) -> List[str]:
         return self._search_input_base + L("country_picker.search_input")
 
-    # Premier élément de la liste des pays (après filtrage par recherche)
+    # First item of the country list, once filtered by the search
     # resource-id: com.zhiliaoapp.musically:id/eqo  (LinearLayout cliquable)
     first_country_item: List[str] = field(default_factory=lambda: [
         '(//android.widget.LinearLayout[contains(@resource-id, ":id/eqo")])[1]',

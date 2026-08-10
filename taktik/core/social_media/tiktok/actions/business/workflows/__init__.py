@@ -1,6 +1,5 @@
 """Workflow actions for TikTok automation.
 
-Dernière mise à jour: 11 janvier 2026
 """
 
 from .for_you import ForYouWorkflow, ForYouConfig, ForYouStats

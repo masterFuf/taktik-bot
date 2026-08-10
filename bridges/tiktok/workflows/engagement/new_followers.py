@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """TikTok new-followers workflow bridge runner (inbox v2 - Phase 1).
 
-Deux modes (champ `mode` du config) :
-- ``scrape`` (défaut) : ouvre la page « Nouveaux followers », liste les items et les émet en
-  stdout JSON (event ``new_follower``) sans agir. Le front affiche + l'utilisateur sélectionne.
-- ``follow_back`` : suit en retour les usernames sélectionnés (champ ``usernames``) et émet un
-  event ``follow_back_result`` par username.
+Two modes, set by the config:
+- scrape, the default: open the new-followers page, list the items and emit them
+    without acting, so the front can display them and the user select.
+- follow_back: follow back the selected usernames and emit one result event per
+    username.
 """
 
 from typing import Any, Dict

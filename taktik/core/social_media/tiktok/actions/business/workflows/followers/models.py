@@ -7,7 +7,7 @@ import time
 
 @dataclass
 class FollowersConfig:
-    """Configuration pour le workflow Followers."""
+    """Configuration of the followers workflow."""
     
     # Search query (required) - username to search for
     search_query: str = ""
@@ -15,7 +15,7 @@ class FollowersConfig:
     # Nombre de followers à traiter
     max_followers: int = 50
     
-    # Nombre de posts à voir par profil
+    # Posts to watch per profile
     posts_per_profile: int = 2
     
     # Watch time per video (seconds)
@@ -35,7 +35,7 @@ class FollowersConfig:
     max_follows_per_session: int = 30
     max_comments_per_session: int = 10
     
-    # Délai entre les actions (secondes)
+    # Delay between actions, in seconds
     min_delay: float = 1.0
     max_delay: float = 3.0
     
@@ -45,14 +45,14 @@ class FollowersConfig:
     pause_duration_max: float = 60.0
     
     # Comportement
-    include_friends: bool = False  # Inclure les comptes "Friends" (déjà amis)
+    include_friends: bool = False  # Include the accounts already marked as friends
     skip_private_accounts: bool = False
     max_consecutive_known_usernames: int = 150
 
 
 @dataclass
 class FollowersStats:
-    """Statistiques du workflow Followers."""
+    """Statistics of the followers workflow."""
     
     followers_seen: int = 0
     profiles_visited: int = 0

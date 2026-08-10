@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ForYouConfig:
-    """Configuration pour le workflow For You."""
+    """Configuration of the For You workflow."""
     
     # Nombre de vidéos à traiter
     max_videos: int = 50
@@ -21,8 +21,8 @@ class ForYouConfig:
     favorite_probability: float = 0.05
     
     # Filtres
-    min_likes: Optional[int] = None  # Minimum de likes pour interagir
-    max_likes: Optional[int] = None  # Maximum de likes pour interagir
+    min_likes: Optional[int] = None  # Minimum likes required to interact
+    max_likes: Optional[int] = None  # Maximum likes allowed to interact
     required_hashtags: List[str] = field(default_factory=list)  # Hashtags requis
     excluded_hashtags: List[str] = field(default_factory=list)  # Hashtags exclus
     
@@ -38,5 +38,5 @@ class ForYouConfig:
     # Comportement
     skip_already_liked: bool = True
     skip_already_followed: bool = True
-    skip_ads: bool = True  # Skip les publicités automatiquement
-    follow_back_suggestions: bool = False  # Si True, follow back les suggestions. Si False, click "Not interested"
+    skip_ads: bool = True  # Skip the ads automatically
+    follow_back_suggestions: bool = False  # When true, follow back the suggestions; otherwise mark them as not interesting

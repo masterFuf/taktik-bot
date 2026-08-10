@@ -1,22 +1,22 @@
-"""Sélecteurs UI pour la boîte de réception TikTok (Messages, notifications, demandes).
+"""UI selectors for the TikTok inbox (messages, notifications, requests).
 
-i18n (modèle overlay) : les sélecteurs langue-neutres (resource-id / classe / position)
-vivent ici comme champs ; les fragments dépendant de la langue (`@text` / `@content-desc`)
-vivent dans `ui/selectors/locales/<lang>.py` et sont injectés via `L("inbox.<champ>")` selon
-la locale active (cf. `ui/language.detect_and_optimize`). Les champs langue-dépendants sont
-donc exposés en `@property` = base neutre (resource-id) + fragments de la locale active. NE
-JAMAIS hardcoder un texte FR/EN dans un workflow/action : passer par ces properties.
+Overlay model: the language-neutral selectors (resource-id, class, position) live here
+as fields; the language-dependent fragments live in the locales modules and are
+injected through ``L("inbox.<field>")`` according to the active locale. A
+language-dependent field is therefore exposed as a property: the neutral base plus the
+fragments of the active locale. NEVER hardcode a localized text in a workflow or an
+action: go through these properties.
 
 Resource-IDs (dumps device réel) :
 - Inbox : ehp (add people), j6u (search), jlc (activity status), jla (RecyclerView),
   b8h (titres de section : partagé New followers / Activity / System notifications),
   t5a (item conversation), b5h (avatar), z05 (username), l35 (dernier message),
   l3a (timestamp), fa7/lnb/ydj (badge non-lu), s28 (item de notif), ln_ (sous-titre notif).
-- Comptes suggérés / nouveaux followers : rdh (Suivre en retour), ew3 (supprimer suggestion).
-- Page Nouveaux followers (dump 145912/145920) : o0v (item), o0f (username), nzo (texte
+- suggested accounts and new followers: follow-back and dismiss buttons.
+- new-followers page: the item, the username, the activity text
   "a commencé à te suivre"), nzy (avatar), y6h (Tout voir).
 - Page Demandes de messages (dump 145940) : nmh (titre), t5a (item), z05 (username),
-  l35 (aperçu), l3a (date), ydj (badge), nmt (filtre/plus).
+    the preview, the date, the badge and the filter entry.
 - Demande OUVERTE (dump 152315) : c6b (Accepter), c8q (Supprimer / refuser).
 """
 
@@ -28,7 +28,7 @@ from ..locales import L
 
 @dataclass
 class InboxSelectors:
-    """Sélecteurs pour la boîte de réception et messages TikTok."""
+    """Selectors for the TikTok inbox and messages."""
 
     # === Header Inbox ===
     _add_people_button_base: List[str] = field(default_factory=lambda: [
@@ -60,13 +60,13 @@ class InboxSelectors:
     def search_inbox_button(self) -> List[str]:
         return self._search_inbox_button_base + L("inbox.search_inbox_button")
 
-    # === Liste des messages ===
+    # === Message list ===
     message_list: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jla")]',
         '//androidx.recyclerview.widget.RecyclerView',
     ])
 
-    # === Sections de notification (titre partagé b8h -> texte requis pour distinguer) ===
+    # === Notification sections (shared title id, so the text is what tells them apart) ===
     section_title: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b8h")]',
     ])
@@ -122,7 +122,7 @@ class InboxSelectors:
         '//*[contains(@resource-id, ":id/ujj")]',
     ])
 
-    # === Suivre en retour (comptes suggérés / nouveaux followers) ===
+    # === Follow back (suggested accounts and new followers) ===
     _follow_back_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/rdh")]',
     ])
@@ -144,7 +144,7 @@ class InboxSelectors:
         '//*[contains(@resource-id, ":id/y6h")]',
     ])
 
-    # === Page Demandes de messages (dédiée) — liste ===
+    # === Message-requests page (dedicated) — list ===
     message_request_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/t5a")]',
     ])
@@ -173,7 +173,7 @@ class InboxSelectors:
     ])
 
     # ------------------------------------------------------------------
-    # Properties langue-aware (base neutre + fragments localisés via L())
+    # Language-aware properties: the neutral base plus the localized fragments
     # ------------------------------------------------------------------
 
     @property
@@ -223,41 +223,41 @@ class InboxSelectors:
     def section_title_by_text(self, title: str) -> str:
         """Build the notification section title selector for a visible title.
 
-        Préférer les properties langue-aware (new_followers_section, etc.) ; ce helper reste
-        pour un titre déjà résolu dans la bonne langue.
+        Prefer the language-aware properties; this helper stays
+        for a title already resolved in the right language.
         """
         return f'{self.section_title[0]}[@text="{title}"]'
 
     @property
     def we_sent_last_markers(self) -> List[str]:
-        """Préfixes de l'aperçu (l35) indiquant que NOUS avons parlé en dernier → conversation
+        """Preview prefixes telling that WE spoke last, so the conversation
         considérée comme répondue de notre côté (détection « non-répondu », phase 2).
 
-        Combiné FR+EN volontairement (property, donc non filtré par detect_and_optimize) : robuste
-        quelle que soit la langue détectée. Capturé sur device : « Envoyé il y a 5 j », « Vu ».
+        Deliberately a union of every language — being a property, it is not filtered — so it
+        holds whatever language was detected. Captured on device.
         """
         return ['Envoyé', 'Sent', 'Vu', 'Seen']
 
     @property
     def activity_title_markers(self) -> List[str]:
-        """Sous-chaînes (minuscules) du titre `b8h` de la section Activité (FR+EN, phase 4)."""
+        """Lowercase substrings of the activity section title, across languages."""
         return ['activité', 'activity']
 
     @property
     def system_title_markers(self) -> List[str]:
-        """Sous-chaînes (minuscules) du titre `b8h` des Notifications système (FR+EN, phase 4)."""
+        """Lowercase substrings of the system-notifications title, across languages."""
         return ['système', 'system']
 
     @property
     def new_followers_title_markers(self) -> List[str]:
-        """Sous-chaînes (minuscules) du titre `b8h` des Nouveaux followers (FR+EN) — exclu de la
+        """Lowercase substrings of the new-followers title, across languages — excluded from
         phase 4 (a sa propre phase 1)."""
         return ['nouveaux followers', 'nouveaux abonnés', 'new followers']
 
     @property
     def message_requests_row_markers(self) -> List[str]:
-        """Sous-chaînes (minuscules) identifiant la ligne « Demandes de messages » dans la liste
-        des conversations (réutilise l'item t5a/z05) — à exclure des conversations (relève de la
+        """Lowercase substrings identifying the message-requests row in the conversation
+        list, which reuses the conversation item and must be excluded from them.
         phase 3). Capturé : z05="Demandes de messages" / l35="Tu as reçu N demandes"."""
         return ['demande', 'request']
 
@@ -268,16 +268,16 @@ class InboxSelectors:
     def new_followers_username_by_text(self, name: str) -> str:
         """Build the new-follower username selector for a visible name (page dédiée).
 
-        `contains` (pas `=`) car TikTok entoure le username de marques bidi invisibles
+        Containment rather than equality, because usernames are wrapped in invisible bidi
         (LRM/FSI/PDI : ‎⁨…⁩) — un match exact échouerait ; `name` doit être
-        nettoyé de ces marques (cf. DMActions._clean_username).
+        marks; the name passed in is cleaned of them beforehand.
         """
         return f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]'
 
     def message_request_by_username(self, name: str) -> str:
         """Build the message-request item (t5a) selector for a visible username (page demandes).
 
-        `contains` car le username (z05) est entouré de marques bidi invisibles (cf.
+        Containment, because the username is wrapped in invisible bidi marks (see
         DMActions._clean_username) ; on remonte à l'item t5a cliquable contenant ce username.
         """
         return (
@@ -288,10 +288,10 @@ class InboxSelectors:
     def follow_back_for_username(self, name: str) -> str:
         """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
 
-        Sélecteur dynamique (composé des resource-ids centralisés o0v/o0f/rdh) : le bouton rdh
-        de l'item (o0v) dont le username (o0f) contient `name`. `contains` car le texte o0f est
+        Dynamic selector built from the centralized resource-ids: the follow-back button
+        of the item whose username contains `name`. Containment, because the node text is
         entouré de marques bidi invisibles (‎⁨…⁩) — `name` doit être nettoyé de
-        ces marques au préalable (DMActions._clean_username). Évite de taper le mauvais bouton.
+        wrapped in invisible marks and the name is cleaned beforehand. This is what stops the
         """
         return (
             '//*[contains(@resource-id, ":id/o0v")]'
