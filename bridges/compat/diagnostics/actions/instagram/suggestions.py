@@ -1,26 +1,26 @@
 """Suggestions actions for Instagram compat diagnostics (Cartography Lab).
 
-Sondes atomiques du mode "follow des suggestions" du workflow Feed :
+Atomic probes of the feed workflow suggestions-follow mode:
 carousel netego "Suggested for you" -> CTA "See all" -> modale d'acces aux
-contacts -> ecran "Discover people" -> follow de masse.
+contacts modal -> people discovery screen -> bulk follow.
 
-PROD-ALIGNED : chaque action appelle EXACTEMENT la methode de production du
-``FeedBusiness`` (mixin ``FeedSuggestionsMixin``) deja construit sur le device
-chaud par le bundle Lab. Aucun chemin, aucun selector et aucune detection
-d'ecran ne sont reimplementes ici : un run vert exerce le code que le workflow
+Each action calls EXACTLY the production method of the feed business object,
+already built on the warm device by the diagnostics bundle. No path, no selector
+and no screen detection is reimplemented here: a green run exercises the code
+the workflow
 reel executera.
 
-Toutes les signatures UI viennent des catalogues centralises
+Every UI signature comes from the centralized catalogs
 (``FEED_SUGGESTIONS_SELECTORS`` / ``DISCOVER_PEOPLE_SELECTORS`` /
-``POPUP_SELECTORS``) — aucun resource-id ni libelle n'est ecrit ici.
+``POPUP_SELECTORS``) — no resource-id and no label is written here.
 """
 
 from bridges.compat.diagnostics.actions.instagram import action
 
 
-# Ce que veut lire Kevin dans le rapport : pourquoi ca s'est arrete la, et
-# est-ce que le device est revenu sur le feed. Le plafond demande est la cause
-# la plus frequente et la moins evidente a l'oeil.
+# What the report must say: why it stopped there, and whether the device came
+# back to the feed. The requested cap is the most frequent cause and the least
+# obvious one to the eye.
 _STOP_LABELS = {
     "max_reached": "plafond demande atteint",
     "list_exhausted": "fin de liste",
@@ -41,7 +41,7 @@ _STOP_LABELS = {
 
 
 def _follow_summary(res, max_follows, suffix=""):
-    """Message de rapport commun aux actions qui follow."""
+    """Report message shared by the actions that follow."""
     follows = res.get("follows", 0)
     stop = res.get("stop_reason", "?")
     parts = [f"{follows}/{max_follows} follow(s)"]
@@ -57,7 +57,7 @@ def _follow_summary(res, max_follows, suffix=""):
 
 @action("suggestions.detect_carousel")
 def detect_carousel(a, p):
-    """Le carousel de suggestions est-il present dans le feed courant ?"""
+    """Is the suggestions carousel present in the current feed?"""
     carousel = a.feed.detect_feed_suggestions_carousel()
     cards = carousel.get("cards", [])
     if not carousel.get("present"):
@@ -74,7 +74,7 @@ def detect_carousel(a, p):
 
 @action("suggestions.probe_carousel")
 def probe_carousel(a, p):
-    """Sonde legere (1 acces device) utilisee par la boucle feed a chaque post."""
+    """Light probe (one device access) used by the feed loop on every post."""
     found = a.feed.has_feed_suggestions_carousel()
     return {"success": True, "found": found,
             "message": f"Sonde carousel: {'present' if found else 'absent'}"}
@@ -82,7 +82,7 @@ def probe_carousel(a, p):
 
 @action("suggestions.open_see_all")
 def open_see_all(a, p):
-    """Taper le CTA "See all" du carousel pour ouvrir l'ecran Discover people."""
+    """Tap the carousel CTA to open the people discovery screen."""
     ok = a.feed.open_suggestions_see_all()
     return {"success": bool(ok),
             "message": "CTA 'See all' tape" if ok else "CTA 'See all' introuvable ou tap echoue"}
@@ -90,11 +90,11 @@ def open_see_all(a, p):
 
 @action("suggestions.handle_contacts_dialog")
 def handle_contacts_dialog(a, p):
-    """Traiter la modale d'acces aux contacts (param ``choice`` = deny | allow).
+    """Handle the contacts-access modal (``choice`` = deny | allow).
 
-    Rend ``other_dialog`` sans rien taper si l'alerte affichee n'est PAS la
-    demande de contacts — c'est la garde qui evite de taper le bouton primaire
-    d'une alerte soft-ban portant les memes resource-id.
+    Returns ``other_dialog`` without tapping anything when the alert shown is NOT the
+    contacts request: this is the guard that avoids tapping the primary button of a
+    restriction alert carrying the same resource-ids.
     """
     choice = str(p.get("choice", "deny"))
     outcome = a.feed.handle_contacts_access_dialog(choice)
@@ -108,7 +108,7 @@ def handle_contacts_dialog(a, p):
 
 @action("suggestions.is_discover_screen")
 def is_discover_screen(a, p):
-    """L'ecran "Discover people" est-il affiche ? (preuve de surface structurelle)"""
+    """Is the people discovery screen shown? (structural surface proof)"""
     found = a.feed.is_on_discover_people_screen()
     return {"success": True, "found": found,
             "message": f"Ecran suggestions: {'affiche' if found else 'absent'}"}
@@ -116,7 +116,7 @@ def is_discover_screen(a, p):
 
 @action("suggestions.scan_rows")
 def scan_rows(a, p):
-    """Lire les lignes de suggestion visibles et leur etat de relation."""
+    """Read the visible suggestion rows and their relationship state."""
     rows = a.feed.scan_discover_suggestions()
     if not rows:
         return {"success": False, "found": False,
@@ -135,17 +135,17 @@ def scan_rows(a, p):
 
 @action("suggestions.scroll_list")
 def scroll_list(a, p):
-    """Descendre d'un ecran dans la liste de suggestions (scroll humanise)."""
+    """Scroll one screen down in the suggestions list (humanized)."""
     ok = a.feed.scroll_discover_suggestions()
     return {"success": bool(ok), "message": "Scroll liste suggestions" if ok else "Scroll echoue"}
 
 
 @action("suggestions.follow_visible")
 def follow_visible(a, p):
-    """Follow depuis la liste ouverte (param ``max`` = plafond, 1 par defaut).
+    """Follow from the open list (``max`` = cap, 1 by default).
 
-    N'agit que sur les boutons dont l'etat est exactement 'Follow' : les
-    'Follow back' sont comptes et laisses intacts (le follow-back appartient au
+    Acts only on the buttons whose state is exactly followable: the follow-back rows
+    are counted and left untouched, since follow-back belongs to the
     workflow Notifications).
     """
     max_follows = int(p.get("max", 1))
@@ -167,11 +167,11 @@ def follow_visible(a, p):
 
 @action("suggestions.back_to_feed")
 def back_to_feed(a, p):
-    """Quitter l'ecran de suggestions et revenir au feed.
+    """Leave the suggestions screen and come back to the feed.
 
-    Sonde du point qui avait bloque le premier run device : cet ecran n'a pas de
-    barre d'onglets et ne repond pas a la touche back materielle. On tape la
-    fleche de la barre d'action, puis on confirme le retour sur l'accueil.
+    Probes the point that blocked the first device run: this screen has no tab bar
+    and does not answer the hardware back key. The action-bar arrow is tapped, then
+    the return to the home screen is confirmed.
     """
     ok = a.feed._return_to_feed()
     still_there = a.feed.is_on_discover_people_screen()
@@ -186,10 +186,10 @@ def back_to_feed(a, p):
 
 @action("suggestions.find_carousel")
 def find_carousel(a, p):
-    """Scroller le feed jusqu'a faire apparaitre le carousel (sans rien liker).
+    """Scroll the feed until the carousel appears, liking nothing.
 
-    Scroll humanise simple et non l'avance "vers le prochain vrai post" : cette
-    derniere saute par-dessus les blocs non-organiques, donc par-dessus la cible.
+    A plain humanized scroll rather than the advance to the next real post: that one
+    skips over the non-organic blocks, so over the very target.
     """
     max_scrolls = int(p.get("max_scrolls", 12))
     res = a.feed.find_feed_suggestions_carousel(max_scrolls)
@@ -205,9 +205,9 @@ def find_carousel(a, p):
 
 @action("suggestions.run_only")
 def run_only(a, p):
-    """Run "suggestions seules" de production : chercher le carousel, follow, s'arreter.
+    """Production suggestions-only run: find the carousel, follow, stop.
 
-    Aucune interaction avec le fil (ni like, ni commentaire, ni story).
+    No interaction with the feed itself: no like, no comment, no story.
     """
     max_follows = int(p.get("max", 2))
     config = {
@@ -230,9 +230,9 @@ def run_only(a, p):
 
 @action("suggestions.run_pass")
 def run_pass(a, p):
-    """Passe complete de production : carousel -> liste -> follows -> retour feed.
+    """Full production pass: carousel -> list -> follows -> back to the feed.
 
-    Plafonds volontairement bas par defaut pour un test unitaire au Lab.
+    Caps deliberately low by default, for a single-probe test.
     """
     max_follows = int(p.get("max", 2))
     config = {
@@ -257,15 +257,15 @@ def run_pass(a, p):
 
 
 # =============================================================================
-# Visite QUALIFIEE (par opposition au follow de masse ci-dessus)
+# QUALIFIED visit, as opposed to the bulk follow above
 #
-# La liste n'expose qu'un libelle : un compte suggere est INCONNU, il n'y a rien a
-# reconcilier en base. On ouvre donc sa fiche et on lui applique le pipeline
-# par-profil de production, comme une cible target.
+# The list exposes only a label: a suggested account is UNKNOWN, there is nothing
+# to reconcile, so its profile is opened and run through the per-profile
+# production pipeline, like a target.
 # =============================================================================
 
 def _visit_config(p):
-    """Config d'interaction de la visite : acquerir, donc follow et rien d'autre."""
+    """Interaction config of the visit: acquisition, so follow and nothing else."""
     from taktik.core.social_media.instagram.workflows.management.notifications import (
         DEFAULT_SUGGESTION_INTERACTION_CONFIG,
     )
@@ -273,11 +273,11 @@ def _visit_config(p):
 
 
 def _attach_account_and_session(a, p, session_id):
-    """Rattacher le workflow Feed du Lab au bon compte ET a la session ouverte.
+    """Attach the feed workflow to the right account AND to the open session.
 
-    Le bundle Lab construit `FeedBusiness` sans compte ni session : tout ce qu'il
-    ecrivait partait donc sous l'id par defaut et sans `session_id`. C'est ce qui
-    rendait le travail fait depuis le Lab invisible dans les chiffres du client.
+    The bundle builds the business object with neither account nor session, so
+    everything it wrote went under the default id and with no session. That is what
+    made the work done from here invisible in the figures.
     """
     from bridges.compat.diagnostics.actions.instagram.notifications import resolve_lab_account_id
     from taktik.core.social_media.instagram.workflows.management.session import SessionManager
@@ -306,11 +306,11 @@ def _visit_summary(res, max_profiles):
 
 @action("suggestions.open_profile")
 def open_profile(a, p):
-    """Ouvrir le PROFIL de la premiere ligne suivable de la liste ouverte.
+    """Open the PROFILE of the first followable row of the open list.
 
-    Tape le NOM et jamais le centre de la ligne : le bouton d'abonnement occupe sa
-    partie droite, et viser le milieu ferait un follow depuis la liste — c'est-a-dire
-    exactement ce que cette visite remplace.
+    Taps the NAME and never the centre of the row: the follow button occupies its
+    right side, and aiming at the middle would follow from the list, which is
+    exactly what this visit replaces.
     """
     from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import (
         followable_rows,
@@ -330,7 +330,7 @@ def open_profile(a, p):
 
 @action("suggestions.back_to_list")
 def back_to_list(a, p):
-    """Revenir du profil vers la liste de suggestions (fleche, puis touche back)."""
+    """Come back from the profile to the suggestions list (arrow, then back key)."""
     ok = a.feed.leave_discover_profile()
     return {"success": bool(ok),
             "message": ("Retour a la liste confirme" if ok
@@ -339,10 +339,10 @@ def back_to_list(a, p):
 
 @action("suggestions.visit_visible")
 def visit_visible(a, p):
-    """Visite qualifiee depuis la liste DEJA ouverte (param ``max``, 1 par defaut).
+    """Qualified visit from the ALREADY-open list (``max``, 1 by default).
 
-    Pour chaque ligne : ouvrir la fiche -> extraction (bio, photo, stats) ->
-    qualification IA -> filtres -> follow -> ecritures DB -> retour a la liste.
+    For each row: open the profile, extract, qualify, filter, follow, write, then
+    come back to the list.
     """
     from bridges.compat.diagnostics.actions.instagram.notifications import lab_suggestion_session
 
@@ -363,7 +363,7 @@ def visit_visible(a, p):
 
 @action("suggestions.run_visit_pass")
 def run_visit_pass(a, p):
-    """Passe qualifiee complete : accueil -> carousel -> liste -> visites -> retour feed."""
+    """Full qualified pass: home -> carousel -> list -> visits -> back to the feed."""
     from bridges.compat.diagnostics.actions.instagram.notifications import lab_suggestion_session
 
     max_profiles = int(p.get("max", 1))

@@ -1,9 +1,9 @@
-"""Service IA partage par les flows Instagram du bridge.
+"""AI service shared by the bridge Instagram flows.
 
 Owner runtime plateforme (AGENTS) : plusieurs flows en ont besoin — l'automation
-(target / hashtag / feed) et l'engagement Notifications, dont la visite des
-suggestions applique le meme pipeline par-profil, qualification IA comprise. La
-fabrique vit donc ici et non chez l'un des deux appelants.
+and the notifications engagement, whose suggestions visit walks the same
+per-profile pipeline, qualification included. The factory therefore lives here
+rather than in either caller.
 """
 
 from __future__ import annotations

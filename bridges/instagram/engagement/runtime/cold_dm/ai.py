@@ -40,9 +40,9 @@ Le message doit Ãªtre unique et personnalisÃ©. RÃ©ponds uniquement avec le
             "X-Title": "TAKTIK Bot",
         }
         body = json.dumps({
-            # Modele lu depuis la constante partagee (generation), jamais code en dur ici : un slug
-            # fige dans un bridge survit aux migrations et meurt en silence (cf. claude-3.5-haiku
-            # retire d'OpenRouter le 2026-07-15, migre partout sauf ici). Cold DM = generation.
+            # The model is read from the shared constant, never hardcoded here: a slug frozen in
+            # a bridge survives the migrations and then dies silently, which already happened
+            # once when a retired model stayed here while every other call site had moved.
             "model": MODEL_GENERATION,
             "messages": [
                 {"role": "system", "content": system_prompt},
