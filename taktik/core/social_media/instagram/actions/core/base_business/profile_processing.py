@@ -12,6 +12,7 @@ from typing import Optional, Dict, Any
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry.sink import emit_step
 from ..ipc import IPCEmitter
+from taktik.core.shared.config import resolve_filter_criteria
 
 
 class ProfileProcessingResult:
@@ -186,7 +187,7 @@ class ProfileProcessingMixin:
             # the filters and the qualification: a profile skipped here costs neither action
             # budget nor a qualification call. Without this guard, an existing follower was
             # re-targeted as a fresh one, the follow-back button coming back as followable.
-            filter_criteria = config.get('filter_criteria', config.get('filters', {}))
+            filter_criteria = resolve_filter_criteria(config)
             relationship_reason = self._relationship_skip_reason(username, profile_data, filter_criteria)
             if relationship_reason:
                 result.status = ProfileProcessingResult.FILTERED_RELATIONSHIP

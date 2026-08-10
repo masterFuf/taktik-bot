@@ -2,6 +2,7 @@ from typing import Dict, Any
 from dataclasses import dataclass
 
 from loguru import logger
+from taktik.core.shared.config import resolve_filter_criteria
 
 
 _EXECUTION_CONFIG_KEYS = (
@@ -71,16 +72,17 @@ class FilterCriteria:
 
     @classmethod
     def from_action(cls, action: Dict[str, Any]) -> 'FilterCriteria':
-        """Extract filter criteria from action config"""
+        """Extract filter criteria from an action, whichever shape it carries them in."""
+        criteria = resolve_filter_criteria(action)
         return cls(
-            min_followers=action.get('min_followers', 0),
-            max_followers=action.get('max_followers', 100000),
-            min_posts=action.get('min_posts', 3),
-            max_following=action.get('max_following', 10000),
-            allow_private=action.get('allow_private', False),
-            max_followers_following_ratio=action.get('max_followers_following_ratio', 10.0),
-            skip_follows_us=bool(action.get('skip_follows_us', False)),
-            skip_already_following=bool(action.get('skip_already_following', False)),
+            min_followers=criteria.get('min_followers', 0),
+            max_followers=criteria.get('max_followers', 100000),
+            min_posts=criteria.get('min_posts', 3),
+            max_following=criteria.get('max_following', 10000),
+            allow_private=criteria.get('allow_private', False),
+            max_followers_following_ratio=criteria.get('max_followers_following_ratio', 10.0),
+            skip_follows_us=bool(criteria.get('skip_follows_us', False)),
+            skip_already_following=bool(criteria.get('skip_already_following', False)),
         )
 
     def to_dict(self) -> Dict[str, Any]:

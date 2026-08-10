@@ -228,13 +228,10 @@ def _build_action_config(
 
     # === Profile filters: the ACTION must carry them, not only the built block ===
     #
-    # The target, hashtag and post-url runners rebuild their config from FLAT keys on
-    # the action, while the notifications and feed paths read a nested dict. Neither
-    # ever sees the top-level block: without these keys, the filters set in the app
-    # were silently replaced by the dataclass defaults, and the relationship flags were
-    # swallowed with them — verified on a real run, where the already-following state
-    # was read and the profile handled anyway.
-    #
+    # No consumer ever sees the top-level block: without these keys, the filters set in
+    # the app were silently replaced by the dataclass defaults, and the relationship
+    # flags were swallowed with them — verified on a real run, where the
+    # already-following state was read and the profile handled anyway.
     #
     # Rule for the HIGH bounds: zero means no limit. A zero maximum passed literally
     # would reject every profile having a single follower.
@@ -256,8 +253,12 @@ def _build_action_config(
         "allow_private": bool(filters.get("allowPrivate", False)),
         "max_consecutive_private_profiles": filters.get("maxConsecutivePrivateProfiles"),
     }
-    action_config.update(action_filters)          # cles plates -> FilterCriteria.from_action
-    action_config["filters"] = dict(action_filters)  # dict imbrique -> action.get('filters')
+    # Both shapes, on purpose. `resolve_filter_criteria` reads either one, so a single
+    # one would do for our own readers — but the action also travels to the CLI and to
+    # the diagnostics bundle, and emitting both keeps a consumer that predates the
+    # convention working.
+    action_config.update(action_filters)
+    action_config["filters"] = dict(action_filters)
 
     return action_config
 

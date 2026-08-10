@@ -8,6 +8,7 @@ from ...actions.business.workflows.common.distribution import (
     normalize_distribution,
     run_distributed,
 )
+from taktik.core.shared.config import resolve_filter_criteria
 
 
 class WorkflowRunner:
@@ -293,7 +294,7 @@ class WorkflowRunner:
             'interact_with_post_likers': action.get('interact_with_post_likers', False),
             'skip_reels': action.get('skip_reels', True),
             'skip_ads': action.get('skip_ads', True),
-            'filter_criteria': action.get('filters', {}),
+            'filter_criteria': resolve_filter_criteria(action),
             'min_post_likes': action.get('min_post_likes', 0),
             'max_post_likes': action.get('max_post_likes', 0),
             'custom_comments': action.get('custom_comments', [])

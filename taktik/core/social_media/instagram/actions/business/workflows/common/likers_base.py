@@ -19,6 +19,7 @@ from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from .revisit_policy import RevisitPolicy
 from .list_sources import InteractionListSource, make_likers_source
+from taktik.core.shared.config import resolve_filter_criteria
 
 
 class LikersWorkflowBase(BaseBusinessAction):
@@ -63,9 +64,7 @@ class LikersWorkflowBase(BaseBusinessAction):
             max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
 
         # Operator-set revisit delays for THIS account (interaction cooldown + filter expiry).
-        revisit_policy = RevisitPolicy.from_filters(
-            effective_config.get('filter_criteria', effective_config.get('filters', {}))
-        )
+        revisit_policy = RevisitPolicy.from_filters(resolve_filter_criteria(effective_config))
 
         account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
         session_id = getattr(self.automation, 'current_session_id', None) if self.automation else None
@@ -174,7 +173,7 @@ class LikersWorkflowBase(BaseBusinessAction):
             # an action button whose state is readable WITHOUT opening the profile.
             # FAIL-OPEN: an unreadable row falls through to the click plus the
             # profile-level guard, which stays the source of truth.
-                fc = effective_config.get('filter_criteria', effective_config.get('filters', {})) or {}
+                fc = resolve_filter_criteria(effective_config)
                 if fc.get('skip_follows_us') or fc.get('skip_already_following'):
                     row_state = source.row_follow_state(username)
                     rel_reason = None

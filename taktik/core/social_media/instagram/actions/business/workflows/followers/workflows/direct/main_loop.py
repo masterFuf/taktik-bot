@@ -13,6 +13,7 @@ from ....common.private_streak_policy import PrivateStreakPolicy
 from ....common.followers_tracker import FollowersTracker
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
+from taktik.core.shared.config import resolve_filter_criteria
 
 
 class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessingMixin):
@@ -54,7 +55,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             'ai_decision_mode': config.get('ai_decision_mode'),
             'ai_decision_dry_run': config.get('ai_decision_dry_run', True),
             'ai_decision_capabilities': config.get('ai_decision_capabilities'),
-            'filter_criteria': config.get('filter_criteria', config.get('filters', {}))
+            'filter_criteria': resolve_filter_criteria(config)
         }
         # Operator-set revisit delays (how long an interaction / a stored filter keeps a
         # profile off-limits FOR THIS ACCOUNT). Single owner of the semantic.

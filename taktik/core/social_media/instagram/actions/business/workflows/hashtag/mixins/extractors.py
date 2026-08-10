@@ -64,5 +64,5 @@ class HashtagExtractorsMixin:
             return []
     
     # _extract_likers_from_current_post, _extract_likers_from_regular_post,
-    # _extract_likers_from_reel, _get_filter_criteria_from_config,
+    # _extract_likers_from_reel,
     # _is_valid_username, etc. are all inherited from LikersWorkflowBase / BaseBusinessAction.

@@ -3,6 +3,7 @@
 from typing import Dict, Any, Optional
 
 from ......core.base_business.profile_processing import ProfileProcessingResult
+from taktik.core.shared.config import resolve_filter_criteria
 
 
 class DirectProfileProcessingMixin:
@@ -38,7 +39,7 @@ class DirectProfileProcessingMixin:
         # It short-circuits the profile-level guard, which stays the source of truth.
         # FAIL-OPEN: an unreadable row, such as a partially scrolled last one, falls
         # through to the tap plus the profile guard, so no valid target is ever lost.
-        fc = interaction_config.get('filter_criteria', interaction_config.get('filters', {})) or {}
+        fc = resolve_filter_criteria(interaction_config)
         if fc.get('skip_follows_us') or fc.get('skip_already_following'):
             row_state = self.detection_actions.get_row_follow_state(username)
             reason = None
