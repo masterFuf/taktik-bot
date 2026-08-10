@@ -23,20 +23,9 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-_BOUNDS_RE = re.compile(r"\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]")
-
-
-def parse_bounds(raw: str) -> Optional[Tuple[int, int, int, int]]:
-    """`"[l,t][r,b]"` -> `(left, top, right, bottom)`, or None when unparseable."""
-    match = _BOUNDS_RE.match((raw or "").strip())
-    if not match:
-        return None
-    return tuple(int(g) for g in match.groups())  # type: ignore[return-value]
-
-
-def center(box: Tuple[int, int, int, int]) -> Tuple[int, int]:
-    left, top, right, bottom = box
-    return (left + right) // 2, (top + bottom) // 2
+# Bounds geometry belongs to the shared owner; re-exported here so the existing
+# callers of this module keep working.
+from taktik.core.shared.device.ui_dump import center, parse_bounds  # noqa: F401
 
 
 def _matches_any(value: str, tokens: List[str]) -> bool:

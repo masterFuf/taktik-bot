@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import re
 from typing import Iterable
+# Bounds geometry belongs to the shared owner. The local copy read the numbers with a
+# digits-only pattern, which silently dropped the minus sign of an off-screen
+# coordinate; the owner keeps it.
+from taktik.core.shared.device.ui_dump import parse_bounds  # noqa: F401
 
 
 CLASS_STEP_RE = re.compile(
@@ -39,8 +43,3 @@ def tap_element(device, selectors: Iterable[str], timeout: float = 2.0) -> bool:
         return False
 
 
-def parse_bounds(bounds: str) -> tuple[int, int, int, int] | None:
-    coords = [int(value) for value in re.findall(r"\d+", bounds or "")]
-    if len(coords) != 4:
-        return None
-    return coords[0], coords[1], coords[2], coords[3]
