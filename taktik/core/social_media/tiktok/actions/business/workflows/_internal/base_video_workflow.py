@@ -166,10 +166,12 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
             return True
         return False
 
-    def _handle_popups(self):
+    def _handle_popups(self) -> bool:
         """Override to also track popup stats."""
-        if self._popup_handler.close_all():
+        closed = super()._handle_popups()
+        if closed:
             self.stats.popups_closed += 1
+        return closed
 
     # ------------------------------------------------------------------
     # Stuck-video detection

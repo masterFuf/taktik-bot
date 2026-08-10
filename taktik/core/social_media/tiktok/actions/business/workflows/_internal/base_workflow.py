@@ -25,6 +25,12 @@ from .popup_handler import PopupHandler
 class BaseTikTokWorkflow:
     """Lightweight base for TikTok workflows that share atomic actions and lifecycle."""
 
+    #: Surfaces this workflow considers its own destination rather than an accident.
+    #: The popup handler escapes the inbox by default, since the app pushes accounts
+    #: onto it unprompted; a workflow that reads the inbox declares it here, once,
+    #: instead of opting out at every popup check.
+    OWNED_SURFACES: frozenset = frozenset()
+
     def __init__(self, device, *, module_name: str = "tiktok-workflow"):
         self.device = device
 
@@ -35,7 +41,9 @@ class BaseTikTokWorkflow:
         self.detection = DetectionActions(device)
 
         # Shared popup handler
-        self._popup_handler = PopupHandler(self.click, self.detection)
+        self._popup_handler = PopupHandler(
+            self.click, self.detection, owned_surfaces=self.OWNED_SURFACES
+        )
 
         self.logger = logger.bind(module=module_name)
 
@@ -122,10 +130,10 @@ class BaseTikTokWorkflow:
     # Popup handling
     # ------------------------------------------------------------------
 
-    def _handle_popups(self, skip_inbox_escape: bool = False):
+    def _handle_popups(self) -> bool:
         """Check for and close any popups that might block interaction.
 
-        ``skip_inbox_escape``: do not leave the inbox page even when detected
-        (needed when the inbox IS the target of the workflow).
+        What counts as an accidental surface rather than a destination comes from
+        ``OWNED_SURFACES``, declared by the workflow class.
         """
-        return self._popup_handler.close_all(skip_inbox_escape=skip_inbox_escape)
+        return self._popup_handler.close_all()

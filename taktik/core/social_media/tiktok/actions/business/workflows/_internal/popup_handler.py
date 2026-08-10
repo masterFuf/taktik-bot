@@ -27,11 +27,18 @@ class PopupHandler:
 
         handler = PopupHandler(click_actions, detection_actions)
         closed = handler.close_all()   # returns True if something was closed
+
+    Some of what this closes is not a popup but a SURFACE the app dropped us on by
+    accident — the inbox in particular, which new accounts on some devices get pushed
+    to repeatedly. Escaping it is right for a workflow browsing videos and wrong for
+    one whose target IS the inbox, so the workflow declares what it owns once, at
+    construction, through ``owned_surfaces``. An owned surface is never escaped.
     """
 
-    def __init__(self, click, detection):
+    def __init__(self, click, detection, owned_surfaces=frozenset()):
         self.click = click
         self.detection = detection
+        self.owned_surfaces = frozenset(owned_surfaces)
         self.logger = logger.bind(module="tiktok-popup-handler")
 
     # ------------------------------------------------------------------
@@ -100,7 +107,7 @@ class PopupHandler:
     # Main entry point
     # ------------------------------------------------------------------
 
-    def close_all(self, skip_inbox_escape: bool = False) -> bool:
+    def close_all(self) -> bool:
         """Run through the full popup chain. Returns True if any popup was closed.
 
         Fast path: a single dump_hierarchy() + lxml XPath scan is used to
@@ -110,16 +117,12 @@ class PopupHandler:
 
         Falls back transparently to sequential polling when lxml is
         unavailable or when the hierarchy dump fails.
-
-        ``skip_inbox_escape``: do NOT leave the inbox page even when it is
-        detected. Required by the DM reading workflow, whose target IS the inbox:
-        without it the popup handler flees the very screen to read, and zero
         """
         detected = self._fast_detect()
 
         # ── Fallback: lxml unavailable or dump failed ─────────────────
         if '_fallback' in detected:
-            return self._close_all_slow(skip_inbox_escape=skip_inbox_escape)
+            return self._close_all_slow()
 
         # ── Fast exit: screen is clean ────────────────────────────────
         if not detected:
@@ -141,8 +144,8 @@ class PopupHandler:
                 time.sleep(0.5)
                 return True
 
-        # Accidentally on the inbox page (unless the inbox IS the target)
-        if 'inbox_page' in detected and not skip_inbox_escape:
+        # Dropped on the inbox page, unless this workflow owns it
+        if 'inbox_page' in detected and 'inbox_page' not in self.owned_surfaces:
             self.click.escape_inbox_page()
             self.logger.info("✅ Escaped from Inbox page")
             time.sleep(1.0)  # Samsung needs extra time to complete the transition
@@ -197,7 +200,7 @@ class PopupHandler:
     # Slow fallback (original sequential polling)
     # ------------------------------------------------------------------
 
-    def _close_all_slow(self, skip_inbox_escape: bool = False) -> bool:
+    def _close_all_slow(self) -> bool:
         """Original sequential-polling implementation used as fallback."""
         from .....ui.selectors.shell.popups import POPUP_SELECTORS
 
@@ -213,8 +216,8 @@ class PopupHandler:
             time.sleep(0.5)
             return True
 
-        # Accidentally on the inbox page (unless the inbox IS the target)
-        if not skip_inbox_escape and self.detection.is_on_inbox_page():
+        # Dropped on the inbox page, unless this workflow owns it
+        if 'inbox_page' not in self.owned_surfaces and self.detection.is_on_inbox_page():
             self.click.escape_inbox_page()
             self.logger.info("✅ Escaped from Inbox page")
             time.sleep(0.5)

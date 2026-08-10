@@ -29,7 +29,12 @@ class DMWorkflow(BaseTikTokWorkflow):
         - DMActions for DM-specific interactions
         - DM-specific callbacks and progress tracking
     """
-    
+
+    # The inbox is this workflow's destination, not an accident: without this the popup
+    # handler would leave the very screen it came to read, and every run would return
+    # nothing at all.
+    OWNED_SURFACES = frozenset({'inbox_page'})
+
     def __init__(self, device, config: Optional[DMConfig] = None):
         """Initialize the workflow.
         
@@ -48,15 +53,15 @@ class DMWorkflow(BaseTikTokWorkflow):
         self._on_conversation_callback: Optional[Callable] = None
         self._on_message_sent_callback: Optional[Callable] = None
         self._on_progress_callback: Optional[Callable] = None
-        # Inbox v2 (nouveaux followers) callbacks
+        # New-followers callbacks
         self._on_new_follower_callback: Optional[Callable] = None
         self._on_follow_back_result_callback: Optional[Callable] = None
-        # Inbox v2 (conversations non-répondues) callback
+        # Unanswered-conversations callback
         self._on_unreplied_callback: Optional[Callable] = None
-        # Inbox v2 (demandes de messages) callbacks
+        # Message-requests callbacks
         self._on_message_request_callback: Optional[Callable] = None
         self._on_request_result_callback: Optional[Callable] = None
-        # Inbox v2 (activité / notifs système, lecture) callback
+        # Activity feed callback, read-only
         self._on_notification_callback: Optional[Callable] = None
         
         # DM-specific state
@@ -115,9 +120,7 @@ class DMWorkflow(BaseTikTokWorkflow):
             no_new_items_count = 0
             
             while self.stats.conversations_read < target_count and self._running:
-                # Handle any popup that might block the interaction, but do NOT leave the inbox:
-                # it is the target of the DM read, and fleeing it would read zero conversation.
-                self._handle_popups(skip_inbox_escape=True)
+                self._handle_popups()
                 
                 # Get visible inbox items
                 inbox_items = self.dm.get_inbox_items()
@@ -440,7 +443,7 @@ class DMWorkflow(BaseTikTokWorkflow):
         self.logger.info("👥 Lecture des nouveaux followers")
 
         try:
-            self._handle_popups(skip_inbox_escape=True)
+            self._handle_popups()
 
             if not self.dm.open_new_followers_page():
                 self.logger.error("Impossible d'ouvrir la page des nouveaux followers")
@@ -507,7 +510,7 @@ class DMWorkflow(BaseTikTokWorkflow):
         self.logger.info(f"➕ Follow-back de {len(usernames)} follower(s)")
 
         try:
-            self._handle_popups(skip_inbox_escape=True)
+            self._handle_popups()
             if not self.dm.open_new_followers_page():
                 self.logger.error("Impossible d'ouvrir la page des nouveaux followers")
                 for name in usernames:
@@ -569,7 +572,7 @@ class DMWorkflow(BaseTikTokWorkflow):
         self.logger.info("📨 Lecture des conversations (non-répondues)")
 
         try:
-            self._handle_popups(skip_inbox_escape=True)
+            self._handle_popups()
             if not self._ensure_on_inbox():
                 self.logger.error("Inbox inatteignable -> non-répondus")
                 return []
@@ -638,9 +641,9 @@ class DMWorkflow(BaseTikTokWorkflow):
             List of {username, preview, timestamp}
         """
         self._running = True
-        self.logger.info("📥 Lecture des demandes de messages")
+        self.logger.info("📥 Reading the message requests")
         try:
-            self._handle_popups(skip_inbox_escape=True)
+            self._handle_popups()
             if not self.dm.open_message_requests_page():
                 self.logger.error("Impossible d'ouvrir la page des demandes")
                 return []
@@ -731,9 +734,9 @@ class DMWorkflow(BaseTikTokWorkflow):
             List of {title, preview, category}
         """
         self._running = True
-        self.logger.info("🔔 Lecture activité / notifications système")
+        self.logger.info("🔔 Reading the activity feed")
         try:
-            self._handle_popups(skip_inbox_escape=True)
+            self._handle_popups()
             if not self._ensure_on_inbox():
                 self.logger.error("Inbox inatteignable -> notifications")
                 return []
