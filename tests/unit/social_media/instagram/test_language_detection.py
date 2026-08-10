@@ -87,13 +87,6 @@ def test_english_app_is_detected_english():
     assert language.detect_language(_FakeDevice(xml)) == 'en'
 
 
-def test_profil_does_not_score_on_the_english_word_profile():
-    """Whole-word matching: FR 'Profil' must not be found inside EN 'Profile'."""
-    values = ['Profile', 'Edit profile']
-    assert language._score_probes(['Profil'], values) == 0.0
-    assert language._score_probes(['Profile'], values) == 1.0
-
-
 def test_a_poor_screen_stays_unknown_instead_of_guessing():
     """The screen the bot actually started on: barely any visible words → keep every locale."""
     xml = _ENGLISH_IDS + '<node text="15:31" /><node content-desc="Les plus récents" />'

@@ -13,9 +13,10 @@ Usage (early in any workflow):
 """
 
 import re
-from dataclasses import fields as dataclass_fields
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set
 from loguru import logger
+
+from taktik.core.shared.ui import language_engine as engine
 
 log = logger.bind(module="instagram-language")
 
@@ -172,75 +173,19 @@ _EN_WORDS: Set[str] = {
 # Regex to extract quoted text values from XPath selectors
 # Matches @text="...", @content-desc="...", @hint="...", contains(@text, "..."), etc.
 # Two alternations to handle apostrophes inside double-quoted strings (e.g. "J'aime")
-_XPATH_TEXT_RE = re.compile(
-    r'''(?:@text|@content-desc|@hint|text\(\))\s*[,=]\s*(?:"([^"]+)"|'([^']+)')'''
-)
+_FR_PATTERNS = engine.compile_vocabulary(_FR_WORDS)
+_EN_PATTERNS = engine.compile_vocabulary(_EN_WORDS)
 
-# ──────────────────────────────────────────────────────────────
-# Detection probes — VISIBLE strings to look for in the UI dump
-# ──────────────────────────────────────────────────────────────
-
-_FR_PROBES = ["Accueil", "Rechercher", "Activité", "Retour", "Profil"]
-_EN_PROBES = ["Home", "Search", "Activity", "Back", "Profile"]
-
-# Only the VALUES of the visible-text attributes are scored, never the raw XML: an Android dump
-# always carries English identifiers, so probing the whole dump gives English a free lead that is
-# INDEPENDENT of the app language.
-_VISIBLE_ATTR_RE = re.compile(r'(?:text|content-desc)="([^"]*)"')
-
-# A wrong language is WORSE than no language: it strips the correct selectors, whereas 'unknown'
-# keeps them all (overlay union). So we only commit when the winner is both solid and clearly
-# ahead; otherwise we stay 'unknown' and keep every locale.
+# A wrong language is WORSE than no language: it strips the correct selectors, whereas
+# 'unknown' keeps them all (overlay union). So we only commit when the winner is both
+# solid and clearly ahead; otherwise we stay 'unknown' and keep every locale.
 #
-# The bar is expressed on the FULL vocabulary below, not on the navigation probes it replaced:
-# those only exist on the navigation bar, so any content screen scored zero on both sides and
-# detection gave up. A score floor plus a RATIO margin makes the rule stricter than a bare
-# comparison while firing far more often — at low score levels a one-point lead is noise.
+# The bar is expressed on the FULL vocabulary above, not on the navigation probes it
+# replaced: those only exist on the navigation bar, so any content screen scored zero on
+# both sides and detection gave up. A score floor plus a RATIO margin makes the rule
+# stricter than a bare comparison while firing far more often.
 _MIN_SCORE = 3.0
 _MIN_RATIO = 2.0
-
-
-def _visible_strings(xml: str) -> list:
-    """The text/content-desc values of the dump (what the USER can read)."""
-    return _VISIBLE_ATTR_RE.findall(xml or '')
-
-
-def _word_pattern(word: str) -> re.Pattern:
-    return re.compile(rf'\b{re.escape(word)}\b', re.IGNORECASE)
-
-
-# Compiled once: detection scores ~230 words against every visible string of a dump.
-_FR_PATTERNS = tuple((w, _word_pattern(w)) for w in sorted(_FR_WORDS))
-_EN_PATTERNS = tuple((w, _word_pattern(w)) for w in sorted(_EN_WORDS))
-
-
-def _score_probes(probes, values) -> float:
-    """Score probes against visible strings: exact value = 1, whole-word match = 0.5.
-
-    Whole-word matching matters: 'Profil' (FR) must not score on 'Profile' (EN).
-    """
-    return _score_patterns([(p, _word_pattern(p)) for p in probes], values)[0]
-
-
-def _score_patterns(patterns, values) -> tuple:
-    """Return ``(score, matched_words)``: exact value = 1 point, whole-word match = 0.5.
-
-    Matched words are reported so an undecided detection can say WHY in one log line —
-    the run that started this investigation printed only a score, and the line was cut.
-    """
-    score = 0.0
-    matched = []
-    lowered = [v.strip().lower() for v in values]
-    for word, pattern in patterns:
-        needle = word.strip().lower()
-        if needle in lowered:
-            score += 1.0
-            matched.append(word)
-            continue
-        if any(pattern.search(v) for v in values):
-            score += 0.5
-            matched.append(word)
-    return score, matched
 
 
 # ──────────────────────────────────────────────────────────────
@@ -278,61 +223,38 @@ def redetect_if_unknown(device) -> Optional[str]:
 # ──────────────────────────────────────────────────────────────
 
 def detect_language(device) -> str:
-    """
-    Detect Instagram app language from a single UI dump.
+    """Detect the app language from a single UI dump.
 
-    Probes known navigation-bar content-desc values to determine
-    whether the app is in French or English.
-
-    Args:
-        device: DeviceFacade instance (must expose get_xml_dump() or dump_hierarchy())
-
-    Returns:
-        'en', 'fr', or 'unknown'
+    Returns ``'en'``, ``'fr'`` or ``'unknown'``.
     """
     global _detected_lang
 
     try:
-        # Get UI XML
-        if hasattr(device, 'get_xml_dump'):
-            xml = device.get_xml_dump()
-        elif hasattr(device, 'dump_hierarchy'):
-            xml = device.dump_hierarchy()
-        elif hasattr(device, 'device') and hasattr(device.device, 'dump_hierarchy'):
-            xml = device.device.dump_hierarchy()
-        else:
-            log.warning("Cannot get UI dump for language detection")
-            _detected_lang = 'unknown'
-            return _detected_lang
-
+        xml = engine.read_dump(device)
         if not xml:
-            log.warning("Empty UI dump for language detection")
+            log.warning("No usable UI dump for language detection")
             _detected_lang = 'unknown'
             return _detected_lang
 
-        # Score ONLY the visible strings (see _VISIBLE_ATTR_RE): scoring the raw dump let the
-        # always-English resource-ids inflate the English score on a French app.
-        values = _visible_strings(xml)
-        fr_score, fr_words = _score_patterns(_FR_PATTERNS, values)
-        en_score, en_words = _score_patterns(_EN_PATTERNS, values)
+        outcome = engine.decide(
+            xml, _FR_PATTERNS, _EN_PATTERNS,
+            min_score=_MIN_SCORE, min_ratio=_MIN_RATIO,
+        )
+        _detected_lang = outcome.language
 
-        if fr_score >= _MIN_SCORE and fr_score >= en_score * _MIN_RATIO:
-            _detected_lang = 'fr'
-        elif en_score >= _MIN_SCORE and en_score >= fr_score * _MIN_RATIO:
-            _detected_lang = 'en'
-        else:
-            # Not confident enough. 'unknown' keeps EVERY locale's selectors (overlay union), so
-            # the bot still works; committing to the wrong language would strip the right ones.
-            _detected_lang = 'unknown'
-
-        log.info(f"🌐 Language detected: {_detected_lang} (FR={fr_score}, EN={en_score})")
+        log.info(
+            f"🌐 Language detected: {_detected_lang} "
+            f"(FR={outcome.fr_score}, EN={outcome.en_score})"
+        )
         if _detected_lang == 'unknown':
-            # Say WHAT was seen, not just the score: an undecided detection is only actionable
-            # if the next reader can tell "empty screen" from "scores too close".
+            # Say WHAT was seen, not just the score: an undecided detection is only
+            # actionable if the next reader can tell "empty screen" from "scores too
+            # close".
             log.info(
                 f"🌐 Language undecided on this screen — keeping all locales "
-                f"({len(values)} visible strings; FR matched {fr_words[:6] or 'nothing'}; "
-                f"EN matched {en_words[:6] or 'nothing'}). "
+                f"({outcome.values_seen} visible strings; "
+                f"FR matched {outcome.fr_matched[:6] or 'nothing'}; "
+                f"EN matched {outcome.en_matched[:6] or 'nothing'}). "
                 "Re-detected later on the account's own profile."
             )
         return _detected_lang
@@ -348,126 +270,18 @@ def detect_language(device) -> str:
 # ──────────────────────────────────────────────────────────────
 
 def _classify_selector(xpath: str) -> str:
-    """
-    Classify a single XPath selector as 'fr', 'en', or 'neutral'.
-
-    Rules:
-    - If the selector only references resource-id / class / position → neutral
-    - If it contains text values matching FR vocabulary → fr
-    - If it contains text values matching EN vocabulary → en
-    - If it contains both (OR combos) → neutral (keep for safety)
-
-    Handles:
-    - Escaped apostrophes in XPath (\\' → ')
-    - Substring collisions (e.g. EN "Comment" vs FR "Commentaire"):
-      longest match wins per text value.
-    """
-    # Extract all text values from the xpath
-    # Regex returns tuples (double_quoted, single_quoted) — merge them
-    raw_matches = _XPATH_TEXT_RE.findall(xpath)
-    text_values = [m[0] or m[1] for m in raw_matches]
-
-    if not text_values:
-        # No text-based matching → language-neutral selector
-        return 'neutral'
-
-    has_fr = False
-    has_en = False
-
-    for val in text_values:
-        # Normalize escaped apostrophes (XPath uses \' inside strings)
-        val_stripped = val.strip().replace("\\'", "'")
-
-        # Find best (longest) FR match
-        best_fr_len = 0
-        for fr_word in _FR_WORDS:
-            if fr_word in val_stripped and len(fr_word) > best_fr_len:
-                best_fr_len = len(fr_word)
-
-        # Find best (longest) EN match
-        best_en_len = 0
-        for en_word in _EN_WORDS:
-            if en_word in val_stripped and len(en_word) > best_en_len:
-                best_en_len = len(en_word)
-
-        # Longest match wins — avoids "Comment" (EN, 7) beating "Commentaire" (FR, 12)
-        if best_fr_len > 0 and best_fr_len >= best_en_len:
-            has_fr = True
-        elif best_en_len > 0 and best_en_len > best_fr_len:
-            has_en = True
-        elif best_fr_len > 0 and best_en_len > 0:
-            # Equal length matches from both → treat as mixed
-            has_fr = True
-            has_en = True
-
-    if has_fr and has_en:
-        # Mixed selector (e.g., `contains(@text, "Follow") or contains(@text, "Suivre")`)
-        return 'neutral'
-    elif has_fr:
-        return 'fr'
-    elif has_en:
-        return 'en'
-    else:
-        # Text values not in our vocabulary → keep as neutral
-        return 'neutral'
+    """Classify one xpath against this platform's vocabulary."""
+    return engine.classify_selector(xpath, _FR_WORDS, _EN_WORDS)
 
 
 def filter_selectors(selectors: List[str], lang: str) -> List[str]:
-    """
-    Filter a list of selectors, removing those that belong to the wrong language.
+    """Drop the selectors targeting another language. Undecided keeps them all."""
+    return engine.filter_selectors(selectors, lang, _FR_WORDS, _EN_WORDS)
 
-    Args:
-        selectors: Original selector list
-        lang: Detected language ('en', 'fr', 'unknown')
-
-    Returns:
-        Filtered list (if lang is 'unknown', returns original list unchanged)
-    """
-    if lang == 'unknown' or not lang:
-        return selectors
-
-    # Opposite language to exclude
-    exclude_lang = 'fr' if lang == 'en' else 'en'
-
-    filtered = []
-    for sel in selectors:
-        classification = _classify_selector(sel)
-        if classification == exclude_lang:
-            continue  # Skip wrong-language selector
-        filtered.append(sel)
-
-    return filtered
-
-
-# ──────────────────────────────────────────────────────────────
-# In-place optimization of selector dataclass instances
-# ──────────────────────────────────────────────────────────────
 
 def optimize_selector_dataclass(instance, lang: str) -> int:
-    """
-    Optimize a selector dataclass instance in-place by removing
-    wrong-language selectors from all List[str] fields.
-
-    Args:
-        instance: A selector dataclass instance (e.g., NAVIGATION_SELECTORS)
-        lang: Detected language
-
-    Returns:
-        Number of selectors removed
-    """
-    if lang == 'unknown' or not lang:
-        return 0
-
-    removed = 0
-    for f in dataclass_fields(instance):
-        val = getattr(instance, f.name)
-        if isinstance(val, list) and val and isinstance(val[0], str):
-            filtered = filter_selectors(val, lang)
-            removed += len(val) - len(filtered)
-            if len(filtered) < len(val):
-                setattr(instance, f.name, filtered)
-
-    return removed
+    """Filter every list field of a selector dataclass in place. Returns the count removed."""
+    return engine.optimize_selector_dataclass(instance, lang, _FR_WORDS, _EN_WORDS)
 
 
 # ──────────────────────────────────────────────────────────────

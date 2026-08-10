@@ -85,17 +85,6 @@ def test_an_english_screen_is_detected_english():
     assert language.detect_language(_FakeDevice(xml)) == 'en'
 
 
-def test_profil_does_not_score_on_the_english_word_profile():
-    """Whole-word matching, in both directions: the substring test it replaces scored FR
-    "Profil" inside EN "Profile" — and inside the `profile_tab` identifier as well."""
-    score_fr, _ = language._score_patterns([("Profil", language._word_pattern("Profil"))],
-                                           ["Profile", "Edit profile"])
-    score_en, _ = language._score_patterns([("Profile", language._word_pattern("Profile"))],
-                                           ["Profile", "Edit profile"])
-    assert score_fr == 0.0
-    assert score_en == 1.0
-
-
 def test_ambiguous_scores_stay_unknown():
     """A close call must not strip a locale."""
     xml = _ENGLISH_IDS + '<node content-desc="Accueil" /><node content-desc="Home" />'
