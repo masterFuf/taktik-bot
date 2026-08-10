@@ -1,6 +1,6 @@
-"""Tests de la lecture activité / notifications système (inbox v2 phase 4, lecture seule).
+"""Reading the activity and system-notification sections, read-only.
 
-Données calquées sur un dump device réel (inbox 2026-06-16) : 3 sections s28 avec titre b8h
+Data modelled on a real device dump: three sections, each with its title
 + aperçu ln_ — Nouveaux followers / Activité / Notifications système.
 """
 

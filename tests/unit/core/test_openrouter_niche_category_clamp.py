@@ -1,7 +1,7 @@
 """niche_category must always land on one of the 16 canonical buckets.
 
 The classification prompt lists the allowed keys, but the model's answer was never validated:
-real runs (626/627, 2026-07-24) persisted free-text slugs into the INDEXED
+real runs persisted free-text slugs into the INDEXED
 profile_following.niche_category column — `fashion_and_beauty`, `personal_blog`, `spam`, and
 four different spellings of the same arts concept — fragmenting one bucket across several
 values and breaking any downstream aggregation (Smart Target, audience persona).
@@ -30,7 +30,7 @@ def test_real_drift_from_runs_626_627_is_remapped():
 
 
 def test_the_four_arts_spellings_collapse_to_one_bucket():
-    # The same concept arrived as four different slugs in run 626 alone.
+    # The same concept arrived as four different slugs in a single run.
     variants = ["arts_and_entertainment", "arts_entertainment", "entertainment", "arts_and_culture"]
     mapped = {AIService._canonicalize_niche_category(v) for v in variants}
     assert mapped == {"music_entertainment"}

@@ -1,5 +1,5 @@
 """On a slow/tethered connection the profile page loads several seconds after the tap. The bot must
-WAIT for it instead of a single immediate check that wrongly skips the follower (Kevin device case:
+WAIT for it instead of a single immediate check that wrongly skips the follower (observed case:
 17/20 profiles skipped without ever loading).
 """
 

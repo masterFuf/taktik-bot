@@ -1,13 +1,13 @@
-"""Visite qualifiee de l'ecran « Decouvrir des personnes ».
+"""Qualified visit of the people discovery screen.
 
-Pourquoi cet ecran existe dans le flux : la zone du bas des notifications est servie
-par l'algorithme (QA 2026-07-27 — « Suggestions », puis « Followers que vous ne suivez
-pas », puis rien, sur le meme compte dans la meme heure). Une acquisition ne peut pas
+Why this screen is in the flow: the zone at the bottom of the notifications screen is
+served by the algorithm and changes identity from one pass to the next on the same
+account within the hour. An acquisition cannot
 reposer dessus seule.
 
-Ce que ces tests verrouillent : on ouvre le PROFIL et jamais le bouton, on epargne la
-visite quand la ligne designe un compte deja traite, et le sequencage partage avec la
-zone Notifications reste le meme.
+What these tests lock: the PROFILE is opened and never the button, the visit is spared
+when the row designates an already-handled account, and the sequencing shared with the
+notifications zone stays identical.
 """
 
 import pytest
@@ -25,7 +25,7 @@ from taktik.core.social_media.instagram.actions.core.base_business.profile_proce
 
 
 class _Surface(SuggestionSurface):
-    """Surface de test : enregistre ce que le service partage lui demande."""
+    """Test surface: records what the shared service asks of it."""
 
     def __init__(self, rows, username="real_handle", opens=True,
                  status=ProfileProcessingResult.SUCCESS, known=()):
@@ -92,7 +92,7 @@ NO_DELAY = (0, 0)
 
 
 # ---------------------------------------------------------------------------
-# Le sequencage partage
+# The shared sequencing
 # ---------------------------------------------------------------------------
 
 def test_the_shared_runner_visits_qualifies_and_returns():
@@ -107,7 +107,7 @@ def test_the_shared_runner_visits_qualifies_and_returns():
 
 
 def test_a_known_profile_costs_neither_a_visit_nor_an_ai_call():
-    """La surface sait, SANS ouvrir, que ce compte est deja traite : ne rien depenser."""
+    """The surface knows, WITHOUT opening, that the account is handled: spend nothing."""
     surface = _Surface([_row("deja_vu"), _row("inconnu")], known={"deja_vu"})
 
     result = visit_suggestions(surface, max_profiles=2, max_scrolls=0, delay_range=NO_DELAY)
@@ -134,7 +134,7 @@ def test_a_profile_that_does_not_open_is_never_processed():
     assert surface.processed == []
     assert result["errors"] == 1
     assert result["profiles"][0]["status"] == "not_opened"
-    assert surface.left == 1  # on revient quand meme a la liste
+    assert surface.left == 1  # we come back to the list anyway
 
 
 def test_an_unreadable_handle_is_never_processed():
@@ -147,7 +147,7 @@ def test_an_unreadable_handle_is_never_processed():
 
 
 def test_a_row_is_never_tried_twice():
-    """Le meme ecran est relu entre deux profils : sans identite, on boucle dessus."""
+    """The same screen is re-read between two profiles: without identity, it loops."""
     surface = _Surface([_row("Inconnu")])
 
     visit_suggestions(surface, max_profiles=3, max_scrolls=2, delay_range=NO_DELAY)
@@ -156,7 +156,7 @@ def test_a_row_is_never_tried_twice():
 
 
 # ---------------------------------------------------------------------------
-# L'adaptateur "Decouvrir des personnes"
+# The discovery-screen adapter
 # ---------------------------------------------------------------------------
 
 class _Business:
@@ -192,9 +192,9 @@ class _Logger:
     ("", False),
 ])
 def test_only_handle_shaped_labels_are_looked_up(monkeypatch, label, queried):
-    """IG met souvent le NOM COMPLET dans ce champ. Interroger la base avec
-    « Marie Dupont » ne repondrait rien d'utile — et un faux positif couterait
-    une cible, ce qui est pire que de repayer une visite."""
+    """The FULL NAME is often put in that field. Querying the database with a display
+    name would answer nothing useful, and a false positive would cost a target,
+    which is worse than paying for a visit twice."""
     asked = []
 
     def _fake_skippable(username, account_id, **_kw):
@@ -215,7 +215,7 @@ def test_only_handle_shaped_labels_are_looked_up(monkeypatch, label, queried):
 
 
 def test_a_database_error_makes_us_visit_rather_than_skip(monkeypatch):
-    """Fail-open : une lecture impossible ne doit jamais faire perdre une cible."""
+    """Fail-open: a failed read must never lose a target."""
     def _boom(*_a, **_k):
         raise RuntimeError("db down")
 
@@ -230,7 +230,7 @@ def test_a_database_error_makes_us_visit_rather_than_skip(monkeypatch):
 
 
 def test_the_recorded_provenance_names_the_surface():
-    """Une acquisition venue de « Decouvrir des personnes » doit etre reconnaissable
-    en base : c'est ce qui permettra de comparer les deux sources plus tard."""
+    """An acquisition coming from the discovery screen must be recognisable in the
+    database: that is what will allow comparing the two sources later."""
     assert _DiscoverSuggestionSurface.SOURCE_TYPE == "SUGGESTIONS"
     assert _DiscoverSuggestionSurface.SOURCE_NAME == "discover_people"

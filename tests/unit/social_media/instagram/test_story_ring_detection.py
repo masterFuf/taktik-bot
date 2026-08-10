@@ -10,7 +10,7 @@ These fixtures are anonymized minimal extracts of real IG v410 (FR) UI dumps:
   - profile live story ring : id=row_profile_header_imageview,
                               content-desc="story de <user> non vue"
   - highlight bubble        : Button under highlights_reel_tray_recycler_view,
-                              content-desc="Story de <user>, N sur 0, Vus."
+                              a localized content-desc carrying the story position.
 """
 
 from lxml import etree

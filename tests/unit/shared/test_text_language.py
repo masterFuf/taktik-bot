@@ -1,7 +1,7 @@
 """Deterministic caption language detection — a French post must be read as French even when the
 vision model (or English design text on the image) would say English.
 
-Grounded on the real device case that broke it: erika.spahn (FR account) commented in English on
+Grounded on the real device case that broke it: account.two (FR account) commented in English on
 adelinekhelif's clearly French post.
 """
 

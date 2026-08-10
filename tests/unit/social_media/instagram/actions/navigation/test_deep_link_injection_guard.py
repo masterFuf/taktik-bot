@@ -1,4 +1,4 @@
-"""Garde anti-injection shell des deep links (username/URL scrapes interpoles dans device.shell)."""
+"""Shell-injection guard on the deep links, whose scraped usernames and URLs are"""
 
 from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import (
     _IG_USERNAME_RE,
@@ -21,7 +21,7 @@ def test_valid_usernames_pass():
 
 def test_injection_usernames_rejected():
     for u in [
-        'a"; rm -rf /',           # casse le guillemet + commande
+        'a"; rm -rf /',           # breaks out of the quote and chains a command
         'a$(reboot)',             # substitution
         'a`id`',                  # backtick
         'a b',                    # espace

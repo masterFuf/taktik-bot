@@ -1,18 +1,18 @@
-"""Parsing des suggestions de comptes (carousel feed + ecran Discover people).
+"""Parsing of the account suggestions (feed carousel and discovery screen).
 
-Les dumps ci-dessous sont des extraits ANONYMISES d'une capture reelle
-(device 9CHAY1PN, Instagram v410.0.0.53.71, 2026-07-26) : la structure, les
-resource-id et les libelles de bouton sont ceux du device, les noms de comptes
+The dumps below are ANONYMISED extracts of a real capture
+(Instagram v410.0.0.53.71): the structure, the
+resource-ids and the button labels are the device ones, the account names
 ont ete remplaces.
 
-Ce qui est verrouille ici :
-- le CTA "See all" du carousel est lu avec ses bounds (point d'entree du mode) ;
-- une ligne 'Follow back' n'est JAMAIS proposee au follow (le follow-back
-  appartient au workflow Notifications) ;
-- une ligne deja 'Following' / 'Requested' n'est pas re-tapee ;
-- la section d'appartenance d'une ligne est resolue par position verticale ;
-- les lignes d'accroche "Connect contacts" / "Connect to Facebook" ne sont pas
-  prises pour des suggestions.
+What is locked here:
+- the carousel CTA is read with its bounds, being the entry point of the mode;
+- a follow-back row is NEVER offered to the follow, since follow-back belongs
+    to the notifications workflow;
+- an already-followed or requested row is not tapped again;
+- the section a row belongs to is resolved by vertical position;
+- the call-to-action rows are not taken for suggestions.
+  
 """
 
 import pytest
@@ -66,7 +66,7 @@ FEED_CAROUSEL_DUMP = f"""<?xml version='1.0' encoding='UTF-8'?>
 
 
 def _row(top, name, button_text, context="1 mutual"):
-    """Une ligne de recommandation telle qu'IG la rend (bouton dans le sous-arbre)."""
+    """A recommendation row as it is rendered, with the button inside the subtree."""
     bottom = top + 220
     return f"""
       <node resource-id="{IG}/recommended_user_row_content_identifier" bounds="[0,{top}][1080,{bottom}]">
@@ -105,14 +105,14 @@ def _root(xml):
     return etree.fromstring(xml.encode("utf-8"))
 
 
-# --- carousel du feed --------------------------------------------------------
+# --- feed carousel -----------------------------------------------------------
 
 def test_carousel_exposes_its_cta_and_cards():
     carousel = parse_feed_suggestions_carousel(_root(FEED_CAROUSEL_DUMP),
                                                FEED_SUGGESTIONS_SELECTORS)
     assert carousel["present"] is True
     assert carousel["title"] == "Suggested for you"
-    # Le CTA est tape sur ses bounds reelles, jamais sur une coordonnee en dur.
+    # The CTA is tapped on its real bounds, never on a hardcoded coordinate.
     assert carousel["cta_bounds"] == (880, 1172, 1036, 1222)
     assert [card["name"] for card in carousel["cards"]] == ["Account One", "Account Two"]
     assert all(card["follow_bounds"] for card in carousel["cards"])
@@ -127,7 +127,7 @@ def test_carousel_absent_from_a_plain_feed_dump():
     assert carousel["cta_bounds"] is None
 
 
-# --- ecran Discover people ---------------------------------------------------
+# --- people discovery screen -------------------------------------------------
 
 def test_discover_screen_is_recognised_structurally():
     assert is_discover_people_screen(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS) is True
@@ -135,8 +135,8 @@ def test_discover_screen_is_recognised_structurally():
 
 
 def test_a_username_alone_is_not_the_discover_screen():
-    """Un `row_recommended_user_username` isole (queue d'une liste followers) ne
-    doit pas etre pris pour l'ecran de suggestions."""
+    """An isolated recommended-user row, in the tail of a followers list, must not be
+    taken for the suggestions screen."""
     xml = f"<hierarchy><node resource-id='{IG}/row_recommended_user_username' text='X'/></hierarchy>"
     assert is_discover_people_screen(_root(xml), DISCOVER_PEOPLE_SELECTORS) is False
 
@@ -161,7 +161,7 @@ def test_connect_rows_are_not_suggestions():
 
 
 def test_only_plain_follow_rows_are_followable():
-    """Regle metier : ni follow-back, ni demande en attente, ni deja suivi."""
+    """Business rule: no follow-back, no pending request, no already-followed."""
     rows = parse_suggestion_rows(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS,
                                  PROFILE_SELECTORS, classify_follow_state)
     targets = followable_rows(rows)
@@ -185,13 +185,13 @@ def test_parsers_tolerate_a_missing_dump(root):
 # --- libelles francais -------------------------------------------------------
 
 def test_french_follow_labels_are_classified():
-    """QA 2026-07-27 : en francais le mode suggestions ne suivait personne. Instagram FR
-    alterne entre la famille « suivre » et la famille « s'abonner », et le catalogue ne
-    portait que la premiere — un bouton « S'abonner » ne matchait donc AUCUN libelle,
-    l'etat restait None, et la ligne etait ignoree en silence.
+    """In one language the suggestions mode followed nobody: the app alternates between
+    two verb families and the catalog carried only the first, so a button of the second
+    matched NO label at all, the state stayed unset, and the row was skipped in
+    silence.
 
-    L'apostrophe compte autant que le mot : Instagram rend une apostrophe TYPOGRAPHIQUE
-    (U+2019) et nos catalogues sont saisis avec l'ASCII."""
+    The apostrophe matters as much as the word: the app renders a TYPOGRAPHIC one while
+    the catalogs are typed with the ASCII one."""
     from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
     set_active_locale('fr')
@@ -199,7 +199,7 @@ def test_french_follow_labels_are_classified():
         assert classify_follow_state("Suivre", PROFILE_SELECTORS) == 'follow'
         assert classify_follow_state("S'abonner", PROFILE_SELECTORS) == 'follow'
         assert classify_follow_state("S\u2019abonner", PROFILE_SELECTORS) == 'follow'
-        # L'ordre reste porteur : "S'abonner en retour" contient "S'abonner".
+        # The order still matters: the follow-back label contains the follow one.
         assert classify_follow_state("Suivre en retour", PROFILE_SELECTORS) == 'follow_back'
         assert classify_follow_state("S\u2019abonner en retour", PROFILE_SELECTORS) == 'follow_back'
         assert classify_follow_state("Abonn\u00e9", PROFILE_SELECTORS) == 'following'
@@ -208,7 +208,7 @@ def test_french_follow_labels_are_classified():
 
 
 def test_only_the_french_follow_rows_are_followable():
-    """Le meme ecran, en francais : seules les lignes « S'abonner » partent."""
+    """The same screen in the other language: only the followable rows are tapped."""
     from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
     following, follow_back, follow = "Abonné", "S’abonner en retour", "S’abonner"

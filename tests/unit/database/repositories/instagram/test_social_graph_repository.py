@@ -71,8 +71,8 @@ def test_followers_sync_upsert_preserves_display_name_when_refresh_is_empty(conn
 
 
 def test_social_graph_sync_dual_write_and_backfill(conn):
-    """Vague B: les ecritures vont dans social_graph_sync (primaire) et la
-    migration Phase C migre puis droppe une table legacy de maniere idempotente."""
+    """Writes go into the unified table, and the migration moves then drops a
+    legacy table idempotently."""
     repo = SocialGraphRepository(conn)
     conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 4, 'bot4', 1)")
     conn.commit()

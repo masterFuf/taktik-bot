@@ -5,7 +5,7 @@ Regression: `_process_profile_on_screen` only called `mark_profile_as_processed`
 when `actually_interacted` was True. A visited-but-not-interacted profile left no
 `interactions` row, so the `already_processed` check missed it and a later pass /
 followers-list re-scroll re-visited and re-qualified the same profile. Confirmed on
-the live DB: @julian_training70.3 was visited once with no row, then fully
+the live DB: @sample_profile was visited once with no row, then fully
 re-processed ~5 min later.
 """
 
@@ -71,10 +71,10 @@ def captured_marks(monkeypatch):
 def test_visited_but_not_interacted_is_marked_processed(captured_marks):
     probe = _Probe(interacted=False)
     result = probe._process_profile_on_screen(
-        'julian', {}, source_type='FOLLOWER', source_name='@target', account_id=6563, session_id=1
+        'sample_profile', {}, source_type='FOLLOWER', source_name='@target', account_id=6563, session_id=1
     )
     assert result.status == ProfileProcessingResult.SKIPPED_PROBABILITY
-    assert captured_marks == ['julian']  # recorded despite no interaction
+    assert captured_marks == ['sample_profile']  # recorded despite no interaction
 
 
 def test_interacted_profile_is_marked_processed(captured_marks):

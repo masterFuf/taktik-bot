@@ -1,6 +1,6 @@
 """A French account must comment in French — never in the operator's app language.
 
-Session 631 (2026-07-25, @institut.rentable, a French beauty-coaching account) posted two
+A French beauty-coaching account posted two
 comments IN ENGLISH on French posts, and skipped two other French posts entirely. Root
 cause: `accounts.preferred_language` is NULL on 69 of 74 accounts, and the base language
 then fell back to the APP UI language — which was English because the operator reads the
@@ -18,7 +18,7 @@ from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
     _resolve_comment_language,
 )
 
-# The real persona stored for @institut.rentable (session 631).
+# The persona stored for that account.
 FR_PERSONA = {
     "niche": "Business coaching pour instituts de beauté",
     "tonePersonality": "Professionnel mais accessible, motivant et inspirant",
@@ -57,7 +57,7 @@ def test_the_resolver_cannot_be_handed_an_app_language():
     assert params == ["account_persona"], f"unexpected parameters: {params}"
 
 
-# ── The two production failures of session 631 ──────────────────────────────
+# ── The two observed failures ───────────────────────────────────────────────
 
 def test_french_post_on_a_french_account_is_commented_in_french():
     base = _resolve_base_language(FR_PERSONA)

@@ -22,14 +22,14 @@ def _handler_on_inbox():
 
 
 def test_close_all_escapes_inbox_by_default():
-    """Comportement historique : sur l'Inbox 'par accident', on la quitte."""
+    """Historical behaviour: landing on the inbox by accident, we leave it."""
     handler = _handler_on_inbox()
     assert handler.close_all() is True
     assert handler.click.escaped == 1
 
 
 def test_close_all_keeps_inbox_when_skip_requested():
-    """DM read : l'Inbox est la cible — skip_inbox_escape ne doit PAS la quitter."""
+    """DM read: the inbox IS the target, so the escape must NOT leave it."""
     handler = _handler_on_inbox()
     assert handler.close_all(skip_inbox_escape=True) is False
     assert handler.click.escaped == 0

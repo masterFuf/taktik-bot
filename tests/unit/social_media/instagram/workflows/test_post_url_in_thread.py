@@ -93,9 +93,9 @@ def test_an_already_liked_comment_counts_as_skipped_not_as_a_like(monkeypatch):
 
 def test_our_own_account_is_never_engaged(monkeypatch):
     """The operated account is usually the post author, or already in its own thread."""
-    wf = _workflow([[_c("institut.rentable"), _c("alice")]])
+    wf = _workflow([[_c("own.account"), _c("alice")]])
     out = _run(wf, monkeypatch, {
-        'like_comments': True, 'max_comment_likes': 9, 'own_username': '@Institut.Rentable',
+        'like_comments': True, 'max_comment_likes': 9, 'own_username': '@Own.Account',
     })
     assert wf.comment_business.liked == ["alice"]
     assert out['comment_likes'] == 1
@@ -122,7 +122,7 @@ def test_a_reply_is_published_with_what_it_answers(monkeypatch):
                              'reasoning': 'answers their question'}
     out = _run(wf, monkeypatch, {
         'reply_to_comments': True, 'max_comment_replies': 1, '_writer': writer,
-        'source': 'https://instagram.com/p/x', 'post_author': 'institut.rentable',
+        'source': 'https://instagram.com/p/x', 'post_author': 'own.account',
     })
     assert out['replies'] == 1
     published = wf.comment_business.replied[0]
@@ -130,7 +130,7 @@ def test_a_reply_is_published_with_what_it_answers(monkeypatch):
     assert published['reply_to_text'] == 'Ca marche en 1 mois ?'
     assert published['meta']['model'] == 'm'
     assert published['meta']['post_url'] == 'https://instagram.com/p/x'
-    assert published['meta']['post_author'] == 'institut.rentable'
+    assert published['meta']['post_author'] == 'own.account'
 
 
 def test_a_comment_the_ai_declined_is_not_answered(monkeypatch):

@@ -113,12 +113,12 @@ def test_the_ocr_text_is_offered_as_a_hint_not_as_the_truth(_corpus):
 
 
 def test_the_advertiser_is_given_as_context(_corpus):
-    _corpus['pending'] = [_creative(1, advertiser='cbd_shop')]
+    _corpus['pending'] = [_creative(1, advertiser='sample_advertiser')]
     service = _Service()
 
     ad_analysis.analyze_pending_ads(service, limit=1)
 
-    assert '@cbd_shop' in service.calls[0]['user']
+    assert '@sample_advertiser' in service.calls[0]['user']
 
 
 def test_the_queue_is_ordered_by_how_often_the_creative_runs():
@@ -135,9 +135,9 @@ def test_the_queue_is_ordered_by_how_often_the_creative_runs():
 
 def test_the_summary_reads_the_stored_analysis(_corpus):
     _corpus['top'] = [
-        {'times_seen': 40, 'advertiser': 'cbd_shop',
+        {'times_seen': 40, 'advertiser': 'sample_advertiser',
          'ai_analysis': json.dumps({'angle': 'douleur chronique'})},
         {'times_seen': 3, 'advertiser': 'other', 'ai_analysis': None},
     ]
     summary = ad_analysis.analysis_summary()
-    assert '40x' in summary and 'cbd_shop' in summary and 'douleur chronique' in summary
+    assert '40x' in summary and 'sample_advertiser' in summary and 'douleur chronique' in summary

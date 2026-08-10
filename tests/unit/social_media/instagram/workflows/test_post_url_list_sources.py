@@ -123,21 +123,21 @@ def test_the_post_cards_own_counters_are_never_read_as_people():
     numeric text — shaped exactly like a username node. Scoping to the comments list
     removes them, and the count-shaped filter removes them again if scoping fails."""
     real_commenters = [
-        _FakeElement("dianeou38", ""),
+        _FakeElement("commenter42", ""),
         _FakeElement("taktik_r2d2", ""),
-        _FakeElement("maryonlnd", ""),
+        _FakeElement("commenter77", ""),
     ]
     post_counters = [_FakeElement(t, "") for t in ("18.5K", "428", "4", "97", "1,204")]
 
     scoped = _workflow(buttons=real_commenters + post_counters, scoped_buttons=real_commenters)
     assert [r["username"] for r in make_commenters_source(scoped).get_visible()] == [
-        "dianeou38", "taktik_r2d2", "maryonlnd",
+        "commenter42", "taktik_r2d2", "commenter77",
     ]
 
     # Container not resolvable -> whole-screen fallback, counters still rejected.
     unscoped = _workflow(buttons=real_commenters + post_counters)
     assert [r["username"] for r in make_commenters_source(unscoped).get_visible()] == [
-        "dianeou38", "taktik_r2d2", "maryonlnd",
+        "commenter42", "taktik_r2d2", "commenter77",
     ]
 
 

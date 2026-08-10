@@ -1,6 +1,6 @@
 """Language detection must never commit to the WRONG language.
 
-Device bug (2026-07-12, Pixel 6 Pro, Instagram in FRENCH): detection returned
+Device bug (Instagram in FRENCH): detection returned
 `en (FR=1.5, EN=2.5)`, stripped the French selectors, and `is_on_own_profile` then looked for
 "Edit profile" on a screen showing "Modifier le profil" — the bot could never detect its own
 account and every session aborted with "Cannot detect active Instagram account".

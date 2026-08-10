@@ -25,10 +25,10 @@ FR_UNLIKE = ["ne plus aimer le commentaire"]
 REAL_THREAD = """
 <hierarchy>
   <node class="android.view.ViewGroup" bounds="[0,185][576,302]" content-desc="">
-    <node class="android.widget.ImageView" bounds="[24,203][78,257]" content-desc="Go to dianeou38's profile"/>
+    <node class="android.widget.ImageView" bounds="[24,203][78,257]" content-desc="Go to commenter42's profile"/>
     <node class="android.view.ViewGroup" bounds="[84,185][492,302]" content-desc="">
-      <node class="android.view.ViewGroup" bounds="[84,197][492,255]" content-desc="dianeou38 ">
-        <node class="android.widget.Button" bounds="[98,197][189,222]" content-desc="" text="dianeou38"/>
+      <node class="android.view.ViewGroup" bounds="[84,197][492,255]" content-desc="commenter42 ">
+        <node class="android.widget.Button" bounds="[98,197][189,222]" content-desc="" text="commenter42"/>
       </node>
       <node class="android.widget.Button" bounds="[98,255][170,302]" content-desc="Reply" text="Reply"/>
     </node>
@@ -48,8 +48,8 @@ REAL_THREAD = """
     </node>
   </node>
   <node class="android.view.ViewGroup" bounds="[0,547][576,670]" content-desc="">
-    <node class="android.view.ViewGroup" bounds="[84,559][492,641]" content-desc="maryonlnd ">
-      <node class="android.widget.Button" bounds="[98,559][189,584]" content-desc="" text="maryonlnd"/>
+    <node class="android.view.ViewGroup" bounds="[84,559][492,641]" content-desc="commenter77 ">
+      <node class="android.widget.Button" bounds="[98,559][189,584]" content-desc="" text="commenter77"/>
     </node>
     <node class="android.widget.Button" bounds="[98,641][170,670]" content-desc="Reply" text="Reply"/>
     <node class="android.widget.Button" bounds="[492,547][576,637]"
@@ -82,9 +82,9 @@ def test_unparseable_bounds_yield_none_rather_than_raising():
 def test_each_commenter_gets_its_own_heart():
     """Three rows, three distinct controls — no cross-matching between neighbours."""
     expected = {
-        "dianeou38": (492, 185, 576, 275),
+        "commenter42": (492, 185, 576, 275),
         "taktik_r2d2": (492, 334, 576, 424),
-        "maryonlnd": (492, 547, 576, 637),
+        "commenter77": (492, 547, 576, 637),
     }
     for username, bounds in expected.items():
         found = find_comment_like_target(_root(), username, EN_LIKE, EN_UNLIKE)
@@ -109,7 +109,7 @@ def test_an_empty_username_is_refused():
 
 
 def test_the_at_sign_is_tolerated():
-    assert find_comment_like_target(_root(), "@maryonlnd", EN_LIKE, EN_UNLIKE) is not None
+    assert find_comment_like_target(_root(), "@commenter77", EN_LIKE, EN_UNLIKE) is not None
 
 
 # ── Never turning a like into an unlike ─────────────────────────────────────
@@ -167,21 +167,21 @@ def test_each_reply_button_belongs_to_its_own_comment():
     username (unlike the heart, which spans the row), so the pairing follows reading order
     — and it must not drift by one row: answering under the wrong comment is not
     recoverable."""
-    assert find_comment_reply_target(_root(), "dianeou38", REPLY_LABELS) == (98, 255, 170, 302)
+    assert find_comment_reply_target(_root(), "commenter42", REPLY_LABELS) == (98, 255, 170, 302)
     assert find_comment_reply_target(_root(), "taktik_r2d2", REPLY_LABELS) == (145, 500, 217, 547)
-    assert find_comment_reply_target(_root(), "maryonlnd", REPLY_LABELS) == (98, 641, 170, 670)
+    assert find_comment_reply_target(_root(), "commenter77", REPLY_LABELS) == (98, 641, 170, 670)
 
 
 def test_a_row_whose_reply_button_is_missing_yields_nothing():
     stripped = REAL_THREAD.replace(
         '<node class="android.widget.Button" bounds="[98,255][170,302]" content-desc="Reply" text="Reply"/>', "",
     )
-    assert find_comment_reply_target(_root(stripped), "dianeou38", REPLY_LABELS) is None
+    assert find_comment_reply_target(_root(stripped), "commenter42", REPLY_LABELS) is None
 
 
 def test_the_reply_label_is_matched_case_insensitively_in_either_attribute():
     french = REAL_THREAD.replace('content-desc="Reply" text="Reply"', 'content-desc="Répondre" text=""')
-    assert find_comment_reply_target(_root(french), "dianeou38", REPLY_LABELS) is not None
+    assert find_comment_reply_target(_root(french), "commenter42", REPLY_LABELS) is not None
 
 
 def test_an_unknown_commenter_has_no_reply_target():
@@ -189,4 +189,4 @@ def test_an_unknown_commenter_has_no_reply_target():
 
 
 def test_no_labels_means_no_blind_tap():
-    assert find_comment_reply_target(_root(), "dianeou38", []) is None
+    assert find_comment_reply_target(_root(), "commenter42", []) is None

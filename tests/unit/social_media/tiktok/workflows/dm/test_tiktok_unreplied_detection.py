@@ -1,6 +1,6 @@
-"""Tests de la détection « non-répondu » (inbox v2 phase 2).
+"""Detection of the unanswered conversations.
 
-Données calquées sur un dump device réel (inbox 2026-06-16) :
+Data modelled on a real device dump:
 - ligne « Demandes de messages » (l35 « Tu as reçu 3 demandes ») -> exclue
 - Matthiasbrtl_ : aperçu = leur message -> non-répondu
 - wifil : aperçu = « Envoyé il y a 5 j » -> on a parlé en dernier -> répondu
@@ -63,7 +63,7 @@ def test_unreplied_detection_from_real_inbox():
     )
     convos = dm.get_inbox_conversations(max_items=30)
 
-    # La ligne "Demandes de messages" est exclue (phase 3)
+    # The message-requests row is excluded
     names = [c['username'] for c in convos]
     assert names == ['Matthiasbrtl_', 'wifil']
 

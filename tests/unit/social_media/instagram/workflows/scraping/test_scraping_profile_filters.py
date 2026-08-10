@@ -3,7 +3,7 @@
 The companion of tests/unit/bridges/instagram/test_scraping_bridge_config.py: that one proves the
 filters REACH the workflow, this one proves the workflow DECIDES correctly once it has them.
 
-Device bug (2026-07-12): "@ma_masler_enzo, 0 posts" was scraped with Min posts = 1. The filter
+Device bug (2026-07-12): "@sample_profile, 0 posts" was scraped with Min posts = 1. The filter
 below always rejected it — it just never received minPosts (see the bridge test). The 0-post case
 is kept here anyway: it is the exact profile the operator saw, and a future refactor introducing a
 truthy test (`if posts_count and posts_count < min_posts`) would silently let 0 through again.

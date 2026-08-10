@@ -34,15 +34,15 @@ def _switcher(*content_descs: str) -> InstagramSwitchAccount:
 
 def test_enumerate_accounts_filters_buttons_and_strips_suffix():
     switcher = _switcher(
-        "sandra.lelit",
-        "erika.spahn,  New notifications",
+        "account.one",
+        "account.two,  New notifications",
         "Use another profile",   # picker button → excluded
         "Create new account",    # picker button → excluded
         "Add account",           # menu button → excluded
         "Some Person Name",      # has spaces → not a username
-        "sandra.lelit",          # duplicate → collapsed
+        "account.one",          # duplicate → collapsed
     )
-    assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+    assert switcher._list_accounts_on_screen() == ["account.one", "account.two"]
 
 
 def test_enumerate_accounts_empty_when_no_rows():
@@ -52,14 +52,14 @@ def test_enumerate_accounts_empty_when_no_rows():
 def test_enumerate_accounts_drops_profile_stats_and_story_labels():
     # The switcher sheet overlays the profile: header stats + story buttons leak into the dump.
     switcher = _switcher(
-        "sandra.lelit",
+        "account.one",
         "1posts",
         "36followers",
         "91following",
-        "sandra.lelit's story, 0 of 27, Unseen",
-        "erika.spahn",
+        "account.one's story, 0 of 27, Unseen",
+        "account.two",
     )
-    assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+    assert switcher._list_accounts_on_screen() == ["account.one", "account.two"]
 
 
 def test_enumerate_accounts_no_dump_is_empty():
@@ -75,12 +75,12 @@ def test_enumerate_accounts_drops_android_navbar_buttons():
         '<hierarchy rotation="0">'
         '<node class="android.widget.ImageView" clickable="true" package="com.android.systemui" content-desc="Retour" />'
         '<node class="android.widget.ImageView" clickable="true" package="com.android.systemui" content-desc="Accueil" />'
-        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="sandra.lelit,  New notifications" />'
-        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="erika.spahn,  New notifications" />'
+        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="account.one,  New notifications" />'
+        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="account.two,  New notifications" />'
         '</hierarchy>'
     )
     switcher = InstagramSwitchAccount(_FakeDevice(xml), "device-1")
-    assert switcher._list_accounts_on_screen() == ["sandra.lelit", "erika.spahn"]
+    assert switcher._list_accounts_on_screen() == ["account.one", "account.two"]
 
 
 def test_enumerate_accounts_drops_home_feed_bottom_nav():
@@ -95,13 +95,13 @@ def test_enumerate_accounts_drops_home_feed_bottom_nav():
 
 
 def test_username_normalisation():
-    assert InstagramSwitchAccount._norm("@Sandra.Lelit ") == "sandra.lelit"
-    assert InstagramSwitchAccount._norm("  ErIkA.spahn") == "erika.spahn"
+    assert InstagramSwitchAccount._norm("@Account.One ") == "account.one"
+    assert InstagramSwitchAccount._norm("  AcCoUnT.two") == "account.two"
     assert InstagramSwitchAccount._norm("") == ""
     assert InstagramSwitchAccount._norm(None) == ""
 
 
-# --- Active-account detection (Kevin's flow: home feed → profile → read active @username) --------
+# --- Active-account detection (home feed → profile → read active @username) ---------------------
 
 def test_detect_active_account_none_when_on_picker(monkeypatch):
     # On the logged-out picker there is no active account → None, and the profile is never read.
@@ -117,9 +117,9 @@ def test_detect_active_account_reads_normalises_and_emits(monkeypatch):
     emitted = []
     switcher = InstagramSwitchAccount(_FakeDevice(_dump()), "device-1", on_active_account=emitted.append)
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
-    monkeypatch.setattr(switcher, "_read_profile_username", lambda: "@Erika.Spahn")
-    assert switcher.detect_active_account() == "erika.spahn"
-    assert emitted == ["erika.spahn"]
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: "@Account.Two")
+    assert switcher.detect_active_account() == "account.two"
+    assert emitted == ["account.two"]
 
 
 def test_detect_active_account_rejects_non_handle(monkeypatch):
@@ -127,7 +127,7 @@ def test_detect_active_account_rejects_non_handle(monkeypatch):
     emitted = []
     switcher = InstagramSwitchAccount(_FakeDevice(_dump()), "device-1", on_active_account=emitted.append)
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
-    monkeypatch.setattr(switcher, "_read_profile_username", lambda: "Sandra Lelit")
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: "Account One")
     assert switcher.detect_active_account() is None
     assert emitted == []
 
@@ -139,8 +139,8 @@ def test_list_accounts_returns_active_account_when_logged_in(monkeypatch):
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
     switcher = _switcher()
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
-    monkeypatch.setattr(switcher, "detect_active_account", lambda: "erika.spahn")
-    assert switcher.list_accounts() == ["erika.spahn"]
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "account.two")
+    assert switcher.list_accounts() == ["account.two"]
 
 
 # --- list_saved_accounts (DESTRUCTIVE: logout -> picker -> enumerate every saved account) --------
@@ -149,21 +149,21 @@ def test_list_saved_accounts_enumerates_directly_on_picker(monkeypatch):
     # Already on the picker (logged out) → no logout, just enumerate the saved accounts.
     import taktik.core.social_media.instagram.auth.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
-    switcher = _switcher("sandra.lelit", "erika.spahn,  New notifications", "Use another profile")
+    switcher = _switcher("account.one", "account.two,  New notifications", "Use another profile")
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: True)
-    assert switcher.list_saved_accounts() == ["sandra.lelit", "erika.spahn"]
+    assert switcher.list_saved_accounts() == ["account.one", "account.two"]
 
 
 def test_list_saved_accounts_recales_db_then_logs_out(monkeypatch):
     # An account is active → recale the DB (detect_active_account) BEFORE logging out to the picker.
     import taktik.core.social_media.instagram.auth.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
-    switcher = _switcher("sandra.lelit", "erika.spahn")
+    switcher = _switcher("account.one", "account.two")
     calls = []
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
     monkeypatch.setattr(switcher, "detect_active_account", lambda: calls.append("detect"))
     monkeypatch.setattr(switcher, "_logout_to_picker", lambda: calls.append("logout") or True)
-    assert switcher.list_saved_accounts() == ["sandra.lelit", "erika.spahn"]
+    assert switcher.list_saved_accounts() == ["account.one", "account.two"]
     assert calls == ["detect", "logout"]  # DB recaled before the destructive logout
 
 
@@ -171,7 +171,7 @@ def test_list_saved_accounts_empty_when_picker_unreached(monkeypatch):
     # If the picker can't be reached after logout, return [] (no crash, no bogus accounts).
     import taktik.core.social_media.instagram.auth.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
-    switcher = _switcher("sandra.lelit")
+    switcher = _switcher("account.one")
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
     monkeypatch.setattr(switcher, "detect_active_account", lambda: None)
     monkeypatch.setattr(switcher, "_logout_to_picker", lambda: False)

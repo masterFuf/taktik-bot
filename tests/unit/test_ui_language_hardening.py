@@ -53,7 +53,7 @@ def _union_locale():
 
     The active locale is a module global. Another test file setting it to "en" made these
     assertions fail only when the whole suite ran — and union is the mode that matters
-    here: on Kevin's phone `detect_and_optimize` reports "Language unknown", so every
+    here: on some devices `detect_and_optimize` reports "Language unknown", so every
     language's labels are tried at once. A classifier must stay correct in that mode.
     """
     ig_before, tt_before = ig_locales.active_locale(), tt_locales.active_locale()

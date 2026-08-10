@@ -17,8 +17,8 @@ def test_empty_when_absent_or_garbage():
 
 
 def test_includes_samples_and_account_name():
-    block = _build_style_block("Sandra", ["trop stylé ce spot 🔥", "grave j'adore"])
-    assert "Sandra" in block
+    block = _build_style_block("Sample", ["trop stylé ce spot 🔥", "grave j'adore"])
+    assert "Sample" in block
     assert "trop stylé ce spot 🔥" in block
     assert "grave j'adore" in block
     # Frames it as style-only imitation, not content reuse

@@ -1,12 +1,12 @@
-"""Boucle de follow de masse depuis l'ecran Discover people.
+"""Bulk follow loop from the people discovery screen.
 
-Le parsing est verrouille ailleurs (`test_feed_suggestions_parsing`). Ici on
-verrouille le GESTE : sur quelles bounds le doigt part-il vraiment, et quelle
-comptabilite est ecrite. La regle metier de Kevin — ni follow-back, ni demande
-de suivi depuis ce mode — doit tenir au niveau du tap, pas seulement du filtre.
+The parsing is locked elsewhere. What is locked here is the GESTURE: which bounds
+the finger actually starts from, and what accounting is written. The business rule
+— neither follow-back nor follow request from this mode — must hold at tap level,
+not only at filter level.
 
-Le mixin est monte sur un harnais minimal : un faux device qui sert des dumps
-canned et enregistre les taps, plus les quelques primitives que le mixin attend
+The mixin runs on a minimal harness: a fake device serving canned dumps and
+recording the taps, plus the few primitives the mixin expects
 de `BaseBusinessAction`.
 """
 
@@ -40,13 +40,13 @@ def _screen(rows):
     return f"<?xml version='1.0' encoding='UTF-8'?><hierarchy>{body}</hierarchy>"
 
 
-# Ecran 1 : un follow-back, un follow, un deja-suivi.
+# Screen 1: one follow-back row, one followable row, one already followed.
 SCREEN_MIXED = _screen([
     (400, "Known Follower", "Follow back"),
     (620, "Fresh Account", "Follow"),
     (840, "Already Followed", "Following"),
 ])
-# Ecran 2 : le meme, une fois "Fresh Account" suivi (bascule du bouton).
+# Screen 2: the same, once the followable one was followed and its button flipped.
 SCREEN_AFTER_FOLLOW = _screen([
     (400, "Known Follower", "Follow back"),
     (620, "Fresh Account", "Following"),
@@ -56,7 +56,7 @@ EMPTY_SCREEN = "<?xml version='1.0' encoding='UTF-8'?><hierarchy></hierarchy>"
 
 
 class _FakeDevice:
-    """Device minimal : sert les dumps dans l'ordre, enregistre taps et scrolls."""
+    """Minimal device: serves the dumps in order, records taps and scrolls."""
 
     def __init__(self, dumps):
         self._dumps = list(dumps)
@@ -76,7 +76,7 @@ class _FakeDevice:
 
 
 class _Harness(FeedSuggestionsMixin):
-    """Le mixin de production + les primitives que lui fournit BaseBusinessAction."""
+    """The production mixin plus the primitives its host normally provides."""
 
     def __init__(self, device):
         self.device = device
@@ -89,8 +89,8 @@ class _Harness(FeedSuggestionsMixin):
         return None
 
     def _human_tap_element(self, element):
-        """Comme en prod : False quand les bounds sont illisibles, l'appelant
-        retombe alors sur un `click()` au centre."""
+        """As in production: false when the bounds are unreadable, and the caller then
+        falls back on a centre tap."""
         try:
             element.get(timeout=0.5)
         except Exception:
@@ -107,7 +107,7 @@ class _Harness(FeedSuggestionsMixin):
 
 @pytest.fixture
 def no_pacing(monkeypatch):
-    """Neutralise la cadence humaine pour que le test reste instantane."""
+    """Neutralise the human pacing, so the test stays instant."""
     monkeypatch.setattr(
         "taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions.time.sleep",
         lambda _s: None,
@@ -120,10 +120,10 @@ def test_only_the_plain_follow_row_is_tapped(no_pacing):
 
     result = harness.follow_discover_suggestions(max_follows=5, delay_range=(0, 0), max_scrolls=1)
 
-    # Un seul tap, sur les bounds du bouton de "Fresh Account" (top=620 -> 620+66/620+154).
+    # One single tap, on the bounds of the followable row button.
     assert device.taps == [(653, 686, 959, 774)]
     assert result["follows"] == 1
-    # Le follow-back a ete vu et compte, jamais tape.
+    # The follow-back row was seen and counted, never tapped.
     assert result["skipped_follow_back"] == 1
 
 
@@ -138,12 +138,12 @@ def test_a_follow_is_booked_like_the_interaction_engine(no_pacing):
     entry = harness.recorded[0]
     assert entry["username"] == "Fresh Account"
     assert entry["action"] == "FOLLOW"
-    # La provenance est ecrite : sans elle la ligne DB se lit comme un follow anonyme.
+    # The provenance is written: without it the row reads as an anonymous follow.
     assert "Suggestion" in (entry["content"] or "")
 
 
 def test_an_unchanged_button_is_not_counted_as_a_follow(no_pacing):
-    """Le tap n'a pas pris : la ligne est toujours proposable, donc rien n'est comptabilise."""
+    """The tap did not take: the row is still offered, so nothing is counted."""
     device = _FakeDevice([SCREEN_MIXED, SCREEN_MIXED])
     harness = _Harness(device)
 
@@ -163,13 +163,13 @@ def test_an_empty_list_stops_instead_of_scrolling_forever(no_pacing):
 
     assert result["follows"] == 0
     assert result["stop_reason"] == "list_exhausted"
-    # On s'arrete sur la fin de liste, pas sur le plafond de scrolls.
+    # The stop comes from the end of the list, not from the scroll cap.
     assert device.scrolls < 30
 
 
 def test_a_screen_full_of_follow_backs_keeps_scrolling(no_pacing):
-    """Une liste aligne des ecrans entiers de 'Follow back' avant la section suivante :
-    l'absence de candidat ne doit pas se lire comme une fin de liste."""
+    """A list can stack whole screens of non-followable rows before the next section:
+    finding no candidate must not read as the end of the list."""
     only_follow_backs = _screen([(400, "A", "Follow back"), (620, "B", "Follow back")])
     device = _FakeDevice([only_follow_backs])
     harness = _Harness(device)
@@ -195,10 +195,10 @@ FEED_PLAIN = (
 
 
 class _XPathDevice(_FakeDevice):
-    """Ajoute le `xpath(...).exists` que la sonde legere du carousel utilise.
+    """Adds the existence check the light carousel probe uses.
 
-    Chaque scroll fait avancer l'ecran courant, comme sur un vrai feed : la sonde
-    ne voit donc le carousel qu'apres le bon nombre de gestes.
+    Each scroll advances the current screen, as on a real feed, so the probe only
+    sees the carousel after the right number of gestures.
     """
 
     def human_scroll(self, direction="down", distance_ratio=None):
@@ -213,7 +213,7 @@ class _XPathDevice(_FakeDevice):
 
 
 def test_the_carousel_search_scrolls_without_engaging(no_pacing):
-    """Mode suggestions seules : on scrolle pour ATTEINDRE le bloc, sans rien liker."""
+    """Suggestions-only mode: scroll to REACH the block, liking nothing."""
     device = _XPathDevice([FEED_PLAIN, FEED_PLAIN, FEED_WITH_CAROUSEL])
     harness = _Harness(device)
 
@@ -221,7 +221,7 @@ def test_the_carousel_search_scrolls_without_engaging(no_pacing):
 
     assert res["found"] is True
     assert res["scrolls"] == 2
-    # Aucun tap : chercher le carousel n'engage rien.
+    # No tap at all: looking for the carousel engages nothing.
     assert device.taps == []
 
 
@@ -258,10 +258,10 @@ DISCOVER_WITH_BACK_ARROW = (
 
 
 class _BackDevice(_FakeDevice):
-    """Ecran Discover people qui IGNORE la touche back, comme le vrai (QA 2026-07-26).
+    """A discovery screen that IGNORES the back key, like the real one.
 
-    L'ecran courant ne change que sur une action reelle : le dump ne le consomme
-    pas, seul un tap sur la fleche fait avancer.
+    The current screen only changes on a real action: reading the dump does not
+    consume it, only a tap on the arrow moves it on.
     """
 
     def __init__(self, screens, arrow_works=True):
@@ -278,7 +278,7 @@ class _BackDevice(_FakeDevice):
         return self.screen
 
     def press(self, key):
-        self.back_keys += 1  # sans effet : l'ecran ne bouge pas
+        self.back_keys += 1  # no effect: the screen does not move
         return True
 
     def xpath(self, selector):
@@ -290,7 +290,7 @@ class _BackDevice(_FakeDevice):
 
             @staticmethod
             def get(timeout=0.5):
-                raise RuntimeError("bounds unreadable")  # force le repli click()
+                raise RuntimeError("bounds unreadable")  # forces the centre-tap fallback
 
             @staticmethod
             def click():
@@ -311,8 +311,8 @@ class _NavActions:
 
 
 def test_leaving_the_suggestions_screen_uses_the_action_bar_arrow(no_pacing):
-    """QA device : cet ecran n'a pas de barre d'onglets et ignore le back materiel.
-    Le retour doit passer par la fleche de la barre d'action, pas par la touche."""
+    """This screen has no tab bar and ignores the hardware back key.
+    The return must go through the action-bar arrow, not the key."""
     device = _BackDevice([DISCOVER_WITH_BACK_ARROW, FEED_PLAIN])
     harness = _Harness(device)
     harness.nav_actions = _NavActions()
@@ -324,7 +324,7 @@ def test_leaving_the_suggestions_screen_uses_the_action_bar_arrow(no_pacing):
 
 
 def test_a_stuck_suggestions_screen_is_reported_not_swallowed(no_pacing):
-    """Si l'ecran ne se quitte pas, le run doit le DIRE plutot que de croire etre revenu."""
+    """When the screen does not close, the run must SAY so rather than believe it came back."""
     device = _BackDevice([DISCOVER_WITH_BACK_ARROW, FEED_PLAIN], arrow_works=False)
     harness = _Harness(device)
     harness.nav_actions = _NavActions()
@@ -349,9 +349,9 @@ def test_the_session_limit_stops_the_loop(no_pacing):
 
 
 def test_the_daily_follow_quota_stops_the_loop(no_pacing):
-    """Garde-fou de montee en charge : `max_follows_per_day` n'est PAS un motif d'arret
-    de session, il desactive sa propre intention. Le moteur d'interaction le lit pour
-    chaque profil — un chemin que ce mode ne traverse pas, il doit donc le lire lui-meme."""
+    """Ramp-up guard: the daily follow quota is NOT a session-stop reason, it disables
+    its own intent. The interaction engine reads it per profile — a path this mode does
+    not walk, so it must read the quota itself."""
     class _Session:
         def should_continue(self):
             return True, ""
@@ -370,8 +370,8 @@ def test_the_daily_follow_quota_stops_the_loop(no_pacing):
 
 
 def test_a_spent_comment_quota_does_not_block_follows(no_pacing):
-    """Seul le quota de FOLLOW nous concerne : un quota de commentaires consomme
-    ne doit pas arreter une passe de suggestions."""
+    """Only the FOLLOW quota matters here: a spent comment quota must not stop a
+    suggestions pass."""
     class _Session:
         def should_continue(self):
             return True, ""

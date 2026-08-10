@@ -207,7 +207,7 @@ def test_resolve_comment_language_policy(base_lang, post_language, expected):
     [
         # The account language is the ANCHOR; the CAPTION decides the comment language, never the
         # vision guess. This is the effective policy the smart-comment hook applies.
-        # French account, French caption -> French (the erika.spahn regression).
+        # French account, French caption -> French (the account.two regression).
         ("fr", "Venez voir, revoir ou découvrir les IMPROMPTU pour deux concepts d'improvisa… more", "fr"),
         # French account, English caption -> English is allowed as the bilingual 2nd language.
         ("fr", "Omg this sounds so fun! love both concepts", "en"),

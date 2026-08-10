@@ -1,13 +1,13 @@
-"""Zone "Suggestions" en bas de l'ecran Notifications.
+"""The suggestions zone at the bottom of the notifications screen.
 
-Extrait ANONYMISE d'une capture reelle (18171JEC, Instagram FR, 2026-07-27). Ce que
-le dump a impose, et que ce test verrouille : cette surface ne porte **aucun
-resource-id** — ni sur les lignes, ni sur les champs. Une ligne ne peut donc pas se
-lire comme un sous-arbre, elle se reconstitue par proximite verticale autour de son
+ANONYMISED extract of a real capture. What the dump imposed, and what this test
+locks: the FIELDS of this surface carry no resource-id, so a row cannot be read as
+a subtree in that layout; it is rebuilt by vertical proximity around its
+
 bouton.
 
-Le pas mesure entre deux lignes est de ~198px sur un ecran de 2400 : le test rejoue
-cette geometrie exacte.
+The measured step between two rows is reproduced exactly by this test, since the
+geometry is what the parsing depends on.
 """
 
 import pytest
@@ -30,13 +30,13 @@ from taktik.core.social_media.instagram.workflows.management.notifications.sugge
 
 
 def _text(value, x1, y1, x2, y2):
-    """Un TextView nu, comme les rend cette surface : pas de resource-id."""
+    """A bare TextView, as this surface renders them: no resource-id."""
     return (f'<node class="android.widget.TextView" text="{value}" resource-id=""'
             f' bounds="[{x1},{y1}][{x2},{y2}]"/>')
 
 
 def _row(top, name, button_label, context):
-    """Une ligne telle qu'elle apparait : nom, contexte, bouton, sur la meme bande."""
+    """A row as it appears: name, context and button on the same band."""
     return (
         _text(name, 231, top, 425, top + 46)
         + _text(context, 306, top + 64, 609, top + 103)
@@ -47,8 +47,8 @@ def _row(top, name, button_label, context):
 def _screen(rows_xml, header="Suggestions", header_y=1383):
     return (
         "<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
-        # Au-dessus de l'en-tete : de vraies notifications, qui ne doivent JAMAIS
-        # etre prises pour des suggestions.
+        # Above the header: real notifications, which must NEVER be taken for
+        # suggestions.
         + _text("a_liké votre publication", 231, 900, 700, 946)
         + _text(header, 44, header_y, 306, header_y + 53)
         + rows_xml
@@ -84,7 +84,7 @@ def test_rows_are_rebuilt_from_geometry_without_any_resource_id():
     assert [row["social_context"] for row in rows] == [
         "4 ami(e)s en commun", "2 ami(e)s en commun",
     ]
-    # Le point tape est le centre du libelle du bouton, bien qu'il ne soit pas
+    # The tapped point is the centre of the button label, although it is not
     # cliquable : l'ancetre cliquable recoit l'evenement.
     assert rows[0]["follow_point"] == (838, 1693)
 
@@ -95,7 +95,7 @@ def test_notifications_above_the_header_are_never_read_as_suggestions():
 
 
 def test_without_the_header_nothing_is_read():
-    """Pas d'en-tete a l'ecran = on n'est pas descendu assez bas. Ne rien inventer."""
+    """No header on screen means we did not go deep enough. Invent nothing."""
     xml = ("<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
            + _row(1701, "Spa Echo", "Suivre", "4 ami(e)s en commun") + "</hierarchy>")
     assert find_suggestions_header_y(_root(xml), NOTIFICATION_SELECTORS.suggestions_header_texts) is None
@@ -103,11 +103,11 @@ def test_without_the_header_nothing_is_read():
 
 
 def test_only_plain_follow_rows_are_followable():
-    """Meme regle que depuis le feed : ni follow-back, ni deja suivi."""
+    """Same rule as from the feed: no follow-back, no already-followed."""
     xml = _screen(
         _row(1701, "Me suit", "S’abonner en retour", "3 ami(e)s en commun")
         + _row(1899, "Inconnu", "Suivre", "2 ami(e)s en commun")
-        + # Nom volontairement piegeux : il CONTIENT un libelle d'etat.
+        + # A deliberately tricky name: it CONTAINS a state label.
         _row(2097, "Suivi de pres", "Abonné", "1 ami(e) en commun")
     )
     rows = _parse(xml)
@@ -116,21 +116,21 @@ def test_only_plain_follow_rows_are_followable():
 
 
 def test_an_unreadable_button_is_not_followed_blindly():
-    """Un libelle qu'on ne sait pas classer peut tout aussi bien etre 'Se desabonner'."""
+    """A label that cannot be classified might just as well be an unfollow one."""
     xml = _screen(_row(1701, "Compte", "Ne plus suivre", "1 ami(e) en commun"))
     assert followable_suggestions(_parse(xml)) == []
 
 
 # ---------------------------------------------------------------------------
-# Structure REELLE de la surface (dump 18171JEC 19:41, 2026-07-27, anonymise).
+# The REAL structure of the surface, anonymised.
 #
-# La premiere lecture avait conclu que rien ne portait de resource-id. C'est vrai des
-# CHAMPS, faux de la ligne et du bouton — et cette nuance decide tout : l'ecran melange
-# des suggestions et des NOTIFICATIONS qui portent, elles aussi, un bouton "Suivre".
+# The first reading concluded nothing carried a resource-id. That is true of the
+# FIELDS, false of the row and the button — and that nuance decides everything: the
+# screen mixes suggestions with NOTIFICATIONS that also carry a follow button.
 # ---------------------------------------------------------------------------
 
 def _cell(top, name, button_label, context=None):
-    """Une ligne de suggestion telle qu'IG la rend : une cellule, un bouton."""
+    """A suggestion row as it is rendered: one cell, one button."""
     ctx = _text(context, 231, top + 108, 534, top + 147) if context else ""
     return (
         f'<node class="android.view.View" resource-id="igds_people_cell" clickable="true"'
@@ -145,7 +145,7 @@ def _cell(top, name, button_label, context=None):
 
 
 def _notification(top, text, button_label):
-    """Une NOTIFICATION avec son propre bouton — le piege de cet ecran."""
+    """A NOTIFICATION with its own button — the trap of this screen."""
     return (
         f'<node class="android.view.View" resource-id="activity_feed_newsfeed_story_row"'
         f' clickable="true" text="" bounds="[0,{top}][1080,{top + 210}]">'
@@ -178,10 +178,10 @@ def _parse_real(xml):
 
 
 def test_a_notification_mentioning_suggestions_is_not_the_header():
-    """« Suggestions de suivi : X, Y et 3 autres personnes » CONTIENT « Suggestions ».
+    """The "suggested for you: A, B and 3 others" notification CONTAINS the header word.
 
-    Un ancrage par sous-chaine tombait dessus 950px trop haut, et tout ce qui se
-    trouvait dessous — donc de vraies notifications — devenait des suggestions.
+    A containment anchor landed on it far too high, and everything below it — real
+    notifications — became suggestions.
     """
     xml = _real_screen(
         _notification(495, "Suggestions de suivi\u00a0: taktik-bot, Vic H. et 3 autres personnes", "Suivre")
@@ -195,15 +195,15 @@ def test_a_notification_mentioning_suggestions_is_not_the_header():
 
 
 def test_notifications_carrying_their_own_follow_button_are_not_suggestions():
-    """Sous l'en-tete, seules les CELLULES sont des suggestions.
+    """Below the header, only the CELLS are suggestions.
 
-    « lafontaine.zoe, que vous connaissez peut-etre, est sur Instagram » porte un
-    bouton « Suivre » : sans le discriminant de la ligne, elle se lit comme une
-    suggestion et le bot ouvre une notification en croyant ouvrir un profil suggere.
+    An "X, whom you may know, is on Instagram" notification carries a follow
+    button: without the row discriminant it reads as a suggestion and the bot opens
+    a notification believing it opens a suggested profile.
     """
     xml = _real_screen(
         _header("Suggestions", 1000)
-        + _notification(1034, "lafontaine.zoe, que vous connaissez peut-\u00eatre, est sur Instagram", "Suivre")
+        + _notification(1034, "sample.person, que vous connaissez peut-\u00eatre, est sur Instagram", "Suivre")
         + _cell(1573, "Nina", "Suivre")
     )
     assert [row["label"] for row in _parse_real(xml)] == ["Nina"]
@@ -219,13 +219,13 @@ def test_a_cell_is_read_as_a_subtree_not_by_proximity():
     assert [(row["label"], row["state"]) for row in rows] == [
         ("koulou6649", "follow_back"), ("Nina", "follow"),
     ]
-    # Une ligne sans contexte social n'invente rien.
+    # A row with no social context invents nothing.
     assert rows[1]["social_context"] == ""
     assert [row["label"] for row in followable_suggestions(rows)] == ["Nina"]
 
 
 def test_a_cell_above_the_header_is_ignored():
-    """Les cellules existent aussi ailleurs sur cet ecran : la borne reste l'en-tete."""
+    """Cells exist elsewhere on this screen too: the header stays the boundary."""
     xml = _real_screen(
         _cell(600, "Deja vu ailleurs", "Suivre")
         + _header("Suggestions", 1498)
@@ -235,12 +235,12 @@ def test_a_cell_above_the_header_is_ignored():
 
 
 def test_an_unreadable_button_inside_a_cell_is_surfaced_not_dropped():
-    """Un trou de locale doit SE VOIR, pas disparaitre.
+    """A locale gap must BE SEEN, not vanish.
 
-    Une ligne dont le bouton ne se classe pas (ici un libelle d'une langue absente du
-    catalogue) remonte avec ``state=None`` : l'appelant peut alors le dire dans les
-    logs. La faire disparaitre du resultat rendrait un ecran entier d'illisibles
-    indiscernable d'un ecran sans suggestions.
+    A row whose button does not classify, here a label from a language absent from the
+    catalog, is returned with an unset state, so the caller can report it. Dropping it
+    from the result would make a screen full of unreadable rows indistinguishable from
+    a screen with no suggestions.
     """
     xml = _real_screen(_header("Suggestions", 1498) + _cell(1573, "Compte", "Seguir"))
     rows = _parse_real(xml)
@@ -250,7 +250,7 @@ def test_an_unreadable_button_inside_a_cell_is_surfaced_not_dropped():
 
 
 def test_an_unfollow_button_inside_a_cell_is_never_followable():
-    """« Ne plus suivre » CONTIENT « Suivre » : le piege deja rencontre, cote cellule."""
+    """The unfollow label CONTAINS the follow one: the known trap, seen from the cell."""
     xml = _real_screen(_header("Suggestions", 1498) + _cell(1573, "Compte", "Ne plus suivre"))
     rows = _parse_real(xml)
     assert [row["state"] for row in rows] == ["following"]

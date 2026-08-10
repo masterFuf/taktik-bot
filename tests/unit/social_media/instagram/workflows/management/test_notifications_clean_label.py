@@ -16,9 +16,9 @@ def test_new_follower_drops_trailing_action():
 
 def test_mention_drops_buttons_and_truncation():
     assert clean_label(
-        "linstantmeliss a mentionné votre nom dans un commentaire : @sandra.lelit oh oui il faut y "
+        "user_one a mentionné votre nom dans un commentaire : @account.one oh oui il faut y "
         "faire atte… suite 1 sem Bouton J'aime Répondre"
-    ) == "linstantmeliss a mentionné votre nom dans un commentaire : @sandra.lelit oh oui il faut y faire atte"
+    ) == "user_one a mentionné votre nom dans un commentaire : @account.one oh oui il faut y faire atte"
 
 
 def test_comment_drops_buttons():
@@ -52,9 +52,9 @@ def test_clean_label_drops_replacement_char():
 
 def test_longest_clean_run_anchors_before_emoji_placeholder():
     # The XML dump corrupted "🙏🙏🙏" into ".. ...." — the anchor is the clean run.
-    text = "alexbeatsr a répondu à votre commentaire : @sandra.lelit merci .. .... bravo à elle"
+    text = "user_two a répondu à votre commentaire : @account.one merci .. .... bravo à elle"
     anchor = longest_clean_run(text)
-    assert anchor == "alexbeatsr a répondu à votre commentaire : @sandra.lelit merci"
+    assert anchor == "user_two a répondu à votre commentaire : @account.one merci"
     assert anchor in text
 
 

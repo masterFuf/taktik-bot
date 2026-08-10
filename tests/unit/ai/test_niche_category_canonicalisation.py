@@ -19,7 +19,7 @@ from taktik.core.app.ai.providers.openrouter import AIService
     ('arts_and_culture', 'music_entertainment'),
     ('Arts & Crafts', 'art_design'),
     ('arts & crafts', 'art_design'),
-    # Kevin's call: an estate agent sells a service, so real estate is business.
+    # An estate agent sells a service, so real estate is business.
     ('real_estate', 'business_marketing'),
     ('realestate', 'business_marketing'),
     ('shopping', 'business_marketing'),

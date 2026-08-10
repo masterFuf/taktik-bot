@@ -1,11 +1,11 @@
-"""Tests du fix « resourceIdMatches » des actions inbox TikTok.
+"""The pattern-match fix of the TikTok inbox actions.
 
-Bug confirmé sur device : les sélecteurs sont en forme xpath `contains(@resource-id, ":id/x")`
+Confirmed on device: the selectors are written as an xpath containment on a partial
 mais `_get_conversations`/`get_new_followers` faisaient `raw_device(resourceId=extract(...))` ;
-`extract_resource_id` ne matche que la forme exacte `@resource-id="..."` → renvoyait '' →
-`raw_device(resourceId='')` ne trouvait rien (0 conversation / 0 follower). Le fix passe par
-`resourceIdMatches` (regex) via `_find_all_by_rid`. On exerce ici le VRAI chemin (pas de mock du
-device complet) pour éviter de re-régresser.
+token, while the extraction only matched the exact form, so it returned an empty
+string and the lookup found nothing at all. The fix goes through a full-match
+pattern. The REAL path is exercised here, with no full device mock, so it cannot
+regress again.
 """
 
 import re
@@ -58,7 +58,7 @@ class _FakeRawDevice:
         self._activities = activities
 
     def __call__(self, resourceIdMatches=None, resourceId=None):
-        # Le fix doit utiliser resourceIdMatches (regex), jamais resourceId exact.
+        # The fix must use the pattern match, never the exact resource-id.
         assert resourceId is None, "doit utiliser resourceIdMatches, pas resourceId exact"
         pattern = resourceIdMatches or ''
         if 'o0f' in pattern:
@@ -96,7 +96,7 @@ def _make_actions(device):
 
 def test_resource_id_pattern_contains_form():
     pat = DMActions._resource_id_pattern(['//*[contains(@resource-id, ":id/o0f")]'])
-    # full-match regex qui matche un id complet avec package
+    # full-match pattern, matching a fully qualified id
     assert re.fullmatch(pat, 'com.zhiliaoapp.musically:id/o0f')
     assert not re.fullmatch(pat, 'com.zhiliaoapp.musically:id/zzz')
 
@@ -114,7 +114,7 @@ def test_get_new_followers_reads_via_resource_id_matches():
     device = _FakeDevice(
         usernames=['alice', 'bob', 'carol'],
         activities=['a commencé à te suivre', 'a commencé à te suivre', 'a commencé à te suivre'],
-        followable=['alice', 'carol'],  # bob déjà suivi / privé
+        followable=['alice', 'carol'],  # already followed or private
     )
     dm = _make_actions(device)
 
@@ -126,7 +126,7 @@ def test_get_new_followers_reads_via_resource_id_matches():
         'bob': False,
         'carol': True,
     }
-    # l'activité est appariée par index
+    # the activity is paired by index
     assert all(f['activity'] == 'a commencé à te suivre' for f in followers)
 
 
@@ -144,14 +144,14 @@ def test_get_new_followers_empty_when_no_usernames():
 
 
 def test_clean_username_strips_bidi_marks():
-    # Texte réel capturé sur device : LRM (200e) + isolats FSI/PDI (2068/2069) autour du nom.
+    # Real text captured on device: invisible bidi marks around the name.
     assert DMActions._clean_username('‎⁨NK19⁩') == 'NK19'
     assert DMActions._clean_username('⁨Éric Langevingt Vignac⁩') == 'Éric Langevingt Vignac'
     assert DMActions._clean_username(None) == ''
 
 
 def test_get_new_followers_cleans_bidi_and_matches_follow_back():
-    # Le bug device : username = '‎⁨NK19⁩' -> can_follow_back ratait (match exact).
+    # The device bug: the wrapped username made the exact match fail.
     # Après fix : username nettoyé ('NK19') + contains(@text) -> match OK.
     device = _FakeDevice(
         usernames=['‎⁨NK19⁩', '⁨Rafael⁩'],

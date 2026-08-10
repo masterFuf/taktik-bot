@@ -1,6 +1,6 @@
 """End-of-list detection (followers/following lists).
 
-Kevin's rule: a scroll that reveals no NEW username is NOT proof of the end of the list (a small
+Rule: a scroll that reveals no NEW username is NOT proof of the end of the list (a small
 scroll, an overlap, or the list resumed after interacting with a profile legitimately shows no
 session-new username). End-of-list must be detected ONLY when the list is genuinely stuck — the
 exact same page repeated, or an empty screen. Running out of profiles worth interacting with is a

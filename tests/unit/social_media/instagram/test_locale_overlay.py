@@ -69,7 +69,7 @@ def test_fr_injects_only_french():
     assert "Follow" not in follow
 
     following = _joined(PROFILE_SELECTORS.following_button)
-    # Radical "Suivi" (et non "Suivi(e)") pour absorber les deux rendus d'Instagram.
+    # The stem "Suivi" rather than the inflected form, to absorb both renderings.
     assert "Abonné" in following and "Suivi" in following
     assert "Following" not in following
 

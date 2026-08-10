@@ -133,7 +133,7 @@ def test_tiktok_dm_outreach_runs_with_injected_notifier_and_dedup():
 
 
 def test_tiktok_dm_outreach_uses_message_provider_in_ai_mode():
-    """Mode IA : le message_provider genere le message par destinataire (texte = OpenRouter)."""
+    """Generated mode: the provider builds one message per recipient."""
     FakeManager.instances = []
     records = []
 
@@ -152,7 +152,7 @@ def test_tiktok_dm_outreach_uses_message_provider_in_ai_mode():
     assert workflow.connect() is True
     result = workflow.run(
         ["creator"],
-        [],  # pas de liste statique : le mode IA doit quand meme tourner
+        [],  # no static list: the generated mode must still run
         account_id=7,
         session_id="session-1",
         message_provider=lambda recipient: f"Salut @{recipient} !",
@@ -164,7 +164,7 @@ def test_tiktok_dm_outreach_uses_message_provider_in_ai_mode():
 
 
 def test_tiktok_dm_outreach_falls_back_to_static_when_provider_empty():
-    """Si le provider IA renvoie vide (echec OpenRouter), repli sur la liste statique."""
+    """When the provider returns nothing, fall back on the static list."""
     records = []
 
     workflow = TikTokDMOutreachWorkflow(

@@ -56,7 +56,7 @@ def test_like_target_explicit_max_zero_disables():
 # ─── proportional_like_cap (likes scale with profile size) ───────────────────
 
 def test_proportional_cap_matches_operator_anchors():
-    # The two reference points Kevin gave: a small account likes few, a big one more.
+    # The two reference points: a small account likes few, a big one more.
     assert proportional_like_cap(10, 1, 8) == 2
     assert proportional_like_cap(500, 1, 8) == 8
 

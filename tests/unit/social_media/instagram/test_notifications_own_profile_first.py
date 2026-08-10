@@ -50,7 +50,7 @@ def _spy(monkeypatch):
     return calls
 
 
-_spy.profile = {'username': 'institut.rentable', 'followers_count': 648}
+_spy.profile = {'username': 'own.account', 'followers_count': 648}
 
 
 def test_the_own_profile_is_read_then_the_feed_is_handed_back(_spy):
@@ -64,7 +64,7 @@ def test_the_own_profile_is_read_then_the_feed_is_handed_back(_spy):
 
 
 def test_the_account_read_on_screen_is_used_when_the_front_sent_none(_spy):
-    assert commands._refresh_own_account(_Bridge(), None) == 'institut.rentable'
+    assert commands._refresh_own_account(_Bridge(), None) == 'own.account'
 
 
 def test_the_front_keeps_deciding_when_it_knows_the_account(_spy):

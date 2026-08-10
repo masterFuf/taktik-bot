@@ -4,7 +4,7 @@ is never enforced.
 `SessionManager.should_continue()` gates `total_follows_limit` on `counters['follows']`, which
 only `record_action('follow_user')` increments. The like and comment paths call it; the follow
 path only called the DB/stats recorder, so real runs displayed `follows=0/7` for their whole
-duration while four follows had actually landed (626, 2026-07-24). The cap was structurally
+duration while four follows had actually landed. The cap was structurally
 unenforceable — the run merely happened to stay under it.
 """
 

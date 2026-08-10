@@ -1,13 +1,13 @@
-"""Visite qualifiee des suggestions de l'ecran Notifications.
+"""Qualified visit of the suggestions of the notifications screen.
 
-Ce que ces tests verrouillent, et pourquoi ca compte : une suggestion est un profil
-INCONNU. La surface n'affiche que son libelle, jamais son @handle — il n'y a donc rien
-a reconcilier en base, il faut produire la fiche. Le mode precedent tapait le bouton
-"Suivre" de la ligne et enregistrait le follow sous le libelle affiche ; ces tests
-interdisent son retour.
+What these tests lock, and why it matters: a suggestion is an UNKNOWN profile. The
+surface shows only its label, never its handle, so there is nothing to reconcile:
+the record has to be produced. The previous mode tapped the row button and recorded
+the follow under the displayed label; these tests forbid its return.
 
-Les primitives device sont remplacees ; le sequencage teste (quoi taper, quoi refuser,
-quoi passer au pipeline) est bien celui de production.
+
+The device primitives are replaced; the sequencing under test — what to tap, what to
+refuse, what to hand to the pipeline — is the production one.
 """
 
 import pytest
@@ -21,7 +21,7 @@ from taktik.core.social_media.instagram.actions.core.base_business.profile_proce
 
 
 class _FakePipeline:
-    """Pipeline par-profil injecte : enregistre ce qu'on lui demande de traiter."""
+    """Injected per-profile pipeline: records what it is asked to handle."""
 
     def __init__(self, username="real_handle", opens=True, status=ProfileProcessingResult.SUCCESS):
         self.username = username
@@ -82,7 +82,7 @@ class _Workflow(NotificationsEngagementWorkflow):
         self.returns += 1
         return True
 
-    def ensure_notifications_screen(self):  # pragma: no cover — jamais atteint ici
+    def ensure_notifications_screen(self):  # pragma: no cover — never reached here
         return True
 
 
@@ -96,7 +96,7 @@ NO_DELAY = (0, 0)
 
 
 def test_the_row_body_is_tapped_and_never_the_follow_button():
-    """Taper le bouton, c'est suivre sans jamais savoir QUI : c'est le mode supprime."""
+    """Tapping the button follows without ever knowing WHO: that is the removed mode."""
     pipeline = _FakePipeline(username="spa_echo")
     wf = _Workflow([_row("Spa Echo", "follow", (274, 1526), (838, 1557))], pipeline)
 
@@ -108,7 +108,7 @@ def test_the_row_body_is_tapped_and_never_the_follow_button():
 
 
 def test_the_handle_read_on_the_profile_is_what_gets_processed():
-    """Le libelle affiche ('Spa Ec(h)o') n'est pas une clef : seul le @handle en est une."""
+    """The displayed label is not a key: only the handle is."""
     pipeline = _FakePipeline(username="spa_echo")
     wf = _Workflow([_row("Spa Ec(h)o", "follow", (274, 1526), (838, 1557))], pipeline)
 
@@ -118,7 +118,7 @@ def test_the_handle_read_on_the_profile_is_what_gets_processed():
 
 
 def test_without_a_pipeline_nothing_is_tapped_at_all():
-    """Sans pipeline il ne resterait que le follow a l'aveugle : on refuse, franchement."""
+    """Without a pipeline only the blind follow would remain: refuse, plainly."""
     wf = _Workflow([_row("Spa Echo", "follow", (274, 1526), (838, 1557))], pipeline=None)
 
     result = wf.visit_suggestions(max_profiles=1, delay_range=NO_DELAY)
@@ -129,7 +129,7 @@ def test_without_a_pipeline_nothing_is_tapped_at_all():
 
 
 def test_a_profile_that_does_not_open_is_an_error_not_a_silent_skip():
-    """Le tap est parti mais aucune fiche n'est apparue : ne rien traiter, et le dire."""
+    """The tap was sent but no profile appeared: handle nothing, and say so."""
     pipeline = _FakePipeline(opens=False)
     wf = _Workflow([_row("Spa Echo", "follow", (274, 1526), (838, 1557))], pipeline)
 
@@ -142,7 +142,7 @@ def test_a_profile_that_does_not_open_is_an_error_not_a_silent_skip():
 
 
 def test_an_open_profile_with_no_readable_handle_is_never_processed():
-    """Sans @handle, ecrire reviendrait a inventer une clef."""
+    """Without a handle, writing would mean inventing a key."""
     pipeline = _FakePipeline(username=None)
     wf = _Workflow([_row("Spa Echo", "follow", (274, 1526), (838, 1557))], pipeline)
 
@@ -154,7 +154,7 @@ def test_an_open_profile_with_no_readable_handle_is_never_processed():
 
 
 def test_only_plain_follow_rows_are_visited():
-    """Meme regle que partout ailleurs : ni follow-back, ni deja suivi."""
+    """Same rule as everywhere else: no follow-back, no already-followed."""
     pipeline = _FakePipeline(username="inconnu")
     wf = _Workflow([
         _row("Me suit", "follow_back", (274, 1300), (838, 1330)),
@@ -169,7 +169,7 @@ def test_only_plain_follow_rows_are_visited():
 
 
 def test_each_visit_returns_to_the_notifications_screen():
-    """Rester sur le profil ferait lire la fiche courante comme la liste suivante."""
+    """Staying on the profile would make the current page read as the next list."""
     pipeline = _FakePipeline(username="inconnu")
     wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
 
@@ -179,8 +179,8 @@ def test_each_visit_returns_to_the_notifications_screen():
 
 
 def test_the_zone_must_be_reachable_before_anything_is_touched():
-    """Sans zone, rien n'est touche — et le motif d'arret dit LAQUELLE des trois
-    issues on a rencontree, parce qu'elles n'appellent pas la meme reaction."""
+    """Without the zone nothing is touched, and the stop reason says WHICH of the three
+    outcomes was met, because they do not call for the same reaction."""
     pipeline = _FakePipeline()
     wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
     wf.zone_reached = False
@@ -193,8 +193,8 @@ def test_the_zone_must_be_reachable_before_anything_is_touched():
 
 
 def test_the_list_is_collapsed_before_the_first_descent():
-    """Le scan a deplie la liste a coups de « Voir plus » : chaque appui a insere une
-    page de notifications entre nous et la section. Sortir/rentrer la replie."""
+    """The scan expanded the list with the load-more entry: each tap inserted a page of
+    notifications between us and the section. Leaving and coming back collapses it."""
     pipeline = _FakePipeline(username="inconnu")
     wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
 
@@ -204,7 +204,7 @@ def test_the_list_is_collapsed_before_the_first_descent():
 
 
 def test_the_collapse_can_be_skipped_for_an_isolated_probe():
-    """Depuis le Lab on teste la zone sur l'ecran ou l'operateur s'est place."""
+    """A probe tests the zone on the screen the operator navigated to."""
     pipeline = _FakePipeline(username="inconnu")
     wf = _Workflow([_row("Inconnu", "follow", (274, 1700), (838, 1730))], pipeline)
 
@@ -214,7 +214,7 @@ def test_the_collapse_can_be_skipped_for_an_isolated_probe():
 
 
 def test_a_filtered_profile_counts_as_processed_not_as_a_follow():
-    """Un profil ouvert, qualifie puis rejete a coute un run complet : il doit se voir."""
+    """A profile opened, qualified then rejected cost a full run: it must be visible."""
     pipeline = _FakePipeline(username="hors_cible",
                              status=ProfileProcessingResult.FILTERED_CRITERIA)
     wf = _Workflow([_row("Hors cible", "follow", (274, 1700), (838, 1730))], pipeline)
@@ -227,7 +227,7 @@ def test_a_filtered_profile_counts_as_processed_not_as_a_follow():
 
 
 def test_the_removed_blind_list_mode_cannot_come_back():
-    """Le follow depuis la liste n'existe plus : il suivait sous un libelle affiche."""
+    """Following from the list no longer exists: it followed under a display label."""
     assert not hasattr(NotificationsEngagementWorkflow, "follow_suggestions")
 
 
@@ -243,12 +243,12 @@ def test_no_state_other_than_follow_is_ever_opened(state):
 
 
 # ---------------------------------------------------------------------------
-# La descente vers la zone (QA device 2026-07-27).
+# The descent to the zone.
 #
-# La zone vit au fond de l'ecran d'activite, et sa distance depend du COMPTE : un
-# compte tres actif aligne des dizaines d'ecrans avant elle. Un budget fixe de scrolls
-# s'est arrete en plein milieu de la liste et la passe est repartie sans rien faire,
-# alors que la zone existait plus bas.
+# The zone lives at the bottom of the activity screen, and its distance depends on
+# the ACCOUNT: an active one stacks dozens of screens before it. A fixed scroll
+# budget stopped halfway and the pass left without doing anything, while the zone
+# existed further down.
 # ---------------------------------------------------------------------------
 
 from lxml import etree
@@ -258,7 +258,7 @@ from taktik.core.social_media.instagram.ui.selectors.locales import set_active_l
 
 
 def _screen_xml(marker, with_header=False):
-    """Un ecran de notifications ; ``marker`` le rend different du precedent."""
+    """One notifications screen; ``marker`` makes it differ from the previous one."""
     header = ('<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
               ' text="Suggestions" bounds="[44,1498][306,1551]"/>') if with_header else ""
     return etree.fromstring(
@@ -269,7 +269,7 @@ def _screen_xml(marker, with_header=False):
 
 
 class _Descent(_Workflow):
-    """Workflow reel, dont seul le defilement est simule."""
+    """The real workflow, with only the scrolling simulated."""
 
     def __init__(self, screens):
         super().__init__(rows=[], pipeline=None)
@@ -296,7 +296,7 @@ def _french():
 
 
 def test_the_descent_goes_far_past_the_old_fixed_budget():
-    """Trente ecrans avant la zone : un compteur de 8 s'arretait a mi-liste."""
+    """Thirty screens before the zone: a fixed small budget stopped halfway."""
     screens = [_screen_xml(i) for i in range(30)] + [_screen_xml(30, with_header=True)]
     wf = _Descent(screens)
 
@@ -305,19 +305,19 @@ def test_the_descent_goes_far_past_the_old_fixed_budget():
 
 
 def test_the_descent_stops_when_the_list_stops_moving():
-    """Deux ecrans identiques = fond de liste. Insister ne changerait rien."""
+    """Two identical screens mean the bottom. Insisting would change nothing."""
     screens = [_screen_xml(0), _screen_xml(1)] + [_screen_xml(1)] * 20
     wf = _Descent(screens)
 
     assert wf.reach_suggestions_zone() is False
-    # Un seul ecran identique ne prouve rien (un rendu en cours y ressemble) ;
-    # on s'arrete au second, pas apres avoir epuise le garde-fou.
+    # One identical screen proves nothing, since a render in progress looks the same;
+    # the stop comes on the second, not after exhausting the guard.
     assert wf.scrolls == 3
 
 
 def test_the_descent_never_taps_show_more():
-    """« Voir plus » charge des notifications PLUS ANCIENNES : elles s'inserent
-    entre nous et la zone, donc le taper nous en eloigne."""
+    """The load-more entry loads OLDER notifications: they insert themselves between
+    us and the zone, so tapping it moves us away."""
     wf = _Descent([_screen_xml(0), _screen_xml(1), _screen_xml(1), _screen_xml(1)])
 
     wf.reach_suggestions_zone()
@@ -326,7 +326,7 @@ def test_the_descent_never_taps_show_more():
 
 
 def test_the_safety_cap_is_a_guard_rail_not_a_stop_policy():
-    """Si l'ecran change encore au plafond, on le dit — on ne pretend pas etre au fond."""
+    """When the screen still changes at the cap, say so; do not claim to be at the bottom."""
     wf = _Descent([_screen_xml(i) for i in range(50)])
 
     assert wf.reach_suggestions_zone(max_scrolls=5) is False
@@ -334,11 +334,11 @@ def test_the_safety_cap_is_a_guard_rail_not_a_stop_policy():
 
 
 def _people_section_xml(marker, header):
-    """Le bas de l'ecran : une section de PERSONNES qui n'est pas les suggestions.
+    """The bottom of the screen: a PEOPLE section that is not the suggestions one.
 
     Instagram sert a cet endroit une section dont l'identite VARIE — "Suggestions"
-    une fois, "Followers que vous ne suivez pas" une autre (dump 19:55), rien
-    parfois. Les confondre avec une panne de navigation ferait chercher un bug la ou
+    one pass, another people section the next, nothing sometimes. Reading them as a
+    navigation failure would send someone looking for a bug where
     il n'y en a pas.
     """
     return etree.fromstring(
@@ -360,7 +360,7 @@ def test_a_bottom_without_suggestions_is_reported_as_such_not_as_a_failure():
 
 
 def test_hitting_the_guard_rail_is_not_reported_as_an_absent_section():
-    """La liste bougeait encore : on ne sait PAS si la zone existait plus bas."""
+    """The list was still moving: we do NOT know whether the zone existed further down."""
     wf = _Descent([_screen_xml(i) for i in range(50)])
 
     assert wf.reach_suggestions_zone(max_scrolls=5) is False

@@ -46,7 +46,7 @@ def test_the_reel_fallback_asks_the_shared_extractor():
         post_finder,
     )
     source = inspect.getsource(post_finder.HashtagPostFinderMixin._extract_current_post_metadata)
-    tail = source[source.index("Retombée REEL"):]
+    tail = source[source.index("REEL fallback"):]
     assert "extract_likes_count_from_ui" in tail
     assert "extract_comments_count_from_ui" in tail
 

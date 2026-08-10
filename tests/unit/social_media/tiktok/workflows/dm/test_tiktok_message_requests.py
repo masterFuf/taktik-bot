@@ -1,4 +1,4 @@
-"""Tests des demandes de messages (inbox v2 phase 3) : scrape + accept/decline/reply."""
+"""Message requests: scraping, then accepting, declining and replying."""
 
 import types
 

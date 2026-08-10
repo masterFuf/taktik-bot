@@ -1,7 +1,7 @@
 """Tests for the TikTok new-followers workflow methods (inbox v2 - Phase 1).
 
-On injecte un faux `dm` (DMActions) et on bypass l'init lourd du workflow pour valider
-l'orchestration : ouverture de page, dédup du scrape, émission des callbacks, et résultats
+A fake DM action layer is injected and the heavy initialisation is bypassed, so the
+orchestration is what gets validated: opening the page, deduplicating the scrape,
 de follow-back. Aucune dépendance device réelle.
 """
 
@@ -27,7 +27,7 @@ class FakeDM:
         return self._can_open
 
     def get_new_followers(self, max_items=50):
-        # Renvoie toujours la même liste -> exerce la dédup côté workflow
+        # Always returns the same list, which exercises the deduplication
         return list(self._followers)
 
     def scroll_inbox(self, direction):
@@ -39,7 +39,7 @@ class FakeDM:
 
 
 def _make_workflow(fake_dm):
-    """Construit un DMWorkflow sans son __init__ lourd, avec juste ce qu'il faut."""
+    """Build the workflow without its heavy initialisation, with just what is needed."""
     wf = DMWorkflow.__new__(DMWorkflow)
     wf.dm = fake_dm
     wf._running = True
@@ -68,13 +68,13 @@ def test_read_new_followers_scrapes_and_dedups_and_emits():
     emitted = []
     wf.set_on_new_follower_callback(lambda f: emitted.append(f["username"]))
 
-    # max_items == len(followers) -> pas de scroll ni de sleep
+    # the cap equals the list length, so no scroll and no pause
     result = wf.read_new_followers(max_items=3)
 
     assert [f["username"] for f in result] == ["alice", "bob", "carol"]
     assert emitted == ["alice", "bob", "carol"]
     assert fake.open_calls == 1
-    assert fake.scroll_calls == 0  # tout tient dans le 1er passage
+    assert fake.scroll_calls == 0  # everything fits in the first pass
 
 
 def test_read_new_followers_returns_empty_when_page_unavailable():
@@ -107,7 +107,7 @@ def test_follow_back_users_marks_all_failed_when_page_unavailable():
     results = wf.follow_back_users(["alice", "bob"])
     assert all(r["success"] is False for r in results)
     assert {r["username"] for r in results} == {"alice", "bob"}
-    assert fake.followed == []  # jamais tenté de suivre
+    assert fake.followed == []  # never attempted to follow
 
 
 def test_follow_back_users_empty_list_is_noop():
