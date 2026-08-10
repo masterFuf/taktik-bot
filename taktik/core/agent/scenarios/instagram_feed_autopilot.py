@@ -82,7 +82,7 @@ class TaktikAgentWorkflow:
             "posts_seen": 0,
             "posts_stopped": 0,
             "session_cost_usd": 0.0,
-            # Profils ignores car une relation existait deja (on les suit / ils nous suivent).
+            # Profiles skipped because a relationship already existed.
             "profiles_skipped_relationship": 0,
         }
 
@@ -96,11 +96,11 @@ class TaktikAgentWorkflow:
             "session_duration_min": config.get("session_duration_min", 25),
         }
 
-        # L'Agent est un chemin de CROISSANCE (acquisition). Un profil deja en relation (on le suit,
-        # ou il nous suit / demande en attente) n'est pas une cible : on le skip AVANT le screenshot
-        # et l'appel IA (economie du cout vision) et on ne re-tape jamais le bouton Suivre (taper
-        # "Suivi(e)" desabonnerait). Defaut True ; desactivable via la config si un jour on veut que
-        # l'Agent re-engage son audience.
+        # The agent is a GROWTH path. A profile already in a relationship is not a target: it
+        # is skipped BEFORE the screenshot and the qualification call, which saves the vision
+        # cost, and its follow button is never tapped again — tapping an already-following
+        # one would unfollow. On by default, and disableable if the agent should one day
+        # re-engage its own audience.
         self._skip_related_profiles = config.get("skip_related_profiles", True)
 
         self._stop_requested = False
@@ -738,10 +738,10 @@ class TaktikAgentWorkflow:
         self.stats["profile_visits"] += 1
         time.sleep(1.5)
 
-        # Garde-fou RELATION (le profil est a l'ecran) : meme source de verite que les workflows
-        # manuels, get_follow_button_state(). On skip AVANT le screenshot + l'IA pour ne pas payer la
-        # vision sur une non-cible, et pour ne jamais atteindre _do_follow sur un profil deja suivi.
-        # Etat illisible ('unknown') -> on continue (fail-open, jamais de cible perdue par une lecture
+        # RELATIONSHIP guard, the profile being on screen: the same source of truth as the
+        # manual workflows. The skip happens BEFORE the screenshot and the qualification, so
+        # the vision is not paid on a non-target and the follow is never reached on an
+        # already-followed profile. An unreadable state lets the profile through, so no
         # instable).
         if self._skip_related_profiles:
             state = self._read_follow_state()
@@ -788,7 +788,7 @@ class TaktikAgentWorkflow:
     # ------------------------------------------------------------------
 
     def _read_follow_state(self) -> str:
-        """Etat du bouton d'action du header profil (profil deja a l'ecran). Best-effort :
+        """State of the profile header action button, the profile being already on screen.
         'unknown' si illisible -> l'appelant continue (fail-open)."""
         try:
             from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
@@ -801,13 +801,13 @@ class TaktikAgentWorkflow:
         """Follow the currently visible profile."""
         try:
             # ClickActions compose ProfileInteractionMixin (follow_user + get_follow_button_state).
-            # NB : l'ancien import `ProfileInteractionActions` n'existait pas -> ImportError avale par
-            # ce try/except, donc l'Agent ne suivait JAMAIS. Corrige ici.
+            # NB: the former import did not exist, so the error was swallowed by this handler and
+            # the agent NEVER followed. Fixed here.
             from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
             profile_interaction = ClickActions(self.device)
-            # Filet de securite : `follow_user` tape le bouton sans verifier son etat -> sur un profil
-            # deja suivi il DESABONNERAIT. Le pre-check de _handle_profile_visit couvre deja ce cas
-            # quand skip_related_profiles est actif ; cette garde protege aussi s'il est desactive.
+            # Safety net: the follow action taps the button without checking its state, so on an
+            # already-followed profile it would UNFOLLOW. The pre-check already covers that case
+            # when the skip is enabled; this guard also protects when it is not.
             state = profile_interaction.get_follow_button_state()
             if state in ("following", "requested", "message"):
                 logger.info(f"[TaktikAgent] @{username} deja suivi ({state}) — pas de re-follow")

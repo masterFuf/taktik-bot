@@ -4,10 +4,8 @@ one of our accounts.
 Owner: the Bot. It is the only side that can see the signal, because the signal only
 exists while walking a list on a device.
 
-WHY A TABLE AND NOT A LOG LINE. When Instagram serves a flagged account its private
-followers first, that reordering is the one measurable symptom of the flag we have (same
-source, same people, same minute, two accounts: order correlation rho = +0.12, private
-profiles shifted -0.63 against +0.08 for public ones, p = 0.0015). Each detection is
+WHY A TABLE AND NOT A LOG LINE. The reordering of a people list is the one measurable
+symptom of an account's standing that we have. Each detection is
 therefore a DATED MEASUREMENT of an account's standing, not an incident to report and
 forget. Kept over time it answers the questions that matter operationally: since when is
 this account affected, how often, on which sources — and above all WHEN IT STOPS, which

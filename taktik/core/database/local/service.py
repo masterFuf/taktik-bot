@@ -1379,7 +1379,7 @@ class LocalDatabaseService:
         Return all scraped profiles that follow *following_username*.
 
         Useful for building seed lists: "give me everyone in our DB
-        that follows @mma_lorraine".
+        that follows @sample_source".
 
         Each row contains: profile_username, discovered_at, and (when
         available via JOIN) niche_category, niche, cities, profession.

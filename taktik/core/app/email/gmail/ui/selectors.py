@@ -29,9 +29,9 @@ from typing import List
 class _GmailAccountSwitcherSelectors:
     """Account switcher overlay (tap avatar to open)."""
 
-    # Ouverture — avatar en haut à droite dans la barre Gmail
-    # NOTE: plusieurs IDs possibles selon la version de Gmail ;
-    #       dans le dump : 'og_bento_selected_account_avatar'
+    # Opening: the avatar at the top right of the bar
+    # NOTE: several ids are possible depending on the version;
+    #       in the dump, the selected-account avatar
     avatar: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/selected_account_disc_gmail"]',
         '//*[@resource-id="com.google.android.gm:id/og_bento_selected_account_avatar"]',
@@ -48,12 +48,12 @@ class _GmailAccountSwitcherSelectors:
         '//*[@resource-id="com.google.android.gm:id/og_bento_selected_account_greeting_message"]',
     ])
 
-    # Email du compte actuellement affiché (titre de l'overlay)
+    # Address of the account currently shown, in the overlay title
     current_account_email: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/og_bento_account_menu_title_text"]',
     ])
 
-    # Lignes de comptes dans la liste "Changer de compte"
+    # Account rows of the switch-account list
     # og_secondary_account_information = email ; og_primary_account_information = nom
     account_row_email: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/og_secondary_account_information"]',
@@ -63,7 +63,7 @@ class _GmailAccountSwitcherSelectors:
         '//*[@resource-id="com.google.android.gm:id/og_primary_account_information"]',
     ])
 
-    # Bouton "Ajouter un autre compte"
+    # Add-another-account button
     add_account: List[str] = field(default_factory=lambda: [
         '//*[@clickable="true"]'
         '[.//*[@resource-id="com.google.android.gm:id/og_bento_card_title"]'
@@ -77,7 +77,7 @@ class _GmailAccountSwitcherSelectors:
         '[@text="Add another account"]',
     ])
 
-    # Bouton Fermer (×) de l'overlay
+    # Close button of the overlay
     # Gmail bento panel: og_bento_toolbar_close_button
     # og_dialog variant: og_header_close_button
     # og_popover / og_dialog_fragment_account_menu: no visible close button —
@@ -93,7 +93,7 @@ class _GmailAccountSwitcherSelectors:
 
 @dataclass
 class _GmailSetupSelectors:
-    """'Configurez votre adresse e-mail' – choix du fournisseur."""
+    """Email setup screen: provider choice."""
 
     # Indicateur de cet écran
     screen_indicator: List[str] = field(default_factory=lambda: [
@@ -103,12 +103,12 @@ class _GmailSetupSelectors:
         '[@text="Set up email"]',
     ])
 
-    # Ligne cliquable du fournisseur — contient le label via account_setup_label
+    # Clickable provider row, holding the label
     # On cible l'élément parent account_setup_item ayant un enfant "Google"
     google_row: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/account_setup_item"]'
         '[.//*[@text="Google"]]',
-        # fallback: cliquer directement sur le label
+        # fallback: tap the label directly
         '//*[@resource-id="com.google.android.gm:id/account_setup_label"]'
         '[@text="Google"]',
     ])
@@ -123,26 +123,26 @@ class _GoogleSigninSelectors:
     resource-id. Only the "Suivant"/"Next" button is reachable.
     """
 
-    # Indicateur de l'écran de connexion Google (présence du bouton Suivant
-    # dans le layout com.google.android.gms)
+    # Marker of the sign-in screen, the next button being present in the
+    # services layout
     screen_indicator: List[str] = field(default_factory=lambda: [
         '//*[@package="com.google.android.gms"][@text="Suivant"]',
         '//*[@package="com.google.android.gms"][@text="Next"]',
     ])
 
-    # Bouton "Suivant" / "Next" (hors WebView — accessible)
+    # Next button, outside the web view and therefore accessible
     next_button: List[str] = field(default_factory=lambda: [
         '//*[@package="com.google.android.gms"][@text="Suivant"]',
         '//*[@package="com.google.android.gms"][@text="Next"]',
     ])
 
-    # Bouton "Suivant" visible sur l'écran mot de passe (même sélecteur)
+    # Next button of the password screen, same selector
     password_next_button: List[str] = field(default_factory=lambda: [
         '//*[@package="com.google.android.gms"][@text="Suivant"]',
         '//*[@package="com.google.android.gms"][@text="Next"]',
     ])
 
-    # Écran "Accepter" les CGU Google
+    # Terms-acceptance screen
     accept_button: List[str] = field(default_factory=lambda: [
         '//*[@package="com.google.android.gms"][@text="J\'accepte"]',
         '//*[@package="com.google.android.gms"][@text="I agree"]',
@@ -150,13 +150,13 @@ class _GoogleSigninSelectors:
         '//*[@package="com.google.android.gms"][@text="Accept"]',
     ])
 
-    # "Continuer" après ToS sur certains firmwares
+    # Continue entry shown after the terms on some firmwares
     continue_button: List[str] = field(default_factory=lambda: [
         '//*[@package="com.google.android.gms"][@text="Continuer"]',
         '//*[@package="com.google.android.gms"][@text="Continue"]',
     ])
 
-    # Indicateur d'erreur : mauvais mot de passe / mauvais email
+    # Error marker: wrong password or wrong address
     error_indicator: List[str] = field(default_factory=lambda: [
         '//*[@package="com.google.android.gms"][contains(@text,"incorrect")]',
         '//*[@package="com.google.android.gms"][contains(@text,"inexact")]',
@@ -173,7 +173,7 @@ class _GoogleVerifyIdentitySelectors:
     verification methods as clickable android.view.View items with
     content-desc identifying each option.
 
-    Source: UI dump 2026-05-02 on OUKITEL C57 S (Android 14).
+    Source: real UI dump (Android 14).
     """
 
     # Option 1 — receive code at recovery email (best to automate).
@@ -213,10 +213,10 @@ class _GoogleRecoveryOptionsSelectors:
     Google 'Account Recovery Options' screen.
 
     Shown after successful login on a new device.  Title:
-    'Assurez-vous de toujours pouvoir vous connecter'.
+    the account-recovery prompt.
     Contains optional phone + recovery-email fields and two buttons.
 
-    Source: UI dump 2026-05-02 on OUKITEL C57 S (Android 14).
+    Source: real UI dump (Android 14).
     """
 
     # "Annuler" — skip adding recovery info (preferred bot action).
@@ -244,14 +244,14 @@ class _GmailInboxSelectors:
         '//*[@resource-id="com.google.android.gm:id/search_src_text"]',
     ])
 
-    # Champ de texte de recherche (après avoir tapé sur la barre)
+    # Search text field, once the bar was tapped
     search_input: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/open_search"]',
         '//*[@resource-id="com.google.android.gm:id/search_src_text"]',
         '//android.widget.EditText',
     ])
 
-    # Liste des conversations dans la boîte de réception
+    # Conversation list of the inbox
     conversation_list: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/thread_list_view"]',
         '//*[@resource-id="com.google.android.gm:id/conversation_list_view"]',
@@ -265,12 +265,12 @@ class _GmailInboxSelectors:
         '//android.widget.FrameLayout[@clickable="true"]',
         '//*[@resource-id="com.google.android.gm:id/conversation_list_view"]'
         '//*[@resource-id="com.google.android.gm:id/sender"]',
-        # fallback: premier élément cliquable dans la liste
+        # fallback: the first clickable item of the list
         '//*[@resource-id="com.google.android.gm:id/conversation_list_view"]'
         '//android.widget.LinearLayout[@clickable="true"]',
     ])
 
-    # Corps du message ouvert
+    # Body of the opened message
     message_body: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/message_body"]',
         '//*[@resource-id="com.google.android.gm:id/body"]',
@@ -278,7 +278,7 @@ class _GmailInboxSelectors:
         '//android.webkit.WebView',
     ])
 
-    # Indicateur que l'inbox est affichée (barre de recherche OU liste)
+    # Marker that the inbox is shown: the search bar OR the list
     inbox_indicator: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/open_search"]',
         '//*[@resource-id="com.google.android.gm:id/thread_list_view"]',
@@ -297,7 +297,7 @@ class _GoogleRecaptchaSelectors:
     Sub-heading: 'Confirm that you're not a robot'
     Checkbox: resource-id='recaptcha-anchor', text "I'm not a robot"
 
-    Source: UI dump 2026-05-04 on Nokia device (720×1520).
+    Source: real UI dump (720×1520).
     Checkbox bounds: [67,682][121,738] → center ≈ (94, 710)
     Ratios: x ≈ 0.130, y ≈ 0.467
     """

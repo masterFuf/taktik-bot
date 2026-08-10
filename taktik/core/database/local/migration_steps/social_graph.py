@@ -11,10 +11,10 @@ def run_social_graph_sync_migrations(cursor: sqlite3.Cursor) -> None:
     """Create the unified `social_graph_sync` table and backfill it.
 
     Restructuring Vague B (pilote) : unifie `following_sync` + `followers_sync`
-    en une seule table avec un axe `direction` ('following'|'follower') et un
-    `is_reciprocal` qui remplace `is_follower_back`/`is_following_back`.
-    Phase additive non destructive : les tables sources restent inchangees ; le
-    backfill est idempotent (`INSERT OR IGNORE` sur la cle unique).
+    into a single table with a direction axis and a reciprocity flag replacing the two
+    legacy per-side columns.
+    Additive, non-destructive phase: the source tables stay unchanged and the backfill
+    is idempotent.
     """
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS social_graph_sync (

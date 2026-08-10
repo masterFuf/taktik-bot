@@ -222,7 +222,7 @@ class GmailWorkflow:
                     except Exception:
                         pass
 
-                    # Click "Ajouter un autre compte"
+                    # Tap the add-another-account entry
                     if not self._click_selector(GMAIL_SWITCHER_SELECTORS.add_account):
                         return self._error("add_account_not_found",
                                            "Could not find 'Ajouter un autre compte' button")
@@ -622,7 +622,7 @@ class GmailWorkflow:
         Priority order:
           1. google_error      – sign-in rejection / wrong credentials
           2. google_terms      – ToS acceptance screen
-          3. google_password   – password WebView ("mot de passe" in dump)
+          3. google_password   - the password field of the web view
           4. google_signin     – email WebView (gms + Suivant, no password hint)
           5. setup             – Gmail provider selection
           6. switcher          – Gmail account overlay
@@ -652,7 +652,7 @@ class GmailWorkflow:
                     or "verify it's you" in hl
                     or "confirm it's you" in hl):
                 return "google_verify_identity"
-            # Recovery options screen ("Assurez-vous de toujours pouvoir vous connecter")
+            # Recovery-options screen
             if ("account recovery options" in hl
                     or "assurez-vous de toujours pouvoir vous connecter" in hl
                     or "ajoutez un numéro de téléphone de récupération" in hl):
@@ -898,7 +898,7 @@ class GmailWorkflow:
 
         Fast path: reads selected_account_disc_gmail content-desc from a UI
         dump.  On this version of Gmail the content-desc is:
-          "Connect\u00e9 en tant que <Name> <email>\\nCompte et param\u00e8tres."
+          the localized signed-in-as wording, followed by the account and settings label.
         so we can detect the active account without opening the switcher at all.
         """
         _ipc.log("info", f"\ud83d\udd04 Switching Gmail to account: {email}")
@@ -968,7 +968,7 @@ class GmailWorkflow:
 
         Reads the content-desc of selected_account_disc_gmail which on this
         Gmail version is:
-          "Connect\u00e9 en tant que <Name> <email>\\nCompte et param\u00e8tres."
+          the localized signed-in-as wording, followed by the account and settings label.
         """
         try:
             h = self.device.dump_hierarchy()
@@ -1139,7 +1139,7 @@ class GmailWorkflow:
         Universal fallback: scan the full hierarchy dump for email addresses.
 
         Extracts from:
-          - content-desc= attributes (contains "Connecté en tant que X" / "Use X" / etc.)
+          - content-desc attributes, holding the localized signed-in-as wording
           - text= attributes (account_display_name, plain email rows)
 
         Determines the active account via:

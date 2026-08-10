@@ -76,9 +76,9 @@ class SocialGraphRepository(BaseRepository):
     ) -> None:
         """Primary upsert into the unified `social_graph_sync` table.
 
-        Restructuring Vague B : `social_graph_sync` est desormais la source de
-        verite (les tables legacy `following_sync`/`followers_sync` ont ete
-        droppees). Ne capture pas les exceptions : l'appelant gere l'erreur et
+        The unified table is now the source of truth; the legacy per-side tables were
+        dropped. Exceptions are not caught here:
+        the caller handles the error and
         renvoie un statut "error".
         """
         unfollowed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if unfollowed else None

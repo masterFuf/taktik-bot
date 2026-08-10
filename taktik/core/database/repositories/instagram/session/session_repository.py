@@ -160,10 +160,10 @@ class SessionRepository(BaseRepository):
         values: List[Any] = [status, total, likes, follows, unfollows, comments,
                              story_views, story_likes, profile_visits]
 
-        # POSTS engages. Le reste du snapshot s'agrege depuis `interactions`, qui est une
-        # table PAR PROFIL : un run qui n'ouvre aucun profil (feed, plan hashtag « posts
+        # Engaged POSTS. The rest of the snapshot aggregates from the interactions table,
+        # which is PER PROFILE: a run that opens no profile would otherwise report an
         # seuls ») n'y ecrit rien et ressortait donc entierement a zero — puis masque comme
-        # session vide. Ce compteur vient du run lui-meme, pas d'une agregation.
+        # empty session. This counter comes from the run itself, not from an aggregation.
         if posts_engaged is not None:
             updates.append('posts_watched = ?')
             values.append(int(posts_engaged))

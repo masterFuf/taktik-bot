@@ -40,13 +40,10 @@ OPENROUTER_TOTAL_TIMEOUT_SECONDS = 45.0
 # Vision models (Gemini) bill images by 768px tiles — a QUANTIZED step, not a continuous
 # cost/quality dial: any long edge in (768, 1536] costs the SAME 2 tiles as 1536 itself
 # (ceil(edge/768) doesn't change until you cross a multiple of 768). Raw device screenshots
-# are ~1080x2220 PNGs → ~6 tiles (~1550 image tokens) raw. 1536 got that down to 2 tiles
-# (~-61%, ~750px wide, safe — Kevin validated no quality loss in production 2026-07-07).
-# 768 is the next real step DOWN to 1 tile (~-80% vs raw): width drops to ~375px, which
-# is a genuine detail loss for VISUAL judgment (post-thumbnail style/aesthetic, subtle
-# gender/age cues) — bio/stats/captions aren't at risk, they're sent as TEXT separately
-# (scraped, not OCR'd from the image). Kevin explicitly chose 768 in production after
-# reviewing a side-by-side comparison (2026-07-07) — re-validate before going lower.
+# are ~1080x2220 PNGs → ~6 tiles (~1550 image tokens) raw. 768 keeps a single tile
+# (~-80% vs raw) at ~375px wide, which is the floor for VISUAL judgment (post-thumbnail
+# style, subtle gender/age cues). Bio/stats/captions are not at risk — they are sent as
+# TEXT separately (scraped, not OCR'd). Re-validate before going lower.
 VISION_IMAGE_MAX_EDGE = 768
 
 # Platform display label for prompts (so the provider is reusable across platforms,
@@ -118,7 +115,7 @@ _LANGUAGE_NAMES = {
     'it': 'Italian', 'de': 'German', 'nl': 'Dutch', 'ar': 'Arabic',
 }
 
-# The writing rules validated with Kevin during the model benchmark. Shared by the two
+# The writing rules validated during the model benchmark. Shared by the two
 # generators (a comment on a post, a reply to a comment) so a rule proven on one is never
 # silently missing from the other — which is exactly how the sparkle-emoji tic reached
 # production the first time.
@@ -627,7 +624,7 @@ class AIService:
     ]
 
     # Free-text drift the model actually produces, mapped back onto the canonical buckets.
-    # Built from real runs (626/627, 2026-07-24): the model returned `fashion_and_beauty`,
+    # Built from real runs: the model returned `fashion_and_beauty`,
     # `personal_blog`, `spam`, and four spellings of arts_* despite the prompt listing the keys.
     _NICHE_CATEGORY_SYNONYMS = {
         # entertainment / culture cluster
@@ -655,8 +652,8 @@ class AIService:
         "cosmetics": "beauty_wellness",
         "fashion_and_beauty": "beauty_wellness",
         # lifestyle
-        # Business / commerce. `real_estate` is the agency's own call (Kevin, 2026-07-28):
-        # an estate agent's account sells a service, so it belongs with business.
+        # Business / commerce. `real_estate` is a deliberate call: an estate agent's
+        # account sells a service, so it belongs with business.
         "real_estate": "business_marketing",
         "realestate": "business_marketing",
         "property": "business_marketing",
