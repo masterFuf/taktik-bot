@@ -1,5 +1,5 @@
 """
-Utilitaires pour le dump de l'interface utilisateur Android.
+Helpers for the Android UI dump.
 """
 import os
 import time

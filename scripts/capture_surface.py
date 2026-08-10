@@ -1,15 +1,15 @@
-"""Capture appariee dump XML + screenshot pour une surface donnee.
+"""Paired XML dump and screenshot capture for a given surface.
 
-Produit, pour un device + une surface (feed, stories, reels, ...), un couple
-de fichiers nommes de facon coherente dans :
+Produces, for one device and one surface, a consistently named pair of files
+in:
 
     bot/debug_ui/cartography/<platform>/<surface>/
 
     <surface>_<timestamp>.xml   (hierarchie UI)
-    <surface>_<timestamp>.png   (capture ecran)
+    <surface>_<timestamp>.png   (screenshot)
 
-But : fournir la matiere premiere (dump + screenshot apparies) que l'agent IA
-analyse pour enrichir `front/src/features/tools/cartography/data/cartography.json`
+Purpose: provide the raw material that the analysis then uses to enrich the
+surface catalog
 (elements observes, detections, actions).
 
 Exemples :
@@ -50,7 +50,7 @@ def capture(device: str, platform: str, surface: str) -> int:
     png_path = os.path.join(out_dir, f"{surface}_{timestamp}.png")
 
     try:
-        # 1) Dump de la hierarchie UI
+        # 1) Dump the UI hierarchy
         adb(device, "shell", "uiautomator", "dump", REMOTE_XML, check=True,
             capture_output=True, text=True)
         adb(device, "pull", REMOTE_XML, xml_path, check=True,

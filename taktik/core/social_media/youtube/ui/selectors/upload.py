@@ -1,11 +1,11 @@
-"""Sélecteurs UI pour YouTube — upload (Short & Video standard).
+"""UI selectors for the YouTube upload flow.
 
-Basés sur des UI dumps réels :
+Based on real UI dumps:
   - Nokia 4.2, Android 11, YouTube app (UI classique)
   - Samsung Galaxy A80Pro, Android 12, YouTube app (Shorts camera view)
 
-Toutes les listes sont ordonnées du plus spécifique (resource-id) au plus générique
-(text/content-desc contains), pour minimiser les faux positifs.
+Every list is ordered from the most specific, the resource-id, to the most generic,
+to minimise the false positives.
 """
 
 from typing import Dict, List
@@ -16,7 +16,7 @@ YOUTUBE_PACKAGE = "com.google.android.youtube"
 
 @dataclass
 class UploadSelectors:
-    """Sélecteurs pour le workflow d'upload YouTube (Short & Video)."""
+    """Selectors for the YouTube upload workflow."""
 
     # ── Navigation home ──────────────────────────────────────────────────────
     home_tab: List[str] = field(default_factory=lambda: [
@@ -264,7 +264,7 @@ class UploadSelectors:
         '//android.widget.Button[contains(@text, "Upload")]',
         '//android.widget.Button[contains(@text, "UPLOAD")]',
         '//android.widget.Button[@text="Post"]',
-        # FR text (A80Pro confirmed: "Mettre en ligne le Short")
+        # localized upload wording
         '//android.widget.Button[@text="Mettre en ligne la vidéo"]',
         '//android.widget.Button[@text="Mettre en ligne le Short"]',
         '//android.widget.Button[contains(@text, "Mettre en ligne")]',
@@ -274,9 +274,9 @@ class UploadSelectors:
 
     # ── Upload confirmation (post-upload snackbar / toast) ───────────────────
     upload_done: List[str] = field(default_factory=lambda: [
-        # resource-id (A80Pro FR: "Importée sur votre chaîne")
+        # resource-id of the uploaded-to-channel confirmation
         f'//*[@resource-id="{YOUTUBE_PACKAGE}:id/message"]',
-        f'//*[@resource-id="{YOUTUBE_PACKAGE}:id/action"]',  # "Voir la vidéo" link
+        f'//*[@resource-id="{YOUTUBE_PACKAGE}:id/action"]',  # the view-video link
         # FR text
         '//*[contains(@text, "Importée sur votre chaîne")]',
         '//*[contains(@text, "Importée")]',
@@ -293,5 +293,5 @@ class UploadSelectors:
     ])
 
 
-# Singleton instance — importez directement UPLOAD_SELECTORS dans les workflows
+# Singleton instance: import it directly in the workflows
 UPLOAD_SELECTORS = UploadSelectors()

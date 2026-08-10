@@ -15,7 +15,7 @@ Two defects, one column, one pass:
 Both are repaired from data already stored — no AI call, no device.
 
 `updated_at` is bumped on every touched row on purpose: without it the correction never
-leaves this machine, and Kevin runs four.
+leaves this machine and never reaches the other synced installs.
 
 Usage:
     python scripts/backfill_niche_categories.py            # dry run, prints the plan

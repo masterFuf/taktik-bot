@@ -1,18 +1,18 @@
 """
 YouTube Upload Workflow
 =======================
-Publie une vidéo (Short ou Video standard) sur YouTube depuis un fichier local.
+Publish a video, short or standard, on YouTube from a local file.
 
-Flow observé sur dumps :
+Flow observed on the dumps:
   1. Push media → /sdcard/DCIM/Camera/ + trigger media scan
-  2. YouTube home → tap bouton "Create" (pivot_bar, content-desc="Create")
+  2. from the home screen, tap the create button
   3. Permission dialog "Allow YouTube to take pictures..." → tap "WHILE USING THE APP"
   4. Écran upload :  tabs Video / Short / Live / Post → tap "Add from gallery"
-  5. Galerie système ou YouTube gallery → sélectionner le premier item (le plus récent)
+  5. in the system or in-app gallery, select the first, most recent item
   6. Écran d'édition → saisir title / description
   7. Tap "Next" → tap "Upload video" / "Upload Short"
 
-Tous les sélecteurs XPath sont centralisés dans :
+Every xpath selector is centralized in:
     taktik.core.social_media.youtube.ui.selectors.upload  (UPLOAD_SELECTORS)
 """
 
@@ -93,7 +93,7 @@ def _wait_for_any(device, selectors: list[str], timeout: float = 10.0, label: st
     return _wait_for_any_shared(device, selectors, timeout=timeout, label=label, log=_log)
 
 
-# Alias court pour lisibilité dans le workflow
+# Short alias, for readability
 _S = UPLOAD_SELECTORS
 
 
@@ -165,7 +165,7 @@ class YouTubeUploadWorkflow:
 
             # ── Dismiss notification permission popup if present ──────────────
             # 1) System permission dialog (com.android.permissioncontroller)
-            # 2) In-app YouTube dialog ("Activer les notifications" / "Enable notifications")
+            # 2) In-app dialog asking to enable the notifications
             if self._perms.deny_if_present(wait=3.0) or _try_tap(d, _S.notification_cancel, timeout=2, label="notif-cancel"):
                 _log("info", "🔕 Dismissed notification permission popup")
                 time.sleep(0.8)

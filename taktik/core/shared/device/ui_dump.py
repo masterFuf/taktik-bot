@@ -1,12 +1,12 @@
 """Primitives partagees de lecture d'un dump de hierarchie Android.
 
-Owner canonique de la geometrie "bounds" d'un noeud de dump : la chaine
-``"[x1,y1][x2,y2]"`` rendue par uiautomator dans l'attribut ``bounds``. Ces
-fonctions sont PURES (aucun device), donc testables a partir d'un dump capture.
+Canonical owner of the bounds geometry of a dump node: the string rendered by the
+automation layer in the bounds attribute. These functions are PURE, with no device,
+so they are testable from a captured dump.
 
-Historique : le meme parseur avait ete recopie dans plusieurs surfaces
-(notifications, thread de commentaires, xpath TikTok). Le nouveau code doit
-importer cet owner ; les copies restantes sont une dette a resorber dans un lot
+The same parser had been copied into several surfaces. New code must import this
+owner; the remaining copies are debt to pay down.
+
 de refactor dedie.
 """
 
@@ -39,10 +39,10 @@ def center(bounds: Sequence[int]) -> Tuple[int, int]:
 
 
 def index_of_closest_row(target_y: float, candidate_ys: List[float]) -> Optional[int]:
-    """Index du candidat dont le centre vertical est le plus proche de ``target_y``.
+    """Index of the candidate whose vertical centre is closest to ``target_y``.
 
-    Renvoie ``None`` s'il n'y a aucun candidat. Sert a apparier un libelle et son
-    bouton d'action sur la meme bande horizontale quand l'imbrication DOM ne les
+    Returns None with no candidate. Used to pair a label with its action button on the
+    same horizontal band, when the DOM nesting does not
     relie pas.
     """
     if not candidate_ys:

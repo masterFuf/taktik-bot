@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 
 # Windows consoles default to cp1252 while the banner, the menus and the workflow labels use
@@ -238,7 +238,7 @@ def cli(ctx, lang=None):
                 if mode_choice == 4:
                     continue
                 
-                # Sélection du device (commun aux deux modes)
+                # Device selection, shared by both modes
                 from taktik.cli.common.device_selector import select_device
                 device_id = select_device(device_manager, current_translations)
                 if not device_id:
@@ -571,7 +571,7 @@ def cli(ctx, lang=None):
                     
                     scraping_config = None
                     
-                    # Générer la config de scraping selon le choix
+                    # Build the scraping configuration from the choice
                     if scraping_choice == 1:
                         scraping_config = generate_target_scraping_workflow()
                     elif scraping_choice == 2:
@@ -620,7 +620,7 @@ def cli(ctx, lang=None):
                         if not _cd3(device_manager, device_id, current_translations):
                             continue
                         
-                        # Lancer le scraping
+                        # Start the scraping
                         from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
                         
                         console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
@@ -745,7 +745,7 @@ def list_devices():
     
     console.print(table)
 
-# Les commandes management et auth sont définies plus bas après la définition des groupes
+# The management and auth commands are defined further down, after their groups
 
 @automation.command("workflow")
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
@@ -825,7 +825,7 @@ def workflow_instagram(device_id, config):
 @tiktok.command("launch")
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
 def launch_tiktok(device_id):
-    """Lance TikTok sur l'appareil spécifié."""
+    """Launch TikTok on the given device."""
     console.print(Panel.fit("[bold green]Lancement de TikTok[/bold green]"))
     if not device_id:
         devices = DeviceManager.list_devices()
@@ -849,7 +849,7 @@ def launch_tiktok(device_id):
 @click.option('--network', '-n', required=True, type=click.Choice(['instagram', 'tiktok']), help='Réseau social à lancer')
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
 def launch(network, device_id):
-    """Lance l'application du réseau social choisi sur l'appareil spécifié."""
+    """Launch the chosen social app on the given device."""
     console.print(Panel.fit(f"[bold green]Lancement de {network.capitalize()}[/bold green]"))
     if not device_id:
         devices = DeviceManager.list_devices()
@@ -877,19 +877,19 @@ def launch(network, device_id):
 
 @cli.command()
 def proxy():
-    """Gestion des proxies."""
+    """Proxy management."""
     console.print(Panel.fit("[bold green]Gestion des proxies[/bold green]"))
     console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
 
 @cli.command()
 def account():
-    """Gestion des comptes Instagram."""
+    """Instagram account management."""
     console.print(Panel.fit("[bold green]Gestion des comptes Instagram[/bold green]"))
     console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
 
 @cli.command()
 def run():
-    """Démarre une session d'interaction."""
+    """Start an interaction session."""
     console.print(Panel.fit("[bold green]Démarrage d'une session d'interaction[/bold green]"))
     console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
 

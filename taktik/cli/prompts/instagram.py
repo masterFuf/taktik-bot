@@ -250,7 +250,7 @@ def generate_hashtags_workflow():
     
     display_estimates(max_profiles, max_likes_per_profile, probas, current_translations)
     
-    console.print(f"\n[green]✅ Workflow hashtag #{hashtag} configuré avec succès ![/green]")
+    console.print(f"\n[green]✅ Workflow hashtag #{hashtag} configured successfully![/green]")
     return workflow_config
 
 def generate_post_url_workflow():

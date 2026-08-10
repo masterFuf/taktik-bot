@@ -58,7 +58,7 @@ ALLOWLIST = {
     "taktik/core/social_media/instagram/actions/business/workflows/post_url/mixins/url_handling.py",
     # already-liked guard, EN + FR
     "taktik/core/social_media/threads/workflows/search_and_interact.py",
-    # "<name> profile" / "Profil <name>" + "Sound:"/"Son :", EN + FR
+    # profile and sound labels, in every supported language
     "taktik/core/social_media/tiktok/actions/atomic/video_detector.py",
     # "connected as" / "connecté en tant que", EN + FR
     "taktik/core/app/email/gmail/workflows/account.py",

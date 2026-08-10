@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Script de test pour diagnostiquer les problèmes ATX/uiautomator2.
+Diagnostics for the automation agent.
 
 Ce script permet de:
 1. Vérifier l'état de santé de l'agent ATX
 2. Reproduire le bug "Instagram not installed" 
-3. Tester la réparation automatique ATX
+3. test the automatic repair
 
 Usage:
     python test_atx_health.py [device_id]
