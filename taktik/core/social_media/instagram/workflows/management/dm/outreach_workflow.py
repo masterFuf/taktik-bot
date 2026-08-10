@@ -23,15 +23,15 @@ from .outreach_actions import OutreachActionsMixin
 
 class DMOutreachWorkflow(OutreachActionsMixin):
     """
-    Workflow pour envoyer des DM en masse à une liste de comptes.
+    Workflow sending direct messages in bulk to a list of accounts.
     
     Fonctionnalités:
-    - Envoi de messages personnalisés avec variables
+    - personalised messages with variables
     - A/B testing de messages
-    - Gestion des délais humains
-    - Skip des conversations existantes
-    - Suivi optionnel avant DM
-    - Logging détaillé des résultats
+    - human-like delays
+    - existing conversations skipped
+    - optional follow before the message
+    - detailed result logging
     """
     
     def __init__(self, device_manager, nav_actions, detection_actions):
@@ -60,18 +60,18 @@ class DMOutreachWorkflow(OutreachActionsMixin):
             'follows_performed': 0
         }
         
-        # Historique des résultats
+        # Result history
         self.results: List[DMOutreachResult] = []
     
     def run(self, config: DMOutreachConfig) -> Dict[str, Any]:
         """
-        Exécuter le workflow d'outreach DM.
+        Run the DM outreach workflow.
         
         Args:
-            config: Configuration du workflow
+                config: workflow configuration
             
         Returns:
-            Dict avec les statistiques et résultats
+                Dict of statistics and results
         """
         self.logger.info(f"📨 Starting DM Outreach workflow for {len(config.recipients)} recipients")
         
@@ -84,7 +84,7 @@ class DMOutreachWorkflow(OutreachActionsMixin):
             return self._get_final_results("No message template provided")
         
         for i, username in enumerate(config.recipients):
-            # Vérifier les limites
+            # Check the limits
             if self.session_stats['messages_sent'] >= config.max_messages_per_session:
                 self.logger.info(f"🛑 Session limit reached ({config.max_messages_per_session} messages)")
                 break
@@ -98,7 +98,7 @@ class DMOutreachWorkflow(OutreachActionsMixin):
                 self.logger.info(f"⏸️ Taking a break for {pause_duration}s...")
                 time.sleep(pause_duration)
             
-            # Envoyer le DM
+            # Send the message
             result = self._send_dm_to_user(username, config)
             self.results.append(result)
             
@@ -109,7 +109,7 @@ class DMOutreachWorkflow(OutreachActionsMixin):
                 self.session_stats['messages_failed'] += 1
                 self.logger.warning(f"❌ Failed to send to @{username}: {result.error}")
             
-            # Délai entre les messages
+            # Delay between messages
             if i < len(config.recipients) - 1:
                 delay = random.randint(config.delay_min, config.delay_max)
                 self.logger.debug(f"⏳ Waiting {delay}s before next message...")
@@ -123,10 +123,10 @@ class DMOutreachWorkflow(OutreachActionsMixin):
         
         Args:
             username: Nom d'utilisateur cible
-            config: Configuration du workflow
+                config: workflow configuration
             
         Returns:
-            DMOutreachResult avec le statut
+                DMOutreachResult carrying the status
         """
         result = DMOutreachResult(
             username=username,
@@ -135,7 +135,7 @@ class DMOutreachWorkflow(OutreachActionsMixin):
         )
         
         try:
-            # 1. Naviguer vers le profil
+            # 1. Navigate to the profile
             if not self._navigate_to_profile(username):
                 result.error = "Failed to navigate to profile"
                 return result
@@ -155,25 +155,25 @@ class DMOutreachWorkflow(OutreachActionsMixin):
                     self.session_stats['skipped_existing'] += 1
                     return result
             
-            # 4. Ouvrir la conversation DM
+            # 4. Open the DM conversation
             if not self._open_dm_conversation():
                 result.error = "Failed to open DM conversation"
                 return result
             
             time.sleep(1.5)
             
-            # 5. Préparer le message personnalisé
+            # 5. Build the personalised message
             message = self._prepare_message(username, config)
             result.message_sent = message
             
-            # 6. Envoyer le message
+            # 6. Send the message
             if not self._send_message(message):
                 result.error = "Failed to send message"
                 return result
             
             result.success = True
             
-            # 7. Retourner à l'écran principal
+            # 7. Back to the main screen
             self._go_back_to_home()
             
         except Exception as e:
@@ -184,36 +184,36 @@ class DMOutreachWorkflow(OutreachActionsMixin):
     
     def _prepare_message(self, username: str, config: DMOutreachConfig) -> str:
         """
-        Préparer le message personnalisé.
+        Build the personalised message.
         
         Args:
-            username: Nom d'utilisateur pour personnalisation
-            config: Configuration avec templates
+                username: used for personalisation
+                config: configuration holding the templates
             
         Returns:
             Message formaté
         """
-        # Choisir le template (A/B testing si variants disponibles)
+        # Pick the template (A/B testing when variants are configured)
         if config.message_variants:
             template = random.choice(config.message_variants)
         else:
             template = config.message_template
         
-        # Remplacer les variables
+        # Substitute the variables
         message = template.replace("{username}", username)
-        message = message.replace("{name}", username)  # Fallback si pas de nom
+        message = message.replace("{name}", username)  # Fallback when no name is available
         
         return message
     
     def _get_final_results(self, error: str = "") -> Dict[str, Any]:
         """
-        Compiler les résultats finaux du workflow.
+        Compile the final workflow results.
         
         Args:
             error: Message d'erreur optionnel
             
         Returns:
-            Dict avec toutes les statistiques
+                Dict of every statistic
         """
         return {
             'success': error == "",
@@ -239,5 +239,5 @@ class DMOutreachWorkflow(OutreachActionsMixin):
         }
     
     def get_session_stats(self) -> Dict[str, int]:
-        """Retourner les statistiques de session."""
+        """Session statistics."""
         return self.session_stats.copy()

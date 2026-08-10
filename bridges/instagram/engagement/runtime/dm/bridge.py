@@ -13,9 +13,9 @@ class DMRuntime(DMSenderMixin, DMConversationReaderMixin, DMInboxNavigationMixin
     """The DM capability set, composed once.
 
     Kept apart from the bridge so the mixin list has a single owner: the production
-    bridge below extends it, and the Cartography Lab binds it to an already-warm
-    device instead of re-declaring the same three mixins. Two compositions keep
-    behaving identically right up until a mixin is added to one of them.
+    bridge below extends it, and the diagnostics runtime binds it to an already-warm
+    device instead of re-declaring the same mixins. Two compositions keep behaving
+    identically right up until a mixin is added to one of them.
 
     Assembling it only requires ``device``, ``screen_width`` / ``screen_height`` and
     ``_keyboard`` — no other bridge coupling.

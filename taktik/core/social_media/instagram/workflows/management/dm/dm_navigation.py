@@ -13,11 +13,11 @@ class DMNavigationMixin:
     """Mixin: navigate to DM inbox, extract threads, open/close conversations."""
 
     def _navigate_to_dm_inbox(self) -> bool:
-        """Naviguer vers la boîte de réception DM."""
+        """Navigate to the DM inbox."""
         try:
             self.logger.debug("Navigating to DM inbox...")
             
-            # Méthode 1: Cliquer sur l'onglet DM dans la tab bar (resource-id)
+            # Way 1: tap the DM tab in the tab bar (resource-id)
             direct_tab = self.device.xpath(self.dm_selectors.direct_tab)
             if direct_tab.exists:
                 direct_tab.click()
@@ -34,7 +34,7 @@ class DMNavigationMixin:
                     self.logger.debug("✅ Navigated to DM inbox via content-desc")
                     return True
             
-            # Méthode 3: Fallback avec uiautomator
+            # Way 3: uiautomator fallback
             dm_button = None
             for description in self.dm_selectors.direct_tab_content_descriptions:
                 candidate = self.device(contentDescription=description)
@@ -57,40 +57,40 @@ class DMNavigationMixin:
 
     def _get_unread_conversations(self) -> List[Conversation]:
         """
-        Récupérer les conversations avec des messages non lus.
+        Collect the conversations carrying unread messages.
         
         Returns:
-            Liste des conversations avec messages non lus
+                List of conversations with unread messages
         """
         conversations = []
         
         try:
             self.logger.debug("Checking for unread messages...")
             
-            # Naviguer vers les DM
+            # Navigate to the DM screen
             if not self._navigate_to_dm_inbox():
                 return conversations
             
             time.sleep(2)
             
-            # Chercher les indicateurs de messages non lus
-            # Les conversations non lues ont généralement un point bleu ou un style différent
+            # Look for the unread indicators
+            # Unread conversations usually carry a blue dot or a different style
             thread_list = self.device.xpath(self.dm_selectors.thread_list)
             if not thread_list.exists:
                 self.logger.debug("Thread list not found")
                 return conversations
             
-            # Parcourir les threads visibles avec le nouveau sélecteur
+            # Walk the visible threads
             threads = self.device.xpath(self.dm_selectors.thread_container).all()
             
-            for thread in threads[:10]:  # Limiter aux 10 premiers
+            for i, thread in enumerate(threads[:10]):  # Keep the first ten only
                 try:
                     # Vérifier si non lu via content-desc
                     thread_info = thread.info
                     content_desc = thread_info.get('contentDescription', '')
                     has_unread = 'non lu' in content_desc.lower() or 'unread' in content_desc.lower()
                     
-                    # Extraire le username du thread
+                    # Extract the thread username
                     username = self._extract_username_from_thread(thread)
                     if username:
                         conv = Conversation(
@@ -113,11 +113,11 @@ class DMNavigationMixin:
         return conversations
 
     def _is_presence_status(self, value: str) -> bool:
-        """Le texte est-il un STATUT de presence ("En ligne", "Active now") et non un pseudo ?
+        """Is the text a presence STATUS ("En ligne", "Active now") rather than a handle?
 
-        Le garde-fou testait `startswith("Active")` en dur : sur un telephone francais il ne
-        reconnaissait rien, et le statut etait renvoye comme nom de conversation. Les libelles
-        vivent maintenant dans la couche locale, et la comparaison normalise les deux cotes.
+        The guard used to test an English prefix in hardcoded form, so on a device in
+        another language it recognised nothing and the status was returned as the
+        conversation name. The labels now live in the locale layer, and both sides are
         """
         normalized = normalize_ui_label(value)
         if not normalized:
@@ -126,9 +126,9 @@ class DMNavigationMixin:
                    for prefix in DM_SELECTORS.presence_prefixes if prefix and prefix.strip())
 
     def _extract_username_from_thread(self, thread_element) -> Optional[str]:
-        """Extraire le username d'un élément de thread."""
+        """Extract the username from a thread element."""
         try:
-            # Méthode 1: Chercher via le resource-id spécifique
+            # Way 1: look it up by its specific resource-id
             username_elem = thread_element.child(
                 resourceId=DM_SELECTORS.thread_username_resource_id
             )
@@ -137,19 +137,19 @@ class DMNavigationMixin:
                 if username:
                     return username.strip()
             
-            # Méthode 2: Extraire depuis le content-desc du conteneur
-            # Format: "Username, non lu, Message preview, timestamp"
+            # Way 2: read it from the container content-desc
+            # Format: "Username, unread, Message preview, timestamp"
             thread_info = thread_element.info
             content_desc = thread_info.get('contentDescription', '')
             if content_desc:
-                # Le username est généralement le premier élément avant la virgule
+                # The username is the first element before the comma
                 parts = content_desc.split(',')
                 if parts:
                     username = parts[0].strip()
                     if username and not self._is_presence_status(username):
                         return username
             
-            # Méthode 3: Fallback - chercher le premier TextView
+            # Way 3: fallback, take the first TextView
             text_views = thread_element.child(**DM_SELECTORS.text_view_class_selector)
             if text_views.exists:
                 username = text_views.get_text()
@@ -162,9 +162,9 @@ class DMNavigationMixin:
         return None
 
     def _open_conversation(self, username: str) -> bool:
-        """Ouvrir une conversation spécifique."""
+        """Open one conversation."""
         try:
-            # Chercher le thread par username
+            # Find the thread by username
             thread = self.device(**DM_SELECTORS.thread_selector_for_username(username))
             if thread.exists(timeout=5):
                 thread.click()
@@ -180,11 +180,11 @@ class DMNavigationMixin:
 
     def _go_back_to_inbox(self):
         """
-        Retourner à la liste des DM en utilisant le bouton UI Instagram.
-        Évite d'utiliser device.press("back") qui peut causer des problèmes.
+        Go back to the DM list through the Instagram button.
+        Avoids device.press("back"), which leaves unpredictable states.
         """
         try:
-            # Méthode 1: Bouton back dans le header (resource-id spécifique)
+            # Way 1: back button in the header (specific resource-id)
             back_btn = self.device(resourceId=DM_SELECTORS.conversation_back_button_resource_id)
             if back_btn.exists(timeout=2):
                 back_btn.click()
@@ -192,7 +192,7 @@ class DMNavigationMixin:
                 self.logger.debug("✅ Retour via header_left_button")
                 return True
             
-            # Méthode 2: Bouton avec content-desc "Back"
+            # Way 2: button with content-desc "Back"
             for description in DM_SELECTORS.conversation_back_descriptions:
                 back_btn = self.device(description=description)
                 if back_btn.exists(timeout=2):
@@ -201,7 +201,7 @@ class DMNavigationMixin:
                     self.logger.debug("✅ Retour via description Back")
                     return True
             
-            # Méthode 3: Bouton avec content-desc "Retour"
+            # Way 3: button with content-desc "Retour"
             for description in DM_SELECTORS.conversation_back_description_contains:
                 back_btn = self.device(descriptionContains=description)
                 if back_btn.exists(timeout=2):
@@ -210,7 +210,7 @@ class DMNavigationMixin:
                     self.logger.debug("✅ Retour via description Retour")
                     return True
             
-            # Fallback: utiliser press back si aucun bouton trouvé
+            # Last resort: press back when no button was found
             self.logger.warning("Aucun bouton back UI trouvé, utilisation de press back en fallback")
             self.device.press("back")
             time.sleep(1)

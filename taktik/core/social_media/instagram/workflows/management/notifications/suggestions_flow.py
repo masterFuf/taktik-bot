@@ -1,22 +1,14 @@
-"""La zone "Suggestions" en bas de l'ecran Notifications, de bout en bout.
+"""The "Suggestions" zone at the bottom of the notifications screen, end to end.
 
-Ce que fait ce flux, et pourquoi il ne ressemble pas au follow de masse du feed :
+    reach the zone -> open the suggestion's PROFILE -> run the per-profile pipeline
+    on it -> come back to the notifications -> scroll down again -> next.
 
-    descendre jusqu'a la zone -> ouvrir LE PROFIL de la suggestion -> lui appliquer
-    le pipeline par-profil de production (extraction, qualification IA, persistance,
-    follow) -> revenir aux notifications -> redescendre -> suivante.
+The surface exposes only a display label, never the @handle, and a suggestion is an
+unknown profile: the record has to be produced, not reconciled. Hence the visit, and
+hence the cost of a target run rather than a scan.
 
-La visite n'est pas un confort. Ces surfaces (feed netego, zone suggestions) n'exposent
-que le LIBELLE affiche, jamais le @handle. Sur les notifications ordinaires ce n'etait
-pas genant : on recoit une notification de quelqu'un avec qui on a deja interagi, donc
-le profil est deja en base et le nom suffit a le retrouver. Une suggestion, elle, est un
-profil INCONNU : il n'y a rien a reconcilier, il faut produire la fiche. D'ou la visite,
-et d'ou le fait que ce mode ait le cout d'un run target et non d'un scan.
-
-Le pipeline par-profil n'est PAS reimplemente ici : il est injecte
-(``profile_pipeline``, cf. ``profile_pipeline.py``) et c'est exactement celui que
-traversent target et hashtag. Ce module ne possede que la navigation propre a cette
-surface et le sequencage de la boucle.
+The pipeline is injected (``profile_pipeline``), not reimplemented here; this module
+owns only the navigation specific to this surface and the loop sequencing.
 """
 
 from __future__ import annotations
@@ -37,22 +29,22 @@ from .suggestions_parsing import (
 
 
 class NotificationSuggestionsMixin:
-    """Mixin: lecture de la zone suggestions et visite qualifiee de ses profils."""
+    """Mixin: read the suggestions zone and run a qualified visit on its profiles."""
 
-    # Deux dumps d'affilee sans AUCUNE ligne signent la fin de la liste. Un seul ne
-    # prouve rien : un rendu en cours donne le meme resultat qu'une liste finie.
+    # Two consecutive empty dumps end the list. One proves nothing: a render in
+    # progress looks exactly like a finished list.
     _SUGGESTIONS_EMPTY_DUMP_RUNS = 2
 
-    # Pourquoi la derniere descente s'est arretee : 'reached' | 'no_suggestions_offered'
-    # | 'cap_hit'. Renseigne par reach_suggestions_zone, lu par visit_suggestions pour
-    # que le motif d'arret remonte tel quel jusqu'au front.
+    # Why the last descent stopped: 'reached' | 'no_suggestions_offered' | 'cap_hit'.
+    # Set by reach_suggestions_zone, read by visit_suggestions so the reason is
+    # reported verbatim.
     descent_outcome = "reached"
 
     # ------------------------------------------------------------------
-    # Geometrie vivante de l'ecran
+    # Live screen geometry
     # ------------------------------------------------------------------
     def _screen_height(self) -> int:
-        """Hauteur d'ecran vivante — le pas entre deux lignes en depend."""
+        """Live screen height — the step between two rows derives from it."""
         try:
             return int(self.device.info.get("displayHeight", 2400))
         except Exception:
@@ -65,10 +57,10 @@ class NotificationSuggestionsMixin:
             return 1080
 
     # ------------------------------------------------------------------
-    # Lecture
+    # Reading
     # ------------------------------------------------------------------
     def scan_suggestions(self, root=None) -> List[Dict[str, Any]]:
-        """Lignes de suggestion visibles en bas de l'ecran, avec leur etat."""
+        """Visible suggestion rows at the bottom of the screen, with their state."""
         from ....actions.atomic.interaction.profile_interaction import classify_follow_state
         from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
@@ -87,12 +79,11 @@ class NotificationSuggestionsMixin:
 
     @staticmethod
     def _row_key(row: Dict[str, Any]) -> str:
-        """Clef de deduplication d'une ligne entre deux dumps.
+        """Dedup key for a row across two dumps.
 
-        Le libelle suffit dans l'immense majorite des cas. Sans lui, on retombe sur la
-        bande verticale de la ligne : imparfait apres un scroll, mais infiniment mieux
-        que la chaine vide, qui ferait passer TOUTES les lignes sans libelle pour la
-        meme — donc une seule tentee, les autres ignorees en silence.
+        The label is enough in almost every case. Without one, the row's vertical band
+        is used: imperfect after a scroll, but an empty string would make every
+        label-less row look like the same one and silently skip all but the first.
         """
         label = (row.get("label") or "").strip()
         if label:
@@ -101,11 +92,11 @@ class NotificationSuggestionsMixin:
         return f"row@{int(top) // 50}" if top is not None else "row@?"
 
     def _report_unreadable_rows(self, rows: List[Dict[str, Any]]) -> None:
-        """Dire, une fois, qu'on n'a pas su lire des boutons.
+        """Report once that some button labels could not be read.
 
-        Un libelle de bouton illisible est un TROU DE LOCALE, pas une ligne sans
-        interet — et un ecran entier d'illisibles ressemble exactement a un ecran sans
-        suggestions. Se taire ici, c'est transformer une panne en "rien a faire".
+        An unreadable button label is a locale gap, not an uninteresting row, and a
+        screen full of them looks exactly like a screen with no suggestions. Staying
+        silent would turn a failure into "nothing to do".
         """
         unreadable = [row for row in rows if row.get("state") is None]
         if not unreadable or getattr(self, "_reported_unreadable_suggestions", False):
@@ -116,30 +107,25 @@ class NotificationSuggestionsMixin:
                             f"(locale gap?): {samples}")
 
     # ------------------------------------------------------------------
-    # Navigation propre a la zone
+    # Navigation specific to this zone
     # ------------------------------------------------------------------
     def _feed_signature(self, root) -> str:
-        """Empreinte de ce qui est affiche, pour savoir si la liste a AVANCE.
+        """Fingerprint of what is displayed, to tell whether the list moved.
 
-        Deux dumps identiques = la liste ne bouge plus : soit on est au fond, soit le
-        geste n'a pas pris. Dans les deux cas insister ne sert a rien.
+        Two identical dumps mean the list is stuck: either the bottom is reached or the
+        gesture did not take. Insisting helps in neither case.
         """
         if root is None:
             return ""
         return "|".join(f"{text}@{bounds[1]}" for _node, text, bounds in iter_text_nodes(root))
 
     def refresh_notifications_screen(self) -> bool:
-        """Ressortir puis rouvrir l'ecran d'activite, pour REPLIER la liste.
+        """Leave and re-open the activity screen to COLLAPSE the list.
 
-        Ce que montre le dump du 2026-07-27 19:55 : a l'ouverture, l'ecran tient en
-        deux blocs — les notifications du jour, un bouton « Voir plus », puis la
-        section de personnes. Celle-ci est donc a UN ou DEUX ecrans du haut.
-
-        Mais le scan qui precede tape « Voir plus » a chaque fois qu'il ne trouve plus
-        rien de neuf, pour lire l'historique : chaque appui insere une page de
-        notifications ENTRE nous et la section, et c'est ce qui transformait la
-        descente en dizaines de scrolls. Sortir et rentrer replie la liste, et rend a
-        la section sa distance d'origine.
+        On a freshly opened screen the people section sits one or two screens from the
+        top. Each "See more" tap taken by the preceding scan inserts a page of older
+        notifications between us and that section, which is what turned the descent
+        into dozens of scrolls. Leaving and coming back restores the original distance.
         """
         for _ in range(3):
             if not self._on_notifications_screen():
@@ -155,27 +141,21 @@ class NotificationSuggestionsMixin:
         return self.ensure_notifications_screen()
 
     def reach_suggestions_zone(self, max_scrolls: int = 60) -> bool:
-        """Descendre jusqu'a ce que l'en-tete "Suggestions" soit a l'ecran.
+        """Scroll down until the "Suggestions" header is on screen.
 
-        La zone vit tout en bas de l'ecran Notifications. **Sa distance depend du
-        compte, pas de nous** : un compte tres actif aligne des dizaines d'ecrans de
-        notifications avant elle. Un budget fixe de scrolls est donc le mauvais
-        critere — QA device du 2026-07-27 : huit scrolls sur un compte charge se sont
-        arretes en plein milieu de la liste et la passe est repartie sans rien faire,
-        alors que la zone existait bel et bien plus bas.
+        The distance to the zone depends on the account, not on us: an active account
+        stacks dozens of screens of notifications before it. A fixed scroll budget is
+        therefore the wrong stop criterion. The descent stops on PROGRESS instead — it
+        keeps going while the screen changes, and two identical screens in a row mean
+        the bottom. ``max_scrolls`` is only an anti-loop guard.
 
-        On s'arrete donc sur la PROGRESSION : tant que l'ecran change, on continue ;
-        deux ecrans identiques d'affilee signent le fond de liste. ``max_scrolls``
-        n'est plus qu'un garde-fou anti-boucle, pas une politique d'arret.
+        "See more" is never tapped here: it loads OLDER notifications, which insert
+        themselves between us and the zone.
 
-        On ne tape jamais "Voir plus" ici : ce bouton charge des notifications PLUS
-        ANCIENNES, qui s'inserent entre nous et la zone — on s'en eloignerait.
-
-        En sortie, ``descent_outcome`` dit POURQUOI on s'est arrete. Les trois issues
-        n'ont pas du tout le meme sens et les confondre a deja coute une QA :
-        'reached', 'no_suggestions_offered' (fond de liste atteint — la section de
-        personnes qu'Instagram sert a cet instant n'est pas celle des suggestions) et
-        'cap_hit' (garde-fou touche alors que la liste bougeait encore).
+        On exit, ``descent_outcome`` says why the descent stopped: 'reached',
+        'no_suggestions_offered' (bottom reached, and the people section served right
+        now is not the suggestions one) or 'cap_hit' (guard hit while the list was
+        still moving).
         """
         from .dump_parsing import parse_section_headers
 
@@ -200,11 +180,11 @@ class NotificationSuggestionsMixin:
             stale = stale + 1 if signature and signature == previous else 0
             if stale >= 2:
                 self.descent_outcome = "no_suggestions_offered"
-                # Nommer les sections traversees : Instagram sert au bas de cet ecran une
-                # section de personnes dont l'identite VARIE ("Suggestions" une fois,
-                # "Followers que vous ne suivez pas" une autre, rien parfois). Sans ces
-                # noms dans les logs, "pas de suggestions" est indiscernable d'une panne.
-                sections = ", ".join(repr(s) for s in seen_sections[-4:]) or "aucune"
+                # Name the sections walked through: the people section served at the
+                # bottom of this screen changes identity from one pass to the next, and
+                # without those names in the logs "no suggestions" is indistinguishable
+                # from a failure.
+                sections = ", ".join(repr(s) for s in seen_sections[-4:]) or "none"
                 self.logger.info(
                     f"Bottom of the notifications list reached after {index} scroll(s): "
                     f"Instagram is not serving a suggestions section right now "
@@ -220,15 +200,14 @@ class NotificationSuggestionsMixin:
 
     def open_suggestion_profile(self, row: Dict[str, Any],
                                 load_timeout_s: float = 8.0) -> bool:
-        """Ouvrir le profil d'une ligne de suggestion, et le PROUVER.
+        """Open a suggestion row's profile, and PROVE it.
 
-        On tape le corps de la ligne (``row_point``), pas son bouton : le libelle n'est
-        pas cliquable, mais son ancetre — la cellule de la ligne — l'est et recoit
-        l'evenement. Le bouton, lui, est une cible distincte qui ferait un follow a
-        l'aveugle sans jamais ouvrir la fiche.
+        Taps the row body (``row_point``), not its button: the label is not clickable
+        but its ancestor cell is and receives the event. The button is a separate
+        target that would follow blindly without ever opening the profile.
 
-        Le succes n'est pas "le tap est parti" mais "on est sur un profil" : c'est le
-        pipeline injecte qui le prouve, avec les signatures propres a la surface profil.
+        Success is not "the tap was sent" but "we are on a profile", which the injected
+        pipeline proves using the signatures specific to the profile surface.
         """
         pipeline = getattr(self, "profile_pipeline", None)
         if pipeline is None:
@@ -243,12 +222,11 @@ class NotificationSuggestionsMixin:
         return pipeline.wait_for_profile(timeout=load_timeout_s)
 
     def leave_suggestion_profile(self) -> bool:
-        """Revenir du profil a l'ecran Notifications.
+        """Come back from the profile to the notifications screen.
 
-        Le pipeline a pu descendre dans les posts ou ouvrir une story : plusieurs backs
-        peuvent etre necessaires. Si l'ecran ne revient toujours pas, on repasse par
-        ``ensure_notifications_screen``, qui sait relancer Instagram et re-naviguer
-        (auto-reparation deja utilisee par les actions par ligne).
+        The pipeline may have scrolled into the posts or opened a story, so several
+        back presses can be needed. If the screen still does not come back,
+        ``ensure_notifications_screen`` restarts Instagram and re-navigates.
         """
         if self._return_to_notifications(attempts=6):
             return True
@@ -264,29 +242,27 @@ class NotificationSuggestionsMixin:
                           delay_range: tuple = (4, 12),
                           on_profile: Optional[Callable[[Dict[str, Any]], None]] = None,
                           ) -> Dict[str, Any]:
-        """Visiter et qualifier les comptes proposes en bas de l'ecran Notifications.
+        """Visit and qualify the accounts offered at the bottom of the screen.
 
-        Le SEQUENCAGE (lire, ouvrir, qualifier, revenir, suivant) est celui du service
-        partage ``common/suggestion_visit`` : il est identique sur l'ecran « Decouvrir
-        des personnes », et le dupliquer ferait diverger les deux surfaces sur des
-        regles fines — deduplication par identite, erreurs dites et non sautees,
-        cadence entre deux profils. Ce module ne garde que la NAVIGATION propre a la
-        zone Notifications, exposee via l'adaptateur ci-dessous.
+        The sequencing (read, open, qualify, come back, next) belongs to the shared
+        ``common/suggestion_visit`` service, which the dedicated people screen uses
+        too; duplicating it would let the two surfaces drift on the fine rules —
+        identity dedup, errors reported rather than skipped, pacing between profiles.
+        This module keeps only the navigation, exposed through the adapter below.
         """
         if max_profiles > 0 and getattr(self, "profile_pipeline", None) is None:
-            # Refus FRANC : sans pipeline il ne resterait que le follow a l'aveugle
-            # depuis la liste, c'est-a-dire exactement ce que ce mode remplace.
+            # Hard refusal: without a pipeline only the blind follow from the list
+            # would remain, which is exactly what this mode replaces.
             self.logger.error("Suggestions visit skipped: no per-profile pipeline injected")
-            self._notify("suggestions", "failed", "Pipeline profil indisponible")
+            self._notify("suggestions", "failed", "Profile pipeline unavailable")
             return {"visited": 0, "processed": 0, "follows": 0, "filtered": 0,
                     "skipped_known": 0, "errors": 0, "attempts": 0, "scrolls": 0,
                     "skipped_follow_back": 0, "profiles": [], "stop_reason": "no_pipeline"}
 
-        self._optimize_locale()  # l'en-tete de la zone et les boutons sont du TEXTE
+        self._optimize_locale()  # the zone header and the buttons are TEXT
         if refresh_first:
-            # Le scan qui precede a DEPLIE la liste a coups de « Voir plus » : la section
-            # de personnes, qui est a un ou deux ecrans du haut sur une liste repliee, se
-            # retrouve alors des dizaines d'ecrans plus bas. Sortir et rentrer la replie.
+            # The preceding scan expanded the list with "See more", pushing the people
+            # section dozens of screens down. Leaving and coming back collapses it.
             self.refresh_notifications_screen()
         self._reported_unreadable_suggestions = False
 
@@ -298,11 +274,10 @@ class NotificationSuggestionsMixin:
 
 
 class _NotificationsSuggestionSurface(SuggestionSurface):
-    """Adaptateur : ce que la zone Notifications a de particulier, et rien d'autre.
+    """Adapter: what is specific to this zone, and nothing else.
 
-    Sa singularite est la DESCENTE — la zone vit au fond d'une liste dont la longueur
-    depend du compte, et elle n'est pas toujours servie. C'est le seul endroit ou cette
-    surface differe de « Decouvrir des personnes ».
+    Its one specificity is the DESCENT — the zone sits at the bottom of a list whose
+    length depends on the account, and it is not always served.
     """
 
     name = "notifications"
@@ -315,9 +290,9 @@ class _NotificationsSuggestionSurface(SuggestionSurface):
     def reach(self) -> bool:
         if self._wf.reach_suggestions_zone(self._max_descent_scrolls):
             return True
-        # 'no_suggestions_offered' n'est pas un echec : Instagram ne sert pas de section
-        # de suggestions a cet instant. Le confondre avec un probleme de navigation
-        # ferait chercher un bug la ou il n'y en a pas.
+        # 'no_suggestions_offered' is not a failure: no suggestions section is being
+        # served right now. Reading it as a navigation problem would send someone
+        # looking for a bug that does not exist.
         self.reach_failure_reason = self._wf.descent_outcome
         return False
 

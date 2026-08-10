@@ -4,7 +4,7 @@ These actions drive the **real production DM runtime** — the same reader / nav
 mixins under ``bridges/instagram/engagement/runtime/dm/**`` that the desktop front pilots — bound
 to the warm Lab device, so the Lab tests the EXACT prod code path step by step. (It previously
 drove ``DMAutoReplyWorkflow``, which the front no longer uses and is dead outside the Lab — so the
-Lab was validating non-prod code. Règle Cartography Lab : réutiliser la vraie fonction prod.)
+the probes were validating non-production code. Rule: reuse the real production function.)
 
 Privacy: DM body content is NEVER passed through ``logger`` calls (only counts / usernames are
 logged). ``dm.read_last_incoming`` returns the read text in its result so the tester can verify

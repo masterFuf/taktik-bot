@@ -1,19 +1,12 @@
-"""Notifications actions for Instagram compat diagnostics (Cartography Lab).
+"""Notifications actions for Instagram compat diagnostics.
 
-Atomic, single-shot probes for the modern Instagram "Notifications" surface and
-its follow-requests sub-screen, PLUS the full engagement-workflow methods.
+Atomic, single-shot probes for the "Notifications" surface and its follow-requests
+sub-screen, plus the full engagement-workflow methods. Every probe reuses a
+primitive of ``NotificationsEngagementWorkflow``; ``open_filter`` and
+``confirm_inline_request`` are plain selector probes, since the workflow does not
+drive those affordances.
 
-PROD-ALIGNED: every probe reuses a primitive of the production
-``NotificationsEngagementWorkflow`` (navigation / detection / dump parsing /
-humanized tap) — there is no Lab-only re-implementation of screen detection or
-notification classification. So a green Lab run exercises the exact code the real
-engagement workflow runs. The only exceptions are ``open_filter`` and
-``confirm_inline_request``: the production workflow does not (yet) drive those UI
-affordances, so they stay as plain selector probes of the centralized catalog.
-
-Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog
-(``social_media/instagram/ui/selectors/surfaces/notifications.py``) — no hardcoded
-resource-id / text / content-desc lives here.
+Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog.
 """
 
 import time
@@ -30,16 +23,11 @@ from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTO
 # =============================================================================
 
 def _workflow(a, p=None):
-    """Build the production NotificationsEngagementWorkflow on the warm Lab device.
+    """Build the production NotificationsEngagementWorkflow on the warm device.
 
-    No notifier / relauncher: narration + self-heal are no-ops for an isolated
-    unit probe. The Lab session already optimized the selector catalog to the
-    device language at start, so the workflow's text-only signatures (e.g. the
-    grouped follow-requests header) resolve without re-detecting per action.
-
-    When ``p`` is given, the PER-PROFILE production pipeline is attached too — the
-    same object the bridge injects, so a suggestions probe exercises the real
-    extract / qualify / follow / persist path and not a Lab-only shortcut.
+    No notifier / relauncher: narration and self-heal are no-ops for an isolated
+    probe. ``p`` attaches the per-profile pipeline, the same object the bridge
+    injects.
     """
     from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow,
@@ -51,11 +39,10 @@ def _workflow(a, p=None):
 
 
 def resolve_lab_account_id(p):
-    """Id du compte donne en parametre ``account``, ou None.
+    """Account id from the ``account`` parameter, or None.
 
-    Le Lab n'a pas de compte de session a lui. Sans ce parametre, tout ce qu'une action
-    ecrit part sous l'id par defaut — c'est-a-dire sous un autre compte. Le passer est
-    donc la condition pour que le travail fait depuis le Lab COMPTE pour le bon client.
+    Without it, everything an action writes is filed under the default id, that is
+    under another account.
     """
     account = (p.get("account") or "").strip().lstrip("@")
     if not account:
@@ -72,11 +59,10 @@ def resolve_lab_account_id(p):
 
 
 def _pipeline(a, p, session_id=None):
-    """Per-profile production pipeline, bound to the ``account`` param and a session.
+    """Per-profile pipeline bound to the ``account`` param and a session.
 
-    ``session_id`` is what attaches every follow to a real session — without it the
-    interactions land in the database belonging to nothing, so they never surface in
-    the session history nor in the figures shown to the client.
+    ``session_id`` is what attaches each follow to a session; without it the
+    interactions belong to nothing and never surface in the history.
     """
     from taktik.core.social_media.instagram.workflows.management.notifications import (
         build_notifications_profile_pipeline,
@@ -88,21 +74,19 @@ def _pipeline(a, p, session_id=None):
 
 @contextmanager
 def lab_suggestion_session(p, source):
-    """Une VRAIE session d'automatisation autour d'un run Lab.
+    """A real automation session around a diagnostics run.
 
-    Kevin veut pouvoir suivre depuis le logiciel — Lab compris — et que ce travail
-    apparaisse dans les chiffres du client. Une session par declenchement : c'est la
-    granularite honnete pour un banc de test, et elle porte son instantane `stats_*`
-    des la fin du run. Sans compte donne, pas de session : on ne va pas attribuer ce
-    travail a quelqu'un d'autre.
+    One session per trigger, carrying its ``stats_*`` snapshot once the run ends.
+    Without an account no session is opened, so the work is never attributed to
+    someone else.
     """
     from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_session import (
         suggestion_session,
     )
     account_id = resolve_lab_account_id(p)
     if not account_id:
-        logger.warning(f"Lab: aucun compte donne (parametre 'account') — "
-                       f"le run {source} ne sera rattache a aucune session")
+        logger.warning(f"No 'account' parameter given — "
+                       f"the {source} run will not be attached to any session")
     with suggestion_session(account_id, source=f"lab:{source}") as session_id:
         yield session_id
 
@@ -117,15 +101,9 @@ def _detected(label, found):
 def _tap_first(a, selectors, label):
     """Tap the FIRST element matching any selector, through the production finder.
 
-    Used only by the probes the production workflow does not drive
-    (``open_filter`` / ``confirm_inline_request``); every other probe reuses a
-    workflow primitive.
-
-    Delegates to ``_find_and_click`` — the same ordered search + humanized tap
-    (varied point inside the real bounds, centre click as fallback) every business
-    action uses. A local walk over ``device.xpath`` would have been a second
-    implementation of that search, and it also bypassed the selector tracing the
-    Lab reports on: probes tapped through it recorded 0/0 selectors.
+    Used only by the probes the workflow does not drive. Delegates to
+    ``_find_and_click`` so the ordered search, the humanized tap and the selector
+    tracing are the production ones.
     """
     ok = a.click._find_and_click(list(selectors), timeout=2)
     if ok:
@@ -287,7 +265,7 @@ def scan(a, p):
 
 # =============================================================================
 # Engagement workflow — REAL methods (scroll, username-targeting, OCR, click-in).
-# Each builds the production NotificationsEngagementWorkflow on the warm Lab device
+# Each builds the production NotificationsEngagementWorkflow on the warm device
 # (no notifier/relauncher: narration + self-heal are no-ops for an isolated unit).
 # =============================================================================
 
@@ -368,16 +346,16 @@ def expand_more(a, p):
 
 
 # =============================================================================
-# Suggestions (bas de l'ecran Notifications)
+# Suggestions (bottom of the notifications screen)
 # =============================================================================
 
 @action("notifications.scan_suggestions")
 def scan_suggestions(a, p):
-    """Lire la zone "Suggestions" en bas de l'ecran Notifications.
+    """Read the "Suggestions" zone at the bottom of the notifications screen.
 
-    Cette surface ne porte AUCUN resource-id : les lignes sont regroupees par
-    proximite verticale et l'etat du bouton est lu par la meme fonction que le
-    header profil. Descendre en bas de l'ecran avant de lancer la sonde.
+    The row and its button carry a resource-id; the fields inside do not. The button
+    state is read by the same function as the profile header. Scroll to the bottom of
+    the screen before running this probe.
     """
     rows = _workflow(a).scan_suggestions()
     if not rows:
@@ -397,10 +375,10 @@ def scan_suggestions(a, p):
 def reach_suggestions(a, p):
     """Descendre jusqu'a l'en-tete "Suggestions" (param ``max_scrolls``, 60 par defaut).
 
-    La zone vit tout en bas de l'ecran Notifications : sans cette descente, toutes
-    les sondes suivantes lisent un ecran ou la zone n'est simplement pas la. La
-    descente s'arrete sur la PROGRESSION (deux ecrans identiques = fond de liste) ;
-    ``max_scrolls`` n'est qu'un garde-fou anti-boucle.
+    The zone sits at the very bottom of the screen: without this descent, every probe
+    that follows reads a screen where the zone simply is not there. The descent stops on
+    PROGRESS — two identical screens mean the bottom — and ``max_scrolls`` is only an
+    anti-loop guard.
     """
     max_scrolls = int(p.get("max_scrolls", 60))
     ok = _workflow(a).reach_suggestions_zone(max_scrolls=max_scrolls)
@@ -412,13 +390,14 @@ def reach_suggestions(a, p):
 
 @action("notifications.open_suggestion_profile")
 def open_suggestion_profile(a, p):
-    """Ouvrir le PROFIL de la premiere suggestion suivable, et le prouver.
+    """Open the PROFILE of the first followable suggestion, and prove it.
 
-    Tape le corps de la ligne (jamais son bouton), puis exige une preuve de surface
-    profil. C'est ce qui distingue ce mode du follow a l'aveugle : sans la fiche, on
-    n'a que le libelle affiche et jamais le @handle.
-    Param ``account`` (optionnel) : compte sous lequel attribuer la suite.
-    Cette sonde n'ecrit rien : elle ouvre, elle ne suit pas. Pas de session ici.
+    Taps the row body, never its button, then requires proof of the profile surface.
+    That is what separates this mode from a blind follow: without the profile there
+    is only the display label and never the @handle.
+
+    ``account`` (optional): account the follow-up is attributed to. This probe writes
+    nothing — it opens, it does not follow — so it opens no session.
     """
     wf = _workflow(a, p)
     rows = wf.scan_suggestions()
@@ -444,12 +423,13 @@ def open_suggestion_profile(a, p):
 
 @action("notifications.qualify_suggestion_profile")
 def qualify_suggestion_profile(a, p):
-    """Appliquer le pipeline par-profil au profil DEJA ouvert a l'ecran.
+    """Run the per-profile pipeline on the profile ALREADY open on screen.
 
-    Extraction (bio, photo, stats), qualification IA si un service est branche,
-    filtres, follow et ecritures DB — la meme fonction que target/hashtag.
-    Params : ``account`` (attribution), ``username`` (force le handle si la lecture
-    d'ecran echoue).
+    Extraction, AI qualification when a service is wired, filters, follow and DB
+    writes — the same function the target and hashtag runs use.
+
+    Params: ``account`` (attribution), ``username`` (forces the handle when the
+    on-screen read fails).
     """
     with lab_suggestion_session(p, "qualify_profile") as session_id:
         pipeline = _pipeline(a, p, session_id)
@@ -474,7 +454,7 @@ def qualify_suggestion_profile(a, p):
 
 @action("notifications.leave_suggestion_profile")
 def leave_suggestion_profile(a, p):
-    """Revenir du profil vers l'ecran Notifications (backs bornes + auto-reparation)."""
+    """Go back from the profile to the notifications screen (bounded backs + self-heal)."""
     ok = _workflow(a).leave_suggestion_profile()
     msg = ("notifications.leave_suggestion_profile: retour aux notifications" if ok
            else "notifications.leave_suggestion_profile: ecran notifications non retrouve")
@@ -486,8 +466,8 @@ def leave_suggestion_profile(a, p):
 def visit_suggestions(a, p):
     """Boucle complete : descendre -> ouvrir -> qualifier -> follow -> revenir -> suivante.
 
-    Params : ``max`` (profils, 1 par defaut), ``max_descent_scrolls`` (garde-fou de
-    la descente), ``max_scrolls`` (scroll DANS la zone), ``account``.
+    Params: ``max`` (profiles, 1 by default), ``max_descent_scrolls`` (descent guard),
+    ``max_scrolls`` (scrolling INSIDE the zone), ``account``.
     """
     max_profiles = int(p.get("max", 1))
     with lab_suggestion_session(p, "notifications") as session_id:
@@ -497,8 +477,8 @@ def visit_suggestions(a, p):
             max_profiles=max_profiles,
             max_scrolls=int(p.get("max_scrolls", 8)),
             max_descent_scrolls=int(p.get("max_descent_scrolls", 60)),
-            # Depuis le Lab, on teste la zone sur l'ecran ou l'operateur s'est place :
-            # replier la liste le ferait repartir du haut. En production c'est l'inverse.
+            # A probe tests the zone on the screen the operator navigated to, so the
+            # list is not collapsed here — production does the opposite.
             refresh_first=str(p.get("refresh_first", "")).lower() in ("1", "true", "oui"),
             delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
         )

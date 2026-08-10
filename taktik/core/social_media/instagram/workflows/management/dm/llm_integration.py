@@ -13,15 +13,15 @@ class DMLLMIntegrationMixin:
     """Mixin: LLM context building, OpenRouter API call, response cleaning, message filtering."""
 
     def _message_matches_filters(self, message: str, config: DMAutoReplyConfig) -> bool:
-        """Vérifier si le message passe les filtres."""
+        """Does the message pass the filters?"""
         message_lower = message.lower()
         
-        # Ignorer si contient des mots-clés à ignorer
+        # Skip when it carries an ignore keyword
         for keyword in config.ignore_keywords:
             if keyword.lower() in message_lower:
                 return False
         
-        # Si des mots-clés de réponse sont définis, vérifier leur présence
+        # When reply keywords are configured, require one of them
         if config.respond_only_keywords:
             for keyword in config.respond_only_keywords:
                 if keyword.lower() in message_lower:
@@ -31,14 +31,14 @@ class DMLLMIntegrationMixin:
         return True
 
     def _build_conversation_context(self, username: str, config: DMAutoReplyConfig) -> str:
-        """Construire le contexte de conversation pour le LLM."""
+        """Build the conversation context for the LLM."""
         context_parts = []
         
-        # Ajouter le contexte business
+        # Add the business context
         if config.business_context:
             context_parts.append(f"Business context: {config.business_context}")
         
-        # Ajouter la persona
+        # Add the persona
         if config.persona_name:
             context_parts.append(f"You are responding as: {config.persona_name}")
         if config.persona_description:
@@ -62,11 +62,11 @@ class DMLLMIntegrationMixin:
         config: DMAutoReplyConfig
     ) -> Optional[str]:
         """
-        Générer une réponse via OpenRouter LLM.
+        Generate a reply through the LLM provider.
         
         Args:
             message: Message reçu
-            context: Contexte de la conversation
+                context: conversation context
             config: Configuration
             
         Returns:
@@ -75,7 +75,7 @@ class DMLLMIntegrationMixin:
         try:
             self.logger.debug(f"Generating reply with LLM ({len(message)} chars incoming)...")
             
-            # Construire les messages pour l'API OpenRouter
+            # Build the messages for the OpenRouter API
             messages = [
                 {"role": "system", "content": config.system_prompt},
                 {"role": "user", "content": f"{context}\n\nUser message: {message}\n\nYour reply (keep it natural and concise):"}
@@ -101,7 +101,7 @@ class DMLLMIntegrationMixin:
                 choice = data.get("choices", [{}])[0]
                 reply = choice.get("message", {}).get("content", "").strip()
                 
-                # Nettoyer la réponse
+                # Clean the reply
                 reply = self._clean_llm_response(reply)
                 
                 self.logger.debug(f"LLM generated ({len(reply)} chars)...")
@@ -120,8 +120,8 @@ class DMLLMIntegrationMixin:
             return None
 
     def _clean_llm_response(self, response: str) -> str:
-        """Nettoyer la réponse du LLM."""
-        # Supprimer les préfixes courants
+        """Clean the LLM reply."""
+        # Drop the common prefixes
         prefixes_to_remove = [
             "Your reply:",
             "Reply:",
@@ -133,7 +133,7 @@ class DMLLMIntegrationMixin:
             if response.startswith(prefix):
                 response = response[len(prefix):].strip()
         
-        # Supprimer les guillemets encadrants
+        # Drop the surrounding quotes
         if response.startswith('"') and response.endswith('"'):
             response = response[1:-1]
         

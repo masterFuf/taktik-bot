@@ -12,7 +12,7 @@ def emit_notif_error(error: str, *, flush: bool = False) -> None:
 
 
 def emit_notif_step(*, step: str, status: str, message: str = "", **extra) -> None:
-    """Per-step live narration for the desktop Taktik Agent panel."""
+    """Per-step live narration emitted to the front."""
     emit_notif_json(
         {"type": "notification_step", "step": step, "step_status": status,
          "message": message, **extra},

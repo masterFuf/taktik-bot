@@ -152,8 +152,8 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
 
                     logger.info(f"Opening conversation: {username}")
                     # Tap the row's TEXT area, not the left avatar: tapping the avatar opens the
-                    # user's STORY (when they have an unseen-story ring) instead of the conversation
-                    # (seen device-side on Fabrice -> "Could not open").
+                    # user's STORY (when they have an unseen-story ring) instead of the
+                    # conversation, and the open fails.
                     if not tap_element_human(self.device, thread, logger=logger, x_min_frac=0.25):
                         thread.click()
                     time.sleep(2)

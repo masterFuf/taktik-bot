@@ -1,15 +1,13 @@
-"""Qualification IA pour le bridge Notifications.
+"""AI qualification for the notifications bridge.
 
-La visite des suggestions applique le pipeline par-profil de production, et dans ce
-pipeline la qualification IA n'est pas un appel explicite : elle est installee par
-``install_instagram_ai_hooks``, qui patche
-``InteractionEngineMixin._perform_interactions_on_profile``. Traverser le pipeline
-suffit donc a la declencher — a condition qu'un service IA ait ete injecte.
+Qualification is not an explicit call in the per-profile pipeline: it is installed
+by ``install_instagram_ai_hooks``, which patches
+``InteractionEngineMixin._perform_interactions_on_profile``. Walking the pipeline
+is therefore enough to trigger it, provided a service was injected.
 
-Sans config IA, la visite reste utile (extraction, persistance, follow) mais les
-profils ne sont pas qualifies. Ce module le DIT dans les logs : une qualification
-absente ressemble sinon a une qualification vide, et c'est la meme chose vue de la
-base.
+Without an AI config the visit still extracts, persists and follows, but profiles
+are not qualified — and this module says so in the logs, because a missing
+qualification is indistinguishable from an empty one once stored.
 """
 
 from __future__ import annotations
@@ -21,10 +19,10 @@ from bridges.instagram.runtime.ipc import _ipc, logger
 
 
 def _log(level: str, message: str) -> None:
-    """Adaptateur de log pour le coeur : stderr/loguru, jamais stdout.
+    """Log adapter for the core: stderr/loguru, never stdout.
 
-    stdout est reserve au contrat JSON du bridge Notifications
-    (``notification_step`` / ``result``) ; y ajouter la narration IA le polluerait.
+    stdout carries the bridge's JSON contract (``notification_step`` / ``result``);
+    adding narration there would corrupt it.
     """
     getattr(logger, level if level in ("info", "warning", "error", "debug") else "info")(
         f"[NOTIF-AI] {message}"
@@ -33,10 +31,10 @@ def _log(level: str, message: str) -> None:
 
 def install_notifications_ai_hooks(*, ai_config: dict | None, device: Any,
                                    language: str = "en") -> bool:
-    """Installer la qualification IA du pipeline par-profil. Retourne True si active.
+    """Install the per-profile pipeline's AI qualification. True when active.
 
-    Best-effort : une IA indisponible ne doit jamais faire echouer la passe — on
-    l'annonce et on continue sans qualification.
+    Best-effort: an unavailable service must never fail the pass — it is announced
+    and the run continues without qualification.
     """
     ai_config = ai_config or {}
     if not ai_config:
@@ -65,7 +63,7 @@ def install_notifications_ai_hooks(*, ai_config: dict | None, device: Any,
             log=_log,
         )
         return True
-    except Exception as exc:  # noqa: BLE001 — jamais fatal
+    except Exception as exc:  # noqa: BLE001 — never fatal
         logger.warning(f"[NOTIF-AI] Installation des hooks IA impossible: {exc}")
         return False
 

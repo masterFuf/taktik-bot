@@ -80,20 +80,20 @@ def _refresh_own_account(bridge: NotificationsBridge, account_username: str | No
 def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profiles: int,
                            account_username: str | None, ai_config: dict | None,
                            language: str) -> dict:
-    """Visiter et qualifier ``max_profiles`` comptes suggeres.
+    """Visit and qualify ``max_profiles`` suggested accounts.
 
-    Chaque suggestion est un profil INCONNU : la surface n'affiche que son libelle, pas
-    son @handle. On ouvre donc sa fiche et on lui applique le pipeline par-profil de
-    production — extraction, qualification IA, filtres, follow, ecritures DB — comme le
-    fait un run target. Les follows sont ecrits par ce pipeline sous le VRAI handle, il
-    n'y a donc plus rien a enregistrer ici.
+    Every suggestion is an UNKNOWN profile: the surface shows a display label, never
+    the @handle. The profile is therefore opened and run through the per-profile
+    pipeline, exactly like a target run. That pipeline writes the follows under the
+    real handle, so nothing is recorded here.
     """
     result = {"visited": 0, "processed": 0, "follows": 0, "filtered": 0, "errors": 0,
               "profiles": [], "stop_reason": "disabled", "ai_qualification": False}
     account_id = resolve_account_id(account_username or "")
     if account_id is None:
-        # Refus FRANC : sans compte resolu, les follows partiraient sous l'id par defaut,
-        # c'est-a-dire sous un autre compte, dans la table que lisent les plafonds du jour.
+        # Hard refusal: without a resolved account the follows would go under the
+        # default id, that is under another account, in the very table the daily caps
+        # read.
         result["stop_reason"] = "no_account"
         logger.warning("[NOTIF] No account resolved: suggestions visit skipped")
         emit_notif_step(step="suggestions", status="failed",
@@ -104,10 +104,9 @@ def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profile
         ai_config=ai_config, device=bridge.device, language=language,
     )
 
-    # UNE session pour toute la passe, repli compris. Sans elle, les follows partent en
-    # base sans `session_id` : ils existent, mais n'appartiennent a aucune session —
-    # donc ils ne remontent ni dans l'historique, ni dans l'instantane `stats_*`, ni
-    # dans ce qu'on montre au client. C'est precisement le chiffre qu'on veut produire.
+    # ONE session for the whole pass, fallback included. Without it the follows are
+    # written with no `session_id`: they exist but belong to no session, so they never
+    # surface in the history nor in the `stats_*` snapshot.
     with suggestion_session(account_id, source="notifications") as session_id:
         result["session_id"] = session_id
         _run_visit_with_session(bridge, workflow, result, account_id=account_id,
@@ -117,7 +116,7 @@ def _run_suggestions_visit(bridge: NotificationsBridge, workflow, *, max_profile
 
 def _run_visit_with_session(bridge: NotificationsBridge, workflow, result: dict, *,
                             account_id: int, session_id, max_profiles: int) -> None:
-    """La passe elle-meme, une fois la session ouverte."""
+    """The pass itself, once the session is open."""
     workflow.profile_pipeline = bridge.build_profile_pipeline(
         account_id=account_id, session_id=session_id,
     )
@@ -129,10 +128,10 @@ def _run_visit_with_session(bridge: NotificationsBridge, workflow, result: dict,
                    ("visited", "processed", "follows", "filtered", "errors",
                     "profiles", "stop_reason")})
 
-    # REPLI. La section du bas de l'ecran d'activite est servie par l'algorithme : le
-    # meme compte y a montre « Suggestions », puis « Followers que vous ne suivez pas »,
-    # puis rien, dans la meme heure. Quand elle n'est pas la, on va chercher le volume
-    # sur l'ecran DEDIE « Decouvrir des personnes », avec la meme visite qualifiee.
+    # FALLBACK. The section at the bottom of the activity screen is served by the
+    # algorithm and changes identity from one pass to the next. When it is not there,
+    # the volume is fetched from the dedicated people screen, with the same qualified
+    # visit.
     remaining = max_profiles - result["visited"]
     if result["stop_reason"] == "no_suggestions_offered" and remaining > 0:
         emit_notif_step(step="suggestions", status="running",
@@ -153,11 +152,10 @@ def _run_visit_with_session(bridge: NotificationsBridge, workflow, result: dict,
 
 def _run_discover_fallback(bridge: NotificationsBridge, *, account_id: int,
                            session_id, max_profiles: int) -> dict:
-    """Aller chercher les suggestions sur l'ecran dedie « Decouvrir des personnes ».
+    """Fetch the suggestions from the dedicated people screen.
 
-    Le workflow Feed possede cette surface — et, etant un ``BaseBusinessAction``, il
-    porte deja le pipeline par-profil : rien a injecter, contrairement au workflow
-    Notifications.
+    The feed workflow owns that surface and, being a ``BaseBusinessAction``, already
+    carries the per-profile pipeline: nothing to inject here.
     """
     from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
     from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
@@ -168,10 +166,10 @@ def _run_discover_fallback(bridge: NotificationsBridge, *, account_id: int,
     from taktik.core.social_media.instagram.workflows.management.session import SessionManager
 
     try:
-        # Meme session que la zone Notifications : c'est la MEME passe d'acquisition,
-        # elle a seulement change de surface faute de suggestions servies. Le
-        # SessionManager est ce que `_get_session_id()` lit pour rattacher chaque
-        # follow — sans lui, le repli ecrirait a nouveau des interactions orphelines.
+        # Same session as the notifications zone: this is the SAME acquisition pass,
+        # it only changed surface. The SessionManager is what `_get_session_id()` reads
+        # to attach each follow; without it the fallback would write orphan
+        # interactions again.
         session_manager = SessionManager({"session_settings": {}})
         session_manager.session_id = session_id
         feed = FeedBusiness(DeviceFacade(bridge.device), session_manager=session_manager)
@@ -179,7 +177,7 @@ def _run_discover_fallback(bridge: NotificationsBridge, *, account_id: int,
         return feed.run_discover_visit_pass(
             dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG), max_profiles=max_profiles,
         )
-    except Exception as exc:  # noqa: BLE001 — le repli ne doit jamais casser le scan
+    except Exception as exc:  # noqa: BLE001 — the fallback must never break the scan
         logger.warning(f"[NOTIF] Discover people fallback failed: {exc}")
         return {"visited": 0, "processed": 0, "follows": 0, "filtered": 0,
                 "errors": 0, "profiles": [], "stop_reason": "fallback_error"}

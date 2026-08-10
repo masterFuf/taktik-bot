@@ -11,11 +11,11 @@ class OutreachActionsMixin:
     """Mixin: profile navigation, follow, DM open, message send, back to home."""
 
     def _navigate_to_dm_inbox(self) -> bool:
-        """Naviguer vers la boîte de réception DM."""
+        """Navigate to the DM inbox."""
         try:
             self.logger.debug("Navigating to DM inbox...")
             
-            # Méthode 1: Cliquer sur l'onglet DM dans la tab bar
+            # Way 1: tap the DM tab in the tab bar
             direct_tab = self.device.xpath(self.dm_selectors.direct_tab)
             if direct_tab.exists:
                 direct_tab.click()
@@ -40,12 +40,12 @@ class OutreachActionsMixin:
             return False
 
     def _navigate_to_profile(self, username: str) -> bool:
-        """Naviguer vers le profil d'un utilisateur."""
+        """Navigate to a user profile."""
         try:
             self.logger.debug(f"Navigating to profile: @{username}")
             
-            # Utiliser la recherche pour trouver le profil
-            # Cliquer sur l'onglet recherche
+            # Use search to reach the profile
+            # Tap the search tab
             for selector in self.nav_selectors.search_tab:
                 search_tab = self.device.xpath(selector)
                 if search_tab.exists:
@@ -56,14 +56,14 @@ class OutreachActionsMixin:
                 self.logger.error("Search tab not found")
                 return False
             
-            # Cliquer sur la barre de recherche
+            # Tap the search bar
             search_field = self.device(**self.dm_selectors.message_input_class_selector)
             if search_field.exists(timeout=5):
                 search_field.click()
                 time.sleep(1)
-                # Champ de RECHERCHE, pas le composer : frappe directe, sans faute de frappe
-                # (une lettre erronee momentanee deplace la liste de suggestions). Le device_id
-                # est resolu depuis le device — plus de repli vers un emulateur imaginaire.
+                # SEARCH field, not the composer: typed straight, with no typo, because a
+                # momentarily wrong letter reorders the suggestion list under the finger.
+                # The device_id is resolved from the device itself, never guessed.
                 device_id = dm_composer.resolve_device_id(
                     self.device, getattr(self.device_manager, 'device_id', None)
                 )
@@ -75,8 +75,8 @@ class OutreachActionsMixin:
                 self.logger.error("Search field not found")
                 return False
             
-            # Cliquer sur le premier résultat (compte)
-            # Chercher le compte dans les résultats
+            # Tap the first result (the account)
+            # Find the account among the results
             account_result = self.device(
                 **self.dm_selectors.account_result_selector_for_username(username)
             )
@@ -94,7 +94,7 @@ class OutreachActionsMixin:
             return False
 
     def _follow_user(self) -> bool:
-        """Suivre l'utilisateur si pas déjà suivi."""
+        """Follow the user when not already followed."""
         try:
             for selector in self.profile_selectors.follow_button:
                 follow_btn = self.device.xpath(selector)
@@ -112,17 +112,17 @@ class OutreachActionsMixin:
             return False
 
     def _has_existing_conversation(self) -> bool:
-        """Vérifier si une conversation existe déjà."""
-        # Cette méthode peut être améliorée en vérifiant l'historique des DM
-        # Pour l'instant, on retourne False (pas de vérification)
+        """Does a conversation already exist?"""
+        # Could be improved by checking the DM history; for now this always
+        # returns False (no check).
         return False
 
     def _open_dm_conversation(self) -> bool:
-        """Ouvrir la conversation DM depuis le profil."""
+        """Open the DM conversation from the profile."""
         try:
             self.logger.debug("Opening DM conversation...")
             
-            # Chercher le bouton Message sur le profil
+            # Find the Message button on the profile
             for selector in self.profile_selectors.message_button:
                 message_btn = self.device.xpath(selector)
                 if message_btn.exists:
@@ -131,7 +131,7 @@ class OutreachActionsMixin:
                     self.logger.debug("✅ DM conversation opened")
                     return True
             
-            # Fallback: chercher par texte
+            # Fallback: look it up by text
             for label in self.profile_selectors.message_button_text_labels:
                 message_btn = self.device(text=label)
                 if message_btn.exists(timeout=3):
@@ -148,19 +148,19 @@ class OutreachActionsMixin:
 
     def _send_message(self, message: str) -> bool:
         """
-        Envoyer le message dans la conversation.
+        Send the message in the conversation.
         
         Args:
-            message: Texte du message à envoyer
+                message: text to send
             
         Returns:
-            True si envoyé avec succès
+                True when sent successfully
         """
         try:
             self.logger.debug(f"Sending message ({len(message)} chars)...")
 
-            # Localisation, frappe et envoi : atomique de composer partagee. Le device_id vient
-            # du device — le repli 'emulator-5554' tapait dans un telephone hors session.
+            # Locate, type and send through the shared composer primitive. The device_id
+            # is resolved from the device itself, never defaulted.
             sent = dm_composer.send_message(
                 self.device,
                 getattr(self.device_manager, 'device_id', None),
@@ -177,14 +177,14 @@ class OutreachActionsMixin:
             return False
 
     def _go_back_to_home(self):
-        """Retourner à l'écran d'accueil."""
+        """Go back to the home screen."""
         try:
-            # Appuyer sur back plusieurs fois
+            # Press back a few times
             for _ in range(3):
                 self.device.press("back")
                 time.sleep(0.5)
             
-            # Cliquer sur l'onglet Home
+            # Tap the Home tab
             for selector in self.nav_selectors.home_tab:
                 home_tab = self.device.xpath(selector)
                 if home_tab.exists:

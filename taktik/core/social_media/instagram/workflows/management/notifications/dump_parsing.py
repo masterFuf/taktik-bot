@@ -1,11 +1,9 @@
 """Pure XML-dump parsers for the notifications surface.
 
-IG renders some activity-feed rows with a BARE ``resource-id`` (e.g.
-``activity_feed_newsfeed_story_row`` with no ``com.instagram.android:id/``
-prefix) and others fully-qualified. Matching a resource-id by SUBSTRING of the
-bare id is therefore the only robust strategy across both forms (and across IG
-versions). These helpers take an lxml root (from ``dump_hierarchy``) and return
-plain dicts, so they are unit-testable from a captured dump string.
+Resource-ids come in both a bare and a fully-qualified form, so they are matched
+by SUBSTRING of the bare id — the only strategy that resolves both. These helpers
+take an lxml root (from ``dump_hierarchy``) and return plain dicts, so they are
+unit-testable from a captured dump string.
 """
 
 from __future__ import annotations
@@ -111,18 +109,17 @@ def _find_row_control(
     """Tap center of a per-row control on the feed row for ``username``, or None.
 
     A control is any node whose ``attrs`` (e.g. ``content-desc`` and/or ``text``)
-    matches one of ``values`` EXACTLY (case-insensitive). We pair it with the target
-    row by **bounds containment**: the control's vertical center sits inside the
-    matched row's vertical band. The activity feed rows are bare on resource-ids and
-    the controls (Like / Reply) carry empty/foreign resource-ids, so bounds pairing
-    — not DOM nesting — is the robust strategy. With an empty ``username`` the first
-    row that owns a matching control is returned. Exact match avoids near-misses
-    (e.g. "Unlike button" must NOT match "Like button").
+    matches one of ``values`` EXACTLY (case-insensitive). It is paired with the target
+    row by **bounds containment**: the control's vertical center sits inside the row's
+    vertical band. Feed rows are bare on resource-ids and the controls carry empty or
+    foreign ones, so geometry — not DOM nesting — is what pairs them. With an empty
+    ``username`` the first row owning a matching control is returned. Exact match
+    avoids near-misses ("Unlike button" must NOT match "Like button").
 
-    Both sides go through ``normalize_ui_label``: the device renders "Bouton J'aime" with a
-    TYPOGRAPHIC apostrophe while the catalogue is typed with the ASCII one, so a raw exact
-    match found nothing at all — silently, since "no control on this row" is a legitimate
-    outcome that reads the same as "I could not recognise the control".
+    Both sides go through ``normalize_ui_label``: the device may render a label with a
+    typographic apostrophe where the catalogue holds the ASCII one, and a raw exact
+    match then finds nothing without raising — "no control on this row" is a legitimate
+    outcome that reads exactly the same.
     """
     wanted = {normalize_ui_label(v) for v in values if v and v.strip()}
     if not wanted:
@@ -197,10 +194,9 @@ def find_inline_like_target(
     """Tap center of the inline "Like button" on the feed row for ``username``, or None.
 
     Comment and mention rows expose a CLICKABLE node whose ``content-desc`` is the
-    localized "Like button" (empty resource-id, on the left of the row), so the
-    comment can be liked directly from the notifications feed — no click-in. Matched
-    by EXACT content-desc so the already-liked state ("Unlike button" / "Bouton Je
-    n'aime plus") never matches and we never re-unlike.
+    localized "Like button" (empty resource-id, left of the row), so the comment can
+    be liked straight from the feed with no click-in. Matched by EXACT content-desc
+    so the already-liked state never matches and a like is never undone.
     """
     return _find_row_control(root, row_bare_id, like_content_descs, username, ("content-desc",))
 

@@ -14,28 +14,28 @@ class DMReplyActionsMixin:
 
     def _get_last_incoming_message(self) -> Optional[str]:
         """
-        Récupérer le dernier message reçu dans la conversation.
+        Read the last message RECEIVED in the conversation.
         
-        IMPORTANT: Vérifie que le dernier message ne provient PAS de nous-mêmes
-        pour éviter de se répondre à soi-même.
+        IMPORTANT: checks the last message does NOT come from us, so the bot
+        never replies to itself.
         
         Returns:
-            Le texte du dernier message reçu, ou None si le dernier message
-            provient de nous ou si aucun message n'est trouvé.
+                The text of the last received message, or None when the last one
+                comes from us or no message was found.
         """
         try:
-            # Récupérer la taille de l'écran pour déterminer si message envoyé/reçu
+            # Screen size, used to tell a sent message from a received one
             screen_info = self.device.info
             screen_width = screen_info.get('displayWidth', 1080)
             
-            # Chercher les messages texte via le resource-id spécifique
+            # Find the text messages by their specific resource-id
             msg_elements = self.device(resourceId=DM_SELECTORS.message_item_resource_id)
             
             if not msg_elements.exists:
                 self.logger.debug("No text messages found in conversation")
                 return None
             
-            # Collecter tous les messages avec leur position
+            # Collect every message with its position
             all_messages = []
             for i in range(msg_elements.count):
                 try:
@@ -48,7 +48,7 @@ class DMReplyActionsMixin:
                     msg_left = bounds.get('left', 0)
                     msg_top = bounds.get('top', 0)
                     
-                    # Déterminer si le message est reçu (à gauche) ou envoyé (à droite)
+                    # Received (left) or sent (right) is decided by the horizontal position
                     # Messages reçus: position left < 50% de l'écran
                     # Messages envoyés: position left >= 50% de l'écran
                     is_received = msg_left < screen_width * 0.5
@@ -66,14 +66,14 @@ class DMReplyActionsMixin:
                 self.logger.debug("No valid messages found")
                 return None
             
-            # Trier par position (top) pour avoir l'ordre chronologique
-            # Le message le plus bas (top le plus grand) est le plus récent
+            # Sort by top position to get chronological order:
+            # the lowest message (greatest top) is the most recent
             all_messages.sort(key=lambda x: x['top'], reverse=True)
             
-            # Prendre le dernier message (le plus récent)
+            # Take the last message
             last_message = all_messages[0]
             
-            # VÉRIFICATION CRITIQUE: Si le dernier message vient de nous, ne pas répondre!
+            # CRITICAL: when the last message is ours, do not reply
             if not last_message['is_received']:
                 self.logger.warning(
                     f"⚠️ Le dernier message provient de NOUS, pas de l'interlocuteur. "
@@ -90,11 +90,11 @@ class DMReplyActionsMixin:
             return None
 
     def _send_reply(self, reply: str) -> bool:
-        """Envoyer la réponse dans la conversation."""
+        """Send the reply in the conversation."""
         try:
-            # Localisation, frappe et envoi : atomique de composer partagee (tap humanise, clavier
-            # Taktik puis set_text puis send_keys). Le device_id vient du device lui-meme — le
-            # repli 'emulator-5554' visait un telephone qui n'est pas celui de la session.
+            # Locate, type and send through the shared composer primitive (humanized tap,
+            # dedicated keyboard, then set_text and send_keys). The device_id is resolved
+            # from the device itself, never defaulted.
             return dm_composer.send_message(
                 self.device,
                 getattr(self.device_manager, 'device_id', None),
@@ -107,7 +107,7 @@ class DMReplyActionsMixin:
             return False
 
     def _save_to_history(self, username: str, incoming: str, reply: str):
-        """Sauvegarder les messages dans l'historique."""
+        """Save the messages to the history."""
         if username not in self.conversation_history:
             self.conversation_history[username] = []
         
@@ -132,7 +132,7 @@ class DMReplyActionsMixin:
             self.conversation_history[username] = self.conversation_history[username][-50:]
 
     def _get_final_results(self, error: str = "") -> Dict[str, any]:
-        """Compiler les résultats finaux."""
+        """Compile the final results."""
         avg_latency = 0
         if self.session_stats['llm_calls'] > 0:
             avg_latency = self.session_stats['total_llm_latency_ms'] // self.session_stats['llm_calls']
@@ -166,7 +166,7 @@ class DMReplyActionsMixin:
         }
 
     def get_conversation_history(self, username: str) -> List[Dict]:
-        """Récupérer l'historique d'une conversation."""
+        """Conversation history."""
         if username not in self.conversation_history:
             return []
         

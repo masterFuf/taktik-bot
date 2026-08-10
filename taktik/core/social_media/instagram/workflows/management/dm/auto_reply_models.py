@@ -9,11 +9,11 @@ from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
 
 @dataclass
 class DMAutoReplyConfig:
-    """Configuration pour le workflow de réponse automatique."""
+    """Configuration for the auto-reply workflow."""
 
     # === API Configuration ===
     openrouter_api_key: str = ""
-    # Reponse DM = generation -> modele unique lu depuis la constante centrale (jamais en dur).
+    # DM reply is generation: single model read from the central constant, never hardcoded.
     llm_model: str = MODEL_GENERATION
     
     # === Persona & Contexte ===
@@ -21,7 +21,7 @@ class DMAutoReplyConfig:
     persona_description: str = ""
     business_context: str = ""
     
-    # Prompt système pour le LLM
+    # System prompt for the LLM
     system_prompt: str = """Tu es un assistant qui répond aux messages Instagram de manière naturelle et engageante.
 Tu dois:
 - Être amical et professionnel
@@ -31,32 +31,32 @@ Tu dois:
 - Adapter ton ton au contexte de la conversation"""
     
     # === Comportement ===
-    # Intervalle de vérification des nouveaux messages (secondes)
+    # New-message polling interval (seconds)
     check_interval_min: int = 30
     check_interval_max: int = 120
     
-    # Délai avant de répondre (pour paraître humain)
+    # Delay before replying (to read as human)
     reply_delay_min: int = 5
     reply_delay_max: int = 30
     
-    # Nombre max de messages à traiter par session
+    # Max messages handled per session
     max_replies_per_session: int = 50
     
-    # Durée max de la session (minutes)
+    # Max session duration (minutes)
     session_duration_minutes: int = 60
     
     # === Filtres ===
     # Usernames à ignorer
     ignore_usernames: List[str] = field(default_factory=list)
     
-    # Mots-clés pour ignorer certains messages
+    # Keywords marking a message as ignored
     ignore_keywords: List[str] = field(default_factory=list)
     
-    # Ne répondre qu'aux messages contenant ces mots-clés (vide = tous)
+    # Only reply to messages carrying these keywords (empty = all)
     respond_only_keywords: List[str] = field(default_factory=list)
     
     # === Historique ===
-    # Nombre de messages précédents à inclure pour le contexte
+    # Number of previous messages included as context
     context_messages_count: int = 5
     
     # === Callbacks ===
@@ -68,7 +68,7 @@ Tu dois:
 
 @dataclass
 class ConversationMessage:
-    """Un message dans une conversation."""
+    """One message in a conversation."""
     sender: str  # 'me' ou username
     content: str
     timestamp: datetime
@@ -77,7 +77,7 @@ class ConversationMessage:
 
 @dataclass
 class Conversation:
-    """Une conversation DM."""
+    """One DM conversation."""
     username: str
     messages: List[ConversationMessage] = field(default_factory=list)
     has_unread: bool = False
@@ -86,7 +86,7 @@ class Conversation:
 
 @dataclass
 class AutoReplyResult:
-    """Résultat d'une réponse automatique."""
+    """Result of one automatic reply."""
     username: str
     incoming_message: str
     reply_sent: str

@@ -1,5 +1,5 @@
 """
-DM Auto Reply Workflow - Réponse automatique aux messages directs via LLM.
+DM auto-reply workflow — answering direct messages through an LLM.
 
 Internal structure (SRP split):
 - auto_reply_models.py — Dataclasses (DMAutoReplyConfig, Conversation, etc.)
@@ -34,9 +34,9 @@ class DMAutoReplyWorkflow(
     DMReplyActionsMixin
 ):
     """
-    Workflow pour répondre automatiquement aux DM via LLM.
+    Workflow answering direct messages automatically through an LLM.
     
-    Utilise OpenRouter pour générer des réponses contextuelles et naturelles.
+    Uses the provider to generate contextual, natural replies.
     """
     
     def __init__(self, device_manager, nav_actions, detection_actions):
@@ -56,7 +56,7 @@ class DMAutoReplyWorkflow(
         self.dm_selectors = DM_SELECTORS
         self.nav_selectors = NAVIGATION_SELECTORS
         
-        # État de la session
+        # Session state
         self.is_running = False
         self.session_start: Optional[datetime] = None
         
@@ -70,7 +70,7 @@ class DMAutoReplyWorkflow(
             'total_llm_latency_ms': 0
         }
         
-        # Historique des conversations pour contexte
+        # Conversation history kept as context
         self.conversation_history: Dict[str, List[ConversationMessage]] = {}
         
         # Résultats
@@ -78,13 +78,13 @@ class DMAutoReplyWorkflow(
     
     async def run_async(self, config: DMAutoReplyConfig) -> Dict[str, Any]:
         """
-        Exécuter le workflow de réponse automatique (version async).
+        Run the auto-reply workflow (async version).
         
         Args:
-            config: Configuration du workflow
+                config: workflow configuration
             
         Returns:
-            Dict avec les statistiques et résultats
+                Dict of statistics and results
         """
         self.logger.info("🤖 Starting DM Auto Reply workflow")
         
@@ -97,23 +97,23 @@ class DMAutoReplyWorkflow(
         
         try:
             while self.is_running:
-                # Vérifier les limites de session
+                # Check the session limits
                 if not self._check_session_limits(config):
                     break
                 
-                # Vérifier les nouveaux messages
+                # Check for new messages
                 unread_conversations = self._get_unread_conversations()
                 
                 for conv in unread_conversations:
                     if not self.is_running:
                         break
                     
-                    # Filtrer les conversations à ignorer
+                    # Filter out the conversations to ignore
                     if self._should_ignore_conversation(conv, config):
                         self.session_stats['messages_ignored'] += 1
                         continue
                     
-                    # Traiter la conversation
+                    # Process the conversation
                     result = await self._process_conversation(conv, config)
                     self.results.append(result)
                     
@@ -122,7 +122,7 @@ class DMAutoReplyWorkflow(
                     else:
                         self.session_stats['replies_failed'] += 1
                 
-                # Attendre avant la prochaine vérification
+                # Wait before the next check
                 wait_time = random.randint(config.check_interval_min, config.check_interval_max)
                 self.logger.debug(f"⏳ Next check in {wait_time}s...")
                 await asyncio.sleep(wait_time)
@@ -135,23 +135,23 @@ class DMAutoReplyWorkflow(
     
     def run(self, config: DMAutoReplyConfig) -> Dict[str, Any]:
         """
-        Exécuter le workflow de réponse automatique (version sync).
+        Run the auto-reply workflow (sync version).
         
         Args:
-            config: Configuration du workflow
+                config: workflow configuration
             
         Returns:
-            Dict avec les statistiques et résultats
+                Dict of statistics and results
         """
         return asyncio.run(self.run_async(config))
     
     def stop(self):
-        """Arrêter le workflow."""
+        """Stop the workflow."""
         self.logger.info("🛑 Stopping DM Auto Reply workflow...")
         self.is_running = False
     
     def _check_session_limits(self, config: DMAutoReplyConfig) -> bool:
-        """Vérifier si la session peut continuer."""
+        """Can the session keep running?"""
         # Limite de réponses
         if self.session_stats['replies_sent'] >= config.max_replies_per_session:
             self.logger.info(f"🛑 Reply limit reached ({config.max_replies_per_session})")
@@ -167,7 +167,7 @@ class DMAutoReplyWorkflow(
         return True
     
     def _should_ignore_conversation(self, conv: Conversation, config: DMAutoReplyConfig) -> bool:
-        """Vérifier si une conversation doit être ignorée."""
+        """Should this conversation be ignored?"""
         # Ignorer certains usernames
         if conv.username in config.ignore_usernames:
             self.logger.debug(f"Ignoring @{conv.username} (in ignore list)")
@@ -181,7 +181,7 @@ class DMAutoReplyWorkflow(
         config: DMAutoReplyConfig
     ) -> AutoReplyResult:
         """
-        Traiter une conversation et envoyer une réponse.
+        Process one conversation and send a reply.
         
         Args:
             conv: Conversation à traiter
@@ -199,14 +199,14 @@ class DMAutoReplyWorkflow(
         )
         
         try:
-            # 1. Ouvrir la conversation
+            # 1. Open the conversation
             if not self._open_conversation(conv.username):
                 result.error = "Failed to open conversation"
                 return result
             
             time.sleep(1.5)
             
-            # 2. Lire le dernier message
+            # 2. Read the last message
             last_message = self._get_last_incoming_message()
             if not last_message:
                 result.error = "No incoming message found"
@@ -214,7 +214,7 @@ class DMAutoReplyWorkflow(
             
             result.incoming_message = last_message
             
-            # 3. Vérifier les filtres de mots-clés
+            # 3. Check the keyword filters
             if not self._message_matches_filters(last_message, config):
                 result.error = "Message filtered out by keywords"
                 self.session_stats['messages_ignored'] += 1
@@ -224,7 +224,7 @@ class DMAutoReplyWorkflow(
             if config.on_before_reply:
                 config.on_before_reply(conv.username, last_message)
             
-            # 5. Générer la réponse via LLM
+            # 5. Generate the reply through the LLM
             context = self._build_conversation_context(conv.username, config)
             
             start_time = time.time()
@@ -250,7 +250,7 @@ class DMAutoReplyWorkflow(
             self.logger.debug(f"⏳ Waiting {delay}s before replying (human-like delay)...")
             await asyncio.sleep(delay)
             
-            # 7. Envoyer la réponse
+            # 7. Send the reply
             if not self._send_reply(reply):
                 result.error = "Failed to send reply"
                 return result
@@ -258,14 +258,14 @@ class DMAutoReplyWorkflow(
             result.success = True
             self.logger.success(f"✅ Replied to @{conv.username}")
             
-            # 8. Sauvegarder dans l'historique
+            # 8. Save to the history
             self._save_to_history(conv.username, last_message, reply)
             
             # 9. Callback après réponse
             if config.on_after_reply:
                 config.on_after_reply(conv.username, last_message, reply)
             
-            # 10. Retourner à la liste des DM (utiliser le bouton UI Instagram, pas ui automator)
+            # 10. Back to the DM list through Instagram's own button, never press('back')
             self._go_back_to_inbox()
             
         except Exception as e:

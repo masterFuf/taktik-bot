@@ -9,8 +9,8 @@ from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 # How much conversation history to capture for context. Bounded so we stay fast and never
-# loop forever on very long threads (Kevin: ~20 recent messages is enough to understand
-# the conversation). A short conversation triggers at most one extra (no-op) scroll.
+# loop forever on very long threads (~20 recent messages is enough to understand the
+# conversation). A short conversation triggers at most one extra (no-op) scroll.
 _MAX_HISTORY_MESSAGES = 20
 _MAX_HISTORY_SCROLLS = 4
 

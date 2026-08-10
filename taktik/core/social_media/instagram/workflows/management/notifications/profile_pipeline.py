@@ -1,23 +1,20 @@
-"""Le chemin de production PAR PROFIL, rendu injectable au workflow Notifications.
+"""The per-profile production path, made injectable into the notifications workflow.
 
-``NotificationsEngagementWorkflow`` est volontairement maigre : il ne connait que son
-device et ses selectors. Il n'a ni actions profil, ni acces DB, ni session. Or ouvrir
-une suggestion demande exactement ce que font deja target et hashtag : extraire
-(bio, photo, stats, langue), qualifier par l'IA, persister, puis interagir.
+``NotificationsEngagementWorkflow`` knows only its device and its selectors: no
+profile actions, no DB access, no session. Opening a suggestion needs exactly what
+the target and hashtag runs already do — extract, qualify, persist, interact.
 
-Ce module ne REIMPLEMENTE rien de tout cela. Il construit l'objet metier de
-production — ``BaseBusinessAction`` avec ses modules metier — et expose les trois
-gestes dont le workflow a besoin autour de lui :
+Nothing of that is reimplemented here. This module builds the production business
+object and exposes the three gestures the workflow needs around it:
 
-    wait_for_profile()   le tap a-t-il VRAIMENT ouvert un profil ?
-    read_username()      le @handle, que la surface des suggestions n'expose jamais
-    process()            le pipeline unique extract -> filtres -> IA -> follow -> DB
+    wait_for_profile()   did the tap really open a profile?
+    read_username()      the @handle, which the suggestions surface never exposes
+    process()            the single extract -> filters -> AI -> follow -> DB pipeline
 
-``process`` appelle ``_process_profile_on_screen``, la seule et meme fonction que
-``FollowerBusiness`` (target) et les likers utilisent. La qualification IA, elle,
-n'est pas appelee ici : elle est installee par ``install_instagram_ai_hooks``, qui
-patche ``InteractionEngineMixin._perform_interactions_on_profile`` — donc traverser
-ce pipeline suffit a la declencher des lors que le lanceur a injecte un service IA.
+``process`` calls ``_process_profile_on_screen``, the same function the target run
+uses. AI qualification is not called here: it is installed by
+``install_instagram_ai_hooks``, so walking this pipeline is enough to trigger it once
+a service has been injected.
 """
 
 from __future__ import annotations
@@ -28,13 +25,12 @@ from loguru import logger
 
 from ....actions.core.base_business.profile_processing import ProfileProcessingResult
 
-# Ce que ce run cherche : ACQUERIR. Le follow est donc certain et rien d'autre n'est
-# tente — un like ou une story sur un compte inconnu ne servirait pas l'acquisition et
-# multiplierait les gestes surveilles.
+# This run is about ACQUISITION: the follow is certain and nothing else is attempted,
+# since a like or a story on an unknown account would not serve acquisition.
 #
-# `filter_criteria` reste VIDE volontairement : la page Notifications n'expose aucun
-# reglage de filtre, et inventer des seuils ici rejetterait des suggestions en silence.
-# Un lanceur qui a de vrais criteres (scheduler, Agent) les passe dans sa config.
+# `filter_criteria` is deliberately EMPTY: this surface exposes no filter setting, and
+# inventing thresholds here would reject suggestions silently. A caller with real
+# criteria passes them in its own config.
 DEFAULT_SUGGESTION_INTERACTION_CONFIG: Dict[str, Any] = {
     "follow_percentage": 100,
     "like_percentage": 0,
@@ -44,19 +40,18 @@ DEFAULT_SUGGESTION_INTERACTION_CONFIG: Dict[str, Any] = {
     "filter_criteria": {},
 }
 
-# Provenance ecrite en base pour chaque profil traite par ce chemin. `source_type` suit
-# la nomenclature de `_process_profile_on_screen` (HASHTAG / FOLLOWER / FEED / ...).
+# Provenance written for every profile handled by this path. `source_type` follows the
+# `_process_profile_on_screen` naming (HASHTAG / FOLLOWER / FEED / ...).
 SUGGESTIONS_SOURCE_TYPE = "NOTIFICATIONS"
 SUGGESTIONS_SOURCE_NAME = "notifications_suggestions"
 
 
 class NotificationsProfilePipeline:
-    """Adaptateur mince entre le workflow Notifications et l'objet metier de production.
+    """Thin adapter between the notifications workflow and the business object.
 
-    Il ne contient AUCUNE decision : filtres, IA, interaction et ecritures DB vivent
-    tous dans ``BaseBusinessAction``. Son unique role est de fixer la provenance
-    (source_type / source_name / account_id) une fois pour toute la passe, pour que
-    l'appelant n'ait pas a la repeter a chaque profil.
+    It holds NO decision: filters, AI, interaction and DB writes all live in
+    ``BaseBusinessAction``. Its only role is to fix the provenance once for the whole
+    pass, so the caller does not repeat it per profile.
     """
 
     def __init__(
@@ -74,30 +69,29 @@ class NotificationsProfilePipeline:
         self.logger = logger.bind(module="instagram-notifications-pipeline")
 
     # ------------------------------------------------------------------
-    # Preuves d'ecran / identite
+    # Screen proof / identity
     # ------------------------------------------------------------------
     def wait_for_profile(self, timeout: float = 8.0) -> bool:
-        """A-t-on VRAIMENT atterri sur un profil ? (preuve de surface specifique)
+        """Did the tap really land on a profile?
 
-        Delegue a ``wait_for_profile_screen``, qui exige les signatures propres a la
-        surface profil (``profile_header_container`` / ``row_profile_header`` /
-        ``profile_header_full_name``) et non un motif large comme un bouton "Suivre",
-        present aussi dans le feed et sur un post. Poll, car la page se charge par le
-        reseau : une verification immediate conclurait "pas un profil" sur une simple
-        connexion lente.
+        Delegates to ``wait_for_profile_screen``, which requires the signatures
+        specific to the profile surface rather than a broad pattern such as a follow
+        button, which also exists in the feed and on a post. It polls, because the
+        page loads over the network: an immediate check would conclude "not a profile"
+        on a slow connection.
         """
         try:
             return bool(self.business.detection_actions.wait_for_profile_screen(timeout=timeout))
-        except Exception as exc:  # noqa: BLE001 — jamais fatal pour la passe
+        except Exception as exc:  # noqa: BLE001 — never fatal for the pass
             self.logger.warning(f"Profile screen check failed: {exc}")
             return False
 
     def read_username(self) -> Optional[str]:
-        """Le @handle du profil ouvert, ou None.
+        """The @handle of the opened profile, or None.
 
-        C'est LA raison d'etre de la visite : la zone suggestions n'affiche qu'un
-        libelle (souvent le nom complet), jamais le handle. Tant qu'on ne l'a pas lu,
-        il n'existe aucune clef pour ecrire ou relire ce profil en base.
+        This is what the visit exists for: the suggestions zone shows only a display
+        label, never the handle. Until it is read, there is no key to write or read
+        this profile in the database.
         """
         try:
             return self.business.detection_actions.get_username_from_profile()
@@ -111,11 +105,11 @@ class NotificationsProfilePipeline:
     def process(self, username: str) -> ProfileProcessingResult:
         """Extraction, filtres, qualification IA, interaction et persistance.
 
-        Appel direct de ``_process_profile_on_screen`` : c'est l'unique implementation
-        de ce pipeline dans le Bot, celle que target/hashtag/post-likers traversent.
-        On l'appelle ici sur l'objet metier plutot que sur ``self`` (le workflow
-        Notifications n'est pas un ``BaseBusinessAction``) — c'est le seul point de
-        contact, et il ne doit pas etre double.
+        Calls ``_process_profile_on_screen`` directly: it is the single implementation
+        of this pipeline, the one the target, hashtag and post-likers runs all walk. It
+        is called on the business object rather than on ``self``, since this workflow is
+        not a ``BaseBusinessAction`` — that is the only contact point, and it must not be
+        duplicated.
         """
         return self.business._process_profile_on_screen(
             username,
@@ -128,7 +122,7 @@ class NotificationsProfilePipeline:
 
     @property
     def account_id(self) -> Optional[int]:
-        """Compte sous lequel les follows seront ecrits."""
+        """Account the follows will be written under."""
         try:
             return self.business._get_account_id()
         except Exception:  # noqa: BLE001
@@ -146,19 +140,18 @@ def build_notifications_profile_pipeline(
     source_type: str = SUGGESTIONS_SOURCE_TYPE,
     source_name: str = SUGGESTIONS_SOURCE_NAME,
 ) -> NotificationsProfilePipeline:
-    """Construire le pipeline de production sur un device deja connecte.
+    """Build the production pipeline on an already-connected device.
 
-    ``device`` accepte aussi bien le device uiautomator2 brut (ce que passe le bridge)
-    qu'un ``DeviceFacade`` deja construit (ce que passe le Lab sur sa session chaude) :
-    on n'empile jamais deux facades l'une sur l'autre.
+    ``device`` accepts both the raw uiautomator2 device and an existing
+    ``DeviceFacade``, so two facades are never stacked on one another.
 
-    Sans ``session_manager`` injecte, on en cree un : c'est lui qui porte l'humeur
-    d'humanisation partagee et le compteur de follows de session que ``_do_follow``
-    incremente. Sans lui, ce compteur — donc le plafond de session — resterait mort.
+    Without an injected ``session_manager`` one is created: it carries the shared
+    humanization mood and the session follow counter that ``_do_follow`` increments.
+    Without it that counter, and therefore the session cap, would stay dead.
 
-    ``session_id`` est l'id d'une session PERSISTEE ouverte par l'appelant. C'est lui
-    qui rattache chaque follow a une session, donc aux chiffres montres au client :
-    sans lui les interactions existent en base sans appartenir a rien.
+    ``session_id`` is the id of a persisted session opened by the caller. It is what
+    attaches each follow to a session; without it the interactions exist in the
+    database without belonging to anything.
     """
     from taktik.core.shared.device.facade import BaseDeviceFacade
 
@@ -181,9 +174,9 @@ def build_notifications_profile_pipeline(
         init_business_modules=True,
     )
     if account_id:
-        # Sans compte explicite, `BaseBusinessAction` retombe sur l'id 1 : les follows
-        # seraient ecrits sous un autre compte que celui du telephone. L'appelant de
-        # production DOIT donc resoudre le compte avant d'arriver ici.
+        # Without an explicit account, `BaseBusinessAction` falls back to id 1 and the
+        # follows would be written under an account other than the phone's. The caller
+        # MUST resolve the account before reaching this point.
         business.active_account_id = account_id
 
     return NotificationsProfilePipeline(

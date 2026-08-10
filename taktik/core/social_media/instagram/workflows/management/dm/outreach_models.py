@@ -6,22 +6,22 @@ from dataclasses import dataclass, field
 
 @dataclass
 class DMOutreachConfig:
-    """Configuration pour le workflow d'outreach DM."""
+    """Configuration for the DM outreach workflow."""
     
-    # Liste des destinataires (usernames)
+    # Recipients (usernames)
     recipients: List[str] = field(default_factory=list)
     
-    # Message à envoyer (peut contenir des variables: {username}, {name})
+    # Message to send (may contain variables: {username}, {name})
     message_template: str = ""
     
-    # Messages alternatifs pour A/B testing
+    # Alternative messages for A/B testing
     message_variants: List[str] = field(default_factory=list)
     
-    # Délais entre les messages (en secondes)
+    # Delays between messages (seconds)
     delay_min: int = 30
     delay_max: int = 120
     
-    # Limite de messages par session
+    # Message cap per session
     max_messages_per_session: int = 20
     
     # Pause longue après X messages
@@ -32,7 +32,7 @@ class DMOutreachConfig:
     # Vérifier si déjà en conversation avant d'envoyer
     skip_existing_conversations: bool = True
     
-    # Suivre avant d'envoyer le message (optionnel)
+    # Follow before sending the message (optional)
     follow_before_dm: bool = False
 
 

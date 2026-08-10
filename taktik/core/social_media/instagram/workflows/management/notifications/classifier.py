@@ -4,7 +4,7 @@ Given a notification row's concatenated text and the localized type fragments
 (``NOTIFICATION_SELECTORS.classifier_fragments``), decide the notification type
 and best-effort actor username. No device access, no selectors — pure string
 work, so it is unit-testable and shared by the engagement workflow's scan pass
-and the Cartography Lab ``notifications.scan`` probe.
+and the ``notifications.scan`` diagnostics probe.
 """
 
 from __future__ import annotations
@@ -34,11 +34,10 @@ def row_has_action(text: str) -> bool:
     return any(word in low for word in _ACTION_WORDS)
 
 
-# Trailing affordance labels (button captions) that leak into a row's concatenated
-# text and should be stripped from the DISPLAY label (FR + EN).
-# Distinct button captions only — bare words like "suivre"/"follow"/"like" are
-# intentionally excluded because they also end the type phrases ("à vous suivre",
-# "liked your photo").
+# Button captions that leak into a row's concatenated text and are stripped from
+# the DISPLAY label (FR + EN). Distinct captions only: bare words like
+# "suivre"/"follow"/"like" also end the type phrases, so removing them would
+# change the classification.
 _TRAILING_AFFORDANCES = (
     "suivre en retour", "follow back", "envoyer un message", "send a message", "send message",
     "bouton j'aime", "bouton jaime", "like button", "répondre", "repondre", "reply",
@@ -50,9 +49,9 @@ _TRUNCATION_RE = re.compile(r"(?:…|\.\.\.)\s*(?:suite|more|plus)\b", re.IGNORE
 _TRAILING_TIME_RE = re.compile(r"\b\d+\s*(?:min|mois|sem|[smhjdwy])\s*$", re.IGNORECASE)
 _TRIM_CHARS = " ·-—:•."
 
-# Glyphs that pollute extracted text: the U+FFFD replacement char (the device's
-# accessibility dump emits it for some username badges/emojis — e.g. "atelier_lc_<U+FFFD>"),
-# zero-width and bidirectional control marks. NBSP is normalized to a plain space.
+# Glyphs that pollute extracted text: the U+FFFD replacement char (the accessibility
+# dump emits it for some username badges and emojis), plus zero-width and
+# bidirectional control marks. NBSP is normalized to a plain space.
 _BAD_CHARS_RE = re.compile("[�​-‏‪-‮⁦-⁩﻿]")
 
 
@@ -70,11 +69,10 @@ _EMOJI_NOISE_RE = re.compile(r"\.{2,}|…|�")
 def longest_clean_run(text: str, min_len: int = 12) -> str:
     """Longest substring of ``text`` free of emoji-placeholder noise, or "".
 
-    The XML UI dump corrupts modern emojis into "."/"…"/"" placeholders, so a clean
-    run (e.g. the actor + type phrase, or the words around the emoji) makes a reliable
-    ``textContains`` anchor to RE-READ the node's real text via uiautomator2's element
-    API (which preserves emojis). Returns "" if no run reaches ``min_len`` (too short
-    to anchor uniquely).
+    The XML dump replaces some emojis with placeholders, so a clean run makes a
+    reliable ``textContains`` anchor to re-read the node's real text through the
+    element API. Returns "" if no run reaches ``min_len`` (too short to anchor
+    uniquely).
     """
     segments = _EMOJI_NOISE_RE.split(text or "")
     best = max((seg.strip() for seg in segments), key=len, default="")

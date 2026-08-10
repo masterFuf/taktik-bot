@@ -1,7 +1,6 @@
 """Instagram notifications engagement workflow.
 
-Drives the modern "Notifications" surface as an ENGAGEMENT flow (replacing the
-legacy NotificationsBusiness "treat-notifications-as-a-profile-source" automation):
+Drives the "Notifications" surface as an engagement flow:
 
     scan()              read + classify the activity feed (all families)
     list_requests()     enumerate pending follow requests (sub-screen)
@@ -12,14 +11,13 @@ legacy NotificationsBusiness "treat-notifications-as-a-profile-source" automatio
 
 Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog
 (language-neutral resource-ids + FR/EN locale overlay); no selector literal lives
-here (AGENTS invariant). Rows are matched in a raw XML dump by SUBSTRING of the
-bare resource-id (IG renders feed rows bare, follow-requests qualified — a bare
-substring matches both). Text classification is delegated to ``classifier``; XML
-extraction to ``dump_parsing``; per-row geometry to ``row_layout``.
+here. Rows are matched in a raw XML dump by SUBSTRING of the bare resource-id.
+Text classification is delegated to ``classifier``; XML extraction to
+``dump_parsing``; per-row geometry to ``row_layout``.
 
-Live step narration is emitted through an OPTIONAL injected ``notifier`` callback
-(Dependency Inversion: this core workflow never imports the bridge layer); it is a
-no-op when run standalone.
+Live step narration goes through an OPTIONAL injected ``notifier`` callback, so
+this core workflow never imports the bridge layer; it is a no-op when run
+standalone.
 """
 
 from __future__ import annotations
@@ -74,17 +72,14 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         self.device = device
         self.device_id = device_id
         self._notify_cb = notifier
-        # Per-profile PRODUCTION pipeline (extract -> filters -> AI -> follow -> DB),
-        # injected from the outside because this workflow deliberately owns nothing but
-        # its device and its selectors. It is what turns a suggestion — an UNKNOWN
-        # profile the surface only names by its display label — into a real record.
-        # Absent: the suggestions VISIT refuses to run rather than degrade into a blind
-        # follow from the list (cf. suggestions_flow).
+        # Per-profile pipeline (extract -> filters -> AI -> follow -> DB), injected
+        # because this workflow owns nothing but its device and its selectors. It is
+        # what turns a suggestion, named only by its display label, into a real record;
+        # without it the suggestions visit refuses to run.
         self.profile_pipeline = profile_pipeline
-        # Optional callback that restarts Instagram to a clean home state. Injected
-        # by the bridge so a per-row action can SELF-HEAL when Instagram has drifted
-        # to another screen (or was closed) since the scan — the action re-navigates
-        # from scratch instead of being "lost". DIP: the core never imports the bridge.
+        # Optional callback that restarts Instagram to a clean home state, so a per-row
+        # action can re-navigate from scratch when Instagram is no longer on the screen
+        # the scan left it on. Injected: the core never imports the bridge.
         self._relauncher = relauncher
         self.logger = logger.bind(module="instagram-notifications")
         self.selectors = NOTIFICATION_SELECTORS
@@ -99,11 +94,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     def _optimize_locale(self) -> None:
         """Detect the app language and filter selectors to it (once per run).
 
-        Mirrors every other Instagram workflow (runtime_setup / change_language):
-        the notifications/activity surface mixes language-neutral resource-ids with
-        a few TEXT-only signatures (e.g. the grouped follow-requests digest, which
-        has no resource-id). Aligning the active locale to the device makes those
-        text selectors resolve in the right language. Best-effort / non-fatal.
+        This surface mixes language-neutral resource-ids with a few TEXT-only
+        signatures, such as the grouped follow-requests digest, which has none.
+        Aligning the active locale to the device is what makes those resolve.
+        Best-effort / non-fatal.
         """
         if self._locale_ready:
             return
@@ -284,10 +278,9 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     def ensure_notifications_screen(self) -> bool:
         """Open the notifications screen (tap the activity/heart entry) if needed.
 
-        Self-healing: if the activity entry is not reachable from the current screen
-        (Instagram drifted elsewhere or was closed since the scan), restart Instagram
-        to a clean home state via the injected relauncher and retry — so a per-row
-        action triggered later still works without being "lost"."""
+        Self-healing: when the activity entry is not reachable from the current
+        screen, restart Instagram to a clean home state through the injected
+        relauncher and retry, so an action triggered later still lands."""
         if self._on_notifications_screen():
             return True
         self._notify("open_notifications", "running", "Opening notifications")
@@ -312,11 +305,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     def _open_grouped_requests(self) -> bool:
         """Open the follow-requests sub-screen by tapping the grouped digest row.
 
-        Tapping the row CENTER lands on the text and often does not trigger
-        navigation (confirmed flaky even by hand); the profile-picture cluster on
-        the LEFT is the reliable hit target. We locate the digest story row in the
-        dump (text matches the localized header) and tap its left avatar zone.
-        Falls back to the plain element click if the row bounds are unavailable.
+        The row CENTER lands on the text and often does not navigate; the
+        profile-picture cluster on the LEFT is the reliable hit target. The digest
+        row is located in the dump by its localized header text and its left avatar
+        zone is tapped. Falls back to a plain element click without row bounds.
         """
         root = self._dump_root()
         if root is not None:
@@ -394,14 +386,13 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         return rows, headers
 
     def _resolve_emoji_text(self, parsed_text: str) -> Optional[str]:
-        """Re-read a comment row's REAL text via uiautomator2's element API to recover
-        emojis the XML dump corrupted into "."/"…" placeholders.
+        """Re-read a comment row's real text through the element API to recover the
+        emojis the XML dump replaced with placeholders.
 
-        The XML hierarchy dump mangles supplementary-plane emojis; ``UiObject.get_text()``
-        (JSON-RPC) does not. We anchor on the longest clean run of the parsed text
-        (``textContains``) to find the on-screen node, then return its real text. Returns
-        None (caller keeps the dump text) if there's no usable anchor, the node isn't
-        found, or the re-read doesn't actually contain the anchor (wrong node guard).
+        ``UiObject.get_text()`` preserves what the dump loses. The longest clean run
+        of the parsed text is used as a ``textContains`` anchor to find the on-screen
+        node. Returns None — caller keeps the dump text — when there is no usable
+        anchor, the node is not found, or the re-read does not contain the anchor.
         """
         anchor = longest_clean_run(parsed_text)
         if not anchor:
@@ -423,13 +414,12 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     def _expand_one_more(self) -> bool:
         """Expand ONE not-yet-tried truncated row (reveal its full comment/mention text).
 
-        The "… more" / "… suite" expander is a ClickableSpan with NO accessibility node,
-        so its position cannot come from the dump. We take the row's REAL text-node bounds
-        (from the dump) as an OCR region and let OCR find the word's true on-screen
-        position, then tap it. Returns True if a row was tried (caller re-reads). Each row
-        is tried once (tracked by its truncated text) so a miss never loops; if the tap
-        misses and opens the post, we recover (back to the feed). No-op (returns False)
-        when OCR is unavailable — the scan keeps the truncated text.
+        The "… more" / "… suite" expander is a ClickableSpan with NO accessibility
+        node, so its position cannot come from the dump. The row's real text-node
+        bounds are used as an OCR region and OCR locates the word to tap. Returns
+        True if a row was tried (caller re-reads). Each row is tried once, tracked by
+        its truncated text, so a miss never loops; a tap that opens the post instead
+        is recovered by going back. No-op when OCR is unavailable.
         """
         root = self._dump_root()
         if root is None:
@@ -481,12 +471,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         reaches notifications already recorded on a previous scan (the feed is chronological), so we
         don't re-scrape the whole history each pass. None => read the feed fully (previous behaviour).
         """
-        # Detect the app language on the HOME feed FIRST (Instagram just launched):
-        # the bottom nav carries strong EN/FR content-desc signal there (Home/Profile/
-        # Search vs Accueil/Profil/Rechercher), whereas the notifications screen has
-        # almost none and ties FR=EN -> 'unknown'. Detecting before navigating gives a
-        # confident locale (L() then resolves the right language for the text-only
-        # follow-requests header).
+        # Detect the app language on the HOME feed, before navigating: the bottom nav
+        # carries a strong per-language content-desc signal there, whereas the
+        # notifications screen has almost none and ties to 'unknown'. A confident
+        # locale is what makes the text-only follow-requests header resolve.
         time.sleep(1.5)  # let the home feed render before detection
         self._optimize_locale()
 
@@ -557,11 +545,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                     new_unknown += 1
             if new_count:
                 stale = 0
-                # EARLY-STOP: the activity feed is chronological (newest first). Once a screen adds
-                # only notifications we already recorded on a previous scan, we've scrolled into
-                # already-scraped territory — stop after two such screens instead of re-reading the
-                # whole history (Kevin: don't re-scrape known notifications). No checker (first scan
-                # / unknown account) => read fully, as before.
+                # EARLY-STOP: the feed is chronological, newest first. Once a screen adds
+                # only notifications recorded on a previous scan, the scroll has reached
+                # already-scraped territory — stop after two such screens rather than
+                # re-read the whole history. Without a checker, read the feed fully.
                 if known_checker is not None and new_unknown == 0:
                     known_streak += 1
                     if known_streak >= 2:
