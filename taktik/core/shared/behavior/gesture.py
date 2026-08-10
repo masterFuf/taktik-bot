@@ -1,17 +1,9 @@
-"""Human gesture engine: replay real human swipe trajectories instead of straight,
-fixed, centred swipes (which are trivially fingerprintable).
+"""Swipe trajectory sampler.
 
-The calibration (`human_scroll_calibration.json`, generated from days of recorded human
-Instagram sessions) holds normalised real swipes. We bootstrap-sample a real tuple, add
-small noise, denormalise onto the target screen, then build a slightly curved multi-point
-path with an ease-in/out velocity profile and execute it via uiautomator2 `swipe_points`.
-
-Key facts learned from the real data (n=260 forward swipes), all reproduced here by
-sampling rather than hard-coding:
-  - scroll distance ≈ 17% of screen height median (NOT the old fixed 40%);
-  - the thumb starts right-of-centre (~0.61 width), never dead-centre, widely spread;
-  - real horizontal drift ≈ 5% width median (up to 15%) — swipes are diagonal, not vertical;
-  - duration ≈ 270ms median, broad.
+A normalised calibration set is bootstrap-sampled, noised, denormalised onto the target
+screen, then turned into a slightly curved multi-point path with an ease-in/out velocity
+profile. Start point, distance, drift and duration all come from the sample rather than
+from constants.
 """
 
 from __future__ import annotations
@@ -49,10 +41,10 @@ def load_calibration() -> Dict:
 
 
 def _ease(t: float) -> float:
-    """Gentle ease-in/out (smoothstep blended halfway with linear). Keeps some acceleration
-    and deceleration like a real flick, but moves promptly at the start instead of dwelling
-    near the touch-down point — a long initial dwell can be read as a tap (and would open an
-    inline feed reel)."""
+    """Gentle ease-in/out: smoothstep blended halfway with linear.
+
+    Keeps acceleration and deceleration, but leaves the touch-down point promptly — dwelling
+    there makes the gesture read as a tap."""
     return 0.5 * (t * t * (3.0 - 2.0 * t)) + 0.5 * t
 
 
@@ -122,15 +114,12 @@ def sample_swipe(
         sy = rng.uniform(lo, hi)
     else:
         sy = base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h
-    # Upper bound 0.85h: a gesture must NEVER start on the bottom navigation bar (~bottom 11% of
-    # the screen, tab bar top ≈ 0.886h). A touch-down on it — e.g. the Search/Explore tab — opens
-    # that tab (and its keyboard) instead of scrolling. 0.85h keeps the start on the media/content,
-    # clear of the nav, on every device (ratio-based). The real human start tops out ~0.83h anyway.
+    # The start must stay on the content, clear of the bottom navigation bar: a touch-down on
+    # a tab opens it instead of scrolling. Ratio-based, so it holds on every device.
     sy = min(max(sy, 0.10 * screen_h), 0.85 * screen_h)
 
-    # Vertical magnitude: sampled, or overridden, then kept within the real human envelope.
-    # Floor at ~9% screen height so a gesture always flings the feed and is never read as a
-    # tap (a short tap on an inline feed reel opens the full Reels viewer).
+    # Vertical magnitude: sampled or overridden, then kept inside the sampled envelope. The
+    # floor guarantees the gesture always moves the feed and is never read as a tap.
     sampled_dy = abs(base["ndy"]) * screen_h
     if distance_px is not None:
         dy_mag = min(max(abs(distance_px), dist_floor_h * screen_h), dist_cap_h * screen_h)
@@ -140,11 +129,8 @@ def sample_swipe(
     ey = min(max(sy + dy, 0.04 * screen_h), 0.96 * screen_h)
     actual_dy = abs(ey - sy)   # vertical room may clamp near the edges
 
-    # Horizontal drift: keep the real drift-to-distance proportion, but HARD-CAP it to 15% of
-    # the actual vertical travel so the gesture stays clearly vertical (≤ ~8.5° off axis). A
-    # too-diagonal swipe on the feed is read as a horizontal swipe — swipe-right opens the
-    # story camera (and its gallery-permission modal). A little drift stays for realism; a
-    # near-diagonal never happens.
+    # Horizontal drift keeps its sampled proportion but is hard-capped against the vertical
+    # travel, so the gesture stays clearly vertical and is never read as a sideways swipe.
     drift_ratio = base["ndx"] / (abs(base["ndy"]) or 0.17)
     dx = drift_ratio * actual_dy + rng.uniform(-0.01, 0.01) * screen_w
     max_dx = 0.15 * actual_dy
@@ -174,10 +160,11 @@ def sample_swipe(
 
 
 def sample_reading_pause(rng: Optional[random.Random] = None) -> float:
-    """A human reading pause between scroll bursts, in seconds. Bootstrapped from the real
-    **inter-scroll gaps** (`read_pause_ms`, median ≈ 6.1s, long tail to ~25s+) — the right
-    distribution for a feed-browsing rhythm. Falls back to SCREEN_CHANGE dwell (~13s) then a
-    constant if the dataset lacks them. The long tail is essential: never a constant."""
+    """Reading pause between scroll bursts, in seconds.
+
+    Bootstrapped from the calibrated inter-scroll gaps, falling back to the dwell figures and
+    then to a constant when the dataset lacks them. The long tail of the distribution is the
+    point: this is never a constant."""
     rng = rng or random
     cal = load_calibration()
     pool = cal.get("read_pause_ms") or cal.get("dwell_ms") or [6000]

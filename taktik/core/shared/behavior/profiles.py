@@ -56,7 +56,7 @@ _BALANCED = PacingProfile(
     long_break_every_min=30, long_break_every_max=50, long_break_min_s=60.0, long_break_max_s=180.0,
 )
 
-# 'natural' is the NEW DEFAULT (Kevin, 2026-06-10): the bot is already slow from real work
+# 'natural' is the default: the bot is already slow from real work
 # (UI nav, AI analysis, scrolling), so the systematic 5-15s inter-step pause was superfluous
 # and read as robotic. Near-zero inter-step delay (a tiny varied gap to avoid metronomic
 # regularity) — the small contextual `_human_like_delay` hesitations and the occasional real

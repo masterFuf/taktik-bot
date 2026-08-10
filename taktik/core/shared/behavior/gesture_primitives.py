@@ -158,9 +158,8 @@ def _touch_move_path(
 ) -> List[List[int]]:
     """Return move points whose first event immediately clears Android's touch-slop.
 
-    The first displacement varies above 3% of screen height. It is injected without a preceding
-    sleep, preventing Android from classifying the contact as a long-press while avoiding a fixed
-    slop-edge fingerprint.
+    The first displacement varies, and is injected without a preceding sleep: this keeps the
+    contact from being classified as a long-press without settling on a fixed departure.
     """
     points = [list(point) for point in path]
     if len(points) < 2:
@@ -183,19 +182,14 @@ def _touch_move_path(
     return moves
 
 
-# UiAutomator sleeps 5 ms after each injected MOVE, so once the whole path is in the device's hands
-# the DEVICE owns the cadence — against the 8-16 Hz a PC-paced path can reach (see
-# `_execute_device_path`). But that 5 ms is only the sleep: injecting the event costs more on top,
-# and how much is a property of the phone. Measured on a Pixel 3a: 18.1 ms per event, so a gesture
-# asked to last 399 ms took 1450 ms. Hence the nominal value is only a SEED — `_step_cost` learns
-# the real one from the first gesture and every gesture keeps it current.
+# Once the whole path is in the device's hands, the DEVICE owns the cadence. The per-event cost
+# is a property of the phone and sits well above the library's nominal sleep, so the value below
+# is only a SEED: `_step_cost` learns the real one from the first gesture and keeps it current.
 #
-# Two different 5 ms live here and must not be conflated. `_U2_STEP_QUANTUM` is uiautomator2's own
-# arithmetic — it derives its step count as `int(per_segment_duration / 0.005)` — so it is a fixed
-# property of the library, never a measurement. `_DEVICE_STEP_SEED` is our starting guess at what a
-# step actually COSTS, and it is deliberately not 5 ms: that figure ignores the injection entirely,
-# and the two measured phones sat far above it. A midpoint seed bounds the error on the very first
-# gesture of a session, after which the measurement takes over.
+# The two constants must not be conflated. `_U2_STEP_QUANTUM` is the library's own arithmetic for
+# deriving a step count — a fixed property, never a measurement. `_DEVICE_STEP_SEED` is the
+# starting guess at what a step actually COSTS, deliberately higher, so the error is bounded on
+# the first gesture of a session before the measurement takes over.
 _U2_STEP_QUANTUM = 0.005
 _DEVICE_STEP_SEED = 0.012
 _STEP_COST_ATTR = "_taktik_device_step_s"
@@ -216,9 +210,9 @@ def _step_cost(raw) -> float:
 def _observe_step_cost(raw, seconds_per_move: float) -> None:
     """Fold a measurement into the per-device estimate.
 
-    The first reading is taken as-is rather than blended: seeded at the nominal 5 ms, an EMA would
-    need a dozen gestures to reach a phone's real 18 ms, and every gesture until then would run
-    long. Later readings are smoothed, so one slow call cannot swing the pacing.
+    The first reading is taken as-is rather than blended: from the nominal seed, a moving average
+    would need many gestures to reach the real cost and every gesture until then would run long.
+    Later readings are smoothed, so one slow call cannot swing the pacing.
     """
     if not (seconds_per_move > 0):
         return
@@ -261,11 +255,9 @@ def _min_jerk(u: float) -> float:
     """Fraction of the distance covered at normalised time `u`, on the minimum-jerk law.
 
     The standard model of human point-to-point movement: bell-shaped velocity, at rest at both
-    ends. It buys a drag the two properties we need — it lifts at ~zero velocity (no fling, the
-    widget settles where the finger stopped) and it needs no start teleport. The RPC-paced executor
-    had to jump 3-4% of the screen on its first move to clear touch slop before Android's
-    long-press timeout, because its second move was 60ms away; here the points are 5ms apart, so
-    slop (~20-40px) falls within the first ~90ms — far inside the 500ms timeout.
+    ends. It buys a drag the two properties we need — it lifts at near-zero velocity, so the
+    widget settles where the finger stopped, and it needs no start teleport, because closely
+    spaced points clear touch slop well before the long-press timeout.
     """
     return u * u * u * (10.0 + u * (-15.0 + 6.0 * u))
 
@@ -275,11 +267,10 @@ def _resample_by_time(
 ) -> List[List[int]]:
     """Resample a polyline into `n_out` positions equally spaced in TIME, not in distance.
 
-    The device spends the same 5 ms on every segment handed to it, so the SPACING of these points
-    *is* the velocity profile: bunched = slow, spread = fast. This is the only way a shaped gesture
-    survives the trip to the phone — paced from the PC, the sampled ease-out was erased by ±50 ms
-    of transport jitter on a 60 ms budget, and the device saw a near-uniform staircase whatever we
-    computed.
+    The device spends the same time on every segment handed to it, so the SPACING of these points
+    *is* the velocity profile: bunched means slow, spread means fast. It is the only way a shaped
+    gesture survives the trip to the phone — paced from the host, transport jitter erases the
+    profile and the device sees a near-uniform staircase whatever was computed.
     """
     pts = [(float(p[0]), float(p[1])) for p in path]
     if len(pts) < 2 or n_out < 2:
@@ -294,9 +285,8 @@ def _resample_by_time(
         return [[int(round(x)), int(round(y))] for x, y in pts]
 
     # Physiological tremor: ONE slow bow across the gesture, never per-point noise. White noise at
-    # 5 ms would inject hundreds of px/s of velocity error into the slow end phase — exactly the
-    # release velocity a bottom sheet reads to decide whether to fling. A low-frequency wobble
-    # reads as a hand rather than a ruler and leaves the profile intact.
+    # Per-point noise would inject velocity error into the slow end phase, which is exactly what
+    # a sheet reads to decide whether to fling. A low-frequency wobble leaves the profile intact.
     amp = 0.0015 * max(1, screen_w)
     freq = rng.uniform(1.2, 2.6)
     phase = rng.uniform(0.0, 2.0 * math.pi)
@@ -414,9 +404,9 @@ class GestureMixin:
             dy = abs(ey - sy) or 1
             speed = min(1.50, max(0.50, float(velocity_scale)))
             scaled_vel_range = tuple(float(value) * speed for value in vel_range)
-            # Randomise the FLOOR so short flicks aren't all clamped to an identical 45ms — on a
-            # video feed most flicks are short, so a hard floor makes the duration a constant
-            # fingerprint. 45-75ms stays a decisive fling (high velocity into the lift).
+            # Randomise the FLOOR so short flicks are not all clamped to one identical value: on
+            # a video feed most flicks are short, so a hard floor turns the duration into a
+            # constant. The sampled range still lifts with enough velocity to fling.
             duration = min(
                 max(dy / random.uniform(*scaled_vel_range), random.uniform(0.045, 0.075)),
                 0.11,
@@ -450,9 +440,8 @@ class GestureMixin:
         try:
             h = int(self.screen_height)
             target = distance_px if distance_px is not None else random.uniform(0.78, 0.90) * h
-            # Start band kept ABOVE the bottom nav bar (top ≈ 0.886h): a drag whose touch-down lands
-            # on the Search/Explore tab opens it (and the keyboard) instead of scrolling. 0.78-0.85h
-            # gives the drag room to travel ~one post upward while staying clear of the nav.
+            # Start band kept above the bottom navigation bar: a touch-down on a tab opens it
+            # instead of scrolling. The band still leaves the drag room to travel upward.
             path, _ = sample_swipe(int(self.screen_width), h, direction=direction,
                                    distance_px=target, start_band=(0.78 * h, 0.85 * h),
                                    dist_cap_h=0.95)
@@ -504,21 +493,17 @@ class GestureMixin:
         Returns False when the device exposes no usable entry point, so callers keep their
         fallback. This is the default path for every gesture that must track the finger 1:1.
 
-        Why not `touch.down/move/up`: each of those is a JSON-RPC round trip, measured at 63 ms
-        median on a USB-attached Pixel 3a — and the cheapest call in the API (`getLastTraversedText`)
-        costs the same, so it is the UiAutomator bridge, not the method. Six or seven of them *are*
-        the whole gesture, so the finger position updated at 8-16 Hz where a real finger reports at
-        60-120 Hz: the content advanced in 265px teleports, an 8fps animation on a 60Hz screen, and
-        a gesture asked to last 850 ms took ~1.3 s. Sent as one path, the transport leaves the loop.
+        Why not the per-event touch API: every event is a round trip over the automation bridge,
+        and the cheapest call in the API costs the same, so the cost is the bridge and not the
+        method. Six or seven of them *are* the whole gesture, which leaves the finger position
+        updating an order of magnitude slower than a real finger reports, and the content advancing
+        in visible teleports. Sent as one path, the transport leaves the loop.
 
-        The event count comes from the device's MEASURED cost per move, not from UiAutomator's
-        nominal 5 ms sleep. On a Pixel 3a the real cost is 18.1 ms — injecting the MotionEvent
-        dominates the sleep — so a path sized for 5 ms ran 3.6x long (1450 ms for 399 ms asked).
-        Since the per-event cost is the phone's, the injection rate is capped by it whatever we do
-        (~55 Hz there); what we control is the DURATION, and honouring it is what keeps the sampled
-        velocity meaningful. 55 Hz with ~60px between events is what a real finger produces at that
-        speed anyway — the old 8 Hz was unwatchable because it fell below the display refresh, not
-        because the steps were large.
+        The event count comes from the device's MEASURED cost per move, not from the library's
+        nominal sleep. The real cost is far higher — injecting the event
+        dominates the nominal sleep, so a path sized for the nominal value runs long. The
+        injection rate is capped by the phone whatever we do; what we control is the DURATION, and
+        honouring it is what keeps the sampled velocity meaningful.
         """
         if raw is None:
             return False
@@ -552,8 +537,8 @@ class GestureMixin:
             self.logger.debug(f"device-paced path unavailable ({exc}); falling back to RPC pacing")
             return False
         elapsed = time.perf_counter() - started
-        # One round trip (~63 ms) is in there too; charging it to the events would inflate the
-        # estimate on short gestures, so subtract it before dividing.
+        # One round trip is in there too; charging it to the events would inflate the estimate on
+        # short gestures, so subtract it before dividing.
         if moves:
             _observe_step_cost(raw, max(elapsed - 0.063, 0.0) / moves)
         info["measured_ms"] = round(elapsed * 1000)
@@ -564,9 +549,8 @@ class GestureMixin:
         """Inject DOWN -> immediate MOVE -> paced path -> near-zero-velocity UP.
 
         FALLBACK ONLY — `_execute_device_path` is the normal route. Every event here costs a
-        round trip (~63 ms), so this caps out around 8-16 Hz and overshoots the requested duration
-        by 50-120%. Kept because it is the one path that works when the device exposes no
-        `swipePoints`.
+        round trip, so this path is far slower than requested. Kept because it is the one that
+        works when the device exposes no path-based entry point.
         """
         sx, sy = path[0]
         moves = _touch_move_path(path, int(self.screen_height))
