@@ -38,7 +38,7 @@ class ListDetectionMixin(BaseAction):
 
     def is_in_suggestions_section(self) -> bool:
         """
-        Détecte si on est dans la section suggestions (après la liste des vrais followers).
+        Are we in the suggestions section, past the real followers?
         Retourne True si on voit des éléments de suggestions.
         """
         return self._detect_element(
@@ -72,11 +72,11 @@ class ListDetectionMixin(BaseAction):
     
     def get_visible_followers_with_elements(self) -> List[Dict[str, Any]]:
         """
-        Récupère les followers visibles avec leurs éléments cliquables.
-        Utilisé pour le nouveau workflow d'interaction directe.
+        Read the visible followers with their clickable elements.
+        Used by the direct-interaction workflow.
         
         Returns:
-            Liste de dicts avec 'username' et 'element' (élément cliquable)
+            List of dicts with the username and its clickable element
         """
         followers = []
         
@@ -102,14 +102,14 @@ class ListDetectionMixin(BaseAction):
         return followers
 
     def get_row_follow_state(self, username: str) -> str:
-        """Relation affichee par le bouton de la LIGNE de ce follower — lue SANS ouvrir le profil.
+        """Relationship shown by the ROW button of this follower, read WITHOUT opening the profile.
 
         Returns: 'follow' | 'follow_back' | 'following' | 'requested' | 'unknown'.
-        'unknown' quand la ligne est illisible / partiellement scrollee (l'appelant retombe alors sur
-        le garde-fou au niveau profil). Chaque ligne porte exactement un username + un bouton : on
-        apparie le username a son bouton par la position verticale (le centre-Y du username tombe dans
-        la plage-Y du bouton de la meme ligne). Aucun libelle en dur : le texte est classe par
-        `classify_follow_state` via les libelles de la couche locale (memes que le header).
+        Unknown when the row is unreadable or partially scrolled, and the caller then falls back
+        on the profile-level guard. Each row carries exactly one username and one button, paired
+        by vertical position: the centre of the username falls inside the vertical range of the
+        button of the same row. No label is hardcoded: the text is classified through the
+        shared classifier, using the locale labels, the same ones as the header.
         """
         try:
             from ..interaction.profile_interaction import classify_follow_state
@@ -124,7 +124,7 @@ class ListDetectionMixin(BaseAction):
                     pass
                 return None
 
-            # centre-Y du username cible
+            # vertical centre of the target username
             target_yc = None
             for selector in self.detection_selectors.follow_list_username_selectors:
                 els = self.device.xpath(selector)
@@ -142,7 +142,7 @@ class ListDetectionMixin(BaseAction):
             if target_yc is None:
                 return 'unknown'
 
-            # le bouton de ligne dont la plage-Y contient ce centre = meme ligne
+            # the row button whose vertical range holds that centre is on the same row
             for selector in PROFILE_SELECTORS.follow_list_row_buttons:
                 els = self.device.xpath(selector)
                 if not els.exists:
@@ -158,16 +158,16 @@ class ListDetectionMixin(BaseAction):
 
     def click_follower_in_list(self, username: str) -> bool:
         """
-        Clique sur un follower spécifique dans la liste.
+        Tap a specific follower of the list.
         
         Args:
-            username: Le username du follower à cliquer
+            username: the follower to tap
             
         Returns:
             True si le clic a réussi
         """
         try:
-            # Chercher l'élément avec ce username
+            # Look for the element carrying that username
             for selector in self.detection_selectors.follow_list_username_selectors:
                 elements = self.device.xpath(selector)
                 if elements.exists:

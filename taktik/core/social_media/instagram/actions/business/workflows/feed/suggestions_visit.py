@@ -1,20 +1,18 @@
-"""Visite QUALIFIEE de l'ecran « Decouvrir des personnes ».
+"""Qualified visit of the people discovery screen.
 
-Pourquoi cet ecran en plus de la zone du bas des notifications : cette derniere est
-**servie par l'algorithme**. QA device du 2026-07-27, meme compte, meme heure : une
-fois « Suggestions », une fois « Followers que vous ne suivez pas », une fois rien.
-Une acquisition ne peut pas reposer sur une surface qui apparait quand Instagram le
-decide ; « Decouvrir des personnes » est, lui, un ecran dedie et entier.
+Why this screen on top of the zone at the bottom of the activity feed: that zone is
+**served by the algorithm** and changes identity from one pass to the next, so an
+acquisition cannot rest on it. The discovery screen is a dedicated, whole screen.
 
-Le sequencage n'est pas reecrit ici : il vient du service partage
-``common/suggestion_visit``, exactement comme la zone Notifications. Ce module ne
-possede que la navigation propre a cet ecran.
+The sequencing is not rewritten here: it comes from the shared
+``common/suggestion_visit`` service, exactly like the notifications zone. This module
+owns only the navigation specific to this screen.
 
-Difference notable avec la zone Notifications : ici la ligne porte un
-``row_recommended_user_username``. Quand ce libelle a la forme d'un vrai @handle, on
-peut savoir AVANT d'ouvrir la fiche que le profil est deja traite, et epargner la
-visite ET l'appel IA. Quand il n'en a pas la forme (IG y met souvent le nom complet),
-on visite : se tromper la couterait une cible, ce qui est pire que de repayer.
+Notable difference with the notifications zone: here the row carries a username field.
+When that label has the shape of a real handle, the profile can be known as already
+processed BEFORE opening it, sparing both the visit and the AI call. When it does not
+have that shape, the profile is visited: being wrong there would cost a target, which
+is worse than paying twice.
 """
 
 from __future__ import annotations
@@ -26,21 +24,21 @@ from taktik.core.database.instagram_workflow_state import InstagramWorkflowState
 from ..common.suggestion_visit import SuggestionSurface, visit_suggestions
 from .suggestions_parsing import followable_rows
 
-# Un @handle Instagram : lettres, chiffres, point, underscore. Un libelle qui ne rentre
-# pas dans ce moule est un nom affiche, pas une clef — on ne l'interroge pas en base.
+# An Instagram handle: letters, digits, dot, underscore. A label that does not fit
+# this mould is a display name, not a key, and is never used to query the database.
 _HANDLE_RE = re.compile(r"^[a-zA-Z0-9._]{1,30}$")
 
 
 class DiscoverSuggestionsVisitMixin:
-    """Mixin: visite qualifiee des lignes de l'ecran « Decouvrir des personnes »."""
+    """Mixin: qualified visit of the people discovery screen rows."""
 
     def open_discover_profile(self, row: Dict[str, Any], load_timeout_s: float = 8.0) -> bool:
-        """Ouvrir le profil d'une ligne, et le PROUVER.
+        """Open a row profile, and PROVE it.
 
-        On tape le NOM, pas le centre de la ligne : le bouton d'abonnement occupe la
-        partie droite, et viser le milieu ferait un follow depuis la liste — c'est-a-dire
-        exactement ce que cette visite remplace. A defaut de bounds du nom, on vise le
-        premier tiers gauche de la ligne, derive de ses bounds vivantes.
+        Taps the NAME, not the centre of the row: the follow button occupies the right
+        side, and aiming at the middle would follow from the list — which is exactly what
+        this visit replaces. Without the name bounds, it aims at the left third of the row,
+        derived from its live bounds.
         """
         bounds = row.get("name_bounds")
         if not bounds:
@@ -58,11 +56,11 @@ class DiscoverSuggestionsVisitMixin:
         return bool(self.detection_actions.wait_for_profile_screen(timeout=load_timeout_s))
 
     def leave_discover_profile(self, attempts: int = 6) -> bool:
-        """Revenir du profil vers la liste de suggestions.
+        """Come back from the profile to the suggestions list.
 
-        Le pipeline a pu descendre dans les posts ou ouvrir une story : plusieurs backs
-        peuvent etre necessaires. On tape la FLECHE de la barre d'action quand elle est
-        la — QA du 2026-07-26 : cet ecran a deja ignore `press('back')`.
+        The pipeline may have scrolled into the posts or opened a story, so several back
+        presses can be needed. The action-bar ARROW is tapped when present: this screen
+        has been seen ignoring the hardware back key.
         """
         from taktik.core.social_media.instagram.ui.selectors import NAVIGATION_SELECTORS
 
@@ -81,12 +79,12 @@ class DiscoverSuggestionsVisitMixin:
     def visit_discover_suggestions(self, config: Dict[str, Any],
                                    max_profiles: int = 5, max_scrolls: int = 15,
                                    delay_range: tuple = (4, 12)) -> Dict[str, Any]:
-        """Visiter et qualifier les comptes de l'ecran deja ouvert.
+        """Visit and qualify the accounts of the already-open screen.
 
-        Chaque profil traverse le pipeline par-profil de production — le meme que
-        target et hashtag — via ``_process_profile_on_screen``, que cette classe porte
-        deja : il n'y a donc rien a injecter ici, contrairement au workflow
-        Notifications qui n'est pas un ``BaseBusinessAction``.
+        Each profile walks the per-profile production pipeline — the same one the target
+        and hashtag runs use — through ``_process_profile_on_screen``, which this class
+        already carries. Nothing has to be injected here, unlike the notifications
+        workflow, which is not a ``BaseBusinessAction``.
         """
         return visit_suggestions(
             _DiscoverSuggestionSurface(self, config),
@@ -98,15 +96,15 @@ class DiscoverSuggestionsVisitMixin:
                                 max_carousel_scrolls: int = 12,
                                 max_scrolls: int = 15,
                                 delay_range: tuple = (4, 12)) -> Dict[str, Any]:
-        """Passe complete : accueil -> carousel -> Decouvrir des personnes -> visites -> retour.
+        """Full pass: home -> carousel -> discovery screen -> visits -> back.
 
-        Meme trajet d'entree que le follow de masse (``run_feed_suggestions_pass``) —
-        il est deja eprouve, modale contacts comprise — mais ce qui se passe une fois
-        sur l'ecran est la visite qualifiee et non un follow depuis la liste.
+        Same entry path as the bulk follow, contacts modal included, since it is already
+        proven. What happens once on the screen is the qualified visit rather than a
+        follow from the list.
 
-        Limite connue et assumee : l'entree passe par le carousel du feed, **lui aussi
-        servi par l'algorithme**. Tant qu'une entree deterministe n'est pas cablee,
-        cette passe peut rentrer bredouille — elle le dit (``stop_reason``) plutot que
+        Known and accepted limit: the entry goes through the feed carousel, itself served
+        by the algorithm. Until a deterministic entry is wired, this pass can come back
+        empty-handed, and it says so through its stop reason rather than
         de laisser croire qu'il n'y avait personne a suivre.
         """
         result = {
@@ -136,8 +134,8 @@ class DiscoverSuggestionsVisitMixin:
             config.get('suggestions_contacts_choice', 'deny')
         )
         if result['contacts_dialog'] == 'other_dialog':
-            # Une autre alerte Instagram (soft-ban, mise a jour...) : on ne la traite
-            # pas ici, et on ne visite surtout pas derriere.
+            # Another Instagram alert (restriction, update): not handled here,
+            # and certainly not visited past.
             result['stop_reason'] = 'blocked_by_dialog'
             result['returned_to_feed'] = self._return_to_feed()
             return result
@@ -160,11 +158,11 @@ class DiscoverSuggestionsVisitMixin:
 
 
 class _DiscoverSuggestionSurface(SuggestionSurface):
-    """Adaptateur : la navigation propre a « Decouvrir des personnes »."""
+    """Adapter: the navigation specific to the people discovery screen."""
 
     name = "discover_people"
 
-    # Provenance ecrite en base pour chaque profil traite par ce chemin.
+    # Provenance written for every profile handled by this path.
     SOURCE_TYPE = "SUGGESTIONS"
     SOURCE_NAME = "discover_people"
 
@@ -174,8 +172,8 @@ class _DiscoverSuggestionSurface(SuggestionSurface):
         self.reach_failure_reason = "discover_screen_lost"
 
     def reach(self) -> bool:
-        # L'ecran est deja ouvert par l'appelant ; on verifie seulement qu'on n'en est
-        # pas sorti entre deux profils (un back de trop, une modale).
+        # The screen is already open, so this only checks we did not leave it between
+        # two profiles (one back too many, a modal).
         return self._biz.is_on_discover_people_screen()
 
     def scan(self) -> List[Dict[str, Any]]:
@@ -188,11 +186,11 @@ class _DiscoverSuggestionSurface(SuggestionSurface):
         return self._biz._row_key(row)
 
     def already_known(self, row) -> bool:
-        """Le libelle designe-t-il un profil deja traite pour ce compte ?
+        """Does the label designate a profile already handled for this account?
 
-        Seulement quand il a la forme d'un @handle : IG met souvent le nom complet dans
-        ce champ, et interroger la base avec « Marie Dupont » ne repondrait rien
-        d'utile. Fail-open : la moindre incertitude fait visiter.
+        Only when it has the shape of a handle: a full name is often put in that field,
+        and querying the database with it would answer nothing useful. Fail-open: the
+        slightest doubt makes the profile visited.
         """
         label = (row.get("label") or "").strip().lstrip("@")
         if not label or not _HANDLE_RE.match(label):
@@ -202,8 +200,8 @@ class _DiscoverSuggestionSurface(SuggestionSurface):
                 label, self._biz._get_account_id(),
             )
             return bool(skippable)
-        except Exception as exc:  # noqa: BLE001 — jamais fatal
-            self._biz.logger.debug(f"Lecture 'deja traite' impossible pour @{label}: {exc}")
+        except Exception as exc:  # noqa: BLE001 — never fatal
+            self._biz.logger.debug(f"Could not read the already-handled flag for @{label}: {exc}")
             return False
 
     def open_profile(self, row) -> bool:

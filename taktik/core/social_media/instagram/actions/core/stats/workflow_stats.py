@@ -56,9 +56,9 @@ _TYPE_EXTRAS: Dict[str, Dict[str, Any]] = {
         'posts_checked': 0,
         'posts_skipped_reels': 0,
         'posts_skipped_ads': 0,
-        # Follows realises depuis le carousel de suggestions du feed ("Discover
-        # people"). Comptes aussi dans follows_made ; cette clef isole la part
-        # venue des suggestions pour le rapport de run.
+        # Follows performed from the feed suggestions carousel. They also count in the
+        # global follow counter; this key isolates the share coming from the suggestions,
+        # for the run report.
         'suggestion_follows': 0,
     },
     'notifications': {

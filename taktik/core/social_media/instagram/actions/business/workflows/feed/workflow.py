@@ -147,13 +147,13 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
 
     def interact_with_feed(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Interagir avec les utilisateurs depuis le feed.
+        Interact with users from the feed.
         
         Args:
-            config: Configuration du workflow
+            config: workflow configuration
             
         Returns:
-            Dict avec les statistiques
+            Dict of statistics
         """
         effective_config = {**self.default_config, **(config or {})}
         
@@ -164,7 +164,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             self.logger.info(f"Max interactions: {effective_config['max_interactions']}")
             self.logger.info(f"Max posts to check: {effective_config['max_posts_to_check']}")
             
-            # Naviguer vers le feed (home)
+            # Navigate to the feed
             if not self.nav_actions.navigate_to_home():
                 self.logger.error("Failed to navigate to home feed")
                 stats['errors'] += 1
@@ -172,8 +172,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             
             time.sleep(2)
 
-            # Run "suggestions seules" : on ne vient PAS engager son fil, on vient
-            # chercher le carousel de suggestions. Aucun like, aucun commentaire,
+            # Suggestions-only run: this is NOT about engaging our own feed, it is
+            # about finding the suggestions carousel. No like, no comment,
             # aucune story — on scrolle jusqu'a le trouver, on follow, on s'arrete.
             if (effective_config.get('follow_suggestions', False)
                     and effective_config.get('suggestions_only', False)):
@@ -210,7 +210,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     self.logger.warning("Could not return to home after feed stories")
                 time.sleep(1)
             
-            # Mode simplifié : liker directement les posts dans le feed
+            # Simplified mode: like the posts directly in the feed
             if effective_config.get('like_posts_directly', True):
                 self.logger.info("📱 Direct like mode: liking posts in feed")
                 
@@ -229,8 +229,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 browse_carousels = effective_config.get('browse_carousels', True)
                 min_likes = effective_config.get('min_post_likes', 0)
                 max_likes = effective_config.get('max_post_likes', 0)
-                # Ces trois reglages existaient dans le catalogue sans qu'AUCUN code ne les
-                # lise : la page pouvait les envoyer, il ne se passait rien. Ils agissent
+                # These three settings existed in the catalog without ANY code reading
+                # them: the front could send them and nothing happened. They act
                 # desormais, et restent a leurs valeurs historiques par defaut.
                 skip_reels = effective_config.get('skip_reels', False)
                 visit_author = effective_config.get('interact_with_post_author', False)
@@ -251,9 +251,9 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     )
                     self.logger.info("Ad capture: ON (sponsored posts met will be recorded)")
 
-                # Mode "follow des suggestions" : on surveille l'apparition du carousel
-                # netego pendant le scroll pour partir follow en masse depuis Discover
-                # people, puis revenir liker le feed.
+                # Suggestions-follow mode: the carousel is watched for during the scroll
+                # so the run can leave for the discovery screen, follow in bulk,
+                # then come back to the feed.
                 follow_suggestions = effective_config.get('follow_suggestions', False)
                 suggestion_passes_left = (
                     int(effective_config.get('max_suggestion_passes', 1) or 0)
@@ -284,8 +284,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         stats['posts_skipped_ads'] += 1
                         process_post = False
 
-                    # Un reel se regarde, il ne se parcourt pas : l'operateur qui coche ceci
-                    # veut engager des posts, pas se faire happer par la visionneuse.
+                    # A reel is watched, not browsed: an operator who ticks this wants to
+                    # engage posts, not be captured by the viewer.
                     if process_post and skip_reels and self._is_reel_post():
                         self.logger.debug("⏭️ Skipping reel")
                         stats['posts_skipped_reels'] = stats.get('posts_skipped_reels', 0) + 1
@@ -298,7 +298,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     feed_action = None
                     feed_reason = None
 
-                    # Filtrer par nombre de likes si configuré
+                    # Filter by like count when configured
                     if process_post and (min_likes > 0 or max_likes > 0):
                         post_metadata = self._extract_post_metadata()
                         self.logger.debug(f"🔍 Post metadata result: {post_metadata}")
@@ -321,12 +321,12 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             self.logger.debug("⚠️ Could not extract post metadata, skipping filter")
 
                     if process_post:
-                        # NB filtres de RELATION (skip qui-nous-suit / qu-on-suit) : NON applicables
-                        # ici, par conception. Le workflow Feed engage TON PROPRE fil (like/commentaire
-                        # de posts + stories du bandeau) = ton audience deja abonnee. Il ne visite
-                        # aucun profil, ne lit aucun bouton d'action, ne follow personne : il n'y a pas
+                        # RELATIONSHIP filters are NOT applicable here, by design. This workflow
+                        # engages OUR OWN feed — posts and story tray — which is our already
+                        # subscribed audience. It visits no profile, reads no action button and
+                        # follows nobody, so there is no
                         # de decision d'ACQUISITION a gater (contrairement a target/hashtag/likers).
-                        # Liker le post directement dans le feed
+                        # Like the post directly in the feed
                         liked = False
                         if random.randint(1, 100) <= effective_config.get('like_percentage', 100):
                             if self._like_current_post():
@@ -338,7 +338,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             else:
                                 self.logger.debug("Failed to like post")
 
-                        # Commenter le post (si configuré)
+                        # Comment the post when configured
                         commented = False
                         if liked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
                             if self._comment_current_post(effective_config):
@@ -348,8 +348,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                                 commented = True
 
                         if liked or commented:
-                            # Un post du fil engage EST la production de ce workflow : il ne
-                            # visite aucun profil, donc rien d'autre ne le compte.
+                            # An engaged feed post IS the output of this workflow: it visits no
+                            # profile, so nothing else counts it.
                             stats['posts_engaged'] = stats.get('posts_engaged', 0) + 1
                             self.stats_manager.increment('posts_engaged')
 
@@ -359,17 +359,17 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         else:
                             feed_action, feed_reason = 'skip', 'Non liké (probabilité)'
 
-                        # Lecture humaine du post (carousel + légende + dwell content-aware)
-                        # remplace le sleep fixe : on "passe du temps devant le post".
+                        # Human reading of the post (carousel, caption, content-aware dwell)
+                        # replaces the fixed sleep: time is actually spent in front of the post.
                         self.scroll_actions.human_reading_pause(
                             read_captions=read_captions, browse_carousels=browse_carousels
                         )
 
-                        # ACQUISITION depuis le fil (opt-in). Le workflow n'a longtemps
-                        # engage que ses propres posts ; ces deux modes le font sortir du
-                        # fil pour aller chercher des profils. Ils sont donc OFF par defaut,
-                        # et les filtres de RELATION redeviennent pertinents des qu'ils sont
-                        # actifs — contrairement au mode "j'aime mon fil", il y a ici une
+                        # ACQUISITION from the feed (opt-in). This workflow long engaged only
+                        # its own posts; these two modes take it out of the feed to go and
+                        # find profiles. They are therefore off by default, and the RELATIONSHIP
+                        # filters become relevant again as soon as they are active — unlike the
+                        # feed-liking mode, there is a
                         # vraie decision d'acquisition a gater.
                         if visit_author and post_author:
                             stats['users_interacted'] = stats.get('users_interacted', 0) + (
@@ -383,7 +383,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     if feed_action is not None:
                         IPCEmitter.emit_feed_decision(post_author, feed_action, reason=feed_reason)
 
-                    # Le carousel de suggestions est arrive a l'ecran : on part follow
+                    # The suggestions carousel reached the screen: leave to follow
                     # en masse, puis on revient poursuivre le feed la ou on en etait.
                     if suggestion_passes_left > 0 and self.has_feed_suggestions_carousel():
                         suggestion_passes_left -= 1
@@ -403,8 +403,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             self.logger.info("Could not get back to the feed - stopping")
                             break
 
-                    # Avance humaine vers le prochain VRAI post (skip pubs/suggestions,
-                    # stop-on-metadata, cadrage). Un seul point d'avance pour toute la boucle.
+                    # Human advance to the next REAL post (skips ads and suggestions,
+                    # stops on metadata, reframes). One single advance point for the loop.
                     # While a suggestions pass is still owed, the crawl must NOT skip
                     # suggestion blocks: the netego carousel IS the block we are waiting
                     # for, and `scroll_feed_to_next_post` is the advance to the next REAL
@@ -424,7 +424,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         self.logger.info("🏁 Left the feed (reel/profile) - stopping")
                         break
 
-                    # Feed suivi épuisé : N gestes "filler" (que des pubs/suggestions) d'affilée.
+                    # Followed feed exhausted: N filler gestures in a row, ads and suggestions only.
                     if res.get('filler_run'):
                         filler_streak += 1
                         if filler_streak >= self._TAIL_FILLER_RUNS:

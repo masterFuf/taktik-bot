@@ -127,7 +127,7 @@ class ScreenDetectionMixin(BaseAction):
 
     def is_loading_spinner_visible(self) -> bool:
         """
-        Détecte si un spinner de chargement est visible (Instagram charge du contenu).
+        Is a loading spinner visible, meaning content is being loaded?
         """
         return self._detect_element(
             self.detection_selectors.loading_spinner_indicators,

@@ -152,7 +152,7 @@ class TabNavigationMixin(BaseAction):
         return True
 
     def _check_and_close_problematic_pages(self) -> None:
-        """Vérifie et ferme les pages problématiques après navigation."""
+        """Check for and close the problematic pages after a navigation."""
         try:
             result = self.problematic_page_detector.detect_and_handle_problematic_pages()
             if result.get('detected'):

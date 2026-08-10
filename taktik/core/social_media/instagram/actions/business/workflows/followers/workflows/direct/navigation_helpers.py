@@ -69,10 +69,9 @@ class DirectNavigationMixin:
         """Transport the list past a run of private profiles. Returns the gestures that
         actually moved something.
 
-        A flagged account is served its private followers FIRST (rho = +0.12 between two
-        accounts on the same source, private profiles shifted -0.63 against +0.08 for public
-        ones, p = 0.0015). The rate of private profiles is unchanged — only their position —
-        so the session budget burns in a head of list it was handed. This walks out of it.
+        An affected account is served its private profiles first. Their overall rate is
+        unchanged — only their position — so the session budget burns in a head of list it
+        was handed. This walks out of it.
 
         Each gesture is confirmed before the next: without that, a burst of flings on a slow
         connection scrolls a list that has not loaded, moves nothing, and leaves the workflow
@@ -135,7 +134,7 @@ class DirectNavigationMixin:
         except Exception:
             pass
         
-        # Ouvrir la liste des followers OU following selon interaction_type
+        # Open the followers OR the following list, depending on the interaction type
         interaction_type = config.get('interaction_type', 'followers')
         
         if interaction_type == 'following':
@@ -187,7 +186,7 @@ class DirectNavigationMixin:
         """Handle case when no visible followers found. Returns True if should break."""
         self.logger.debug("No visible followers found on screen")
         
-        # Vérifier si on est dans la section suggestions
+        # Are we in the suggestions section?
         if self.detection_actions.is_in_suggestions_section():
             self.logger.info("📋 Reached suggestions section - checking for 'See more' button")
             
@@ -271,12 +270,12 @@ class DirectNavigationMixin:
                 f"~{remaining_followers:,.0f} remaining"
             )
         
-        # Vérifier bouton "Voir plus"
+        # Check the load-more button
         if scroll_detector.click_load_more_if_present():
             self._human_like_delay('load_more')
             return False, None
         
-        # Conditions pour arrêter
+        # Stop conditions
         if target_followers_count > 0 and total_usernames_seen >= target_followers_count * 0.95:
             reason = f"End of followers list ({total_usernames_seen:,}/{target_followers_count:,} seen)"
             self.logger.info(f"🏁 Reached end of list: seen {total_usernames_seen:,}/{target_followers_count:,} followers (~95%)")

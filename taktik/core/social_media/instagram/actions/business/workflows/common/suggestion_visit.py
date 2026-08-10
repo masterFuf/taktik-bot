@@ -1,22 +1,21 @@
-"""Visite QUALIFIEE d'une liste de suggestions, quelle que soit la surface.
+"""QUALIFIED visit of a suggestions list, whatever the surface.
 
-Instagram propose des comptes a suivre a deux endroits, et les deux posent le meme
-probleme : la liste n'affiche qu'un libelle, pas le compte. Il n'y a donc rien a
-reconcilier en base — il faut ouvrir la fiche et la produire.
+Instagram offers accounts to follow in two places, and both raise the same problem: the
+list shows only a label, never the account. There is nothing to reconcile in the
+database — the profile has to be opened and produced.
 
-    zone "Suggestions" du bas de l'ecran Notifications   (servie par l'algorithme)
-    ecran "Decouvrir des personnes"                      (surface dediee)
+    the suggestions zone at the bottom of the activity screen (algorithm-served)
+    the dedicated people discovery screen
 
-Le sequencage est identique des deux cotes : amener l'ecran, lire les lignes, prendre
-la premiere suivable jamais tentee, ouvrir SON PROFIL (le corps de la ligne, jamais le
-bouton), lire le @handle, faire tourner le pipeline par-profil de production, revenir.
-Ce module le possede une fois. Sans lui, deux boucles de soixante lignes portant les
-memes regles fines — deduplication par identite, erreurs dites et non sautees, cadence
-entre deux profils — se mettraient a diverger, exactement comme target/hashtag/likers
-l'avaient fait sur leur politique d'arret.
+The sequencing is identical on both sides: bring up the screen, read the rows, take the
+first followable one never tried, open ITS PROFILE (the row body, never the button),
+read the handle, run the per-profile production pipeline, come back. This module owns
+that once. Without it, two sixty-line loops would carry the same fine rules — identity
+dedup, errors reported rather than skipped, pacing — and would drift apart, exactly as
+they already did on their stop policy.
 
-Ce qui CHANGE d'une surface a l'autre est isole dans un adaptateur (cf. le contrat
-ci-dessous) : la navigation, et elle seule.
+What CHANGES from one surface to the other is isolated in an adapter, described by the
+contract below: the navigation, and nothing else.
 """
 
 from __future__ import annotations
@@ -27,62 +26,62 @@ from typing import Any, Callable, Dict, List, Optional
 
 
 class SuggestionSurface:
-    """Contrat qu'une surface de suggestions doit remplir pour etre visitee.
+    """Contract a suggestions surface must fulfil to be visited.
 
-    Neuf gestes, tous de NAVIGATION ou de LECTURE d'ecran : aucune decision metier
-    n'appartient a l'adaptateur. Les filtres, l'IA, l'interaction et les ecritures
-    vivent dans ``process()``, qui est le pipeline par-profil de production.
+    Nine gestures, all NAVIGATION or screen READING: no business decision belongs to the
+    adapter. Filters, AI, interaction and writes all live in ``process()``, which is the
+    per-profile production pipeline.
     """
 
-    #: Nom court de la surface, pour les logs et le motif d'arret.
+    #: Short name of the surface, for logs and the stop reason.
     name = "suggestions"
 
     def reach(self) -> bool:
-        """Amener l'ecran a l'etat ou les lignes sont lisibles."""
+        """Bring the screen to the state where the rows are readable."""
         raise NotImplementedError
 
     def scan(self) -> List[Dict[str, Any]]:
-        """Lignes visibles, chacune avec au moins ``label`` et ``state``."""
+        """Visible rows, each with at least ``label`` and ``state``."""
         raise NotImplementedError
 
     def followable(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Les lignes reellement a suivre (regle metier de la surface)."""
+        """The rows actually to be followed (the surface business rule)."""
         raise NotImplementedError
 
     def row_key(self, row: Dict[str, Any]) -> str:
-        """Identite d'une ligne d'un dump a l'autre (deduplication)."""
+        """Identity of a row from one dump to the next (dedup)."""
         raise NotImplementedError
 
     def open_profile(self, row: Dict[str, Any]) -> bool:
-        """Taper le corps de la ligne et PROUVER qu'on est sur un profil."""
+        """Tap the row body and PROVE we are on a profile."""
         raise NotImplementedError
 
     def read_username(self) -> Optional[str]:
-        """Le @handle lu sur le profil ouvert, ou None."""
+        """The handle read on the opened profile, or None."""
         raise NotImplementedError
 
     def process(self, username: str):
-        """Pipeline par-profil de production. Rend un ``ProfileProcessingResult``."""
+        """Per-profile production pipeline. Returns a ``ProfileProcessingResult``."""
         raise NotImplementedError
 
     def leave(self) -> bool:
-        """Revenir du profil vers la liste."""
+        """Come back from the profile to the list."""
         raise NotImplementedError
 
     def scroll(self) -> None:
-        """Descendre d'un ecran dans la liste."""
+        """Scroll one screen down in the list."""
         raise NotImplementedError
 
     def already_known(self, row: Dict[str, Any]) -> bool:
-        """La ligne designe-t-elle un profil deja traite ?
+        """Does the row designate an already-handled profile?
 
-        Surcharge OPTIONNELLE, et seulement quand la surface expose de quoi le savoir
-        sans ouvrir la fiche. Par defaut on ne sait pas, donc on visite : se tromper
-        ici couterait une cible, ce qui est pire que de repayer une visite.
+        OPTIONAL override, and only when the surface exposes enough to know it without
+        opening the profile. By default we do not know, so we visit: being wrong here
+        would cost a target, which is worse than paying for a visit twice.
         """
         return False
 
-    # -- Sorties (le runner ne connait ni loguru ni le bridge) ----------------
+    # -- Outputs (the runner knows neither the logger nor the bridge) ---------
     def log_info(self, message: str) -> None:
         raise NotImplementedError
 
@@ -93,8 +92,8 @@ class SuggestionSurface:
         return None
 
 
-# Deux dumps d'affilee sans AUCUNE ligne signent la fin de la liste. Un seul ne prouve
-# rien : un rendu en cours donne le meme resultat qu'une liste finie.
+    # Two consecutive dumps with NO row at all end the list. One proves nothing: a render
+    # in progress looks exactly like a finished list.
 _EMPTY_DUMP_RUNS = 2
 
 
@@ -104,9 +103,9 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
                       ) -> Dict[str, Any]:
     """Visiter et qualifier jusqu'a ``max_profiles`` comptes proposes.
 
-    Chaque profil traverse le pipeline complet : extraction (bio, photo, stats),
-    qualification IA, filtres, follow, ecritures DB. Le libelle affiche ne sert qu'a
-    viser la ligne ; c'est le @handle lu SUR le profil qui est persiste.
+    Each profile walks the full pipeline: extraction, AI qualification, filters, follow,
+    database writes. The displayed label only serves to aim at the row; it is the handle
+    read ON the profile that is persisted.
     """
     result: Dict[str, Any] = {
         "visited": 0, "processed": 0, "follows": 0, "filtered": 0, "skipped_known": 0,
@@ -153,9 +152,9 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
         attempted.add(surface.row_key(row))
         result["attempts"] += 1
 
-        # Deja traite et reconnaissable SANS ouvrir la fiche : la visite et l'appel IA
-        # seraient depenses pour un resultat qu'on a deja. Seules les surfaces qui
-        # exposent le compte peuvent le savoir ; les autres visitent.
+            # Already handled and recognisable WITHOUT opening the profile: the visit and
+            # the AI call would be spent on a result we already have. Only the surfaces
+            # that expose the account can know it; the others visit.
         if surface.already_known(row):
             result["skipped_known"] += 1
             surface.log_info(f"'{label}' deja en base — visite epargnee")
@@ -166,7 +165,7 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
         surface.notify("suggestion_visit", "running", label, label=label)
 
         if not surface.open_profile(row):
-            # Ni un profil, ni une erreur silencieuse : le tap a rate sa cible ou la
+                # Neither a profile nor a silent error: the tap missed its target or the
             # page n'a pas charge. On le dit, on revient, et on passe a la suivante.
             surface.log_warning(f"'{label}': le profil ne s'est pas ouvert")
             surface.notify("suggestion_visit", "failed", f"{label}: profil non ouvert",
@@ -208,11 +207,11 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
         if on_profile:
             try:
                 on_profile(entry)
-            except Exception as exc:  # noqa: BLE001 — un callback ne casse pas la passe
+            except Exception as exc:  # noqa: BLE001 — a callback never breaks the pass
                 surface.log_warning(f"callback de suggestion en echec: {exc}")
 
         surface.leave()
-        # Cadence humaine ENTRE deux profils : le follow est le geste le plus
+            # Human pace BETWEEN two profiles: the follow is the most watched
         # surveille, on ne l'enchaine jamais a vitesse machine.
         if result["visited"] < max_profiles:
             time.sleep(random.uniform(min(low, high), max(low, high)))

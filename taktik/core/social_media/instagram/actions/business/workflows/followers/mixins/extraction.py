@@ -20,7 +20,7 @@ class FollowerExtractionMixin:
                 self.logger.error(f"Failed to navigate to @{target_username}")
                 return []
             
-            # Vérifier que le profil est accessible
+            # Check the profile is reachable
             if self.detection_actions.is_private_account():
                 self.logger.warning(f"@{target_username} is a private account")
                 return []

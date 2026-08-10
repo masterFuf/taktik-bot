@@ -1,5 +1,5 @@
 """
-Couche core pour les actions Instagram.
+Core layer of the Instagram actions.
 
 Sub-packages:
 - device/        — Abstraction device (facade IG-specific + manager shim)

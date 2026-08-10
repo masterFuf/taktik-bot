@@ -1,10 +1,10 @@
-﻿"""Popup handling — likers popup, comments view, close popup, follow suggestions."""
+"""Popup handling — likers popup, comments view, close popup, follow suggestions."""
 
 import time
 
 
 class PopupHandlingMixin:
-    """Mixin: gestion popups (likers, comments, follow suggestions, close par swipe)."""
+    """Mixin: popup handling — likers, comments, follow suggestions, swipe-to-close."""
 
     def _is_likers_popup_open(self) -> bool:
         # Fast path: single combined XPath query for likers popup (1 round-trip)

@@ -18,29 +18,29 @@ from .mixins.post_finder import HashtagPostFinderMixin
 from .mixins.extractors import HashtagExtractorsMixin
 
 
-# « Pas de maximum » : une borne haute reste plus simple à lire qu'un `None` à tester dans
-# chacune des trois comparaisons. Aucun post Instagram n'approche ce nombre.
+# "No maximum": a high bound stays simpler to read than a null tested in each of the
+# three comparisons. No real post comes near this number.
 NO_LIKES_CEILING = 10 ** 9
 
-# Valeurs historiques du catalogue, appliquées quand personne ne dit rien.
+# Historical catalog values, applied when nothing is specified.
 DEFAULT_MIN_POST_LIKES = 100
 DEFAULT_MAX_POST_LIKES = 50000
 
 
 def resolve_post_like_bounds(config: Dict[str, Any]) -> tuple:
-    """Les bornes de likes du post retenu, quelle que soit la forme reçue.
+    """The like bounds of the selected post, whatever form they arrive in.
 
-    Le critère arrive sous DEUX formes : à plat (`min_likes`, défauts du workflow) et
-    imbriqué (`post_criteria`, ce qu'envoient la page Hashtag, le runner et la CLI). Les deux
-    moitiés du workflow n'en lisaient pas la même — la recherche du premier post lisait la
-    forme plate, la boucle de swipe la forme imbriquée. Tant que l'opérateur ne renseigne
-    rien les deux valent 100-50000 et ça ne se voit pas ; dès qu'il fixe un seuil, un post
-    accepté par la recherche est rejeté par la boucle, et le workflow tourne en rond.
+    The criterion arrives in TWO forms: flat, the workflow defaults, and nested, which
+    is what the front, the runner and the CLI send. The two halves of the workflow did
+    not read the same one: the search for the first post read the flat form, the browse
+    loop the nested one. As long as the operator sets nothing, both hold the same value
+    and the defect is invisible; as soon as a threshold is set, a post accepted by the
+    search is rejected by the loop and the workflow spins in circles.
 
-    `0` = PAS DE BORNE, exactement comme dans le workflow Feed (`min_post_likes` /
-    `max_post_likes`, qui ne testent que si la valeur est > 0). Sans cette convention,
-    « aucun minimum » serait inexprimable : c'est pourtant ce qu'il faut pour travailler un
-    hashtag dont les posts font vingt likes.
+    Zero means NO BOUND, exactly as in the feed workflow, whose own bounds are only
+    tested when positive. Without that convention, "no minimum" would be
+    inexpressible — and it is exactly what is needed to work a hashtag whose posts get
+    twenty likes.
     """
     post_criteria = config.get('post_criteria') or {}
     min_likes = post_criteria.get('min_likes', config.get('min_likes', DEFAULT_MIN_POST_LIKES))
@@ -271,8 +271,8 @@ class HashtagBusiness(
             stats['posts_selected'] = stats.get('posts_selected', 0) + 1
             stats['posts_engaged'] = stats.get('posts_engaged', 0)
 
-            # Tout ce que le plan demande de ce post : l'engager, parcourir ses likers,
-            # parcourir ses commentateurs — chacun avec son propre budget par post.
+            # Everything the plan asks of this post: engage it, walk its likers,
+            # walk its commenters, each with its own per-post budget.
             engaged = self._engage_one_post(
                 hashtag, plan, effective_config, stats, current.get('is_reel', False), author,
             )
@@ -280,8 +280,8 @@ class HashtagBusiness(
             if engaged:
                 posts_engaged += 1
                 stats['posts_engaged'] = posts_engaged
-                # Compteur partage : c'est lui qui remonte au panneau en direct et a la
-                # session. Sans ca un plan « posts seuls » ne produit rien de mesurable.
+                # Shared counter: this is what reaches the live panel and the session.
+                # Without it a posts-only plan produces nothing measurable.
                 self.stats_manager.increment('posts_engaged')
                 if author and account_id:
                     InstagramHashtagPostService.record_processed(
@@ -333,8 +333,8 @@ class HashtagBusiness(
                                      finalize: bool = True) -> Dict[str, Any]:
         effective_config = {**self.default_config, **(config or {})}
 
-        # Une seule lecture des bornes du post, pour les deux moitiés du workflow (voir
-        # `resolve_post_like_bounds`). Écrites à plat : tout le reste lit cette forme.
+        # A single read of the post bounds, for both halves of the workflow. Written
+        # flat: everything else reads that form.
         effective_config['min_likes'], effective_config['max_likes'] = resolve_post_like_bounds(effective_config)
 
         self.logger.info(f"Hashtag config received: {config}")
@@ -363,16 +363,16 @@ class HashtagBusiness(
 
             time.sleep(1.5)
 
-            # Récupérer account_id pour la vérification des posts déjà traités
+            # Read the account id, to check the already-handled posts
             account_id = getattr(self.automation, 'active_account_id', None) if self.automation else None
 
-            # UNE seule voie desormais. Le plan dit ce que vaut chaque post — l'engager,
-            # parcourir ses likers, parcourir ses commentateurs — et la boucle marche les
-            # posts. Les trois anciens modes sont des cas particuliers de ce plan, traduits
-            # litteralement pour qu'une config enregistree se comporte comme avant.
+            # ONE single route now. The plan says what each post is worth — engage it,
+            # walk its likers, walk its commenters — and the loop walks the posts. The
+            # three former modes are special cases of that plan, translated literally so
+            # a saved configuration behaves as before.
             plan = resolve_interaction_plan(effective_config)
             effective_config['source'] = f"#{hashtag}"
-            # Ce qui a REELLEMENT tourne, pour que la session puisse le dire.
+            # What ACTUALLY ran, so the session can report it.
             stats['interaction_plan'] = plan.as_record()
             stats['interaction_plan_label'] = plan.describe()
 

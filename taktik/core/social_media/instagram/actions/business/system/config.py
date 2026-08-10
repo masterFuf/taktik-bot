@@ -1,7 +1,7 @@
 """
-Logique métier pour la gestion de la configuration Instagram.
+Configuration management.
 
-Ce module centralise la gestion des configurations, endpoints API,
+Centralises the configurations, the API endpoints
 et paramètres système.
 """
 
@@ -15,11 +15,11 @@ from taktik.core.clone import get_active_package
 
 
 class ConfigBusiness(BaseAction):
-    """Logique métier pour la gestion de la configuration Instagram."""
+    """Configuration management."""
     
     def __init__(self, device, session_manager=None):
         """
-        Initialise la logique métier de configuration.
+        Initialise the configuration logic.
         
         Args:
             device: Instance de l'appareil uiautomator2 ou DeviceFacade
@@ -29,7 +29,7 @@ class ConfigBusiness(BaseAction):
         self.session_manager = session_manager
         self.logger = logger.bind(module="instagram-config-business")
         
-        # Configuration par défaut
+        # Default configuration
         self.default_config = {
             'api': {
                 'base_url': os.getenv('TAKTIK_API_URL', 'https://api.taktik-bot.com'),
@@ -57,13 +57,13 @@ class ConfigBusiness(BaseAction):
     
     def get_api_endpoints(self) -> Dict[str, str]:
         """
-        Récupère les endpoints API configurés.
+        Read the configured API endpoints.
         
         Returns:
-            Dictionnaire des endpoints API
+            Dict of API endpoints
         """
         try:
-            # Import dynamique pour éviter les dépendances circulaires
+            # Dynamic import, to avoid circular dependencies
             from taktik.core.app.config import APIEndpointManager
             
             endpoint_manager = APIEndpointManager()
@@ -87,7 +87,7 @@ class ConfigBusiness(BaseAction):
             
         except Exception as e:
             self.logger.error(f"Erreur récupération endpoints: {e}")
-            # Fallback vers la configuration par défaut
+            # Fall back on the default configuration
             base_url = self.default_config['api']['base_url']
             return {
                 'base_url': base_url,
@@ -101,14 +101,14 @@ class ConfigBusiness(BaseAction):
     
     def get_instagram_config(self) -> Dict[str, Any]:
         """
-        Récupère la configuration spécifique à Instagram.
+        Read the Instagram-specific configuration.
         
         Returns:
             Configuration Instagram
         """
         config = self.default_config['instagram'].copy()
         
-        # Ajouter les configurations d'environnement
+        # Add the environment configuration
         config.update({
             'device_id': os.getenv('DEVICE_ID'),
             'emulator_name': os.getenv('EMULATOR_NAME'),
@@ -121,7 +121,7 @@ class ConfigBusiness(BaseAction):
     
     def get_automation_limits(self) -> Dict[str, int]:
         """
-        Récupère les limites d'automatisation configurées.
+        Read the configured automation caps.
         
         Returns:
             Limites d'automatisation
@@ -138,7 +138,7 @@ class ConfigBusiness(BaseAction):
     
     def get_filtering_criteria(self) -> Dict[str, Any]:
         """
-        Récupère les critères de filtrage par défaut.
+        Read the default filter criteria.
         
         Returns:
             Critères de filtrage
@@ -156,10 +156,10 @@ class ConfigBusiness(BaseAction):
     
     def validate_configuration(self) -> Dict[str, Any]:
         """
-        Valide la configuration complète du système.
+        Validate the whole system configuration.
         
         Returns:
-            Résultat de la validation
+            Validation result
         """
         validation_result = {
             'valid': True,
@@ -169,7 +169,7 @@ class ConfigBusiness(BaseAction):
         }
         
         try:
-            # Valider les endpoints API
+            # Validate the API endpoints
             endpoints = self.get_api_endpoints()
             if endpoints['base_url']:
                 validation_result['components']['api'] = 'OK'
@@ -177,18 +177,18 @@ class ConfigBusiness(BaseAction):
                 validation_result['errors'].append("Endpoints API non configurés")
                 validation_result['valid'] = False
             
-            # Architecture 100% API - pas de validation DB directe
-            # La connexion DB est gérée côté serveur via l'API
+            # API-only architecture: no direct database validation.
+            # The connection is handled server-side.
             validation_result['components']['database'] = 'API'
             
-            # Valider la configuration Instagram
+            # Validate the Instagram configuration
             ig_config = self.get_instagram_config()
             if ig_config.get('device_id'):
                 validation_result['components']['device'] = 'OK'
             else:
                 validation_result['warnings'].append("Device ID non configuré")
             
-            # Valider les limites
+            # Validate the caps
             limits = self.get_automation_limits()
             if all(v > 0 for v in limits.values()):
                 validation_result['components']['limits'] = 'OK'

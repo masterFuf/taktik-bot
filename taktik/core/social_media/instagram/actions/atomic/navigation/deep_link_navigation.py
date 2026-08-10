@@ -9,9 +9,9 @@ from loguru import logger
 from ...core.base_action import BaseAction
 from taktik.core.clone import get_active_package
 
-# Sécurité : username/URL viennent de profils scrapés (attaquables) et sont interpolés dans une
+# Security: usernames and URLs come from scraped profiles, so they are attacker-
 # commande shell (`device.shell(f'am start ... "{url}" ...')`). On valide strictement avant usage
-# pour neutraliser toute injection shell (", ', `, $, ;, &, |, <, >, (), espaces...).
+# controlled, and they are interpolated into a shell command. Quoting neutralises
 _IG_USERNAME_RE = re.compile(r'[A-Za-z0-9._]{1,30}')  # charset Instagram strict
 _SHELL_UNSAFE_RE = re.compile(r'[\s"\'`$;&|<>(){}\\]')  # interdits dans l'URL passee a am start
 
@@ -20,7 +20,7 @@ class DeepLinkNavigationMixin(BaseAction):
     """Mixin: navigate to profiles and posts via ADB deep links."""
 
     def _navigate_via_deep_link(self, username: str, max_attempts: int = 3) -> bool:
-        # Garde anti-injection : username interpole dans device.shell() (cf. note en tete de module).
+        # Injection guard: the username is interpolated into a shell call, see the header.
         if not username or not _IG_USERNAME_RE.fullmatch(username):
             self.logger.warning(f"Deep link refusé : username invalide ({len(username or '')} chars)")
             return False
@@ -110,7 +110,7 @@ class DeepLinkNavigationMixin(BaseAction):
             if clean_url != post_url:
                 self.logger.debug(f"Cleaned URL: {clean_url}")
 
-            # Garde anti-injection : l'URL est interpolee dans device.shell() (cf. note en tete).
+            # Injection guard: the URL is interpolated into a shell call, see the header.
             if _SHELL_UNSAFE_RE.search(clean_url) or not clean_url.startswith('https://www.instagram.com/'):
                 self.logger.error("Deep link post refusé : URL non sûre")
                 return False

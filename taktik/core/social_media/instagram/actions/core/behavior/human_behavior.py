@@ -6,9 +6,9 @@ from typing import Tuple
 
 
 class HumanBehavior:
-    """Simule un comportement humain réaliste pour éviter la détection."""
+    """Reproduce a realistic human rhythm."""
     
-    # Singleton pour partager l'état entre toutes les actions
+    # Singleton, so the state is shared across the actions
     _instance = None
     
     def __new__(cls):
@@ -23,17 +23,17 @@ class HumanBehavior:
         self._initialized = True
         
         self.session_start = time.time()
-        self.actions_count = 0  # Toutes les actions (pour fatigue)
-        self.interactions_count = 0  # Seulement les vraies interactions (like, follow, comment)
+        self.actions_count = 0  # Every action, for the fatigue
+        self.interactions_count = 0  # Real interactions only
         self.last_action_time = time.time()
         self.last_break_at = 0
         
-        # Configuration des pauses (basées sur les VRAIES interactions uniquement)
+        # Break configuration, based on the REAL interactions only
         self.interactions_before_short_break = random.randint(8, 15)
         self.interactions_before_long_break = random.randint(30, 50)
         
     def reset_session(self):
-        """Reset pour une nouvelle session."""
+        """Reset for a new session."""
         self.session_start = time.time()
         self.actions_count = 0
         self.interactions_count = 0
@@ -43,28 +43,28 @@ class HumanBehavior:
         self.interactions_before_long_break = random.randint(30, 50)
     
     def get_fatigue_multiplier(self) -> float:
-        """Retourne un multiplicateur basé sur la durée de session.
-        Plus la session dure, plus les delays augmentent."""
+        """Multiplier based on the session duration.
+        The longer the session runs, the longer the delays."""
         minutes_elapsed = (time.time() - self.session_start) / 60
         # Après 30 min: x1.3, après 60 min: x1.6
         return 1.0 + (minutes_elapsed / 60) * 0.6
     
     def should_take_break(self) -> Tuple[bool, str, float]:
-        """Vérifie si une pause est nécessaire.
+        """Is a break needed?
         Returns: (should_break, break_type, duration)
         
-        Les pauses sont basées sur les VRAIES interactions (like, follow, comment)
-        pas sur les simples visites de profils ou scrolls.
+        Breaks are based on REAL interactions, not on profile visits or scrolls.
+        
         """
         interactions_since_break = self.interactions_count - self.last_break_at
         
-        # Pause longue (1-3 min) toutes les 30-50 interactions
+        # Long break, every few dozen interactions
         if interactions_since_break >= self.interactions_before_long_break:
             self.last_break_at = self.interactions_count
             self.interactions_before_long_break = random.randint(30, 50)
             return (True, 'long', random.uniform(60, 180))  # 1-3 min
         
-        # Pause courte (5-15s) toutes les 8-15 interactions
+        # Short break, every several interactions
         if interactions_since_break >= self.interactions_before_short_break:
             self.last_break_at = self.interactions_count
             self.interactions_before_short_break = random.randint(8, 15)
@@ -73,25 +73,25 @@ class HumanBehavior:
         return (False, None, 0)
     
     def record_action(self):
-        """Enregistre une action effectuée (pour le calcul de fatigue)."""
+        """Record a performed action, for the fatigue computation."""
         self.actions_count += 1
         self.last_action_time = time.time()
     
     def record_interaction(self):
-        """Enregistre une vraie interaction (like, follow, comment, story view).
-        C'est ce compteur qui déclenche les pauses."""
+        """Record a real interaction.
+        That counter is what triggers the breaks."""
         self.interactions_count += 1
         self.last_action_time = time.time()
     
     def gaussian_delay(self, base_min: float, base_max: float) -> float:
-        """Génère un délai avec distribution gaussienne (plus naturel)."""
+        """Generate a delay on a gaussian distribution, which reads more naturally."""
         mean = (base_min + base_max) / 2
         std = (base_max - base_min) / 4
         
         # Distribution gaussienne
         delay = random.gauss(mean, std)
         
-        # Clamp entre min et max avec une petite marge
+        # Clamp between the bounds, with a small margin
         delay = max(base_min * 0.8, min(base_max * 1.2, delay))
         
         # Appliquer le multiplicateur de fatigue (capped at x1.5 to avoid excessive delays)
@@ -101,7 +101,7 @@ class HumanBehavior:
         return delay
     
     def get_random_offset(self, variance: int = 15) -> Tuple[int, int]:
-        """Retourne un offset aléatoire pour les coordonnées (simule imprécision du doigt)."""
+        """Random coordinate offset, reproducing the imprecision of a finger."""
         return (
             random.randint(-variance, variance),
             random.randint(-variance, variance)

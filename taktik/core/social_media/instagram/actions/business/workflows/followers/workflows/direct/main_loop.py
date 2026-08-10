@@ -24,16 +24,16 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                        account_id: int = None,
                                        finalize: bool = True) -> Dict[str, Any]:
         """
-        🆕 NOUVEAU WORKFLOW: Interaction directe depuis la liste des followers.
+        Direct interaction from the followers list.
         
         Au lieu de scraper puis naviguer via deep link, on:
-        1. Ouvre la liste des followers
-        2. Pour chaque follower visible: clic direct → interaction → retour
-        3. Scroll seulement quand tous les visibles sont traités
+        1. open the followers list
+        2. for each visible follower: direct tap, interaction, back
+        3. scroll only once every visible one is handled
         
         Avantages:
-        - ❌ Plus de deep links (pattern suspect)
-        - ✅ Navigation 100% naturelle par clics
+        - no more deep links, which are a recognisable pattern
+        - navigation entirely by taps
         - ✅ Comportement humain réaliste
         """
         config = config or {}
@@ -82,14 +82,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             legacy_max_no_new_usernames_scrolls = 20
         
         try:
-            # 1. Naviguer vers le profil cible et ouvrir la liste
+            # 1. Navigate to the target profile and open the list
             target_followers_count, profile_info = self._setup_direct_workflow(
                 target_username, stats, config, deep_link_percentage, force_search_for_target
             )
             if target_followers_count is None:
                 return stats  # Setup failed
             
-            # Démarrer la phase d'interaction
+            # Start the interaction phase
             if self.session_manager:
                 self.session_manager.start_interaction_phase()
             
@@ -101,11 +101,11 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             known_usernames_streak = 0
             total_usernames_seen = 0
             
-            # Contexte de navigation pour savoir où on en est
+            # Navigation context, to know where we stand
             last_visited_username = None
             next_expected_username = None
             
-            # Initialiser le ScrollEndDetector et le tracker
+            # Set up the end-of-scroll detector and the tracker
             scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
             
             account_username = "unknown"
@@ -143,13 +143,13 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 # Vérifier si on doit prendre une pause
                 took_break = self._maybe_take_break()
                 
-                # Après une pause, vérifier qu'on est toujours sur la liste des followers
+                # After a break, confirm we are still on the followers list
                 if took_break:
                     self._recover_after_break(
                         target_username, deep_link_percentage, force_search_for_target, total_usernames_seen
                     )
                 
-                # Vérifier si la session doit continuer
+                # Should the session keep running?
                 if self.session_manager:
                     should_continue, stop_reason = self.session_manager.should_continue()
                     if not should_continue:
@@ -157,10 +157,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         session_stop_reason = stop_reason
                         break
                 
-                # Récupérer les followers visibles (uniquement les vrais, pas les suggestions)
+                # Read the visible followers, the real ones only and not the suggestions
                 visible_followers = self.detection_actions.get_visible_followers_with_elements()
                 
-                # Tracker: enregistrer les followers visibles + détecter les boucles
+                # Tracker: record the visible followers and detect loops
                 if visible_followers:
                     consecutive_empty_screens = 0
                     visible_usernames_for_tracking = [f['username'] for f in visible_followers]
@@ -196,7 +196,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         self.logger.error("🛑 Followers list unavailable (4 consecutive empty scans) — ending run")
                         session_stop_reason = session_stop_reason or 'followers_list_unavailable'
                         break
-                    # Gérer la fin de liste / suggestions / scroll
+                    # Handle end of list, suggestions and scrolling
                     should_break = self._handle_empty_followers_screen(scroll_detector)
                     if should_break:
                         break
@@ -211,7 +211,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 
                 visible_usernames_list = [f['username'] for f in visible_followers]
                 
-                # Vérifier si on est au bon endroit après un retour de profil
+                # Check we are in the right place after coming back from a profile
                 if last_visited_username and next_expected_username:
                     position_ok = last_visited_username in visible_usernames_list or next_expected_username in visible_usernames_list
                     tracker.log_position_check(last_visited_username, next_expected_username, visible_usernames_list, position_ok)
@@ -224,7 +224,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 for idx, follower_data in enumerate(visible_followers):
                     username = follower_data['username']
                     
-                    # Skip si déjà vu dans cette session
+                    # Skip when already seen in this session
                     if username in processed_usernames:
                         continue
                     
@@ -303,7 +303,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     
                     new_profiles_to_interact += 1
                     
-                    # Mémoriser le contexte AVANT de cliquer
+                    # Remember the context BEFORE tapping
                     last_visited_username = username
                     if idx + 1 < len(visible_followers):
                         next_expected_username = visible_followers[idx + 1]['username']
@@ -345,7 +345,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                   reason="filtered_or_private", encounter_order=total_usernames_seen,
                                   source_type="FOLLOWERS")
                     
-                    # Retour à la liste des followers avec vérification robuste
+                    # Back to the followers list, with a solid check
                     # force_back=False: _process_single_follower_direct already calls
                     # _ensure_on_followers_list for filtered/private/error cases, so we only
                     # need to force a back when coming from an actual interaction (like/follow)
@@ -357,7 +357,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         session_stop_reason = session_stop_reason or 'navigation_lost'
                         break
                     
-                    # Vérification de position après retour
+                    # Position check after coming back
                     visible_after_back = self.detection_actions.get_visible_followers_with_elements()
                     if visible_after_back:
                         visible_usernames_after = [f['username'] for f in visible_after_back]
@@ -370,7 +370,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     if stats['interacted'] >= max_interactions:
                         break
                     
-                    # Après interaction, re-scanner la liste
+                    # After the interaction, scan the list again
                     break
 
                 if navigation_lost:
@@ -445,7 +445,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 if new_usernames_found == 0:
                     scroll_detector.notify_new_page(visible_usernames, list(processed_usernames))
                 
-                # Gestion du scroll et fin de liste
+                # Scrolling and end-of-list handling
                 should_stop, stop_reason = self._handle_scroll_and_end_detection(
                     new_usernames_found, no_new_profiles_count, total_usernames_seen,
                     target_followers_count, scroll_detector, tracker, scroll_attempts,

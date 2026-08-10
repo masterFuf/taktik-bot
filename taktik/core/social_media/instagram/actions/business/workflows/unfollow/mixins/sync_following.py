@@ -28,19 +28,19 @@ class SyncFollowingMixin:
 
     def sync_following_list(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Sync incrémentale de la liste des followings.
+        Incremental sync of the following list.
 
         1. Ouvrir Following → trier "Date followed: Latest"
-        2. Scroll + extraire les usernames
-        3. Pour chaque username:
+        2. scroll and extract the usernames
+        3. for each username:
            - Si déjà en BDD (vu récemment) → STOP
-           - Sinon → UPSERT dans following_sync
+           - otherwise, upsert into the sync table
 
         Args:
             config: Configuration (optionnel)
 
         Returns:
-            Dict avec new_count, total_count, stopped_early
+            Dict with new_count, total_count, stopped_early
         """
         config = config or {}
         mode = config.get('mode', 'fast')
@@ -60,23 +60,23 @@ class SyncFollowingMixin:
 
             self.logger.info("🔄 Starting incremental following sync")
 
-            # Naviguer vers son propre profil
+            # Navigate to our own profile
             if not self.nav_actions.navigate_to_profile_tab():
                 self.logger.error("sync_following_list: failed to navigate to profile tab")
                 return stats
             time.sleep(2)
 
-            # Ouvrir la liste Following
+            # Open the following list
             if not self.nav_actions.open_following_list():
                 self.logger.error("sync_following_list: failed to open following list")
                 return stats
             time.sleep(1.5)
 
-            # Trier par "Date followed: Latest" pour détecter les nouveaux en premier
+            # Sort by most recently followed so the new ones come first
             self._set_following_list_sort('latest')
             time.sleep(1.5)
 
-            # Récupérer les usernames déjà connus en BDD pour détecter le point d'arrêt
+            # Read the already-known usernames to find the stop point
             known_usernames = InstagramFollowGraphService.get_following_sync_usernames(account_id)
             self.logger.info(f"📋 {len(known_usernames)} known followings in DB")
 
@@ -96,7 +96,7 @@ class SyncFollowingMixin:
             stop_signal = False
 
             while scroll_attempts < max_scrolls and not stop_signal:
-                # Récupérer les éléments visibles avec leurs références UI
+                # Read the visible items with their UI references
                 username_elements = d(resourceId=username_resource_id)
                 if not username_elements.exists:
                     break
@@ -118,7 +118,7 @@ class SyncFollowingMixin:
                     stats['total_seen'] += 1
                     new_found = True
 
-                    # Récupérer le display_name (subtitle)
+                    # Read the display name (subtitle)
                     display_name = ''
                     try:
                         subtitle_els = d(
@@ -210,11 +210,11 @@ class SyncFollowingMixin:
                                 except Exception:
                                     pass
 
-                            # Retour à la liste
+                            # Back to the list
                             d.press('back')
                             time.sleep(random.uniform(1.0, 1.5))
 
-                            # Après back, les éléments UI sont invalidés → re-lire
+                            # After a back the UI elements are invalidated: read them again
                             break
 
                         except Exception as e:
@@ -224,8 +224,8 @@ class SyncFollowingMixin:
                                 time.sleep(1)
                             except Exception:
                                 pass
-                            break  # Re-lire les éléments UI
-                        # Ne pas continuer la boucle for après enrichissement
+                            break  # Re-read the UI elements
+                        # Do not carry on with the loop after enrichment
                         continue
 
                 if stop_signal:
@@ -242,7 +242,7 @@ class SyncFollowingMixin:
                     scroll_attempts += 1
                 else:
                     # En mode enrichi, on a break après chaque profil enrichi
-                    # Vérifier s'il reste des éléments non vus sur l'écran actuel
+                    # Any unseen item left on the current screen?
                     remaining = d(resourceId=username_resource_id)
                     has_unseen = False
                     if remaining.exists:
@@ -273,22 +273,22 @@ class SyncFollowingMixin:
 
     def scrape_non_followers_category(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Scraper la catégorie native "People you don't follow back" dans la vue Followers.
+        Scrape the native "people who do not follow you back" category of the followers view.
 
-        Instagram nous donne directement cette liste filtrée — pas besoin de visiter
-        chaque profil pour vérifier le follow-back.
+        Instagram serves that filtered list directly, so there is no need to visit
+        each profile to check the reciprocity.
 
-        1. Naviguer vers la vue Followers
-        2. Cliquer sur "People you don't follow back"
-        3. Scroll + extraire tous les usernames
-        4. Marquer is_follower_back = 0 dans following_sync pour ces usernames
-        5. Les followings NON présents dans cette liste → is_follower_back = 1
+        1. navigate to the followers view
+        2. tap the dedicated category
+        3. scroll and extract every username
+        4. mark those usernames as non-reciprocal
+        5. the followings ABSENT from that list are reciprocal, with no visit
 
         Args:
             config: Configuration (optionnel)
 
         Returns:
-            Dict avec non_followers_count, mutuals_count, success
+            Dict with non_followers_count, mutuals_count, success
         """
         config = config or {}
         stats = {
@@ -305,7 +305,7 @@ class SyncFollowingMixin:
 
             self.logger.info("🔍 Scraping 'People you don't follow back' category")
 
-            # Détecter si on est déjà dans la vue unifiée (après sync_following_list)
+            # Are we already in the unified view?
             d = self.device.device
             active_package = get_active_package()
             unified_layout = d.xpath(
@@ -313,7 +313,7 @@ class SyncFollowingMixin:
             )
 
             if unified_layout.exists:
-                # Vue unifiée ouverte — cliquer sur le tab "Followers"
+                # Unified view open: tap the followers tab
                 self.logger.debug("Already in unified follow list view, switching to Followers tab")
                 followers_tab = d.xpath(UNFOLLOW_SELECTORS.unified_followers_tab_selector(active_package))
                 if followers_tab.exists:
@@ -323,7 +323,7 @@ class SyncFollowingMixin:
                     self.logger.error("scrape_non_followers_category: Followers tab not found in unified view")
                     return stats
             else:
-                # Pas dans la vue unifiée — naviguer depuis le profil
+                # Not in the unified view: navigate from the profile
                 self.logger.debug("Not in unified view, navigating from profile")
                 if not self.nav_actions.navigate_to_profile_tab():
                     self.logger.error("scrape_non_followers_category: failed to navigate to profile")
@@ -334,7 +334,7 @@ class SyncFollowingMixin:
                     return stats
             time.sleep(1.5)
 
-            # Cliquer sur la catégorie "People you don't follow back"
+            # Tap the non-reciprocal category
             if not self._click_non_followers_category():
                 self.logger.warning(
                     "scrape_non_followers_category: category not found — "
@@ -342,7 +342,7 @@ class SyncFollowingMixin:
                 )
                 return stats
 
-            # Attendre que la vue non-followers charge (bouton "Follow back" visible)
+            # Wait for the non-reciprocal view to load (its follow-back button visible)
             follow_back_visible = False
             for wait in range(5):
                 time.sleep(1)
@@ -357,17 +357,17 @@ class SyncFollowingMixin:
                 self.logger.warning("scrape_non_followers_category: non-followers view did not load (no 'Follow back' buttons)")
                 return stats
 
-            # Extraire tous les non-followers
+            # Extract every non-reciprocal account
             non_follower_usernames = self._extract_all_non_followers()
             stats['non_followers_count'] = len(non_follower_usernames)
 
             self.logger.info(f"📋 Found {len(non_follower_usernames)} non-followers")
 
-            # Mettre à jour la BDD
+            # Update the database
             for username in non_follower_usernames:
                 InstagramFollowGraphService.mark_not_follower_back(username, account_id)
 
-            # Tous les followings en BDD qui ne sont PAS dans cette liste → mutuels
+            # Every stored following ABSENT from that list is reciprocal
             all_followings = InstagramFollowGraphService.get_following_sync_usernames(account_id)
             non_followers_set = set(u.lower() for u in non_follower_usernames)
 
@@ -409,7 +409,7 @@ class SyncFollowingMixin:
                 f"{stats['mutuals_count']} mutuals, {fans_count} fans"
             )
 
-            # Fermer la vue non-followers pour revenir à un état propre
+            # Close the view to come back to a clean state
             self.logger.debug("Closing non-followers view (back press)")
             self.device.device.press('back')
             time.sleep(1)
@@ -423,10 +423,10 @@ class SyncFollowingMixin:
 
     def _get_visible_following_usernames_with_display(self) -> List[tuple]:
         """
-        Extraire les (username, display_name) visibles dans la liste following.
+        Extract the visible (username, display name) pairs of the following list.
 
         Returns:
-            Liste de tuples (username, display_name)
+            List of (username, display name) tuples
         """
         results = []
         try:
@@ -467,9 +467,9 @@ class SyncFollowingMixin:
 
     def _click_non_followers_category(self) -> bool:
         """
-        Cliquer sur la catégorie 'People you don't follow back'.
+        Tap the non-reciprocal category.
 
-        D'après le dump XML, c'est un bouton avec:
+        From the dump, it is a button with:
         - content-desc="People you don't follow back"
         - resource-id="{pkg}:id/container"
         """
@@ -493,13 +493,13 @@ class SyncFollowingMixin:
 
     def _extract_all_non_followers(self) -> List[str]:
         """
-        Extraire tous les usernames de la liste 'People you don't follow back'.
+        Extract every username of the non-reciprocal list.
 
-        La liste n'a pas de tri, on scrolle jusqu'à la fin.
-        Chaque item a un bouton "Follow back" (confirme qu'ils ne nous suivent pas).
+        The list has no ordering, so it is scrolled to the end.
+        Each item carries a follow-back button, which confirms they do not follow us.
 
         Returns:
-            Liste complète des usernames non-followers
+            Full list of the non-reciprocal usernames
         """
         usernames = []
         seen: Set[str] = set()
@@ -528,13 +528,13 @@ class SyncFollowingMixin:
 
     def _get_visible_non_follower_usernames(self) -> List[str]:
         """
-        Extraire les usernames visibles dans la vue 'People you don't follow back'.
+        Extract the usernames visible in the non-reciprocal view.
 
-        On vérifie la présence du bouton "Follow back" pour confirmer qu'on est
-        dans la bonne vue (et non dans la liste Following standard).
+        The follow-back button is checked to confirm we are in the right view
+        and not in the standard following list.
 
         Returns:
-            Liste des usernames visibles
+            List of the visible usernames
         """
         results = []
         try:
@@ -542,7 +542,7 @@ class SyncFollowingMixin:
             active_package = get_active_package()
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
 
-            # Vérifier qu'on est dans la bonne vue (bouton "Follow back" présent)
+            # Confirm the right view through the presence of the follow-back button
             follow_back_btn = d(
                 resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
                 text=UNFOLLOW_SELECTORS.follow_back_button_text
@@ -570,10 +570,10 @@ class SyncFollowingMixin:
         return results
 
     def _is_valid_username(self, username: str) -> bool:
-        """Vérifier qu'une chaîne est un username Instagram valide."""
+        """Is this string a valid Instagram username?"""
         if not username or len(username) < 1 or len(username) > 30:
             return False
-        # Exclure les textes qui ne sont pas des usernames
+        # Exclude the texts that are not usernames
         excluded = {
             'search', 'categories', 'all followers', 'following', 'followers',
             'subscriptions', 'flagged', 'most shown in feed', 'sorted by',
@@ -582,6 +582,6 @@ class SyncFollowingMixin:
         }
         if username.lower() in excluded:
             return False
-        # Un username Instagram ne contient que des lettres, chiffres, points, underscores
+        # An Instagram username holds only letters, digits, dots and underscores
         import re
         return bool(re.match(r'^[a-zA-Z0-9._]+$', username))

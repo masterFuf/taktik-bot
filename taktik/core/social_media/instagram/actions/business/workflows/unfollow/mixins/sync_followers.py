@@ -76,7 +76,7 @@ class SyncFollowersMixin:
                 return stats
             time.sleep(3)
 
-            # Attendre que les éléments de la liste soient réellement chargés
+            # Wait for the list items to be actually loaded
             d = self.device.device
             active_package = get_active_package()
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
@@ -134,7 +134,7 @@ class SyncFollowersMixin:
                     stats['total_seen'] += 1
                     new_found = True
 
-                    # Récupérer le display_name
+                    # Read the display name
                     display_name = ''
                     try:
                         subtitle_els = d(resourceId=subtitle_resource_id)
@@ -203,11 +203,11 @@ class SyncFollowersMixin:
                                 except Exception:
                                     pass
 
-                            # Retour à la liste
+                            # Back to the list
                             d.press('back')
                             time.sleep(random.uniform(1.0, 1.5))
 
-                            # Après back, les éléments UI sont invalidés → re-lire
+                            # After a back the UI elements are invalidated: read them again
                             break
 
                         except Exception as e:
@@ -217,7 +217,7 @@ class SyncFollowersMixin:
                                 time.sleep(1)
                             except Exception:
                                 pass
-                            break  # Re-lire les éléments UI
+                            break  # Re-read the UI elements
                         continue
 
                 # Emit progress IPC
@@ -233,7 +233,7 @@ class SyncFollowersMixin:
                 else:
                     no_new_count = 0
 
-                # Scroll seulement si pas en mode enrichi ou plus rien de non-vu
+                # Scroll only outside enriched mode, or when nothing unseen is left
                 if mode != 'enriched':
                     self._scroll_followers_list()
                     time.sleep(1.2)

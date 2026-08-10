@@ -261,17 +261,17 @@ class FilteringBusiness(BaseBusinessAction):
             'details': {'behavior_filters': {}}
         }
         
-        # ETAT DE RELATION — INFORMATIF UNIQUEMENT ici.
+        # RELATIONSHIP STATE — INFORMATIVE ONLY here.
         #
-        # La DECISION d'ignorer un profil deja en relation vit en amont, dans
-        # `_relationship_skip_reason` (profile_processing) : un rejet FRANC, avant les filtres et
-        # avant l'IA. Ne pas la rejouer ici sous forme de score.
+        # The DECISION to skip a profile already in a relationship lives upstream, as a
+        # plain rejection before the filters and before the qualification. Do not replay it
+        # here as a score.
         #
-        # Historique : ce bloc comparait l'etat a 'unfollow', une valeur que
+        # This block used to compare the state against a value the classifier never
         # `get_follow_button_state()` n'a jamais pu renvoyer ('follow' | 'follow_back' |
-        # 'following' | 'requested' | 'message' | 'unknown') — code mort depuis l'origine. Et meme
-        # declenche il n'aurait rien filtre : `apply_comprehensive_filter` combine les sous-filtres
-        # par min() (les penalites ne s'additionnent pas) et le seuil est `score < min_score`, donc
+        # produces — dead code from the start. And even if it had fired it would have
+        # filtered nothing: the sub-filters are combined by a minimum, so the penalties do
+        # not add up, and the threshold is a strict comparison, so
         # 100-50=50 face a un min_score de 50 restait "suitable".
         follow_state = profile_info.get('follow_button_state', 'unknown')
         result['details']['behavior_filters']['follow_state'] = follow_state

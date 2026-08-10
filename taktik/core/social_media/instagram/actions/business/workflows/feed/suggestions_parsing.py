@@ -1,22 +1,18 @@
-"""Parseurs PURS du dump XML pour les suggestions de comptes Instagram.
+"""Pure XML-dump parsers for the Instagram account suggestions.
 
-Deux surfaces :
+- the suggestions carousel inserted in the feed, which is the entry point;
+- the people discovery screen opened by its "See all" CTA, the list where the
+  bulk follow and the qualified visit both happen.
 
-- le carousel "Suggested for you" (netego) insere dans le feed — point d'entree
-  du mode ;
-- l'ecran "Discover people" ouvert par son CTA "See all" — la liste ou l'on
-  follow en masse.
+No device access here: the functions take an lxml root (from ``dump_hierarchy``) and
+return plain dicts, so they are testable from a captured dump. Resource-ids are matched
+by SUBSTRING because some rows are rendered with a bare id and others fully qualified —
+the same strategy as the notifications surface.
 
-Aucun acces device ici : les fonctions prennent une racine lxml (issue de
-``dump_hierarchy``) et rendent des dicts simples, donc testables a partir d'un
-dump capture. Le matching des resource-id se fait par SOUS-CHAINE parce qu'IG
-rend certaines lignes avec un id nu (sans prefixe ``com.instagram.android:id/``)
-et d'autres pleinement qualifie — meme strategie que la surface notifications.
-
-Aucune signature UI n'est ecrite en dur : elles arrivent par les catalogues
-``FEED_SUGGESTIONS_SELECTORS`` / ``DISCOVER_PEOPLE_SELECTORS``, et les libelles
-d'etat du bouton par ``PROFILE_SELECTORS.follow_state_labels_*`` via
-``classify_follow_state`` (source de verite unique, partagee avec le header profil).
+No UI signature is hardcoded: they come from the ``FEED_SUGGESTIONS_SELECTORS`` and
+``DISCOVER_PEOPLE_SELECTORS`` catalogs, and the button state labels from
+``PROFILE_SELECTORS.follow_state_labels_*`` through ``classify_follow_state`` — the
+single source of truth, shared with the profile header.
 """
 
 from __future__ import annotations
@@ -27,12 +23,12 @@ from taktik.core.shared.device.ui_dump import parse_bounds
 
 
 def _has_id(node, bare_id: str) -> bool:
-    """True si le resource-id du noeud contient ``bare_id`` (nu ou qualifie)."""
+    """True when the node resource-id contains ``bare_id``, bare or qualified."""
     return bare_id in (node.get("resource-id") or "")
 
 
 def _find_descendant(node, bare_id: str):
-    """Premier descendant (ou le noeud lui-meme) dont l'id contient ``bare_id``."""
+    """First descendant, or the node itself, whose id contains ``bare_id``."""
     for descendant in node.iter():
         if _has_id(descendant, bare_id):
             return descendant
@@ -40,10 +36,10 @@ def _find_descendant(node, bare_id: str):
 
 
 def _text_of(node) -> str:
-    """Texte du noeud, ou a defaut du premier descendant qui en porte un.
+    """Text of the node, or failing that of the first descendant carrying one.
 
-    Un dump compresse peut poser le texte sur un TextView enfant alors que le
-    resource-id est sur le conteneur parent.
+    A compressed dump can put the text on a child TextView while the resource-id sits
+    on the parent container.
     """
     if node is None:
         return ""
@@ -58,7 +54,7 @@ def _text_of(node) -> str:
 
 
 def _label_of(node) -> str:
-    """Texte du noeud, avec repli sur son ``content-desc`` (bouton icone)."""
+    """Text of the node, falling back on its ``content-desc`` (icon button)."""
     text = _text_of(node)
     if text:
         return text
@@ -73,15 +69,15 @@ def _top_of(node) -> Optional[int]:
 
 
 # =============================================================================
-# Carousel "Suggested for you" dans le feed
+# Suggestions carousel in the feed
 # =============================================================================
 
 def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
-    """Etat du carousel netego dans le dump du feed.
+    """State of the suggestions carousel in the feed dump.
 
-    Returns un dict ``{present, title, cta_bounds, cards}`` — ``cta_bounds`` est
-    le 4-tuple du bouton "See all" (a taper pour ouvrir Discover people), et
-    ``cards`` la liste des cartes inline ``{name, follow_bounds, state_label}``.
+    Returns ``{present, title, cta_bounds, cards}`` — ``cta_bounds`` is the 4-tuple of
+    the "See all" button, to be tapped to open the discovery screen, and ``cards`` the
+    list of inline cards ``{name, follow_bounds, state_label}``.
     """
     result: Dict[str, Any] = {
         "present": False,
@@ -114,21 +110,21 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
             })
 
     # Un CTA seul sans conteneur (layout serveur alternatif) suffit a considerer
-    # le bloc present : c'est lui qu'on tape.
+    # the block that is present: that is what gets tapped.
     if result["cta_bounds"] and not result["present"]:
         result["present"] = True
     return result
 
 
 # =============================================================================
-# Ecran "Discover people"
+# People discovery screen
 # =============================================================================
 
 def is_discover_people_screen(root, selectors) -> bool:
-    """Preuve de surface : au moins une ligne de recommandation AVEC son bouton.
+    """Surface proof: at least one recommendation row WITH its button.
 
-    Volontairement structurel (pas de texte) : le titre de la barre d'action est
-    langue-dependant et la liste reste reconnaissable une fois scrollee, quand le
+    Deliberately structural rather than textual: the action-bar title is
+    language-dependent, and the list stays recognisable once scrolled, when the
     titre a disparu du dump.
     """
     if root is None:
@@ -146,7 +142,7 @@ def is_discover_people_screen(root, selectors) -> bool:
 
 
 def read_screen_title(root) -> str:
-    """Titre de la barre d'action, pour l'observabilite (log / rapport Lab)."""
+    """Action-bar title, for observability (logs and reports)."""
     if root is None:
         return ""
     for node in root.iter("node"):
@@ -156,7 +152,7 @@ def read_screen_title(root) -> str:
 
 
 def parse_section_headers(root, selectors) -> List[Dict[str, Any]]:
-    """En-tetes de section de la liste, ordonnes par position verticale."""
+    """Section headers of the list, ordered by vertical position."""
     headers: List[Dict[str, Any]] = []
     if root is None:
         return headers
@@ -173,23 +169,21 @@ def parse_suggestion_rows(root, selectors, profile_selectors,
                           classify_state) -> List[Dict[str, Any]]:
     """Lignes de suggestion visibles, de haut en bas.
 
-    Chaque ligne est un sous-arbre ``recommended_user_row_content_identifier``
-    qui contient deja son libelle, son bouton et son contexte social : aucun
-    appariement par proximite verticale n'est necessaire.
+    Each row is a subtree that already holds its label, its button and its social
+    context, so no pairing by vertical proximity is needed.
 
-    Chaque dict expose :
+    Each dict carries:
 
-    - ``label``   : le texte affiche par IG (souvent le nom complet, parfois le
-      handle — la surface n'expose PAS le @username de facon fiable) ;
-    - ``state``   : 'follow' | 'follow_back' | 'following' | 'requested' | None,
-      lu par ``classify_state`` sur le texte du bouton ;
-    - ``section`` : l'en-tete de section au-dessus de la ligne, s'il est visible ;
-    - ``follow_bounds`` / ``row_bounds`` / ``name_bounds`` : geometrie reelle pour un
-      tap humanise. ``name_bounds`` vise le NOM, donc l'ouverture du profil ;
-      ``follow_bounds`` vise le bouton, donc le follow depuis la liste.
+    - ``label``   : the text displayed, often the full name and sometimes the handle —
+      this surface does NOT reliably expose the username;
+    - ``state``   : the relationship state, read by ``classify_state`` on the button text;
+    - ``section`` : the section header above the row, when visible;
+    - ``follow_bounds`` / ``row_bounds`` / ``name_bounds`` : real geometry for a humanized
+      tap. ``name_bounds`` aims at the NAME, so at opening the profile;
+      ``follow_bounds`` aims at the button, so at following from the list.
 
-    Les lignes d'accroche "Connect to Facebook" / "Connect contacts" ne sont pas
-    des suggestions et sont ignorees.
+    The "connect to Facebook" and "connect contacts" call-to-action rows are not
+    suggestions and are ignored.
     """
     rows: List[Dict[str, Any]] = []
     if root is None:
@@ -231,9 +225,9 @@ def parse_suggestion_rows(root, selectors, profile_selectors,
             "section": _section_for(row_bounds[1] if row_bounds else None),
             "follow_bounds": parse_bounds(follow_node.get("bounds") or ""),
             "row_bounds": row_bounds,
-            # Bounds du NOM : c'est la qu'on tape pour ouvrir le profil. Le centre de
-            # la ligne entiere ne convient pas — le bouton d'abonnement occupe sa
-            # partie droite, et on ferait un follow a l'aveugle au lieu d'une visite.
+        # Bounds of the NAME: this is where the tap opens the profile. The centre of the
+        # whole row will not do — the follow button occupies its right side, so a tap
+        # there would follow from the list instead.
             "name_bounds": parse_bounds(name_node.get("bounds") or "") if name_node is not None else None,
         })
 
@@ -244,11 +238,10 @@ def parse_suggestion_rows(root, selectors, profile_selectors,
 def followable_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Sous-ensemble des lignes reellement a follow.
 
-    Regle metier (arbitrage Kevin) : on ne fait ici NI follow-back NI acceptation
-    de demande de suivi — ces deux flux appartiennent au workflow Notifications.
-    Seul un bouton dont l'etat est exactement 'follow' est tape ; 'follow_back',
-    'following' et 'requested' sont laisses tels quels. Une ligne sans libelle
-    exploitable est ignoree plutot que tapee a l'aveugle.
+    Business rule: neither follow-back nor follow-request acceptance happens here — both
+    belong to the notifications workflow. Only a button whose state is exactly 'follow'
+    is tapped; the other states are left alone. A row with no usable label is ignored
+    rather than tapped blindly.
     """
     return [row for row in rows
             if row.get("state") == "follow" and row.get("follow_bounds")]

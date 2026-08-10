@@ -1,7 +1,7 @@
 """
 ⚙️ Configuration et système.
 
-Ce package contient les modules de configuration globale.
+This package holds the global configuration modules.
 """
 
 from .config import ConfigBusiness

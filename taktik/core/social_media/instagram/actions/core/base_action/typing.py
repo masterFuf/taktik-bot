@@ -1,4 +1,4 @@
-﻿"""Text input — character-by-character human simulation + Taktik Keyboard management."""
+"""Text input — character-by-character human simulation + Taktik Keyboard management."""
 
 import time
 import random
@@ -6,39 +6,39 @@ import base64
 
 
 class TypingMixin:
-    """Mixin: saisie texte humaine + gestion Taktik Keyboard avec fallback send_keys."""
+    """Mixin: human text entry, through the dedicated keyboard with a fallback."""
 
     def _type_like_human(self, text: str, min_delay: float = 0.05, max_delay: float = 0.15) -> None:
         """
-        Tape du texte caractère par caractère avec des délais humains.
-        Simule une frappe naturelle avec des variations de vitesse.
+        Type text character by character, with human delays.
+        Reproduces a natural typing rhythm, with speed variations.
         
         Args:
-            text: Le texte à taper
-            min_delay: Délai minimum entre les caractères (en secondes)
-            max_delay: Délai maximum entre les caractères (en secondes)
+            text: the text to type
+            min_delay: minimum delay between characters, in seconds
+            max_delay: maximum delay between characters, in seconds
         """
         self.logger.debug(f"⌨️ Typing {len(text)} chars with human-like delays")
         
         for i, char in enumerate(text):
-            # Taper le caractère
+            # Type the character
             self.device.send_keys(char)
             
-            # Délai variable entre les caractères
-            # Plus rapide pour les caractères consécutifs similaires
+            # Variable delay between characters
+            # Faster on consecutive similar characters
             if i > 0 and text[i-1].lower() == char.lower():
-                # Même touche = plus rapide
+                # Same key: faster
                 delay = random.uniform(min_delay * 0.5, max_delay * 0.7)
             elif char in '._-':
-                # Caractères spéciaux = légèrement plus lent (changement de zone clavier)
+                # Special characters: slightly slower, since the keyboard area changes
                 delay = random.uniform(min_delay * 1.2, max_delay * 1.5)
             else:
-                # Délai normal avec distribution gaussienne
+                # Normal delay, on a gaussian distribution
                 mean = (min_delay + max_delay) / 2
                 std = (max_delay - min_delay) / 4
                 delay = max(min_delay, min(max_delay, random.gauss(mean, std)))
             
-            # Occasionnellement, une micro-pause (comme si on cherchait la touche)
+            # Occasionally a micro-pause, as if looking for the key
             if random.random() < 0.08:  # 8% de chance
                 delay += random.uniform(0.1, 0.3)
             

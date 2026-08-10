@@ -1,4 +1,4 @@
-﻿"""Profile data extraction from Instagram UI via ADB."""
+"""Profile data extraction from Instagram UI via ADB."""
 
 import time
 from typing import Dict, Any, List, Optional
@@ -336,7 +336,7 @@ class ProfileExtraction(BaseBusinessAction):
                     if processed_count % 10 == 0:
                         self.logger.info(f"📊 {processed_count} profils extraits")
                 
-                # Délai entre les profils
+                # Pause between profiles
                 self._human_like_delay('navigation')
                 
             except Exception as e:
@@ -352,14 +352,14 @@ class ProfileExtraction(BaseBusinessAction):
         try:
             from .....ui.extractors import parse_number_from_text
             
-            # Méthode 1: Essayer avec l'ID de ressource spécifique
+            # Way 1: try the specific resource-id
             element = self.device.find(
                 resourceId=f"{self.device.app_id}:id/{self.profile_selectors.followers_count_value_resource_id}"
             )
             if element and hasattr(element, 'exists') and element.exists:
                 count_text = element.get_text()
                 if count_text:
-                    # Utiliser parse_number_from_text pour gérer tous les formats (166K, 166 K, 1.2M, etc.)
+                    # Use the shared number parser, which handles every abbreviated format
                     parsed = parse_number_from_text(count_text)
                     if parsed > 0:
                         return parsed

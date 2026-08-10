@@ -1,10 +1,10 @@
-﻿"""Business logic for Instagram unfollow workflow.
+"""Business logic for Instagram unfollow workflow.
 
-Ce workflow permet de unfollow des comptes de manière automatisée.
+Unfollows accounts automatically.
 Utilisations typiques:
-- Nettoyer sa liste d'abonnements
-- Unfollow les comptes qui ne follow pas en retour
-- Unfollow les comptes inactifs
+- clean up the following list
+- unfollow the accounts that do not follow back
+- unfollow the inactive accounts
 """
 
 import time
@@ -57,13 +57,13 @@ class UnfollowBusiness(
 
     def run_unfollow_workflow(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Exécuter le workflow d'unfollow.
+        Run the unfollow workflow.
         
         Args:
-            config: Configuration du workflow
+            config: workflow configuration
             
         Returns:
-            Dict avec les statistiques
+            Dict of statistics
         """
         effective_config = {**self.default_config, **(config or {})}
         
@@ -88,7 +88,7 @@ class UnfollowBusiness(
             self.logger.info(f"Mode: {unfollow_mode} | Max: {effective_config['max_unfollows']} | Cooldown: {effective_config.get('min_days_since_follow', 0)}d | Bot-only: {effective_config.get('bot_follows_only', False)}")
             self.logger.info(f"Whitelist: {len(effective_config.get('whitelist', []))} | Blacklist: {len(effective_config.get('blacklist', []))}")
             
-            # ── Sync incrémentale de la liste following ──
+            # -- Incremental sync of the following list --
             sync_stats = self.sync_following_list(effective_config)
             self.logger.info(
                 f"📊 Sync: {sync_stats['new_count']} new, "
@@ -96,7 +96,7 @@ class UnfollowBusiness(
                 f"stopped_early={sync_stats['stopped_early']}"
             )
 
-            # ── Sync des non-followers via catégorie native ──
+            # -- Sync of the non-reciprocal accounts through the native category --
             if unfollow_mode in ('non-followers', 'mutual'):
                 nf_stats = self.scrape_non_followers_category(effective_config)
                 self.logger.info(
@@ -104,7 +104,7 @@ class UnfollowBusiness(
                     f"{nf_stats['mutuals_count']} mutuals"
                 )
 
-            # Naviguer vers son propre profil
+            # Navigate to our own profile
             if not self.nav_actions.navigate_to_profile_tab():
                 self.logger.error("Failed to navigate to own profile")
                 stats['errors'] += 1
@@ -112,7 +112,7 @@ class UnfollowBusiness(
             
             time.sleep(2)
             
-            # Ouvrir la liste des abonnements (following)
+            # Open the following list
             if not self.nav_actions.open_following_list():
                 self.logger.error("Failed to open following list")
                 stats['errors'] += 1
@@ -132,7 +132,7 @@ class UnfollowBusiness(
                 time.sleep(1.5)
             # For 'non-followers' mode, we keep default sorting
             
-            # Extraire les comptes à potentiellement unfollow
+            # Extract the accounts that could be unfollowed
             accounts_to_check = self._extract_following_accounts(
                 max_accounts=effective_config['max_unfollows'] * 3
             )
@@ -183,7 +183,7 @@ class UnfollowBusiness(
                     # Enregistrer l'action
                     self._record_action(username, 'UNFOLLOW', 1)
 
-                    # Marquer comme unfollowed dans following_sync
+                    # Mark as unfollowed in the sync table
                     try:
                         account_id = self._get_account_id()
                         if account_id:
@@ -211,16 +211,16 @@ class UnfollowBusiness(
 
     def run_simple_unfollow_from_list(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Workflow d'unfollow SIMPLE: cliquer directement sur les boutons "Following" dans la liste.
+        SIMPLE unfollow: tap the following buttons directly in the list.
         
-        C'est beaucoup plus rapide que de visiter chaque profil.
-        On doit déjà être sur la liste des "following" de notre propre compte.
+        This is much faster than visiting each profile.
+        The list of our own following must already be open.
         
         Args:
-            config: Configuration du workflow
+            config: workflow configuration
             
         Returns:
-            Dict avec les statistiques
+            Dict of statistics
         """
         effective_config = {**self.default_config, **(config or {})}
         max_unfollows = effective_config.get('max_unfollows', 50)
@@ -236,10 +236,10 @@ class UnfollowBusiness(
             self.logger.info("🔄 Starting SIMPLE unfollow workflow (direct button clicks)")
             self.logger.info(f"Max unfollows: {max_unfollows}")
             
-            # Accéder au device uiautomator2 sous-jacent
+            # Reach the underlying device
             d = self.device.device
             
-            # Vérifier qu'on est sur la liste following (onglet "following" sélectionné)
+            # Check we are on the following list, with its tab selected
             following_tab = d(
                 resourceId=UNFOLLOW_SELECTORS.following_tab_title_resource_id,
                 textContains=UNFOLLOW_SELECTORS.following_tab_text_probe,
@@ -248,7 +248,7 @@ class UnfollowBusiness(
                 # Essayer de trouver n'importe quel onglet "following"
                 following_tab = d(textContains=UNFOLLOW_SELECTORS.following_tab_text_probe)
             
-            # Sélecteurs pour le bouton "Following" dans la liste
+            # Selectors for the following button of a row
             following_button_resource_id = UNFOLLOW_SELECTORS.following_list_button_resource_id
             unfollow_confirm_resource_id = UNFOLLOW_SELECTORS.unfollow_confirm_resource_id
             
@@ -258,7 +258,7 @@ class UnfollowBusiness(
             no_button_count = 0
             
             while unfollows_done < max_unfollows and scroll_count < max_scrolls:
-                # Chercher tous les boutons "Following" visibles
+                # Find every visible following button
                 following_buttons = d(
                     resourceId=following_button_resource_id,
                     text=UNFOLLOW_SELECTORS.following_button_text
@@ -270,7 +270,7 @@ class UnfollowBusiness(
                     if no_button_count >= 3:
                         self.logger.info("No more Following buttons after 3 scrolls, stopping")
                         break
-                    # Scroll pour voir plus
+                    # Scroll to reveal more
                     self._scroll_following_list()
                     scroll_count += 1
                     stats['scrolls'] += 1
@@ -279,21 +279,21 @@ class UnfollowBusiness(
                 
                 no_button_count = 0  # Reset counter
                 
-                # Cliquer sur le premier bouton "Following" trouvé
-                # Récupérer le username associé pour le log
+                # Tap the first following button found
+                # Read the associated username for the log
                 username = "unknown"
                 try:
-                    # Le username est dans le même container parent
+                    # The username sits in the same parent container
                     button_info = following_buttons[0].info
                     button_bounds = button_info.get('bounds', {})
-                    # Chercher le username proche de ce bouton
+                    # Look for the username next to that button
                     usernames_on_screen = d(resourceId=UNFOLLOW_SELECTORS.following_list_username_resource_id)
                     if usernames_on_screen.exists:
                         for i in range(usernames_on_screen.count):
                             try:
                                 u_elem = usernames_on_screen[i]
                                 u_bounds = u_elem.info.get('bounds', {})
-                                # Si le username est sur la même ligne (même top approximativement)
+                                # Same row when the top coordinates roughly match
                                 if abs(u_bounds.get('top', 0) - button_bounds.get('top', 0)) < 50:
                                     username = u_elem.get_text() or "unknown"
                                     break
@@ -302,14 +302,14 @@ class UnfollowBusiness(
                 except Exception:
                     pass
                 
-                # Essayer de cliquer sur le bouton
+                # Try to tap the button
                 try:
                     self.logger.info(f"[{unfollows_done + 1}/{max_unfollows}] Clicking 'Following' for @{username}")
                     if not tap_element_human(self.device, following_buttons[0], logger=self.logger):
                         following_buttons[0].click()
                     time.sleep(1)
                     
-                    # Vérifier si une modal de confirmation apparaît (compte privé)
+                    # A confirmation modal can appear (private account)
                     confirm_button = d(
                         resourceId=unfollow_confirm_resource_id,
                         text=UNFOLLOW_SELECTORS.unfollow_confirm_text,
@@ -331,7 +331,7 @@ class UnfollowBusiness(
                     IPCEmitter.emit_unfollow(username, success=True)
                     IPCEmitter.emit_stats(unfollows=unfollows_done)
                     
-                    # Petit délai entre les unfollows (plus court car on ne visite pas les profils)
+                    # Short pace between unfollows, shorter here since no profile is visited
                     delay = random.randint(2, 5)
                     self.logger.debug(f"⏳ Short delay: {delay}s")
                     time.sleep(delay)
@@ -339,7 +339,7 @@ class UnfollowBusiness(
                 except Exception as e:
                     self.logger.warning(f"Error clicking Following button: {e}")
                     stats['errors'] += 1
-                    # Scroll pour passer à d'autres boutons
+                    # Scroll on to further buttons
                     self._scroll_following_list()
                     scroll_count += 1
                     stats['scrolls'] += 1
@@ -358,14 +358,14 @@ class UnfollowBusiness(
 
     def unfollow_specific_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Unfollow une liste spécifique de comptes.
+        Unfollow a specific list of accounts.
         
         Args:
-            usernames: Liste des usernames à unfollow
+            usernames: usernames to unfollow
             config: Configuration
             
         Returns:
-            Dict avec les statistiques
+            Dict of statistics
         """
         effective_config = {**self.default_config, **(config or {})}
         

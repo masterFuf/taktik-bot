@@ -36,9 +36,9 @@ class BaseStatsManager:
             'profiles_interacted': 0,
             'skipped': 0,
             'private_profiles': 0,
-            # Profils ignores parce qu'une RELATION existait deja (il nous suit / on le suit).
-            # Compteur distinct de `profiles_filtered` : ce n'est pas un rejet sur criteres, et le
-            # confondre rendrait le panneau Agent illisible.
+            # Profiles skipped because a RELATIONSHIP already existed. This counter is distinct
+            # from the filtered one: it is not a criteria rejection, and confusing the two would
+            # make the live panel unreadable.
             'relationship_skipped': 0,
             
             'likes': 0,
@@ -49,10 +49,10 @@ class BaseStatsManager:
             'comments_made': 0,
             'stories_watched': 0,
             'story_likes': 0,
-            # POSTS engages (like/commentaire sur le post lui-meme, sans ouvrir de profil).
-            # C'est la seule production d'un run feed ou d'un plan hashtag « posts seuls » :
-            # sans ce compteur ils rapportaient zero partout, le panneau affichait des vides
-            # et la session etait classee comme vide donc masquee.
+            # Engaged POSTS: a like or a comment on the post itself, with no profile opened.
+            # This is the only output of a feed run or of a posts-only hashtag plan: without
+            # this counter they reported zero everywhere, the panel showed blanks and the
+            # session was classified as empty, and therefore hidden.
             'posts_engaged': 0,
             
             'errors': 0,
@@ -87,7 +87,7 @@ class BaseStatsManager:
             self.stats['error_list'] = [error_message]
     
     def get_duration(self) -> float:
-        """Retourne la durée d'interaction (ou totale si pas de session_manager)."""
+        """Interaction duration, or the total one without a session manager."""
         if self.session_manager and hasattr(self.session_manager, 'get_interaction_duration'):
             interaction_duration = self.session_manager.get_interaction_duration()
             duration = interaction_duration.total_seconds()
@@ -149,7 +149,7 @@ class BaseStatsManager:
             logger.info(f"👤 Last profile processed: @{current_profile}")
         logger.info("-" * 80)
         
-        # Afficher les durées séparément si session_manager disponible
+        # Show the durations separately when a session manager is available
         if self.session_manager and hasattr(self.session_manager, 'get_scraping_duration'):
             scraping_duration = self.session_manager.get_scraping_duration()
             interaction_duration = self.session_manager.get_interaction_duration()
@@ -195,13 +195,13 @@ class BaseStatsManager:
         logger.info(f"🏁 FINAL {workflow_name.upper()} SUMMARY")
         logger.info("=" * 80)
         
-        # Afficher les durées séparément si session_manager disponible
+        # Show the durations separately when a session manager is available
         if self.session_manager and hasattr(self.session_manager, 'get_scraping_duration'):
             scraping_duration = self.session_manager.get_scraping_duration()
             interaction_duration = self.session_manager.get_interaction_duration()
             total_duration = datetime.now() - self.session_manager.session_start_time
             
-            # Formater les durées
+            # Format the durations
             scraping_seconds = int(scraping_duration.total_seconds())
             interaction_seconds = int(interaction_duration.total_seconds())
             total_seconds = int(total_duration.total_seconds())
@@ -228,7 +228,7 @@ class BaseStatsManager:
         
         total_actions = summary['likes'] + summary['follows'] + summary['stories_watched']
         
-        # Afficher les taux basés sur la durée d'interaction
+        # Show the rates against the interaction duration
         if summary['duration_seconds'] > 0:
             logger.info(f"📈 Rates (based on interaction time):")
             logger.info(f"   - Likes: {summary['likes_per_hour']:.1f}/h")

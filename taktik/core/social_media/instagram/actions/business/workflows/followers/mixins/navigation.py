@@ -9,11 +9,11 @@ class FollowerNavigationMixin:
     
     def _go_back_to_list(self) -> bool:
         """
-        Clique sur le bouton retour de l'app Instagram pour revenir à la liste.
-        Plus fiable que device.press('back') qui peut causer des scrolls indésirables.
+        Tap the Instagram back button to come back to the list.
+        More reliable than the hardware back key, which can cause unwanted scrolls.
         """
         try:
-            # Essayer de cliquer sur le bouton retour de l'app
+            # Try the in-app back button
             clicked = False
             for selector in self._back_button_selectors:
                 try:
@@ -28,12 +28,12 @@ class FollowerNavigationMixin:
                     continue
             
             if not clicked:
-                # Fallback: utiliser le bouton système
+                # Fallback: the system button
                 self.logger.debug("⬅️ Using system back button (fallback)")
                 self.device.press('back')
                 self._human_like_delay('click')
             
-            # Vérifier qu'on est bien revenu sur la liste des followers
+            # Confirm we came back to the followers list
             if self.detection_actions.is_followers_list_open():
                 self.logger.debug("✅ Back to followers list confirmed")
                 return True
@@ -49,23 +49,23 @@ class FollowerNavigationMixin:
     
     def _ensure_on_followers_list(self, target_username: str = None, force_back: bool = False) -> bool:
         """
-        S'assure qu'on est sur la liste des followers.
-        Essaie plusieurs fois de revenir avec back, puis en dernier recours navigue vers la target.
+        Make sure we are on the followers list.
+        Tries several backs, then as a last resort navigates back to the target.
         
         Args:
-            target_username: Username de la target pour recovery en dernier recours
-            force_back: Si True, fait toujours un back d'abord (à utiliser après avoir visité un profil)
+            target_username: target username, for the last-resort recovery
+            force_back: always press back first, to be used after visiting a profile
         
-        Retourne True si on est sur la liste, False sinon.
+        True when we are on the list.
         """
-        # Si force_back=False, vérifier si on est déjà sur la liste
+        # Without a forced back, check whether we are already on the list
         if not force_back and self.detection_actions.is_followers_list_open():
             return True
         
-        # Sélecteurs UNIQUES à la liste des followers (depuis selectors.py)
+        # Selectors UNIQUE to the followers list
         quick_check_selectors = self._followers_list_selectors.list_indicators
         
-        # Fonction helper pour vérifier si on est sur la liste
+        # Helper telling whether we are on the list
         def is_on_followers_list() -> bool:
             for selector in quick_check_selectors:
                 try:
@@ -91,10 +91,10 @@ class FollowerNavigationMixin:
                     return False
                 time.sleep(interval)
         
-        # Sélecteurs pour le bouton back UI d'Instagram (depuis selectors.py)
+        # Selectors for the in-app back button
         back_button_selectors = self.navigation_selectors.back_buttons_action_bar
         
-        # Fonction helper pour cliquer sur le bouton back UI
+        # Helper tapping the in-app back button
         def click_ui_back_button() -> bool:
             for selector in back_button_selectors:
                 try:
@@ -106,7 +106,7 @@ class FollowerNavigationMixin:
                 except Exception as e:
                     self.logger.debug(f"❌ Back button error: {e}")
                     continue
-            # Fallback: device.press('back') si le bouton UI n'est pas trouvé
+            # Fallback on the hardware key when the button is not found
             self.logger.warning(f"⚠️ UI back button not found, using device.press('back')")
             self.device.press('back')
             return True
@@ -118,21 +118,21 @@ class FollowerNavigationMixin:
             self.logger.info(f"✅ Recovered to followers list (1st back)")
             return True
 
-        # Si le premier back n'a pas suffi, on est peut-être sur le profil
-        # (cas: post → profil après back, il faut un 2ème back pour la liste)
+        # When one back was not enough we may be on the profile
+        # (a post leads back to the profile, so a second back is needed)
         self.logger.info(f"🔄 First back didn't reach list, trying 2nd back...")
         click_ui_back_button()
         if wait_for_followers_list():
             self.logger.info(f"✅ Recovered to followers list (2nd back)")
             return True
 
-        # Dernier coup de pouce: laisser un peu plus de temps à l'écran et re-détecter
+        # Last nudge: give the screen more time and detect again
         self.logger.info(f"🔄 Detection failed, waiting a bit more and retrying...")
         if wait_for_followers_list(timeout=1.5):
             self.logger.info(f"✅ Recovered to followers list (after wait)")
             return True
         
-        # Dernier recours: naviguer vers la target (on perd la position)
+        # Last resort: navigate back to the target, losing the position
         if target_username:
             self.logger.warning(f"⚠️ Could not recover via back, navigating to @{target_username}")
             if self.nav_actions.navigate_to_profile(target_username):

@@ -109,13 +109,13 @@ class UnfollowDecisionMixin:
             return False, f"error: {e}"
     
     def _does_user_follow_back(self, username: str) -> bool:
-        """Vérifier si un utilisateur nous follow en retour."""
+        """Does this user follow us back?"""
         try:
             return self._is_element_present(self._unfollow_sel.follows_back_indicators)
             
         except Exception as e:
             self.logger.debug(f"Error checking if @{username} follows back: {e}")
-            return False  # En cas de doute, on considère qu'il ne follow pas
+            return False  # When in doubt, assume they do not follow back
     
     def _was_followed_by_bot(self, username: str) -> bool:
         """Check if this user was originally followed by the bot (exists in interaction_history as FOLLOW)."""
@@ -136,13 +136,13 @@ class UnfollowDecisionMixin:
             return False  # Safety: if we can't check, skip
     
     def _get_days_since_follow(self, username: str) -> Optional[int]:
-        """Récupérer le nombre de jours depuis le follow (depuis la BDD)."""
+        """Days elapsed since the follow, read from the database."""
         try:
             account_id = self._get_account_id()
             if not account_id:
                 return None
             
-            # Chercher dans l'historique des interactions
+            # Look it up in the interaction history
             db_service = get_db_service()
             if db_service:
                 return InstagramFollowGraphService.get_days_since_follow(username, account_id)

@@ -31,17 +31,17 @@ class PostUrlBusiness(
     def interact_with_post_likers(self, post_url: str, config: Dict[str, Any] = None,
                                   finalize: bool = True) -> Dict[str, Any]:
         """
-        🆕 NOUVEAU WORKFLOW: Navigation directe dans la liste des likers.
+        Direct navigation inside the likers list.
         
-        Au lieu de scraper tous les likers puis naviguer via deeplink, on:
-        1. Ouvre le post via deeplink
-        2. Ouvre la popup des likers
-        3. Pour chaque liker visible: clic direct → interaction → back
-        4. Scroll seulement quand tous les visibles sont traités
+        Instead of scraping every liker and then navigating by deeplink:
+        1. open the post by deeplink
+        2. open the likers sheet
+        3. for each visible liker: direct tap, interaction, back
+        4. scroll only once every visible one is handled
         
         Avantages:
-        - ❌ Plus de deeplinks pour chaque profil (pattern suspect)
-        - ✅ Navigation 100% naturelle par clics
+        - no more one deeplink per profile, which is a recognisable pattern
+        - navigation entirely by taps
         - ✅ Comportement humain réaliste
         """
         effective_config = {**self.default_config, **(config or {})}
@@ -64,7 +64,7 @@ class PostUrlBusiness(
                 stats['errors'] += 1
                 return stats
             
-            # 1. Naviguer vers le post via deeplink
+            # 1. Navigate to the post by deeplink
             if not self.nav_actions.navigate_to_post_via_deep_link(post_url):
                 self.logger.error("Failed to navigate to post")
                 stats['errors'] += 1
@@ -72,7 +72,7 @@ class PostUrlBusiness(
             
             time.sleep(2)
             
-            # Extraire les métadonnées du post
+            # Extract the post metadata
             is_reel = self._is_reel_post()
             post_metadata = {
                 'author_username': self._extract_author_username(),
@@ -87,7 +87,7 @@ class PostUrlBusiness(
             
             self.logger.info(f"Post from @{post_metadata['author_username']} - {post_metadata['likes_count']} likes")
             
-            # Validation des limites
+            # Validate the bounds
             validation_result = self._validate_interaction_limits(post_metadata, effective_config)
             if not validation_result['valid']:
                 self.logger.warning(f"⚠️ {validation_result['warning']}")
@@ -98,10 +98,10 @@ class PostUrlBusiness(
                     self.current_max_interactions = max_interactions
                     self.logger.info(f"✅ Adjusted max interactions to {max_interactions}")
             
-            # 2. Ouvrir la source de profils choisie pour ce run.
-            # Un post rassemble DEUX populations : ceux qui l'ont liké, et ceux qui ont pris le
-            # temps d'écrire un commentaire (signal plus fort). Le reste de la boucle est
-            # identique — seule la liste d'où viennent les profils change.
+            # 2. Open the profile source chosen for this run.
+            # A post gathers TWO populations: those who liked it, and those who took the
+            # time to write a comment, which is a stronger signal. The rest of the loop is
+            # identical; only the list the profiles come from changes.
             source_mode = str(effective_config.get('source_mode') or 'likers').strip().lower()
             if source_mode not in ('likers', 'commenters'):
                 self.logger.warning(f"Unknown source_mode '{source_mode}' — falling back to likers")
@@ -137,7 +137,7 @@ class PostUrlBusiness(
                 stats['errors'] += 1
                 return stats
             
-            # Démarrer la phase d'interaction
+            # Start the interaction phase
             if self.session_manager:
                 self.session_manager.start_interaction_phase()
             

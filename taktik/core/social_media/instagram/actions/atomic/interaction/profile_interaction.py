@@ -18,16 +18,16 @@ _normalize_label = normalize_ui_label
 
 
 def classify_follow_state(text: str, selectors) -> Optional[str]:
-    """Traduit le TEXTE d'un bouton d'action (header profil OU ligne de liste) en etat de relation,
-    via les libelles de la couche locale (`follow_state_labels_*` de `selectors`).
+    """Translate the TEXT of an action button, on a profile header or a list row, into a
+    relationship state, through the labels of the locale layer.
 
-    Returns: 'following' | 'requested' | 'follow_back' | 'follow' | None (aucun match).
+    Returns one of the states, or None when nothing matches.
 
     ORDRE PORTEUR : following > requested > follow_back > follow. "Following" contient "Follow" et
-    "Suivre en retour" contient "Suivre" — tester 'follow' en premier renverrait 'follow' pour un
-    bouton "Suivre en retour". Les libelles des differents etats ne se recouvrent pas entre eux,
-    donc l'ordre reste correct meme si `L()` retombe sur l'union multi-langue (Lab / sans detection).
-    Source de verite UNIQUE, partagee par la lecture header et la lecture ligne-de-liste.
+    The follow-back label CONTAINS the follow one, so testing the plain follow state first
+    would misread a follow-back button. The labels of the different states do not overlap
+    with each other, so the order stays correct even on the multi-language union.
+    SINGLE source of truth, shared by the header read and the list-row read.
     """
     t = _normalize_label(text)
     if not t:
@@ -37,9 +37,9 @@ def classify_follow_state(text: str, selectors) -> Optional[str]:
         return any(_normalize_label(lbl) in t
                    for lbl in (labels or []) if lbl and lbl.strip())
 
-    # AVANT tout le reste : "Ne plus suivre" contient "Suivre", "Unfollow" contient
-    # "Follow". Un bouton de desabonnement se lisait donc comme un bouton de suivi. On le
-    # rend 'following' — c'est ce qu'il signifie, et cet etat n'est jamais tape.
+    # BEFORE everything else: the unfollow label contains the follow one in both
+    # languages, so an unfollow button read as a follow one. It is reported as
+    # already-following, which is what it means, and that state is never tapped.
     if _m(getattr(selectors, 'follow_state_labels_unfollow', None)):
         return 'following'
     if _m(selectors.follow_state_labels_following):
@@ -95,7 +95,7 @@ class ProfileInteractionMixin(BaseAction):
             ]
             
             if self._find_and_click(follow_selectors, timeout=5):
-                # Vérifier qu'on n'a pas navigué vers la liste des followers
+                # Check we did not navigate into the followers list
                 self._human_like_delay('click')
                 
                 # Check for "Review this account before following" popup
@@ -105,8 +105,8 @@ class ProfileInteractionMixin(BaseAction):
                 
                 if self._verify_follow_success(username):
                     self.logger.info(f"✅ Successfully followed @{username}")
-                    # Note: L'événement follow_event est émis par le workflow (followers.py)
-                    # pour inclure les données du profil. Ne pas dupliquer ici.
+                    # Note: the follow event is emitted by the workflow, so it can carry the
+                    # profile data. Do not duplicate it here.
                     return True
                 else:
                     self.logger.warning(f"❌ Clicked but not on the right button for @{username}")
@@ -156,7 +156,7 @@ class ProfileInteractionMixin(BaseAction):
                     self.device.press("back")
                     return False
             
-            # Vérifier qu'on est toujours sur un profil
+            # Check we are still on a profile
             from ..detection import DetectionActions
             detection = DetectionActions(self.device)
             
@@ -175,24 +175,24 @@ class ProfileInteractionMixin(BaseAction):
 
     def get_follow_button_state(self) -> str:
         """
-        Etat de la relation, lu sur le bouton d'action du header profil.
+        Relationship state, read on the action button of the profile header.
 
         Returns: 'follow' | 'follow_back' | 'following' | 'requested' | 'message' | 'unknown'
 
         - 'follow'      : aucune relation -> cible neuve
-        - 'follow_back' : IL NOUS SUIT (bouton "Suivre en retour" / "Follow back")
-        - 'following'   : ON LE SUIT deja
-        - 'requested'   : demande envoyee (compte prive)
+        - follow_back: THEY follow us
+        - following:   WE already follow them
+        - requested:   a request was sent (private account)
 
-        On ancre par resource-id (neutre langue) puis on compare le TEXTE aux libelles de la couche
-        locale — jamais de libelle en dur ici. L'ancrage par id est indispensable : une forme texte
-        nue attraperait `profile_header_follow_context_text` ("Suivi(e) par X, Y" = amis en commun).
+        The anchor is the resource-id, which is language-neutral, then the TEXT is compared to
+        the locale labels; no label is hardcoded here. Anchoring by id is essential: a bare text
+        form would also catch the mutual-friends context line above the button.
 
         ORDRE DE TEST PORTEUR : following > requested > follow_back > follow. "Following" contient
-        "Follow" et "Suivre en retour" contient "Suivre" — tester 'follow' en premier renverrait
-        'follow' pour un bouton "Suivre en retour" (le bug qui faisait re-cibler nos propres
-        abonnes). Reste correct meme si `L()` retombe sur l'union multi-langue : les libelles des
-        differents etats ne se recouvrent pas entre eux.
+        The follow-back label contains the follow one, so testing the plain state first would
+        misread a follow-back button — the defect that made the bot re-target its own
+        followers. It stays correct on the multi-language union, since the labels of the
+        different states do not overlap.
         """
         selectors = self.profile_selectors
         for anchor in selectors.follow_button_anchors:

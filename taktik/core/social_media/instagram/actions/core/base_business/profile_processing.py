@@ -26,9 +26,9 @@ class ProfileProcessingResult:
     SKIPPED_PROBABILITY = 'skipped_probability'
     FILTERED_PRIVATE = 'filtered_private'
     FILTERED_CRITERIA = 'filtered_criteria'
-    # Une RELATION existait deja (il nous suit / on le suit). Statut distinct de
-    # FILTERED_CRITERIA : ce n'est pas un rejet sur criteres de profil, et les confondre
-    # rendrait illisibles le panneau Agent et les stats de session.
+    # A RELATIONSHIP already existed. This status is distinct from a criteria
+    # rejection: it is not a profile-criteria rejection, and confusing the two would
+    # make the live panel and the session statistics unreadable.
     FILTERED_RELATIONSHIP = 'filtered_relationship'
     ERROR_NO_DATA = 'error_no_data'
     ERROR_INTERACTION = 'error_interaction'
@@ -181,11 +181,11 @@ class ProfileProcessingMixin:
                 })
                 return result
             
-            # === 3.5 Relation deja existante (il nous suit / on le suit) ===
-            # Place APRES l'extraction (le bouton du header est deja lu, cf. extraction.py) et
-            # AVANT les filtres + l'IA : un profil ignore ici ne coute ni budget d'actions ni
-            # appel de qualification. Sans ce garde-fou, un abonne existant etait re-cible comme
-            # une cible neuve (le bouton "Suivre en retour" ressortait en etat 'follow').
+            # === Existing relationship ===
+            # Placed AFTER the extraction, since the header button is already read, and BEFORE
+            # the filters and the qualification: a profile skipped here costs neither action
+            # budget nor a qualification call. Without this guard, an existing follower was
+            # re-targeted as a fresh one, the follow-back button coming back as followable.
             filter_criteria = config.get('filter_criteria', config.get('filters', {}))
             relationship_reason = self._relationship_skip_reason(username, profile_data, filter_criteria)
             if relationship_reason:
@@ -193,8 +193,8 @@ class ProfileProcessingMixin:
                 result.filter_reasons = [relationship_reason]
                 self.logger.info(f"🤝 @{username} ignore — {relationship_reason}")
                 self.stats_manager.increment('relationship_skipped')
-                # Enregistrement OBLIGATOIRE : sans lui, `already_processed` ne verrait jamais ce
-                # profil et le bot y reviendrait a chaque passage, indefiniment.
+                # The record is MANDATORY: without it the already-handled check would never see
+                # this profile and the bot would come back to it on every pass, indefinitely.
                 self._record_filtered_in_db(
                     username, relationship_reason, source_type, source_name,
                     account_id, session_id
@@ -252,7 +252,7 @@ class ProfileProcessingMixin:
             # skipped-by-probability. A visited-but-not-interacted profile used to
             # leave no `interactions` row, so the `already_processed` check missed it
             # and a later pass / followers-list re-scroll re-visited and re-qualified
-            # the same profile (confirmed on the live DB: @julian_training70.3 was
+            # the same profile (confirmed on the live DB: @sample_profile was
             # visited once with no row, then fully re-processed ~5 min later).
             InstagramWorkflowStateService.mark_profile_as_processed(
                 username, source_name, account_id, session_id
@@ -279,17 +279,17 @@ class ProfileProcessingMixin:
     def _relationship_skip_reason(
         self, username: str, profile_data: Dict[str, Any], filter_criteria: Dict[str, Any]
     ) -> Optional[str]:
-        """Faut-il ignorer ce profil parce qu'une relation existe deja ? Renvoie la raison, ou None.
+        """Should this profile be skipped because a relationship already exists?
 
-        Deux axes INDEPENDANTS, tous deux desactives par defaut (opt-in, comportement inchange
-        sans reglage) :
-          - `skip_follows_us`        : le bouton dit "Suivre en retour" -> IL NOUS SUIT deja.
-          - `skip_already_following` : le bouton dit "Suivi(e)"/"Following" -> ON LE SUIT deja.
+        Two INDEPENDENT axes, both off by default, so the behaviour is unchanged without
+        any setting:
+          - skip_follows_us:        the button offers to follow back, so THEY follow us.
+          - skip_already_following: the button says following, so WE follow them.
 
-        Etat illisible ('unknown') : on RELIT une fois (le header peut ne pas etre encore peuple)
-        puis, si c'est toujours illisible, on laisse passer (fail-open). Le garde-fou est une
-        optimisation de ciblage, il ne doit jamais faire perdre des cibles valides sur une lecture
-        instable. Le cas est journalise pour pouvoir en mesurer la frequence reelle.
+        An unreadable state is RE-READ once, since the header may not be populated yet, and
+        then let through when it stays unreadable. The guard is a targeting optimisation and
+        must never lose valid targets on an unstable read. The case is logged, so its real
+        frequency can be measured.
         """
         skip_follows_us = bool(filter_criteria.get('skip_follows_us', False))
         skip_already_following = bool(filter_criteria.get('skip_already_following', False))
@@ -300,10 +300,10 @@ class ProfileProcessingMixin:
         if state == 'unknown':
             try:
                 state = self.click_actions.get_follow_button_state()
-                # Le relire ne sert a rien si on ne le memorise pas pour la suite du traitement.
+                # Re-reading it is pointless unless it is remembered for the rest of the handling.
                 if isinstance(profile_data, dict):
                     profile_data['follow_button_state'] = state
-            except Exception as exc:  # noqa: BLE001 — jamais fatal
+            except Exception as exc:  # noqa: BLE001 — never fatal
                 self.logger.debug(f"Relation @{username} : relecture impossible ({exc})")
                 state = 'unknown'
             if state == 'unknown':

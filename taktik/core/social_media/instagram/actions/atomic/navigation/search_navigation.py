@@ -302,16 +302,16 @@ class SearchNavigationMixin(BaseAction):
         if self._find_and_click(self.profile_selectors.followers_link, timeout=5):
             self._human_like_delay('navigation')
             
-            # Attendre que la liste se charge (Instagram peut être lent)
+            # Wait for the list to load, which can be slow
             time.sleep(2)
             
-            # Vérifier si la liste est ouverte
+            # Is the list open?
             is_open = self._is_followers_list_open()
             if is_open:
                 self.logger.debug("✅ Followers list opened successfully")
             else:
                 self.logger.warning("⚠️ Followers list may not be fully loaded, but continuing...")
-                # Même si la détection échoue, on continue (la liste peut être ouverte mais avec des sélecteurs différents)
+                # Carry on even when the detection fails: the list may be open with different différents)
                 return True
             
             return is_open

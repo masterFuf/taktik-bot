@@ -1,18 +1,18 @@
 """
-Couche business - Logique métier pour Instagram.
+Business layer.
 
 Structure organisée:
 - 🎯 workflows/ : Workflows principaux d'acquisition utilisateurs
 - ⚡ actions/ : Actions réutilisables (like, story, interaction)
 - 🛠️ management/ : Gestion de données (profils, contenu, filtrage)
 - ⚙️ system/ : Configuration et licences
-- 🗂️ legacy/ : Code legacy conservé pour compatibilité
+- legacy/ : legacy code kept for compatibility
 - 🛠️ common/ : Utilitaires communs
 
-Tous les imports historiques restent compatibles.
+Every historical import stays compatible.
 """
 
-# Imports depuis les sous-packages
+# Imports from the sub-packages
 from .workflows import PostUrlBusiness, HashtagBusiness, FollowerBusiness
 from .actions import LikeBusiness, StoryBusiness
 from .management import ProfileBusiness, ContentBusiness, FilteringBusiness

@@ -611,8 +611,8 @@ class InteractionEngineMixin:
 
     # NOTE : l'ancien `_interact_with_user` (duplicata complet nav -> extract -> private -> filter
     # -> interact) a ete SUPPRIME (2026-07-18). C'etait un chemin mort : le seul appelant
-    # (`notifications/workflow.py`) resout, par MRO, vers l'override
-    # `NotificationInteractionsMixin._interact_with_user`, qui passe par `_process_profile_on_screen`.
-    # Le duplicata court-circuitait ce pipeline partage — donc aussi le garde-fou de RELATION (skip
-    # des profils qui nous suivent / qu'on suit deja). Tout traitement de profil doit passer par
-    # `_process_profile_on_screen` (ProfileProcessingMixin), source unique de la decision de skip.
+    # resolves, through the method resolution order, to the notifications override,
+    # which goes through the shared per-profile pipeline..
+    # The duplicate short-circuited that pipeline, and therefore the RELATIONSHIP guard
+    # too. Every profile handling must go through the shared pipeline, which is the
+    # single source of the skip decision.

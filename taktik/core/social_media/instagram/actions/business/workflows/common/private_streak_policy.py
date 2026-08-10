@@ -1,21 +1,12 @@
-"""Getting out of a poisoned head-of-list, when Instagram serves a flagged account
-its private followers first.
+"""Getting out of a head of list dominated by private profiles.
 
-Measured, not assumed. Two accounts were run on the SAME source, on the same people, at
-the same minute: the order of the two lists correlated at rho = +0.12 (a stable list
-served to everyone would be ~+0.9), and the mismatch targeted private profiles
-specifically — mean normalised rank shift -0.63 for private profiles against +0.08 for
-public ones, permutation p = 0.0015. One account met its five private profiles at ranks
-29/34/37/38/39 of 39; the other met the same people straight away.
-
-The decisive detail is that the RATE is unchanged (12.8% vs 8.8% of the followers seen).
-It is not the quantity of private profiles that differs, it is their POSITION. A flagged
-account therefore burns its whole session budget in a head of list it was handed, and
-never reaches the public zone — which is how a source ends up at 70% "Private profile"
-rejections while the same source is fine for another account.
+The ORDER of a people list is not the same for every account: the position of private
+profiles varies while their overall RATE does not. An affected account can therefore
+spend its whole session budget in a head of list it was handed and never reach the rest
+— which is how one source ends up mostly rejected for one account and fine for another.
 
 So this is a RESCUE mechanism, not a filter: when a streak of consecutive private
-profiles says we are inside the poisoned zone, the workflow transports itself further
+profiles says we are inside that zone, the workflow transports itself further
 down the list and resumes there.
 
 What this module owns is the DECISION (are we in the zone, how far should we jump). The
@@ -35,11 +26,11 @@ DEFAULT_THRESHOLD = 5
 DEFAULT_BASE_FLINGS = 6
 DEFAULT_MAX_JUMPS = 3
 
-# A fling with coast carries the content ~2.5-4x past the finger, so one gesture moves
-# roughly eight to fifteen rows depending on device and row height. Ten is the working
-# estimate used ONLY to avoid flinging past the end of a short list — it is not a
-# position count, and nothing downstream may treat it as one: a fling skips rows by
-# construction, which is exactly why no index can be tracked through a transport.
+# A fling with coast carries the content well past the finger, so one gesture moves
+# several rows depending on device and row height. This is a working estimate used ONLY
+# to avoid flinging past the end of a short list — it is not a position count, and
+# nothing downstream may treat it as one: a fling skips rows by construction, which is
+# exactly why no index can be tracked through a transport.
 _ESTIMATED_ROWS_PER_FLING = 10
 
 

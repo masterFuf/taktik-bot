@@ -30,10 +30,10 @@ class PostUrlHandlingMixin:
     
     def _extract_author_username(self) -> Optional[str]:
         try:
-            # PRIORITE 1 : le libelle du media porte l'auteur ("Reel de X" / "Reel by X").
-            # Lu quelle que soit la langue : la forme anglaise etait codee en dur ici comme
-            # elle l'etait dans le workflow hashtag, ou elle a fait perdre l'auteur de CHAQUE
-            # reel sur un telephone francais.
+            # PRIORITY 1: the media label carries the author.
+            # Read whatever the language: the English form was hardcoded here as it was in
+            # the hashtag workflow, where it lost the author of EVERY reel on a device in
+            # another language.
             try:
                 reel_container = self.device.xpath(self._hashtag_sel.reel_author_container[0])
                 if reel_container.exists:

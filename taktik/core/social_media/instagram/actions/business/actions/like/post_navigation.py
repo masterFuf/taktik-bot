@@ -187,11 +187,11 @@ class PostNavigationMixin:
 
             if target is None:
                 self.logger.warning(
-                    f"Post #{index} (ligne {row}, colonne {col}) introuvable après scroll"
+                    f"Post #{index} (row {row}, column {col}) not found after scrolling"
                 )
                 return False
 
-            self.logger.info(f"Opening post #{index} (ligne {row}, colonne {col})")
+            self.logger.info(f"Opening post #{index} (row {row}, column {col})")
             self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
             tapped = False
             try:

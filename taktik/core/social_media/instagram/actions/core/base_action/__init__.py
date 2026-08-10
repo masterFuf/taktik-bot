@@ -3,8 +3,8 @@ Instagram BaseAction facade — composes all base action mixins.
 
 Sub-modules:
 - delays.py          — Délais humanisés (gaussian, fatigue, action-type)
-- scroll.py          — Scroll IG-specific avec variance naturelle
-- typing.py          — Saisie texte humaine + Taktik Keyboard
+- scroll.py          — platform scroll, with natural variance
+- typing.py          — human text entry, through the dedicated keyboard
 - app_management.py  — Gestion app Instagram (open, check, debug, back)
 """
 

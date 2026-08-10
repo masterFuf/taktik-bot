@@ -1,4 +1,4 @@
-﻿"""Post type detection, reel handling, grid detection for hashtag workflow."""
+"""Post type detection, reel handling, grid detection for hashtag workflow."""
 
 import time
 from typing import Any, Dict, Optional
@@ -11,11 +11,11 @@ class HashtagPostDetectionMixin:
 
     def _detect_opened_post_type(self) -> str:
         try:
-            # UNE seule question « est-ce un reel ? », celle de la production (`is_reel_post`,
-            # sur `post.reel_indicators`). Ce mixin avait sa propre liste — le bouton son —
-            # qui n'existe pas sur tous les reels : le 31/07 un reel du hashtag #esthétique a
-            # donc été classé "post_detail", et la barre d'action n'a jamais été révélée.
-            # Deux listes pour une même question finissent toujours par répondre différemment.
+            # ONE single question "is this a reel?", the production one. This mixin had its
+            # own list, based on the sound button, which does not exist on every reel: a reel
+            # was therefore classified as a regular post detail, and the action bar was never
+            # revealed. Two lists answering the same question always end up disagreeing.
+            #
             if self._is_reel_post():
                 self.logger.debug("Reel detected (production detector)")
                 return "reel_player"
@@ -169,8 +169,8 @@ class HashtagPostDetectionMixin:
         """
         before = known_signature if known_signature is not None else self._current_post_signature()
 
-        # Le geste dépend de la surface : fling sur un reel (pager à seuil), courbe contrôlée
-        # sur un post classique (liste, où un dépassement ferait lire le mauvais post).
+        # The gesture depends on the surface: a fling on a reel, whose pager has a
+        # threshold, and a controlled curve on a regular post, where overshooting would read the wrong one.
         is_reel = self._is_reel_post()
         ratios = self._NEXT_REEL_RATIOS if is_reel else self._NEXT_POST_RATIOS
 

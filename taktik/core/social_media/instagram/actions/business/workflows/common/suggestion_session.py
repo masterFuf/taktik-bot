@@ -1,21 +1,19 @@
-"""Session d'automatisation autour d'une passe de suggestions.
+"""Automation session wrapped around a suggestions pass.
 
-Ce que ce module resout, et pourquoi il ne suffisait pas d'ecrire les follows.
+What this module solves, and why writing the follows was not enough.
 
-Un follow enregistre sans `session_id` existe bien dans `interactions`, mais il
-n'appartient a aucune session — donc il ne remonte ni dans l'historique de sessions,
-ni dans le snapshot `stats_*` que `finalize_session` agrege, ni dans ce qu'on montre
-au client. « On a gagne tant d'abonnes grace au bot » se lit dans les sessions ; une
-action orpheline est, de ce point de vue, invisible.
+A follow recorded without a session id does exist in the interactions table, but it
+belongs to no session — so it surfaces neither in the session history, nor in the
+statistics snapshot that finalisation aggregates, nor in what is shown. "The bot won us
+that many followers" is read from the sessions; an orphan action is invisible there.
 
-Or ce cas etait la norme partout ou il n'y a pas d'``InstagramAutomation`` :
-`_get_session_id()` lit `automation.current_session_id` puis
-`session_manager.session_id`, et aucun des deux n'existait pour le Lab ni pour le
-bridge Notifications. Ce module ouvre donc une VRAIE session autour de la passe, et
-la cloture avec son instantane de statistiques.
+That case was the norm everywhere there is no full automation object: the session id
+comes from it, and it existed neither for the diagnostics bench nor for the
+notifications bridge. This module therefore opens a REAL session around the pass and
+closes it with its statistics snapshot.
 
-Il est volontairement minuscule et sans device : une passe de suggestions n'a pas
-besoin du cycle de vie complet d'``InstagramAutomation``, seulement d'un debut, d'une
+It is deliberately tiny and device-free: a suggestions pass does not need the full
+automation lifecycle, only a beginning and an end.
 fin et d'un identifiant.
 """
 
@@ -27,8 +25,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-# Type de cible ecrit en base. La page Sessions du desktop mappe ce champ vers un
-# libelle ; une valeur inconnue y tombe dans "Other", ce qui reste lisible mais pauvre.
+# Target type written to the database. The front maps this field to a label; an unknown
+# value falls into "Other" there, which stays readable but poor.
 SUGGESTION_TARGET_TYPE = "SUGGESTIONS"
 
 log = logger.bind(module="instagram-suggestion-session")
@@ -36,11 +34,11 @@ log = logger.bind(module="instagram-suggestion-session")
 
 def open_suggestion_session(account_id: Optional[int], *, source: str,
                             config: Optional[Dict[str, Any]] = None) -> Optional[int]:
-    """Ouvrir la session et rendre son id, ou None si on ne peut pas.
+    """Open the session and return its id, or None when impossible.
 
-    Sans compte resolu il n'y a pas de session possible : la creer sous l'id par
-    defaut attribuerait le travail a quelqu'un d'autre, ce qui est pire que pas de
-    session du tout.
+    Without a resolved account there is no possible session: creating one under the
+    default id would attribute the work to someone else, which is worse than having no
+    session at all.
     """
     if not account_id:
         log.warning("Pas de compte resolu : la passe de suggestions n'aura pas de session")
@@ -58,7 +56,7 @@ def open_suggestion_session(account_id: Optional[int], *, source: str,
         if session_id:
             log.info(f"Session de suggestions {session_id} ouverte (source: {source})")
         return session_id
-    except Exception as exc:  # noqa: BLE001 — jamais fatal pour la passe
+    except Exception as exc:  # noqa: BLE001 — never fatal for the pass
         log.warning(f"Impossible d'ouvrir une session de suggestions: {exc}")
         return None
 
@@ -66,13 +64,12 @@ def open_suggestion_session(account_id: Optional[int], *, source: str,
 def close_suggestion_session(session_id: Optional[int], *, status: str = "COMPLETED",
                              duration_seconds: Optional[int] = None,
                              error_message: Optional[str] = None) -> None:
-    """Clore la session ET ecrire son instantane de statistiques.
+    """Close the session AND write its statistics snapshot.
 
-    ``finalize_session`` — et pas ``update_session`` — parce que lui seul agrege les
-    `interactions` de la session dans les colonnes `stats_*`. Sans cet appel la session
-    resterait ACTIVE, sans heure de fin et avec des compteurs a zero alors que les
-    follows sont bien en base : exactement le genre d'ecart qui fait douter de tout le
-    reste des chiffres.
+    Finalisation, not a plain update, because only finalisation aggregates the session
+    interactions into its statistics columns. Without that call the session would stay
+    active, with no end time and zeroed counters while the follows sit in the database —
+    exactly the kind of gap that casts doubt on every other figure.
     """
     if not session_id:
         return
@@ -92,10 +89,10 @@ def close_suggestion_session(session_id: Optional[int], *, status: str = "COMPLE
 @contextmanager
 def suggestion_session(account_id: Optional[int], *, source: str,
                        config: Optional[Dict[str, Any]] = None):
-    """Ouvrir la session, la rendre a l'appelant, la clore quoi qu'il arrive.
+    """Open the session, hand it to the caller, close it whatever happens.
 
-    Une passe interrompue par une exception est cloturee en ERROR plutot que laissee
-    ACTIVE : une session qui ne finit jamais fausse autant les moyennes qu'une session
+    A pass interrupted by an exception is closed in error rather than left active: a
+    session that never ends skews the averages as much as a missing one.
     manquante.
     """
     session_id = open_suggestion_session(account_id, source=source, config=config)

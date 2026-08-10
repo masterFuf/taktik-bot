@@ -1,8 +1,8 @@
 """
 🎯 Workflows d'acquisition utilisateurs.
 
-Ce package contient les workflows principaux qui ciblent et interagissent
-avec des utilisateurs via différentes sources.
+This package holds the main workflows that target and interact with
+users through the different sources.
 """
 
 from .post_url import PostUrlBusiness

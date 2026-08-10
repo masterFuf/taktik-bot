@@ -1,4 +1,4 @@
-"""Tracker pour diagnostiquer les problèmes de navigation dans la liste des followers."""
+"""Tracker diagnosing navigation problems in a followers list."""
 
 import json
 import os
@@ -9,10 +9,10 @@ from typing import List, Dict, Any, Optional
 
 class FollowersTracker:
     """
-    Enregistre les mouvements dans la liste des followers pour diagnostiquer:
-    - Les retours en début de liste (boucles infinies)
-    - Les revisites de profils déjà filtrés
-    - Les problèmes de scroll
+    Records the movements through the followers list to diagnose:
+    - going back to the top of the list (infinite loops)
+    - revisiting already-filtered profiles
+    - scrolling problems
     """
     
     def __init__(self, account_username: str, target_username: str):
@@ -20,22 +20,22 @@ class FollowersTracker:
         self.target_username = target_username
         self.session_start = datetime.now()
         
-        # Créer le dossier de logs dans AppData pour éviter les problèmes de permission
+        # Create the log directory in the user data folder to avoid permission issues
         app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
         self.log_dir = Path(app_data) / 'taktik-desktop' / 'logs' / 'followers_tracking'
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
-        # Fichier de log pour cette session
+        # Log file for this session
         timestamp = self.session_start.strftime("%Y%m%d_%H%M%S")
         self.log_file = self.log_dir / f"{account_username}_{target_username}_{timestamp}.jsonl"
         
-        # État interne pour détecter les anomalies
+        # Internal state used to detect anomalies
         self.visited_usernames: List[str] = []  # Ordre de visite
-        self.visible_history: List[List[str]] = []  # Historique des listes visibles (pages)
+        self.visible_history: List[List[str]] = []  # history of the visible pages
         self.scroll_count = 0
         self.loop_detected_count = 0
-        self.repeats_to_end = 5  # Nombre de pages identiques pour détecter la fin (augmenté pour éviter faux positifs)
-        self.first_page_usernames: List[str] = []  # Première page vue (pour détecter retour au début)
+        self.repeats_to_end = 5  # identical pages needed to call the end
+        self.first_page_usernames: List[str] = []  # first page seen, to detect a jump back to the top
         
         # Écrire l'en-tête de session
         self._log_event("session_start", {
@@ -45,7 +45,7 @@ class FollowersTracker:
         })
     
     def _log_event(self, event_type: str, data: Dict[str, Any]):
-        """Écrit un événement dans le fichier de log."""
+        """Write one event to the log file."""
         entry = {
             "time": datetime.now().strftime("%H:%M:%S.%f")[:-3],
             "elapsed_s": (datetime.now() - self.session_start).total_seconds(),
@@ -58,13 +58,13 @@ class FollowersTracker:
     
     def log_visible_followers(self, visible_usernames: List[str], after_action: str = "scan"):
         """
-        Enregistre la liste des followers visibles à l'écran.
-        Détecte si on est revenu en début de liste (style Insomniac).
-        
+        Record the followers visible on screen.
+        Detects whether we came back to the top of the list.
+
         Returns:
-            bool: True si une boucle (retour au début) est détectée
+            bool: True when a loop back to the top is detected
         """
-        # Stocker la première page pour référence
+        # Store the first page for reference
         if not self.first_page_usernames and visible_usernames:
             self.first_page_usernames = visible_usernames.copy()
         
@@ -76,11 +76,11 @@ class FollowersTracker:
         consecutive_same_pages = 0
         
         if len(self.visible_history) >= 2:
-            # Vérifier si la page actuelle est identique à la précédente
+        # Is the current page identical to the previous one?
             prev_page = self.visible_history[-2]
             is_same_as_previous = visible_usernames == prev_page
             
-            # Compter les pages consécutives identiques
+        # Count consecutive identical pages
             if is_same_as_previous:
                 for i in range(len(self.visible_history) - 1, 0, -1):
                     if self.visible_history[i] == self.visible_history[i-1]:
@@ -88,10 +88,10 @@ class FollowersTracker:
                     else:
                         break
         
-        # Détecter un retour en début de liste
+        # Detect a jump back to the top of the list
         if len(self.visible_history) > 5 and visible_usernames and self.first_page_usernames:
-            # Comparer avec la première page
-            # Si au moins 2 des 3 premiers usernames sont les mêmes → retour au début
+        # Compare with the first page
+                # At least two of the first three usernames identical -> back to the top
             common_with_first = sum(1 for a, b in zip(visible_usernames[:3], self.first_page_usernames[:3]) if a == b)
             if common_with_first >= 2:
                 loop_detected = True
@@ -100,7 +100,7 @@ class FollowersTracker:
         self._log_event("visible_followers", {
             "action": after_action,
             "count": len(visible_usernames),
-            "usernames": visible_usernames[:10],  # Max 10 pour lisibilité
+            "usernames": visible_usernames[:10],  # capped for readability
             "scroll_count": self.scroll_count,
             "loop_detected": loop_detected,
             "is_same_as_previous": is_same_as_previous,
@@ -120,19 +120,18 @@ class FollowersTracker:
     
     def is_end_of_list(self) -> bool:
         """
-        Détecte si on a atteint la fin de la liste (style Insomniac).
-        Retourne True si les N dernières pages sont identiques ET qu'on a fait assez de scrolls.
-        
-        Conditions pour éviter les faux positifs:
-        - Au moins 10 scrolls effectués
-        - Au moins 50 usernames vus
-        - Les N dernières pages sont identiques
+        Detect whether the end of the list is reached.
+
+        Conditions guarding against false positives:
+        - a minimum number of scrolls performed
+        - a minimum number of usernames seen
+        - the last N pages are identical
         """
-        # Éviter les faux positifs en début de session
+        # Avoid false positives at the very start of a session
         if self.scroll_count < 10:
             return False
         
-        # Compter les usernames uniques vus dans l'historique
+        # Count the unique usernames seen in the history
         all_seen_usernames = set()
         for page in self.visible_history:
             all_seen_usernames.update(page)
@@ -158,14 +157,13 @@ class FollowersTracker:
     
     def check_position_after_back(self, expected_username: str, visible_usernames: List[str]) -> bool:
         """
-        Vérifie si on est revenu à la bonne position après un back().
-        
+        Check we came back to the right position after a back().
+
         Args:
-            expected_username: Le username qu'on s'attend à voir (dernier visité ou suivant)
-            visible_usernames: Liste des usernames actuellement visibles
-            
+            visible_usernames: usernames currently visible
+
         Returns:
-            bool: True si la position est correcte
+            bool: True when the position is correct
         """
         position_ok = expected_username in visible_usernames
         
@@ -194,7 +192,7 @@ class FollowersTracker:
     def log_profile_visit(self, username: str, position_in_list: int, 
                           already_in_db: bool = False, filter_reason: Optional[str] = None):
         """
-        Enregistre une visite de profil.
+        Record a profile visit.
         """
         is_revisit = username in self.visited_usernames
         visit_number = self.visited_usernames.count(username) + 1
@@ -217,7 +215,7 @@ class FollowersTracker:
             })
     
     def log_profile_filtered(self, username: str, reason: str, profile_data: Dict[str, Any]):
-        """Enregistre un profil filtré avec ses données."""
+        """Record a filtered profile with its data."""
         self._log_event("profile_filtered", {
             "username": username,
             "reason": reason,
@@ -228,7 +226,7 @@ class FollowersTracker:
         })
     
     def log_profile_interacted(self, username: str, actions: Dict[str, bool]):
-        """Enregistre une interaction réussie."""
+        """Record a successful interaction."""
         self._log_event("profile_interacted", {
             "username": username,
             "liked": actions.get("liked", False),
@@ -238,14 +236,14 @@ class FollowersTracker:
         })
     
     def log_skipped_from_db(self, username: str, reason: str):
-        """Enregistre un profil skippé car déjà en DB."""
+        """Record a profile skipped because already in the database."""
         self._log_event("skipped_from_db", {
             "username": username,
             "reason": reason
         })
     
     def log_recovery_attempt(self, reason: str, success: bool):
-        """Enregistre une tentative de récupération de navigation."""
+        """Record a navigation recovery attempt."""
         self._log_event("recovery_attempt", {
             "reason": reason,
             "success": success
@@ -253,7 +251,7 @@ class FollowersTracker:
     
     def log_position_check(self, last_visited: str, next_expected: str, 
                            visible_usernames: List[str], position_ok: bool):
-        """Enregistre une vérification de position après retour de profil."""
+        """Record a position check after coming back from a profile."""
         self._log_event("position_check", {
             "last_visited": last_visited,
             "next_expected": next_expected,
@@ -262,7 +260,7 @@ class FollowersTracker:
         })
     
     def log_session_end(self, stats: Dict[str, Any]):
-        """Enregistre la fin de session avec les stats."""
+        """Record the end of the session, with its statistics."""
         self._log_event("session_end", {
             "duration_s": (datetime.now() - self.session_start).total_seconds(),
             "total_scrolls": self.scroll_count,
@@ -272,7 +270,7 @@ class FollowersTracker:
             "stats": stats
         })
         
-        # Générer un résumé si des problèmes ont été détectés
+        # Emit a summary when problems were detected
         if self.loop_detected_count > 0:
             self._log_event("SUMMARY_ISSUES", {
                 "loops_detected": self.loop_detected_count,
@@ -280,5 +278,5 @@ class FollowersTracker:
             })
     
     def get_log_file_path(self) -> str:
-        """Retourne le chemin du fichier de log."""
+        """Path of the log file."""
         return str(self.log_file)

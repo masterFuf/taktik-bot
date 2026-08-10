@@ -93,15 +93,15 @@ FEED_DEFAULTS: Dict[str, Any] = {
     'max_feed_story_profiles': 5,
     'feed_story_reaction_percentage': 0,
     'feed_story_reaction': 'laugh',
-    # ACQUISITION depuis le fil (OFF par defaut). Le workflow Feed a longtemps engage
-    # uniquement TON propre fil, sans jamais visiter de profil — ces trois cles etaient donc
-    # dans le catalogue sans qu'aucun code ne les lise. Elles agissent desormais :
-    #   interact_with_post_author — visiter l'auteur du post et interagir (c'est LA que
+    # ACQUISITION from the feed, off by default. The feed workflow long engaged only OUR
+    # own feed, never visiting a profile, so these three keys sat in the catalog without
+    # any code reading them. They act now:
+    #   visit the post author and interact — that is where the relationship filters
     #     `follow_percentage` et `story_watch_percentage` prennent enfin un sens : un post
-    #     du fil n'a ni bouton Suivre ni anneau de story, le profil si)
-    #   interact_with_post_likers — ouvrir les likers du post et les parcourir
-    #   skip_reels — ne pas engager les reels du fil
-    # Des qu'une des deux premieres est active, les filtres de RELATION redeviennent
+    #     become meaningful, since a feed post carries neither
+    #   open the post likers and walk them
+    #   do not engage the reels of the feed
+    # As soon as either of the first two is active, the RELATIONSHIP filters become
     # pertinents : il y a alors une vraie decision d'acquisition a gater.
     'interact_with_post_author': False,
     'interact_with_post_likers': False,
@@ -115,29 +115,29 @@ FEED_DEFAULTS: Dict[str, Any] = {
     'read_captions': True,
     'browse_carousels': True,
     'like_posts_directly': True,
-    # Recolte des PUBLICITES croisees pendant le run (OFF par defaut). Le crawl reconnait
-    # deja les posts sponsorises pour les eviter ; active, il les capture au passage
-    # (capture d'ecran recadree, annonceur, texte, empreinte visuelle) au lieu de jeter
-    # cette reconnaissance. Aucune pub n'est ouverte : taper dessus signalerait de
-    # l'interet au classement, et n'apporte rien a la lecture qui compte.
+    # Collection of the ADS crossed during the run, off by default. The crawl already
+    # recognises the sponsored posts in order to avoid them; when enabled it captures
+    # them in passing instead of throwing that recognition away. No ad is ever opened:
+    # tapping one would signal interest to the ranking, and adds nothing to the
+    # reading that matters.
     'capture_ads': False,
     'min_post_likes': 0,
     'max_post_likes': 0,
-    # --- Mode "follow des suggestions" (OFF par defaut) ---
-    # Quand le carousel "Suggested for you" apparait dans le feed, ouvrir son CTA
-    # "See all" et follow en masse depuis l'ecran Discover people. Ne fait NI
-    # follow-back NI acceptation de demande de suivi (workflow Notifications).
+    # --- Suggestions-follow mode, off by default ---
+    # When the suggestions carousel appears in the feed, open its CTA and follow in
+    # bulk from the discovery screen. Does NEITHER follow-back NOR follow-request
+    # acceptance, both of which belong to the notifications workflow.
     'follow_suggestions': False,
-    # Run "suggestions seules" : le feed n'est qu'un couloir vers le carousel. Ni like,
+    # Suggestions-only run: the feed is only a corridor to the carousel. No like,
     # ni commentaire, ni story — on scrolle jusqu'au bloc, on follow, on s'arrete.
     'suggestions_only': False,
     'max_carousel_scrolls': 12,
     'max_suggestion_follows': 20,
-    # 'deny' (defaut) = refuser l'acces au carnet d'adresses ; 'allow' = l'accorder.
+    # Deny, the default, refuses the address-book access; allow grants it.
     'suggestions_contacts_choice': 'deny',
     'suggestion_follow_delay_range': (4, 12),
     'max_suggestion_scrolls': 15,
-    # Nombre de passes de suggestions autorisees dans un meme run de feed.
+    # Suggestion passes allowed within one feed run.
     'max_suggestion_passes': 1,
 }
 

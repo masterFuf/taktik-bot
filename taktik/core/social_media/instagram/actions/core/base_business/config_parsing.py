@@ -5,7 +5,7 @@ from typing import Dict, Any, List
 
 
 class ConfigParsingMixin:
-    """Mixin: parsing config (filter criteria, détermination interactions par probabilité)."""
+    """Mixin: config parsing — filter criteria and probability-driven interactions."""
 
     def _get_filter_criteria_from_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         filter_criteria = config.get('filter_criteria', config.get('filters', {}))
@@ -19,8 +19,8 @@ class ConfigParsingMixin:
             'max_followers_following_ratio': filter_criteria.get('max_followers_following_ratio',
                                                                  config.get('max_followers_following_ratio', 10))
             ,
-            # Relation deja existante. Ce dict est une RECONSTRUCTION (whitelist) : une cle absente
-            # ici serait silencieusement perdue pour les appelants qui passent par ce chemin.
+            # Existing relationship. This dict is a RECONSTRUCTION, a whitelist: a key absent
+            # here is silently lost for the callers going through this path.
             'skip_follows_us': filter_criteria.get('skip_follows_us', config.get('skip_follows_us', False)),
             'skip_already_following': filter_criteria.get('skip_already_following',
                                                           config.get('skip_already_following', False)),

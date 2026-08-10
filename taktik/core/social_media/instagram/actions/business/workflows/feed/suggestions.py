@@ -1,25 +1,24 @@
-"""Mode "follow des suggestions" du workflow Feed.
+"""The suggestions-follow mode of the feed workflow.
 
-Chemin produit complet, une methode par etape pour rester testable unitairement
-depuis le Cartography Lab :
+The full path, one method per step so each stays unit-testable in isolation:
 
 feed -> carousel netego "Suggested for you" -> CTA "See all" -> modale d'acces aux
-contacts -> ecran "Discover people" -> follow en masse -> retour au feed.
+contacts modal -> people discovery screen -> bulk follow -> back to the feed.
 
-Regles metier (arbitrage Kevin) :
+Regles metier :
 
-- on ne fait NI follow-back NI acceptation de demande de suivi ici : les deux
-  vivent deja dans le workflow Notifications. Seul un bouton dont l'etat est
-  exactement 'follow' est tape (cf. ``followable_rows``) ;
-- on ne visite AUCUN profil : c'est un follow de masse depuis la liste, pas une
-  acquisition qualifiee. Aucun filtre profil / IA ne s'applique donc ici ;
-- la modale contacts est traitee explicitement, jamais laissee au detecteur de
+- neither follow-back nor follow-request acceptance happens here: both belong to
+  the notifications workflow. Only a button whose state is exactly 'follow' is
+  tapped (see ``followable_rows``);
+- NO profile is visited: this is a bulk follow from the list, not a qualified
+  acquisition, so no profile or AI filter applies;
+- the contacts modal is handled explicitly, never left to the
   pages problematiques generique.
 
-Limite connue de la surface : IG n'expose pas le @handle dans cette liste, mais
-seulement le libelle affiche (souvent le nom complet). Les follows sont donc
-enregistres sous ce libelle, avec la provenance dans ``content`` ; la
-reconciliation avec les vrais handles se fait plus tard par la synchro
+Known limit of the surface: the @handle is not exposed in this list, only the
+display label. Follows are therefore recorded under that label, with the
+provenance in ``content``; reconciliation with the real handles happens later
+through the
 ``following_sync``.
 """
 
@@ -42,15 +41,15 @@ from .suggestions_parsing import (
 
 
 class FeedSuggestionsMixin:
-    """Mixin: detection du carousel de suggestions et follow de masse associe."""
+    """Mixin: suggestions carousel detection and the bulk follow that goes with it."""
 
-    # Passes de scroll consecutives sans nouvelle ligne "Follow" avant de
-    # considerer la liste epuisee (meme esprit que la stop policy des workflows
+    # Consecutive scroll passes with no new followable row before the list is
+    # considered exhausted (same spirit as the stop policy of the other workflows
     # target : on raisonne en comptes rencontres, pas en nombre de scrolls).
     _SUGGESTIONS_EMPTY_SCROLL_RUNS = 2
 
     # ------------------------------------------------------------------
-    # Lecture d'ecran
+    # Screen reading
     # ------------------------------------------------------------------
 
     def _suggestions_dump_root(self):
@@ -74,10 +73,10 @@ class FeedSuggestionsMixin:
             return None
 
     def has_feed_suggestions_carousel(self) -> bool:
-        """Sonde LEGERE du carousel : un seul acces device, pas de dump complet.
+        """LIGHT carousel probe: one device access, no full dump.
 
-        Appelee a chaque post de la boucle feed, elle doit rester bon marche ; le
-        dump complet n'est fait qu'une fois le carousel confirme.
+        Called on every post of the feed loop, so it must stay cheap; the full dump is
+        only paid once the carousel is confirmed.
         """
         from taktik.core.social_media.instagram.ui.selectors import FEED_SUGGESTIONS_SELECTORS
         try:
@@ -89,19 +88,19 @@ class FeedSuggestionsMixin:
         return False
 
     def detect_feed_suggestions_carousel(self, root=None) -> Dict[str, Any]:
-        """Etat du carousel "Suggested for you" dans le feed courant."""
+        """State of the suggestions carousel in the current feed."""
         from taktik.core.social_media.instagram.ui.selectors import FEED_SUGGESTIONS_SELECTORS
         root = root if root is not None else self._suggestions_dump_root()
         return parse_feed_suggestions_carousel(root, FEED_SUGGESTIONS_SELECTORS)
 
     def is_on_discover_people_screen(self, root=None) -> bool:
-        """True si l'ecran de suggestions ("Discover people") est affiche."""
+        """True when the people discovery screen is shown."""
         from taktik.core.social_media.instagram.ui.selectors import DISCOVER_PEOPLE_SELECTORS
         root = root if root is not None else self._suggestions_dump_root()
         return is_discover_people_screen(root, DISCOVER_PEOPLE_SELECTORS)
 
     def scan_discover_suggestions(self, root=None) -> List[Dict[str, Any]]:
-        """Lignes de suggestion visibles, avec leur etat de relation."""
+        """Visible suggestion rows, with their relationship state."""
         from taktik.core.social_media.instagram.ui.selectors import (
             DISCOVER_PEOPLE_SELECTORS,
             PROFILE_SELECTORS,
@@ -116,10 +115,10 @@ class FeedSuggestionsMixin:
     # ------------------------------------------------------------------
 
     def open_suggestions_see_all(self, root=None) -> bool:
-        """Taper le CTA "See all" du carousel pour ouvrir Discover people.
+        """Tap the carousel "See all" CTA to open the people discovery screen.
 
-        Le CTA est cible par resource-id (langue-neutre) et tape sur ses bounds
-        reelles, jamais sur une coordonnee ecrite en dur.
+        The CTA is targeted by resource-id, so language-neutral, and tapped on its real
+        bounds — never on a hardcoded coordinate.
         """
         carousel = self.detect_feed_suggestions_carousel(root)
         if not carousel.get("cta_bounds"):
@@ -135,16 +134,15 @@ class FeedSuggestionsMixin:
         return True
 
     def handle_contacts_access_dialog(self, choice: str = 'deny') -> str:
-        """Traiter la modale "autoriser l'acces aux contacts".
+        """Handle the "allow access to contacts" modal.
 
         Returns ``'denied'`` | ``'allowed'`` | ``'absent'`` | ``'other_dialog'``.
 
-        La modale porte les resource-id GENERIQUES des alertes Instagram
-        (``igds_alert_dialog_*``), que porte aussi l'alerte soft-ban "Try again
-        later". On exige donc que le HEADLINE corresponde aux fragments de
-        ``contacts_access_headline_texts`` avant de taper quoi que ce soit :
+        The modal carries the GENERIC Instagram alert resource-ids, which the
+        restriction alert carries too. The HEADLINE must therefore match the
+        ``contacts_access_headline_texts`` fragments before anything is tapped:
         sinon on rend ``'other_dialog'`` sans toucher a l'ecran, et l'alerte
-        reste au detecteur de pages problematiques.
+        left to the problematic-page detector.
         """
         from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS
 
@@ -184,7 +182,7 @@ class FeedSuggestionsMixin:
         return 'other_dialog'
 
     def scroll_discover_suggestions(self) -> bool:
-        """Descendre d'un ecran dans la liste de suggestions (scroll humanise)."""
+        """Scroll one screen down in the suggestions list (humanized)."""
         try:
             self.device.human_scroll("down", distance_ratio=0.55)
             self._human_like_delay('scroll')
@@ -199,10 +197,10 @@ class FeedSuggestionsMixin:
 
     def _record_suggestion_follow(self, label: str, social_context: str,
                                   section: str) -> None:
-        """Comptabiliser un follow de suggestion comme le fait le moteur d'interaction.
+        """Record a suggestion follow exactly as the interaction engine does.
 
-        Meme sequence que ``_do_follow`` : compteur live AU GESTE, ecriture DB,
-        compteur de session (qui porte ``total_follows_limit``), telemetrie
+        Same sequence as ``_do_follow``: the live counter moves ON THE GESTURE, then the
+        DB write, then the session counter that carries the follow cap, then telemetry
         d'etape et event IPC.
         """
         self._count_live('follows')
@@ -221,10 +219,10 @@ class FeedSuggestionsMixin:
 
     @staticmethod
     def _row_key(row: Dict[str, Any]) -> str:
-        """Clef de deduplication d'une ligne entre deux dumps.
+        """Dedup key for a row across two dumps.
 
-        Le libelle suffit dans l'immense majorite des cas ; s'il est vide on
-        retombe sur la bande verticale de la ligne, qui reste stable tant qu'on
+        The label is enough in almost every case; when it is empty the row falls back on
+        its vertical band, which stays stable as long as
         n'a pas scrolle.
         """
         label = (row.get("label") or "").strip()
@@ -234,11 +232,11 @@ class FeedSuggestionsMixin:
         return f"row@{bounds[1] // 50}" if bounds else "row@?"
 
     def _follow_verified(self, root, row: Dict[str, Any]) -> bool:
-        """Le bouton de ``row`` a-t-il bascule apres le tap ?
+        """Did the row button flip after the tap?
 
-        Succes si la ligne affiche desormais 'following'/'requested', ou si elle
-        a disparu de l'ecran (IG retire parfois une suggestion suivie). Echec si
-        elle est toujours proposable.
+        Success when the row now shows a following or requested state, or when it has
+        disappeared — a followed suggestion is sometimes removed from the list. Failure
+        when it is still offered.
         """
         key = self._row_key(row)
         for candidate in self.scan_discover_suggestions(root):
@@ -255,12 +253,12 @@ class FeedSuggestionsMixin:
     def follow_discover_suggestions(self, max_follows: int = 20,
                                     delay_range: tuple = (4, 12),
                                     max_scrolls: int = 15) -> Dict[str, Any]:
-        """Follow en masse depuis l'ecran Discover people deja ouvert.
+        """Bulk follow from the already-open people discovery screen.
 
-        Un seul dump par follow sert a la fois de verification du tap precedent
-        et de source pour le suivant. La boucle s'arrete sur le plafond demande,
-        sur la limite de session, ou quand la liste ne propose plus de nouvelle
-        ligne 'Follow' apres plusieurs scrolls.
+        A single dump per follow serves both as the verification of the previous tap and
+        as the source for the next one. The loop stops on the requested cap, on the
+        session limit, or when the list offers no new followable row after several
+        scrolls.
         """
         result = {
             'follows': 0, 'attempts': 0, 'scrolls': 0,
@@ -273,8 +271,8 @@ class FeedSuggestionsMixin:
         low, high = (delay_range if delay_range and len(delay_range) == 2 else (4, 12))
         attempted = set()
         self._reported_unreadable = False
-        # Les 'Follow back' sont comptes par IDENTITE et non par ecran : la meme ligne
-        # reste visible sur plusieurs dumps successifs, un simple cumul la compterait
+        # Follow-back rows are counted by IDENTITY, not per screen: the same row stays
+        # visible across several successive dumps and a plain sum would count it
         # autant de fois qu'on la voit.
         seen_follow_back = set()
         empty_dump_streak = 0
@@ -307,10 +305,10 @@ class FeedSuggestionsMixin:
                 )
 
             if not candidates:
-                # Une liste peut aligner plusieurs ecrans entiers de 'Follow back' avant
-                # la section suivante : l'absence de candidat ne prouve donc PAS la fin.
-                # Seule une suite de dumps SANS aucune ligne signe la fin de liste ; le
-                # reste est borne par le plafond de scrolls.
+                # A list can stack whole screens of non-followable rows before the
+                # next section, so finding no candidate does NOT prove the end. Only
+                # a run of dumps with NO row at all does; the rest is bounded by the
+                # scroll cap.
                 empty_dump_streak = empty_dump_streak + 1 if not rows else 0
                 if empty_dump_streak >= self._SUGGESTIONS_EMPTY_SCROLL_RUNS:
                     result['stop_reason'] = 'list_exhausted'
@@ -335,8 +333,8 @@ class FeedSuggestionsMixin:
                 self.logger.debug(f"Follow tap failed for '{label}'")
                 continue
 
-            # Cadence humaine ENTRE deux follows : c'est le geste le plus surveille
-            # par Instagram, on ne l'enchaine jamais a vitesse machine.
+            # Human pace BETWEEN two follows: this is the most watched gesture,
+            # and it is never chained at machine speed.
             time.sleep(random.uniform(min(low, high), max(low, high)))
 
             root = self._suggestions_dump_root()
@@ -353,22 +351,20 @@ class FeedSuggestionsMixin:
         return result
 
     def _suggestions_session_allows(self) -> bool:
-        """La session autorise-t-elle encore UN FOLLOW ?
+        """Does the session still allow ONE follow?
 
-        Deux garde-fous distincts, et il faut les deux :
+        Two distinct guards, and both are needed:
 
-        - ``should_continue()`` porte la duree, les plafonds de session et le
-          budget d'actions du jour ;
-        - le sous-quota ``max_follows_per_day`` n'est deliberement PAS un motif
-          d'arret de session : il desactive sa propre intention pour le reste de
-          la journee, via ``exhausted_daily_quotas()``. Le moteur d'interaction
-          le consulte pour retirer le follow du plan de chaque profil — un
-          chemin que ce mode ne traverse pas, puisqu'il ne visite aucun profil.
-          Sans cette lecture, une passe de suggestions depenserait le budget de
-          follows du jour d'un compte en montee en charge sans jamais le voir.
+        - ``should_continue()`` carries the duration, the session caps and the daily
+          action budget;
+        - the daily follow sub-quota is deliberately NOT a session-stop reason: it
+          disables its own intent for the rest of the day through
+          ``exhausted_daily_quotas()``. The interaction engine reads it to remove the
+          follow from each per-profile plan — a path this mode never walks, since it
+          visits no profile. Without reading it here, a suggestions pass would spend a
+          ramping account's daily follow budget without ever seeing it.
 
-        Fail-open comme le reste du garde-fou : une erreur de lecture ne doit pas
-        tuer le run.
+        Fail-open like the rest of the guard: a read error must not kill the run.
         """
         session = getattr(self, 'session_manager', None)
         if not session:
@@ -398,10 +394,10 @@ class FeedSuggestionsMixin:
     # ------------------------------------------------------------------
 
     def run_feed_suggestions_pass(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Passe complete : carousel du feed -> Discover people -> follows -> retour feed.
+        """Full pass: feed carousel -> discovery screen -> follows -> back to the feed.
 
-        Ne fait rien (et le dit) si le carousel n'est pas a l'ecran : c'est
-        l'appelant (la boucle du feed) qui decide quand retenter.
+        Does nothing, and says so, when the carousel is not on screen: the caller — the
+        feed loop — decides when to retry.
         """
         result = {
             'entered': False, 'follows': 0, 'attempts': 0, 'scrolls': 0,
@@ -421,8 +417,8 @@ class FeedSuggestionsMixin:
             config.get('suggestions_contacts_choice', 'deny')
         )
         if result['contacts_dialog'] == 'other_dialog':
-            # Une autre alerte Instagram (soft-ban, mise a jour...) : on ne la
-            # traite pas ici et on ne follow surtout pas derriere.
+            # Another Instagram alert (restriction, update): not handled here,
+            # and certainly not followed by a follow.
             result['stop_reason'] = 'blocked_by_dialog'
             self._return_to_feed()
             result['returned_to_feed'] = True
@@ -450,12 +446,11 @@ class FeedSuggestionsMixin:
         return result
 
     def find_feed_suggestions_carousel(self, max_scrolls: int = 12) -> Dict[str, Any]:
-        """Scroller le feed jusqu'a faire apparaitre le carousel de suggestions.
+        """Scroll the feed until the suggestions carousel appears.
 
-        Volontairement un scroll HUMANISE simple, et non l'avance "vers le prochain
-        vrai post" du crawl : cette derniere saute justement par-dessus les blocs
-        non-organiques, donc elle passerait au-dessus du carousel qu'on cherche.
-        Ici on ne lit ni ne like rien, on cherche un bloc.
+        Deliberately a plain humanized scroll rather than the crawl's "advance to the
+        next real post": that one skips over non-organic blocks by design, so it would
+        skip the very carousel being looked for. Nothing is read or liked here.
         """
         result = {'found': False, 'scrolls': 0}
         if self.has_feed_suggestions_carousel():
@@ -479,11 +474,11 @@ class FeedSuggestionsMixin:
         return result
 
     def run_suggestions_only(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Run "suggestions seules" : chercher le carousel, follow, s'arreter.
+        """Suggestions-only run: find the carousel, follow, stop.
 
-        Aucune interaction avec le fil : ni like, ni commentaire, ni story. C'est le
-        mode a utiliser quand on veut UNIQUEMENT aller chercher des comptes dans les
-        suggestions ; le feed n'est alors qu'un couloir vers le carousel.
+        No interaction with the feed itself — no like, no comment, no story. This is the
+        mode to use when the only goal is to collect accounts from the
+        suggestions; the feed is then only a corridor to the carousel.
         """
         result = {'follows': 0, 'passes': 0, 'carousel_scrolls': 0,
                   'skipped_follow_back': 0, 'stop_reason': 'carousel_not_found',
@@ -502,9 +497,9 @@ class FeedSuggestionsMixin:
             passes_left -= 1
             result['follows'] += pass_result.get('follows', 0)
             result['skipped_follow_back'] += pass_result.get('skipped_follow_back', 0)
-            # Le motif d'arret reste celui de la boucle de FOLLOW ('max_reached',
-            # 'list_exhausted'...). Ne pas l'ecraser par un probleme de retour :
-            # sinon un run parfaitement abouti se lit comme un echec.
+            # The stop reason stays the one from the FOLLOW loop. Do not overwrite
+            # it with a navigation problem: a perfectly successful run would then
+            # read as a failure.
             result['stop_reason'] = pass_result.get('stop_reason', 'unknown')
             result['returned_to_feed'] = bool(pass_result.get('returned_to_feed'))
 
@@ -514,7 +509,7 @@ class FeedSuggestionsMixin:
         return result
 
     def _wait_for_discover_screen(self, timeout: float = 8.0) -> bool:
-        """Attendre l'ecran Discover people (wait conditionnel, pas un sleep fixe)."""
+        """Wait for the people discovery screen (conditional wait, never a fixed sleep)."""
         deadline = time.time() + timeout
         while time.time() < deadline:
             if self.is_on_discover_people_screen():
@@ -524,15 +519,14 @@ class FeedSuggestionsMixin:
         return False
 
     def _return_to_feed(self) -> bool:
-        """Revenir au feed apres la passe de suggestions.
+        """Come back to the feed after the suggestions pass.
 
-        On tape la FLECHE de la barre d'action, pas la touche back materielle.
-        QA device du 2026-07-26 : l'ecran Discover people n'expose aucune barre
+        Taps the action-bar ARROW, not the hardware back key: the discovery screen
         d'onglets, et il n'a repondu ni a notre `press('back')` ni aux backs
-        incrementaux de `navigate_to_home()` — le run finissait bloque sur la
-        liste, et `navigate_to_home` cherchait un `feed_tab` absent de l'ecran.
-        La fleche, elle, est un element reel : cible par resource-id (donc
-        langue-neutre) et tapee sur ses bounds vivantes.
+        exposes no navigation bar, so the incremental backs of `navigate_to_home()`
+        had nothing to hold on to and the run ended stuck on the list. The arrow is a
+        real element: targeted by resource-id, so language-neutral, and tapped on its
+        live bounds.
         """
         from taktik.core.social_media.instagram.ui.selectors import NAVIGATION_SELECTORS
 
@@ -540,7 +534,7 @@ class FeedSuggestionsMixin:
             if not self.is_on_discover_people_screen():
                 break
             if not self._tap_first_present(NAVIGATION_SELECTORS.back_buttons):
-                # Plus de fleche a l'ecran : la touche back redevient le meilleur essai.
+                # No arrow left on screen: the back key becomes the best remaining try.
                 try:
                     self.device.press('back')
                 except Exception as exc:
@@ -559,7 +553,7 @@ class FeedSuggestionsMixin:
             return False
 
     def _tap_first_present(self, selectors) -> bool:
-        """Taper le premier element present parmi ``selectors`` (tap humanise)."""
+        """Tap the first element present among ``selectors`` (humanized tap)."""
         for selector in selectors:
             try:
                 element = self.device.xpath(selector)

@@ -1,8 +1,8 @@
 """
 🛠️ Gestion de données et ressources.
 
-Ce package contient les modules de gestion pour les profils, contenus
-et le filtrage des utilisateurs.
+This package holds the management modules for profiles, content and user
+filtering.
 """
 
 from .profile import ProfileBusiness

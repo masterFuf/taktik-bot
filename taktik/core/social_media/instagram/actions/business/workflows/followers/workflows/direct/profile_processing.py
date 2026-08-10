@@ -31,13 +31,13 @@ class DirectProfileProcessingMixin:
             True if interaction happened, False if skipped/filtered, None if critical error (can't recover)
         """
         self._last_visit_was_private = None
-        # === Skip niveau-LISTE (le moins cher de tous) ===
-        # La LIGNE du follower montre deja notre relation via son bouton (Suivre / Suivi(e) / Suivre
-        # en retour), lisible SANS ouvrir le profil. Si une relation existe et que l'operateur veut
-        # la skipper, on skip ICI : zero navigation, zero extraction, zero appel IA. C'est un
-        # court-circuit du garde-fou niveau-profil (_process_profile_on_screen), qui reste la source
-        # de verite. FAIL-OPEN : une ligne illisible ('unknown', ex. derniere ligne partiellement
-        # scrollee) retombe sur le clic + le garde-fou profil -> jamais de cible valide perdue.
+        # === LIST-level skip (the cheapest of all) ===
+        # The follower ROW already shows our relationship through its button, readable
+        # WITHOUT opening the profile. When a relationship exists and the operator wants
+        # it skipped, the skip happens HERE: no navigation, no extraction, no AI call.
+        # It short-circuits the profile-level guard, which stays the source of truth.
+        # FAIL-OPEN: an unreadable row, such as a partially scrolled last one, falls
+        # through to the tap plus the profile guard, so no valid target is ever lost.
         fc = interaction_config.get('filter_criteria', interaction_config.get('filters', {})) or {}
         if fc.get('skip_follows_us') or fc.get('skip_already_following'):
             row_state = self.detection_actions.get_row_follow_state(username)
@@ -49,8 +49,8 @@ class DirectProfileProcessingMixin:
             if reason:
                 self.logger.info(f"🤝 @{username} ignoré (liste, sans ouvrir le profil) — {reason}")
                 self.stats_manager.increment('relationship_skipped')
-                # Enregistrer comme filtre pour que is_profile_skippable le saute aux passes suivantes
-                # (jamais revisiter) — meme voie que le skip niveau-profil.
+                # Record it as filtered so the skip check catches it on later passes
+                # (never revisit) — the same route as the profile-level skip.
                 self._record_filtered_in_db(
                     username, reason, 'FOLLOWER', target_username, account_id, self._get_session_id()
                 )
@@ -65,7 +65,7 @@ class DirectProfileProcessingMixin:
             progress_info += f" ({progress_pct:.1f}% of {target_followers_count:,} followers scanned)"
         self.logger.info(f"{progress_info} 👆 Clicking on @{username}")
         
-        # Cliquer sur le profil dans la liste
+        # Tap the profile in the list
         if not self.detection_actions.click_follower_in_list(username):
             self.logger.warning(f"Could not click on @{username}")
             stats['errors'] += 1

@@ -34,7 +34,7 @@ class ClickActions(
         self.behavior_state = behavior_state
         self.logger = logger.bind(module="instagram-click-atomic")
         self.detection_selectors = DETECTION_SELECTORS
-        self.selectors = BUTTON_SELECTORS  # Pour les boutons d'interaction
+        self.selectors = BUTTON_SELECTORS  # For the interaction buttons
         self.profile_selectors = PROFILE_SELECTORS
         self.post_selectors = POST_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS

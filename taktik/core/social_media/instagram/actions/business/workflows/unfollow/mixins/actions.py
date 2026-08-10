@@ -13,7 +13,7 @@ class UnfollowActionsMixin:
     
     def _unfollow_account(self, username: str) -> bool:
         """
-        Effectuer l'unfollow d'un compte.
+        Unfollow one account.
         
         Args:
             username: Nom d'utilisateur à unfollow
@@ -22,13 +22,13 @@ class UnfollowActionsMixin:
             True si l'unfollow a réussi
         """
         try:
-            # S'assurer qu'on est sur le profil
+            # Make sure we are on the profile
             if not self.detection_actions.is_on_profile_screen():
                 if not self.nav_actions.navigate_to_profile(username):
                     return False
                 time.sleep(1.5)
             
-            # Cliquer sur le bouton "Abonné" / "Following"
+            # Tap the following button
             clicked = self._find_and_click(self._unfollow_selectors['following_button'], timeout=3)
             if clicked:
                 self._human_like_delay('click')
@@ -44,12 +44,12 @@ class UnfollowActionsMixin:
                 self._human_like_delay('click')
                 self.logger.debug(f"✅ Unfollow confirmed for @{username}")
 
-                # Retourner à la liste
+                # Back to the list
                 self._go_back_to_following_list()
                 return True
             
-            # Si pas de confirmation trouvée, peut-être que l'unfollow est direct
-            # Vérifier si le bouton est maintenant "Follow" / "Suivre"
+            # With no confirmation dialog the unfollow may have been immediate:
+            # check whether the button now offers to follow again
             follow_button_indicators = self._unfollow_sel.follow_button_after_unfollow
             
             if self._is_element_present(follow_button_indicators):
@@ -66,9 +66,9 @@ class UnfollowActionsMixin:
             return False
     
     def _go_back_to_following_list(self):
-        """Retourner à la liste des abonnements."""
+        """Go back to the following list."""
         try:
-            # Appuyer sur back plusieurs fois si nécessaire
+            # Press back several times if needed
             for _ in range(3):
                 if self.detection_actions.is_following_list_open():
                     return
@@ -79,13 +79,13 @@ class UnfollowActionsMixin:
     
     def _extract_following_accounts(self, max_accounts: int = 100) -> List[str]:
         """
-        Extraire les comptes de la liste des abonnements.
+        Extract the accounts from the following list.
         
         Args:
             max_accounts: Nombre max de comptes à extraire
             
         Returns:
-            Liste de usernames
+            List of usernames
         """
         accounts = []
         seen_accounts = set()
@@ -95,7 +95,7 @@ class UnfollowActionsMixin:
         self.logger.info(f"📋 Extracting following accounts (max: {max_accounts})")
         
         while len(accounts) < max_accounts and scroll_attempts < max_scroll_attempts:
-            # Extraire les comptes visibles
+            # Extract the visible accounts
             new_accounts = self._get_visible_following_accounts()
             
             for username in new_accounts:
@@ -106,13 +106,13 @@ class UnfollowActionsMixin:
             if len(accounts) >= max_accounts:
                 break
             
-            # Scroll pour voir plus de comptes
+            # Scroll to reveal more accounts
             previous_count = len(accounts)
             self.scroll_actions.scroll_down()
             time.sleep(1.5)
             scroll_attempts += 1
             
-            # Si pas de nouveaux comptes après scroll
+            # No new account after the scroll
             if len(accounts) == previous_count:
                 self.logger.debug("No new accounts found after scroll")
                 break
@@ -121,7 +121,7 @@ class UnfollowActionsMixin:
         return accounts
     
     def _get_visible_following_accounts(self) -> List[str]:
-        """Récupérer les usernames visibles dans la liste following."""
+        """Read the usernames visible in the following list."""
         accounts = []
         
         try:

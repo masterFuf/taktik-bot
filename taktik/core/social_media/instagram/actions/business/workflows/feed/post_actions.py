@@ -1,4 +1,4 @@
-﻿"""Feed post actions: like, comment, detect, scroll, extract metadata."""
+"""Feed post actions: like, comment, detect, scroll, extract metadata."""
 
 import time
 import random
@@ -14,11 +14,11 @@ class FeedPostActionsMixin:
     """Mixin: post-level actions in the feed (like, comment, detect, scroll)."""
 
     def _is_sponsored_post(self) -> bool:
-        """Vérifier si le post actuel est sponsorisé."""
+        """Is the current post sponsored?"""
         return self._is_element_present(self._feed_selectors['sponsored_indicators'])
     
     def _is_reel_post(self) -> bool:
-        """Vérifier si le post actuel est un Reel."""
+        """Is the current post a reel?"""
         try:
             reel_indicators = self._feed_sel.reel_indicators
             
@@ -33,7 +33,7 @@ class FeedPostActionsMixin:
             return False
     
     def _get_current_post_author(self) -> Optional[str]:
-        """Récupérer le username de l'auteur du post actuel."""
+        """Username of the current post author."""
         try:
             for selector in self._feed_selectors['post_author_username']:
                 element = self.device.xpath(selector)
@@ -48,7 +48,7 @@ class FeedPostActionsMixin:
                 if element.exists:
                     content_desc = element.attrib.get('content-desc', '')
                     if content_desc:
-                        # Le content-desc contient souvent "Photo de profil de username"
+                        # The content-desc often holds a localized "profile picture of <username>"
                         parts = content_desc.split()
                         for part in parts:
                             if self._is_valid_username(part):
@@ -109,7 +109,7 @@ class FeedPostActionsMixin:
             return False
     
     def _extract_post_metadata(self) -> Optional[Dict[str, Any]]:
-        """Extraire les métadonnées du post actuellement visible (likes, commentaires)."""
+        """Metadata of the currently visible post (likes, comments)."""
         try:
             is_reel = self._is_reel_post()
             metadata = {
@@ -126,9 +126,9 @@ class FeedPostActionsMixin:
             return None
     
     def _comment_current_post(self, config: Dict[str, Any]) -> bool:
-        """Commenter le post actuellement visible dans le feed."""
+        """Comment the post currently visible in the feed."""
         try:
-            # Récupérer les commentaires personnalisés ou utiliser des commentaires par défaut
+            # Take the custom comments, or fall back on the defaults
             custom_comments = config.get('custom_comments', [])
             if not custom_comments:
                 custom_comments = ['👏', '🔥', '💯', '❤️', '👍', '😍', '✨', '🙌']
@@ -137,7 +137,7 @@ class FeedPostActionsMixin:
             
             comment_button_selectors = self._feed_sel.comment_button
             
-            # Cliquer sur le bouton commentaire
+            # Tap the comment button
             for selector in comment_button_selectors:
                 element = self.device.xpath(selector)
                 if element.exists:
@@ -179,7 +179,7 @@ class FeedPostActionsMixin:
                         element.click()
                     self._human_like_delay('click')
                     time.sleep(1)
-                    # Retourner au feed
+                    # Back to the feed
                     self.device.press('back')
                     return True
             

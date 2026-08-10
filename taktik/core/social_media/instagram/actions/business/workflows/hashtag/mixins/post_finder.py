@@ -18,16 +18,16 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
     
     def _find_first_valid_post(self, hashtag: str, config: Dict[str, Any], skip_count: int = 0) -> Optional[Dict[str, Any]]:
         """
-        Trouve le premier post valide selon les critères de likes.
+        Find the first post valid against the like criteria.
         
         Args:
-            hashtag: Le hashtag à analyser
-            config: Configuration avec min_likes, max_likes
-            skip_count: Nombre de posts valides à sauter (pour trouver le N-ième post valide)
+            hashtag: the hashtag to walk
+            config: configuration holding the like bounds
+            skip_count: valid posts to skip, to reach the Nth valid one
         """
         min_likes = config.get('min_likes', 100)
         max_likes = config.get('max_likes', 50000)
-        max_attempts = 20 + skip_count  # Augmenter les tentatives si on doit sauter des posts
+        max_attempts = 20 + skip_count  # More attempts when posts have to be skipped
         
         try:
             self.logger.info(f"Searching for valid post from #{hashtag} (criteria: {min_likes}-{max_likes} likes, skip_count={skip_count})")
@@ -43,7 +43,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
             valid_posts_found = 0  # Compteur de posts valides trouvés
             
             while posts_tested < max_attempts:
-                # Vérifier si la session doit continuer (durée, limites, etc.)
+                # Should the session keep running (duration, caps)?
                 if hasattr(self, 'session_manager') and self.session_manager:
                     should_continue, stop_reason = self.session_manager.should_continue()
                     if not should_continue:
@@ -62,7 +62,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                         # Si on doit encore sauter des posts valides
                         if valid_posts_found <= skip_count:
                             self.logger.info(f"Valid post #{valid_posts_found} (skipping, need to skip {skip_count}): {likes_count} likes")
-                            # Swiper pour passer au suivant
+                            # Swipe on to the next one
                             posts_tested += 1
                             if posts_tested < max_attempts:
                                 if not self._swipe_to_next_post(known_signature=self._signature_of(metadata)):
@@ -196,14 +196,14 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
     
     def _extract_current_post_metadata(self, is_reel: bool = False) -> Optional[Dict[str, Any]]:
         """
-        Extrait les métadonnées du post actuellement affiché.
-        Utilisé pour identifier de manière unique un post et éviter de le retraiter.
+        Extract the metadata of the currently displayed post.
+        Used to identify a post uniquely and avoid handling it twice.
         
         Args:
-            is_reel: True si on est sur un Reel, False pour un post classique
+            is_reel: True on a reel, False on a regular post
             
         Returns:
-            Dict avec author, caption, caption_hash, likes_count, comments_count
+            Dict with author, caption, caption_hash, likes_count, comments_count
             ou None si extraction échouée
         """
         try:
@@ -216,10 +216,10 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 'post_date': None
             }
             
-            # Détecter si c'est un Reel (plus fiable que le paramètre)
+            # Detect a reel, which is more reliable than the parameter
             is_reel_detected = self._is_reel_post()
             self.logger.debug(f"Post type detection: is_reel_param={is_reel}, is_reel_detected={is_reel_detected}")
-            is_reel = is_reel or is_reel_detected  # Utiliser True si l'un des deux est True
+            is_reel = is_reel or is_reel_detected  # True when either says so
             
             # Extraire l'auteur
             if is_reel:
@@ -231,14 +231,14 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 try:
                     element = self.device.xpath(selector)
                     if element.exists:
-                        # Essayer plusieurs méthodes pour récupérer le texte
+                        # Try several ways to read the text
                         text = element.get_text()
                         if not text:
                             # Fallback: essayer content-desc
                             info = element.info
                             text = info.get('contentDescription', '') or info.get('text', '')
                         if text:
-                            # Nettoyer le username
+                            # Clean the username
                             metadata['author'] = text.strip().lstrip('@').lower()
                             self.logger.debug(f"📝 Post author: @{metadata['author']}")
                             break
@@ -246,7 +246,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                     self.logger.debug(f"Author selector {selector} failed: {e}")
                     continue
             
-            # Repli : l'auteur vit dans le libellé du média ("Reel de X" / "Reel by X").
+            # Fallback: the author lives in the media label.
             if not metadata['author'] and is_reel:
                 self.logger.debug("Trying fallback: extracting author from the reel media label")
                 try:
@@ -256,9 +256,9 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                         content_desc = info.get('contentDescription') or info.get('content-desc') or info.get('contentDesc') or ''
                         self.logger.debug(f"clips_media_component content-desc: '{content_desc[:100] if content_desc else 'empty'}'")
 
-                        # Lu quelle que soit la langue : ce libellé est traduit, et n'en
-                        # connaître que la forme anglaise revenait à n'avoir AUCUN auteur sur
-                        # un téléphone français — donc plus de dédoublonnage 7 jours, qui
+                        # Read whatever the language: that label is translated, and knowing only
+                        # its English form meant having NO author at all on a device in another
+                        # language — hence no deduplication window, which
                         # s'appuie dessus.
                         username = username_from_media_label(content_desc)
                         if username:
@@ -269,23 +269,23 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 except Exception as e:
                     self.logger.debug(f"Reel media label extraction failed: {e}")
             
-            # Extraire la caption (et la date pour les Reels)
+            # Extract the caption, and the date on reels
             if is_reel:
                 caption_selectors = self.post_selectors.reel_caption_selectors
-                # Essayer d'abord de récupérer la caption
+                # Read the caption first
                 for selector in caption_selectors:
                     try:
                         element = self.device.xpath(selector)
                         if element.exists:
                             caption = element.info.get('contentDescription', '') or element.get_text() or ''
                             if caption:
-                                # Vérifier si la caption est rétractée (contient "…" ou "...")
+                                # Is the caption collapsed?
                                 if '…' in caption or '...' in caption:
                                     self.logger.debug(f"📝 Caption rétractée détectée: {caption[:30]}... - clic pour ouvrir")
                                     try:
                                         element.click()
                                         time.sleep(0.8)  # Attendre l'animation
-                                        # Réessayer de récupérer la caption complète
+                                        # Try again to read the full caption
                                         element = self.device.xpath(selector)
                                         if element.exists:
                                             caption = element.info.get('contentDescription', '') or element.get_text() or ''
@@ -299,7 +299,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                     except Exception:
                         continue
                 
-                # Extraire la date du post (visible après ouverture de la caption)
+                # Extract the post date, visible once the caption is expanded
                 try:
                     date_selectors = getattr(self.post_selectors, 'reel_date_selectors', [])
                     for selector in date_selectors:
@@ -307,7 +307,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                         if elements.exists:
                             for elem in elements.all() if hasattr(elements, 'all') else [elements]:
                                 date_text = elem.info.get('contentDescription', '') or elem.info.get('text', '') or elem.get_text() or ''
-                                # Vérifier que c'est une date (contient un mois)
+                                # Check it is a date (it holds a month name)
                                 months = ['January', 'February', 'March', 'April', 'May', 'June', 
                                          'July', 'August', 'September', 'October', 'November', 'December']
                                 if date_text and any(m in date_text for m in months):
@@ -333,12 +333,12 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                     except Exception:
                         continue
             
-            # Extraire le nombre de likes
+            # Extract the like count
             for selector in self.post_selectors.post_likes_count_selectors:
                 try:
                     element = self.device.xpath(selector)
                     if element.exists:
-                        # Pour les reels, le format est "The like number is X. View likes."
+                        # On reels the number is embedded in a sentence
                         content_desc = element.info.get('contentDescription', '')
                         text = element.get_text() or content_desc
                         
@@ -351,7 +351,7 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 except Exception:
                     continue
             
-            # Extraire le nombre de commentaires
+            # Extract the comment count
             for selector in self.post_selectors.post_comments_count_selectors:
                 try:
                     element = self.device.xpath(selector)
@@ -368,12 +368,12 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                 except Exception:
                     continue
             
-            # Retombée REEL. Les deux boucles ci-dessus interrogent des sélecteurs de POST ;
-            # sur un reel elles reviennent souvent bredouilles et les compteurs restent à
-            # None — ce que le panneau affiche alors comme rien du tout, alors que le même
-            # run lit ce compteur sans peine deux lignes plus loin via l'extracteur partagé,
-            # qui lui est reel-aware. On lui redemande donc plutôt que de renoncer.
-            # `None` reste possible et reste un état légitime : « illisible » n'est pas zéro.
+            # REEL fallback. The two loops above query POST selectors; on a reel they often
+            # come back empty and the counters stay unset — which the panel then shows as
+            # nothing at all, while the same run reads that counter without trouble two
+            # lines further down through the shared extractor, which is reel-aware. So it
+            # is asked again rather than giving up.
+            # Unset stays possible and stays legitimate: unreadable is not zero.
             if metadata['likes_count'] is None or metadata['comments_count'] is None:
                 try:
                     if metadata['likes_count'] is None:
