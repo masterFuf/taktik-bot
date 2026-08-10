@@ -183,26 +183,19 @@ _XPATH_TEXT_RE = re.compile(
 _FR_PROBES = ["Accueil", "Rechercher", "Activité", "Retour", "Profil"]
 _EN_PROBES = ["Home", "Search", "Activity", "Back", "Profile"]
 
-# Only the VALUES of the visible-text attributes are scored. Never the raw XML: an Android dump
-# always carries English identifiers (`.../profile_tab`, `.../search_tab`, `..._back_button`,
-# `feed_tab`…), so probing the whole dump gave English a free, language-INDEPENDENT lead — every
-# EN probe matched some resource-id. Device proof (2026-07-12, Instagram in French): the raw-dump
-# scoring returned `en (FR=1.5, EN=2.5)`, the FR selectors were stripped, and `is_on_own_profile`
-# then hunted for "Edit profile" on a screen showing "Modifier le profil" → the bot could never
-# detect its own account and every session aborted.
+# Only the VALUES of the visible-text attributes are scored, never the raw XML: an Android dump
+# always carries English identifiers, so probing the whole dump gives English a free lead that is
+# INDEPENDENT of the app language.
 _VISIBLE_ATTR_RE = re.compile(r'(?:text|content-desc)="([^"]*)"')
 
 # A wrong language is WORSE than no language: it strips the correct selectors, whereas 'unknown'
 # keeps them all (overlay union). So we only commit when the winner is both solid and clearly
 # ahead; otherwise we stay 'unknown' and keep every locale.
 #
-# The bar is expressed on the FULL vocabulary below (113 FR / 119 EN words), not on the five nav
-# probes it replaced: those five only exist on the navigation bar, so any content screen scored
-# 0-0 and detection gave up. Measured on realistic screens (run 714 strings), five probes decided
-# 3 screens out of 6 — a reel scored 0.0/0.0 — where the vocabulary decides 6 out of 6 with the
-# nearest miss at 5.5 against 0.5. A higher floor and a RATIO margin therefore make the rule
-# stricter than the old one while firing far more often: at these score levels "2 vs 1.5" is
-# noise, and demanding twice the loser rejects it.
+# The bar is expressed on the FULL vocabulary below, not on the navigation probes it replaced:
+# those only exist on the navigation bar, so any content screen scored zero on both sides and
+# detection gave up. A score floor plus a RATIO margin makes the rule stricter than a bare
+# comparison while firing far more often — at low score levels a one-point lead is noise.
 _MIN_SCORE = 3.0
 _MIN_RATIO = 2.0
 
@@ -265,16 +258,14 @@ def get_detected_language() -> Optional[str]:
 def redetect_if_unknown(device) -> Optional[str]:
     """Try detection again, but ONLY if the language is still undecided.
 
-    Detection runs once at startup, on whatever screen the app happens to open on — which is
-    a loading feed, sometimes an interstitial, and in run 714 something that scored nothing at
-    all. The log then promised the language would be "re-detected on a richer screen", and
-    nothing ever did: a single undecided dump left the whole session in union mode.
+    Detection runs once at startup, on whatever screen the app happens to open on — a loading
+    feed, sometimes an interstitial, sometimes something that scores nothing at all. A single
+    undecided dump used to leave the whole session in union mode.
 
-    This is that second chance. Call it once the bot is standing on a screen it CHOSE — the
-    account's own profile is the richest one available ("Modifier le profil", "publications",
-    "abonnés", "abonnements") and the startup sequence goes there anyway to identify the
-    account. A language already decided is never re-opened: re-running detection on a later
-    screen could only turn a good answer into a worse one.
+    This is that second chance. Call it once the bot stands on a screen it CHOSE: the account's
+    own profile is the richest available, and the startup sequence goes there anyway. A language
+    already decided is never re-opened — re-running detection later could only turn a good answer
+    into a worse one.
     """
     if _detected_lang not in (None, 'unknown'):
         return _detected_lang

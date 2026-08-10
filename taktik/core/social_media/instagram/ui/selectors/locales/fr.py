@@ -120,9 +120,9 @@ STRINGS: Dict[str, List[str]] = {
     "button.save_button": [
         "//*[contains(@content-desc, \"Ajouter aux enregistrements\")]",
     ],
-    # LIBELLES bruts des boutons de la barre d'action d'un post (PAS des xpaths). Le
-    # scraping de post identifie un compteur par le bouton qui le PRECEDE, et lisait ce
-    # bouton avec des mots anglais en dur : en francais, partages et enregistrements
+    # Raw LABELS of a post action bar buttons (NOT xpaths). Post scraping identifies a
+    # counter by the button PRECEDING it, and used to read that button with hardcoded
+    # English, so shares and saves came back as zero in every other language.
     # restaient donc a zero. Compares via `normalize_ui_label` (apostrophes repliees).
     "button.action_label_like": [
         "J'aime",
@@ -294,10 +294,10 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.inbox_top_visible_texts": [
         "Rechercher",
     ],
-    # PREFIXES de statut de presence : dans une ligne de conversation, le premier segment
-    # du content-desc n'est PAS toujours le pseudo — quand le contact est en ligne, la
-    # ligne s'ouvre sur son statut. Ce garde-fou ne connaissait que la forme anglaise
-    # ("Active now"), donc en francais le STATUT etait renvoye comme nom de conversation.
+    # PRESENCE prefixes: in a thread row the first content-desc segment is not always
+    # the username — when the contact is online the row opens with their status
+    # instead. This guard used to know only the English form, so other languages
+    # returned the STATUS as the conversation name.
     "direct_message.presence_prefixes": [
         "En ligne",
         "Actif",
@@ -318,7 +318,7 @@ STRINGS: Dict[str, List[str]] = {
         "Envoyer",
     ],
     # --- discover people (suggestions de comptes) ---
-    # LIBELLES bruts (pas des xpaths) : titre de la barre d'action de l'ecran suggestions.
+    # Raw LABELS (not xpaths): action-bar title of the suggestions screen.
     "discover_people.screen_title_texts": [
         "Découvrir des personnes",
         "Decouvrir des personnes",
@@ -356,8 +356,8 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"publications\")]",
     ],
     "hashtag.reel_author_container": [],
-    # En-tete de la zone suggestions en BAS de l'ecran Notifications. Libelles bruts
-    # (pas des xpaths) : cette surface ne porte aucun resource-id, le texte est le
+    # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
+    # labels, not xpaths: the fields of that surface carry no resource-id, so the text
     # seul point d'ancrage possible.
     "notifications.suggestions_header_texts": [
         "Suggestions",
@@ -387,10 +387,10 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.explore_search_bar_texts": [],
     "navigation.home_tab": [
-        # not(systemui): le bouton Accueil de la barre de navigation Android
+        # not(systemui): the Android navigation bar home button also carries the same
         # (com.android.systemui:id/home_button) a aussi content-desc "Accueil" ;
-        # sans ce garde, en story plein ecran (pas de barre IG) le bot tapait le
-        # bouton Home systeme -> sortie de l'app vers le launcher Android.
+        # content-desc, so without this guard, in a fullscreen story where the Instagram
+        # bar is absent, the bot tapped it and dropped out to the Android launcher.
         "//*[contains(@content-desc, \"Accueil\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.home_tab_description_contains": [],
@@ -453,7 +453,7 @@ STRINGS: Dict[str, List[str]] = {
         "Demandes de suivi",
     ],
     # "Voir plus" button that loads older notifications (exact text to avoid the
-    # inline "… plus" comment expander).
+    # inline comment expander).
     "notification.show_more": [
         "//*[@text=\"Voir plus\"]",
         "//*[@text=\"Afficher plus\"]",
@@ -473,21 +473,21 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Répondre\"]",
         "//*[contains(@text, \"Répondre\")]",
     ],
-    # Bouton "J'aime" inline sur une ligne commentaire / mention (content-desc, PAS
-    # un xpath — apparié par égalité EXACTE avec le content-desc d'un noeud pour que
-    # l'état déjà-aimé "Bouton Je n'aime plus" ne matche pas et ne dé-like pas).
+    # Inline like button on a comment / mention row (content-desc, NOT an xpath —
+    # matched by EXACT equality against a node content-desc so the already-liked state
+    # never matches and a like is never undone).
     "notification.inline_like_button": [
         "Bouton J'aime",
     ],
-    # LIBELLÉ "Répondre" inline sur une ligne commentaire / mention (texte brut, PAS
-    # un xpath — apparié par égalité EXACTE du texte pour associer le bouton Répondre
-    # à sa ligne par bounds, puis tapé pour ouvrir le fil du commentaire ciblé).
+    # Inline reply LABEL on a comment / mention row (raw text, NOT an xpath — matched
+    # by EXACT text equality to pair the reply button with its row by bounds, then
+    # tapped to open the thread of that specific comment).
     "notification.reply_label": [
         "Répondre",
     ],
-    # MOT d'expansion de troncature inline (« … suite » / « … plus »). ClickableSpan sans
-    # nœud → localisé par OCR sur le crop de la ligne (pas un xpath) puis tapé pour
-    # afficher le commentaire complet.
+    # Inline truncation-expander WORD. A ClickableSpan with no node, so it is located
+    # by OCR on the row crop (not an xpath) and tapped to reveal the full comment.
+    #
     "notification.expander_words": [
         "suite", "plus",
     ],
@@ -586,8 +586,8 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@text=\"Commentaires\"]",
         "//*[contains(@text, \"Ajouter un commentaire\")]",
     ],
-    # LIBELLES bruts (pas des xpaths) : preuve que l'alerte igds affichee est bien la
-    # demande d'acces aux contacts et pas une autre alerte portant les memes resource-id.
+    # Raw LABELS (not xpaths): proof that the alert on screen really is the contacts
+    # access request and not another alert carrying the same resource-ids.
     "popup.contacts_access_headline_texts": [
         "accéder à vos contacts",
         "acceder a vos contacts",
@@ -655,13 +655,11 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[contains(@content-desc, 'aime')]",
         "//android.widget.ImageView[contains(@content-desc, 'aime')]",
     ],
-    # L'app rend l'apostrophe TYPOGRAPHIQUE (U+2019) : « Nombre de J’aime : 35 ». Ce
-    # selecteur cherchait l'apostrophe DROITE (U+0027) et ne matchait donc jamais rien
-    # (run 714 : « found 0 elements » sur un reel dont le compteur etait a l'ecran). On
-    # matche desormais autour de l'apostrophe. « Nombre de » + « aime » reste le
-    # COMPTEUR : il exclut « Nombre de commentaires » (pas de "aime"), le bouton J'aime
-    # et l'etat « Je n'aime plus » (pas de "Nombre de") — un consommateur clique cette
-    # liste sans la valider, donc elargir a "aime" seul liquerait le post.
+    # The app renders a TYPOGRAPHIC apostrophe, so matching a straight one finds nothing.
+    # Matching AROUND the apostrophe avoids the question. The two fragments together are
+    # what identify the COUNTER: they exclude the comment counter, the like button and the
+    # already-liked state. A consumer clicks this list without validating it, so widening
+    # the match would like the post instead of opening the list.
     "post.like_count_selectors": [
         "//*[contains(@content-desc, \"Nombre de \") and contains(@content-desc, \"aime\")]",
     ],
@@ -729,14 +727,14 @@ STRINGS: Dict[str, List[str]] = {
     "post_comments.comment_composer_indicators": [
         "//*[contains(@hint, \"Ajouter un commentaire\")]",
     ],
-    # Contrôle coeur d'une ligne de commentaire, état PAS-AIMÉ (texte brut, PAS un xpath —
-    # apparié par CONTENANCE sur le content-desc du noeud).
+    # Heart control of a comment row, NOT-LIKED state (raw text, NOT an xpath —
+    # matched by CONTAINMENT against the node content-desc).
     "post_comments.comment_like_button": [
         "aimer le commentaire",
     ],
-    # Même contrôle, état DÉJÀ-AIMÉ. Testé EN PREMIER et prioritaire : "ne plus aimer le
-    # commentaire" CONTIENT le fragment ci-dessus, donc tester le positif d'abord taperait
-    # un commentaire déjà aimé et le DÉ-LIKERAIT en silence.
+    # Same control, ALREADY-LIKED state. Tested FIRST and taking priority: the
+    # already-liked label CONTAINS the fragment above, so testing the positive one
+    # first would tap an already-liked comment and silently UNLIKE it.
     "post_comments.comment_unlike_button": [
         "ne plus aimer le commentaire",
     ],
@@ -763,16 +761,16 @@ STRINGS: Dict[str, List[str]] = {
     "profile.follow_button_text_labels": [
         "Suivre",
     ],
-    # Libelles d'ETAT du bouton d'action du header profil (resource-id
-    # profile_header_follow_button). Ce sont des LIBELLES bruts, pas des xpath : la lecture fait
-    # un seul acces device (le bouton est deja cible par resource-id) puis compare son texte.
-    # Radicaux volontairement courts pour absorber les variantes ("Suivi" couvre "Suivi(e)").
-    # ATTENTION : l'ordre de test est porteur cote code (following > requested > follow_back >
-    # follow) car "Suivre en retour" contient "Suivre".
-    # Teste AVANT tous les autres : "Ne plus suivre" CONTIENT "Suivre", et "Unfollow"
-    # contient "Follow". Sans cette famille, le bouton de desabonnement se lisait comme
-    # un bouton de suivi — inoffensif sur le header profil (resource-id scope) mais pas
-    # sur une ligne de liste, ou on l'aurait tape.
+    # STATE labels of the profile header action button. These are raw LABELS, not
+    # xpaths: the read makes a single device access, since the button is already
+    # targeted by resource-id, then compares its text.
+    # The stems are deliberately short so they absorb the inflected variants.
+    # WARNING: the test order carries meaning on the code side.
+    # follow) because the follow-back label contains the follow one.
+    # Tested BEFORE every other family: the unfollow label CONTAINS the follow one in
+    # both languages. Without this family the unfollow button read as a follow button —
+    # harmless on the profile header, where the resource-id scopes it, but not on a
+    # list row, where it would have been tapped.
     "profile.follow_state_labels_unfollow": [
         "Ne plus suivre",
         "Se désabonner",
@@ -787,10 +785,10 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "profile.follow_state_labels_follow_back": [
         "Suivre en retour",
-        # Instagram FR alterne entre la famille "suivre" et la famille "s'abonner" selon la
-        # surface et la version. Il manquait la seconde : un bouton "S'abonner en retour" ne
-        # matchait aucun libelle, donc l'etat de la ligne restait None et elle etait ignoree
-        # en silence (QA 2026-07-27, mode suggestions du feed).
+        # The French app alternates between two verb families depending on the surface and
+        # the version. The second one was missing, so one of the follow-back buttons
+        # matched no label at all: the row state stayed empty and the row was skipped
+        # silently.
         "S'abonner en retour",
     ],
     "profile.follow_state_labels_follow": [
@@ -805,10 +803,10 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[contains(@text, \"abonnés\")]",
         "//android.widget.TextView[contains(@text, \"Abonnés\")]",
     ],
-    # SCOPE : un match texte nu attrapait aussi profile_header_follow_context_text
-    # ("Suivi(e) par X, Y" = amis en commun), un TextView NON cliquable au-dessus du bouton ->
-    # click_unfollow_button pouvait taper ce libelle. On scope d'abord par resource-id, puis on
-    # retombe sur la classe Button (le parasite est un TextView).
+    # SCOPE: a bare text match also caught profile_header_follow_context_text (the
+    # mutual-friends line), a NON-clickable TextView sitting above the button ->
+    # click_unfollow_button could tap that label. Scoped by resource-id first, then
+    # falls back on the Button class (the decoy is a TextView).
     "profile.following_button": [
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Abonné\")]",
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Suivi\")]",
@@ -839,7 +837,7 @@ STRINGS: Dict[str, List[str]] = {
     "profile.private_text_contains": [
         "compte est privé",
     ],
-    # Mot d'expansion de troncature de bio (texte brut pour l'OCR, PAS un xpath).
+    # Bio truncation-expander word (raw text for OCR, NOT an xpath).
     "profile.bio_more_words": [
         "plus", "suite",
     ],
@@ -857,7 +855,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"voir plus\")]",
         "//*[contains(@content-desc, \"Voir plus\")]",
     ],
-    # --- settings (Paramètres et activité -> Langue et traduction) ---
+    # --- settings (settings and activity -> language and translations) ---
     "settings.language_and_translations_row": [
         "//*[@text=\"Langue et traduction\"]",
         "//*[contains(@text, \"Langue et traduction\")]",

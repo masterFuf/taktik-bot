@@ -6,7 +6,7 @@ so this catalog only covers the language-specific path *beyond* the settings lis
 the "Language and translations" row, the "Set language" sub-row, and the app
 language picker.
 
-Provenance: real device dumps (device 9CHAY1PN, Instagram, 2026-06-22), captured
+Provenance: real device dumps (Instagram, 2026-06-22), captured
 in FR and EN. Neutral ``resource-id`` parts are dataclass fields; the localized
 row labels live in the per-language overlay (``locales/{en,fr}.py``) and are read
 via ``L("settings.<field>")``. The picker rows are matched by their NATIVE
@@ -37,41 +37,39 @@ APP_LANGUAGE_NATIVE_NAMES: Dict[str, str] = {
 
 @dataclass
 class SettingsSelectors:
-    """Sélecteurs du flux Réglages → langue (au-delà de la liste des réglages)."""
+    """Selectors of the settings -> language flow (beyond the settings list)."""
 
-    # === Ligne "Langue et traduction" / "Language and translations" ===
-    # Les lignes de la liste réglages n'ont pas de resource-id : on cible le texte.
+    # === "Language and translations" row ===
+    # The settings list rows carry no resource-id, so they are targeted by text.
     @property
     def language_and_translations_row(self) -> List[str]:
         return L("settings.language_and_translations_row")
 
-    # === Ligne "Définir la langue" / "Set language" (sous-écran langue) ===
-    # resource-id neutre + texte localisé : le sous-écran contient plusieurs
-    # row_simple_text_title, donc le libellé reste nécessaire pour désambiguïser.
+    # === "Set language" row (language sub-screen) ===
+    # Neutral resource-id plus localized text: the sub-screen holds several rows of the
+    # same type, so the label stays necessary to disambiguate.
     @property
     def set_language_row(self) -> List[str]:
         return L("settings.set_language_row")
 
-    # Indicateurs d'arrivée sur le picker "Langue de l'application" (neutres).
+    # Markers of the app-language picker (neutral).
     language_picker_indicators: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/language_name"]',
         '//*[@resource-id="com.instagram.android:id/search"]',
     ])
 
-    # resource-id porté par le nom natif de chaque langue dans le picker.
+    # resource-id carried by each language native name in the picker.
     language_name_resource_id: str = "com.instagram.android:id/language_name"
 
     def language_row_for(self, native_name: str) -> List[str]:
-        """Sélecteurs d'une ligne du picker, ciblée par son nom NATIF EXACT.
+        """Selectors of one picker row, targeted by its EXACT NATIVE name.
 
-        Le libellé natif (ex. ``"English"``, ``"Français (France)"``) est identique
-        dans toutes les langues de l'app, donc cette correspondance fonctionne quelle
-        que soit la langue courante de l'interface.
+        A native label is identical whatever the current interface language, so this
+        match works regardless of the language the app is currently in.
 
-        Correspondance EXACTE uniquement (pas de ``contains``) : ``"English"`` est un
-        préfixe de ``"English (UK)"`` ; un ``contains`` laisserait la boucle
-        scroll-jusqu'à-trouvé s'arrêter sur une variante et cliquer la mauvaise
-        langue tout en rapportant un succès.
+        EXACT match only, never ``contains``: one language name can be a prefix of
+        another variant, and a loose match would let the scroll-until-found loop stop
+        on the wrong variant, tap the wrong language, and still report success.
         """
         rid = self.language_name_resource_id
         return [

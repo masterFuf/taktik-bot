@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class StorySelectors:
-    """Sélecteurs pour les stories."""
+    """Selectors for stories."""
     
     # === Éléments de base ===
     story_image: str = '//android.widget.ImageView[contains(@resource-id, "reel_media_image")]'
@@ -43,7 +43,7 @@ class StorySelectors:
     highlight_tray: str = '//*[contains(@resource-id, "highlights_tray")]'
     highlight_recycler: str = '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]'
     highlight_buttons: str = '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]//android.widget.Button[contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")]'
-    # Highlight thumbnail image. FR: "story à la une de <user> dans la colonne N";
+    # Highlight thumbnail image. The content-desc wording differs per language and
     # EN: "<user>'s highlight story". Real dump 2026-06-08 (IG v410, FR).
     highlight_images: str = (
         '//*[contains(@resource-id, "highlights_reel_tray_recycler_view")]'
@@ -52,11 +52,11 @@ class StorySelectors:
     )
     
     # === Stickers interactifs a EVITER quand on avance la story ===
-    # Un tap sur ces stickers ouvre une "consumption sheet" (compte a rebours, sondage, quiz,
-    # question, curseur, lien...) qui BLOQUE le defilement de la story. L'avance (tap cote droit)
-    # doit eviter leurs bounds. Base sur resource-id -> langue-independant. Seul `countdown_sticker`
-    # est confirme par un dump reel (2026-07-05) ; les autres sont les stickers interactifs IG connus
-    # (sans effet s'ils sont absents).
+    # Tapping these stickers opens a consumption sheet (countdown, poll, quiz, question,
+    # slider, link…) that BLOCKS the story from advancing. The forward tap must avoid
+    # their bounds. Based on resource-id, so language-independent. Only the countdown
+    # sticker is confirmed by a real dump; the others are the known interactive stickers
+    # (harmless when absent).
     interactive_sticker_selectors: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "countdown_sticker")]',
         '//*[contains(@resource-id, "poll_sticker")]',
@@ -70,11 +70,11 @@ class StorySelectors:
     next_story: str = '//android.widget.FrameLayout[contains(@resource-id, "story_viewer_container")]//android.widget.ImageView[contains(@content-desc, "Suivant") or contains(@content-desc, "Next")]'
     close_story: str = '//android.widget.ImageView[contains(@content-desc, "Fermer") or contains(@content-desc, "Close")]'
     
-    # === Détection du nombre de stories ===
-    # Viewer de story - contient "story X of Y" dans le content-desc
+    # === Story count detection ===
+    # Story viewer — the content-desc carries "story X of Y"
     story_viewer_text_container: str = '//*[contains(@resource-id, "reel_viewer_text_container")]'
     
-    # Header de story avec username et timestamp
+    # Story header, with username and timestamp
     story_viewer_header: str = '//*[contains(@resource-id, "reel_viewer_header")]'
     story_viewer_title: str = '//*[contains(@resource-id, "reel_viewer_title")]'
     story_viewer_timestamp: str = '//*[contains(@resource-id, "reel_viewer_timestamp")]'
@@ -85,14 +85,14 @@ class StorySelectors:
         '//*[contains(@resource-id, "username")]',
     ])
     
-    # Barre de progression des stories
+    # Story progress bar
     story_progress_bar: str = '//*[contains(@resource-id, "reel_viewer_progress_bar")]'
     story_viewer_root: str = '//*[contains(@resource-id, "reel_viewer_root")]'
 
-    # === Pub / story sponsorisee (a NE PAS traiter comme une story d'ami) ===
+    # === Ad / sponsored story (NOT to be treated as a friend story) ===
     story_sponsored_label: str = '//*[contains(@resource-id, "reel_item_sponsored_label") or contains(@content-desc, "sponsored story") or contains(@content-desc, "story sponsorisée") or contains(@content-desc, "Sponsorisé")]'
     
-    # Actions sur story
+    # Story actions
     story_like_button: str = '//*[contains(@resource-id, "toolbar_like_button")]'
     story_share_button: str = '//*[contains(@resource-id, "toolbar_reshare_button")]'
     story_message_composer: str = '//*[contains(@resource-id, "message_composer_container") or contains(@resource-id, "reel_viewer_message_composer")]'

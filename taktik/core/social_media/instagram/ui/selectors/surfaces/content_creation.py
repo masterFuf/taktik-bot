@@ -5,13 +5,13 @@ from ..locales import L
 
 @dataclass
 class ContentCreationSelectors:
-    """Sélecteurs pour la création de contenu (posts, stories, reels)."""
+    """Selectors for content creation (posts, stories, reels)."""
     
     # === Tab de création ===
     creation_tab: str = 'com.instagram.android:id/creation_tab'
 
-    # Bouton "+" creer : barre du bas (creation_tab) si presente, sinon l'ImageView
-    # cliquable en haut a gauche de l'action bar (sans resource-id/content-desc sur
+    # Create "+" button: the bottom bar entry when present, otherwise the clickable
+    # ImageView at the top left of the action bar (no resource-id or content-desc on
     # certaines versions). Cible structurelle = selector-only, aucune coordonnee.
     create_button_xpaths: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "creation_tab")]',
@@ -24,8 +24,8 @@ class ContentCreationSelectors:
     # === Galerie ===
     gallery_grid_item: str = 'com.instagram.android:id/gallery_grid_item_thumbnail'
     gallery_grid_item_selection_circle: str = 'com.instagram.android:id/gallery_grid_item_selection_circle'
-    # Etat de selection d'un thumbnail : expose dans le content-desc, PAS via le
-    # selection_circle (qui existe pour chaque item du grid en mode multi-select).
+    # A thumbnail selection state is exposed in the content-desc, NOT through the
+    # selection circle, which exists for every grid item in multi-select mode.
     #   selectionne   -> "Selected media number N <type> thumbnail created on ..."
     #   non selectionne -> "Unselected <type> thumbnail created on ..."
     selected_media_content_desc: str = 'Selected media number'
@@ -37,12 +37,12 @@ class ContentCreationSelectors:
     primary_button: str = 'com.instagram.android:id/primary_button'
     auxiliary_button: str = 'com.instagram.android:id/auxiliary_button'
     bb_primary_action: str = 'com.instagram.android:id/bb_primary_action'
-    # Bouton primaire des dialogues "igds headline" (ex: promo one-shot affichee APRES
-    # la publication d'une story "Introducing story-to-story sharing" -> content-desc "OK").
+    # Primary button of the headline dialogs (e.g. the one-shot promo shown AFTER
+    # publishing a story).
     igds_headline_primary_action_button: str = 'com.instagram.android:id/igds_headline_primary_action_button'
 
-    # === Feed reels tray (2e methode story : ajouter depuis le feed) ===
-    # Le 1er bubble du tray = notre propre story ; quand le ring est vide le badge
+    # === Feed story tray (second way to post a story: from the feed) ===
+    # The first bubble of the tray is our own story; when the ring is empty the badge
     # `reel_empty_badge` porte content-desc "Add to story" et le label = "Your story".
     reels_tray_container: str = 'com.instagram.android:id/reels_tray_container'
     reel_empty_badge: str = 'com.instagram.android:id/reel_empty_badge'
@@ -57,7 +57,7 @@ class ContentCreationSelectors:
     draft_headline: str = 'com.instagram.android:id/igds_headline_headline'
     draft_body: str = 'com.instagram.android:id/igds_headline_body'
 
-    # Onglets de destination du create (camera) : POST / REEL / STORY.
+    # Create destination tabs: POST / REEL / STORY.
     cam_dest_feed: str = 'com.instagram.android:id/cam_dest_feed'
     cam_dest_clips: str = 'com.instagram.android:id/cam_dest_clips'
     cam_dest_story: str = 'com.instagram.android:id/cam_dest_story'
@@ -74,7 +74,7 @@ class ContentCreationSelectors:
     def story_publish_texts(self) -> List[str]:
         return L("content_creation.story_publish_texts")
 
-    # "OK" est identique en EN/FR -> neutre.
+    # "OK" is identical in both languages -> neutral.
     _popup_button_texts_base: List[str] = field(default_factory=lambda: [
         "OK",
     ])
@@ -130,12 +130,12 @@ class ContentCreationSelectors:
     def reel_draft_start_new_texts(self) -> List[str]:
         return L("content_creation.reel_draft_start_new_texts")
 
-    # === Champs de texte ===
+    # === Text fields ===
     caption_text_view: str = 'com.instagram.android:id/caption_text_view'
     caption_input_text_view: str = 'com.instagram.android:id/caption_input_text_view'
-    # Bouton "OK"/"Done" de l'editeur de caption plein ecran (action bar haut-droite) :
-    # le composer ouvre un editeur dedie quand on tape le champ caption ; valider via OK
-    # revient au composer (ou se trouve Share). Presser back ne ferme pas le clavier custom.
+    # "OK"/"Done" button of the fullscreen caption editor (top-right action bar): the
+    # composer opens a dedicated editor when the caption field is tapped, and validating
+    # returns to the composer. Pressing back does not close the custom keyboard.
     caption_done_button: str = 'com.instagram.android:id/action_bar_button_text'
     soft_input_window_class_name: str = "android.inputmethodservice.SoftInputWindow"
     

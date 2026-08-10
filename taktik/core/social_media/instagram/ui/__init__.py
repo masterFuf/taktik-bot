@@ -1,11 +1,11 @@
 """
 Interface utilisateur d'Instagram.
 
-Ce package contient les sélecteurs UI centralisés et les extracteurs UI
-pour interagir avec l'application Instagram.
+This package holds the centralized UI selectors and the UI extractors
+used to interact with the Instagram app.
 """
 
-# Import des sélecteurs centralisés
+# Centralized selector imports
 from .selectors import (
     ButtonSelectors,
     PostCommentsSelectors,
@@ -40,7 +40,7 @@ from .selectors import (
     POPUP_SELECTORS
 )
 
-# Import des extracteurs UI
+# UI extractor imports
 from .extractors import (
     InstagramUIExtractors,
     parse_instagram_number

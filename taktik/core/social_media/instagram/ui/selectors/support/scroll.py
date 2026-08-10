@@ -5,18 +5,18 @@ from ..locales import L
 
 @dataclass
 class ScrollSelectors:
-    """Sélecteurs pour la détection de fin de scroll et éléments de chargement."""
+    """Selectors for end-of-scroll detection and loading elements."""
 
     # === Indicateurs de chargement ===
-    # Consolidé 2026-03-07: 12 → 5 sélecteurs (//* couvre tous les types d'éléments)
-    # Langue-dependant (overlay locales/) : tous les fragments portent du @text /
-    # @content-desc FR/EN -> aucun champ base neutre.
+    # Consolidated: //* covers every element type.
+    # Language-dependent (locales overlay): every fragment carries localized text or
+    # content-desc, so there is no neutral base field.
     @property
     def load_more_selectors(self) -> List[str]:
         return L("scroll.load_more_selectors")
 
-    # === Indicateurs de fin de liste ===
-    # Consolidé 2026-03-07: 6 → 4 sélecteurs (merge exact @text avec contains)
+    # === End-of-list markers ===
+    # Consolidated: exact and contains forms merged.
     _end_of_list_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/see_all_button"]',
     ])

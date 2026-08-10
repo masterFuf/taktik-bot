@@ -5,7 +5,7 @@ from ..locales import L
 
 @dataclass
 class HashtagSelectors:
-    """Sélecteurs pour le workflow hashtag."""
+    """Selectors for the hashtag workflow."""
 
     # === Détection page hashtag ===
     _hashtag_header_base: List[str] = field(default_factory=lambda: [

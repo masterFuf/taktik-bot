@@ -389,8 +389,8 @@ STRINGS: Dict[str, List[str]] = {
     "hashtag.reel_author_container": [
         "//*[contains(@content-desc, \"Reel by\")]",
     ],
-    # En-tete de la zone suggestions en BAS de l'ecran Notifications. Libelles bruts
-    # (pas des xpaths) : cette surface ne porte aucun resource-id, le texte est le
+    # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
+    # labels, not xpaths: the fields of that surface carry no resource-id, so the text
     # seul point d'ancrage possible.
     "notifications.suggestions_header_texts": [
         "Suggestions",
@@ -830,10 +830,10 @@ STRINGS: Dict[str, List[str]] = {
     # (the button is already resource-id scoped) then compares its text.
     # NOTE: the test order is load-bearing in the caller (following > requested > follow_back >
     # follow) because "Following" contains "Follow" and "Follow back" contains "Follow".
-    # Teste AVANT tous les autres : "Ne plus suivre" CONTIENT "Suivre", et "Unfollow"
-    # contient "Follow". Sans cette famille, le bouton de desabonnement se lisait comme
-    # un bouton de suivi — inoffensif sur le header profil (resource-id scope) mais pas
-    # sur une ligne de liste, ou on l'aurait tape.
+    # Tested BEFORE every other family: the unfollow label CONTAINS the follow one in
+    # both languages. Without this family the unfollow button read as a follow button —
+    # harmless on the profile header, where the resource-id scopes it, but not on a list
+    # row, where it would have been tapped.
     "profile.follow_state_labels_unfollow": [
         "Unfollow",
     ],

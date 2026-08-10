@@ -5,10 +5,10 @@ from ..locales import L
 
 @dataclass
 class DirectMessageSelectors:
-    """Sélecteurs pour les messages directs."""
+    """Selectors for direct messages."""
     
-    # === Navigation vers DM ===
-    # Bouton DM dans la tab bar (depuis le profil ou le feed)
+    # === Navigation to DM ===
+    # DM button in the tab bar (from the profile or the feed)
     direct_tab_resource_id: str = "com.instagram.android:id/direct_tab"
     direct_tab: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]'
     _direct_tab_content_desc_base: List[str] = field(default_factory=lambda: [
@@ -48,10 +48,10 @@ class DirectMessageSelectors:
         return self._dm_inbox_description_contains_base + L("direct_message.dm_inbox_description_contains")
     action_bar_inbox_button_resource_id: str = "com.instagram.android:id/action_bar_inbox_button"
     
-    # Badge de notification sur l'onglet DM
+    # Unread badge on the DM tab
     dm_notification_badge: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]//*[@resource-id="com.instagram.android:id/notification"]'
     
-    # === Inbox (Liste des conversations) ===
+    # === Inbox (conversation list) ===
     inbox_thread_list_resource_id: str = "com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"
     inbox_thread_list: str = '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]'
     inbox_header_text_resource_id: str = "com.instagram.android:id/header_text"
@@ -102,11 +102,11 @@ class DirectMessageSelectors:
         "com.instagram.android:id/profile_tab",
     ])
     
-    # Conteneur d'une conversation dans la liste
+    # Container of one conversation in the list
     thread_container_resource_id: str = "com.instagram.android:id/row_inbox_container"
     thread_container: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
     
-    # Éléments d'une conversation
+    # Elements of one conversation
     thread_username_resource_id: str = 'com.instagram.android:id/row_inbox_username'
     thread_username: str = '//*[@resource-id="com.instagram.android:id/row_inbox_username"]'
     thread_digest: str = '//*[@resource-id="com.instagram.android:id/row_inbox_digest"]'
@@ -119,9 +119,9 @@ class DirectMessageSelectors:
         '//*[contains(@content-desc, "unread")]'
     ])
 
-    # Prefixes IG met devant l'apercu d'une ligne d'inbox quand le DERNIER message est de NOUS
-    # (ex content-desc: "username, Sent 49m ago" / "username, Envoye il y a 49 min"). Sert au tri
-    # "deja repondu" sans ouvrir le fil. Base EN+FR ; autres langues via locales.
+    # Prefixes IG puts before an inbox row preview when the LAST message is OURS
+    # (content-desc: "username, Sent 49m ago" / "username, Envoye il y a 49 min").
+    # Used to sort out "already answered" without opening the thread. EN+FR base;
     _outgoing_digest_prefixes_base: List[str] = field(default_factory=lambda: ["Sent", "Envoyé"])
 
     @property
@@ -150,7 +150,7 @@ class DirectMessageSelectors:
         '//*[contains(@text, "General")]'
     ])
     
-    # === Actions dans l'inbox ===
+    # === Inbox actions ===
     _new_message_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Nouveau message")]',
         '//*[contains(@content-desc, "New message")]',
@@ -164,7 +164,7 @@ class DirectMessageSelectors:
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
     
-    # === Navigation dans une conversation ===
+    # === Navigation inside a conversation ===
     conversation_back_button_resource_id: str = 'com.instagram.android:id/header_left_button'
     @property
     def conversation_back_descriptions(self) -> List[str]:
@@ -181,7 +181,7 @@ class DirectMessageSelectors:
         "members",
     ])
     
-    # === Dans une conversation ===
+    # === Inside a conversation ===
     edit_text_class_name: str = "android.widget.EditText"
     composer_edittext_resource_id: str = "com.instagram.android:id/row_thread_composer_edittext"
     message_input_resource_ids: List[str] = field(default_factory=lambda: [
@@ -218,7 +218,7 @@ class DirectMessageSelectors:
     def send_button_content_descriptions(self) -> List[str]:
         return L("direct_message.send_button_content_descriptions")
     
-    # Liste des messages dans une conversation
+    # Message list inside a conversation
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
@@ -229,14 +229,14 @@ class DirectMessageSelectors:
         "invite is accepted",
     ])
     
-    # === Notes (Stories circulaires en haut des DM) ===
+    # === Notes (circular stories at the top of the DM screen) ===
     notes_recycler: str = '//*[@resource-id="com.instagram.android:id/cf_hub_recycler_view"]'
     note_root: str = '//*[@resource-id="com.instagram.android:id/pog_root_view"]'
     note_bubble_text: str = '//*[@resource-id="com.instagram.android:id/pog_bubble_text"]'
     note_name: str = '//*[@resource-id="com.instagram.android:id/pog_name"]'
     add_note_button: str = '//*[@content-desc="Ajouter une note"]'
     
-    # === Action bar dans l'inbox ===
+    # === Inbox action bar ===
     inbox_action_bar_resource_id: str = "com.instagram.android:id/action_bar_container"
     inbox_action_bar: str = '//*[@resource-id="com.instagram.android:id/action_bar_container"]'
     inbox_title: str = '//*[@resource-id="com.instagram.android:id/igds_action_bar_title"]'

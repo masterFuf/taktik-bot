@@ -5,7 +5,7 @@ from ...locales import L
 
 @dataclass
 class PostSelectors:
-    """Sélecteurs pour les publications (posts et reels)."""
+    """Selectors for publications (posts and reels)."""
     
     # === Conteneurs de base ===
     post_container: str = '//androidx.recyclerview.widget.RecyclerView/android.widget.FrameLayout'
@@ -71,7 +71,7 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/username"]',
         '//*[@resource-id="com.instagram.android:id/profile_name"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]',
-        # Pour les reels
+        # For reels
         '//*[@resource-id="com.instagram.android:id/clips_author_info"]//android.widget.TextView',
         # Sélecteurs génériques
         '//android.widget.TextView[starts-with(@text, "@")]',
@@ -86,12 +86,12 @@ class PostSelectors:
         # PRIORITY 1: Reel-specific selector (most specific, check first)
         '//*[@resource-id="com.instagram.android:id/like_count"]',
         # PRIORITY 2: Regular post selectors
-        # Sélecteur le plus fiable : TOUJOURS le premier Button avec texte (= likes)
+        # Most reliable selector: ALWAYS the first Button carrying text (= likes)
         # Structure Instagram : ViewGroup[0]=J'aime, Button[1]=Likes, ViewGroup[2]=Commentaire, Button[3]=Nb commentaires, Button[4-6]=Partages
         '(//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/android.widget.Button[@text])[1]',
-        # Fallback : bouton juste après le conteneur du bouton J'aime
+        # Fallback: the button right after the like-button container
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/*[@resource-id="com.instagram.android:id/row_feed_button_like"]/parent::*/following-sibling::android.widget.Button[@text][1]',
-        # Autres fallbacks pour compatibilité
+        # Further fallbacks, for compatibility
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/android.widget.Button[@text and @clickable="true"][1]',
         '//*[@resource-id="com.instagram.android:id/row_feed_like_count_facepile"]',
     ])
@@ -119,7 +119,7 @@ class PostSelectors:
     _reel_like_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/like_count"]',
         '//*[@resource-id="com.instagram.android:id/likes_count"]',
-        # Sélecteurs pour Reels en mode feed (bouton sans resource-id)
+        # Selectors for reels in feed mode (button with no resource-id)
         '//android.widget.Button[@clickable="true" and string-length(@text) > 0 and string-length(@text) < 10]',
         '//android.widget.Button[contains(@text, ",")]',  # Ex: "1,561"
         '//android.widget.Button[contains(@text, "K")]',  # Ex: "15K"
@@ -130,7 +130,7 @@ class PostSelectors:
     def reel_like_selectors(self) -> List[str]:
         return self._reel_like_selectors_base + L("post.reel_like_selectors")
     
-    # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
+    # clips_* resource-ids removed (0/30 on v417)
     @property
     def reel_indicators(self) -> List[str]:
         return L("post.reel_indicators")
@@ -155,7 +155,7 @@ class PostSelectors:
         return L("post.classic_post_indicators")
     
     _post_elements_base: List[str] = field(default_factory=lambda: [
-        # Combo bilingue (EN "like" + FR "J'aime") -> neutre, gardé pour toutes les
+        # Bilingual combo -> neutral, kept for every
         # langues ; bytes d'origine conservés (échappement single-quote historique).
         "//android.widget.TextView[contains(@text, 'like') or contains(@text, 'J\\'aime')]",
     ])
@@ -187,9 +187,9 @@ class PostSelectors:
     
     # === Sélecteurs like_business.py ===
     _like_button_advanced_selectors_base: List[str] = field(default_factory=lambda: [
-        # ViewGroup cliquable qui contient le bouton like
+        # Clickable ViewGroup holding the like button
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]/parent::*[@clickable="true"]',
-        # Fallback sur le ViewGroup parent
+        # Fallback on the parent ViewGroup
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]/../..',
     ])
 
@@ -243,7 +243,7 @@ class PostSelectors:
     photo_imageview_selector: str = '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]'
     
     # === Post Metadata Extraction (for hashtag workflow) ===
-    # Auteur du post (Reel view)
+    # Post author (reel view)
     _reel_author_username_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/clips_author_username"]',
         '//*[@resource-id="com.instagram.android:id/clips_author_info_component"]//android.widget.Button',
@@ -253,29 +253,29 @@ class PostSelectors:
     def reel_author_username_selectors(self) -> List[str]:
         return self._reel_author_username_selectors_base + L("post.reel_author_username_selectors")
     
-    # Caption du post (Reel view)
-    # La caption est dans un ViewGroup imbriqué avec content-desc contenant le texte + hashtags
-    # Note: La caption peut être rétractée (avec "…"), il faut cliquer dessus pour l'ouvrir
+    # Post caption (reel view)
+    # The caption sits in a nested ViewGroup whose content-desc holds the text + hashtags
+    # Note: the caption may be collapsed (with an ellipsis) and must be tapped to expand
     reel_caption_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.widget.ScrollView//android.view.ViewGroup[@content-desc]',
         '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.view.ViewGroup[@content-desc and @clickable="true"]',
         '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//*[@content-desc]',
     ])
     
-    # Date du post (Reel view) - visible quand la caption est ouverte
+    # Post date (reel view) — visible once the caption is expanded
     # Format: "31 October 2025"
     reel_date_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.view.ViewGroup[@content-desc and contains(@content-desc, " ") and not(contains(@content-desc, "#"))]',
         '//*[@resource-id="com.instagram.android:id/clips_caption_component"]//android.view.ViewGroup[@text]',
     ])
     
-    # Auteur du post (Regular post view)
+    # Post author (regular post view)
     post_author_username_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]',
     ])
     
-    # Caption du post (Regular post view)
+    # Post caption (regular post view)
     post_caption_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_comment_textview_comment"]',
     ])
@@ -299,7 +299,7 @@ class PostSelectors:
     reel_indicators_like_business: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "Reel")]',
         '//*[contains(@content-desc, "reel")]',
-        # clips_video_container & video_container supprimés 2026-03-07 (0/30 sur v417)
+        # clips_video_container & video_container removed (0/30 on v417)
     ])
     
     like_count_button_selector: str = '//android.widget.Button[@text and string-length(@text) > 0]'

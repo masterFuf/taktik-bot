@@ -5,15 +5,15 @@ from ..locales import L
 
 @dataclass
 class FeedSelectors:
-    """Sélecteurs pour le feed principal Instagram."""
+    """Selectors for the Instagram main feed."""
     
-    # === Conteneurs de posts dans le feed ===
+    # === Post containers in the feed ===
     post_container: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
     ])
     
-    # === Username de l'auteur du post ===
+    # === Post author username ===
     post_author_username: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_name"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]'
@@ -24,19 +24,19 @@ class FeedSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]'
     ])
     
-    # === Indicateurs de post sponsorisé — langue-dependants (overlay locales/) ===
+    # === Sponsored-post markers — language-dependent (locales overlay) ===
     @property
     def sponsored_indicators(self) -> List[str]:
         return L("feed.sponsored_indicators")
 
-    # === Indicateurs de Reel dans le feed — langue-dependants (overlay locales/) ===
-    # NOTE: "//*[contains(@content-desc, "Reel")]" trop large — matche le bouton nav "Reels" (toujours présent)
-    # clips_* resource-ids supprimés 2026-03-07 (0/30 sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
+    # === Reel markers in the feed — language-dependent (locales overlay) ===
+    # NOTE: a bare contains() on "Reel" is too broad — it also matches the "Reels"
+    # nav button, always present. clips_* resource-ids removed (0/30 on v417).
     @property
     def reel_indicators(self) -> List[str]:
         return L("feed.reel_indicators")
 
-    # === Compteur de likes dans le feed — base neutre + overlay locales/ ===
+    # === Like counter in the feed — neutral base + locales overlay ===
     _likes_count_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_textview_likes"]',
     ])
@@ -45,7 +45,7 @@ class FeedSelectors:
     def likes_count_button(self) -> List[str]:
         return self._likes_count_button_base + L("feed.likes_count_button")
 
-    # === Bouton like dans le feed — base neutre + overlay locales/ ===
+    # === Like button in the feed — neutral base + locales overlay ===
     _like_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
         '//*[@resource-id="com.instagram.android:id/like_button"]',
@@ -55,12 +55,12 @@ class FeedSelectors:
     def like_button(self) -> List[str]:
         return self._like_button_base + L("feed.like_button")
 
-    # === Détection post déjà liké — langue-dependants (overlay locales/) ===
+    # === Already-liked detection — language-dependent (locales overlay) ===
     @property
     def already_liked_indicators(self) -> List[str]:
         return L("feed.already_liked_indicators")
 
-    # === Bouton commentaire dans le feed — base neutre + overlay locales/ ===
+    # === Comment button in the feed — neutral base + locales overlay ===
     _comment_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
     ])
@@ -69,7 +69,7 @@ class FeedSelectors:
     def comment_button(self) -> List[str]:
         return self._comment_button_base + L("feed.comment_button")
 
-    # === Champ de saisie commentaire — base neutre + overlay locales/ ===
+    # === Comment input field — neutral base + locales overlay ===
     _comment_input_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
         '//android.widget.EditText',
@@ -79,7 +79,7 @@ class FeedSelectors:
     def comment_input(self) -> List[str]:
         return self._comment_input_base + L("feed.comment_input")
 
-    # === Bouton envoyer commentaire — base neutre + overlay locales/ ===
+    # === Comment send button — neutral base + locales overlay ===
     _comment_send_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_post_button_click_area"]',
     ])
@@ -93,19 +93,18 @@ FEED_SELECTORS = FeedSelectors()
 
 @dataclass
 class FeedSuggestionsSelectors:
-    """Carousel "Suggested for you" (netego) insere dans le feed.
+    """The "Suggested for you" carousel inserted in the feed.
 
-    Point d'entree du mode "follow des suggestions" : le carousel apparait apres
-    quelques posts, avec un CTA "See all" qui ouvre l'ecran Discover people
-    (cf. `DISCOVER_PEOPLE_SELECTORS`). Provenance : dump reel 9CHAY1PN, Instagram
+    Entry point of the suggestions-follow mode: the carousel appears after a few posts,
+    with a "See all" CTA that opens the people discovery screen
+    (cf. `DISCOVER_PEOPLE_SELECTORS`). Provenance : dump reel device, Instagram
     v410.0.0.53.71, 2026-07-26.
 
-    Tous les marqueurs ci-dessous sont des resource-id, donc INDEPENDANTS de la
-    langue : la detection du carousel et le tap du CTA n'ont besoin d'aucun
-    libelle. Les textes ne servent qu'a l'observabilite (titre affiche).
+    Every marker below is a resource-id, so INDEPENDENT of the language: detecting the
+    carousel and tapping the CTA need no label at all. The texts only serve observability.
     """
 
-    # === Le bloc entier ===
+    # === The whole block ===
     carousel_container: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/netego_carousel_container_view"]',
     ])
@@ -116,12 +115,12 @@ class FeedSuggestionsSelectors:
         '//*[@resource-id="com.instagram.android:id/netego_carousel_title"]',
     ])
 
-    # === CTA "See all" / "Tout afficher" -> ecran Discover people ===
+    # === "See all" CTA -> people discovery screen ===
     carousel_see_all: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/netego_carousel_cta"]',
     ])
 
-    # === Cartes inline du carousel (follow sans quitter le feed) ===
+    # === Inline carousel cards (follow without leaving the feed) ===
     card_container: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/suggested_entity_card_container"]',
     ])
@@ -135,7 +134,7 @@ class FeedSuggestionsSelectors:
         '//*[@resource-id="com.instagram.android:id/dismiss_button"]',
     ])
 
-    # --- Fast-path dump XML : resource-id NUS (matches par sous-chaine) ---
+    # --- Fast-path XML dump: BARE resource-ids (substring matches) ---
     carousel_container_id: str = "netego_carousel_container_view"
     carousel_title_id: str = "netego_carousel_title"
     carousel_cta_id: str = "netego_carousel_cta"
@@ -149,18 +148,18 @@ FEED_SUGGESTIONS_SELECTORS = FeedSuggestionsSelectors()
 
 @dataclass
 class FeedScrollSelectors:
-    """Signatures UI du SCROLL INTELLIGENT du feed, lues en fast-path sur le hierarchy dump
-    (perception des ancres, lecture légende/carousel, récupération). Centralisées ici (regle
-    AGENTS : pas de selector en dur dans l'action). Issues de dumps réels Instagram v410 — voir
+    """UI signatures of the feed smart scroll, read fast-path from the hierarchy dump
+    anchor perception, caption and carousel reading, recovery). Centralized here, so no
+    selector is hardcoded in the action itself.
     `internal docs`."""
 
-    # --- Perception du feed : leaf resource-ids lus dans le dump ---
-    header_id: str = "row_feed_photo_profile_name"      # header/auteur (1 par post plein-cadre)
-    like_button_id: str = "row_feed_button_like"        # barre d'engagement = preuve "post vu en entier"
-    action_bar_id: str = "main_feed_action_bar"         # barre du haut du feed (présente seulement en haut)
-    tab_bar_id: str = "tab_bar"                         # barre de navigation du bas
-    secondary_label_id: str = "secondary_label"         # sous-titre ("Suggestions") sous un header
-    clips_root_id: str = "root_clips_layout"            # viewer Reels plein écran
+    # --- Feed perception: leaf resource-ids read from the dump ---
+    header_id: str = "row_feed_photo_profile_name"      # header / author (one per full-frame post)
+    like_button_id: str = "row_feed_button_like"        # engagement bar = proof the post was fully seen
+    action_bar_id: str = "main_feed_action_bar"         # top bar of the feed (only present at the top)
+    tab_bar_id: str = "tab_bar"                         # bottom navigation bar
+    secondary_label_id: str = "secondary_label"         # subtitle under a header
+    clips_root_id: str = "root_clips_layout"            # fullscreen reels viewer
     feed_marker_ids: tuple = ("row_feed_photo_profile_name", "main_feed_action_bar",
                               "reels_tray_container", "tab_bar")
     video_ids: tuple = ("video_container", "clips_video_container", "clips_media_component")
@@ -173,7 +172,7 @@ class FeedScrollSelectors:
     suggested_desc_contains: tuple = ("reels suggérés", "suggested reels")
     suggested_label_prefix: str = "suggest"                     # secondary_label "Suggestions"/"Suggested"
 
-    # --- Récupération vers le feed (xpaths d'action ciblés) ---
+    # --- Recovery back to the feed (targeted action xpaths) ---
     back_button_xpath: str = ('//*[@content-desc="Retour" or @content-desc="Back"'
                               ' or @content-desc="Revenir en arrière"]')
     feed_tab_xpath: str = '//*[contains(@resource-id,"feed_tab")]'
@@ -181,8 +180,8 @@ class FeedScrollSelectors:
 
     # --- Légende (v410 : IgTextLayoutView resource-id vide, extenseur = Button enfant content-desc exact) ---
     caption_layout_class: str = "com.instagram.ui.widget.textview.IgTextLayoutView"
-    caption_expand_descs: tuple = ("plus", "more")             # content-desc EXACT du bouton "dérouler"
-    caption_expand_suffixes: tuple = (" plus", " more")        # fin d'un texte tronqué
+    caption_expand_descs: tuple = ("plus", "more")             # EXACT content-desc of the expand button
+    caption_expand_suffixes: tuple = (" plus", " more")        # end of a truncated text
 
     # --- Carousel inline ---
     carousel_viewpager_id: str = "carousel_viewpager"
@@ -190,9 +189,9 @@ class FeedScrollSelectors:
     carousel_index_id: str = "carousel_index_indicator_text_view"
     carousel_index_pattern: str = r"^(\d+)\s*/\s*(\d+)$"
 
-    # --- Garde du point d'appui des gestes verticaux sur une carte de post ---
-    # Les tokens sont lus sur le resource-id court du dump (clone-safe). Le moteur de gestes
-    # consomme leurs bounds, jamais des coordonnees Instagram codees en dur.
+    # --- Guard on the touch-down point of vertical gestures over a post card ---
+    # The tokens are read from the short resource-id of the dump, which stays valid on
+    # a clone. The gesture engine consumes their bounds, never a hardcoded coordinate.
     gesture_action_row_ids: tuple = ("row_feed_view_group_buttons",)
     gesture_action_id_tokens: tuple = (
         ("like", ("row_feed_button_like", "like_button")),
@@ -205,8 +204,8 @@ class FeedScrollSelectors:
         "row_feed_profile_header",
         "row_feed_view_group_buttons",
     )
-    # Dump indisponible sur une vue post : bande media centrale, exprimee en ratios d'ecran.
-    # Elle evite le cluster like/comment/share a gauche et le bouton save a droite.
+    # Dump unavailable on a post view: a central media band expressed as screen ratios.
+    # It avoids the like/comment/share cluster on the left and the save button on the right.
     gesture_fallback_safe_x_band: tuple = (0.46, 0.70)
 
 

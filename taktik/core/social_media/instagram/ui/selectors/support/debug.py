@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class DebugSelectors:
-    """Sélecteurs pour le debug et l'analyse de l'interface."""
+    """Selectors for debugging and interface analysis."""
     
     # === Éléments génériques ===
     clickable_elements: str = '//*[@clickable="true"]'

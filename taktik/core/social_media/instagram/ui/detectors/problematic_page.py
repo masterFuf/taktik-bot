@@ -1,5 +1,5 @@
 """
-Détecteur et gestionnaire des pages problématiques Instagram qui interrompent le workflow.
+Detector and handler for the Instagram pages that interrupt a workflow.
 """
 import time
 from typing import Optional, Dict, Any
@@ -10,29 +10,29 @@ from ..selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 
 class ProblematicPageDetector:
     """
-    Détecte et ferme automatiquement les pages problématiques qui peuvent interrompre le workflow.
+    Detects and closes the pages that can interrupt a workflow.
     """
     
     def __init__(self, device, debug_mode: bool = False):
         """
-        Initialise le détecteur.
+        Initialise the detector.
         
         Args:
             device: Instance de DeviceFacade
-            debug_mode: Si True, sauvegarde les dumps et screenshots pour debug
+                debug_mode: when True, save dumps and screenshots for debugging
         """
         self.device = device
         self.debug_mode = debug_mode
         
-        # Statistiques de détection des popups de rate limiting
+        # Detection statistics for the rate-limiting popups
         self.rate_limit_stats = {
             'detected_count': 0,  # Nombre de fois détectée
-            'closed_count': 0,    # Nombre de fois fermée avec succès
+            'closed_count': 0,    # Times closed successfully
             'failed_count': 0,    # Nombre de fois où la fermeture a échoué
-            'last_detection': None  # Timestamp de la dernière détection
+            'last_detection': None  # Timestamp of the last detection
         }
         
-        # Utiliser les patterns centralisés depuis selectors.py
+        # Use the centralized patterns
         self.detection_patterns = PROBLEMATIC_PAGE_SELECTORS.detection_patterns
     
     def _swipe(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.3):
@@ -76,13 +76,13 @@ class ProblematicPageDetector:
     
     def detect_and_handle_problematic_pages(self) -> dict:
         """
-        Détecte et ferme automatiquement les pages problématiques.
+        Detect and close a problematic page.
         
         Returns:
             dict: {
                 'detected': bool,  # True si une page problématique a été détectée
-                'closed': bool,    # True si la page a été fermée avec succès
-                'soft_ban': bool,  # True si c'est un soft ban qui nécessite l'arrêt de la session
+                    'closed': bool,    # True when the page was closed successfully
+                    'soft_ban': bool,  # True when the restriction requires stopping the session
                 'page_type': str   # Type de page détectée (si applicable)
             }
         """
@@ -99,21 +99,21 @@ class ProblematicPageDetector:
                 if self._is_page_detected(ui_content, config['indicators']):
                     logger.warning(f"🚨 Page problématique détectée: {page_type}")
                     
-                    # Tracking des statistiques pour les popups de rate limiting
+                    # Track the rate-limiting popup statistics
                     if config.get('track_stats', False):
                         self._update_rate_limit_stats('detected')
                     
-                    # Vérifier si c'est un soft ban
+                    # Check whether this is a restriction
                     is_soft_ban = config.get('is_soft_ban', False)
                     if is_soft_ban:
                         logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
                         logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
                     
-                    # Essayer de fermer la page
+                    # Try to close the page
                     if self._close_problematic_page(page_type, config['close_methods']):
                         logger.success(f"✅ Page {page_type} fermée avec succès")
                         
-                        # Tracking de la fermeture réussie
+                        # Track the successful close
                         if config.get('track_stats', False):
                             self._update_rate_limit_stats('closed')
                         
@@ -156,25 +156,25 @@ class ProblematicPageDetector:
     
     def _is_page_detected(self, ui_content: str, indicators: list) -> bool:
         """
-        Vérifie si une page est détectée basée sur ses indicateurs.
+        Is a page detected, based on its markers?
         
         Args:
             ui_content: Contenu XML de l'UI
-            indicators: Liste des indicateurs à rechercher
+                indicators: markers to look for
         
         Returns:
-            bool: True si la page est détectée
+                bool: True when the page is detected
         """
-        # Compter combien d'indicateurs sont présents
+        # Count how many markers are present
         found_indicators = 0
         found_list = []
         
-        # Indicateurs génériques à ignorer dans certains contextes
+        # Generic markers to ignore in some contexts
         generic_indicators = ['Posts', 'Stories', 'Reels', 'Some']
         
         for indicator in indicators:
             if indicator.lower() in ui_content.lower():
-                # Si c'est un indicateur générique, vérifier le contexte
+                # For a generic marker, check the context
                 if indicator in generic_indicators:
                     # Ignorer si on trouve aussi des éléments de navigation normale
                     if any(nav in ui_content.lower() for nav in ['home', 'search', 'profile', 'following', 'followers']):
@@ -187,15 +187,15 @@ class ProblematicPageDetector:
         
         logger.debug(f"Indicateurs trouvés: {found_list} ({found_indicators}/{len(indicators)})")
         
-        # Logique de seuil améliorée pour éviter les faux positifs
+        # Threshold logic tuned to avoid false positives
         if len(indicators) <= 3:
-            # Pour les petites listes, nécessiter au moins 1 indicateur
+            # Small lists: require at least one marker
             threshold = 1
         elif len(indicators) <= 6:
-            # Pour les listes moyennes, nécessiter au moins 2 indicateurs
+            # Medium lists: require at least two markers
             threshold = 2
         else:
-            # Pour les grandes listes, nécessiter au moins 25% des indicateurs
+            # Large lists: require at least a quarter of the markers
             threshold = max(2, len(indicators) // 4)
         
         is_detected = found_indicators >= threshold
@@ -209,11 +209,11 @@ class ProblematicPageDetector:
     
     def _close_problematic_page(self, page_type: str, close_methods: list) -> bool:
         """
-        Tente de fermer une page problématique avec différentes méthodes.
+        Try to close a problematic page through the available methods.
         
         Args:
             page_type: Type de page à fermer
-            close_methods: Liste des méthodes de fermeture à essayer
+                close_methods: closing methods to try
         
         Returns:
             bool: True si la fermeture a réussi
@@ -225,11 +225,11 @@ class ProblematicPageDetector:
                 logger.info(f"Essai de la méthode: {method}")
                 
                 if method == 'back_button':
-                    # Utiliser l'API uiautomator2 pour le bouton retour
+                    # Use the automation API for the back button
                     self.device.press("back")
                     
                 elif method == 'not_now_button':
-                    # Chercher un bouton "Not Now" / "Pas maintenant"
+                    # Look for a "Not now" button
                     for selector in POPUP_SELECTORS.not_now_selectors:
                         elements = self.device.xpath(selector)
                         if elements.exists:
@@ -263,8 +263,8 @@ class ProblematicPageDetector:
 
 
                 elif method == 'swipe_down':
-                    # Swipe vers le bas pour fermer la popup
-                    # Tente d'abord de trouver le drag handle pour un swipe précis
+                    # Swipe down to dismiss the popup
+                    # Try the drag handle first, for a precise swipe
                     info = self.device.info
                     screen_width = info.get('displayWidth', 1080)
                     screen_height = info.get('displayHeight', 1920)
@@ -301,7 +301,7 @@ class ProblematicPageDetector:
                         self._swipe(start_x, start_y, start_x, end_y, 0.3)
                 
                 elif method == 'swipe_down_handle':
-                    # Méthode spécifique pour le trait gris (handle) - cibler l'élément directement
+                    # Specific path for the grey handle: target the element directly
                     handle_found = False
                     screen_info = self.device.info
                     screen_height = screen_info.get('displayHeight', 1920)
@@ -370,7 +370,7 @@ class ProblematicPageDetector:
                     if not self._handle_ad_consent_flow():
                         continue
                 
-                # Attendre moins longtemps pour accélérer le processus
+                # Shorter wait, to keep the process quick
                 time.sleep(1.0)
                 
                 # Vérifier si la fermeture a fonctionné
@@ -395,14 +395,14 @@ class ProblematicPageDetector:
             page_type: Type de page à vérifier
         
         Returns:
-            bool: True si la page est fermée
+                bool: True when the page is closed
         """
         try:
             ui_content = self._get_ui_content("vérification")
             if not ui_content:
                 return False
             
-            # Vérifier que les indicateurs ne sont plus présents
+            # Verify the markers are gone
             config = self.detection_patterns[page_type]
             return not self._is_page_detected(ui_content, config['indicators'])
             
@@ -489,7 +489,7 @@ class ProblematicPageDetector:
 
     def monitor_and_handle_continuously(self, check_interval: int = 5) -> None:
         """
-        Surveille en continu les pages problématiques et les ferme automatiquement.
+        Watch continuously for problematic pages and close them.
         
         Args:
             check_interval: Intervalle de vérification en secondes
@@ -512,7 +512,7 @@ class ProblematicPageDetector:
     
     def _update_rate_limit_stats(self, action: str) -> None:
         """
-        Met à jour les statistiques de rate limiting.
+        Update the rate-limiting statistics.
         
         Args:
             action: Type d'action ('detected', 'closed', 'failed')
@@ -530,14 +530,14 @@ class ProblematicPageDetector:
     
     def get_rate_limit_stats(self) -> dict:
         """
-        Récupère les statistiques de rate limiting.
+        Read the rate-limiting statistics.
         
         Returns:
-            dict: Statistiques complètes avec taux de succès
+                dict: full statistics, including the success rate
         """
         stats = self.rate_limit_stats.copy()
         
-        # Calculer le taux de succès
+        # Compute the success rate
         total_attempts = stats['closed_count'] + stats['failed_count']
         if total_attempts > 0:
             stats['success_rate'] = (stats['closed_count'] / total_attempts) * 100
@@ -548,7 +548,7 @@ class ProblematicPageDetector:
     
     def reset_rate_limit_stats(self) -> None:
         """
-        Réinitialise les statistiques de rate limiting.
+        Reset the rate-limiting statistics.
         """
         self.rate_limit_stats = {
             'detected_count': 0,
@@ -560,13 +560,13 @@ class ProblematicPageDetector:
     
     def should_stop_session(self) -> bool:
         """
-        Détermine si la session doit être arrêtée en fonction du nombre de rate limits.
+        Should the session stop, given how many rate limits were seen?
         
-        Règle de sécurité: Arrêter si on détecte plus de 3 rate limits dans une session
-        pour éviter un bannissement permanent.
+        Safety rule: stop past a few rate limits in one session, to avoid a
+        permanent restriction.
         
         Returns:
-            bool: True si la session doit être arrêtée
+                bool: True when the session must stop
         """
         threshold = 3
         detected = self.rate_limit_stats['detected_count']
@@ -581,13 +581,13 @@ class ProblematicPageDetector:
 
 def create_problematic_page_detector(device, debug_mode: bool = False) -> ProblematicPageDetector:
     """
-    Factory function pour créer un détecteur de pages problématiques.
+    Factory building a problematic-page detector.
     
     Args:
         device: Instance de DeviceFacade
-        debug_mode: Si True, active les dumps et screenshots pour debug
+            debug_mode: when True, enable dumps and screenshots for debugging
     
     Returns:
-        ProblematicPageDetector: Instance du détecteur
+            ProblematicPageDetector: the detector instance
     """
     return ProblematicPageDetector(device, debug_mode)

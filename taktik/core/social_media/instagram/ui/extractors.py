@@ -1,4 +1,4 @@
-﻿import re
+import re
 import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
@@ -287,23 +287,18 @@ class InstagramUIExtractors:
                         
                         logger_to_use.debug(f"Checking element - text: '{text}', content-desc: '{content_desc}' (clickable: {element.attrib.get('clickable', 'unknown')})")
                         
-                        # Cas 1 : le libelle EST le nombre ("35"), sur les posts classiques.
+                        # Case 1: the label IS the number, on regular posts.
                         if text and self.is_like_count_text(text):
                             logger_to_use.info(f"✅ Valid like counter found (post): {selector} (text: '{text}')")
                             return element
 
-                        # Cas 2 : le nombre est noye dans une phrase, sur les reels. Le
-                        # SELECTEUR designe deja le compteur de likes (resource-id `like_count`
-                        # ou `..._facepile`, premier bouton de la rangee, libelle localise) : il
-                        # ne reste qu'a verifier qu'il porte bien un NOMBRE. Cette verification
-                        # etait ecrite en anglais ('Like number is' / 'View likes'), donc sur un
-                        # telephone francais — content-desc « Nombre de J'aime : 35. Voir les
-                        # J'aime » — l'element etait TROUVE puis rejete, et la liste des likers
-                        # ne s'ouvrait jamais : le run 714 s'est arrete la, sur un reel a 35
-                        # likes deja lus correctement deux lignes plus haut.
+                        # Case 2: on reels the number is embedded in a sentence. The SELECTOR
+                        # already points at the like counter, so all that is left is checking
+                        # that it carries a NUMBER — a check that must not be written in one
+                        # language, or the element is found and then rejected.
                         label = content_desc or text
                         count = count_from_counter_label(label) if label else None
-                        if count:  # 0 comme None : rien a ouvrir, meme regle que is_like_count_text
+                        if count:  # 0 behaves like None: nothing to open here either
                             logger_to_use.info(f"✅ Valid like counter found ({count} likes): {selector} (label: '{label}')")
                             return element
                     except Exception as e:
@@ -635,10 +630,9 @@ def parse_number_from_text(text: str) -> int:
         return 0
 
 
-# "Reel de dolce_cocoon. Appuyez deux fois…" / "Reel by john.doe. Double-tap…" — two words
-# of label, then the username, then the end of the sentence. The username is matched lazily
-# and the sentence must end with a dot FOLLOWED BY a space (or the string end), so a dot
-# INSIDE a username ("marie.dupont") is not mistaken for the end of the sentence.
+# "Reel by <username>. Double-tap…" — two words of label, then the username, then the end of
+# the sentence. The username is matched lazily and the sentence must end with a dot FOLLOWED BY
+# a space (or the string end), so a dot INSIDE a username is not read as the sentence end.
 _MEDIA_LABEL_AUTHOR = re.compile(r'^\S+\s+\S+\s+([A-Za-z0-9._]+?)(?:\.\s|\.?$)')
 
 

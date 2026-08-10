@@ -1,14 +1,11 @@
 """Selectors for the Instagram notifications / activity surface.
 
-Provenance: real device dumps (FR + EN), Instagram modern "Notifications" UI.
-The resource-ids are language-neutral and confirmed identical across locales;
-visible TEXT / content-desc fragments live in the per-language overlays
-(``locales/fr.py`` + ``locales/en.py``) and are pulled via ``L("notification.<key>")``.
+Resource-ids are language-neutral; visible TEXT / content-desc fragments live in
+the per-language overlays (``locales/fr.py`` + ``locales/en.py``) and are pulled
+via ``L("notification.<key>")``.
 
-History: the previous layout keyed everything on ``row_news_text`` /
-``row_news_container``. Instagram migrated the activity screen to
-``activity_feed_*`` ids; those are now the primary signatures and the old
-``row_news_*`` ids are kept ONLY as fallbacks at the tail of each list.
+``activity_feed_*`` ids are the primary signatures; the older ``row_news_*`` ids
+are kept only as fallbacks at the tail of each list.
 """
 from typing import Dict, List
 from dataclasses import dataclass, field
@@ -62,10 +59,8 @@ class NotificationSelectors:
         '//*[@resource-id="com.instagram.android:id/row_news_container"]',
     ])
 
-    # BARE resource-ids (no package prefix) for raw-XML scanning, where matching
-    # is done by SUBSTRING. IG renders activity-feed rows with a bare id and the
-    # follow-requests rows fully-qualified; a bare substring matches BOTH forms,
-    # so scan/parse code stays robust across screens and IG versions. Centralized
+    # BARE resource-ids (no package prefix) for raw-XML scanning, matched by
+    # SUBSTRING so both the bare and the fully-qualified form resolve. Centralized
     # here so that code carries no hardcoded resource-id literal.
     notification_row_resource_id: str = "activity_feed_newsfeed_story_row"
     # Time-section header row ("Highlights" / "Today" / "Yesterday" / "Last 7 days" /
@@ -73,25 +68,20 @@ class NotificationSelectors:
     # to narrate which time bucket the scan is currently reading.
     notification_section_header_resource_id: str = "activity_feed_header_row"
 
-    # Ligne d'une suggestion, et son bouton d'abonnement (ids BRUTS, dumps 18171JEC
-    # 2026-07-27). La premiere lecture de cette surface avait conclu qu'elle ne portait
-    # aucun resource-id : c'est vrai des CHAMPS (nom, contexte social, libelle du
-    # bouton, tous des TextView nus), mais faux de la ligne et du bouton, qui en ont un.
-    # C'est le seul discriminant sur : sans lui, une notification "X, que vous
-    # connaissez peut-etre, est sur Instagram" — qui porte elle aussi un bouton
-    # "Suivre" — se lit comme une suggestion.
+    # Suggestion row and its follow button (BARE ids). The row and the button carry
+    # a resource-id; the fields inside (name, social context, button label) do not.
+    # The row id is the only discriminant against an "X is on Instagram" row, which
+    # also shows a follow button.
     suggestion_row_resource_id: str = "igds_people_cell"
     suggestion_button_resource_id: str = "igds_button"
 
     @property
     def suggestions_header_texts(self):
-        """En-tete de la zone "Suggestions" en bas de l'ecran (LIBELLES bruts).
+        """Raw labels of the bottom-of-screen "Suggestions" header.
 
-        Le texte est la seule partie de cet ancrage qui depende de la langue ; il est
-        exige EXACT et porte par un ``activity_feed_header_row``. Un simple "contient"
-        sur n'importe quel TextView faisait matcher la notification
-        "Suggestions de suivi : X, Y et 3 autres personnes", qui est un tout autre
-        endroit de l'ecran (dump 18171JEC 19:41, 2026-07-27)."""
+        Matched EXACTLY, and only on an ``activity_feed_header_row``: a loose match
+        on any TextView also hits the "Suggested for you: X, Y and 3 others"
+        notification, which is a different part of the screen."""
         return L("notifications.suggestions_header_texts")
     follow_request_row_resource_id: str = "follow_list_container"
     follow_request_username_resource_id: str = "follow_list_username"
@@ -174,10 +164,9 @@ class NotificationSelectors:
         return L("notification.reply_button")
 
     # --- Inline "Like button" content-desc on a comment / mention row ---
-    # Returned as plain content-desc strings (NOT xpath): the parse matches a node's
-    # content-desc by EXACT equality so the already-liked "Unlike button" / "Bouton
-    # Je n'aime plus" state never matches. Union FR+EN via L_all so it resolves even
-    # when language detection ties to 'unknown' on the notifications screen.
+    # Plain content-desc strings (NOT xpath), matched by EXACT equality so the
+    # already-liked "Unlike button" state never matches. Union FR+EN via L_all, which
+    # also covers a language detection that ties to 'unknown' on this screen.
     @property
     def inline_like_button(self) -> List[str]:
         return L_all("notification.inline_like_button")
@@ -191,9 +180,8 @@ class NotificationSelectors:
         return L_all("notification.reply_label")
 
     # --- Inline "… more" / "… suite" truncation-expander words (for OCR) ---
-    # Plain words (NOT xpath): located by OCR on the row crop (the expander is a span
-    # with no node). Union FR+EN via L_all so the on-screen word matches whatever the
-    # device language renders.
+    # Plain words (NOT xpath): the expander is a span with no node, so it is located
+    # by OCR on the row crop. Union FR+EN via L_all.
     @property
     def expander_words(self) -> List[str]:
         return L_all("notification.expander_words")
@@ -275,9 +263,8 @@ class NotificationSelectors:
     # NOTIFICATION TYPE CLASSIFIER (plain text fragments, not XPath)
     # =========================================================================
 
-    # Order = classification PRIORITY. The more specific comment_* phrases are
-    # checked before the bare post_comment / post_like ones so a "replied to
-    # your comment" row is never mis-stolen by a "commented"/"liked" substring.
+    # Order = classification PRIORITY: the specific comment_* phrases are checked
+    # before the bare post_comment / post_like ones.
     _classifier_types_in_priority: List[str] = field(default_factory=lambda: [
         "comment_mention",
         "comment_reply",
@@ -294,14 +281,10 @@ class NotificationSelectors:
     def classifier_fragments(self) -> "Dict[str, List[str]]":
         """Per-type localized text fragments for classifying an activity-feed row.
 
-        Returns an ordered dict ``type -> [fragment, ...]`` where each fragment
-        list is the UNION of FR + EN strings (via ``L_all``), so a row can be
-        classified regardless of the device language: a notification line may be
-        in any locale, independently of the locale the selector layer was
-        optimized for. Dict insertion order is the classification PRIORITY order
-        (more specific comment_* before bare post_comment / post_like). The
-        ``"other"`` fallback is intentionally NOT included — the caller treats an
-        unmatched row as ``other``.
+        Ordered dict ``type -> [fragment, ...]``, each list the UNION of FR + EN
+        (via ``L_all``) so a row classifies whatever the device language. Insertion
+        order is the classification PRIORITY. The ``"other"`` fallback is
+        intentionally absent — the caller treats an unmatched row as ``other``.
         """
         return {
             type_name: L_all(f"notification.type_{type_name}")

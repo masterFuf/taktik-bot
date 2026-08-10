@@ -5,9 +5,9 @@ from ..locales import L
 
 @dataclass
 class NavigationSelectors:
-    """Sélecteurs pour la navigation et les boutons système."""
+    """Selectors for navigation and system buttons."""
 
-    # === Navigation principale (listes pour fallbacks) ===
+    # === Main navigation (lists, for fallbacks) ===
     # Use resource-id selectors first to avoid clicking Android system buttons
     _home_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "com.instagram.android:id/feed_tab")]',
@@ -64,7 +64,7 @@ class NavigationSelectors:
     def profile_tab(self) -> List[str]:
         return self._profile_tab_base + L("navigation.profile_tab")
 
-    # === Boutons système (listes pour fallbacks) ===
+    # === System buttons (lists, for fallbacks) ===
     @property
     def back_button(self) -> List[str]:
         return L("navigation.back_button")
@@ -73,7 +73,7 @@ class NavigationSelectors:
     def close_button(self) -> List[str]:
         return L("navigation.close_button")
 
-    # === Boutons de retour Instagram (complet, FR+EN) ===
+    # === Back buttons, every supported language ===
     _back_buttons_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
     ])
@@ -83,14 +83,14 @@ class NavigationSelectors:
         return self._back_buttons_base + L("navigation.back_buttons")
     action_bar_back_button_resource_id: str = "com.instagram.android:id/action_bar_button_back"
 
-    # === Boutons de retour pour la liste followers/following ===
+    # === Back buttons for the followers/following list ===
     back_buttons_action_bar: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]//android.widget.ImageView[@clickable="true"]',
         '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]/android.widget.ImageView',
         '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
     ])
 
-    # === Onglets de profil ===
+    # === Profile tabs ===
     _posts_tab_options_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]//android.widget.ImageView[1]',
     ])
@@ -156,9 +156,9 @@ class NavigationSelectors:
 
 @dataclass
 class ButtonSelectors:
-    """Sélecteurs pour les boutons d'interaction courants."""
+    """Selectors for the common interaction buttons."""
 
-    # === Boutons d'interaction posts (listes pour fallbacks) ===
+    # === Post interaction buttons (lists, for fallbacks) ===
     _like_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
         # Reel / clips player like button (dump real-device IG 410, 2026-06-11):

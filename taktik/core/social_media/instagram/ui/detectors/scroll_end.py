@@ -4,17 +4,17 @@ from ..selectors import SCROLL_SELECTORS
 
 class ScrollEndDetector:
     """
-    Détecte la fin du scroll dans une liste (followers/following) en surveillant la répétition 
-    des mêmes utilisateurs et la présence du bouton "Load More".
-    Inspiré de la logique Insomniac pour une détection plus robuste.
+    Detects the end of a list scroll by watching the repetition of the same
+    usernames and the presence of a "load more" button.
+    
     """
     def __init__(self, repeats_to_end=5, device=None):
         """
-        Initialise le détecteur de fin de scroll.
+        Initialise the end-of-scroll detector.
         
         Args:
-            repeats_to_end: Nombre de répétitions avant de considérer la fin atteinte
-            device: Instance du device pour détecter les boutons "Load More"
+                repeats_to_end: repetitions before the end is considered reached
+                device: device instance, used to detect the "load more" button
         """
         self.repeats_to_end = repeats_to_end
         self.device = device
@@ -23,15 +23,15 @@ class ScrollEndDetector:
         self._total_unique_users = 0
         self.pages = []
         
-        # Nouvelles métriques pour l'optimisation
+        # Metrics used for the optimization
         self._consecutive_empty_pages = 0
         self._pages_without_new_users = 0
         self._last_page_hash = None
         self._duplicate_page_count = 0
         self.logger = logger.bind(module="scroll-end-detector")
         
-        # Sélecteurs pour détecter le bouton "Load More" / "Voir plus" ou fin de liste
-        # Utiliser les sélecteurs centralisés
+        # Selectors detecting the "load more" button or the end of the list
+        # Use the centralized selectors
         self.load_more_selectors = SCROLL_SELECTORS.load_more_selectors
         self.end_of_list_indicators = SCROLL_SELECTORS.end_of_list_indicators
     
@@ -51,11 +51,11 @@ class ScrollEndDetector:
 
     def notify_new_page(self, usernames: List[str], processed_usernames: Optional[List[str]] = None) -> bool:
         """
-        Appelé à chaque nouvelle page (après un scroll), avec la liste des usernames visibles.
+        Called on every new page, after a scroll, with the visible usernames.
         
         Args:
-            usernames: Liste des usernames visibles sur la page actuelle
-            processed_usernames: Liste des usernames réellement traités (optionnel)
+                usernames: usernames visible on the current page
+                processed_usernames: usernames actually handled (optional)
             
         Returns:
             bool: True si de nouveaux utilisateurs ont été détectés
@@ -68,10 +68,10 @@ class ScrollEndDetector:
         current_set = set(usernames)
         new_users = current_set - self._last_seen
         
-        # Calculer un hash de la page pour détecter les doublons exacts
+        # Hash the page to detect exact duplicates
         page_hash = hash(tuple(sorted(usernames)))
         
-        # Détecter les pages identiques consécutives
+        # Detect consecutive identical pages
         if page_hash == self._last_page_hash:
             self._duplicate_page_count += 1
             self.logger.debug(f"Page identique détectée ({self._duplicate_page_count} fois consécutives)")
@@ -82,7 +82,7 @@ class ScrollEndDetector:
         # Vérifier s'il y a de nouveaux utilisateurs
         new_users = set(usernames) - self._last_seen
         
-        # Compter les pages vides
+        # Count the empty pages
         if len(usernames) == 0:
             self._consecutive_empty_pages += 1
         else:
@@ -98,7 +98,7 @@ class ScrollEndDetector:
             self._total_unique_users += len(new_users)
             self._last_seen.update(new_users)
             
-            # Si on a des utilisateurs traités, ne compter que ceux-là
+            # With handled users known, count only those
             if processed_usernames is not None:
                 actually_processed = len([u for u in new_users if u in processed_usernames])
                 self.logger.debug(f"{len(new_users)} nouveaux utilisateurs détectés, {actually_processed} réellement traités (total: {self._total_unique_users})")
@@ -113,7 +113,7 @@ class ScrollEndDetector:
         return self._find_element_from_selectors(self.load_more_selectors, "Bouton 'Load More'") is not None
     
     def click_load_more_if_present(self) -> bool:
-        """Clique sur le bouton "Load More" s'il est présent."""
+        """Tap the "load more" button when present."""
         element = self._find_element_from_selectors(self.load_more_selectors, "Bouton 'Load More'")
         if element:
             self.logger.info("Clic sur le bouton 'Load More'")
@@ -127,15 +127,15 @@ class ScrollEndDetector:
 
     def should_use_fast_scroll(self) -> bool:
         """
-        Détermine si le scroll rapide doit être utilisé.
+        Should the fast scroll be used?
         
         Returns:
-            bool: True si le scroll rapide est recommandé
+                bool: True when the fast scroll is advisable
         """
-        # Conditions pour activer le scroll rapide
+        # Conditions enabling the fast scroll
         fast_scroll_conditions = [
             self._repeat_count >= 3,  # Condition originale
-            self._pages_without_new_users >= 5,  # 5 pages sans nouveaux utilisateurs
+            self._pages_without_new_users >= 5,  # pages with no new user
             self._duplicate_page_count >= 2,  # 2 pages identiques consécutives
             self._consecutive_empty_pages >= 3  # 3 pages vides consécutives
         ]
@@ -175,7 +175,7 @@ class ScrollEndDetector:
 
     def get_stats(self) -> dict:
         """
-        Retourne les statistiques du détecteur.
+        Detector statistics.
         
         Returns:
             dict: Statistiques de détection
@@ -189,7 +189,7 @@ class ScrollEndDetector:
         }
 
     def reset(self):
-        """Remet à zéro tous les compteurs et historiques."""
+        """Reset every counter and history."""
         self.pages.clear()
         self._last_seen.clear()
         self._repeat_count = 0

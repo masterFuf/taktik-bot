@@ -99,7 +99,7 @@ class WatchdogSelectors:
         "Following list": ['text="Following"', 'text="Abonnements"'],
         "Home feed": ['content-desc="Home"', 'content-desc="Accueil"'],
     })
-    # === Boutons "OK/Fermer" — labels langue-dependants (overlay locales/) ===
+    # === "OK/Close" buttons — language-dependent labels (locales overlay) ===
     _ok_button_texts_base: List[str] = field(default_factory=lambda: [
         # "OK"/"Ok"/"Got it" sont neutres (communs EN/FR ou hors vocabulaire).
         "OK",

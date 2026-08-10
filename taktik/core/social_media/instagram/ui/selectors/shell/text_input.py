@@ -5,15 +5,15 @@ from ..locales import L
 
 @dataclass
 class TextInputSelectors:
-    """Sélecteurs pour les champs de saisie de texte."""
+    """Selectors for text input fields."""
 
-    # === Comment field — langue-dependant (overlay locales/) ===
+    # === Comment field — language-dependent (locales overlay) ===
     _comment_field_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
         '//*[@resource-id="com.instagram.android:id/comment_box_text"]',
         '//*[@resource-id="com.instagram.android:id/inline_compose_box"]',
         '//*[contains(@resource-id, "comment_box")]',
-        # IT/ES hints absents du vocabulaire FR/EN -> restent neutres.
+        # Hints from other languages are absent from the FR/EN vocabulary -> neutral.
         '//*[contains(@hint, "Aggiungi un commento")]',
         '//*[contains(@hint, "Añade un comentario")]',
         '//*[contains(@resource-id, "comment_edittext")]',
@@ -27,7 +27,7 @@ class TextInputSelectors:
     def comment_field_selectors(self) -> List[str]:
         return self._comment_field_selectors_base + L("text_input.comment_field_selectors")
 
-    # === Caption field — langue-dependant (overlay locales/) ===
+    # === Caption field — language-dependent (locales overlay) ===
     _caption_field_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/caption_text_view"]',
         '//*[contains(@resource-id, "caption")]'
@@ -37,7 +37,7 @@ class TextInputSelectors:
     def caption_field_selectors(self) -> List[str]:
         return self._caption_field_selectors_base + L("text_input.caption_field_selectors")
 
-    # === Bio field — langue-dependant (overlay locales/) ===
+    # === Bio field — language-dependent (locales overlay) ===
     _bio_field_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/bio"]',
         '//*[contains(@resource-id, "biography")]'
@@ -55,7 +55,7 @@ class TextInputSelectors:
         '//*[contains(@resource-id, "composer_edittext")]'
     ])
 
-    # === Send button (DM) — langue-dependant (overlay locales/) ===
+    # === Send button (DM) — language-dependent (locales overlay) ===
     _send_button_selectors_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_thread_composer_button_send"]',
         '//*[contains(@resource-id, "send")]'

@@ -5,15 +5,15 @@ from ..locales import L
 
 @dataclass
 class DetectionSelectors:
-    """Sélecteurs pour la détection d'écrans, d'états et d'erreurs.
+    """Selectors for screen, state and error detection.
 
-    Multi-langue (modele overlay) : les selecteurs langue-neutres (resource-id /
-    classe / position) vivent ici comme champs ``_*_base`` ; les fragments
-    dependants de la langue (@text / @content-desc / libelles) vivent dans
-    ``ui/selectors/locales/<lang>.py`` et sont injectes via ``L("detection.<champ>")``
-    selon la locale active (cf. ``ui/language.detect_and_optimize``). Les champs
-    langue-dependants sont exposes en ``@property`` = base neutre + fragments de
-    la locale active (base neutre d'abord, puis les fragments localises).
+    Overlay model: the language-neutral selectors (resource-id,
+    class, position) live here as ``_*_base`` fields; the language-dependent fragments
+    (@text, @content-desc, bare labels) live in
+    ``ui/selectors/locales/<lang>.py`` and are injected through ``L("detection.<field>")``
+    according to the active locale (see ``ui/language.detect_and_optimize``). A
+    language-dependent field is exposed as a property: the neutral base first, then the
+    localized fragments.
     """
 
     # === Détection d'écrans ===
@@ -78,7 +78,7 @@ class DetectionSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_button_share"]',
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]'
-        # clips_single_media_component supprimé 2026-03-07 (0/30 sur v417)
+        # clips_single_media_component removed (0/30 on v417)
     ])
 
     @property
@@ -90,7 +90,7 @@ class DetectionSelectors:
 
     @property
     def reel_indicators(self) -> List[str]:
-        # clips_* resource-ids supprimés 2026-03-07 (0/30 trouvés sur v417, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
+        # clips_* resource-ids removed (0/30 found on v417)
         return L("detection.reel_indicators")
 
     # === Messages d'erreur ===
@@ -115,13 +115,13 @@ class DetectionSelectors:
         "Update": '//*[contains(@text, "Mise à jour")]'
     })
 
-    # === État du post (liked) ===
-    # Quand un post est déjà liké, plusieurs indicateurs possibles selon version/langue:
-    # - FR: content-desc = "J'aime déjà" ou "Ne plus aimer"
+    # === Post state (liked) ===
+    # A liked post exposes several possible markers depending on version and language:
+    # - localized content-desc variants of the already-liked state
     # - EN: content-desc = "Unlike" ou "Liked"
-    # - Universel: selected = "true" sur le bouton like
+    # - universal: selected = "true" on the like button
     _liked_button_indicators_base: List[str] = field(default_factory=lambda: [
-        # === MÉTHODE 1: Attribut selected (le plus fiable, indépendant de la langue) ===
+        # === WAY 1: the selected attribute (most reliable, language-independent) ===
         '//*[@resource-id="com.instagram.android:id/row_feed_button_like" and @selected="true"]',
         # Reel / clips player: the like button keeps content-desc "J'aime" (U+2019)
         # whether liked or not — only @selected flips (dump real-device IG 410, 2026-06-11:
@@ -130,12 +130,12 @@ class DetectionSelectors:
         # be verified and the already-liked check was blind.
         '//*[@resource-id="com.instagram.android:id/like_button" and @selected="true"]',
 
-        # Variants supprimés 2026-03-07 (redondants, voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md)
+        # Variants supprimés 2026-03-07 (redondants)
     ])
 
     @property
     def liked_button_indicators(self) -> List[str]:
-        # === MÉTHODE 2: Fallback content-desc multi-langue (overlay locales/) ===
+        # === WAY 2: multilingual content-desc fallback (locales overlay) ===
         return self._liked_button_indicators_base + L("detection.liked_button_indicators")
 
     # === Navigation - Search bars ===
@@ -165,7 +165,7 @@ class DetectionSelectors:
     @property
     def post_error_indicators(self) -> List[str]:
         # Optimized: Most common error patterns first (faster detection).
-        # Fragments langue-dependants (overlay locales/).
+        # Language-dependent fragments (locales overlay).
         #
         # Old approach (8 separate checks = 16s timeout if no error):
         # '//*[contains(@text, "Sorry")]',
@@ -179,27 +179,27 @@ class DetectionSelectors:
         return L("detection.post_error_indicators")
     
     # === Followers/Following list ===
-    # Sélecteurs SPÉCIFIQUES à la liste des followers/following
-    # IMPORTANT: Les éléments comme follow_list_container existent AUSSI sur les profils privés
-    # avec des suggestions. On doit utiliser des éléments VRAIMENT uniques.
+    # Selectors SPECIFIC to the followers/following list
+    # IMPORTANT: nodes such as follow_list_container ALSO exist on private profiles
+    # showing suggestions, so only genuinely unique nodes can be used.
     followers_list_indicators: List[str] = field(default_factory=lambda: [
-        # PRIORITÉ 1: Tab layout avec onglets - N'EXISTE QUE sur la liste des followers, MAIS
-        # défile hors écran dès qu'on scrolle → insuffisant seul pour une liste déjà scrollée.
+        # PRIORITY 1: the tab layout exists ONLY on the followers list, but it scrolls
+        # off screen, so on its own it cannot recognise an already-scrolled list.
         '//*[@resource-id="com.instagram.android:id/unified_follow_list_tab_layout"]',
-        # PRIORITÉ 2: lignes de followers — présentes même scrollé (fix du retour-back qui ratait
-        # la liste scrollée et déclenchait une fausse "LOOP DETECTED", device 2026-06-26).
+        # PRIORITY 2: follower rows, present even when scrolled — this is what fixes the
+        # back-navigation case that used to raise a false loop detection.
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
-        # Supprimés 2026-03-07: view_pager (0/15), mutual (0/15), followers (0/12) — voir SELECTOR_CLEANUP_BACKUP_2026-03-07.md
+        # Supprimés 2026-03-07: view_pager (0/15), mutual (0/15), followers (0/12)
     ])
     
     follow_list_username_selectors: List[str] = field(default_factory=lambda: [
-        # UNIQUEMENT les vrais followers, PAS les suggestions (row_recommended_user_username)
+        # Real followers ONLY, never the suggestions (row_recommended_user_username)
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
-        # Pour la popup des likers (bottom sheet)
+        # For the likers sheet
         '//*[@resource-id="com.instagram.android:id/row_user_primary_name"]'
     ])
     
-    # Sélecteurs pour détecter la section suggestions (à éviter)
+    # Selectors detecting the suggestions section (to be avoided)
     _suggestions_section_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_recommended_user_username"]',
         '//*[@resource-id="com.instagram.android:id/row_recommended_user_follow_button"]',
@@ -223,7 +223,7 @@ class DetectionSelectors:
     def followers_list_end_indicators(self) -> List[str]:
         return L("detection.followers_list_end_indicators")
 
-    # Sélecteurs pour détecter le spinner de chargement Instagram
+    # Selectors detecting the Instagram loading spinner
     _loading_spinner_indicators_base: List[str] = field(default_factory=lambda: [
         # Instagram's "Load more" button with loading animation
         '//*[@resource-id="com.instagram.android:id/row_load_more_button"]',
@@ -253,8 +253,8 @@ class DetectionSelectors:
         """XPath for a SPECIFIC profile-grid thumbnail by absolute position.
 
         Grid cells carry their position in content-desc (real dumps IG v410,
-        2026-06-09): e.g. "Reel par <author> à la ligne 2, colonne 2" or
-        "7 photos de <author>, à la ligne 1, colonne 3". Matches the image_button
+        the wording is localized, e.g. a reel or a photo count followed by its row and
+        column. Matches the image_button
         bearing that position (FR or EN wording), so a caller can open post #N
         deterministically: row = (N-1)//3 + 1, col = (N-1)%3 + 1 (3-column grid)."""
         return (
@@ -297,8 +297,8 @@ class DetectionSelectors:
     # === Load more / End of list ===
     @property
     def load_more_selectors(self) -> List[str]:
-        # Consolidé 2026-03-07: 12 → 5 sélecteurs (//* couvre tous les types
-        # d'éléments). Fragments langue-dependants (overlay locales/).
+        # Consolidated: //* covers every element type. Language-dependent
+        # fragments live in the locales overlay.
         return L("detection.load_more_selectors")
 
     # Consolidé 2026-03-07: 7 → 4 sélecteurs

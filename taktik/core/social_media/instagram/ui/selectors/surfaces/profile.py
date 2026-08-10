@@ -5,19 +5,18 @@ from ..locales import L, L_all
 
 @dataclass
 class ProfileSelectors:
-    """Selecteurs pour les profils utilisateurs.
+    """Selectors for user profiles.
 
-    Multi-langue (modele overlay) : les selecteurs langue-neutres (resource-id /
-    classe / position) vivent ici comme champs ; les fragments dependants de la
-    langue (@text / @content-desc / libelles) vivent dans
-    ``ui/selectors/locales/<lang>.py`` et sont injectes via ``L("profile.<champ>")``
-    selon la locale active (cf. ``ui/language.detect_and_optimize``). Les champs
-    langue-dependants sont donc exposes en ``@property`` = base neutre + fragments
-    de la locale active. Composition : base neutre d'abord (resource-id, les plus
-    specifiques), puis les fragments localises.
+    Multilingual (overlay model): the language-neutral selectors (resource-id, class,
+    position) live here as fields; the language-dependent fragments (@text,
+    @content-desc, bare labels) live in ``ui/selectors/locales/<lang>.py`` and are
+    injected through ``L("profile.<field>")`` according to the active locale (see
+    ``ui/language.detect_and_optimize``). A language-dependent field is exposed as a
+    property: the neutral base first, being the most specific, then the localized
+    fragments.
     """
 
-    # === Informations de base (listes pour fallbacks) ===
+    # === Basic information (lists, for fallbacks) ===
     username: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/action_bar_large_title_auto_size"]',
         '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
@@ -91,15 +90,15 @@ class ProfileSelectors:
     def profile_count_description_selector(self, description: str) -> str:
         return f'//*[contains(@content-desc, "{description}")]'
 
-    # === Boutons d'action — langue-dependants (overlay locales/) ===
+    # === Action buttons — language-dependent (locales overlay) ===
     _follow_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_header_follow_button"]',
         '//*[@resource-id="com.instagram.android:id/follow_button"]',
     ])
 
-    # Bouton d'action de CHAQUE LIGNE d'une liste de followers/following (resource-id neutre langue).
-    # Porte la meme relation (Suivre / Suivi(e) / Suivre en retour) que le header, mais lisible SANS
-    # ouvrir le profil -> permet un skip au niveau liste. Le texte est classe par `classify_follow_state`.
+    # Action button of EACH ROW of a followers/following list (language-neutral
+    # resource-id). It carries the same relationship as the header button but is readable
+    # WITHOUT opening the profile, which allows skipping at list level.
     follow_list_row_buttons: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/follow_list_row_large_follow_button"]',
     ])
@@ -110,30 +109,30 @@ class ProfileSelectors:
 
     @property
     def follow_button_anchors(self) -> List[str]:
-        """Les xpath resource-id PURS du bouton d'action du header (aucun texte -> neutres langue).
+        """The PURE resource-id xpaths of the header action button (no text, so neutral).
 
-        Point d'ancrage de la LECTURE D'ETAT : on cible le bouton par son id, puis on lit son texte
-        et on le compare aux libelles `follow_state_labels_*`. Ne jamais utiliser une forme texte
-        ici : elle attraperait `profile_header_follow_context_text` ("Suivi(e) par X, Y").
+        Anchor point of the STATE READ: the button is targeted by its id, then its text is read
+        and compared to the `follow_state_labels_*` labels. Never use a text form here — it would
+        also catch `profile_header_follow_context_text`, the mutual-friends line.
         """
         return list(self._follow_button_base)
 
     @property
     def following_button(self) -> List[str]:
-        # Les formes sont SCOPEES au bouton cote locales : un match texte nu sur "Suivi(e)" /
-        # "Following" attrape aussi `profile_header_follow_context_text` ("Suivi(e) par X, Y" =
-        # les amis en commun), un TextView NON cliquable place au-dessus du bouton — de quoi faire
-        # taper le mauvais noeud. On ne peut pas prefixer par `_follow_button_base` (resource-id
-        # nu) : il matcherait le bouton dans N'IMPORTE quel etat et casserait la detection d'etat.
+        # The forms are SCOPED to the button on the locales side: a bare text match on the
+        # The following label also catches `profile_header_follow_context_text` (the
+        # following label also catches the social-context text above the button, a NON-clickable
+        # TextView — enough to tap the wrong node. Prefixing with the bare resource-id base is
+        # not an option either: it would match the button in ANY state and break the detection.
         return L("profile.following_button")
 
     @property
     def follow_button_text_labels(self) -> List[str]:
         return L("profile.follow_button_text_labels")
 
-    # === Libelles d'ETAT du bouton d'action (overlay locales/) ===
-    # Utilises par get_follow_button_state() : un seul acces device sur le bouton, puis comparaison
-    # de son texte a ces libelles. L'ordre de test est porteur (cf. commentaire dans les locales).
+    # === STATE labels of the action button (locales overlay) ===
+    # Used by get_follow_button_state(): one device access on the button, then its text is
+    # compared to these labels. The test order carries meaning (see the locales module).
     @property
     def follow_state_labels_following(self) -> List[str]:
         return L("profile.follow_state_labels_following")
@@ -155,7 +154,7 @@ class ProfileSelectors:
         return L("profile.follow_state_labels_follow")
 
     _message_button_base: List[str] = field(default_factory=lambda: [
-        # "Message" est identique en EN/FR -> neutre.
+        # "Message" is identical in both languages -> neutral.
         '//*[contains(@text, "Message")]',
         '//*[@resource-id="com.instagram.android:id/profile_header_message_button"]'
     ])
@@ -174,9 +173,9 @@ class ProfileSelectors:
     def message_button_text_labels(self) -> List[str]:
         return self._message_button_text_labels_base + L("profile.message_button_text_labels")
 
-    # === Onglets du profil ===
-    # OR-combo bilingue inline (scalaire str, jamais filtre par langue aujourd'hui)
-    # -> migration overlay ulterieure ; laisse tel quel, aucun changement de comportement.
+    # === Profile tabs ===
+    # Inline bilingual OR-combo (plain str, never filtered by language today)
+    # -> overlay migration later; left as is, no behaviour change.
     posts_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Publications") or contains(@content-desc, "Posts")]'
 
     # The POSTS grid sub-tab, addressed by POSITION rather than by label.
@@ -308,7 +307,7 @@ class ProfileSelectors:
 
     # === Détection de profils privés ===
     _zero_posts_indicators_base: List[str] = field(default_factory=lambda: [
-        # "0" est neutre (resource-id + @text="0").
+        # "0" is neutral (resource-id + @text="0").
         '//*[@resource-id="com.instagram.android:id/profile_header_familiar_post_count_value" and @text="0"]',
     ])
 
@@ -327,7 +326,7 @@ class ProfileSelectors:
         return L("profile.private_text_contains")
 
     # === Boutons multiples (écrans de suggestions) ===
-    # Scalaires str mono-langue (jamais filtres aujourd'hui) -> laisses tels quels.
+    # Single-language plain strings (never filtered today) -> left as is.
     follow_buttons: str = '//android.widget.Button[contains(@text, "Follow")]'
     suivre_buttons: str = '//android.widget.Button[contains(@text, "Suivre")]'
 
@@ -348,11 +347,11 @@ class ProfileSelectors:
     def about_account_based_in_value(self) -> List[str]:
         return L("profile.about_account_based_in_value")
 
-    # === Sélecteurs avancés pour follow (éviter followers/following) ===
+    # === Advanced follow selectors (avoiding followers/following) ===
     _advanced_follow_selectors_base: List[str] = field(default_factory=lambda: [
-        # Bouton Follow principal dans le header du profil
+        # Main follow button in the profile header
         '//android.widget.Button[@resource-id="com.instagram.android:id/profile_header_follow_button"]',
-        # Bouton Follow dans la barre d'action (apparaît après scroll dans la grille)
+        # Follow button in the action bar (appears after scrolling into the grid)
         '//android.widget.Button[@resource-id="com.instagram.android:id/follow_button"]',
     ])
 

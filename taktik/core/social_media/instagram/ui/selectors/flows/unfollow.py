@@ -5,14 +5,14 @@ from ..locales import L
 
 @dataclass
 class UnfollowSelectors:
-    """Sélecteurs pour le workflow d'unfollow."""
+    """Selectors for the unfollow workflow."""
 
-    # === Bouton Following/Abonné sur un profil (overlay locales/) ===
+    # === Following button on a profile (locales overlay) ===
     @property
     def following_button(self) -> List[str]:
         return L("unfollow.following_button")
 
-    # === Bouton Following dans la liste following (pour simple unfollow) ===
+    # === Following button in the following list (for a plain unfollow) ===
     following_list_button_resource_id: str = 'com.instagram.android:id/follow_list_row_large_follow_button'
     following_list_username_resource_id: str = 'com.instagram.android:id/follow_list_username'
     following_tab_title_resource_id: str = 'com.instagram.android:id/title'
@@ -69,12 +69,12 @@ class UnfollowSelectors:
             ),
         ]
     
-    # === Confirmation d'unfollow dans la popup (overlay locales/) ===
+    # === Unfollow confirmation in the popup (locales overlay) ===
     @property
     def unfollow_confirm(self) -> List[str]:
         return L("unfollow.unfollow_confirm")
 
-    # === Username dans la liste following ===
+    # === Username in the following list ===
     following_list_item: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
     ])
@@ -84,7 +84,7 @@ class UnfollowSelectors:
     def following_tab(self) -> List[str]:
         return L("unfollow.following_tab")
 
-    # === Tri de la liste ===
+    # === List sorting ===
     _sort_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/sorting_entry_row_icon"]',
     ])
@@ -110,7 +110,7 @@ class UnfollowSelectors:
     def follows_back_indicators(self) -> List[str]:
         return L("unfollow.follows_back_indicators")
 
-    # === Détection bouton Follow après unfollow (overlay locales/) ===
+    # === Follow-button detection after an unfollow (locales overlay) ===
     @property
     def follow_button_after_unfollow(self) -> List[str]:
         return L("unfollow.follow_button_after_unfollow")

@@ -5,16 +5,16 @@ from ..locales import L
 
 @dataclass
 class PopupSelectors:
-    """Sélecteurs pour les popups et modales (likers, followers, etc.)."""
+    """Selectors for popups and modal sheets (likers, followers, …)."""
 
-    # === Utilisateurs dans les popups ===
+    # === Users inside popups ===
     username_in_popup_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_user_primary_name"]',
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]',
         '//*[@resource-id="com.instagram.android:id/username"]'
     ])
 
-    # === Détection des popups ===
+    # === Popup detection ===
     popup_bounds_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/bottom_sheet_container"]',
         '//*[@resource-id="com.instagram.android:id/modal_container"]',
@@ -33,7 +33,7 @@ class PopupSelectors:
     def likers_popup_indicators(self) -> List[str]:
         return self._likers_popup_indicators_base + L("popup.likers_popup_indicators")
 
-    # Indicateurs de la vue des commentaires (pour éviter confusion avec likers popup)
+    # Comments-view markers (to avoid confusing it with the likers popup)
     _comments_view_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]',
         '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment"]'
@@ -100,8 +100,8 @@ class PopupSelectors:
 
     # === Section inline de suggestions après follow ===
     _follow_suggestions_indicators_base: List[str] = field(default_factory=lambda: [
-        # "Suggestions" est un sous-texte présent en FR ("Suggestions pour vous")
-        # comme en EN ("Suggestions for you") -> neutre, gardé pour toutes les langues.
+        # "Suggestions" is a substring of the heading in both languages, so it is
+        # neutral and kept for every locale.
         '//android.widget.TextView[contains(@text, "Suggestions")]',
     ])
 
@@ -223,21 +223,21 @@ class PopupSelectors:
     ])
 
     # === Modale "Autoriser Instagram a acceder a vos contacts ?" ===
-    # S'intercale apres le CTA "See all" du carousel de suggestions du feed
-    # (dump reel 9CHAY1PN, IG v410.0.0.53.71, 2026-07-26).
+    # Appears after the "See all" CTA of the feed suggestions carousel.
+    # (dump reel, IG v410.0.0.53.71, 2026-07-26).
     #
-    # ATTENTION : les trois resource-id `igds_alert_dialog_*` sont la CARROSSERIE
-    # generique des alertes Instagram — la modale soft-ban "Try again later" les
-    # porte aussi. Ne JAMAIS taper le bouton primaire sur la seule foi de ces ids :
-    # il faut d'abord confirmer le HEADLINE via `contacts_access_headline_texts`.
+    # WARNING: the three `igds_alert_dialog_*` resource-ids are the GENERIC chassis
+    # of Instagram alerts — the restriction modal carries them too. NEVER tap the
+    # primary button on the strength of those ids alone: the HEADLINE must be
+    # confirmed first through `contacts_access_headline_texts`.
     contacts_access_dialog: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_headline"]',
     ])
     contacts_access_subtext: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_subtext"]',
     ])
-    # Boutons : resource-id => independants de la langue. Le primaire ACCEPTE
-    # (upload du carnet d'adresses), le "cancel" REFUSE.
+    # Buttons: resource-id, so language-independent. The primary one ACCEPTS
+    # (uploads the address book), the cancel one REFUSES.
     contacts_access_allow_button: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_primary_button"]',
     ])
@@ -247,8 +247,8 @@ class PopupSelectors:
 
     @property
     def contacts_access_headline_texts(self) -> List[str]:
-        """Fragments du headline (LIBELLES bruts, pas des xpaths) prouvant que
-        l'alerte affichee est bien la demande d'acces aux contacts."""
+        """Headline fragments (raw LABELS, not xpaths) proving that
+        the alert on screen really is the contacts-access request."""
         return L("popup.contacts_access_headline_texts")
 
 POPUP_SELECTORS = PopupSelectors()

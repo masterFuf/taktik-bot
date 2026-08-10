@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ProblematicPageSelectors:
-    """Sélecteurs pour la détection et fermeture des pages problématiques."""
+    """Selectors for detecting and closing problematic pages."""
     
     # === Boutons de fermeture X/Close ===
     close_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
@@ -38,13 +38,13 @@ class ProblematicPageSelectors:
         {'description': 'Ok'}
     ])
     
-    # === Background dimmer (pour fermer les bottom sheets) ===
+    # === Background dimmer (to close bottom sheets) ===
     background_dimmer_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
         {'resourceId': 'com.instagram.android:id/background_dimmer'},
         {'description': '@2131954182'}
     ])
     
-    # === Drag handle (trait gris des bottom sheets) ===
+    # === Drag handle (the grey bar of bottom sheets) ===
     drag_handle_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
         {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'},
         {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_frame'}
@@ -58,7 +58,7 @@ class ProblematicPageSelectors:
         {'text': 'Allow'},
     ])
     
-    # === Patterns de détection des pages problématiques ===
+    # === Detection patterns for problematic pages ===
     # Chaque pattern contient: indicators (textes à chercher), close_methods, et flags optionnels
     detection_patterns: Dict[str, Dict] = field(default_factory=lambda: {
         'qr_code_page': {
