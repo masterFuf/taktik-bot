@@ -1,9 +1,9 @@
 """
-Workflow de changement de compte Instagram (switch).
+Account switch workflow.
 
 Orchestration simple : un appel à `InstagramSwitchAccount.switch_to(target)`.
-Le switch ne concerne que les comptes déjà connectés sur le device ; un compte
-absent doit passer par le workflow Login.
+The switch only covers the accounts already logged in on the device; an absent
+one must go through the login workflow.
 """
 
 from typing import Any, Callable, Dict, Optional
@@ -14,7 +14,7 @@ from ....auth.switch import InstagramSwitchAccount
 
 
 class SwitchAccountWorkflow:
-    """Workflow complet de changement de compte Instagram."""
+    """Full account switch workflow."""
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class SwitchAccountWorkflow:
 
     def execute(self, target_username: str) -> Dict[str, Any]:
         """
-        Exécute le switch vers ``target_username``.
+        Switch to ``target_username``.
 
         Returns:
             {

@@ -4,10 +4,10 @@ import time
 
 
 class LoginScreenDetectionMixin:
-    """Mixin: détection écran de login + sélection intelligente de profil."""
+    """Mixin: login screen detection and profile selection."""
 
     def _debug_snapshot(self, label: str) -> None:
-        """Capture screenshot + UI dump pour debug (non bloquant)."""
+        """Capture a screenshot and a UI dump for debugging, non-blocking."""
         try:
             import os, tempfile
             from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
@@ -21,13 +21,13 @@ class LoginScreenDetectionMixin:
             self.logger.debug(f"Debug snapshot failed ({label}): {e}")
 
     def _log_all_clickable_elements(self) -> None:
-        """Log tous les éléments cliquables visibles pour debug."""
+        """Log every visible clickable element, for debugging."""
         try:
             elements = self.device.xpath(
                 self.auth_selectors.clickable_visible_elements
             ).all()
             self.logger.info(f"🔍 Clickable elements on screen ({len(elements)} total):")
-            for el in elements[:20]:  # Limiter à 20 pour ne pas spammer
+            for el in elements[:20]:  # Capped, to avoid flooding the logs
                 try:
                     info = el.elem
                     cls = info.attrib.get('class', '?').split('.')[-1]
@@ -43,22 +43,22 @@ class LoginScreenDetectionMixin:
 
     def _is_on_login_screen(self, target_username: str = None) -> bool:
         """
-        Vérifie si on est sur l'écran de login.
-        Si on est sur l'écran de sélection de profil :
-        - Cherche le profil demandé dans la liste
+        Check whether we are on the login screen.
+        On the profile picker screen:
+        - look for the requested profile in the list
         - Si trouvé : clique dessus directement
-        - Sinon : clique sur "Use another profile"
+        - otherwise, tap the use-another-profile entry
 
         Args:
-            target_username: Username du compte à connecter (pour sélection intelligente)
+            target_username: the account to log in, used for the selection
 
         Returns:
-            True si sur l'écran de login, False si profil tile cliqué (connecté ou en cours)
+            True on the login screen; False when a profile tile was tapped
         """
         self.logger.info(f"🔍 Checking login screen state (target: @{target_username})...")
         self._debug_snapshot("before_screen_detection")
 
-        # Vérifier si on est sur l'écran de sélection de profil
+        # Are we on the profile picker?
         matched_profile_selector = None
         for selector in self.auth_selectors.profile_selection_screen:
             try:
@@ -99,7 +99,7 @@ class LoginScreenDetectionMixin:
 
                 self.logger.info(f"⚠️ Profile tile @{target_username} NOT found in saved profiles — will use 'Use another profile'")
 
-            # Profil non trouvé ou pas de username cible : cliquer sur "Use another profile"
+            # Profile not found, or no target given: tap the use-another-profile entry
             self.logger.info("🔄 Looking for 'Use another profile' button...")
             use_another_selectors = self.auth_selectors.use_another_profile_button
             clicked_use_another = False
@@ -123,7 +123,7 @@ class LoginScreenDetectionMixin:
         else:
             self.logger.info("🔍 No profile selection screen detected — checking for login screen directly...")
 
-        # Vérifier si on est maintenant sur l'écran de login
+        # Are we on the login screen now?
         for indicator in self.auth_selectors.login_screen_indicators:
             try:
                 if self.device.xpath(indicator).exists:

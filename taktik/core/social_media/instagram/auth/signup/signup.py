@@ -23,7 +23,7 @@ from .models import SignupResult
 
 
 class InstagramSignup:
-    """Gestion de la création de compte Instagram (étapes initiales)."""
+    """Instagram account creation, initial steps."""
 
     def __init__(self, device, device_id: str):
         self.device = device
@@ -40,14 +40,14 @@ class InstagramSignup:
 
     def navigate_to_signup(self) -> SignupResult:
         """
-        Depuis l'écran d'accueil non-connecté, clique sur "Create new account".
+        From the logged-out welcome screen, tap the create-account entry.
 
         Returns:
-            SignupResult avec step="phone_input" ou step="email_input" si succès.
+            SignupResult carrying the reached step on success.
         """
         self.logger.info("🚀 Navigating to Instagram signup screen...")
 
-        # Vérifier qu'on est bien sur l'écran d'accueil non-connecté
+        # Confirm we are on the logged-out welcome screen
         if not self._is_on_home_logged_out_screen():
             return SignupResult(
                 success=False,
@@ -56,7 +56,7 @@ class InstagramSignup:
                 error_type="wrong_screen"
             )
 
-        # Cliquer sur "Create new account"
+        # Tap the create-account entry
         if not self._click_first_match(
             self.auth_selectors.create_account_button,
             "Create new account"
@@ -80,7 +80,7 @@ class InstagramSignup:
 
     def enter_phone_number(self, phone: str) -> SignupResult:
         """
-        Sur l'écran "What's your mobile number?", saisit le numéro et clique Next.
+        On the mobile-number screen, type the number and continue.
 
         Args:
             phone: Numéro de téléphone (ex: "+33600000000")
@@ -122,7 +122,7 @@ class InstagramSignup:
 
     def enter_email(self, email: str) -> SignupResult:
         """
-        Sur l'écran "What's your email?", saisit l'email et clique Next.
+        On the email screen, type the address and continue.
 
         Args:
             email: Adresse e-mail (ex: "user@example.com")
@@ -163,14 +163,14 @@ class InstagramSignup:
         )
 
     def switch_to_email_signup(self) -> bool:
-        """Depuis l'écran téléphone, bascule vers inscription par e-mail."""
+        """From the phone screen, switch to signing up by email."""
         return self._click_first_match(
             self.auth_selectors.signup_switch_to_email_button,
             "Sign up with email"
         )
 
     def switch_to_phone_signup(self) -> bool:
-        """Depuis l'écran e-mail, bascule vers inscription par numéro de mobile."""
+        """From the email screen, switch to signing up by phone number."""
         return self._click_first_match(
             self.auth_selectors.signup_switch_to_phone_button,
             "Sign up with mobile number"

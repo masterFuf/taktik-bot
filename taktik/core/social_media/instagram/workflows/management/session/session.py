@@ -23,15 +23,15 @@ class SessionManager:
         """
         self.config = config
         self.session_start_time = datetime.now()
-        # Id de la session PERSISTEE, quand l'appelant en a ouvert une. `_get_session_id`
-        # (StatsRecordingMixin) le lit deja par `hasattr`, mais l'attribut n'existait
-        # nulle part : toute execution sans `InstagramAutomation` — le Lab, le bridge
-        # Notifications — ecrivait donc ses interactions avec `session_id` NULL. Elles
-        # existaient en base sans jamais apparaitre dans une session, donc sans jamais
-        # remonter dans les chiffres montres au client.
+        # Id of the PERSISTED session, when the caller opened one. The stats mixin already
+        # looked it up, but the attribute existed nowhere: every run without the full
+        # automation object therefore wrote its interactions with no session id. They
+        # existed in the database without ever appearing in a session, so without ever
+        # reaching the figures shown.
+        #
         self.session_id: Optional[int] = None
 
-        # Séparation des phases : scraping vs interaction
+        # Phase separation: scraping versus interaction
         self.scraping_start_time = None
         self.scraping_end_time = None
         self.interaction_start_time = None
@@ -83,18 +83,18 @@ class SessionManager:
         # Durée totale de session (limite principale)
         session_duration = datetime.now() - self.session_start_time
         
-        # Durée d'interaction (pour info)
+        # Interaction duration, for information
         interaction_duration = self.get_interaction_duration()
         
         configured_duration = self.config.get('session_settings', {}).get('session_duration_minutes', 60)
         max_duration = timedelta(minutes=configured_duration)
         
-        # Vérifier la durée TOTALE de session (pas seulement l'interaction)
+        # Check the TOTAL session duration, not only the interaction
         should_stop_duration = session_duration > max_duration
         
         log.debug(f"Duration check: total={session_duration}, scraping={self.get_scraping_duration()}, interaction={interaction_duration}, max={configured_duration}min, stop={should_stop_duration}")
         
-        # Vérifier la durée totale de session
+        # Check the total session duration
         if should_stop_duration:
             reason = f"Maximum session duration reached ({configured_duration} minutes)"
             log.info(f"🛑 Session ended: {reason}")
@@ -105,46 +105,46 @@ class SessionManager:
         
         log.debug(f"Limits check ({workflow_type}): profiles={self.counters['profiles_processed']}/{session_settings.get('total_profiles_limit', 'inf')}, likes={self.counters['likes']}/{session_settings.get('total_likes_limit', 'inf')}, follows={self.counters['follows']}/{session_settings.get('total_follows_limit', 'inf')}")
         
-        # Vérifier la limite de profils traités
+        # Check the handled-profiles cap
         profiles_limit = session_settings.get('total_profiles_limit', float('inf'))
         if profiles_limit and profiles_limit != float('inf') and self.counters['profiles_processed'] >= profiles_limit:
             reason = f"Profiles limit reached ({self.counters['profiles_processed']}/{profiles_limit})"
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
         
-        # Vérifier la limite de follows (si configurée et > 0)
+        # Check the follow cap, when configured
         follows_limit = session_settings.get('total_follows_limit', float('inf'))
         if follows_limit and follows_limit != float('inf') and follows_limit > 0 and self.counters['follows'] >= follows_limit:
             reason = f"Follows limit reached ({self.counters['follows']}/{follows_limit})"
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
             
-        # Vérifier la limite de likes (si configurée et > 0)
+        # Check the like cap, when configured
         likes_limit = session_settings.get('total_likes_limit', float('inf'))
         if likes_limit and likes_limit != float('inf') and likes_limit > 0 and self.counters['likes'] >= likes_limit:
             reason = f"Likes limit reached ({self.counters['likes']}/{likes_limit})"
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
 
-        # Garde-fou de montée en charge : plafond du JOUR pour ce compte (toutes sessions confondues).
+        # Ramp-up guard: the DAILY cap for this account, across every session.
         #
-        # Les limites ci-dessus sont par-session et repartent de zéro à chaque run — c'est
-        # précisément ce qui a permis d'empiler sept sessions et de dépasser largement le jour 1.
-        # Ici on lit le total réel du jour (daily_stats, que le bot incrémente en direct) et on
-        # arrête net quand le budget est atteint. Défense en profondeur : le front bloque déjà le
-        # LANCEMENT, mais une seule longue session pourrait à elle seule crever le budget.
+        # The caps above are per-session and restart from zero on each run, which is exactly
+        # what allowed several sessions to be stacked well past a day's worth.
+        # Here the real daily total is read and the session stops when the budget is reached.
+        # Defence in depth: the front already blocks the LAUNCH, but one long session could
+        # blow the budget on its own.
         #
-        # N'agit que si le desktop a injecté des plafonds ET un fournisseur de totaux : en standalone
-        # les deux sont absents, le comportement est inchangé. Un plafond à 0 = pas de limite.
+        # Active only when both the caps and a totals provider were injected; in standalone
+        # both are absent and the behaviour is unchanged. A cap of zero means no limit.
         stop_reason = self._check_daily_budget()
         if stop_reason:
             log.info(f"🛑 Session ended: {stop_reason}")
             return False, stop_reason
 
-        # Plafond d'actions écrites pour CETTE session (injecté par le desktop). Complète le budget
-        # du jour : il étale la journée sur plusieurs sessions douces au lieu d'un dump unique. Compte
-        # les actions écrites de la session (like/follow/commentaire) — les vues de story, passives,
-        # n'entrent pas dans le budget. 0/absent = pas de plafond (standalone inchangé).
+        # Written-action cap for THIS session. It complements the daily budget by spreading the
+        # day over several gentle sessions rather than one dump. It counts the written actions
+        # only; story views, being passive, do not enter the budget. Zero or absent means no
+        # cap.
         max_per_session = int(self._warmup_policy.get('max_actions_per_session', 0) or 0)
         if max_per_session > 0:
             session_actions = (
@@ -158,17 +158,17 @@ class SessionManager:
         return True, ""
 
     def _check_daily_budget(self) -> str:
-        """Le budget GLOBAL du jour est-il atteint ? Renvoie la raison d'arrêt, ou '' pour continuer.
+        """Is the GLOBAL daily budget reached? Returns the stop reason, or empty to continue.
 
-        Seul le budget d'actions global arrête la session. Les sous-quotas (suivis, commentaires)
-        ne sont PAS un motif d'arrêt : ils désactivent leur propre action pour le reste de la
-        journée (voir `exhausted_daily_quotas`). Les arrêter tuait toute la session dès que le
-        plafond le moins essentiel était atteint, alors que le budget global laissait encore de
-        quoi liker et regarder des stories.
+        Only the global action budget stops the session. The per-type sub-quotas are NOT a stop
+        reason: they disable their own action for the rest of the day. Treating them as one
+        killed the whole session as soon as the LEAST essential cap was reached, while the
+        global budget still left room to like and watch stories.
+        
 
-        Best-effort : une erreur de lecture ne doit pas tuer la session (le front reste le garde
-        principal). Le fournisseur lit les totaux du jour du compte à chaque appel — should_continue
-        n'est consulté qu'une fois par profil, donc la fréquence de lecture reste négligeable.
+        Best-effort: a read error must not kill the session. The provider reads the account
+        daily totals on each call, and this is consulted once per profile, so the read
+        frequency stays negligible.
         """
         usage = self._read_daily_usage()
         if usage is None:
@@ -181,23 +181,23 @@ class SessionManager:
         return ""
 
     def _read_daily_usage(self) -> Optional[Dict[str, int]]:
-        """Les totaux du jour du compte, ou None quand il n'y a rien à faire respecter."""
+        """The account daily totals, or None when there is nothing to enforce."""
         provider = self._daily_usage_provider
         if provider is None or not self._warmup_policy:
             return None
         try:
             return provider() or {}
-        except Exception as exc:  # noqa: BLE001 — le garde-fou ne doit jamais faire échouer un run
+        except Exception as exc:  # noqa: BLE001 — the guard must never fail a run
             log.warning(f"Daily-budget provider failed (continuing without cap): {exc}")
             return None
 
     def exhausted_daily_quotas(self) -> set:
-        """Les sous-quotas épuisés aujourd'hui : {'follow'} / {'comment'} / les deux.
+        """The sub-quotas spent today.
 
-        L'appelant (le moteur d'interaction) retire l'intention correspondante du plan de chaque
-        profil, de sorte que la session continue de liker et de regarder les stories alors que les
-        commentaires du jour sont consommés. Vide en standalone (aucun plafond injecté) et vide en
-        cas d'erreur de lecture — fail-open, comme le reste du garde-fou.
+        The caller removes the matching intent from each per-profile plan, so the session keeps
+        liking and watching stories while the daily comments are spent. Empty in standalone,
+        where no cap is injected, and empty on a read error — fail-open, like the rest of the
+        guard.
         """
         usage = self._read_daily_usage()
         if usage is None:
@@ -315,9 +315,9 @@ class SessionManager:
         else:
             delay = random.uniform(self.pacing.action_delay_min, self.pacing.action_delay_max)
 
-        # Plancher de cadence du garde-fou : jamais plus vite que ce minimum, quel que soit le
-        # profil de rythme choisi. C'est le levier qui casse la cadence mécanique (hier ~27s soutenu
-        # sur un compte neuf). 0/absent (standalone) -> pas de plancher, comportement inchangé.
+        # Pace floor of the guard: never faster than this minimum, whatever the pacing profile
+        # chosen elsewhere. This is the lever that breaks the mechanical regularity observed on
+        # a fresh account. Zero or absent means no floor, and standalone is unchanged.
         floor = float(self._warmup_policy.get('min_action_gap_seconds', 0) or 0)
         return max(delay, floor) if floor > 0 else delay
 
@@ -361,12 +361,12 @@ class SessionManager:
         log.debug(f"Configuration updated: duration={duration_minutes}min, settings={session_settings}")
     
     def start_scraping_phase(self):
-        """Marque le début de la phase de scraping."""
+        """Mark the start of the scraping phase."""
         self.scraping_start_time = datetime.now()
         log.debug(f"🔍 Scraping phase started at {self.scraping_start_time}")
     
     def end_scraping_phase(self):
-        """Marque la fin de la phase de scraping."""
+        """Mark the end of the scraping phase."""
         self.scraping_end_time = datetime.now()
         if self.scraping_start_time:
             scraping_duration = self.scraping_end_time - self.scraping_start_time
@@ -375,7 +375,7 @@ class SessionManager:
             log.warning("Scraping end called but no start time recorded")
     
     def start_interaction_phase(self):
-        """Marque le début de la phase d'interaction (une seule fois par session)."""
+        """Mark the start of the interaction phase, once per session."""
         if self.interaction_start_time is None:
             self.interaction_start_time = datetime.now()
             log.debug(f"🎯 Interaction phase started at {self.interaction_start_time}")
@@ -383,13 +383,13 @@ class SessionManager:
             log.debug(f"Interaction phase already started at {self.interaction_start_time} (not resetting)")
     
     def get_scraping_duration(self) -> timedelta:
-        """Retourne la durée de la phase de scraping."""
+        """Duration of the scraping phase."""
         if self.scraping_start_time and self.scraping_end_time:
             return self.scraping_end_time - self.scraping_start_time
         return timedelta(0)
     
     def get_interaction_duration(self) -> timedelta:
-        """Retourne la durée de la phase d'interaction."""
+        """Duration of the interaction phase."""
         if self.interaction_start_time:
             return datetime.now() - self.interaction_start_time
         return timedelta(0)

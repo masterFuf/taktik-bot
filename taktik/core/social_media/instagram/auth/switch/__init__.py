@@ -42,7 +42,7 @@ _HANDLE_RE = re.compile(r"^[a-z0-9._]{1,30}$")
 
 
 class InstagramSwitchAccount:
-    """Gestionnaire de changement de compte Instagram (comptes déjà connectés)."""
+    """Instagram account switcher, across the already logged-in accounts."""
 
     MAX_LOGOUT_LOOPS = 3  # guards the auto-switch-to-home loop
 
@@ -233,7 +233,7 @@ class InstagramSwitchAccount:
     def detect_active_account(self) -> Optional[str]:
         """Read the @username of the account currently ACTIVE on the device — non-destructive.
 
-        Kevin's flow: when an account is active (home feed), navigate to the own profile tab and
+        Flow: when an account is active (home feed), navigate to the own profile tab and
         read the logged-in username. Emits `active_account_detected` (via the `on_active_account`
         callback) so the front recales the device↔account DB link. Returns None when logged out (on
         the picker there is no active account) or when the username can't be read / isn't a handle.
@@ -295,8 +295,7 @@ class InstagramSwitchAccount:
                                 detected_accounts=detected)
 
         # 1. An account is active (home feed). First READ the currently-active account (navigate to
-        # the own profile) so the device↔account DB link is recaled even before the switch (Kevin's
-        # flow) — non-destructive, emits `active_account_detected`. Then reach the connected-accounts
+        # the own profile) so the device↔account DB link is recaled even before the switch — non-destructive, emits `active_account_detected`. Then reach the connected-accounts
         # picker by LOGGING OUT — Profile tab → options menu → Log out → confirm → picker.
         self.detect_active_account()
         self._notify("An account is active — logging out to reach the account picker…")
@@ -349,7 +348,7 @@ class InstagramSwitchAccount:
 
         When the accounts are logged out, IG opens directly on the account picker: enumerate it
         as-is. When an account is ACTIVE (home feed), the full picker is only reachable by logging
-        out, which we must NOT do for a mere read (Kevin: non-destructive). Instead READ the active
+        out, which we must NOT do for a mere read. Instead READ the active
         account (navigate to the own profile) and return just that one — recaling the device↔account
         DB link via `active_account_detected`. The bottom-nav tabs on the home feed are NOT accounts.
         """
@@ -369,7 +368,7 @@ class InstagramSwitchAccount:
         """List ALL accounts saved on the device — DESTRUCTIVE.
 
         When an account is active, the only screen that shows every saved account is the logged-out
-        picker, so we LOG OUT to reach it (Kevin's flow: 'logout → récupération des comptes → choix')
+        picker, so we LOG OUT to reach it (logout → account list → choice)
         then enumerate. We recale the DB with the active account BEFORE logging out, and leave the
         device ON the picker so a following `switch_to(target)` selects the account directly (no
         second logout). If already on the picker, just enumerate.

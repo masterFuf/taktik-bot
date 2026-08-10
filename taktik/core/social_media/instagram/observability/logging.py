@@ -1,8 +1,8 @@
 """
-Configuration du logging pour Instagram.
+Logging configuration.
 
-Ce module configure le logger pour le module Instagram avec des formats de sortie personnalisés
-et des gestionnaires de logs appropriés.
+Configures the logger with custom output formats and the appropriate handlers.
+
 """
 
 import logging
@@ -12,7 +12,7 @@ from pathlib import Path
 from loguru import logger
 
 class InterceptHandler(logging.Handler):
-    """Redirige les logs de logging vers loguru."""
+    """Redirect the standard logging records to loguru."""
     def emit(self, record):
         # Get corresponding Loguru level if it exists
         try:
@@ -41,22 +41,22 @@ def setup_logger(
     diagnose: bool = False,
 ) -> logger:
     """
-    Configure le logger pour le module Instagram.
+    Configure the logger.
 
     Args:
-        name: Nom du logger
+        name: logger name
         log_level: Niveau de log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Fichier de sortie pour les logs (optionnel)
-        rotation: Rotation des fichiers de log (ex: "10 MB", "1 day")
-        retention: Rétention des fichiers de log (ex: "30 days")
-        serialize: Si True, sérialise les logs en JSON
-        backtrace: Si True, inclut la trace complète dans les logs d'erreur
-        diagnose: Si True, affiche les variables locales dans les logs d'erreur
+        log_file: output file, optional
+        rotation: log file rotation
+        retention: log file retention
+        serialize: emit the records as JSON
+        backtrace: include the full trace on errors
+        diagnose: show the local variables on errors
 
     Returns:
-        Instance du logger configuré
+        The configured logger instance
     """
-    # Configuration des logs
+    # Log configuration
     log_config = {
         "handlers": [
             {
@@ -88,21 +88,21 @@ def setup_logger(
             "level": log_level,
         })
 
-    # Configuration du logger
+    # Logger configuration
     logger.configure(**log_config)
     logger.level("INFO", color="<green>")
     logger.level("WARNING", color="<yellow>")
     logger.level("ERROR", color="<red>")
     
-    # Intercepter les logs de la bibliothèque standard
+    # Intercept the standard library records
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
     
-    # Désactiver les logs trop verbeux
+    # Silence the noisiest loggers
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("uiautomator2").setLevel(logging.WARNING)
     
-    # Retourner une instance du logger avec le nom spécifié
+    # Return a logger bound to the given name
     return logger.bind(module=f"instagram.{name}")
 
-# Créer une instance par défaut du logger
+# Create a default logger instance
 instagram_logger = setup_logger()

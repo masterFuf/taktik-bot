@@ -120,9 +120,9 @@ class WorkflowRunner:
         # That is exactly how the post-like bounds were lost before.
         if action.get('interaction_mode'):
             config['interaction_mode'] = action['interaction_mode']
-        # Le plan explicite (trois cases + budgets par post). Recopie cle par cle comme le
-        # reste : `build_interaction_config` est selectif, donc une cle absente ici n'atteint
-        # jamais le workflow — c'est ainsi que les bornes de likes s'etaient perdues.
+        # The explicit plan, with its three boxes and per-post budgets. Copied key by key
+        # like the rest: the builder is selective, so a key absent here never reaches the
+        # workflow — which is how the like bounds got lost.
         for key in ('engage_posts', 'walk_likers', 'walk_commenters',
                     'max_posts', 'max_likers_per_post', 'max_commenters_per_post'):
             if action.get(key) is not None:
@@ -255,7 +255,7 @@ class WorkflowRunner:
             'skip_business': action.get('skip_business', False)
         }
         
-        # Naviguer vers notre propre profil
+        # Navigate to our own profile
         self.logger.info("📱 Navigating to own profile...")
         if not unfollow_business.nav_actions.navigate_to_profile_tab():
             self.logger.error("Failed to navigate to own profile")
@@ -263,7 +263,7 @@ class WorkflowRunner:
         
         time.sleep(2)
         
-        # Ouvrir la liste following
+        # Open the following list
         self.logger.info("📋 Opening following list...")
         if not unfollow_business.nav_actions.open_following_list():
             self.logger.error("Failed to open following list")
@@ -271,10 +271,10 @@ class WorkflowRunner:
         
         time.sleep(2)
         
-        # Lancer le workflow simple (clic direct sur boutons)
+        # Run the simple workflow, tapping the buttons directly
         result = unfollow_business.run_simple_unfollow_from_list(config)
         
-        # Mettre à jour les stats
+        # Update the statistics
         self.automation.stats['unfollows'] = self.automation.stats.get('unfollows', 0) + result.get('unfollows_made', 0)
         
         return result.get('success', False)
@@ -299,11 +299,11 @@ class WorkflowRunner:
             'custom_comments': action.get('custom_comments', [])
         }
         
-        # Utiliser le FeedBusiness si disponible
+        # Use the feed business object when available
         if hasattr(self.automation, 'feed_business'):
             result = self.automation.feed_business.interact_with_feed(config)
         else:
-            # Créer une instance temporaire
+            # Create a temporary instance
             from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
             feed_business = FeedBusiness(
                 self.automation.device,
@@ -312,7 +312,7 @@ class WorkflowRunner:
             )
             result = feed_business.interact_with_feed(config)
         
-        # Mettre à jour les stats
+        # Update the statistics
         self.automation.stats['likes'] += result.get('likes_made', 0)
         self.automation.stats['follows'] += result.get('follows_made', 0)
         self.automation.stats['comments'] += result.get('comments_made', 0)
@@ -452,7 +452,7 @@ class WorkflowRunner:
     def _run_scrape_non_followers_workflow(self, action: Dict[str, Any]) -> bool:
         """Run scrape_non_followers as a standalone workflow step.
         
-        Autonome: navigue depuis n'importe quel état (vue unifiée ou profil).
+        Self-contained: navigates from any state, unified view or profile.
         """
         import json
         

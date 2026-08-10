@@ -1,8 +1,8 @@
 """
 Workflow de login Instagram.
 
-Ce module orchestre le processus complet de connexion à Instagram,
-incluant la gestion des erreurs, des popups et de la persistance de session.
+Orchestrates the full login process, including error handling, popups and
+session persistence.
 """
 
 from typing import Optional, Dict, Any
@@ -18,11 +18,11 @@ class LoginWorkflow:
     
     def __init__(self, device, device_id: str):
         """
-        Initialise le workflow de login.
+        Initialise the login workflow.
         
         Args:
-            device: Instance du device (uiautomator2)
-            device_id: ID du device (ADB ID)
+            device: the device instance
+            device_id: the device identifier
         """
         self.device = device
         self.device_id = device_id
@@ -43,18 +43,18 @@ class LoginWorkflow:
         save_login_info_instagram: bool = False
     ) -> Dict[str, Any]:
         """
-        Exécute le workflow de login complet.
+        Run the full login workflow.
         
         Args:
             username: Nom d'utilisateur, email ou numéro de téléphone
-            password: Mot de passe
+            password: the password
             max_retries: Nombre maximum de tentatives en cas d'échec
-            save_session: Sauvegarder la session après connexion réussie (notre système)
-            use_saved_session: Tenter d'utiliser une session sauvegardée (notre système)
-            save_login_info_instagram: Sauvegarder les infos dans Instagram (popup Instagram)
+            save_session: save our own session record after a successful login
+            use_saved_session: try to reuse one of our saved session records
+            save_login_info_instagram: answer the app's own save-credentials popup
             
         Returns:
-            Dictionnaire avec le résultat du workflow:
+            Dict carrying the workflow result:
             {
                 'success': bool,
                 'message': str,
@@ -81,7 +81,7 @@ class LoginWorkflow:
             
             self.logger.info(f"🔄 Login attempt {attempt}/{max_retries}")
             
-            # Tenter la connexion
+            # Attempt the login
             login_result = self.login_manager.login(
                 username=username,
                 password=password,
@@ -90,7 +90,7 @@ class LoginWorkflow:
                 save_login_info_instagram=save_login_info_instagram
             )
             
-            # Analyser le résultat
+            # Analyse the result
             if login_result.success:
                 result['success'] = True
                 result['message'] = login_result.message
@@ -99,7 +99,7 @@ class LoginWorkflow:
                 self.logger.success(f"✅ Login successful for {username}")
                 break
             
-            # Gérer les erreurs spécifiques
+            # Handle the specific errors
             result['error_type'] = login_result.error_type
             result['message'] = login_result.message
             
@@ -116,7 +116,7 @@ class LoginWorkflow:
                 self.logger.warning("⚠️ Suspicious login - stopping attempts")
                 break
             
-            # Attendre avant la prochaine tentative
+            # Wait before the next attempt
             if attempt < max_retries:
                 self.logger.info(f"⏳ Waiting before retry...")
                 import time

@@ -4,7 +4,7 @@ from typing import List, Optional
 
 
 class SwitchResult:
-    """Résultat d'une tentative de changement de compte (switch)."""
+    """Result of an account-switch attempt."""
 
     def __init__(
         self,

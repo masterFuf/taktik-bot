@@ -66,7 +66,7 @@ class InstagramLogout:
         """Scroll down in the current scrollable view (humanized). `coast=True` FLINGS with momentum
         (the content coasts far past the finger lift), `coast=False` is a precise 1:1 controlled
         scroll. Use a fling to reach a target at the very bottom of a long menu without dozens of
-        small scrolls (Kevin: 'un scroll avec énormément d'élan')."""
+        small scrolls."""
         for _ in range(times):
             try:
                 human_scroll_raw(self.device, "down", distance_ratio=distance_ratio, coast=coast)

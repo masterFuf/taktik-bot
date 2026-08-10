@@ -1,6 +1,6 @@
 """
-Content Workflow - Gestion de la publication de contenu Instagram
-Permet de poster des posts, stories et reels
+Content workflow: publishing content.
+Posts, stories and reels.
 
 Internal structure (SRP split):
 - content_ui_helpers.py — UI interaction helpers (creation UI, gallery, popups, publishing)
@@ -16,7 +16,7 @@ from .content_ui_helpers import ContentUIHelpersMixin
 
 
 class ContentWorkflow(ContentUIHelpersMixin):
-    """Workflow pour publier du contenu sur Instagram"""
+    """Workflow publishing content."""
     
     def __init__(self, device_manager, nav_actions, detection_actions):
         """
@@ -41,7 +41,7 @@ class ContentWorkflow(ContentUIHelpersMixin):
         location: Optional[str] = None,
         hashtags: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """Poster une photo unique sur Instagram."""
+        """Post a single photo."""
         result = {
             'success': False,
             'message': '',
@@ -49,7 +49,7 @@ class ContentWorkflow(ContentUIHelpersMixin):
         }
         
         try:
-            # Vérifier que le fichier existe
+            # Check the file exists
             if not Path(image_path).exists():
                 result['message'] = f"Image not found: {image_path}"
                 self.logger.error(result['message'])
@@ -115,7 +115,7 @@ class ContentWorkflow(ContentUIHelpersMixin):
         caption: Optional[str] = None,
         hashtags: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """Poster un Reel sur Instagram."""
+        """Post a reel."""
         result = {
             'success': False,
             'message': '',
@@ -180,14 +180,14 @@ class ContentWorkflow(ContentUIHelpersMixin):
         duration: int = 5
     ) -> Dict[str, Any]:
         """
-        Poster une story sur Instagram.
+        Post a story.
         
         Args:
-            image_path: Chemin vers l'image de la story
-            duration: Durée d'affichage (pour validation)
+            image_path: path to the story image
+            duration: display duration, for validation
             
         Returns:
-            Dict avec le statut de la publication
+            Dict carrying the publication status
         """
         result = {
             'success': False,
@@ -203,28 +203,28 @@ class ContentWorkflow(ContentUIHelpersMixin):
             
             self.logger.info(f"📱 Starting story creation with image: {image_path}")
             
-            # 1. Ouvrir la création de contenu
+            # 1. Open the content creation
             if not self._open_content_creation():
                 result['message'] = "Failed to open content creation"
                 return result
             
-            # 2. Sélectionner le type "STORY"
+            # 2. Select the story destination
             if not self._select_story_type():
                 result['message'] = "Failed to select STORY type"
                 return result
             
-            # 3. Pousser l'image sur le device
+            # 3. Push the image to the device
             device_image_path = self._push_image_to_device(image_path)
             if not device_image_path:
                 result['message'] = "Failed to push image to device"
                 return result
             
-            # 4. Sélectionner l'image depuis la galerie
+            # 4. Select the image from the gallery
             if not self._select_image_from_gallery(device_image_path):
                 result['message'] = "Failed to select image from gallery"
                 return result
             
-            # 5. Publier la story
+            # 5. Publish the story
             if not self._publish_story():
                 result['message'] = "Failed to publish story"
                 return result
@@ -249,12 +249,12 @@ class ContentWorkflow(ContentUIHelpersMixin):
         Poster plusieurs photos successivement.
         
         Args:
-            image_paths: Liste des chemins d'images
-            captions: Liste des légendes (optionnel)
+            image_paths: image paths
+            captions: captions, optional
             delay_between_posts: Délai entre chaque post en secondes
             
         Returns:
-            Dict avec les résultats de chaque publication
+            Dict of results, one per publication
         """
         results = {
             'total': len(image_paths),
@@ -278,7 +278,7 @@ class ContentWorkflow(ContentUIHelpersMixin):
             else:
                 results['failed'] += 1
             
-            # Délai entre les posts (sauf pour le dernier)
+            # Pause between posts, except after the last one
             if i < len(image_paths) - 1:
                 self.logger.info(f"⏳ Waiting {delay_between_posts}s before next post...")
                 time.sleep(delay_between_posts)

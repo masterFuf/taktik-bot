@@ -1,8 +1,8 @@
 """
 Gestionnaire de sessions Instagram.
 
-Ce module gère la persistance des sessions de connexion pour éviter
-de devoir se reconnecter à chaque fois.
+Persists the login sessions, so a reconnection is not needed every
+time.
 """
 
 import json
@@ -14,15 +14,15 @@ from loguru import logger
 
 
 class SessionManager:
-    """Gestionnaire de sessions Instagram pour persistance des connexions."""
+    """Instagram session manager, persisting the logins."""
     
     def __init__(self, session_dir: Optional[str] = None):
         """
-        Initialise le gestionnaire de sessions.
+        Initialise the session manager.
         
         Args:
-            session_dir: Répertoire où stocker les sessions. 
-                        Par défaut: ~/.taktik/sessions/
+            session_dir: directory holding the sessions. 
+                        Defaults to the user data directory.
         """
         if session_dir is None:
             home = Path.home()
@@ -39,11 +39,11 @@ class SessionManager:
         session_data: Dict
     ) -> bool:
         """
-        Sauvegarde une session de connexion.
+        Save a login session.
         
         Args:
             username: Nom d'utilisateur Instagram
-            device_id: ID du device (ADB ID)
+            device_id: the device identifier
             session_data: Données de session (cookies, tokens, etc.)
             
         Returns:
@@ -76,11 +76,11 @@ class SessionManager:
         device_id: str
     ) -> Optional[Dict]:
         """
-        Charge une session de connexion existante.
+        Load an existing login session.
         
         Args:
             username: Nom d'utilisateur Instagram
-            device_id: ID du device (ADB ID)
+            device_id: the device identifier
             
         Returns:
             Données de session si trouvées et valides, None sinon
@@ -95,7 +95,7 @@ class SessionManager:
             with open(session_file, 'r', encoding='utf-8') as f:
                 session_data = json.load(f)
             
-            # Vérifier si la session est encore valide (< 30 jours)
+            # Is the session still valid?
             if self._is_session_expired(session_data):
                 logger.warning(f"⚠️ Session expired for {username}")
                 self.delete_session(username, device_id)
@@ -114,11 +114,11 @@ class SessionManager:
     
     def delete_session(self, username: str, device_id: str) -> bool:
         """
-        Supprime une session de connexion.
+        Delete a login session.
         
         Args:
             username: Nom d'utilisateur Instagram
-            device_id: ID du device (ADB ID)
+            device_id: the device identifier
             
         Returns:
             True si suppression réussie, False sinon
@@ -140,10 +140,10 @@ class SessionManager:
     
     def list_sessions(self) -> list:
         """
-        Liste toutes les sessions sauvegardées.
+        List every saved session.
         
         Returns:
-            Liste de dictionnaires contenant les métadonnées des sessions
+            List of session metadata dicts
         """
         sessions = []
         
@@ -162,16 +162,16 @@ class SessionManager:
     
     def _get_session_file(self, username: str, device_id: str) -> Path:
         """
-        Génère le chemin du fichier de session.
+        Build the session file path.
         
         Args:
             username: Nom d'utilisateur Instagram
-            device_id: ID du device (ADB ID)
+            device_id: the device identifier
             
         Returns:
-            Chemin du fichier de session
+            The session file path
         """
-        # Nettoyer les caractères spéciaux
+        # Strip the special characters
         safe_username = "".join(c for c in username if c.isalnum() or c in "._-")
         safe_device = "".join(c for c in device_id if c.isalnum() or c in "._-")
         
@@ -180,7 +180,7 @@ class SessionManager:
     
     def _is_session_expired(self, session_data: Dict) -> bool:
         """
-        Vérifie si une session est expirée.
+        Is the session expired?
         
         Args:
             session_data: Données de session
@@ -203,7 +203,7 @@ class SessionManager:
     
     def cleanup_expired_sessions(self) -> int:
         """
-        Nettoie toutes les sessions expirées.
+        Clean up every expired session.
         
         Returns:
             Nombre de sessions supprimées

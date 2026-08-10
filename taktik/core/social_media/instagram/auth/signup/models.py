@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class SignupResult:
-    """Résultat d'une étape ou du processus complet de création de compte."""
+    """Result of one step, or of the whole account-creation process."""
 
     def __init__(
         self,

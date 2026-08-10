@@ -3,13 +3,13 @@
 import time
 
 class CredentialsMixin:
-    """Mixin: saisie username/password + clic bouton de connexion."""
+    """Mixin: username and password entry, then the login tap."""
 
     def _dismiss_autofill_dropdown(self) -> None:
         """
-        Détecte et ferme le dropdown inline autofill via le catalogue auth
-        qui pop sur les champs de saisie Instagram.
-        Utilise BACK pour le fermer sans sélectionner de suggestion.
+        Detect and close the inline autofill dropdown that pops over the input
+        fields.
+        Uses the back key, so no suggestion is selected.
         """
         try:
             if self.device.xpath(self.auth_selectors.autofill_dataset_picker).exists:
@@ -21,11 +21,11 @@ class CredentialsMixin:
 
     def _clear_and_fill_field(self, element, text: str, field_name: str) -> bool:
         """
-        Remplit un champ de saisie de manière robuste.
+        Fill an input field robustly.
 
-        Stratégie (du plus fiable au moins) :
-        1. set_text(target) direct via accessibility — fonctionne même sur enabled=false
-        2. Tap aux coordonnées du champ (bypass enabled=false) → clear → type ADB
+        Strategy, from most to least reliable:
+        1. direct text setting through accessibility, which works even on a disabled field
+        2. a raw coordinate tap, which bypasses that flag, then clear and type
         3. ctrl+a / delete → type ADB
         """
         # ── 1. Direct set_text ────────────────────────────────────────────
@@ -39,8 +39,8 @@ class CredentialsMixin:
                 actual = element.get_text() or ""
             except Exception:
                 pass
-            # Pour les champs password, get_text() retourne des bullets/étoiles ("••••")
-            # ou "" selon la version Android/uiautomator2 — on ne peut pas s'y fier.
+            # On a password field the text getter returns bullets, or an empty string,
+            # depending on the versions involved, so it cannot be trusted.
             # Si set_text n'a pas levé d'exception, on lui fait confiance directement.
             is_password_field = (field_name.lower() == "password")
             if is_password_field:
@@ -53,12 +53,12 @@ class CredentialsMixin:
         except Exception as e:
             self.logger.debug(f"Direct set_text failed for {field_name}: {e}")
 
-        # ── 2. Raw coordinate tap pour forcer le focus ────────────────────
-        # element.click() passe par accessibility et est bloqué sur enabled=false ;
-        # device.click(x, y) envoie un vrai touch event qui bypass ce flag.
+        # -- 2. Raw coordinate tap, to force the focus --------------------
+        # The element tap goes through accessibility and is blocked on a disabled field;
+        # a raw coordinate tap sends a real touch event, which bypasses that flag.
         cx, cy = 0, 0
         try:
-            # Préférer element.bounds() qui est disponible sur XPathSelector
+            # Prefer the bounds accessor available on the selector
             b = element.bounds()
             cx = (b.left + b.right) // 2
             cy = (b.top + b.bottom) // 2
@@ -83,7 +83,7 @@ class CredentialsMixin:
 
         self._dismiss_autofill_dropdown()
 
-        # Effacer le contenu existant
+        # Clear the existing content
         existing_text = ""
         try:
             existing_text = element.get_text() or ""
@@ -112,8 +112,8 @@ class CredentialsMixin:
 
             self._dismiss_autofill_dropdown()
 
-            # Re-tap pour récupérer le focus après l'effacement
-            cx2, cy2 = cx, cy  # réutilise les coordonnées calculées plus haut
+            # Tap again to regain the focus after clearing
+            cx2, cy2 = cx, cy  # reusing the coordinates computed above
             if cx2 and cy2:
                 self.device.click(cx2, cy2)
                 time.sleep(0.4)
@@ -133,15 +133,15 @@ class CredentialsMixin:
 
     def _clear_username_and_fill(self, element, username: str) -> bool:
         """
-        Remplit le champ username en utilisant le bouton X/effacer si le champ est pré-rempli.
+        Fill the username field, using the clear button when it is pre-filled.
 
         Stratégie :
-        1. Tap brut (device.click) pour focaliser le champ (fait apparaître le bouton X)
-        2. Si texte pré-rempli → clic sur le bouton X/effacer (ou ctrl+a/delete en fallback)
-        3. set_text() direct via l'accessibility service (le plus fiable pour champ vide/vidé)
+        1. a raw tap to focus the field, which reveals the clear button
+        2. when pre-filled, tap that clear button, or fall back on select-all and delete
+        3. direct text setting, the most reliable path on an empty field
         4. Fallback type_text() (ADB keyboard) si set_text échoue
         """
-        # Calculer les coordonnées du champ pour le tap brut
+        # Compute the field coordinates for the raw tap
         cx, cy = 0, 0
         try:
             b = element.bounds()
@@ -156,7 +156,7 @@ class CredentialsMixin:
             except Exception:
                 pass
 
-        # Tap brut pour focaliser (bypass enabled=false, fait apparaître le bouton X)
+        # Raw tap to focus, bypassing the disabled flag and revealing the clear button
         if cx and cy:
             self.device.click(cx, cy)
         else:
@@ -167,12 +167,12 @@ class CredentialsMixin:
         time.sleep(0.6)
         self._dismiss_autofill_dropdown()
 
-        # Re-tap pour restaurer le focus si l'autofill a été dismissé avec BACK
+        # Tap again to restore the focus when the autofill was dismissed with back
         if cx and cy:
             self.device.click(cx, cy)
             time.sleep(0.4)
 
-        # Vérifier si le champ est pré-rempli
+        # Is the field pre-filled?
         existing_text = ""
         try:
             existing_text = element.get_text() or ""
@@ -183,7 +183,7 @@ class CredentialsMixin:
             self.logger.info(f"🧹 Pre-filled username detected ({len(existing_text)} chars) — clearing with X button...")
             cleared = False
 
-            # Essayer le bouton X/effacer (apparaît quand le champ est focalisé)
+            # Try the clear button, which appears once the field is focused
             for selector in self.auth_selectors.username_clear_button:
                 try:
                     clear_btn = self.device.xpath(selector)
@@ -212,13 +212,13 @@ class CredentialsMixin:
 
             self._dismiss_autofill_dropdown()
 
-            # Re-tap pour récupérer le focus après l'effacement
+            # Tap again to regain the focus after clearing
             if cx and cy:
                 self.device.click(cx, cy)
                 time.sleep(0.4)
 
-        # ── Saisir le username ────────────────────────────────────────────
-        # Stratégie 1 : set_text via accessibility (le plus direct, pas besoin de clavier)
+        # -- Type the username --------------------------------------------
+        # Strategy 1: direct text setting, needing no keyboard
         self.logger.info(f"⌨️ Typing username '{username}' via set_text...")
         try:
             element.set_text(username)
@@ -238,13 +238,13 @@ class CredentialsMixin:
             self.logger.info(f"set_text failed for username: {e}")
 
         # Stratégie 2 : Taktik keyboard (nécessite focus clavier actif)
-        # Re-tap pour s'assurer que le focus est bien sur le champ
+        # Tap again to be sure the focus is on the field
         self.logger.info(f"⌨️ Typing username '{username}' via ADB keyboard (type_text)...")
         if cx and cy:
             self.device.click(cx, cy)
             time.sleep(0.4)
         if self.text_actions.type_text(username, clear_first=False, human_typing=True):
-            # Vérifier ce qu'il y a dans le champ après type_text
+            # Check what the field holds after typing
             try:
                 actual_after = element.get_text() or ""
                 self.logger.info(f"✅ Username filled via type_text — field now contains: '{actual_after}'")
@@ -257,20 +257,20 @@ class CredentialsMixin:
 
     def _fill_credentials(self, username: str, password: str) -> bool:
         """
-        Remplit les champs username et password.
+        Fill the username and password fields.
 
         Args:
             username: Nom d'utilisateur
-            password: Mot de passe
+            password: the password
 
         Returns:
             True si succès, False sinon
         """
         self.logger.info("📝 Filling credentials...")
 
-        # Chercher le champ username éditable (EditText).
-        # S'il n'est pas présent, on est sur un écran "password-only" (compte pré-sélectionné)
-        # et Instagram affiche juste le nom du compte en View non-éditable.
+        # Look for the editable username field.
+        # Without it we are on a password-only screen, where the account is
+        # pre-selected and shown as a non-editable view.
         username_found = False
         username_filled = False
         for selector in self.auth_selectors.username_field:
@@ -294,8 +294,8 @@ class CredentialsMixin:
             self.logger.error("❌ Username field found but failed to fill it")
             return False
         elif not username_found:
-            # Pas d'EditText username visible → écran password-only (compte pré-sélectionné par Instagram).
-            # CRITIQUE : vérifier que c'est bien le bon compte affiché avant de remplir le mot de passe.
+            # No editable username field: this is the password-only screen.
+            # CRITICAL: confirm the displayed account is the right one before typing the password.
             self.logger.info(f"📱 No username EditText — checking which account is shown on password-only screen...")
             account_confirmed = False
             for sel in self.auth_selectors.password_only_account_selectors(username):
@@ -315,10 +315,10 @@ class CredentialsMixin:
 
             self.logger.info(f"📱 Password-only screen confirmed for @{username} — skipping username field")
 
-        # Petit délai entre les champs
+        # Short pause between the fields
         time.sleep(self.utils.generate_human_like_delay(0.5, 1.0))
 
-        # Remplir le champ password
+        # Fill the password field
         password_filled = False
         for selector in self.auth_selectors.password_field:
             try:
@@ -340,7 +340,7 @@ class CredentialsMixin:
     
     def _click_login_button(self) -> bool:
         """
-        Clique sur le bouton de connexion.
+        Tap the login button.
         
         Returns:
             True si succès, False sinon

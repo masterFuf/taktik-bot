@@ -65,7 +65,7 @@ class FilterCriteria:
     max_following: int = 10000
     allow_private: bool = False
     max_followers_following_ratio: float = 10.0
-    # Relation deja existante (bouton du header profil). Opt-in : False = comportement inchange.
+    # Existing relationship, read on the profile header button. Opt-in, so false leaves
     skip_follows_us: bool = False
     skip_already_following: bool = False
 

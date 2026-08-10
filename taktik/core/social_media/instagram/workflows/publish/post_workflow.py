@@ -1,24 +1,24 @@
 """
 Instagram POST publish workflow.
 =================================
-Publie une photo/video unique en POST de feed depuis un fichier local.
+Publish a single photo or video as a feed POST, from a local file.
 
-Le flux reproduit, etape par etape, la sequence validee dans le Cartography Lab
+The flow reproduces, step by step, the sequence validated through the diagnostics
 (selector-only, AUCUNE coordonnee codee en dur) :
 
-  1. Pousse le fichier via ADB + indexe la MediaStore (helper partage media_store).
-  2. Lance Instagram (clone-aware) et revient au feed.
-  3. Ouvre l'ecran de creation ("+").
-  4. Ferme la modale brouillon "Keep editing your draft?" si presente (optionnel).
-  5. Selectionne le premier media de la galerie (le plus recent = celui pousse).
-  6. Tape "Next" jusqu'a l'ecran composer (champ caption present).
-  7. Saisit la caption + hashtags.
+  1. push the file and index it in the media store
+  2. launch the app, clone-aware, and come back to the feed
+  3. open the creation screen
+  4. close the draft modal when present, optional
+  5. select the first media of the gallery, the most recent being the pushed one
+  6. tap next until the composer screen, recognised by its caption field
+  7. type the caption and the hashtags
   8. Tape "Share".
-  9. Attend la fermeture du composer (commit du partage).
+  9. wait for the composer to close, which commits the share
 
-Tous les selecteurs viennent de
+Every selector comes from
 `taktik/core/social_media/instagram/ui/selectors/surfaces/content_creation.py`.
-Le bridge `bridges/instagram/publish/runtime/bridge.py` n'est qu'un adaptateur
+The publish bridge is only an adapter
 (connexion device -> ce workflow -> evenements JSON).
 """
 
@@ -61,7 +61,7 @@ class InstagramPostWorkflow:
     ----------
     device       : objet device uiautomator2 (ConnectionService.device)
     device_id    : serial ADB
-    log          : callback (level, message) -> emis vers la console debug du desktop
+    log          : callback (level, message), emitted to the debug console
     status       : callback (status, message) -> mise a jour d'etat
     package_name : package Instagram (clone) cible ; defaut = package actif
     """

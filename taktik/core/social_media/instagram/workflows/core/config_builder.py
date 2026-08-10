@@ -103,23 +103,23 @@ def _build_action_config(
             "skip_suggested": feed_config.get("skipSuggested", True),
             "read_captions": feed_config.get("readCaptions", True),
             "browse_carousels": feed_config.get("browseCarousels", True),
-            # Recolte des PUBLICITES croisees pendant le run. Le crawl reconnait deja les
-            # posts sponsorises pour les eviter ; active, il les enregistre au passage au
-            # lieu de jeter cette reconnaissance. OFF par defaut, aucune pub n'est ouverte.
+            # Collection of the ADS crossed during the run. The crawl already recognises the
+            # sponsored posts in order to avoid them; when enabled it records them in passing
+            # instead of throwing that away. Off by default, and no ad is ever opened.
             "capture_ads": bool(feed_config.get("captureAds", False)),
-            # Acquisition depuis le fil : visiter l'auteur du post, parcourir ses
-            # likers, sauter les reels. Whitelist — sans ces entrees le reglage de la
-            # page n'atteint jamais le workflow.
+            # Acquisition from the feed: visit the post author, walk its likers, skip the
+            # reels. This is a whitelist: without these entries the setting never reaches
+            # the workflow.
             "interact_with_post_author": bool(feed_config.get("interactWithPostAuthor", False)),
             "interact_with_post_likers": bool(feed_config.get("interactWithPostLikers", False)),
             "max_likers_per_post": int(feed_config.get("maxLikersPerPost", 5) or 5),
             "skip_reels": bool(feed_config.get("skipReels", False)),
-            # Mode "follow des suggestions" : quand le carousel "Suggested for you"
-            # apparait dans le feed, ouvrir "See all" et follow en masse depuis
-            # Discover people. OFF par defaut ; ni follow-back ni demandes de suivi.
+            # Suggestions-follow mode: when the carousel appears in the feed, open its CTA
+            # and follow in bulk from the discovery screen. Off by default; neither
+            # follow-back nor follow requests.
             "follow_suggestions": bool(feed_config.get("followSuggestions", False)),
-            # Run "suggestions seules" : le feed n'est qu'un couloir vers le carousel,
-            # aucun like / commentaire / story n'est fait.
+            # Suggestions-only run: the feed is only a corridor to the carousel, and no
+            # like, comment or story is performed.
             "suggestions_only": bool(feed_config.get("suggestionsOnly", False)),
             "max_carousel_scrolls": int(feed_config.get("maxCarouselScrolls", 12) or 0),
             "max_suggestion_follows": int(feed_config.get("maxSuggestionFollows", 20) or 0),
@@ -157,10 +157,10 @@ def _build_action_config(
         # comment thread. This builder is a whitelist, so an unnamed key never reaches the
         # workflow; `None` here means "not specified", and the workflow keeps its default.
         "source_mode": raw_config.get("source_mode"),
-        # Hashtag — ce que vaut CHAQUE post. Les trois se cumulent, avec un budget par
-        # population et par post. `interaction_mode` reste accepte : c'est l'ancienne forme
-        # exclusive, traduite par `resolve_interaction_plan` pour qu'un preset enregistre
-        # continue de tourner. Whitelist : une cle absente ici n'atteint jamais le workflow.
+        # Hashtag: what EACH post is worth. The three add up, with a budget per population
+        # and per post. The legacy exclusive form is still accepted and translated, so a
+        # saved preset keeps working. Whitelist: a key absent here never reaches the
+        # workflow.
         "interaction_mode": raw_config.get("interactionMode"),
         "engage_posts": raw_config.get("engagePosts"),
         "walk_likers": raw_config.get("walkLikers"),
@@ -226,18 +226,18 @@ def _build_action_config(
     if max_no_new_usernames_scrolls is not None:
         action_config["max_no_new_usernames_scrolls"] = max_no_new_usernames_scrolls
 
-    # === Filtres profil — l'ACTION doit les porter, pas seulement built["filters"] ===
+    # === Profile filters: the ACTION must carry them, not only the built block ===
     #
-    # Les runners target/hashtag/post_url reconstruisent leur config via
-    # `FilterCriteria.from_action(action)` (cles PLATES sur l'action), et les chemins
-    # notifications/feed lisent `action.get('filters')` (dict imbrique). Aucun des deux ne voit
-    # jamais le `built["filters"]` top-level : sans ces cles, les filtres regles dans l'app
-    # (min/max abonnes, min posts...) etaient silencieusement remplaces par les defauts du
-    # dataclass, et les flags de relation etaient avales avec — verifie sur un run reel
-    # (etat 'following' lu, profil quand meme traite).
+    # The target, hashtag and post-url runners rebuild their config from FLAT keys on
+    # the action, while the notifications and feed paths read a nested dict. Neither
+    # ever sees the top-level block: without these keys, the filters set in the app
+    # were silently replaced by the dataclass defaults, and the relationship flags were
+    # swallowed with them — verified on a real run, where the already-following state
+    # was read and the profile handled anyway.
     #
-    # Regle bornes HAUTES : 0 = pas de limite (un "Max followers: 0" transmis litteralement
-    # rejetterait tout profil ayant un seul abonne — meme garde que le mapper du scraping).
+    #
+    # Rule for the HIGH bounds: zero means no limit. A zero maximum passed literally
+    # would reject every profile having a single follower.
     action_filters: Dict[str, Any] = {
         "min_followers": int(filters.get("minFollowers", 50) or 0),
         "max_followers": int(filters.get("maxFollowers", 50000) or 0) or 100000,
@@ -413,8 +413,8 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
             "min_posts": min_posts,
             "privacy_relation": "public_and_private",
             "blacklist_words": [],
-            # Relation deja existante — deux axes independants, opt-in (absent/False = comportement
-            # inchange). Lus par `_relationship_skip_reason` juste apres l'extraction du profil.
+            # Existing relationship: two independent axes, opt-in, so absent or false leaves the
+            # behaviour unchanged. Read just after the profile extraction.
             "skip_follows_us": bool(filters.get("skipFollowsUs", False)),
             "skip_already_following": bool(filters.get("skipAlreadyFollowing", False)),
         },

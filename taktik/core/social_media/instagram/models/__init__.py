@@ -1,10 +1,10 @@
 """
-Modèles de données pour Instagram.
+Instagram data models.
 
-Ce package contient les modèles de données utilisés dans le module Instagram :
+This package holds the data models used across the Instagram module:
 - Post: Représente un post Instagram
 - User: Représente un utilisateur Instagram
-- Story: Représente une story Instagram
+- Story: one story
 """
 
 from dataclasses import dataclass, field
@@ -28,7 +28,7 @@ class Post:
     location: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convertit le post en dictionnaire."""
+        """Convert the post to a dict."""
         return {
             'id': self.id,
             'username': self.username,
@@ -71,18 +71,18 @@ class User:
 
 @dataclass
 class Story:
-    """Modèle représentant une story Instagram."""
+    """Model of one story."""
     id: str
     username: str
     timestamp: datetime
     media_url: str
     media_type: str  # 'image' ou 'video'
-    duration: Optional[float] = None  # Pour les vidéos
+    duration: Optional[float] = None  # Videos only
     mentions: List[str] = field(default_factory=list)
     hashtags: List[str] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convertit la story en dictionnaire."""
+        """Convert the story to a dict."""
         return {
             'id': self.id,
             'username': self.username,

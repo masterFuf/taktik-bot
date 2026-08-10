@@ -1,10 +1,10 @@
-﻿"""
+"""
 Login process facade — composes all login mixins.
 
 Sub-modules:
 - models.py            — LoginResult data class
-- screen_detection.py  — Détection écran login + sélection profil
-- credentials.py       — Saisie username/password + clic bouton login
+- screen_detection.py  — login screen detection and profile selection
+- credentials.py       — username and password entry, then the login tap
 - result_detection.py  — Détection succès/erreur/2FA après login
 - popups.py            — Gestion popups post-login (save info, notifs, contacts)
 """
@@ -38,11 +38,11 @@ class InstagramLogin(
     
     def __init__(self, device, device_id: str):
         """
-        Initialise le gestionnaire de login.
+        Initialise the login manager.
         
         Args:
-            device: Instance du device (uiautomator2)
-            device_id: ID du device (ADB ID)
+            device: the device instance
+            device_id: the device identifier
         """
         self.device = device
         self.device_id = device_id
@@ -108,31 +108,31 @@ class InstagramLogin(
         
         Args:
             username: Nom d'utilisateur, email ou numéro de téléphone
-            password: Mot de passe
-            save_session: Sauvegarder la session après connexion réussie (notre système)
-            use_saved_session: Tenter d'utiliser une session sauvegardée (notre système)
-            save_login_info_instagram: Sauvegarder les infos de login dans Instagram (popup Instagram)
+            password: the password
+            save_session: save our own session record after a successful login
+            use_saved_session: try to reuse one of our saved session records
+            save_login_info_instagram: answer the app's own save-credentials popup
             
         Returns:
-            LoginResult avec le statut de la connexion
+            LoginResult carrying the login status
         """
         self.logger.info(f"🔐 Starting login process for {username}")
         
-        # Étape 0: Rejeter le popup Google Password Manager s'il est présent
+        # Step 0: dismiss the password-manager popup when present
         self._dismiss_google_autofill_popup()
         
-        # Étape 1: Vérifier si une session existe
+        # Step 1: is there a saved session?
         if use_saved_session:
             session = self.session_manager.load_session(username, self.device_id)
             if session:
                 self.logger.info("📦 Found saved session, attempting to restore...")
-                # TODO: Implémenter la restauration de session
-                # Pour l'instant, on continue avec le login classique
+                # TODO: implement session restoration
+                # For now, fall through to the regular login
         
-        # Étape 2: Vérifier qu'on est sur l'écran de login (avec sélection intelligente de profil)
+        # Step 2: confirm the login screen, with the profile selection
         is_on_login = self._is_on_login_screen(target_username=username)
 
-        # None = écran non reconnu (ni login, ni sélection de profil) → on abandonne la tentative
+        # None means an unrecognised screen, neither login nor profile picker: give up
         if is_on_login is None:
             self.logger.warning("⚠️ Screen not recognized after launch — aborting attempt")
             return LoginResult(
@@ -141,8 +141,8 @@ class InstagramLogin(
                 error_type="wrong_screen"
             )
 
-        # Si False est retourné : le profil sauvegardé a été trouvé et cliqué —
-        # on attend que le home feed apparaisse (avec gestion des popups intermédiaires).
+        # False means the saved profile was found and tapped, so wait for the home feed,
+        # handling the popups that may come in between.
         if is_on_login is False:
             self.logger.info("⏳ Profile tile clicked — waiting for home screen...")
             logged_in_via_profile = False
@@ -150,7 +150,7 @@ class InstagramLogin(
             for attempt in range(6):          # jusqu'à ~12 secondes
                 time.sleep(2)
 
-                # Vérifier si le home screen est visible
+                # Is the home screen visible?
                 for success_selector in self.auth_selectors.login_success_indicators:
                     try:
                         if self.device.xpath(success_selector).exists:
@@ -188,11 +188,11 @@ class InstagramLogin(
                     message="Logged in via saved profile"
                 )
 
-            # Vérifier si on s'est retrouvé sur un écran de saisie de mot de passe
-            # (cas rare : Instagram demande confirmation du mot de passe après click profil)
+            # Did we land on a password-entry screen? Instagram sometimes asks for a
+            # password confirmation after a profile tap.
             if self._element_exists(self.auth_selectors.password_only_screen_indicators):
                 self.logger.info("🔐 Password confirmation required after profile click — filling password...")
-                # Continuer avec la saisie des identifiants (étape 3+)
+                # Carry on with the credentials entry
                 is_on_login = True
             else:
                 self.logger.error("❌ Home screen not detected after profile click")
@@ -202,7 +202,7 @@ class InstagramLogin(
                     error_type="wrong_screen"
                 )
         
-        # Étape 3: Remplir les champs
+        # Step 3: fill the fields
         if not self._fill_credentials(username, password):
             return LoginResult(
                 success=False,
@@ -210,7 +210,7 @@ class InstagramLogin(
                 error_type="input_error"
             )
         
-        # Étape 4: Cliquer sur le bouton de connexion
+        # Step 4: tap the login button
         if not self._click_login_button():
             return LoginResult(
                 success=False,
@@ -218,14 +218,14 @@ class InstagramLogin(
                 error_type="button_error"
             )
         
-        # Étape 5: Attendre et vérifier le résultat
+        # Step 5: wait, then check the result
         self.logger.info("⏳ Waiting for login response...")
         time.sleep(3)
         
-        # Étape 6: Détecter le résultat
+        # Step 6: detect the result
         result = self._detect_login_result()
         
-        # Étape 7: Gérer les popups post-login si succès
+        # Step 7: handle the post-login popups on success
         if result.success:
             self._handle_post_login_popups(save_login_info=save_login_info_instagram)
             
@@ -244,10 +244,10 @@ class InstagramLogin(
     
     def _get_device_info(self) -> dict:
         """
-        Récupère les informations du device.
+        Read the device information.
         
         Returns:
-            Dictionnaire avec les infos du device
+            Dict of device information
         """
         try:
             info = self.device.device_info
@@ -272,7 +272,7 @@ class InstagramLogin(
         Returns:
             True si succès, False sinon
         """
-        # TODO: Implémenter la déconnexion
+        # TODO: implement the logout
         self.logger.warning("⚠️ Logout not yet implemented")
         return False
 

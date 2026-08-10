@@ -27,7 +27,7 @@ class ContentUIHelpersMixin:
         try:
             self.logger.debug("Opening content creation interface...")
             
-            # Cliquer sur le bouton "+" dans la tab bar
+            # Tap the create button of the tab bar
             creation_tab = self.device(resourceId=self.content_selectors.creation_tab)
             if creation_tab.exists(timeout=5):
                 creation_tab.click()
@@ -43,11 +43,11 @@ class ContentUIHelpersMixin:
             return False
 
     def _select_post_type(self) -> bool:
-        """Sélectionner le type POST"""
+        """Select the post destination."""
         try:
             self.logger.debug("Selecting POST type...")
             
-            # Chercher le bouton "POST" en bas de l'écran
+            # Look for the post entry at the bottom of the screen
             post_button = self._first_text_button(self.content_selectors.post_type_texts, timeout=5)
             if post_button.exists(timeout=5):
                 post_button.click()
@@ -63,7 +63,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _select_reel_type(self) -> bool:
-        """Sélectionner le type REEL"""
+        """Select the reel destination."""
         try:
             self.logger.debug("Selecting REEL type...")
 
@@ -135,11 +135,11 @@ class ContentUIHelpersMixin:
             return False
 
     def _select_story_type(self) -> bool:
-        """Sélectionner le type STORY"""
+        """Select the story destination."""
         try:
             self.logger.debug("Selecting STORY type...")
             
-            # Chercher le bouton "STORY" en bas de l'écran
+            # Look for the story entry at the bottom of the screen
             story_button = self._first_text_button(self.content_selectors.story_type_texts, timeout=5)
             if story_button.exists(timeout=5):
                 story_button.click()
@@ -183,7 +183,7 @@ class ContentUIHelpersMixin:
             return None
 
     def _select_image_from_gallery(self, device_image_path: str) -> bool:
-        """Sélectionner une image depuis la galerie"""
+        """Select an image from the gallery."""
         try:
             self.logger.debug("Selecting image from gallery...")
             time.sleep(3)
@@ -214,7 +214,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _handle_popups(self) -> bool:
-        """Gérer les popups qui peuvent apparaître."""
+        """Handle the popups that may appear."""
         try:
             self.logger.debug("Checking for popups...")
             time.sleep(2)
@@ -252,7 +252,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _click_next(self) -> bool:
-        """Cliquer sur le bouton Next."""
+        """Tap the next button."""
         try:
             self.logger.debug("Clicking Next button...")
             if self._handle_reel_draft_modal():
@@ -309,7 +309,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _add_caption(self, caption: Optional[str] = None, hashtags: Optional[List[str]] = None) -> bool:
-        """Ajouter une légende et des hashtags au post"""
+        """Add a caption and hashtags to the post."""
         try:
             full_text = ""
             
@@ -355,7 +355,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _add_location(self, location: str) -> bool:
-        """Ajouter une localisation au post"""
+        """Add a location to the post."""
         try:
             self.logger.debug(f"Adding location: {location}")
             
@@ -364,7 +364,7 @@ class ContentUIHelpersMixin:
                 location_button.click()
                 time.sleep(1)
                 
-                # Rechercher la localisation
+                # Search the location
                 search_field = self.device(**self.content_selectors.location_search_field_selector)
                 if search_field.exists(timeout=3):
                     # Use Taktik Keyboard for reliable text input
@@ -374,7 +374,7 @@ class ContentUIHelpersMixin:
                         search_field.set_text(location)
                     time.sleep(2)
                     
-                    # Sélectionner le premier résultat
+                    # Select the first result
                     first_result = self.device(**self.content_selectors.location_first_result_selector)
                     if first_result.exists(timeout=3):
                         first_result.click()
@@ -390,7 +390,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _publish_post(self) -> bool:
-        """Publier le post"""
+        """Publish the post."""
         try:
             self.logger.debug("Publishing post...")
 
@@ -475,7 +475,7 @@ class ContentUIHelpersMixin:
             return False
 
     def _publish_story(self) -> bool:
-        """Publier la story"""
+        """Publish the story."""
         try:
             self.logger.debug("Publishing story...")
             

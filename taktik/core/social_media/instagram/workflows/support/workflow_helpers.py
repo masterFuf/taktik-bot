@@ -341,9 +341,9 @@ class WorkflowHelpers:
 
             try:
                 local_db = get_local_database()
-                # Le compteur de POSTS vient du run, pas de l'agregation par profil : un
-                # workflow qui n'ouvre aucun profil (feed, plan hashtag « posts seuls »)
-                # n'ecrit rien dans `interactions` et ressortait donc a zero, puis masque
+                # The POSTS counter comes from the run, not from the per-profile aggregation: a
+                # workflow that opens no profile writes nothing to the interactions table and
+                # therefore came out at zero, then hidden
                 # comme session vide.
                 posts_engaged = 0
                 try:

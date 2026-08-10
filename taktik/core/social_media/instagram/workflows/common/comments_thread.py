@@ -9,10 +9,10 @@ the notifications feed pairs a control to its row: a control belongs to the comm
 username sits inside the control's vertical span. Observed on a real dump (2026-02-08):
 
     ViewGroup                                                    [0,185][576,302]   <- the row
-      ImageView  desc="Go to dianeou38's profile"                [24,203][78,257]
+      ImageView  desc="Go to commenter42's profile"                [24,203][78,257]
       ViewGroup                                                  [84,185][492,302]
-        ViewGroup desc='dianeou38 '                              [84,197][492,255]
-          Button  desc=''      text='dianeou38'                  [98,197][189,222]  <- username
+        ViewGroup desc='commenter42 '                              [84,197][492,255]
+          Button  desc=''      text='commenter42'                  [98,197][189,222]  <- username
         Button    desc='Reply' text='Reply'                      [98,255][170,302]
         Button    desc='See translation'                         [170,255][325,302]
       Button      desc='1 likes. Double tap to like comment...'  [492,185][576,275] <- like

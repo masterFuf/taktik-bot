@@ -6,21 +6,21 @@ from .models import LoginResult
 
 
 class ResultDetectionMixin:
-    """Mixin: détection du résultat de login (succès, 2FA, erreur, suspicious)."""
+    """Mixin: login result detection (success, two-factor, error, suspicious)."""
 
     def _detect_login_result(self) -> LoginResult:
         """
-        Détecte le résultat de la tentative de login.
+        Detect the result of the login attempt.
         
         Returns:
-            LoginResult avec le statut
+            LoginResult carrying the status
         """
         self.logger.info("🔍 Detecting login result...")
         
-        # Attendre un peu pour que la page charge
+        # Give the page a moment to load
         time.sleep(2)
         
-        # Vérifier si la popup "Save your login info?" est présente (indicateur de succès)
+        # The save-login-info popup is a success marker
         save_login_popup_selectors = self.auth_selectors.save_login_info_success_popup
         if self._element_exists(save_login_popup_selectors):
             self.logger.success("✅ Login successful! (Save login info popup detected)")
@@ -47,7 +47,7 @@ class ResultDetectionMixin:
                 error_type="suspicious_login"
             )
         
-        # Vérifier les messages d'erreur
+        # Check the error messages
         error_element = self._find_element(self.auth_selectors.error_message_selectors)
         if error_element:
             error_text = error_element.get_text()
@@ -57,7 +57,7 @@ class ResultDetectionMixin:
                 error_type="credentials_error"
             )
         
-        # Si on est toujours sur l'écran de login
+        # Still on the login screen
         if self._is_on_login_screen():
             self.logger.error("❌ Still on login screen - login failed")
             return LoginResult(
@@ -66,7 +66,7 @@ class ResultDetectionMixin:
                 error_type="unknown"
             )
         
-        # Cas par défaut : on ne sait pas
+        # Default case: we do not know
         self.logger.warning("⚠️ Login result unclear, assuming failure")
         return LoginResult(
             success=False,

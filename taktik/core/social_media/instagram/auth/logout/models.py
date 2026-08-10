@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class LogoutResult:
-    """Résultat d'une tentative de logout."""
+    """Result of a logout attempt."""
 
     def __init__(
         self,

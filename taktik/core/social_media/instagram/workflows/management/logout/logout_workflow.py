@@ -2,7 +2,7 @@
 Workflow de déconnexion Instagram.
 
 Orchestration simple : un seul appel à `InstagramLogout.logout()`,
-sans retries (la déconnexion est idempotente).
+with no retries, the logout being idempotent.
 """
 
 from typing import Dict, Any
@@ -25,7 +25,7 @@ class LogoutWorkflow:
 
     def execute(self) -> Dict[str, Any]:
         """
-        Exécute le workflow de déconnexion.
+        Run the logout workflow.
 
         Returns:
             {

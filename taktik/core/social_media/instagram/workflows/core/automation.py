@@ -126,9 +126,9 @@ class InstagramAutomation:
                            max_likes_per_profile: int = 2, skip_processed: bool = True,
                            config: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Interagit avec les followers d'un ou plusieurs comptes cibles, via le workflow
-        direct (clics dans la liste, aucune navigation deep-link). Plusieurs cibles :
-        le budget est réparti selon ``config['distribution']`` (équilibrée par défaut).
+        Interact with the followers of one or several target accounts, through the direct
+        workflow, tapping in the list with no deep-link navigation. With several targets,
+        the budget is split according to the configured distribution.
         """
         if not self.active_account_id:
             self.logger.info("Active account not detected, retrieving current profile...")

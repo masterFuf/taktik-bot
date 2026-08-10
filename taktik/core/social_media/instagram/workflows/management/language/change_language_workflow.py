@@ -33,7 +33,7 @@ StepNotifier = Callable[..., None]
 
 
 class ChangeLanguageWorkflow:
-    """Workflow de changement de langue de l'application Instagram."""
+    """App language change workflow."""
 
     def __init__(self, device, device_id: str, notifier: Optional[StepNotifier] = None):
         self.device = device

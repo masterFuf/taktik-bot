@@ -4,12 +4,12 @@ import time
 
 
 class LoginPopupsMixin:
-    """Mixin: gestion des popups post-login (save info, notifs, contacts, localisation)."""
+    """Mixin: post-login popup handling (save info, notifications, contacts, location)."""
 
     def _dismiss_google_autofill_popup(self) -> bool:
         """
-        Détecte et rejette le popup Google Password Manager / Autofill
-        qui peut apparaître au lancement d'Instagram.
+        Detect and dismiss the password-manager or autofill popup that can
+        appear when the app starts.
 
         Returns:
             True si le popup a été détecté et rejeté, False sinon.
@@ -30,8 +30,8 @@ class LoginPopupsMixin:
 
     def _dismiss_google_save_password_popup(self) -> bool:
         """
-        Détecte et rejette le popup Android 'Enregistrer mot de passe dans Google ?'
-        qui apparaît après une connexion réussie.
+        Detect and dismiss the Android save-password popup that appears after
+        a successful login.
 
         Returns:
             True si détecté et rejeté, False sinon.
@@ -52,17 +52,17 @@ class LoginPopupsMixin:
 
     def _handle_post_login_popups(self, save_login_info: bool = False) -> None:
         """
-        Gère les popups qui apparaissent après une connexion réussie.
+        Handle the popups appearing after a successful login.
         
         Args:
-            save_login_info: Si True, clique sur "Save", sinon sur "Not now"
+            save_login_info: when true, accept the save; otherwise decline
         """
         self.logger.info("🪟 Handling post-login popups...")
 
         # Google Password Manager / Autofill dialog (suggestions de remplissage)
         self._dismiss_google_autofill_popup()
 
-        # Google Save Password dialog : "Enregistrer mot de passe dans Google ?"
+        # System save-password dialog
         self._dismiss_google_save_password_popup()
 
         # Popup Instagram "Save Your Login Info?"
@@ -75,7 +75,7 @@ class LoginPopupsMixin:
                 else:
                     self.logger.warning("⚠️ Could not click 'Save' button")
             else:
-                # Bouton "Not now" — content-desc direct (plus fiable que resource-id)
+                # Decline button, matched by content-desc, which is more reliable here
                 not_now_selectors = self.auth_selectors.save_login_info_not_now_buttons
                 clicked = self._click_first_match(not_now_selectors, "Not now")
                 if clicked:

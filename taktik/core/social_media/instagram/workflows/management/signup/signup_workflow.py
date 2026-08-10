@@ -1,14 +1,14 @@
 """
-Workflow de création de compte Instagram.
+Instagram account creation workflow.
 
-Orchestre les étapes initiales :
+Orchestrates the initial steps:
   1. Écran d'accueil non-connecté → clic "Create new account"
   2a. Écran téléphone → saisie numéro → Next
   2b. Ou basculer vers email → saisie email → Next
 
-Les étapes suivantes (nom, date de naissance, username, mot de passe,
-photo de profil, centres d'intérêt, …) nécessitent des dumps UI
-supplémentaires et sont marquées TODO.
+The later steps — name, date of birth, username, password, profile picture,
+interests — need further UI dumps and are marked as pending.
+
 """
 
 import time
@@ -19,7 +19,7 @@ from ....auth.signup import InstagramSignup, SignupResult
 
 
 class SignupWorkflow:
-    """Workflow complet de création de compte Instagram."""
+    """Full account creation workflow."""
 
     def __init__(self, device, device_id: str):
         self.device = device
@@ -35,12 +35,12 @@ class SignupWorkflow:
         phone: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Lance le workflow de création de compte.
+        Start the account creation workflow.
 
         Args:
             method:  "email" ou "phone" — méthode d'inscription
             email:   Adresse e-mail (requis si method="email")
-            phone:   Numéro de téléphone avec indicatif (requis si method="phone")
+            phone:   phone number with its country code, required for the phone method
 
         Returns:
             {
@@ -61,7 +61,7 @@ class SignupWorkflow:
             'error_type': None
         }
 
-        # Validation des paramètres
+        # Validate the parameters
         if method == "email" and not email:
             result['message'] = "email is required when method='email'"
             result['error_type'] = "invalid_params"
@@ -72,13 +72,13 @@ class SignupWorkflow:
             result['error_type'] = "invalid_params"
             return result
 
-        # ── Étape 1 : naviguer vers le formulaire d'inscription ──────────
+        # -- Step 1: navigate to the signup form --------------------------
         nav_result = self.signup_manager.navigate_to_signup()
         self._update_result(result, nav_result)
         if not nav_result.success:
             return result
 
-        # ── Étape 2a : inscription par email ─────────────────────────────
+        # -- Step 2a: signup by email -------------------------------------
         if method == "email":
             # Si on atterrit sur l'écran téléphone, basculer vers email
             if nav_result.step == "phone_input":
@@ -96,7 +96,7 @@ class SignupWorkflow:
             if not email_result.success:
                 return result
 
-        # ── Étape 2b : inscription par numéro de mobile ──────────────────
+        # -- Step 2b: signup by mobile number -----------------------------
         elif method == "phone":
             # Si on atterrit sur l'écran email, basculer vers téléphone
             if nav_result.step == "email_input":
@@ -115,8 +115,8 @@ class SignupWorkflow:
                 return result
 
         # ── Étapes suivantes (TODO) ───────────────────────────────────────
-        # Les étapes suivantes (nom, date de naissance, username, password,
-        # photo de profil, intérêts) nécessitent des UI dumps supplémentaires.
+        # The later steps — name, date of birth, username, password, profile
+        # picture, interests — need further UI dumps.
         self.logger.warning(
             "⚠️ Signup workflow: further steps (name, birthday, username, "
             "password, …) are not yet implemented."

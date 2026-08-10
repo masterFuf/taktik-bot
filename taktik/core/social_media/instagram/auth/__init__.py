@@ -3,8 +3,8 @@ Module d'authentification Instagram.
 
 Sub-packages:
 - login/    — Processus de connexion (écran, credentials, résultat, popups)
-- signup/   — Processus de création de compte (accueil, téléphone, email)
-- session/  — Persistance des sessions (save/load/delete/cleanup)
+- signup/   — account creation process (welcome, phone, email)
+- session/  — session persistence (save, load, delete, cleanup)
 """
 
 from .login import InstagramLogin
