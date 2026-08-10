@@ -174,7 +174,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
 
             # Suggestions-only run: this is NOT about engaging our own feed, it is
             # about finding the suggestions carousel. No like, no comment,
-            # aucune story — on scrolle jusqu'a le trouver, on follow, on s'arrete.
+            # no story: scroll until the carousel is found, follow, and stop.
             if (effective_config.get('follow_suggestions', False)
                     and effective_config.get('suggestions_only', False)):
                 self.logger.info("Suggestions-only run: no feed engagement")
@@ -231,7 +231,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 max_likes = effective_config.get('max_post_likes', 0)
                 # These three settings existed in the catalog without ANY code reading
                 # them: the front could send them and nothing happened. They act
-                # desormais, et restent a leurs valeurs historiques par defaut.
+                # now, and keep their historical values by default.
                 skip_reels = effective_config.get('skip_reels', False)
                 visit_author = effective_config.get('interact_with_post_author', False)
                 visit_likers = effective_config.get('interact_with_post_likers', False)

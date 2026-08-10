@@ -111,7 +111,7 @@ class FollowerNavigationMixin:
             self.device.press('back')
             return True
         
-        # Premier back (on vient d'un profil)
+        # First back, coming from a profile
         self.logger.info(f"🔄 Recovery - clicking back button (1st) to return to followers list")
         click_ui_back_button()
         if wait_for_followers_list():

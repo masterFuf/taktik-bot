@@ -283,7 +283,7 @@ def detect_language(device) -> str:
 
 
 # ──────────────────────────────────────────────────────────────
-# Classification d'un sélecteur
+# Selector classification
 # ──────────────────────────────────────────────────────────────
 
 def _classify_selector(xpath: str) -> str:

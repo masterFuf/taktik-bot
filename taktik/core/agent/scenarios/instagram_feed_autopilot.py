@@ -789,7 +789,7 @@ class TaktikAgentWorkflow:
 
     def _read_follow_state(self) -> str:
         """State of the profile header action button, the profile being already on screen.
-        'unknown' si illisible -> l'appelant continue (fail-open)."""
+        Unreadable states let the caller through, fail-open."""
         try:
             from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
             return ClickActions(self.device).get_follow_button_state()

@@ -124,7 +124,7 @@ class SignupSelectors:
         return self._birthday_month_picker_base + L("signup.birthday_month_picker")
 
     # SeekBar – année
-    # resource-id: com.zhiliaoapp.musically:id/year_picker  content-desc: "Sélecteur de l'année"
+    # Year picker
     _birthday_year_picker_base: List[str] = field(default_factory=lambda: [
         '//android.widget.SeekBar[contains(@resource-id, ":id/year_picker")]',
         '(//android.widget.SeekBar[@scrollable="true"])[3]',
@@ -250,7 +250,7 @@ class SignupSelectors:
     # Titles actually observed on that screen
     # The resend entry is always present there
     _otp_screen_indicator_base: List[str] = field(default_factory=lambda: [
-        # Fallback : 6 EditText d'un seul caractère = grille OTP
+        # Fallback: six single-character fields form the code grid
         '//android.widget.EditText[string-length(@hint)=1]',
     ])
 

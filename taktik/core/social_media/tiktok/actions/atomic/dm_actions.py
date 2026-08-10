@@ -487,7 +487,7 @@ class DMActions(BaseAction):
         """Scrape the activity and system-notification sections of the inbox (READ ONLY).
 
         Each section is one item carrying a title and a preview. The new-followers section is
-        (phase 1). Aucune action device.
+        excluded. No device action.
 
         Returns:
             List of {title, preview, category}

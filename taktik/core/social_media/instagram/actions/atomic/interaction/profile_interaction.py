@@ -179,7 +179,7 @@ class ProfileInteractionMixin(BaseAction):
 
         Returns: 'follow' | 'follow_back' | 'following' | 'requested' | 'message' | 'unknown'
 
-        - 'follow'      : aucune relation -> cible neuve
+        - follow:      no relationship, so a fresh target
         - follow_back: THEY follow us
         - following:   WE already follow them
         - requested:   a request was sent (private account)

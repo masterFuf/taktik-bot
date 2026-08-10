@@ -107,7 +107,7 @@ class PostSelectors:
     ])
     
     _photo_like_selectors_base: List[str] = field(default_factory=lambda: [
-        # Ancien sélecteur générique en dernier recours
+        # Legacy generic selector, as a last resort
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]',
     ])
 
@@ -355,7 +355,7 @@ class PostSelectors:
     
     # === Commentaires ===
     _photo_comment_selectors_base: List[str] = field(default_factory=lambda: [
-        # Ancien sélecteur générique en dernier recours
+        # Legacy generic selector, as a last resort
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_imageview"]'
     ])
 

@@ -75,7 +75,7 @@ def setup_logger(
         ]
     }
 
-    # Ajout d'un fichier de log si spécifié
+    # Add a log file when one is given
     if log_file:
         log_config["handlers"].append({
             "sink": log_file,

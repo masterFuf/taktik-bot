@@ -14,7 +14,7 @@ closes it with its statistics snapshot.
 
 It is deliberately tiny and device-free: a suggestions pass does not need the full
 automation lifecycle, only a beginning and an end.
-fin et d'un identifiant.
+end and an identifier.
 """
 
 from __future__ import annotations

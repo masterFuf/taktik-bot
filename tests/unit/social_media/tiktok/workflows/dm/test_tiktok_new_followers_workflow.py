@@ -2,7 +2,7 @@
 
 A fake DM action layer is injected and the heavy initialisation is bypassed, so the
 orchestration is what gets validated: opening the page, deduplicating the scrape,
-de follow-back. Aucune dépendance device réelle.
+emitting the callbacks, and the follow-back results. No real device dependency.
 """
 
 import types

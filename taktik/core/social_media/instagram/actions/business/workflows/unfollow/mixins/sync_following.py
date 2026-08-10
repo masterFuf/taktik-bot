@@ -235,7 +235,7 @@ class SyncFollowingMixin:
                     self.logger.info("No new accounts after scroll — end of following list")
                     break
 
-                # Scroll seulement si pas en mode enrichi (en enrichi on re-scanne d'abord)
+                # Scroll only outside enriched mode, which re-scans first
                 if mode != 'enriched':
                     self._scroll_following_list()
                     time.sleep(1.5)

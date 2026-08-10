@@ -97,7 +97,7 @@ FEED_DEFAULTS: Dict[str, Any] = {
     # own feed, never visiting a profile, so these three keys sat in the catalog without
     # any code reading them. They act now:
     #   visit the post author and interact — that is where the relationship filters
-    #     `follow_percentage` et `story_watch_percentage` prennent enfin un sens : un post
+    #     become meaningful, since a feed post carries neither a follow button nor a
     #     become meaningful, since a feed post carries neither
     #   open the post likers and walk them
     #   do not engage the reels of the feed

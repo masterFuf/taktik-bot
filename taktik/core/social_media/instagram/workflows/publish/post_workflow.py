@@ -4,7 +4,7 @@ Instagram POST publish workflow.
 Publish a single photo or video as a feed POST, from a local file.
 
 The flow reproduces, step by step, the sequence validated through the diagnostics
-(selector-only, AUCUNE coordonnee codee en dur) :
+(selector-only, with NO hardcoded coordinate):
 
   1. push the file and index it in the media store
   2. launch the app, clone-aware, and come back to the feed

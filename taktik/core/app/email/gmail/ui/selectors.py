@@ -257,7 +257,7 @@ class _GmailInboxSelectors:
         '//*[@resource-id="com.google.android.gm:id/conversation_list_view"]',
     ])
 
-    # Premier résultat de conversation (après recherche)
+    # First conversation result, after a search
     first_conversation: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.google.android.gm:id/thread_list_view"]'
         '//*[@resource-id="com.google.android.gm:id/senders"]',

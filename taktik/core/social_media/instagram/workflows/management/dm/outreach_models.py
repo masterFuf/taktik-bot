@@ -38,7 +38,7 @@ class DMOutreachConfig:
 
 @dataclass
 class DMOutreachResult:
-    """Résultat d'un envoi de DM."""
+    """Result of one direct message send."""
     username: str
     success: bool
     message_sent: str = ""

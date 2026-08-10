@@ -12,7 +12,7 @@ class ContentCreationSelectors:
 
     # Create "+" button: the bottom bar entry when present, otherwise the clickable
     # ImageView at the top left of the action bar (no resource-id or content-desc on
-    # certaines versions). Cible structurelle = selector-only, aucune coordonnee.
+    # some versions). Structural target: selector-only, no coordinate.
     create_button_xpaths: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "creation_tab")]',
         '//*[contains(@resource-id, "action_bar_buttons_container_left")]//android.widget.ImageView[@clickable="true"]',
