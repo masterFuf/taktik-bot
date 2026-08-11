@@ -55,14 +55,14 @@ Tu dois:
     # Only reply to messages carrying these keywords (empty = all)
     respond_only_keywords: List[str] = field(default_factory=list)
     
-    # === Historique ===
+    # === History ===
     # Number of previous messages included as context
     context_messages_count: int = 5
     
     # === Callbacks ===
-    # Callback optionnel appelé avant chaque réponse
+    # Optional callback, before each reply
     on_before_reply: Optional[Callable] = None
-    # Callback optionnel appelé après chaque réponse
+    # Optional callback, after each reply
     on_after_reply: Optional[Callable] = None
 
 

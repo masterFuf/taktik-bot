@@ -109,8 +109,8 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
                 "follow_bounds": parse_bounds(follow_node.get("bounds") or ""),
             })
 
-    # Un CTA seul sans conteneur (layout serveur alternatif) suffit a considerer
-    # the block that is present: that is what gets tapped.
+    # A lone CTA with no container, which an alternative server layout serves, is enough
+    # to consider the block present: it is what gets tapped.
     if result["cta_bounds"] and not result["present"]:
         result["present"] = True
     return result

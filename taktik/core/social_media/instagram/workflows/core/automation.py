@@ -212,9 +212,12 @@ class InstagramAutomation:
                     self.logger.info(f"Active account configured: {self.active_username} (ID: {self.active_account_id})")
                         
                 except Exception as e:
+                    # Deliberately NOT falling back to a default id here. The account could
+                    # not be resolved, so any row written now would be filed under another
+                    # account. The caller's own guard refuses the run instead, which is the
+                    # outcome we want: no run beats a run recorded against the wrong account.
                     self.logger.error(f"Error retrieving/creating active account: {e}")
-                    self.active_account_id = 1
-                    self.logger.warning(f"Using default account ID: 1 for {self.active_username}")
+                    self.active_account_id = None
             
         return profile_info
     

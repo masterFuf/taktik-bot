@@ -14,6 +14,10 @@ from contextlib import contextmanager
 
 from loguru import logger
 
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import (
+    resolve_lab_account_id,
+)
+
 from bridges.compat.diagnostics.actions.instagram import action
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
 
@@ -36,26 +40,6 @@ def _workflow(a, p=None):
     return NotificationsEngagementWorkflow(
         a.device, device_id, profile_pipeline=_pipeline(a, p) if p is not None else None,
     )
-
-
-def resolve_lab_account_id(p):
-    """Account id from the ``account`` parameter, or None.
-
-    Without it, everything an action writes is filed under the default id, that is
-    under another account.
-    """
-    account = (p.get("account") or "").strip().lstrip("@")
-    if not account:
-        return None
-    try:
-        from taktik.core.database import configure_db_service, get_db_service
-
-        configure_db_service()
-        account_id, _ = get_db_service().get_or_create_account(account, is_bot=True)
-        return account_id
-    except Exception as exc:
-        logger.warning(f"Lab: could not resolve account @{account}: {exc}")
-        return None
 
 
 def _pipeline(a, p, session_id=None):

@@ -140,9 +140,9 @@ class FeedSuggestionsMixin:
 
         The modal carries the GENERIC Instagram alert resource-ids, which the
         restriction alert carries too. The HEADLINE must therefore match the
-        ``contacts_access_headline_texts`` fragments before anything is tapped:
-        sinon on rend ``'other_dialog'`` sans toucher a l'ecran, et l'alerte
-        left to the problematic-page detector.
+        ``contacts_access_headline_texts`` fragments before anything is tapped.
+        Otherwise this returns ``'other_dialog'`` without touching the screen, and the
+        alert is left to the problematic-page detector.
         """
         from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS
 

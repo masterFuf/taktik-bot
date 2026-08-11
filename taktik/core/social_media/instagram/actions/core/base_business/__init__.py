@@ -70,10 +70,13 @@ class BaseBusinessAction(
         
         self.stats_manager = BaseStatsManager(module_name)
         
-        if automation and hasattr(automation, 'active_account_id'):
-            self.active_account_id = automation.active_account_id
-        else:
-            self.active_account_id = 1
+        # No identity means NO identity. This used to fall back to account id 1, which is a
+        # real account: every caller built without an automation — the diagnostics bundle,
+        # the notification pipeline, the suggestion runtime — silently filed its work under
+        # somebody else's name, and three of them ended up patching `active_account_id` by
+        # hand afterwards. Left at None, `_record_action` refuses to write and says so,
+        # which is what its guard was written for.
+        self.active_account_id = getattr(automation, 'active_account_id', None)
         
         if init_business_modules:
             self._init_business_modules()

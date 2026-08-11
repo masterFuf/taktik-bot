@@ -162,7 +162,6 @@ class SessionRepository(BaseRepository):
 
         # Engaged POSTS. The rest of the snapshot aggregates from the interactions table,
         # which is PER PROFILE: a run that opens no profile would otherwise report an
-        # seuls ») n'y ecrit rien et ressortait donc entierement a zero — puis masque comme
         # empty session. This counter comes from the run itself, not from an aggregation.
         if posts_engaged is not None:
             updates.append('posts_watched = ?')

@@ -609,10 +609,10 @@ class InteractionEngineMixin:
             "posts_count": pd.get('posts_count', 0)
         } if profile_data else None)
 
-    # NOTE : l'ancien `_interact_with_user` (duplicata complet nav -> extract -> private -> filter
-    # -> interact) a ete SUPPRIME (2026-07-18). C'etait un chemin mort : le seul appelant
-    # resolves, through the method resolution order, to the notifications override,
-    # which goes through the shared per-profile pipeline..
+    # NOTE: the former `_interact_with_user` — a full duplicate of nav -> extract -> private
+    # -> filter -> interact — was REMOVED. It was a dead path: its only caller resolves,
+    # through the method resolution order, to the notifications override, which goes
+    # through the shared per-profile pipeline.
     # The duplicate short-circuited that pipeline, and therefore the RELATIONSHIP guard
     # too. Every profile handling must go through the shared pipeline, which is the
     # single source of the skip decision.

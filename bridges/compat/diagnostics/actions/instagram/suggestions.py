@@ -1,14 +1,13 @@
 """Suggestions actions for Instagram compat diagnostics (Cartography Lab).
 
-Atomic probes of the feed workflow suggestions-follow mode:
-carousel netego "Suggested for you" -> CTA "See all" -> modale d'acces aux
-contacts modal -> people discovery screen -> bulk follow.
+Atomic probes of the feed workflow's suggestions-follow mode, in the order the
+workflow meets them: in-feed carousel -> "See all" CTA -> contacts-access modal ->
+people discovery screen -> bulk follow.
 
 Each action calls EXACTLY the production method of the feed business object,
 already built on the warm device by the diagnostics bundle. No path, no selector
-and no screen detection is reimplemented here: a green run exercises the code
-the workflow
-reel executera.
+and no screen detection is reimplemented here, so a green run exercises the very
+code the real workflow will run.
 
 Every UI signature comes from the centralized catalogs
 (``FEED_SUGGESTIONS_SELECTORS`` / ``DISCOVER_PEOPLE_SELECTORS`` /
@@ -272,23 +271,19 @@ def _visit_config(p):
     return dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG)
 
 
-def _attach_account_and_session(a, p, session_id):
-    """Attach the feed workflow to the right account AND to the open session.
+def _attach_session(a, session_id):
+    """Attach the feed workflow to the open session.
 
-    The bundle builds the business object with neither account nor session, so
-    everything it wrote went under the default id and with no session. That is what
-    made the work done from here invisible in the figures.
+    The account is bound for the whole bundle before the action runs. The session is
+    opened per action, so it is attached here — and without it the interactions belong to
+    nothing and never surface in the history.
     """
-    from bridges.compat.diagnostics.actions.instagram.notifications import resolve_lab_account_id
     from taktik.core.social_media.instagram.workflows.management.session import SessionManager
 
-    account_id = resolve_lab_account_id(p)
-    if account_id:
-        a.feed.active_account_id = account_id
     if a.feed.session_manager is None:
         a.feed.session_manager = SessionManager({"session_settings": {}})
     a.feed.session_manager.session_id = session_id
-    return account_id
+    return a.feed.active_account_id
 
 
 def _visit_summary(res, max_profiles):
@@ -348,7 +343,7 @@ def visit_visible(a, p):
 
     max_profiles = int(p.get("max", 1))
     with lab_suggestion_session(p, "discover_people") as session_id:
-        _attach_account_and_session(a, p, session_id)
+        _attach_session(a, session_id)
         res = a.feed.visit_discover_suggestions(
             _visit_config(p), max_profiles=max_profiles,
             max_scrolls=int(p.get("max_scrolls", 8)),
@@ -368,7 +363,7 @@ def run_visit_pass(a, p):
 
     max_profiles = int(p.get("max", 1))
     with lab_suggestion_session(p, "discover_people") as session_id:
-        _attach_account_and_session(a, p, session_id)
+        _attach_session(a, session_id)
         res = a.feed.run_discover_visit_pass(
             _visit_config(p), max_profiles=max_profiles,
             max_carousel_scrolls=int(p.get("max_carousel_scrolls", 12)),

@@ -1,4 +1,4 @@
-﻿"""Shared action-test runner for compat diagnostics bridges."""
+"""Shared action-test runner for compat diagnostics bridges."""
 
 import json
 import re
@@ -122,6 +122,26 @@ def _install_selector_tracer(device_facade, app: str | None = None):
     return tracer
 
 
+def _bind_bundle_account(bundle, params: dict) -> None:
+    """Give the bundle the identity of the account under test, before the action runs.
+
+    The Lab drives production classes on a real device, so what an action writes is a real
+    row. Without this the rows were filed under a default account id, and the Lab's own
+    work was invisible in the figures of the account it was actually run on.
+    """
+    binder = getattr(bundle, "bind_account", None)
+    if binder is None:
+        return
+    try:
+        from bridges.compat.diagnostics.runtime.action_test.action_bundle import (
+            resolve_lab_account_id,
+        )
+
+        binder(resolve_lab_account_id(params))
+    except Exception as exc:  # noqa: BLE001 — attribution must never break the action
+        logger.warning(f"Lab: could not bind the bundle to an account: {exc}")
+
+
 def _execute_action(
     action_registry: dict,
     action_id: str,
@@ -186,6 +206,7 @@ def _execute_action(
 
     try:
         fn = action_registry[action_id]
+        _bind_bundle_account(bundle, params)
         result = fn(bundle, params)
         # Actions may return a bool, or a dict {success, message?, details?} to surface data.
         if isinstance(result, dict):

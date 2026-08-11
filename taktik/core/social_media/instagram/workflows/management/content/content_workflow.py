@@ -246,12 +246,12 @@ class ContentWorkflow(ContentUIHelpersMixin):
         delay_between_posts: int = 60
     ) -> Dict[str, Any]:
         """
-        Poster plusieurs photos successivement.
+        Post several photos in a row.
         
         Args:
             image_paths: image paths
             captions: captions, optional
-            delay_between_posts: Délai entre chaque post en secondes
+            delay_between_posts: delay between posts, in seconds
             
         Returns:
             Dict of results, one per publication
