@@ -77,7 +77,7 @@ class SyncFollowingMixin:
             time.sleep(1.5)
 
             # Read the already-known usernames to find the stop point
-            known_usernames = InstagramFollowGraphService.get_following_sync_usernames(account_id)
+            known_usernames = InstagramFollowGraphService.get_active_following_usernames(account_id)
             self.logger.info(f"📋 {len(known_usernames)} known followings in DB")
 
             # For enriched mode, create a ProfileExtraction instance
@@ -154,7 +154,7 @@ class SyncFollowingMixin:
 
                     # Following → upsert en BDD
                     is_bot_follow = InstagramFollowGraphService.has_bot_follow_record(username, account_id)
-                    result = InstagramFollowGraphService.sync_following_upsert(
+                    result = InstagramFollowGraphService.upsert_following(
                         username=username,
                         display_name=display_name,
                         account_id=account_id,
@@ -368,7 +368,7 @@ class SyncFollowingMixin:
                 InstagramFollowGraphService.mark_not_follower_back(username, account_id)
 
             # Every stored following ABSENT from that list is reciprocal
-            all_followings = InstagramFollowGraphService.get_following_sync_usernames(account_id)
+            all_followings = InstagramFollowGraphService.get_active_following_usernames(account_id)
             non_followers_set = set(u.lower() for u in non_follower_usernames)
 
             all_followings_lower = {u.lower() for u in all_followings}
@@ -378,12 +378,12 @@ class SyncFollowingMixin:
                     InstagramFollowGraphService.mark_follower_back(username, account_id)
                     stats['mutuals_count'] += 1
 
-            # ── Populate followers_sync ──
+            # ── Populate the follower side of the graph ──
             # 1. Entries from "don't follow back" = confirmed followers
             fans_count = 0
             for username in non_follower_usernames:
                 is_following = username.lower() in all_followings_lower
-                InstagramFollowGraphService.sync_follower_upsert(
+                InstagramFollowGraphService.upsert_follower(
                     username=username,
                     account_id=account_id,
                     is_following_back=is_following,
@@ -395,7 +395,7 @@ class SyncFollowingMixin:
             # 2. Mutuals = our followings confirmed as followers too
             for username in all_followings:
                 if username.lower() not in non_followers_set:
-                    InstagramFollowGraphService.sync_follower_upsert(
+                    InstagramFollowGraphService.upsert_follower(
                         username=username,
                         account_id=account_id,
                         is_following_back=True,

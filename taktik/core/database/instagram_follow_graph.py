@@ -52,7 +52,7 @@ class InstagramFollowGraphService:
             return None
 
     @classmethod
-    def sync_following_upsert(
+    def upsert_following(
         cls,
         username: str,
         display_name: str,
@@ -73,11 +73,11 @@ class InstagramFollowGraphService:
                 source=source,
             )
         except Exception as exc:
-            log.debug(f"Error in sync_following_upsert for @{username}: {exc}")
+            log.debug(f"Error in upsert_following for @{username}: {exc}")
             return "error"
 
     @classmethod
-    def get_following_sync_usernames(cls, account_id: int) -> set[str]:
+    def get_active_following_usernames(cls, account_id: int) -> set[str]:
         """Return known active followings for an account as lowercase usernames."""
         if not account_id:
             return set()
@@ -85,7 +85,7 @@ class InstagramFollowGraphService:
         try:
             return cls._repository().get_active_following_usernames(account_id=account_id)
         except Exception as exc:
-            log.debug(f"Error in get_following_sync_usernames: {exc}")
+            log.debug(f"Error in get_active_following_usernames: {exc}")
             return set()
 
     @classmethod
@@ -130,7 +130,7 @@ class InstagramFollowGraphService:
             log.debug(f"Error in mark_unfollowed for @{username}: {exc}")
 
     @classmethod
-    def sync_follower_upsert(
+    def upsert_follower(
         cls,
         username: str,
         account_id: int,
@@ -151,11 +151,11 @@ class InstagramFollowGraphService:
                 source=source,
             )
         except Exception as exc:
-            log.debug(f"Error in sync_follower_upsert for @{username}: {exc}")
+            log.debug(f"Error in upsert_follower for @{username}: {exc}")
             return "error"
 
     @classmethod
-    def get_followers_sync_usernames(cls, account_id: int) -> set[str]:
+    def get_follower_usernames(cls, account_id: int) -> set[str]:
         """Return known followers for an account as lowercase usernames."""
         if not account_id:
             return set()
@@ -163,5 +163,5 @@ class InstagramFollowGraphService:
         try:
             return cls._repository().get_follower_usernames(account_id=account_id)
         except Exception as exc:
-            log.debug(f"Error in get_followers_sync_usernames: {exc}")
+            log.debug(f"Error in get_follower_usernames: {exc}")
             return set()

@@ -17,9 +17,8 @@ Regles metier :
 
 Known limit of the surface: the @handle is not exposed in this list, only the
 display label. Follows are therefore recorded under that label, with the
-provenance in ``content``; reconciliation with the real handles happens later
-through the
-``following_sync``.
+provenance in ``content``; reconciliation with the real handles happens later,
+through the follow graph sync.
 """
 
 import random

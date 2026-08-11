@@ -8,13 +8,16 @@ from loguru import logger
 
 
 def run_social_graph_sync_migrations(cursor: sqlite3.Cursor) -> None:
-    """Create the unified `social_graph_sync` table and backfill it.
+    """Create the unified `social_graph_sync` table, backfill it, drop the legacy ones.
 
-    Restructuring Vague B (pilote) : unifie `following_sync` + `followers_sync`
-    into a single table with a direction axis and a reciprocity flag replacing the two
-    legacy per-side columns.
-    Additive, non-destructive phase: the source tables stay unchanged and the backfill
-    is idempotent.
+    `following_sync` and `followers_sync` became one table with a direction axis, and a
+    single reciprocity flag replacing the two per-side columns they each carried.
+
+    Idempotent and safe on a populated database: creation is conditional, the backfill
+    ignores rows already present, and a legacy table is dropped ONLY once its own
+    backfill has gone through. Each side is handled separately, so one failing cannot
+    strand the other — and a failure is logged as a warning, never swallowed, because a
+    legacy table left behind means rows that never reached the unified store.
     """
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS social_graph_sync (
@@ -42,38 +45,51 @@ def run_social_graph_sync_migrations(cursor: sqlite3.Cursor) -> None:
         except sqlite3.OperationalError:
             pass
 
-    # Migrate any remaining legacy rows into social_graph_sync, then drop the
-    # (now dead) legacy tables. social_graph_sync is the primary store since the
-    # write flip; following_sync/followers_sync are local-only (not Turso-synced).
+    # Move whatever the legacy tables still hold into social_graph_sync, then drop them.
+    # social_graph_sync is the primary store since the write flip, and like the tables it
+    # replaces it stays local: it is not part of the synced set.
     def _table_exists(name: str) -> bool:
         return cursor.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
         ).fetchone() is not None
 
-    try:
-        if _table_exists("following_sync"):
-            cursor.execute("""
-                INSERT OR IGNORE INTO social_graph_sync
-                    (platform, account_id, username, direction, display_name,
-                     is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
-                SELECT 'instagram', account_id, username, 'following', display_name,
-                       is_follower_back, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source
-                FROM following_sync
-            """)
-        if _table_exists("followers_sync"):
-            cursor.execute("""
-                INSERT OR IGNORE INTO social_graph_sync
-                    (platform, account_id, username, direction, display_name,
-                     is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
-                SELECT 'instagram', account_id, username, 'follower', display_name,
-                       is_following_back, 0, NULL, first_seen_at, last_seen_at, source
-                FROM followers_sync
-            """)
-        # Phase C drop (data is now in social_graph_sync).
-        cursor.execute("DROP TABLE IF EXISTS following_sync")
-        cursor.execute("DROP TABLE IF EXISTS followers_sync")
-    except sqlite3.OperationalError as exc:
-        logger.debug(f"social_graph_sync backfill/drop skipped: {exc}")
+    def _drain(table: str, backfill: str) -> None:
+        """Backfill one legacy table, then drop it — only if the backfill went through.
+
+        Handled per table on purpose. Sharing one guard meant a single failing side
+        aborted the other and left BOTH tables in place, silently, on every boot.
+        """
+        if not _table_exists(table):
+            return
+        try:
+            cursor.execute(backfill)
+        except sqlite3.OperationalError as exc:
+            # Keep the table. Its rows have not reached the unified store, and dropping
+            # it now would lose them. Loud, because retrying alone will not fix a shape
+            # mismatch — someone has to look.
+            logger.warning(
+                f"social_graph_sync: could not migrate `{table}` ({exc}). "
+                "The table is kept as is; its rows are NOT in the unified store yet."
+            )
+            return
+        cursor.execute(f"DROP TABLE IF EXISTS {table}")
+
+    _drain("following_sync", """
+        INSERT OR IGNORE INTO social_graph_sync
+            (platform, account_id, username, direction, display_name,
+             is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
+        SELECT 'instagram', account_id, username, 'following', display_name,
+               is_follower_back, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source
+        FROM following_sync
+    """)
+    _drain("followers_sync", """
+        INSERT OR IGNORE INTO social_graph_sync
+            (platform, account_id, username, direction, display_name,
+             is_reciprocal, followed_by_bot, unfollowed_at, first_seen_at, last_seen_at, source)
+        SELECT 'instagram', account_id, username, 'follower', display_name,
+               is_following_back, 0, NULL, first_seen_at, last_seen_at, source
+        FROM followers_sync
+    """)
 
 
 def run_profile_following_migrations(cursor: sqlite3.Cursor) -> None:

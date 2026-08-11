@@ -5,8 +5,8 @@ Strategy:
 - Scroll through the entire list, extracting usernames
 - Mode 'fast': only usernames (bulk insert)
 - Mode 'enriched': visit each profile for full info (reuses scraping logic)
-- Upsert each follower into followers_sync table
-- Cross-reference with following_sync to determine mutuals/fans
+- Upsert each follower into the unified follow graph
+- Cross-reference with the known followings to determine mutuals/fans
 
 This complements SyncFollowingMixin which handles the following list.
 """
@@ -34,8 +34,8 @@ class SyncFollowersMixin:
 
         1. Navigate to own profile → open Followers list
         2. Scroll + extract usernames (+ display names)
-        3. Upsert each into followers_sync
-        4. Cross-reference with following_sync for mutual detection
+        3. Upsert each into the follow graph, as a follower
+        4. Cross-reference with the known followings for mutual detection
 
         Args:
             config: Configuration dict with optional keys:
@@ -93,7 +93,7 @@ class SyncFollowersMixin:
                 return stats
 
             # Get known following usernames for mutual detection
-            known_followings = InstagramFollowGraphService.get_following_sync_usernames(account_id)
+            known_followings = InstagramFollowGraphService.get_active_following_usernames(account_id)
             self.logger.info(f"📋 {len(known_followings)} known followings for mutual detection")
 
             # For enriched mode, create a ProfileExtraction instance
@@ -146,8 +146,8 @@ class SyncFollowersMixin:
                     # Determine if we follow this person back
                     is_following_back = username.lower() in known_followings
 
-                    # Upsert into followers_sync
-                    result = InstagramFollowGraphService.sync_follower_upsert(
+                    # Record it in the follow graph, on the follower side
+                    result = InstagramFollowGraphService.upsert_follower(
                         username=username,
                         account_id=account_id,
                         display_name=display_name,
