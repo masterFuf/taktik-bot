@@ -7,7 +7,7 @@ rows carry no stable server id, same constraint that forced ``content_hash`` on
 ``dm_messages``).
 
 The shape mirrors the shared spec ``internal docs``
-and must stay aligned with the Electron mirror (``front/electron/database``) since the
+and must stay aligned with the Electron mirror (``taktik-bot/app/electron/database``) since the
 table is Turso-synced there. Kept additive + idempotent (CREATE IF NOT EXISTS).
 
 SECURITY: ``body`` (the notification text) is stored but must NEVER be logged (AGENTS.md),

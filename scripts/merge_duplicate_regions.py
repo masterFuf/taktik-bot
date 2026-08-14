@@ -43,7 +43,7 @@ from collections import Counter
 # A mapping to a name that appears nowhere in the base silently creates a THIRD spelling
 # instead of merging two — hence the `existing` guard in main().
 #
-# And every target here MUST be the spelling that `front/electron/database/shared/
+# And every target here MUST be the spelling that `taktik-bot/app/electron/database/shared/
 # geo-normalizer.ts` produces, because that normalizer runs on every AI qualification write.
 # Merging toward anything else buys one clean day: the next re-qualification writes the
 # normalizer's spelling and splits the region again. That is exactly what a first pass of

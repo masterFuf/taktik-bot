@@ -6,7 +6,7 @@ Two tables:
   - ``dm_messages`` : the messages of those conversations (append-only).
 
 The shape mirrors the shared spec ``internal docs``
-and must stay aligned with the Electron mirror (``front/electron/database``) since
+and must stay aligned with the Electron mirror (``taktik-bot/app/electron/database``) since
 the tables are Turso-synced there. Kept additive + idempotent (CREATE IF NOT EXISTS).
 """
 

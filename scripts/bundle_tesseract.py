@@ -1,8 +1,8 @@
-"""Stage a portable tesseract under ``bot/assets/tesseract/`` for the frozen build.
+"""Stage a portable tesseract under ``taktik-bot/core/assets/tesseract/`` for the frozen build.
 
 Decision (build-pipeline): we do NOT commit the tesseract binary to git, and clients must
 NOT install anything by hand. Instead this script copies the tesseract already installed on
-the BUILD machine (exe + runtime DLLs + the tessdata we need) into ``bot/assets/tesseract/``
+the BUILD machine (exe + runtime DLLs + the tessdata we need) into ``taktik-bot/core/assets/tesseract/``
 so ``build_exe.py`` can ``--add-data`` it into the launcher. At runtime ``OcrService._configure``
 resolves ``_MEIPASS/tesseract/tesseract.exe`` + ``_MEIPASS/tesseract/tessdata``.
 

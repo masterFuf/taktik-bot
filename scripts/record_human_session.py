@@ -35,7 +35,7 @@ import sys
 import argparse
 from datetime import datetime
 
-# Make bot/ the root so taktik.* imports resolve
+# Make taktik-bot/core/ the root so taktik.* imports resolve
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, root_dir)
 

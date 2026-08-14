@@ -2,7 +2,7 @@
 
 Owner: engagement domain. Source of truth = the Bot (it is the one typing the comment).
 Electron reads it for the session drill-down; the shape must stay aligned with the
-Electron mirror (``front/electron/database``).
+Electron mirror (``taktik-bot/app/electron/database``).
 
 Why a dedicated table rather than ``interactions.content``:
 ``interactions`` is the action LEDGER — one row per gesture, answering "what did we do,

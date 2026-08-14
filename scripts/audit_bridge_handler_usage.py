@@ -1,7 +1,7 @@
 """Audit Electron handlers for direct bridge spawn helpers.
 
 Handlers should not call ``getSpawnArgs()`` or ``getBridgeCommand()`` directly.
-Bridge process creation belongs in ``front/electron/services/bridge`` so that
+Bridge process creation belongs in ``taktik-bot/app/electron/services/bridge`` so that
 dev/prod spawn logic, path checks, env handling and future lifecycle behaviour
 stay centralised.
 """

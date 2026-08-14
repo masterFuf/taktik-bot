@@ -114,7 +114,7 @@ def build(sessions_dir: str) -> dict:
 
 def main() -> int:
     here = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.dirname(here)  # bot/
+    repo_root = os.path.dirname(here)  # taktik-bot/core/
     sessions_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(repo_root, "..", "human-session")
     out_json = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
         repo_root, "taktik", "core", "shared", "behavior", "human_scroll_calibration.json",

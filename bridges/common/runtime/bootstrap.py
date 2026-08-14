@@ -69,7 +69,7 @@ def _setup_python_path():
     Add the bot root directory to sys.path so that 'taktik' module is importable.
     
     Directory structure:
-        bot/                    <-- this gets added to sys.path
+        taktik-bot/core/                    <-- this gets added to sys.path
         ├── bridges/
         │   ├── common/         <-- this file lives here
         │   ├── instagram/
@@ -77,7 +77,7 @@ def _setup_python_path():
         └── taktik/
             └── core/
     """
-    # runtime/ -> common/ -> bridges/ -> bot/
+    # runtime/ -> common/ -> bridges/ -> taktik-bot/core/
     bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     if bot_dir not in sys.path:
         sys.path.insert(0, bot_dir)

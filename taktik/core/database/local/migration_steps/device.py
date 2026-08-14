@@ -1,7 +1,7 @@
 """Device identity — a stable id for THIS machine, shared by every local writer.
 
 One row, generated once, never updated. Electron runs an identical idempotent
-migration (front/electron/database/migrations.ts), so whichever process opens the
+migration (taktik-bot/app/electron/database/migrations.ts), so whichever process opens the
 database first creates the identity and the other reuses it.
 
 Why it exists: the database syncs across several PCs (Turso) but rows historically

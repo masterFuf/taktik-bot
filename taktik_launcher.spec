@@ -30,7 +30,7 @@ datas = [
 
 # Bundle a portable tesseract (tesseract.exe + DLLs + tessdata for the languages we
 # support) so OCR ships WITH the app — clients never install it. Drop the portable build
-# under bot/assets/tesseract/ ; the OCR service resolves it from _MEIPASS at runtime
+# under taktik-bot/core/assets/tesseract/ ; the OCR service resolves it from _MEIPASS at runtime
 # (OcrService._resolve_tesseract_cmd). Guarded: the build still works if the folder is absent (OCR
 # then degrades gracefully = truncated text kept).
 _TESSERACT_DIR = BOT_DIR / "assets" / "tesseract"

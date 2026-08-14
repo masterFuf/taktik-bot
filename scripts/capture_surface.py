@@ -3,7 +3,7 @@
 Produces, for one device and one surface, a consistently named pair of files
 in:
 
-    bot/debug_ui/cartography/<platform>/<surface>/
+    taktik-bot/core/debug_ui/cartography/<platform>/<surface>/
 
     <surface>_<timestamp>.xml   (hierarchie UI)
     <surface>_<timestamp>.png   (screenshot)

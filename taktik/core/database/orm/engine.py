@@ -5,7 +5,7 @@ INVARIANTS (shared dual-runtime SQLite + Turso sync):
     the schema is owned by the physical migrations. (Equivalent of TypeORM's
     ``synchronize: false`` on the front side.)
   - Not wired into the bot runtime yet. Exercised only by the standalone parity
-    validator (``bot/scripts/orm_pilot/validate_app_config.py``) against a COPY
+    validator (``taktik-bot/core/scripts/orm_pilot/validate_app_config.py``) against a COPY
     of the real DB.
 """
 from __future__ import annotations
