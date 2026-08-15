@@ -80,9 +80,14 @@ UI_VARS = re.compile(
     r"button|element|screen|node|name|value|line|row)",
     re.IGNORECASE,
 )
+# `username` is listed because it would otherwise be caught by `name` in UI_VARS, and a
+# handle is an IDENTIFIER, never a localized label: Instagram renders @kevin as @kevin in
+# every language. Comparing one to a sentinel (`account_username == "unknown"`) is a state
+# test on our own data, and flagging it made this audit red for a reason nobody could act
+# on — which is how a red audit stops being read.
 NOT_UI = re.compile(
     r"(url|path|file|platform|mode|status|state|kind|type|key|id$|_id|json|payload|"
-    r"config|env|arg|cmd|command|query|sql|version|model|provider|locale|lang)",
+    r"config|env|arg|cmd|command|query|sql|version|model|provider|locale|lang|username)",
     re.IGNORECASE,
 )
 TECH = re.compile(r"[._/:=\d]")
