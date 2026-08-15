@@ -23,6 +23,9 @@ from taktik.core.social_media.instagram.actions.business.workflows.followers.wor
     FollowerDirectWorkflowMixin,
 )
 import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as main_loop
+# The "already known" decision lives with the profile-processing mixin, so its collaborators
+# (database service, IPC) are patched there rather than on the loop module.
+import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.profile_processing as profile_processing
 
 
 class _Logger:
@@ -132,6 +135,7 @@ class Runner(FollowerDirectWorkflowMixin):
         self.processed_calls = []
         self.escaped = 0
         self.empty_screen_calls = 0
+        self.end_detection_args = ()
 
     # -- collaborators the loop calls, all stubbed to a scripted outcome ------
     def _maybe_take_break(self): return False
@@ -166,6 +170,7 @@ class Runner(FollowerDirectWorkflowMixin):
     def _record_restriction_signal(self, **k): pass
 
     def _handle_scroll_and_end_detection(self, *a, **k):
+        self.end_detection_args = a
         return False, None
 
 
@@ -175,9 +180,11 @@ def isolate(monkeypatch):
     _ScrollDetector.instances.clear()
     monkeypatch.setattr(main_loop, "FollowersTracker", _Tracker)
     monkeypatch.setattr(main_loop, "ScrollEndDetector", _ScrollDetector)
-    monkeypatch.setattr(main_loop.IPCEmitter, "emit_profile_skipped", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(main_loop.IPCEmitter, "emit_action", staticmethod(lambda *a, **k: None))
+    monkeypatch.setattr(profile_processing.IPCEmitter, "emit_profile_skipped",
+                        staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(main_loop, "emit_step", lambda *a, **k: None)
+    monkeypatch.setattr(profile_processing, "emit_step", lambda *a, **k: None)
 
 
 def test_a_plain_run_interacts_with_every_visible_follower():
@@ -334,14 +341,40 @@ def test_an_allowed_private_profile_never_triggers_an_escape():
     assert runner.escaped == 0
 
 
+def test_the_operator_stop_limits_reach_the_end_of_source_rule():
+    """A limit the operator set must arrive where the run decides to stop.
+
+    Found by mutation: resolving the limits from an empty config instead of the real one
+    left every test green while silently ignoring what the operator asked for.
+    """
+    runner = Runner(pages=[["alice"], []])
+    runner.interact_with_followers_direct(
+        "target", max_interactions=1,
+        config={'max_consecutive_known_usernames': 4},
+    )
+
+    # The two limits are the last two positional arguments of the end-of-source rule.
+    assert runner.end_detection_args[-2:] == (4, None), (
+        "the operator's stop limits did not reach _handle_scroll_and_end_detection"
+    )
+
+
+def test_without_a_username_limit_the_legacy_scroll_limit_still_applies():
+    """The historical fallback: 20 fruitless scrolls, and only when nothing else is set."""
+    runner = Runner(pages=[["alice"], []])
+    runner.interact_with_followers_direct("target", max_interactions=1)
+
+    assert runner.end_detection_args[-2:] == (None, 20)
+
+
 def test_already_known_profiles_stay_out_of_the_rejection_buckets(monkeypatch):
     """'Already done' must never be tallied as 'rejected' — it inflates the run's stats."""
     monkeypatch.setattr(
-        main_loop.InstagramWorkflowStateService, "is_profile_skippable",
+        profile_processing.InstagramWorkflowStateService, "is_profile_skippable",
         staticmethod(lambda username, account_id, **k: (True, "already_processed")),
     )
     monkeypatch.setattr(
-        main_loop.InstagramWorkflowStateService, "get_skip_detail",
+        profile_processing.InstagramWorkflowStateService, "get_skip_detail",
         staticmethod(lambda *a, **k: ""),
     )
     runner = Runner(pages=[["alice", "bob"], []])

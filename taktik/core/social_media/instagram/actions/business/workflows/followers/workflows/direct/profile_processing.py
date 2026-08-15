@@ -1,13 +1,80 @@
 """Process a single follower profile: click → extract → filter → interact."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from ......core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.shared.config import resolve_filter_criteria
+from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 
 
 class DirectProfileProcessingMixin:
     """Mixin: _process_single_follower_direct — handle one profile from the followers list."""
+
+    def _skip_if_already_known(
+        self, username, account_id, revisit_policy, stats, tracker,
+        total_usernames_seen, known_usernames_streak,
+    ) -> Tuple[bool, int]:
+        """Should this follower be left alone because we already dealt with them?
+
+        Answers BEFORE any tap, from the database alone: a profile interacted with inside
+        the revisit window, or filtered in a PRIOR session, costs nothing to skip here and
+        a full profile visit to discover later.
+
+        Returns ``(skip, known_streak)``. The streak is returned rather than mutated because
+        it feeds the end-of-source rule — a long run of already-known profiles means this
+        source is worked out — and the caller owns that decision.
+
+        "Already known" is its OWN outcome. It must NOT land in ``stats['skipped']`` or
+        ``stats['filtered']``, which count private/probability skips and this-session quality
+        filters: mixing "we already did this profile" with "we rejected this profile" inflates
+        the run's reject stats and makes them unreadable. Dedicated buckets and a distinct
+        telemetry action (`already_known`) keep them apart everywhere they are tallied.
+        """
+        if not account_id:
+            return False, 0
+
+        try:
+            should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
+                username, account_id,
+                hours_limit=revisit_policy.reinteraction_hours,
+                filtered_max_age_days=revisit_policy.filtered_max_age_days,
+            )
+        except Exception as exc:
+            # A database that cannot answer must not stop the run: treat the profile as
+            # unknown and visit it. Worst case we pay one visit twice.
+            self.logger.warning(f"Error checking @{username}: {exc}")
+            return False, 0
+
+        if not should_skip:
+            return False, 0
+
+        known_usernames_streak += 1
+        if skip_reason == "already_processed":
+            self.logger.debug(f"@{username} already processed in DB, skipping")
+            stats['already_processed'] += 1
+            tracker.log_skipped_from_db(username, "already_processed")
+        elif skip_reason == "already_filtered":
+            self.logger.debug(f"@{username} already filtered in DB, skipping")
+            stats['already_filtered'] += 1
+            tracker.log_skipped_from_db(username, "already_filtered")
+
+        emit_step("follower_decision", action="already_known", target=username,
+                  reason=skip_reason or "db_skip", encounter_order=total_usernames_seen,
+                  source_type="FOLLOWERS", streak=known_usernames_streak)
+
+        # Live visibility (Taktik Agent): surface the pre-click DB skip as a
+        # SkippedProfileCard. Without it the operator sees in-profile filters but never WHY
+        # a profile was skipped before the click. `reason` is the machine token (the front
+        # localizes it); `detail` carries the original filter reason / days since interaction.
+        skip_detail = InstagramWorkflowStateService.get_skip_detail(
+            username, account_id, skip_reason
+        )
+        IPCEmitter.emit_profile_skipped(
+            username, reason=skip_reason or "already in DB", detail=skip_detail
+        )
+        return True, known_usernames_streak
 
     #: Was the profile just VISITED a private one? Read by the main loop to keep its
     #: consecutive-private streak, which is what detects a poisoned head of list.

@@ -5,13 +5,13 @@ from typing import Dict, Any
 
 from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
-from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from ....common.revisit_policy import RevisitPolicy
 from ....common.private_streak_policy import PrivateStreakPolicy
 from ....common.followers_tracker import FollowersTracker
 from ....common.interaction_config import build_interaction_config
+from ....common.stop_limits import resolve_stop_limits
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
 
@@ -57,16 +57,11 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
         # an ADB intent to open the target profile.
         deep_link_percentage = config.get('deep_link_percentage', 0)
         force_search_for_target = config.get('force_search_for_target', False)
-        max_consecutive_known_usernames = config.get('max_consecutive_known_usernames')
-        if max_consecutive_known_usernames is not None:
-            max_consecutive_known_usernames = max(1, int(max_consecutive_known_usernames or 1))
 
-        legacy_max_no_new_usernames_scrolls = config.get('max_no_new_usernames_scrolls')
-        if legacy_max_no_new_usernames_scrolls is not None:
-            legacy_max_no_new_usernames_scrolls = max(1, int(legacy_max_no_new_usernames_scrolls or 1))
-        elif max_consecutive_known_usernames is None:
-            legacy_max_no_new_usernames_scrolls = 20
-        
+        stop_limits = resolve_stop_limits(config)
+        max_consecutive_known_usernames = stop_limits.max_consecutive_known_usernames
+        legacy_max_no_new_usernames_scrolls = stop_limits.legacy_max_no_new_usernames_scrolls
+
         try:
             # 1. Navigate to the target profile and open the list
             target_followers_count, profile_info = self._setup_direct_workflow(
@@ -237,56 +232,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     new_usernames_found += 1
                     total_usernames_seen += 1
                     
-                    # Vérifier si déjà traité OU filtré via DB
-                    if account_id:
-                        try:
-                            should_skip, skip_reason = InstagramWorkflowStateService.is_profile_skippable(
-                                username, account_id,
-                                hours_limit=revisit_policy.reinteraction_hours,
-                                filtered_max_age_days=revisit_policy.filtered_max_age_days,
-                            )
-                            if should_skip:
-                                known_usernames_streak += 1
-                                # "Already known" is its OWN outcome — a follower we deliberately leave
-                                # alone (60-day cooldown = already interacted) or one already filtered
-                                # in a PRIOR session. It is NOT a this-session rejection, so it must NOT
-                                # land in stats['skipped'] / stats['filtered'] (which count private /
-                                # probability skips and this-session quality filters) — that would
-                                # inflate the run's reject stats and mix "we already did this profile"
-                                # with "we rejected this profile". Dedicated buckets + a distinct
-                                # telemetry action (`already_known`) keep it separate everywhere it is
-                                # tallied; the reason token still feeds the per-reason breakdown.
-                                if skip_reason == "already_processed":
-                                    self.logger.debug(f"@{username} already processed in DB, skipping")
-                                    stats['already_processed'] += 1
-                                    tracker.log_skipped_from_db(username, "already_processed")
-                                elif skip_reason == "already_filtered":
-                                    self.logger.debug(f"@{username} already filtered in DB, skipping")
-                                    stats['already_filtered'] += 1
-                                    tracker.log_skipped_from_db(username, "already_filtered")
-                                emit_step("follower_decision", action="already_known", target=username,
-                                          reason=skip_reason or "db_skip", encounter_order=total_usernames_seen,
-                                          source_type="FOLLOWERS", streak=known_usernames_streak)
-                                # Live visibility (Taktik Agent): surface the pre-click DB skip as a
-                                # SkippedProfileCard. Until now this reason (60-day cooldown /
-                                # already-filtered) only went to local trace + aggregate telemetry, so
-                                # the user saw in-profile filters but never WHY a profile was skipped
-                                # before the click. reason is the machine token (front localizes it);
-                                # detail adds the original filter reason / days-since-interaction.
-                                skip_detail = InstagramWorkflowStateService.get_skip_detail(
-                                    username, account_id, skip_reason
-                                )
-                                IPCEmitter.emit_profile_skipped(
-                                    username, reason=skip_reason or "already in DB", detail=skip_detail
-                                )
-                                continue
-                            known_usernames_streak = 0
-                        except Exception as e:
-                            self.logger.warning(f"Error checking @{username}: {e}")
-                            known_usernames_streak = 0
-                    else:
-                        known_usernames_streak = 0
-                    
+                    # Already interacted with, or filtered in a PRIOR session?
+                    already_known, known_usernames_streak = self._skip_if_already_known(
+                        username, account_id, revisit_policy, stats, tracker,
+                        total_usernames_seen, known_usernames_streak,
+                    )
+                    if already_known:
+                        continue
+
                     new_profiles_to_interact += 1
                     
                     # Remember the context BEFORE tapping
