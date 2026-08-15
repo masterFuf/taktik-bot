@@ -54,6 +54,7 @@ from .dump_parsing import (
 _EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "comment_like"}
 from .row_layout import parse_bounds
 from .suggestions_flow import NotificationSuggestionsMixin
+from taktik.core.shared.device.wait import find_element
 from taktik.core.shared.behavior.tap import (
     tap_element_human,
     sample_tap_point,
@@ -123,14 +124,7 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     # Low-level UI helpers
     # ------------------------------------------------------------------
     def _find_element(self, selectors: List[str]):
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element
-            except Exception:
-                continue
-        return None
+        return find_element(self.device, selectors)
 
     def _element_exists(self, selectors: List[str]) -> bool:
         return self._find_element(selectors) is not None

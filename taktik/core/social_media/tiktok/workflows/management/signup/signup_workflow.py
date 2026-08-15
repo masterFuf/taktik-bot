@@ -34,6 +34,7 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
 )
 from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
 from taktik.core.social_media.tiktok.workflows.runtime.notifier import create_workflow_notifier_context
+from taktik.core.shared.device.wait import wait_for_element
 
 
 _NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context("tiktok_signup_notifier")
@@ -306,14 +307,7 @@ class TikTokSignupWorkflow:
 
     def _find_element(self, selectors: list, timeout: float = 5.0):
         """Try each XPath selector and return the first matching element."""
-        for xpath in selectors:
-            try:
-                el = self.device.xpath(xpath)
-                if el.wait(timeout=timeout):
-                    return el
-            except Exception:
-                continue
-        return None
+        return wait_for_element(self.device, selectors, timeout)
 
     def _click_selector(self, selectors: list, timeout: float = 5.0) -> bool:
         el = self._find_element(selectors, timeout)

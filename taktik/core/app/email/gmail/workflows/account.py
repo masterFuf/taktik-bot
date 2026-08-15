@@ -40,6 +40,7 @@ from functools import wraps
 from typing import Optional, Protocol
 
 from loguru import logger
+from taktik.core.shared.device.wait import wait_for_element
 from taktik.core.app.email.gmail.ui.selectors import (
     GMAIL_SWITCHER_SELECTORS,
     GMAIL_SETUP_SELECTORS,
@@ -1450,14 +1451,7 @@ class GmailWorkflow:
 
     def _find_element(self, selectors: list, timeout: float = _EXIST_TIMEOUT):
         """Try each XPath selector and return the first matching element."""
-        for xpath in selectors:
-            try:
-                el = self.device.xpath(xpath)
-                if el.wait(timeout=timeout):
-                    return el
-            except Exception:
-                continue
-        return None
+        return wait_for_element(self.device, selectors, timeout)
 
     def _click_selector(self, selectors: list, timeout: float = _EXIST_TIMEOUT) -> bool:
         el = self._find_element(selectors, timeout)

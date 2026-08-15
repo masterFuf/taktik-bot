@@ -4,6 +4,7 @@ from typing import Optional
 from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.device.wait import find_element
 from ..common.detection import is_reel_post, is_likers_popup_open
 from ...ui.selectors.shell.popups import POPUP_SELECTORS
 from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
@@ -33,14 +34,7 @@ class UIHelpers:
     
     def _find_element(self, selectors: list) -> object:
         """Find first matching element from a list of xpath selectors."""
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element
-            except Exception:
-                continue
-        return None
+        return find_element(self.device, selectors)
     
     def _element_exists(self, selectors: list) -> bool:
         """Check if any element from selectors exists."""

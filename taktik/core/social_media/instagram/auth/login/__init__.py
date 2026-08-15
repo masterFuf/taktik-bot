@@ -26,6 +26,7 @@ from .credentials import CredentialsMixin
 from .result_detection import ResultDetectionMixin
 from .popups import LoginPopupsMixin
 from ..session import SessionManager
+from taktik.core.shared.device.wait import find_element
 
 
 class InstagramLogin(
@@ -63,14 +64,7 @@ class InstagramLogin(
     
     def _find_element(self, selectors: list) -> object:
         """Find first matching element from a list of xpath selectors."""
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element
-            except Exception:
-                continue
-        return None
+        return find_element(self.device, selectors)
     
     def _click_first_match(self, selectors: list, element_name: str) -> bool:
         """Click first matching element from a list of xpath selectors."""

@@ -96,4 +96,45 @@ def try_tap(
         return False
 
 
-__all__ = ["wait_for_any", "try_tap"]
+def find_element(device, selectors: Sequence[str]):
+    """First selector that matches RIGHT NOW, as an element. ``None`` if none match.
+
+    No waiting: this answers "is it on screen already?". Use it when absence is a normal
+    outcome — checking whether a popup is up, picking between two possible screens — where
+    paying a timeout per selector would cost seconds on the common path.
+
+    Returns the xpath handle (not a bool) so the caller can click or read it.
+    """
+    for selector in selectors or []:
+        try:
+            element = device.xpath(selector)
+            if element.exists:
+                return element
+        except Exception:
+            continue
+    return None
+
+
+def wait_for_element(device, selectors: Sequence[str], timeout: float = 5.0):
+    """First selector that appears within ``timeout``, as an element. ``None`` otherwise.
+
+    Use it when the element is EXPECTED and the screen may still be loading (a webview, an
+    OTP mail, a freshly opened settings page).
+
+    Beware the total cost: the deadline is applied PER SELECTOR, so a miss on a list of six
+    costs ``6 * timeout``, not ``timeout``. That is the historical behaviour of every copy
+    of this helper and it is kept deliberately — changing it here would silently retime
+    every auth and signup flow. When a bounded TOTAL wait is what you want, use
+    :func:`wait_for_any`, which scans all selectors inside one deadline.
+    """
+    for selector in selectors or []:
+        try:
+            element = device.xpath(selector)
+            if element.wait(timeout=timeout):
+                return element
+        except Exception:
+            continue
+    return None
+
+
+__all__ = ["wait_for_any", "try_tap", "find_element", "wait_for_element"]

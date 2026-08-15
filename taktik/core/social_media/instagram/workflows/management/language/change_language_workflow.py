@@ -27,6 +27,7 @@ from ....ui.selectors.shell.auth import AUTH_SELECTORS
 from ....ui.selectors.flows.settings import SETTINGS_SELECTORS, APP_LANGUAGE_NATIVE_NAMES
 from ....ui.language import detect_and_optimize
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.device.wait import find_element
 
 
 StepNotifier = Callable[..., None]
@@ -59,14 +60,7 @@ class ChangeLanguageWorkflow:
     # Low-level UI helpers (mirror InstagramLogout)
     # ------------------------------------------------------------------
     def _find_element(self, selectors: list):
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element
-            except Exception:
-                continue
-        return None
+        return find_element(self.device, selectors)
 
     def _click_first_match(self, selectors: list, name: str) -> bool:
         element = self._find_element(selectors)

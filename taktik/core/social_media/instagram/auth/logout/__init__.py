@@ -19,6 +19,7 @@ from ...actions.atomic.detection import DetectionActions
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 
 from .models import LogoutResult
+from taktik.core.shared.device.wait import find_element
 
 
 class InstagramLogout:
@@ -38,14 +39,7 @@ class InstagramLogout:
     # ------------------------------------------------------------------
     def _find_element(self, selectors: list):
         """Find first matching element from a list of xpath selectors."""
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element
-            except Exception:
-                continue
-        return None
+        return find_element(self.device, selectors)
 
     def _click_first_match(self, selectors: list, element_name: str) -> bool:
         """Click first matching element from a list of xpath selectors."""
