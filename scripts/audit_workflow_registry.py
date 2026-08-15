@@ -12,16 +12,35 @@ import re
 from pathlib import Path
 
 
+# ROOT is the folder holding the three sibling repositories (core, app, docs).
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST_PATH = ROOT / "bot" / "workflows.manifest.json"
-TS_REGISTRY_PATH = ROOT / "front" / "electron" / "services" / "app" / "workflows" / "registry" / "workflow-registry.ts"
-RENDERER_TYPES_PATH = ROOT / "front" / "src" / "app" / "types" / "workflow.types.ts"
+MANIFEST_PATH = ROOT / "core" / "workflows.manifest.json"
+TS_REGISTRY_PATH = ROOT / "app" / "electron" / "services" / "app" / "workflows" / "registry" / "workflow-registry.ts"
+RENDERER_TYPES_PATH = ROOT / "app" / "src" / "app" / "types" / "workflow.types.ts"
 
 TS_ARRAY_RE = re.compile(
     r"export const (?P<name>[A-Z0-9_]+) = \[(?P<body>.*?)\] as const",
     re.S,
 )
 TS_STRING_RE = re.compile(r"'([^']+)'")
+
+
+def strip_ts_comments(body: str) -> str:
+    """Drop TS comments from an array body before reading its string literals.
+
+    A prose comment inside the array carries apostrophes ("the hub's live-stats grid"),
+    and each one opens a bogus string literal for TS_STRING_RE — which used to turn a
+    perfectly aligned array into a mismatch full of comment fragments. Comments are
+    stripped first so the audit compares workflow names, not prose.
+    """
+    while "/*" in body and "*/" in body:
+        start = body.index("/*")
+        body = body[:start] + body[body.index("*/", start) + 2:]
+    kept = []
+    for line in body.splitlines():
+        marker = line.find("//")
+        kept.append(line if marker == -1 else line[:marker])
+    return "\n".join(kept)
 
 CHECKS = {
     "INSTAGRAM_AUTOMATION_WORKFLOWS": ("instagram", "automation"),
@@ -42,10 +61,14 @@ def load_ts_arrays() -> dict[str, list[str]]:
     text = TS_REGISTRY_PATH.read_text(encoding="utf-8-sig")
     arrays: dict[str, list[str]] = {}
     for match in TS_ARRAY_RE.finditer(text):
-        arrays[match.group("name")] = TS_STRING_RE.findall(match.group("body"))
+        arrays[match.group("name")] = TS_STRING_RE.findall(
+            strip_ts_comments(match.group("body"))
+        )
     renderer_text = RENDERER_TYPES_PATH.read_text(encoding="utf-8-sig")
     for match in TS_ARRAY_RE.finditer(renderer_text):
-        arrays[match.group("name")] = TS_STRING_RE.findall(match.group("body"))
+        arrays[match.group("name")] = TS_STRING_RE.findall(
+            strip_ts_comments(match.group("body"))
+        )
     return arrays
 
 

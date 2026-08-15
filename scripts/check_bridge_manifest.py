@@ -14,11 +14,12 @@ import sys
 from pathlib import Path
 
 
+# ROOT is the folder holding the three sibling repositories (core, app, docs).
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST_PATH = ROOT / "bot" / "bridges" / "bridges.manifest.json"
-LAUNCHER_PATH = ROOT / "bot" / "bridges" / "launcher.py"
-FRONT_PATHS_PATH = ROOT / "front" / "electron" / "utils" / "paths.ts"
-BOT_PATH = ROOT / "bot"
+MANIFEST_PATH = ROOT / "core" / "bridges" / "bridges.manifest.json"
+LAUNCHER_PATH = ROOT / "core" / "bridges" / "launcher.py"
+FRONT_PATHS_PATH = ROOT / "app" / "electron" / "utils" / "paths.ts"
+BOT_PATH = ROOT / "core"
 
 if str(BOT_PATH) not in sys.path:
     sys.path.insert(0, str(BOT_PATH))
