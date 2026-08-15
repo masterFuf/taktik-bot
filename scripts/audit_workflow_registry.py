@@ -89,15 +89,24 @@ def main() -> int:
                 f"expected={expected}, actual={actual}"
             )
 
+    # SESSION_WORKFLOW_TYPES is checked by INCLUSION, not equality. Every panel workflow
+    # must have a session type — a panel without one records its runs as 'other', which is
+    # how a whole workflow disappears from the session history. But the reverse does not
+    # hold: the unified registry also carries session families that are not panels
+    # ('scraping', 'publish', 'account'), documented in
+    # docs/technical/unified-active-session-registry-spec.md. Demanding equality here made
+    # the audit fail on a deliberate design, which is how an audit stops being read.
     expected_session_workflows = (
         manifest["instagram"]["panel"]
         + manifest["tiktok"]["panel"]
     )
-    actual_session_workflows = ts_arrays.get("SESSION_WORKFLOW_TYPES")
-    if actual_session_workflows != expected_session_workflows:
+    actual_session_workflows = ts_arrays.get("SESSION_WORKFLOW_TYPES") or []
+    missing_sessions = [w for w in expected_session_workflows
+                        if w not in actual_session_workflows]
+    if missing_sessions:
         errors.append(
-            "SESSION_WORKFLOW_TYPES differs from manifest instagram.panel + tiktok.panel: "
-            f"expected={expected_session_workflows}, actual={actual_session_workflows}"
+            "SESSION_WORKFLOW_TYPES is missing panel workflows declared in the manifest "
+            f"(instagram.panel + tiktok.panel): {missing_sessions}"
         )
 
     expected_tiktok_live_panel = manifest["tiktok"]["live_panel"]
