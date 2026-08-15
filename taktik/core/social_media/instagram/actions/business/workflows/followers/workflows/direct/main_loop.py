@@ -321,36 +321,13 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 # was handed to this account rather than in a private-heavy source. Transport
                 # past it instead of spending the whole session budget there.
                 if private_streak_policy.should_escape(private_streak, private_zone_jumps):
-                    emit_step("private_zone_escape", action="transport_start",
-                              streak=private_streak, jump=private_zone_jumps + 1,
-                              source_type="FOLLOWERS", target=target_username)
-                    IPCEmitter.emit_action('private_zone_escape', target_username, {
-                        'streak': private_streak,
-                        'jump': private_zone_jumps + 1,
-                        'max_jumps': private_streak_policy.max_jumps,
-                        'source_followers': target_followers_count,
-                    })
-
-                    moved = self._escape_private_zone(
-                        private_streak_policy, private_zone_jumps, target_followers_count
+                    moved = self._transport_out_of_private_zone(
+                        private_streak_policy, private_streak, private_zone_jumps,
+                        target_username, target_followers_count,
+                        account_username, total_usernames_seen, tracker,
                     )
                     private_zone_jumps += 1
                     scroll_attempts += moved
-
-                    # Persist the DETECTION, not just the reaction. This reordering is the only
-                    # observable symptom we have of Instagram flagging the account, so each
-                    # occurrence is a dated measurement of that account's standing: since when,
-                    # how often, on which sources — and when it STOPS, which reads as detections
-                    # ceasing on runs that used to produce them.
-                    self._record_restriction_signal(
-                        account_username=account_username,
-                        source_name=target_username,
-                        source_followers=target_followers_count,
-                        streak=private_streak_policy.threshold,
-                        encounter_order=total_usernames_seen,
-                        jump_index=private_zone_jumps,
-                        gestures=moved,
-                    )
 
                     # The four gates that would otherwise read a deliberate transport as a fault.
                     # Missing any one of them turns the rescue into the thing that ends the run:
@@ -364,11 +341,6 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     consecutive_top_loops = 0
                     known_usernames_streak = 0
                     scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
-
-                    tracker.log_scroll("private_zone_transport")
-                    emit_step("private_zone_escape", action="transport_done",
-                              gestures=moved, jump=private_zone_jumps,
-                              source_type="FOLLOWERS", target=target_username)
                     continue
 
                 # Notify the scroll-end detector ONLY when the visible page is exhausted

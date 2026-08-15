@@ -26,6 +26,8 @@ import taktik.core.social_media.instagram.actions.business.workflows.followers.w
 # The "already known" decision lives with the profile-processing mixin, so its collaborators
 # (database service, IPC) are patched there rather than on the loop module.
 import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.profile_processing as profile_processing
+# The transport out of a private zone lives with the navigation mixin, and emits from there.
+import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers as navigation_helpers
 
 
 class _Logger:
@@ -202,6 +204,7 @@ def isolate(monkeypatch):
                         staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(main_loop, "emit_step", lambda *a, **k: None)
     monkeypatch.setattr(profile_processing, "emit_step", lambda *a, **k: None)
+    monkeypatch.setattr(navigation_helpers, "emit_step", lambda *a, **k: None)
 
 
 def test_a_plain_run_interacts_with_every_visible_follower():
@@ -291,6 +294,40 @@ def test_scattered_empty_scans_do_not_add_up_into_a_false_stop():
         "scattered empty scans were counted as a run of four"
     )
     assert stats['interacted'] == 4
+
+
+def test_scattered_returns_to_the_top_do_not_add_up_into_a_false_stop():
+    """Only CONSECUTIVE re-tops end the run.
+
+    A back or a recovery lands at the top of the list now and then over a long session.
+    If the counter never clears on a normal scan, those scattered landings accumulate,
+    reach the ceiling of eight, and stop a run that was working perfectly well.
+    """
+    class _AlternatingTracker(_Tracker):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self.calls = 0
+
+        def log_visible_followers(self, usernames, kind):
+            self.calls += 1
+            return self.calls % 2 == 1  # every other scan lands back at the top
+
+    import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as ml
+    original = ml.FollowersTracker
+    ml.FollowersTracker = _AlternatingTracker
+    try:
+        # Every re-top spends three scroll-pasts, so the list has to be long enough for the
+        # run to still be working after more than eight scattered landings — a shorter one
+        # would run dry before reaching the point being tested.
+        runner = Runner(pages=[[f"user{i}"] for i in range(80)])
+        stats = runner.interact_with_followers_direct("target", max_interactions=12)
+    finally:
+        ml.FollowersTracker = original
+
+    assert stats['interacted'] == 12, (
+        "scattered returns to the top were counted as a consecutive run of eight, "
+        "so the session stopped while the list was still giving followers"
+    )
 
 
 def test_a_list_stuck_at_the_top_does_eventually_end_the_run():
@@ -596,6 +633,47 @@ def test_a_source_that_stays_private_is_given_up_on_not_flung_forever():
         f"{runner.escaped} transports for five private zones — expected exactly the three "
         "max_jumps allows, so the counter advances by one and the ceiling is reached"
     )
+
+
+def test_the_transport_reports_the_gestures_it_actually_spent():
+    """The seam between the loop and the transport: the loop bills its scroll budget with
+    what comes back, so a transport that under-reports lets a run fling well past its cap.
+
+    Tested directly rather than through the loop, because the budget is a local counter
+    whose only visible effect is a stop hundreds of gestures later.
+    """
+    from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers import (
+        DirectNavigationMixin,
+    )
+
+    class _Transporter(DirectNavigationMixin):
+        def __init__(self):
+            self.logger = _Logger()
+            self.flung_with = None
+
+        def _escape_private_zone(self, policy, jumps_done, source_followers=None):
+            self.flung_with = (jumps_done, source_followers)
+            return 7
+
+        def _record_restriction_signal(self, **k):
+            self.recorded = k
+
+    from taktik.core.social_media.instagram.actions.business.workflows.common.private_streak_policy import (
+        PrivateStreakPolicy,
+    )
+
+    transporter = _Transporter()
+    moved = transporter._transport_out_of_private_zone(
+        PrivateStreakPolicy(), private_streak=5, jumps_done=1,
+        target_username="source", source_followers=900,
+        account_username="me", encounter_order=42, tracker=_Tracker(),
+    )
+
+    assert moved == 7, "the loop would bill its scroll budget with the wrong number"
+    assert transporter.flung_with == (1, 900), "the fling was not sized on the jump so far"
+    # The recorded detection is dated by jump INDEX, which is the jump about to happen.
+    assert transporter.recorded['jump_index'] == 2
+    assert transporter.recorded['gestures'] == 7
 
 
 def test_an_allowed_private_profile_never_triggers_an_escape():

@@ -4,6 +4,9 @@ import time
 import json
 from typing import Dict, Any, Optional
 
+from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+
 
 class DirectNavigationMixin:
     """Mixin: setup, recovery, empty screen handling, scroll/end detection."""
@@ -64,6 +67,53 @@ class DirectNavigationMixin:
             )
         except Exception as exc:  # noqa: BLE001
             self.logger.debug(f"Could not persist restriction signal: {exc}")
+
+    def _transport_out_of_private_zone(self, policy, private_streak, jumps_done,
+                                       target_username, source_followers,
+                                       account_username, encounter_order, tracker) -> int:
+        """Announce, fling, and record one escape out of a private zone.
+
+        Everything the transport DOES lives here; what the loop must forget afterwards
+        stays with the loop, because those resets are the fragile half and belong where a
+        reader of the loop can see them.
+
+        The detection is persisted, not just reacted to: this reordering is the only
+        observable symptom we have of Instagram flagging the account, so each occurrence is
+        a dated measurement of that account's standing — since when, how often, on which
+        sources, and when it STOPS, which reads as detections ceasing on runs that used to
+        produce them.
+
+        Returns the number of gestures that actually moved the list, which the caller adds
+        to its scroll budget.
+        """
+        jump = jumps_done + 1
+        emit_step("private_zone_escape", action="transport_start",
+                  streak=private_streak, jump=jump,
+                  source_type="FOLLOWERS", target=target_username)
+        IPCEmitter.emit_action('private_zone_escape', target_username, {
+            'streak': private_streak,
+            'jump': jump,
+            'max_jumps': policy.max_jumps,
+            'source_followers': source_followers,
+        })
+
+        moved = self._escape_private_zone(policy, jumps_done, source_followers)
+
+        self._record_restriction_signal(
+            account_username=account_username,
+            source_name=target_username,
+            source_followers=source_followers,
+            streak=policy.threshold,
+            encounter_order=encounter_order,
+            jump_index=jump,
+            gestures=moved,
+        )
+
+        tracker.log_scroll("private_zone_transport")
+        emit_step("private_zone_escape", action="transport_done",
+                  gestures=moved, jump=jump,
+                  source_type="FOLLOWERS", target=target_username)
+        return moved
 
     def _escape_private_zone(self, policy, jumps_done, source_followers=None):
         """Transport the list past a run of private profiles. Returns the gestures that
