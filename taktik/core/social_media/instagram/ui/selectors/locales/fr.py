@@ -903,6 +903,23 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Ne plus suivre\")]",
         "//android.widget.Button[contains(@text, \"Ne plus suivre\")]",
     ],
+    # --- text ---
+    # Bare labels that a username extractor can pick up by mistake when it reads the
+    # wrong node: the row shows "Suivre" or "J'aime", not a handle. Compared through
+    # `normalize_ui_label` (apostrophe shapes folded), so the straight form is enough.
+    "text.not_a_username": [
+        "J'aime",
+        "Je n'aime plus",
+        "Commentaire",
+        "Commentaires",
+        "Vues",
+        "Suivre",
+        "Suivi(e)",
+        "Abonné",
+        "Abonnés",
+        "Abonnements",
+        "Partager",
+    ],
     # --- watchdog ---
     "watchdog.ok_button_texts": [
         "Fermer",

@@ -3,6 +3,9 @@ import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.actions.utils import ActionUtils
+from .labels import is_ui_label
+
 log = logger.bind(module="instagram-ui-extractors")
 
 
@@ -437,17 +440,21 @@ class InstagramUIExtractors:
             return None
     
     def is_valid_username(self, username: str) -> bool:
-        if not username or len(username) < 1 or len(username) > 30:
+        """True when `username` is a plausible handle and not an interface label.
+
+        Shape is delegated to the shared validator (Instagram bounds 1-30) so this
+        extractor cannot drift from the rest of the bot: the local copy used to reject
+        handles legitimately starting with `_` or `.` and to accept the `..` sequence
+        Instagram forbids.
+
+        The label guard goes through `is_ui_label`, which compares against the locale
+        catalogues with both sides folded. The list used to live here as raw text with an
+        ASCII apostrophe, so "j'aime" never matched the "J'aime" the phone renders (U+2019)
+        and the label sailed through as a username — silently, and only in French.
+        """
+        if not ActionUtils.is_valid_username(username, min_length=1, max_length=30):
             return False
-        
-        if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._]*$', username):
-            return False
-        
-        ui_texts = ['j\'aime', 'likes', 'vues', 'views', 'abonné', 'suivre', 'follow']
-        if username.lower() in ui_texts:
-            return False
-        
-        return True
+        return not is_ui_label(username)
     
     def scroll_likers_popup_up(
         self,

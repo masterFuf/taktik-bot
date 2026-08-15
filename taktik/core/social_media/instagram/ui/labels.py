@@ -15,6 +15,7 @@ from typing import Iterable, Optional
 
 from ....shared.text import normalize_ui_label
 from .selectors.shell.navigation import BUTTON_SELECTORS
+from .selectors.support.text_reading import TEXT_READING_SELECTORS
 
 
 def _matches(text: str, labels: Iterable[str]) -> bool:
@@ -52,3 +53,21 @@ def is_like_button(content_desc: str) -> bool:
 def is_comment_button(content_desc: str) -> bool:
     """True when this action button is the COMMENT one, in any supported language."""
     return classify_action_button(content_desc) == 'comment'
+
+
+def is_ui_label(text: str) -> bool:
+    """True when ``text`` is a bare interface label rather than user content.
+
+    Used by the username extractors: a row's action label ("Suivre", "Like") has the exact
+    shape of a valid handle, so only the word tells them apart. EXACT match on the folded
+    form — a substring test would reject the real account @likes.
+
+    Both sides go through ``normalize_ui_label``: Instagram renders the TYPOGRAPHIC
+    apostrophe in "J'aime" while catalogues are typed with the ASCII one, and comparing
+    them raw never matched — the label passed for a username IN SILENCE.
+    """
+    folded = normalize_ui_label(text)
+    if not folded:
+        return False
+    return any(folded == normalize_ui_label(lbl)
+               for lbl in TEXT_READING_SELECTORS.not_a_username if lbl and lbl.strip())
