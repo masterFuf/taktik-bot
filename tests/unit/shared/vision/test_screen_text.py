@@ -81,7 +81,9 @@ def test_whole_screen_text_operation_has_a_wall_clock_boundary(monkeypatch):
     release.set()
 
     assert matches == []
-    assert elapsed < 0.3
+    # Bounded well below the 10s stall rather than close to the 0.03s budget: a tight
+    # bound measures the machine's scheduling, not the boundary, and goes red under load.
+    assert elapsed < 5.0
 
 
 def test_ocr_resolution_and_execution_stay_inside_bounded_worker(monkeypatch):

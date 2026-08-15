@@ -18,7 +18,12 @@ def test_never_returning_optional_call_cannot_block_the_caller():
 
     assert result.completed is False
     assert result.timed_out is True
-    assert elapsed < 0.3
+    # The invariant is "the caller did NOT wait out the 10s stall", not a precise budget.
+    # A tight bound here measured the machine's thread scheduling rather than the code, and
+    # went red on a loaded PC — which is exactly the machine this bot runs on, with several
+    # devices attached. Half the stall keeps the test discriminating (an unbounded call
+    # takes the full 10s) while ignoring load.
+    assert elapsed < 5.0
 
 
 def test_completed_optional_call_returns_its_value():

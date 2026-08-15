@@ -27,4 +27,6 @@ def test_openrouter_call_has_a_total_wall_clock_deadline(monkeypatch):
 
     assert result["success"] is False
     assert "total deadline" in result["error"]
-    assert elapsed < 0.3
+    # Bounded well below the 10s stall rather than close to the 0.03s deadline: a tight
+    # bound measures the machine's scheduling, not the deadline, and goes red under load.
+    assert elapsed < 5.0
