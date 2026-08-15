@@ -89,18 +89,23 @@ class _Actions:
     the re-scan behaviour these tests exist to pin.
     """
 
-    def __init__(self, pages):
+    def __init__(self, pages, trace=None):
         self.pages = list(pages) or [[]]
         self.index = 0
         self.scrolls = 0
         self.load_more_calls = 0
+        #: Ordered log of what the loop did — 'scan' / 'scroll' / 'escape'. Some fixes are
+        #: about the ORDER of two actions, which a counter cannot express.
+        self.trace = trace if trace is not None else []
 
     def get_visible_followers_with_elements(self):
+        self.trace.append('scan')
         page = self.pages[self.index] if self.index < len(self.pages) else []
         return [{'username': u, 'element': object()} for u in page]
 
     def scroll_followers_list_down(self):
         self.scrolls += 1
+        self.trace.append('scroll')
         if self.index < len(self.pages) - 1:
             self.index += 1
 
@@ -123,7 +128,8 @@ class Runner(FollowerDirectWorkflowMixin):
         self.device = object()
         self.session_manager = None
         self.automation = _Automation()
-        self.detection_actions = _Actions(pages)
+        self.trace = []
+        self.detection_actions = _Actions(pages, trace=self.trace)
         self.scroll_actions = self.detection_actions
         self.stats_manager = _StatsManager()
         self._followers_count = followers_count
@@ -164,13 +170,24 @@ class Runner(FollowerDirectWorkflowMixin):
         return self._ensure_back
 
     def _escape_private_zone(self, policy, jumps, followers_count):
+        """A real transport FLINGS the list, so the fake must move it too.
+
+        Without this the run lands back on the page it just left, every counter the escape
+        resets stays irrelevant, and the tests cannot see what the block left behind.
+        """
         self.escaped += 1
+        self.trace.append('escape')
+        actions = self.detection_actions
+        if actions.index < len(actions.pages) - 1:
+            actions.index += 1
         return 3
 
     def _record_restriction_signal(self, **k): pass
 
     def _handle_scroll_and_end_detection(self, *a, **k):
         self.end_detection_args = a
+        # Position 11 is known_usernames_streak, the two last are the operator limits.
+        self.trace.append(('end_check', a[11]))
         return False, None
 
 
@@ -255,6 +272,53 @@ def test_an_empty_list_ends_the_run_instead_of_scrolling_into_the_void():
     assert runner.empty_screen_calls == 3, "stopped on the 4th empty scan, not later"
 
 
+def test_scattered_empty_scans_do_not_add_up_into_a_false_stop():
+    """Only FOUR IN A ROW mean the list is gone.
+
+    A single empty scan is ordinary — the list is still loading. If the counter never
+    resets when followers come back, four scattered empties across a long run add up and
+    kill a perfectly healthy session.
+    """
+    # Empty, then followers, four times over: four empties in total, never four in a row.
+    # The budget stays above the number of profiles on purpose — a run that stopped on
+    # "enough interactions" would never reach the fourth empty and prove nothing.
+    # Ends on content, not on emptiness: a list that really goes quiet at the end SHOULD
+    # stop the run, and that legitimate stop would mask what this test is looking for.
+    runner = Runner(pages=[[], ["alice"], [], ["bob"], [], ["carol"], [], ["dave"]])
+    stats = runner.interact_with_followers_direct("target", max_interactions=10)
+
+    assert stats['stop_reason'] != 'followers_list_unavailable', (
+        "scattered empty scans were counted as a run of four"
+    )
+    assert stats['interacted'] == 4
+
+
+def test_a_list_stuck_at_the_top_does_eventually_end_the_run():
+    """The other side of the back-at-top fix: scrolling that never advances must stop.
+
+    Without a ceiling the run flings at an unmoving list until the global scroll cap,
+    which is minutes of non-human bursts for nothing.
+    """
+    class _AlwaysLooping(_Tracker):
+        def log_visible_followers(self, usernames, kind):
+            return True  # every scan lands back at the top
+
+    import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as ml
+    original = ml.FollowersTracker
+    ml.FollowersTracker = _AlwaysLooping
+    try:
+        runner = Runner(pages=[["alice"]])
+        runner.interact_with_followers_direct("target", max_interactions=5)
+    finally:
+        ml.FollowersTracker = original
+
+    # 8 detections x 3 scroll-pasts = 24 scrolls, then the run ends. The global cap is 100.
+    assert runner.detection_actions.scrolls <= 30, (
+        f"{runner.detection_actions.scrolls} scrolls on a list that never advances — "
+        "the stuck-at-top ceiling is gone"
+    )
+
+
 def test_lost_navigation_ends_the_whole_run_not_just_the_inner_loop():
     """The fix behind '~7 min of empty scrolls': the flag must break the WHILE too."""
     runner = Runner(pages=[["alice", "bob", "carol"]], process_results=[None])
@@ -322,6 +386,216 @@ def test_a_private_streak_triggers_the_zone_escape(monkeypatch):
     runner.interact_with_followers_direct("target", max_interactions=10)
 
     assert runner.escaped >= 1, "stayed in a zone it was supposed to transport past"
+
+
+def test_the_escape_leaves_the_streak_clean_behind_it():
+    """After transporting, the streak must restart from zero.
+
+    Kept apart from "the escape fires" on purpose: a streak that survives its own rescue
+    re-fires the escape on the very next scan, and the run spends its budget flinging
+    instead of interacting. The page below is exhausted after the jump, so nothing else
+    can reset the streak — only the escape itself can.
+    """
+    runner = Runner(
+        pages=[["p1", "p2", "p3", "p4", "p5"]],
+        process_results=[False] * 5,
+        private_flags=[True] * 5,
+    )
+    runner.interact_with_followers_direct("target", max_interactions=10)
+
+    assert runner.escaped == 1, (
+        f"transported {runner.escaped} times for one private zone — "
+        "the streak or the jump counter did not survive the rescue"
+    )
+
+
+def test_the_number_of_jumps_is_bounded():
+    """A source that stays private must not be flung through forever."""
+    runner = Runner(
+        pages=[["p1", "p2", "p3", "p4", "p5"], ["q1", "q2", "q3", "q4", "q5"],
+               ["r1", "r2", "r3", "r4", "r5"], ["s1", "s2", "s3", "s4", "s5"],
+               ["t1", "t2", "t3", "t4", "t5"]],
+        process_results=[False] * 25,
+        private_flags=[True] * 25,
+    )
+    runner.interact_with_followers_direct("target", max_interactions=30)
+
+    assert runner.escaped <= 3, (
+        f"{runner.escaped} transports — the jump counter is not advancing, "
+        "so max_jumps is never reached"
+    )
+
+
+def test_the_transport_goes_back_to_scanning_not_to_scrolling():
+    """The escape ends with a rescan, never by falling through into the scroll code.
+
+    Falling through would scroll straight after a fling — a second displacement the
+    workflow never decided — and would feed the end-of-scroll detector a page it never
+    really worked.
+    """
+    runner = Runner(
+        pages=[["p1", "p2", "p3", "p4", "p5"]],
+        process_results=[False] * 5,
+        private_flags=[True] * 5,
+    )
+    runner.interact_with_followers_direct("target", max_interactions=10)
+
+    # What matters is the ORDER, not the count: whatever the loop does later, the action
+    # right after a transport must be a rescan.
+    after_escape = [runner.trace[i + 1]
+                    for i, event in enumerate(runner.trace)
+                    if event == 'escape' and i + 1 < len(runner.trace)]
+    assert after_escape, "no transport happened, the scenario is not exercising the escape"
+    assert set(after_escape) == {'scan'}, (
+        f"after a transport the loop did {after_escape} — it fell through into the "
+        "scroll code instead of rescanning where the fling landed"
+    )
+
+
+def test_a_fresh_end_of_scroll_detector_follows_the_jump():
+    """A large jump looks exactly like reaching the bottom to a detector that kept its
+    history, so the transport must hand the loop a new one."""
+    runner = Runner(
+        pages=[["p1", "p2", "p3", "p4", "p5"]],
+        process_results=[False] * 5,
+        private_flags=[True] * 5,
+    )
+    runner.interact_with_followers_direct("target", max_interactions=10)
+
+    assert len(_ScrollDetector.instances) >= 2, (
+        "the detector was not rebuilt after the transport — its pre-jump history "
+        "would read the landing zone as the end of the list"
+    )
+
+
+def test_a_fling_that_outruns_the_loading_does_not_kill_the_run():
+    """The empty-screen gate of the transport, in the exact case it exists for.
+
+    A fling carries the list further than it can render, so the landing scan comes back
+    empty. If the escape does not clear the empty-screen counter, those post-jump empties
+    add to whatever came before and the rescue becomes what ends the run.
+    """
+    runner = Runner(
+        # One private per page — the run scrolls between them, exactly as it does when a
+        # source keeps serving private profiles. Then the landing zone is still loading.
+        pages=[["p1"], ["p2"], ["p3"], ["p4"], ["p5"], [], ["alice", "bob"]],
+        process_results=[False] * 5,
+        private_flags=[True] * 5,
+    )
+    stats = runner.interact_with_followers_direct("target", max_interactions=2)
+
+    assert runner.escaped == 1
+    assert stats['stop_reason'] != 'followers_list_unavailable', (
+        "the run died on the empty scans that followed its own transport"
+    )
+    assert stats['interacted'] == 2, "never reached the profiles past the private zone"
+
+
+def test_the_landing_zone_is_not_read_as_a_loop():
+    """The top-loop gate: the zone the fling landed on is unknown to the anti-loop check,
+    so a detection right after a transport must not sit on a counter left near its ceiling.
+    """
+    state = {'runner': None, 'fired': False}
+
+    class _LoopsAfterTransport(_Tracker):
+        def log_visible_followers(self, usernames, kind):
+            # Fire exactly once, on the first scan that follows the transport.
+            runner = state['runner']
+            if runner and runner.escaped and not state['fired']:
+                state['fired'] = True
+                return True
+            return False
+
+    import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as ml
+    original = ml.FollowersTracker
+    ml.FollowersTracker = _LoopsAfterTransport
+    try:
+        runner = Runner(
+            pages=[["p1"], ["p2"], ["p3"], ["p4"], ["p5"],
+                   ["alice"], ["alice"], ["alice"], ["alice"]],
+            process_results=[False] * 5,
+            private_flags=[True] * 5,
+        )
+        state['runner'] = runner
+        stats = runner.interact_with_followers_direct("target", max_interactions=1)
+    finally:
+        ml.FollowersTracker = original
+
+    assert runner.escaped == 1
+    assert state['fired'], "the loop detection never happened, nothing was exercised"
+    assert stats['interacted'] == 1, (
+        "a single loop detection after the transport ended the run — the top-loop "
+        "counter was not cleared by the escape"
+    )
+
+
+def test_the_known_streak_restarts_after_a_transport():
+    """The known-streak gate: landing in already-worked territory would trip the
+    stop-this-source rule and cancel the benefit of the jump.
+
+    The streak handed to the end-of-source rule right after a transport must be back to
+    zero, whatever it was before the fling.
+    """
+    runner = Runner(
+        pages=[["p1"], ["p2"], ["p3"], ["p4"], ["p5"], ["alice"], []],
+        process_results=[False] * 5,
+        private_flags=[True] * 5,
+    )
+    runner.interact_with_followers_direct(
+        "target", max_interactions=1,
+        config={'max_consecutive_known_usernames': 3},
+    )
+
+    assert runner.escaped == 1
+    # The first end-of-source check AFTER the transport is the one that matters.
+    after = runner.trace[runner.trace.index('escape'):]
+    checks = [event[1] for event in after
+              if isinstance(event, tuple) and event[0] == 'end_check']
+    assert checks, "the end-of-source rule was never consulted after the transport"
+    assert checks[0] == 0, (
+        f"known streak was {checks[0]} on the first check after a transport — the escape "
+        "left the run one step from stopping the source it had just rescued"
+    )
+
+
+def test_a_second_private_zone_is_still_escaped():
+    """The jump counter must advance by ONE: too fast and the second real zone is refused.
+
+    Two separate private zones, each deserving its own transport, well inside max_jumps.
+    """
+    runner = Runner(
+        pages=[["p1"], ["p2"], ["p3"], ["p4"], ["p5"],
+               ["q1"], ["q2"], ["q3"], ["q4"], ["q5"], ["alice"]],
+        process_results=[False] * 10,
+        private_flags=[True] * 10,
+    )
+    runner.interact_with_followers_direct("target", max_interactions=1)
+
+    assert runner.escaped == 2, (
+        f"{runner.escaped} transport(s) for two private zones — the jump counter is not "
+        "advancing by one"
+    )
+
+
+def test_a_source_that_stays_private_is_given_up_on_not_flung_forever():
+    """max_jumps is the ceiling, and reaching it requires the counter to advance by one.
+
+    Five private zones offered, three transports allowed. Without the increment the run
+    would keep flinging at a source that has already proven itself, burning the session
+    budget in gestures instead of moving on.
+    """
+    zones = [[f"z{zone}{i}"] for zone in range(5) for i in range(5)]
+    runner = Runner(
+        pages=zones + [["alice"]],
+        process_results=[False] * 25,
+        private_flags=[True] * 25,
+    )
+    runner.interact_with_followers_direct("target", max_interactions=1)
+
+    assert runner.escaped == 3, (
+        f"{runner.escaped} transports for five private zones — expected exactly the three "
+        "max_jumps allows, so the counter advances by one and the ceiling is reached"
+    )
 
 
 def test_an_allowed_private_profile_never_triggers_an_escape():
