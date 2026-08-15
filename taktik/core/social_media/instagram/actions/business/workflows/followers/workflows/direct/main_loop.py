@@ -11,9 +11,9 @@ from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from ....common.revisit_policy import RevisitPolicy
 from ....common.private_streak_policy import PrivateStreakPolicy
 from ....common.followers_tracker import FollowersTracker
+from ....common.interaction_config import build_interaction_config
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
-from taktik.core.shared.config import resolve_filter_criteria
 
 
 class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessingMixin):
@@ -41,22 +41,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
         
         stats = create_workflow_stats('followers_direct')
         
-        interaction_config = {
-            'like_probability': config.get('like_probability', 0.8),
-            'follow_probability': config.get('follow_probability', 0.2),
-            'comment_probability': config.get('comment_probability', 0.1),
-            'story_probability': config.get('story_probability', 0.2),
-            'story_like_probability': config.get('story_like_probability', 0.0),
-            'min_likes_per_profile': config.get('min_likes_per_profile', 1),
-            'max_likes_per_profile': config.get('max_likes_per_profile', 3),
-            'max_comments_per_profile': config.get('max_comments_per_profile', 1),
-            'max_stories_per_profile': config.get('max_stories_per_profile', 3),
-            'max_story_likes_per_profile': config.get('max_story_likes_per_profile', 1),
-            'ai_decision_mode': config.get('ai_decision_mode'),
-            'ai_decision_dry_run': config.get('ai_decision_dry_run', True),
-            'ai_decision_capabilities': config.get('ai_decision_capabilities'),
-            'filter_criteria': resolve_filter_criteria(config)
-        }
+        interaction_config = build_interaction_config(config)
         # Operator-set revisit delays (how long an interaction / a stored filter keeps a
         # profile off-limits FOR THIS ACCOUNT). Single owner of the semantic.
         revisit_policy = RevisitPolicy.from_filters(interaction_config['filter_criteria'])
