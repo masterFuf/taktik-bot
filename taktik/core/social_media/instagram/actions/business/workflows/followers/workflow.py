@@ -3,6 +3,10 @@
 Single workflow since the deep-link era ended: workflows/direct.py's
 interact_with_followers_direct (click-in-list navigation). Multi-target runs
 distribute the budget at the automation level, one direct run per target.
+
+Also hosts interact_with_profile_list (../profile_list): interacting with a chosen
+list of profiles is the same extract->filter->interact pipeline with a different source
+of usernames, so it is mixed in here rather than duplicating the plumbing elsewhere.
 """
 
 import os
@@ -19,10 +23,12 @@ from .mixins import (
 from .workflows import (
     FollowerDirectWorkflowMixin,
 )
+from ..profile_list import ProfileListWorkflowMixin
 
 
 class FollowerBusiness(
     FollowerDirectWorkflowMixin,
+    ProfileListWorkflowMixin,
     FollowerNavigationMixin,
     FollowerCheckpointsMixin,
     FollowerExtractionMixin,

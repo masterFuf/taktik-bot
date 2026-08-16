@@ -3,6 +3,7 @@
     "automation": [
       "target_followers",
       "target_following",
+      "target_profiles",
       "hashtags",
       "post_url",
       "notifications",

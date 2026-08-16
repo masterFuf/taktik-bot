@@ -23,6 +23,7 @@ from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
 INSTAGRAM_AUTOMATION_WORKFLOW_TYPES = (
     "target_followers",
     "target_following",
+    "target_profiles",
     "hashtags",
     "post_url",
     "notifications",

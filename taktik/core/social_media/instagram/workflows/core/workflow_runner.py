@@ -33,7 +33,10 @@ class WorkflowRunner:
                 
             elif action_type == 'interact_with_followers':
                 return self._run_target_workflow(action)
-                
+
+            elif action_type == 'interact_with_profiles':
+                return self._run_profile_list_workflow(action)
+
             elif action_type == 'hashtag':
                 return self._run_hashtag_workflow(action)
                 
@@ -94,7 +97,28 @@ class WorkflowRunner:
         # Progress signal for the outer loop's no-progress exit (moot for targets today —
         # the driver always finalises — but every runner reports honestly).
         return bool((result or {}).get('processed', 0) > 0)
-    
+
+    def _run_profile_list_workflow(self, action: Dict[str, Any]) -> bool:
+        """Interact with the listed profiles themselves (Target Search selection)."""
+        target_usernames = action.get('target_usernames', [])
+        if not target_usernames and 'target_username' in action:
+            target_usernames = [action.get('target_username')]
+
+        if not target_usernames:
+            self.logger.error("No target_usernames provided for interact_with_profiles")
+            return False
+
+        self.logger.info(f"🎯 Direct mode: interacting with {len(target_usernames)} chosen profiles")
+
+        config = WorkflowConfigBuilder.build_interaction_config(action)
+
+        result = self.automation.interact_with_profiles(
+            target_usernames=target_usernames,
+            max_interactions=action.get('max_interactions', 10),
+            config=config,
+        )
+        return bool((result or {}).get('processed', 0) > 0)
+
     def _run_hashtag_workflow(self, action: Dict[str, Any]) -> bool:
         # `hashtags` (list) is the canonical input; the singular `hashtag` is kept for
         # older payloads — historically it carried a raw comma-joined string, so several

@@ -189,7 +189,48 @@ class InstagramAutomation:
 
         self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
         return all_results
-        
+
+    def interact_with_profiles(self, target_usernames: List[str] = None,
+                               target_username: str = None,
+                               max_interactions: int = 100,
+                               config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Interact with the given profiles THEMSELVES — not with their followers/following.
+
+        Same entry contract as interact_with_followers (the desktop bridge sends one comma-joined
+        list either way), but no budget distribution: the usernames are not sources to split a
+        quota across, they ARE the profiles to visit, one after another.
+        """
+        if not self.active_account_id:
+            self.logger.info("Active account not detected, retrieving current profile...")
+            self.get_profile_info(username=None, save_to_db=True)
+
+        if not self.active_account_id:
+            self.logger.error("Cannot get or create active Instagram account")
+            return {}
+
+        if target_usernames is None:
+            target_usernames = [target_username] if target_username else []
+
+        if not target_usernames:
+            self.logger.error("No profile(s) provided")
+            return {}
+
+        # finalize=False: this driver owns the single finalisation, like the followers one.
+        result = self.actions.follower_business.interact_with_profile_list(
+            usernames=target_usernames,
+            max_interactions=max_interactions,
+            config=config,
+            account_id=self.active_account_id,
+            finalize=False,
+        )
+
+        if not getattr(self, 'session_finalized', False):
+            reason = result.get('stop_reason') or f"Workflow completed ({result.get('interacted', 0)} interactions)"
+            self._finalize_session(status='COMPLETED', reason=reason)
+
+        return result
+
     def get_profile_info(self, username: Optional[str] = None, save_to_db: bool = False, log_result: bool = True) -> Dict[str, Any]:
         from taktik.core.database import get_db_service
         

@@ -13,6 +13,7 @@ from ...actions.business.workflows.common.distribution import normalize_distribu
 SUPPORTED_WORKFLOW_TYPES = (
     "target_followers",
     "target_following",
+    "target_profiles",
     "hashtags",
     "post_url",
     "unfollow",
@@ -20,6 +21,9 @@ SUPPORTED_WORKFLOW_TYPES = (
     "sync_followers_following",
     "feed",
 )
+
+#: Actions whose payload carries a list of ACCOUNT usernames (vs hashtags / post urls).
+_TARGET_ACTIONS = ("interact_with_followers", "interact_with_profiles")
 
 
 def _build_action_config(
@@ -131,8 +135,10 @@ def _build_action_config(
 
     action_config: Dict[str, Any] = {
         "type": action_type,
-        "target_username": primary_target if action_type == "interact_with_followers" else None,
-        "target_usernames": target_list if action_type == "interact_with_followers" else [],
+        # Both target actions read these keys: interact_with_followers treats the list as
+        # SOURCES (open each one's followers), interact_with_profiles as the profiles to visit.
+        "target_username": primary_target if action_type in _TARGET_ACTIONS else None,
+        "target_usernames": target_list if action_type in _TARGET_ACTIONS else [],
         # Singular keys carry the FIRST entry (back-compat readers); the plural lists are
         # what the multi-source runners iterate. `target` used to go through raw for
         # hashtags, so several hashtags reached the bot as one comma-joined string and
@@ -326,6 +332,13 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     elif workflow_type == "target_following":
         interaction_type = "following"
         action_type = "interact_with_followers"
+        session_workflow_type = "target_followers"
+    elif workflow_type == "target_profiles":
+        # The targets are the PROFILES to interact with, not sources whose lists we open.
+        # Same session_workflow_type as the other two: for the session registry, the live
+        # panel and the stats this IS a target run — only the source of usernames differs.
+        interaction_type = "profiles"
+        action_type = "interact_with_profiles"
         session_workflow_type = "target_followers"
     elif workflow_type == "hashtags":
         interaction_type = "hashtag"
