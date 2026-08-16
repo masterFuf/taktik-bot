@@ -5,7 +5,7 @@ replies / DMs, injected by the desktop app on the persona) into a few-shot voice
 block. It must stay a no-op when absent/garbage so the open-source bot works standalone.
 """
 
-from taktik.core.app.ai.providers.openrouter import _build_style_block
+from taktik.core.app.ai.comments.generation import _build_style_block
 
 
 def test_empty_when_absent_or_garbage():
