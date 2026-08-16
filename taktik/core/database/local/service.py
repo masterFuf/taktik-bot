@@ -26,6 +26,7 @@ from ..repositories import (
     StatsRepository,
     TikTokRepository
 )
+from ..repositories.instagram.hashtag import ProcessedHashtagPostRepository
 from ..repositories._base.base_repository import BaseRepository
 
 # Convenience alias for redacting sensitive keys before DB storage
@@ -148,7 +149,13 @@ class LocalDatabaseService:
         self._account_restrictions = AccountRestrictionRepository(conn, orm)
         self._stats = StatsRepository(conn, orm)
         self._tiktok = TikTokRepository(conn, orm)
+        self._processed_hashtag_posts = ProcessedHashtagPostRepository(conn, orm)
     
+    @property
+    def processed_hashtag_posts(self) -> ProcessedHashtagPostRepository:
+        """Which hashtag posts this account already worked."""
+        return self._processed_hashtag_posts
+
     # Repository accessors for new code
     @property
     def accounts(self) -> AccountRepository:
@@ -945,35 +952,13 @@ class LocalDatabaseService:
         Returns:
             True if post was already processed
         """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            # Build query based on available data
-            if post_caption_hash:
-                cursor.execute("""
-                    SELECT id FROM processed_hashtag_posts
-                    WHERE account_id = ? 
-                    AND hashtag = ? 
-                    AND post_author = ?
-                    AND post_caption_hash = ?
-                    AND processed_at >= datetime('now', '-' || ? || ' hours')
-                """, (account_id, hashtag.lower().strip('#'), post_author, post_caption_hash, hours_limit))
-            else:
-                # Without caption hash, just check author + hashtag
-                cursor.execute("""
-                    SELECT id FROM processed_hashtag_posts
-                    WHERE account_id = ? 
-                    AND hashtag = ? 
-                    AND post_author = ?
-                    AND processed_at >= datetime('now', '-' || ? || ' hours')
-                """, (account_id, hashtag.lower().strip('#'), post_author, hours_limit))
-            
-            return cursor.fetchone() is not None
-            
-        except Exception as e:
-            logger.error(f"Error checking processed hashtag post: {e}")
-            return False
+        return self._processed_hashtag_posts.is_processed(
+            account_id=account_id,
+            hashtag=hashtag,
+            post_author=post_author,
+            post_caption_hash=post_caption_hash,
+            hours_limit=hours_limit,
+        )
     
     def record_processed_hashtag_post(
         self,
@@ -1004,34 +989,17 @@ class LocalDatabaseService:
         Returns:
             True if recorded successfully
         """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT OR REPLACE INTO processed_hashtag_posts 
-                (account_id, hashtag, post_author, post_caption_hash, post_caption_preview,
-                 likes_count, comments_count, likers_processed, interactions_made, processed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            """, (
-                account_id,
-                hashtag.lower().strip('#'),
-                post_author,
-                post_caption_hash,
-                post_caption_preview[:100] if post_caption_preview else None,
-                likes_count,
-                comments_count,
-                likers_processed,
-                interactions_made
-            ))
-            conn.commit()
-            
-            logger.debug(f"Recorded processed hashtag post: #{hashtag} by @{post_author}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error recording processed hashtag post: {e}")
-            return False
+        return self._processed_hashtag_posts.record(
+            account_id=account_id,
+            hashtag=hashtag,
+            post_author=post_author,
+            post_caption_hash=post_caption_hash,
+            post_caption_preview=post_caption_preview,
+            likes_count=likes_count,
+            comments_count=comments_count,
+            likers_processed=likers_processed,
+            interactions_made=interactions_made,
+        )
     
     def get_processed_hashtag_posts(
         self,
@@ -1040,28 +1008,9 @@ class LocalDatabaseService:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get list of processed hashtag posts for an account."""
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            if hashtag:
-                cursor.execute("""
-                    SELECT * FROM processed_hashtag_posts
-                    WHERE account_id = ? AND hashtag = ?
-                    ORDER BY processed_at DESC LIMIT ?
-                """, (account_id, hashtag.lower().strip('#'), limit))
-            else:
-                cursor.execute("""
-                    SELECT * FROM processed_hashtag_posts
-                    WHERE account_id = ?
-                    ORDER BY processed_at DESC LIMIT ?
-                """, (account_id, limit))
-            
-            return [dict(row) for row in cursor.fetchall()]
-            
-        except Exception as e:
-            logger.error(f"Error getting processed hashtag posts: {e}")
-            return []
+        return self._processed_hashtag_posts.list_for_account(
+            account_id=account_id, hashtag=hashtag, limit=limit
+        )
     
     # ============================================
     # TIKTOK ACCOUNTS
