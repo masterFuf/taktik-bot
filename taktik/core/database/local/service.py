@@ -28,6 +28,7 @@ from ..repositories import (
 )
 from ..repositories.instagram.hashtag import ProcessedHashtagPostRepository
 from ..repositories.instagram.scraping import ScrapingSessionRepository
+from ..repositories.instagram.social_graph import ProfileFollowingRepository
 from ..repositories._base.base_repository import BaseRepository
 
 # Convenience alias for redacting sensitive keys before DB storage
@@ -152,6 +153,7 @@ class LocalDatabaseService:
         self._tiktok = TikTokRepository(conn, orm)
         self._processed_hashtag_posts = ProcessedHashtagPostRepository(conn, orm)
         self._scraping_sessions = ScrapingSessionRepository(conn, orm)
+        self._profile_following = ProfileFollowingRepository(conn, orm)
     
     @property
     def processed_hashtag_posts(self) -> ProcessedHashtagPostRepository:
@@ -162,6 +164,11 @@ class LocalDatabaseService:
     def scraping_sessions(self) -> ScrapingSessionRepository:
         """Scraping runs and how they ended."""
         return self._scraping_sessions
+
+    @property
+    def profile_following(self) -> ProfileFollowingRepository:
+        """Following edges discovered on other profiles, and their classification."""
+        return self._profile_following
 
     # Repository accessors for new code
     @property
@@ -1023,48 +1030,12 @@ class LocalDatabaseService:
 
         Returns the number of newly inserted rows.
         """
-        if not profile_username or not following_usernames:
-            return 0
-        try:
-            conn = self._get_connection()
-            # Resolve profile_id from username if not supplied
-            if profile_id is None:
-                row = conn.execute(
-                    "SELECT profile_id FROM instagram_profiles WHERE username = ?",
-                    (profile_username,),
-                ).fetchone()
-                if row:
-                    profile_id = row[0]
-            # Batch-resolve following_id for all known following usernames (one query)
-            clean = [u for u in following_usernames if u]
-            following_id_map: Dict[str, Optional[int]] = {}
-            if clean:
-                placeholders = ','.join('?' * len(clean))
-                fid_rows = conn.execute(
-                    f"SELECT username, profile_id FROM instagram_profiles WHERE username IN ({placeholders})",
-                    clean,
-                ).fetchall()
-                following_id_map = {r[0]: r[1] for r in fid_rows}
-            rows = [
-                (profile_username, profile_id, u, following_id_map.get(u), session_id)
-                for u in clean
-            ]
-            conn.executemany(
-                """
-                INSERT OR IGNORE INTO profile_following
-                    (profile_username, profile_id, following_username, following_id, session_id)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                rows,
-            )
-            conn.commit()
-            inserted = conn.execute(
-                "SELECT changes()"
-            ).fetchone()[0]
-            return inserted
-        except Exception as e:
-            logger.debug(f"save_profile_followings failed for @{profile_username}: {e}")
-            return 0
+        return self._profile_following.save_edges(
+            profile_username=profile_username,
+            following_usernames=following_usernames,
+            session_id=session_id,
+            profile_id=profile_id,
+        )
 
     def save_following_classifications(
         self,
@@ -1079,32 +1050,7 @@ class LocalDatabaseService:
         Only updates rows where classified_at IS NULL (never classify twice).
         Returns the total number of rows updated.
         """
-        if not classifications:
-            return 0
-        updated = 0
-        try:
-            conn = self._get_connection()
-            now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            for username, data in classifications.items():
-                conn.execute(
-                    """
-                    UPDATE profile_following
-                    SET niche_category = ?, niche = ?, gender = ?, classified_at = ?
-                    WHERE following_username = ? AND classified_at IS NULL
-                    """,
-                    (
-                        data.get("niche_category") or "other",
-                        data.get("niche") or "Other",
-                        data.get("gender") or "unknown",
-                        now,
-                        username,
-                    ),
-                )
-                updated += conn.execute("SELECT changes()").fetchone()[0]
-            conn.commit()
-        except Exception as e:
-            logger.debug(f"save_following_classifications failed: {e}")
-        return updated
+        return self._profile_following.save_classifications(classifications)
 
     def get_unclassified_following_usernames(
         self,
@@ -1114,22 +1060,7 @@ class LocalDatabaseService:
         Return distinct following_username values that have no classification yet
         (classified_at IS NULL). Used by the batch classifier to find pending work.
         """
-        try:
-            conn = self._get_connection()
-            rows = conn.execute(
-                """
-                SELECT DISTINCT following_username
-                FROM profile_following
-                WHERE classified_at IS NULL
-                ORDER BY discovered_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            ).fetchall()
-            return [r[0] for r in rows]
-        except Exception as e:
-            logger.debug(f"get_unclassified_following_usernames failed: {e}")
-            return []
+        return self._profile_following.unclassified_usernames(limit)
 
     def get_profiles_following_target(
         self,
@@ -1145,33 +1076,7 @@ class LocalDatabaseService:
         Each row contains: profile_username, discovered_at, and (when
         available via JOIN) niche_category, niche, cities, profession.
         """
-        try:
-            conn = self._get_connection()
-            ai = self._profile_ai_read_model(conn, "p")
-            rows = conn.execute(
-                f"""
-                SELECT
-                    pf.profile_username,
-                    pf.profile_id,
-                    pf.discovered_at,
-                    {ai["niche"]} AS niche_category,
-                    {ai["sub_niche"]} AS niche,
-                    {ai["city"]} AS cities,
-                    {ai["profession"]} AS profession
-                FROM profile_following pf
-                LEFT JOIN instagram_profiles p
-                    ON p.profile_id = pf.profile_id
-                {ai["join"]}
-                WHERE pf.following_username = ?
-                ORDER BY pf.discovered_at DESC
-                LIMIT ?
-                """,
-                (following_username, limit),
-            ).fetchall()
-            return [dict(r) for r in rows]
-        except Exception as e:
-            logger.debug(f"get_profiles_following_target failed for @{following_username}: {e}")
-            return []
+        return self._profile_following.profiles_following(following_username, limit)
 
     def get_following_with_enrichment(
         self,
@@ -1184,74 +1089,7 @@ class LocalDatabaseService:
         Each row: following_username, discovered_at, niche_category,
         niche, cities, profession (all nullable when unknown).
         """
-        try:
-            conn = self._get_connection()
-            ai = self._profile_ai_read_model(conn, "p")
-            rows = conn.execute(
-                f"""
-                SELECT
-                    pf.following_username,
-                    pf.following_id,
-                    pf.discovered_at,
-                    {ai["niche"]} AS niche_category,
-                    {ai["sub_niche"]} AS niche,
-                    {ai["city"]} AS cities,
-                    {ai["profession"]} AS profession
-                FROM profile_following pf
-                LEFT JOIN instagram_profiles p
-                    ON p.profile_id = pf.following_id
-                {ai["join"]}
-                WHERE pf.profile_username = ?
-                ORDER BY pf.discovered_at ASC
-                """,
-                (profile_username,),
-            ).fetchall()
-            return [dict(r) for r in rows]
-        except Exception as e:
-            logger.debug(f"get_following_with_enrichment failed for @{profile_username}: {e}")
-            return []
-
-    def _profile_ai_read_model(self, conn: sqlite3.Connection, profile_alias: str) -> Dict[str, str]:
-        """Build profile AI expressions from enrichment storage only."""
-        columns = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(instagram_profiles)").fetchall()
-        }
-
-        def column(name: str) -> str:
-            return f"{profile_alias}.{name}" if name in columns else "NULL"
-
-        factual = {
-            "niche": "NULL",
-            "sub_niche": "NULL",
-            "profession": "NULL",
-            "city": column("location_city"),
-        }
-
-        has_enrichment = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name = 'profile_ai_enrichments'"
-        ).fetchone() is not None
-
-        if not has_enrichment:
-            return {"join": "", **factual}
-
-        return {
-            "join": f"""
-                LEFT JOIN profile_ai_enrichments pae
-                    ON pae.enrichment_id = (
-                        SELECT latest_pae.enrichment_id
-                        FROM profile_ai_enrichments latest_pae
-                        WHERE latest_pae.platform = 'instagram'
-                        AND latest_pae.profile_id = {profile_alias}.profile_id
-                        ORDER BY datetime(latest_pae.updated_at) DESC, latest_pae.enrichment_id DESC
-                        LIMIT 1
-                    )
-            """,
-            "niche": "pae.ai_niche",
-            "sub_niche": "pae.ai_specific_niche",
-            "profession": "pae.ai_profession",
-            "city": f"COALESCE(pae.location_city, {factual['city']})",
-        }
+        return self._profile_following.following_of(profile_username)
 
 
 # Singleton instance
