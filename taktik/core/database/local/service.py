@@ -27,6 +27,7 @@ from ..repositories import (
     TikTokRepository
 )
 from ..repositories.instagram.hashtag import ProcessedHashtagPostRepository
+from ..repositories.instagram.scraping import ScrapingSessionRepository
 from ..repositories._base.base_repository import BaseRepository
 
 # Convenience alias for redacting sensitive keys before DB storage
@@ -150,11 +151,17 @@ class LocalDatabaseService:
         self._stats = StatsRepository(conn, orm)
         self._tiktok = TikTokRepository(conn, orm)
         self._processed_hashtag_posts = ProcessedHashtagPostRepository(conn, orm)
+        self._scraping_sessions = ScrapingSessionRepository(conn, orm)
     
     @property
     def processed_hashtag_posts(self) -> ProcessedHashtagPostRepository:
         """Which hashtag posts this account already worked."""
         return self._processed_hashtag_posts
+
+    @property
+    def scraping_sessions(self) -> ScrapingSessionRepository:
+        """Scraping runs and how they ended."""
+        return self._scraping_sessions
 
     # Repository accessors for new code
     @property
@@ -630,35 +637,11 @@ class LocalDatabaseService:
         Returns:
             scraping_id or None if failed
         """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            # sync_id generated at creation (stable cross-device key); a NULL sync_id makes the
-            # Turso push re-insert the row every cycle (NULL is distinct from NULL on the PK).
-            cursor.execute("""
-                INSERT INTO scraping_sessions
-                (account_id, scraping_type, source_type, source_name, max_profiles, export_csv, save_to_db, config_used, sync_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, lower(hex(randomblob(16))))
-            """, (
-                account_id,
-                scraping_type,
-                source_type,
-                source_name,
-                max_profiles,
-                1 if export_csv else 0,
-                1 if save_to_db else 0,
-                json.dumps(_redact_sensitive(config)) if config else None
-            ))
-            conn.commit()
-            
-            scraping_id = cursor.lastrowid
-            logger.info(f"Created scraping session {scraping_id}: {scraping_type} from {source_type}:{source_name}")
-            return scraping_id
-            
-        except Exception as e:
-            logger.error(f"Error creating scraping session: {e}")
-            return None
+        return self._scraping_sessions.create(
+            scraping_type=scraping_type, source_type=source_type, source_name=source_name,
+            max_profiles=max_profiles, export_csv=export_csv, save_to_db=save_to_db,
+            account_id=account_id, config=config,
+        )
     
     def update_scraping_session(self, scraping_id: int, **kwargs) -> bool:
         """
@@ -666,96 +649,16 @@ class LocalDatabaseService:
         
         Supported kwargs: total_scraped, csv_path, end_time, duration_seconds, status, error_message
         """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            updates = []
-            values = []
-            
-            if 'total_scraped' in kwargs:
-                updates.append("total_scraped = ?")
-                values.append(kwargs['total_scraped'])
-            if 'csv_path' in kwargs:
-                updates.append("csv_path = ?")
-                values.append(kwargs['csv_path'])
-            if 'end_time' in kwargs:
-                updates.append("end_time = ?")
-                values.append(kwargs['end_time'])
-            if 'duration_seconds' in kwargs:
-                updates.append("duration_seconds = ?")
-                values.append(kwargs['duration_seconds'])
-            if 'status' in kwargs:
-                updates.append("status = ?")
-                values.append(kwargs['status'])
-            if 'error_message' in kwargs:
-                updates.append("error_message = ?")
-                values.append(kwargs['error_message'])
-            
-            if not updates:
-                return True
-            
-            values.append(scraping_id)
-            
-            cursor.execute(f"UPDATE scraping_sessions SET {', '.join(updates)} WHERE scraping_id = ?", values)
-            conn.commit()
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error updating scraping session {scraping_id}: {e}")
-            return False
+        return self._scraping_sessions.update(scraping_id, **kwargs)
     
     def update_scraping_session_count(self, scraping_id: int, total_scraped: int) -> bool:
         """Update the scraped count for a session (called during scraping to save progress)."""
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE scraping_sessions SET total_scraped = ? WHERE scraping_id = ?",
-                (total_scraped, scraping_id)
-            )
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.debug(f"Error updating scraping session count: {e}")
-            return False
+        return self._scraping_sessions.update_count(scraping_id, total_scraped)
     
-    @staticmethod
-    def _parse_stored_utc(value, default):
-        """Parse a stored timestamp as aware UTC. Stored timestamps are UTC
-        (SQLite datetime('now')); naive strings are treated as UTC, not local, so
-        durations are not offset by the machine's timezone."""
-        from datetime import datetime, timezone
-        if not value:
-            return default
-        try:
-            dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
-        except ValueError:
-            return default
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
     def cancel_scraping_session(self, scraping_id: int, total_scraped: int) -> bool:
         """Mark a scraping session as cancelled (user stopped it)."""
-        from datetime import datetime, timezone
-
-        session = self.get_scraping_session(scraping_id)
-        if not session:
-            return False
-
-        # start_time is stored UTC (SQLite datetime('now')); compute the duration as a
-        # UTC delta (mixing local now() with a UTC start added the user's offset).
-        end_time = datetime.now(timezone.utc)
-        start_time = self._parse_stored_utc(session.get('start_time'), end_time)
-        duration = max(0, int((end_time - start_time).total_seconds()))
-
-        return self.update_scraping_session(
-            scraping_id,
-            total_scraped=total_scraped,
-            end_time=end_time.strftime('%Y-%m-%d %H:%M:%S'),
-            duration_seconds=duration,
-            status='CANCELLED'
-        )
+        return self._scraping_sessions.cancel(scraping_id, total_scraped)
     
     def link_profile_to_session(self, scraping_id: int, profile_id: int,
                                   source_post_url: str = None) -> bool:
@@ -814,118 +717,27 @@ class LocalDatabaseService:
 
     def cleanup_orphan_sessions(self) -> int:
         """Mark any IN_PROGRESS sessions as INTERRUPTED (app crashed/closed unexpectedly)."""
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-            
-            # Find and update orphan sessions
-            cursor.execute("""
-                UPDATE scraping_sessions 
-                SET status = 'INTERRUPTED', 
-                    end_time = datetime('now'),
-                    error_message = 'Session interrupted (app closed unexpectedly)'
-                WHERE status = 'IN_PROGRESS'
-            """)
-            
-            affected = cursor.rowcount
-            conn.commit()
-            
-            if affected > 0:
-                logger.info(f"Cleaned up {affected} orphan scraping sessions")
-            
-            return affected
-        except Exception as e:
-            logger.error(f"Error cleaning up orphan sessions: {e}")
-            return 0
+        return self._scraping_sessions.cleanup_orphans()
     
     def complete_scraping_session(self, scraping_id: int, total_scraped: int, 
                                    csv_path: Optional[str] = None,
                                    error_message: Optional[str] = None) -> bool:
         """Mark a scraping session as completed."""
-        from datetime import datetime, timezone
-
-        # Get session to calculate duration
-        session = self.get_scraping_session(scraping_id)
-        if not session:
-            return False
-
-        # start_time is stored UTC (SQLite datetime('now')); compute a UTC delta.
-        end_time = datetime.now(timezone.utc)
-        start_time = self._parse_stored_utc(session.get('start_time'), end_time)
-        duration = max(0, int((end_time - start_time).total_seconds()))
-
-        status = 'COMPLETED' if not error_message else 'ERROR'
-
-        return self.update_scraping_session(
-            scraping_id,
-            total_scraped=total_scraped,
-            csv_path=csv_path,
-            end_time=end_time.strftime('%Y-%m-%d %H:%M:%S'),
-            duration_seconds=duration,
-            status=status,
-            error_message=error_message
+        return self._scraping_sessions.complete(
+            scraping_id, total_scraped, csv_path=csv_path, error_message=error_message
         )
     
     def get_scraping_session(self, scraping_id: int) -> Optional[Dict[str, Any]]:
         """Get a scraping session by ID."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM scraping_sessions WHERE scraping_id = ?", (scraping_id,))
-        row = cursor.fetchone()
-        
-        if row:
-            result = dict(row)
-            result['export_csv'] = bool(result.get('export_csv'))
-            result['save_to_db'] = bool(result.get('save_to_db'))
-            return result
-        return None
+        return self._scraping_sessions.get(scraping_id)
     
     def get_scraping_sessions(self, limit: int = 50, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get recent scraping sessions."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        if status:
-            cursor.execute("""
-                SELECT * FROM scraping_sessions 
-                WHERE status = ?
-                ORDER BY created_at DESC LIMIT ?
-            """, (status, limit))
-        else:
-            cursor.execute("""
-                SELECT * FROM scraping_sessions 
-                ORDER BY created_at DESC LIMIT ?
-            """, (limit,))
-        
-        results = []
-        for row in cursor.fetchall():
-            r = dict(row)
-            r['export_csv'] = bool(r.get('export_csv'))
-            r['save_to_db'] = bool(r.get('save_to_db'))
-            results.append(r)
-        
-        return results
+        return self._scraping_sessions.list_recent(limit=limit, status=status)
     
     def get_scraping_stats(self, days: int = 7) -> Dict[str, Any]:
         """Get aggregated scraping statistics."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT 
-                COUNT(*) as total_sessions,
-                COALESCE(SUM(total_scraped), 0) as total_profiles_scraped,
-                COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END), 0) as completed_sessions,
-                COALESCE(SUM(CASE WHEN status = 'ERROR' THEN 1 ELSE 0 END), 0) as failed_sessions,
-                COALESCE(SUM(duration_seconds), 0) as total_duration_seconds,
-                COALESCE(AVG(total_scraped), 0) as avg_profiles_per_session
-            FROM scraping_sessions
-            WHERE created_at >= datetime('now', '-' || ? || ' days')
-        """, (days,))
-        
-        row = cursor.fetchone()
-        return dict(row) if row else {}
+        return self._scraping_sessions.stats(days)
     
     # ============================================
     # PROCESSED HASHTAG POSTS
