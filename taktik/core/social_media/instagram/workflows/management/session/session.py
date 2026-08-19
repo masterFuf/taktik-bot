@@ -8,6 +8,8 @@ from taktik.core.shared.behavior.policy import parse_behavior_policy
 from taktik.core.shared.behavior.profiles import resolve_pacing_profile
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
+from . import stop_reasons
+
 
 log = logger.bind(module="session-manager")
 
@@ -78,7 +80,9 @@ class SessionManager:
         """Check if session should continue based on defined limits.
 
         Returns:
-            tuple[bool, str]: (should_continue, stop_reason)
+            tuple[bool, str]: (should_continue, stop_reason). The reason is a
+            ``stop_reasons.StopReason``, which IS the English sentence it always was and
+            additionally carries the structured code the desktop app reads.
         """
         # Durée totale de session (limite principale)
         session_duration = datetime.now() - self.session_start_time
@@ -96,7 +100,7 @@ class SessionManager:
         
         # Check the total session duration
         if should_stop_duration:
-            reason = f"Maximum session duration reached ({configured_duration} minutes)"
+            reason = stop_reasons.duration_cap(configured_duration)
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
 
@@ -108,21 +112,21 @@ class SessionManager:
         # Check the handled-profiles cap
         profiles_limit = session_settings.get('total_profiles_limit', float('inf'))
         if profiles_limit and profiles_limit != float('inf') and self.counters['profiles_processed'] >= profiles_limit:
-            reason = f"Profiles limit reached ({self.counters['profiles_processed']}/{profiles_limit})"
+            reason = stop_reasons.profiles_cap(self.counters['profiles_processed'], profiles_limit)
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
         
         # Check the follow cap, when configured
         follows_limit = session_settings.get('total_follows_limit', float('inf'))
         if follows_limit and follows_limit != float('inf') and follows_limit > 0 and self.counters['follows'] >= follows_limit:
-            reason = f"Follows limit reached ({self.counters['follows']}/{follows_limit})"
+            reason = stop_reasons.follows_cap(self.counters['follows'], follows_limit)
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
             
         # Check the like cap, when configured
         likes_limit = session_settings.get('total_likes_limit', float('inf'))
         if likes_limit and likes_limit != float('inf') and likes_limit > 0 and self.counters['likes'] >= likes_limit:
-            reason = f"Likes limit reached ({self.counters['likes']}/{likes_limit})"
+            reason = stop_reasons.likes_cap(self.counters['likes'], likes_limit)
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
 
@@ -151,7 +155,7 @@ class SessionManager:
                 self.counters['likes'] + self.counters['follows'] + self.counters['comments']
             )
             if session_actions >= max_per_session:
-                reason = f"Session action cap reached ({session_actions}/{max_per_session})"
+                reason = stop_reasons.session_action_cap(session_actions, max_per_session)
                 log.info(f"🛑 Session ended: {reason}")
                 return False, reason
 
@@ -177,7 +181,7 @@ class SessionManager:
         max_actions = int(self._warmup_policy.get('max_actions_per_day', 0) or 0)
         total = int(usage.get('total', 0))
         if max_actions > 0 and total >= max_actions:
-            return f"Daily action budget reached ({total}/{max_actions})"
+            return stop_reasons.daily_budget(total, max_actions)
         return ""
 
     def _read_daily_usage(self) -> Optional[Dict[str, int]]:

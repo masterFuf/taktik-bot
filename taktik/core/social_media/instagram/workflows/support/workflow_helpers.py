@@ -7,6 +7,8 @@ from typing import Dict, Any, Optional
 from loguru import logger
 from .....database.local.service import get_local_database
 from ...ui.language import redetect_if_unknown
+from ..management.session import stop_reasons
+from ..management.session.stop_reasons import StopReason
 
 
 class WorkflowHelpers:
@@ -17,7 +19,7 @@ class WorkflowHelpers:
     def setup_signal_handlers(self):
         def signal_handler(signum, frame):
             self.logger.info("Stop signal received (Ctrl+C), finalizing session...")
-            self.finalize_session(status='INTERRUPTED', reason='Manual stop (Ctrl+C)')
+            self.finalize_session(status='INTERRUPTED', reason=stop_reasons.manual_stop())
             sys.exit(0)
         
         signal.signal(signal.SIGINT, signal_handler)
@@ -41,7 +43,12 @@ class WorkflowHelpers:
         except (AttributeError, KeyError, TypeError, ValueError):
             duration_seconds = 0
         
-        # Send stop reason to frontend
+        # Send stop reason to frontend.
+        #
+        # Additive on purpose: `reason` keeps carrying the English sentence it always carried,
+        # so a desktop build that predates the catalogue reads exactly what it read before. A
+        # motive from the catalogue adds `reason_code` and `reason_params` next to it, which is
+        # what a current build reads instead of matching the sentence with a regular expression.
         import json
         stop_message = {
             "type": "session_stop",
@@ -49,6 +56,8 @@ class WorkflowHelpers:
             "reason": reason,
             "duration_seconds": duration_seconds,
         }
+        if isinstance(reason, StopReason):
+            stop_message.update(reason.event_fields())
         print(json.dumps(stop_message), flush=True)
         
         # Update session in DB

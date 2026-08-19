@@ -33,7 +33,7 @@ here would silently reclassify runs the day callers migrate, which is a behaviou
 belongs to its own step.
 """
 
-from dataclasses import dataclass
+
 from typing import Any, Dict
 
 
@@ -45,14 +45,35 @@ FAMILY_FAILED = "failed"  # did not run -- go look
 FAMILY_MANUAL = "manual"  # someone pressed stop
 
 
-@dataclass(frozen=True)
-class StopReason:
-    """One reason a session ended. Built only by the factories below."""
+class StopReason(str):
+    """One reason a session ended. Built only by the factories below.
+
+    It IS the legacy English sentence -- ``str(reason)``, ``f"{reason}"`` and
+    ``reason == "Follows limit reached (5/5)"`` all behave exactly as they did when this was a
+    plain string. That is deliberate: the motive is passed from hand to hand through eight
+    callers before reaching the terminal path, and making it a separate type would have meant
+    touching every one of them for no gain. Subclassing `str` lets the structured code travel
+    with the sentence, and lets it travel for free.
+
+    On top of the sentence it carries `code` (what the desktop app translates), `params` (the
+    numbers that sentence needs) and `family` (does the operator need to go and look).
+    """
 
     code: str
     params: Dict[str, Any]
-    text: str
     family: str
+
+    def __new__(cls, code: str, family: str, text: str, params: Dict[str, Any]) -> "StopReason":
+        reason = super().__new__(cls, text)
+        reason.code = code
+        reason.family = family
+        reason.params = dict(params)
+        return reason
+
+    @property
+    def text(self) -> str:
+        """The English sentence. Same value as the object itself; named for readability."""
+        return str(self)
 
     def event_fields(self) -> Dict[str, Any]:
         """The fields to merge into the ``session_stop`` event.
@@ -68,7 +89,7 @@ class StopReason:
 
 
 def _reason(code: str, family: str, text: str, **params: Any) -> StopReason:
-    return StopReason(code=code, params=params, text=text, family=family)
+    return StopReason(code, family, text, params)
 
 
 # -- ok: the run stopped as expected -------------------------------------------
