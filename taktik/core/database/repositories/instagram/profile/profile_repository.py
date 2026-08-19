@@ -4,6 +4,7 @@ Profile Repository - Manages instagram_profiles table
 
 from typing import Dict, List, Optional, Tuple, Any
 from ..._base.base_repository import BaseRepository
+from ..profile_ai_read_model import profile_ai_read_model
 
 
 class ProfileRepository(BaseRepository):
@@ -111,7 +112,7 @@ class ProfileRepository(BaseRepository):
         if not usernames:
             return []
 
-        ai = self._profile_ai_read_model("p")
+        ai = profile_ai_read_model(self.conn, "p")
         placeholders = ','.join('?' * len(usernames))
         rows = self.query(
             f"""
@@ -125,6 +126,7 @@ class ProfileRepository(BaseRepository):
                 {ai["profession"]} AS profession,
                 {ai["profession_tags"]} AS profession_tags,
                 {ai["city"]} AS cities,
+                {ai["analysis"]} AS analysis_json,
                 sp.ai_analysis,
                 sp.ai_qualified
             FROM instagram_profiles p
@@ -143,50 +145,6 @@ class ProfileRepository(BaseRepository):
             tuple(usernames),
         )
         return [dict(row) for row in rows]
-
-    def _profile_ai_read_model(self, profile_alias: str) -> Dict[str, str]:
-        """Build profile AI expressions from enrichment storage only."""
-        columns = {
-            row["name"]
-            for row in self.query("PRAGMA table_info(instagram_profiles)")
-        }
-
-        def column(name: str) -> str:
-            return f"{profile_alias}.{name}" if name in columns else "NULL"
-
-        factual = {
-            "niche": "NULL",
-            "sub_niche": "NULL",
-            "profession": "NULL",
-            "profession_tags": "NULL",
-            "city": column("location_city"),
-        }
-
-        has_enrichment = self.query_one(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name = 'profile_ai_enrichments'"
-        ) is not None
-
-        if not has_enrichment:
-            return {"join": "", **factual}
-
-        return {
-            "join": f"""
-            LEFT JOIN profile_ai_enrichments pae
-                ON pae.enrichment_id = (
-                    SELECT latest_pae.enrichment_id
-                    FROM profile_ai_enrichments latest_pae
-                    WHERE latest_pae.platform = 'instagram'
-                    AND latest_pae.profile_id = {profile_alias}.profile_id
-                    ORDER BY datetime(latest_pae.updated_at) DESC, latest_pae.enrichment_id DESC
-                    LIMIT 1
-                )
-            """,
-            "niche": "pae.ai_niche",
-            "sub_niche": "pae.ai_specific_niche",
-            "profession": "pae.ai_profession",
-            "profession_tags": "pae.ai_profession_tags",
-            "city": f"COALESCE(pae.location_city, {factual['city']})",
-        }
 
     def record_stats_history(self, profile_id: int, profile_data: Dict[str, Any]) -> bool:
         """Record a profile_stats_history snapshot for enriched profile data."""

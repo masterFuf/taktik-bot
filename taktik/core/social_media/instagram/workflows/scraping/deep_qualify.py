@@ -310,44 +310,25 @@ class DeepQualifyMixin:
         if not usernames:
             return []
 
-        try:
-            db = self._local_db()
-            raw_profiles = db.get_profiles_by_usernames(usernames)
-        except Exception as e:
-            self.logger.debug(f"[deep_qualify] DB batch lookup failed: {e}")
-            return []
+        # Same gate as the interaction hook: what counts as "already classified", and how the
+        # stored row is decoded, is owned by ProfileQualification. This function used to decode
+        # the JSON columns itself, which is how `tags` ended up carrying PROFESSION tags and
+        # `summary` silently fell back to the raw ai_analysis string.
+        from taktik.core.database.profile_qualification import ProfileQualification
 
         known: List[Dict[str, Any]] = []
-        for p in raw_profiles:
-            # Parse niche / tags out of ai_analysis field if stored there
-            ai_analysis = p.get('ai_analysis') or ''
-
-            # ai_profession_tags is stored as a JSON string in the DB
-            raw_tags = p.get('profession_tags')
-            if isinstance(raw_tags, str):
-                try:
-                    import json as _json
-                    raw_tags = _json.loads(raw_tags)
-                except Exception:
-                    raw_tags = []
-            if not isinstance(raw_tags, list):
-                raw_tags = []
-
-            entry: Dict[str, Any] = {
-                'username': p.get('username', ''),
-                'full_name': p.get('full_name') or '',
-                'biography': p.get('biography') or '',
-                'is_business': bool(p.get('is_business', False)),
-                'niche_category': p.get('niche_category') or '',
-                'niche': p.get('niche') or '',
-                'tags': raw_tags,
-                'cities': p.get('cities') or '',
-                'profession': p.get('profession') or '',
-                'summary': p.get('summary') or ai_analysis,
-            }
-
-            # Only include entries that carry at least *some* classification value
-            if any([entry['niche_category'], entry['niche'], entry['cities'], entry['profession']]):
-                known.append(entry)
+        for row in ProfileQualification.load_many(usernames, platform="instagram").values():
+            known.append({
+                'username': row.get('username', ''),
+                'full_name': row.get('full_name') or '',
+                'biography': row.get('biography') or '',
+                'is_business': bool(row.get('is_business', False)),
+                'niche_category': row.get('niche_category') or '',
+                'niche': row.get('niche') or '',
+                'tags': row.get('tags') or [],
+                'cities': row.get('cities') or '',
+                'profession': row.get('profession') or '',
+                'summary': row.get('summary') or '',
+            })
 
         return known
