@@ -124,10 +124,11 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
     api_key = "" if no_ai else os.environ.get(API_KEY_ENV, "")
     ai_service_factory = None
     if api_key:
-        from taktik.core.app.ai.providers.openrouter import AIService
+        from taktik.core.app.ai.factory import build_ai_service
 
         def ai_service_factory(*, api_key: str, ipc=None, vision_model=None, text_model=None):  # noqa: F811
-            return AIService(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
+            # Standalone CLI: no premium taxonomy to inject, the classifier stays free-form.
+            return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
 
         config.setdefault("openrouter_api_key", api_key)
     else:

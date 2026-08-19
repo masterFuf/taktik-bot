@@ -39,10 +39,16 @@ def test_defaults_command_lists_every_quota():
 
 
 def test_the_cli_does_not_import_a_bridge():
-    """A module outside bridges/ must not depend on one; the AI provider comes from core."""
+    """A module outside bridges/ must not depend on one; the AI service comes from core.
+
+    The CLI builds its service through `app.ai.factory`, the single construction point every
+    caller shares — bridges included. Building an AIService directly is what let four callers
+    drift apart until only one of them injected the premium taxonomy.
+    """
     source = Path("taktik/cli/commands/agent_cmds.py").read_text(encoding="utf-8")
     assert "bridges" not in source.replace("bridges/", "")  # the word only appears in prose
-    assert "taktik.core.app.ai.providers.openrouter" in source
+    assert "taktik.core.app.ai.factory" in source
+    assert "AIService(" not in source, "build through the shared factory, never directly"
 
 
 def test_a_malformed_param_is_refused(monkeypatch):
