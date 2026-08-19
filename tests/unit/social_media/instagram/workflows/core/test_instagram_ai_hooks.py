@@ -288,6 +288,7 @@ def _install_profile_hook(
     captured,
     log=None,
     decision_provider=None,
+    device=None,
 ):
     from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
         InteractionEngineMixin,
@@ -308,7 +309,7 @@ def _install_profile_hook(
     install_instagram_ai_hooks(
         ai=fake_ai,
         ai_config=ai_config,
-        device=object(),
+        device=device or object(),
         log=log or (lambda *a: None),
         decision_provider=decision_provider,
     )
@@ -603,3 +604,115 @@ def test_decide_response_without_metadata_inherits_configured_dry_run(monkeypatc
     decision = captured["profile_data"]["ai_agent_decision"]
     assert decision["ok"] is False
     assert decision["decision"]["dryRun"] is False
+
+
+# ---------------------------------------------------------------------------
+# The engagement verdict follows the MODE, on both paths
+# ---------------------------------------------------------------------------
+# Three automation modes exist (`InstagramAiDecisionMode`): off = manual,
+# enrich = AI qualification, decide = autonomous. The relevance verdict answers "is this
+# profile worth engaging FOR THE OPERATED ACCOUNT" — a question only the autonomous mode
+# asks. In manual and qualification runs the operator drives the interactions; a beauty
+# account visiting an entertainment profile scores 0 and nobody acts on it. The vision path
+# used to ask for it unconditionally while the cached path already gated it, so the two
+# disagreed and every qualification run paid ~980 prompt + ~70 completion tokens per profile
+# for an answer nobody read.
+
+def _vision_ai(captured):
+    class FakeAI:
+        def classify_profile_niche(self, **kwargs):
+            captured["classify_kwargs"] = kwargs
+            return {"success": True, "classification": {
+                "niche": "Hair & Nail Art", "niche_category": "beauty_wellness",
+                "engagement": {"relevant": True, "score": 0.8, "reason": "adjacent"},
+            }}
+
+    return FakeAI()
+
+
+class _ScreenshotDevice:
+    """The vision path takes a screenshot before classifying; without one it silently
+    falls into the hook's except branch and never calls the model at all."""
+
+    class _Shot:
+        def save(self, *_args, **_kwargs):
+            return None
+
+    def screenshot(self):
+        return self._Shot()
+
+
+def _run_vision_path(monkeypatch, ai_config, captured):
+    _patch_db(monkeypatch, [])  # nothing cached -> the vision path runs
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter"
+        ".emit_profile_classification",
+        staticmethod(lambda *a, **k: None),
+    )
+    engine_cls = _install_profile_hook(
+        monkeypatch, _vision_ai(captured), ai_config, captured, device=_ScreenshotDevice(),
+    )
+    engine_cls._perform_interactions_on_profile(object(), "fresh", {}, {})
+
+
+def test_qualification_run_does_not_pay_for_a_verdict_nobody_uses(monkeypatch):
+    """enrich / off: classify and store the profile, do not score it against our niche."""
+    captured = {}
+    _run_vision_path(
+        monkeypatch,
+        {"profileAnalysis": True, "accountNiche": "beauty_wellness"},
+        captured,
+    )
+    assert captured["classify_kwargs"]["include_engagement"] is False
+
+
+def test_autonomous_run_asks_for_the_verdict(monkeypatch):
+    """decide: the bot chooses whether to interact, so the score is what it decides on."""
+    captured = {}
+    _run_vision_path(
+        monkeypatch,
+        {"profileAnalysis": True, "accountNiche": "beauty_wellness",
+         "decision": {"mode": "decide"}},
+        captured,
+    )
+    assert captured["classify_kwargs"]["include_engagement"] is True
+
+
+def test_explicit_gating_asks_for_the_verdict_too(monkeypatch):
+    """Gating on (dry-run included) means the verdict is watched or enforced — compute it."""
+    captured = {}
+    _run_vision_path(
+        monkeypatch,
+        {"profileAnalysis": True, "accountNiche": "beauty_wellness", "relevanceGating": GATING},
+        captured,
+    )
+    assert captured["classify_kwargs"]["include_engagement"] is True
+
+
+def test_both_paths_agree_on_when_the_verdict_is_wanted(monkeypatch):
+    """The regression that mattered: vision and cached must apply the SAME condition."""
+    for ai_config, expected in (
+        ({"profileAnalysis": True}, False),
+        ({"profileAnalysis": True, "relevanceGating": GATING}, True),
+        ({"profileAnalysis": True, "decision": {"mode": "decide"}}, True),
+    ):
+        vision = {}
+        _run_vision_path(monkeypatch, ai_config, vision)
+
+        cached = {}
+        asked = {"verdict": False}
+
+        class CachedAI:
+            def engagement_verdict_for_known_profile(self, **kwargs):
+                asked["verdict"] = True
+                return {"success": False, "error": "unused"}
+
+            def request_decision(self, *a, **k):
+                return None
+
+        _patch_db(monkeypatch, [CACHED_ROW])
+        engine_cls = _install_profile_hook(monkeypatch, CachedAI(), ai_config, cached)
+        engine_cls._perform_interactions_on_profile(object(), "known", {}, {})
+
+        assert vision["classify_kwargs"]["include_engagement"] is expected
+        assert asked["verdict"] is expected, f"paths disagree for {ai_config}"

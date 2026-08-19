@@ -760,11 +760,20 @@ def install_instagram_ai_hooks(
                     img = device.screenshot()
                     img.save(screenshot_path, format="PNG")
 
+                    # Ask for the engagement verdict only when something will USE it — the same
+                    # condition the cached path above already applies. The verdict answers "is
+                    # this profile worth engaging FOR THE OPERATED ACCOUNT", which is a question
+                    # only the autonomous mode asks: in `off` (manual) and `enrich`
+                    # (AI qualification) the operator drives the interactions and we are here to
+                    # classify and store the profile, not to score it against our own niche.
+                    # Asking anyway costs ~980 prompt tokens and ~70 completion tokens per
+                    # profile for an answer nobody reads.
+                    wants_verdict = bool(relevance_gating or decision_mode)
                     result = ai.classify_profile_niche(
                         username=username,
                         screenshot_path=screenshot_path,
                         profile_context=profile_data or {},
-                        include_engagement=True,
+                        include_engagement=wants_verdict,
                         account_niche=account_niche,
                         account_sub_niche=account_sub_niche,
                         account_persona=account_persona,
