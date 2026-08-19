@@ -1,0 +1,239 @@
+"""The single vocabulary for "why did this Instagram session end".
+
+Every terminal path used to invent its own answer. Two conventions had grown side by side --
+formatted English sentences ("Follows limit reached (5/5)") and bare snake_case codes
+("no_valid_post") -- and the desktop app recovered the meaning by running regular expressions
+over the sentences. Any motive nobody had thought to match reached the operator as raw English,
+and a motive nobody had thought to SET reached them as a completed run.
+
+This module is the one place a stop motive is built. Each factory returns a `StopReason`
+carrying three things:
+
+- ``code``     the stable identifier the desktop app translates. This is the real payload.
+- ``params``   the numbers the translated sentence needs, never pre-formatted into the text.
+- ``text``     the English sentence, kept BYTE-FOR-BYTE identical to what each path emits today.
+
+That last point is the whole safety argument of this change. As long as `text` reproduces the
+current output exactly, routing every caller through this catalogue cannot alter what a run
+reports -- which is verifiable by comparison rather than by replaying sessions on a device.
+`text` is transitional: it disappears once no consumer reads it, and `code` remains.
+
+Some codes deliberately differ from their legacy text (``posts_cap`` emits ``budget_reached``,
+``list_unavailable`` emits ``followers_list_unavailable``). The code is the vocabulary we want;
+the text is the legacy we must not disturb yet.
+
+SCOPE -- this catalogue answers ONLY "why did the session end". Three neighbouring notions keep
+their own vocabularies and must not be merged into it: why a PROFILE was rejected
+(``filtered_profiles.reason``, which feeds the funnel analytics), the outcome of a sub-pass
+(``feed/suggestions``, diagnostic only, never surfaced), and the process lifecycle
+(STOPPED / INTERRUPTED, owned by the desktop side).
+
+The terminal STATUS (COMPLETED / INTERRUPTED) stays the caller's decision for now. Attaching it
+here would silently reclassify runs the day callers migrate, which is a behaviour change and
+belongs to its own step.
+"""
+
+from dataclasses import dataclass
+from typing import Any, Dict
+
+
+#: What kind of ending this is. The desktop app presents a spent budget and a degraded run
+#: differently, so the distinction travels with the motive instead of being re-derived there.
+FAMILY_CAP = "cap"                # the run consumed what it was allotted
+FAMILY_EXHAUSTED = "exhausted"    # there was nothing left to process
+FAMILY_COMPLETED = "completed"    # the requested work is done
+FAMILY_DEGRADED = "degraded"      # the run did not reach its end
+FAMILY_EXTERNAL = "external"      # the decision came from outside the run
+
+
+@dataclass(frozen=True)
+class StopReason:
+    """One reason a session ended. Built only by the factories below."""
+
+    code: str
+    params: Dict[str, Any]
+    text: str
+    family: str
+
+    def event_fields(self) -> Dict[str, Any]:
+        """The fields to merge into the ``session_stop`` event.
+
+        Purely additive: ``reason`` keeps carrying the legacy sentence, so a desktop build that
+        predates the catalogue behaves exactly as before, while a current one reads the code.
+        """
+        return {
+            "reason": self.text,
+            "reason_code": self.code,
+            "reason_params": dict(self.params),
+        }
+
+
+def _reason(code: str, family: str, text: str, **params: Any) -> StopReason:
+    return StopReason(code=code, params=params, text=text, family=family)
+
+
+# -- Cap: the run consumed what it was allotted --------------------------------
+
+def duration_cap(limit_minutes: Any) -> StopReason:
+    return _reason(
+        "duration_cap", FAMILY_CAP,
+        f"Maximum session duration reached ({limit_minutes} minutes)",
+        limit_minutes=limit_minutes,
+    )
+
+
+def profiles_cap(count: Any, limit: Any) -> StopReason:
+    return _reason(
+        "profiles_cap", FAMILY_CAP,
+        f"Profiles limit reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def follows_cap(count: Any, limit: Any) -> StopReason:
+    return _reason(
+        "follows_cap", FAMILY_CAP,
+        f"Follows limit reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def likes_cap(count: Any, limit: Any) -> StopReason:
+    return _reason(
+        "likes_cap", FAMILY_CAP,
+        f"Likes limit reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def daily_budget(count: Any, limit: Any) -> StopReason:
+    return _reason(
+        "daily_budget", FAMILY_CAP,
+        f"Daily action budget reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def session_action_cap(count: Any, limit: Any) -> StopReason:
+    return _reason(
+        "session_action_cap", FAMILY_CAP,
+        f"Session action cap reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def posts_cap(count: Any, limit: Any) -> StopReason:
+    """Hashtag posts budget spent. Legacy text is the bare code ``budget_reached``."""
+    return _reason(
+        "posts_cap", FAMILY_CAP,
+        "budget_reached",
+        count=count, limit=limit,
+    )
+
+
+# -- Exhausted: there was nothing left to process ------------------------------
+
+def end_of_list(seen: int, total: int) -> StopReason:
+    # The legacy sentence groups thousands (`:,`); reproduce it exactly, separators included.
+    return _reason(
+        "end_of_list", FAMILY_EXHAUSTED,
+        f"End of followers list ({seen:,}/{total:,} seen)",
+        seen=seen, total=total,
+    )
+
+
+def end_of_list_repeated() -> StopReason:
+    return _reason(
+        "end_of_list_repeated", FAMILY_EXHAUSTED,
+        "End of followers list (same profiles repeated)",
+    )
+
+
+def end_of_list_suggestions() -> StopReason:
+    return _reason(
+        "end_of_list_suggestions", FAMILY_EXHAUSTED,
+        "End of followers list (suggestions section)",
+    )
+
+
+def no_new_profiles(seen: Any) -> StopReason:
+    return _reason(
+        "no_new_profiles", FAMILY_EXHAUSTED,
+        f"No new followers found ({seen} profiles seen)",
+        seen=seen,
+    )
+
+
+def known_streak(streak: Any, seen: Any) -> StopReason:
+    return _reason(
+        "known_streak", FAMILY_EXHAUSTED,
+        f"No new followers after {streak} known usernames in a row ({seen} seen)",
+        streak=streak, seen=seen,
+    )
+
+
+def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
+    return _reason(
+        "scroll_streak", FAMILY_EXHAUSTED,
+        f"No new followers after {scrolls} scroll attempts ({seen} seen)",
+        scrolls=scrolls, seen=seen,
+    )
+
+
+def sources_exhausted() -> StopReason:
+    return _reason(
+        "sources_exhausted", FAMILY_EXHAUSTED,
+        "Sources exhausted (no further progress)",
+    )
+
+
+def no_valid_post() -> StopReason:
+    return _reason("no_valid_post", FAMILY_EXHAUSTED, "no_valid_post")
+
+
+def no_new_post() -> StopReason:
+    return _reason("no_new_post", FAMILY_EXHAUSTED, "no_new_post")
+
+
+def posts_examined_cap(examined: Any, limit: Any) -> StopReason:
+    """Hashtag examined-posts ceiling. Legacy text is the bare code ``max_posts_examined``."""
+    return _reason(
+        "posts_examined_cap", FAMILY_EXHAUSTED,
+        "max_posts_examined",
+        examined=examined, limit=limit,
+    )
+
+
+# -- Completed: the requested work is done -------------------------------------
+
+def completed(interactions: Any) -> StopReason:
+    return _reason(
+        "completed", FAMILY_COMPLETED,
+        f"Workflow completed ({interactions} interactions)",
+        interactions=interactions,
+    )
+
+
+# -- Degraded: the run did not reach its end -----------------------------------
+
+def navigation_lost() -> StopReason:
+    return _reason("navigation_lost", FAMILY_DEGRADED, "navigation_lost")
+
+
+def list_unavailable() -> StopReason:
+    """Followers list gone (suggestions screen / navigation drift)."""
+    return _reason("list_unavailable", FAMILY_DEGRADED, "followers_list_unavailable")
+
+
+def empty_plan() -> StopReason:
+    return _reason("empty_plan", FAMILY_DEGRADED, "empty_plan")
+
+
+def no_targets() -> StopReason:
+    return _reason("no_targets", FAMILY_DEGRADED, "no_targets")
+
+
+# -- External: the decision came from outside the run --------------------------
+
+def manual_stop() -> StopReason:
+    return _reason("manual_stop", FAMILY_EXTERNAL, "Manual stop (Ctrl+C)")
