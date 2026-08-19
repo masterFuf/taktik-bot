@@ -356,7 +356,7 @@ def test_the_daily_follow_quota_stops_the_loop(no_pacing):
         def should_continue(self):
             return True, ""
 
-        def exhausted_daily_quotas(self):
+        def exhausted_intents(self):
             return {'follow'}
 
     device = _FakeDevice([SCREEN_MIXED])
@@ -376,7 +376,7 @@ def test_a_spent_comment_quota_does_not_block_follows(no_pacing):
         def should_continue(self):
             return True, ""
 
-        def exhausted_daily_quotas(self):
+        def exhausted_intents(self):
             return {'comment'}
 
     device = _FakeDevice([SCREEN_MIXED, SCREEN_AFTER_FOLLOW])

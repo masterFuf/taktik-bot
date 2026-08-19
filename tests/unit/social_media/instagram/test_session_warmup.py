@@ -76,7 +76,7 @@ def test_follow_subcap_does_not_stop_the_session():
     sm.set_daily_usage_provider(lambda: {'total': 20, 'follows': 10, 'comments': 0})
     ok, _ = sm.should_continue()
     assert ok is True
-    assert sm.exhausted_daily_quotas() == {'follow'}
+    assert sm.exhausted_intents() == {'follow'}
 
 
 def test_comment_subcap_does_not_stop_the_session():
@@ -84,32 +84,32 @@ def test_comment_subcap_does_not_stop_the_session():
     sm.set_daily_usage_provider(lambda: {'total': 20, 'follows': 0, 'comments': 5})
     ok, _ = sm.should_continue()
     assert ok is True
-    assert sm.exhausted_daily_quotas() == {'comment'}
+    assert sm.exhausted_intents() == {'comment'}
 
 
 def test_both_subcaps_can_be_exhausted_at_once():
     sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 10, 'max_comments_per_day': 5})
     sm.set_daily_usage_provider(lambda: {'total': 20, 'follows': 12, 'comments': 7})
     assert sm.should_continue()[0] is True
-    assert sm.exhausted_daily_quotas() == {'follow', 'comment'}
+    assert sm.exhausted_intents() == {'follow', 'comment'}
 
 
 def test_no_quota_is_exhausted_under_the_caps():
     sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 10, 'max_comments_per_day': 5})
     sm.set_daily_usage_provider(lambda: {'total': 20, 'follows': 9, 'comments': 4})
-    assert sm.exhausted_daily_quotas() == set()
+    assert sm.exhausted_intents() == set()
 
 
 def test_exhausted_quotas_fail_open_without_provider_or_on_error():
     # Standalone (no provider) and a failing read must both mask nothing.
     sm = _sm(warmup={'max_follows_per_day': 1})
-    assert sm.exhausted_daily_quotas() == set()
+    assert sm.exhausted_intents() == set()
 
     def boom():
         raise RuntimeError('db down')
 
     sm.set_daily_usage_provider(boom)
-    assert sm.exhausted_daily_quotas() == set()
+    assert sm.exhausted_intents() == set()
 
 
 def test_provider_error_does_not_kill_the_session():

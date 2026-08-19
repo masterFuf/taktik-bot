@@ -228,16 +228,17 @@ def interaction_plan_from_payload(payload, config: dict, *, rng=None) -> Interac
 
 
 def mask_exhausted_intents(plan: InteractionPlan, exhausted) -> tuple:
-    """Drop the intents whose DAILY quota is already spent. Returns (plan, masked_names).
+    """Drop the intents whose budget is already spent. Returns (plan, masked_names).
 
-    The desktop guard caps follows and comments per day on top of the global action budget.
-    Hitting one of those used to end the session, which was the wrong trade: a spent comment
-    quota says nothing about the right to like or watch a story, so an account with most of
-    its action budget left sat idle until the next day. The quota now removes ITS OWN intent
-    and the session carries on.
+    A spent budget removes ITS OWN intent and the session carries on. A spent comment quota
+    says nothing about the right to like or watch a story, so ending the run on it left an
+    account with most of its budget unused. The same now goes for the per-session follow and
+    like ceilings, which did end the run: a run allowed 5 follows over 30 profiles stopped at
+    the fifth, around profile 26 on average, taking the likes and the stories down with it.
 
-    `exhausted` holds the intent names ('follow', 'comment'). Pure and dependency-free, like
-    the rest of this module; an empty/None set returns the plan untouched.
+    `exhausted` holds the intent names ('follow', 'comment', 'like'). Pure and
+    dependency-free, like the rest of this module; an empty/None set returns the plan
+    untouched.
     """
     if not exhausted:
         return plan, []
@@ -247,11 +248,13 @@ def mask_exhausted_intents(plan: InteractionPlan, exhausted) -> tuple:
         masked.append('follow')
     if plan.do_comment and 'comment' in exhausted:
         masked.append('comment')
+    if plan.like_target > 0 and 'like' in exhausted:
+        masked.append('like')
     if not masked:
         return plan, []
 
     return InteractionPlan(
-        like_target=plan.like_target,
+        like_target=0 if 'like' in masked else plan.like_target,
         do_follow=plan.do_follow and 'follow' not in masked,
         do_comment=plan.do_comment and 'comment' not in masked,
         max_comments=0 if 'comment' in masked else plan.max_comments,

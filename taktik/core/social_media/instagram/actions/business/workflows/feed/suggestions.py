@@ -356,12 +356,11 @@ class FeedSuggestionsMixin:
 
         - ``should_continue()`` carries the duration, the session caps and the daily
           action budget;
-        - the daily follow sub-quota is deliberately NOT a session-stop reason: it
-          disables its own intent for the rest of the day through
-          ``exhausted_daily_quotas()``. The interaction engine reads it to remove the
-          follow from each per-profile plan — a path this mode never walks, since it
-          visits no profile. Without reading it here, a suggestions pass would spend a
-          ramping account's daily follow budget without ever seeing it.
+        - a spent follow budget is deliberately NOT a session-stop reason: it disables its
+          own intent through ``exhausted_intents()``. The interaction engine reads it to
+          remove the follow from each per-profile plan — a path this mode never walks,
+          since it visits no profile. Without reading it here, a suggestions pass would
+          spend the follow budget without ever seeing it.
 
         Fail-open like the rest of the guard: a read error must not kill the run.
         """
@@ -378,10 +377,10 @@ class FeedSuggestionsMixin:
             except Exception as exc:
                 self.logger.debug(f"Session limit check failed: {exc}")
 
-        if hasattr(session, 'exhausted_daily_quotas'):
+        if hasattr(session, 'exhausted_intents'):
             try:
-                if 'follow' in (session.exhausted_daily_quotas() or set()):
-                    self.logger.info("Suggestions follow stopped: daily follow quota spent")
+                if 'follow' in (session.exhausted_intents() or set()):
+                    self.logger.info("Suggestions follow stopped: follow budget spent")
                     return False
             except Exception as exc:
                 self.logger.debug(f"Daily quota read failed: {exc}")

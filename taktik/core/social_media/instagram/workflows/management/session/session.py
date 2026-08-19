@@ -116,19 +116,16 @@ class SessionManager:
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
         
-        # Check the follow cap, when configured
-        follows_limit = session_settings.get('total_follows_limit', float('inf'))
-        if follows_limit and follows_limit != float('inf') and follows_limit > 0 and self.counters['follows'] >= follows_limit:
-            reason = stop_reasons.follows_cap(self.counters['follows'], follows_limit)
-            log.info(f"🛑 Session ended: {reason}")
-            return False, reason
-            
-        # Check the like cap, when configured
-        likes_limit = session_settings.get('total_likes_limit', float('inf'))
-        if likes_limit and likes_limit != float('inf') and likes_limit > 0 and self.counters['likes'] >= likes_limit:
-            reason = stop_reasons.likes_cap(self.counters['likes'], likes_limit)
-            log.info(f"🛑 Session ended: {reason}")
-            return False, reason
+        # The per-type ceilings (follows, likes) are NOT checked here any more. A spent follow
+        # budget says nothing about the right to like or watch a story, and ending the run on it
+        # was the single biggest waste in a session: `total_follows_limit` is derived as
+        # ceil(profiles x follow%), which is the EXPECTED value of the roll, so roughly half the
+        # runs reached it -- around profile 26 of 30 on the default settings -- and took the
+        # likes and stories down with them.
+        #
+        # They now disable their own action instead, through `exhausted_intents()`, which the
+        # interaction engine reads to drop that intent from each per-profile plan. Same rule the
+        # daily sub-quotas already followed; there is now one rule instead of two.
 
         # Ramp-up guard: the DAILY cap for this account, across every session.
         #
@@ -195,20 +192,35 @@ class SessionManager:
             log.warning(f"Daily-budget provider failed (continuing without cap): {exc}")
             return None
 
-    def exhausted_daily_quotas(self) -> set:
-        """The sub-quotas spent today.
+    def exhausted_intents(self) -> set:
+        """The actions whose budget is spent — SESSION ceilings and DAILY sub-quotas together.
 
-        The caller removes the matching intent from each per-profile plan, so the session keeps
-        liking and watching stories while the daily comments are spent. Empty in standalone,
-        where no cap is injected, and empty on a read error — fail-open, like the rest of the
-        guard.
+        The caller removes each of these from the per-profile plan, so a run that has used up
+        its follows keeps liking and watching stories instead of ending. Returning them from one
+        place is the point: a session ceiling and a daily quota mean the same thing to the
+        engine — stop doing THAT — and used to be handled by two different mechanisms, one of
+        which killed the run.
+
+        Empty in standalone, where no cap is injected, and empty on a read error — fail-open,
+        like the rest of the guard.
         """
+        spent = set()
+
+        # Session ceilings, derived from the operator's numbers by the config builder.
+        session_settings = self.config.get('session_settings', {})
+        follows_limit = session_settings.get('total_follows_limit', 0) or 0
+        if follows_limit and follows_limit != float('inf') and self.counters['follows'] >= follows_limit:
+            spent.add('follow')
+        likes_limit = session_settings.get('total_likes_limit', 0) or 0
+        if likes_limit and likes_limit != float('inf') and self.counters['likes'] >= likes_limit:
+            spent.add('like')
+
+        # Daily sub-quotas, injected by the desktop guard.
         usage = self._read_daily_usage()
         if usage is None:
-            return set()
+            return spent
 
         caps = self._warmup_policy
-        spent = set()
         max_follows = int(caps.get('max_follows_per_day', 0) or 0)
         if max_follows > 0 and int(usage.get('follows', 0)) >= max_follows:
             spent.add('follow')

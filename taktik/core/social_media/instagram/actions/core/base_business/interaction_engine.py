@@ -117,21 +117,22 @@ class InteractionEngineMixin:
             else:
                 # Strictly compatible off/enrich path: probabilities still own selection.
                 plan = build_interaction_plan(config, interactions_to_do, posts_count=posts_count)
-            # === DAILY SUB-QUOTAS ===
-            # A spent follow/comment quota removes ITS OWN intent for the rest of the day instead
-            # of ending the session: the run keeps liking and watching stories on the action
-            # budget it still has. No-op in standalone (no caps injected).
+            # === SPENT BUDGETS ===
+            # A spent budget removes ITS OWN intent instead of ending the session: the run keeps
+            # liking and watching stories on what it still has. Covers both the per-session
+            # ceilings (follows, likes) and the daily sub-quotas -- one rule, one place.
+            # No-op in standalone (no caps injected).
             session = getattr(self, 'session_manager', None)
-            if session is not None and hasattr(session, 'exhausted_daily_quotas'):
+            if session is not None and hasattr(session, 'exhausted_intents'):
                 try:
-                    spent = session.exhausted_daily_quotas()
+                    spent = session.exhausted_intents()
                 except Exception as e:
                     self.logger.debug(f"Daily quota read failed (no masking): {e}")
                     spent = None
                 plan, quota_masked = mask_exhausted_intents(plan, spent)
                 if quota_masked:
                     self.logger.info(
-                        f"📵 @{username}: {', '.join(quota_masked)} désactivé(s) — quota du jour atteint"
+                        f"📵 @{username}: {', '.join(quota_masked)} désactivé(s) — budget atteint"
                     )
                     emit_step("daily_quota", action="mask", target=username, masked=quota_masked)
 

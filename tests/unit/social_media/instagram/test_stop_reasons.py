@@ -45,25 +45,37 @@ def test_profiles_cap_matches_the_real_session_manager():
     assert emitted == sr.profiles_cap(30, 30).text
 
 
-def test_follows_cap_matches_the_real_session_manager():
-    # The motive from the audit: a cap nobody set, derived from profiles x follow%.
+def test_a_spent_follow_budget_no_longer_ends_the_session():
+    # This is the motive from the audit, and it no longer exists as a stop: the ceiling is
+    # derived as ceil(profiles x follow%), which is the EXPECTED value of the roll, so about
+    # half the runs reached it and ended around profile 26 of 30 -- taking the likes and the
+    # stories with them. It now disables its own action and the run carries on.
     sm = _manager(total_follows_limit=5)
     sm.counters['follows'] = 5
 
-    keep_going, emitted = sm.should_continue()
+    keep_going, _ = sm.should_continue()
 
-    assert keep_going is False
-    assert emitted == sr.follows_cap(5, 5).text
+    assert keep_going is True
+    assert sm.exhausted_intents() == {'follow'}
 
 
-def test_likes_cap_matches_the_real_session_manager():
+def test_a_spent_like_budget_no_longer_ends_the_session():
     sm = _manager(total_likes_limit=63)
     sm.counters['likes'] = 63
 
-    keep_going, emitted = sm.should_continue()
+    keep_going, _ = sm.should_continue()
 
-    assert keep_going is False
-    assert emitted == sr.likes_cap(63, 63).text
+    assert keep_going is True
+    assert sm.exhausted_intents() == {'like'}
+
+
+def test_an_untouched_budget_masks_nothing():
+    sm = _manager(total_follows_limit=5, total_likes_limit=63)
+    sm.counters['follows'] = 4
+    sm.counters['likes'] = 62
+
+    assert sm.should_continue()[0] is True
+    assert sm.exhausted_intents() == set()
 
 
 def test_daily_budget_matches_the_real_session_manager():
@@ -108,6 +120,14 @@ def test_generic_motives_keep_their_exact_wording():
     assert sr.completed(30).text == "Workflow completed (30 interactions)"
     assert sr.sources_exhausted().text == "Sources exhausted (no further progress)"
     assert sr.manual_stop().text == "Manual stop (Ctrl+C)"
+
+
+def test_the_retired_cap_motives_still_render():
+    # follows_cap and likes_cap are no longer emitted by any run -- a spent per-type budget
+    # masks its action instead. They stay in the catalogue because an older local core still
+    # emits their sentence, which the app resolves through them.
+    assert sr.follows_cap(5, 5).text == "Follows limit reached (5/5)"
+    assert sr.likes_cap(63, 63).text == "Likes limit reached (63/63)"
 
 
 def test_bare_code_motives_still_emit_their_bare_code():
