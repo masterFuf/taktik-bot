@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 
 class DirectNavigationMixin:
@@ -294,10 +295,7 @@ class DirectNavigationMixin:
             max_consecutive_known_usernames is not None
             and known_usernames_streak >= max_consecutive_known_usernames
         ):
-            reason = (
-                f"No new followers after {max_consecutive_known_usernames} known usernames in a row "
-                f"({total_usernames_seen} seen)"
-            )
+            reason = stop_reasons.known_streak(max_consecutive_known_usernames, total_usernames_seen)
             self.logger.info(
                 f"🏁 No new followers discovered after {max_consecutive_known_usernames} known usernames in a row "
                 f"(seen {total_usernames_seen:,} usernames)"
@@ -327,17 +325,17 @@ class DirectNavigationMixin:
         
         # Stop conditions
         if target_followers_count > 0 and total_usernames_seen >= target_followers_count * 0.95:
-            reason = f"End of followers list ({total_usernames_seen:,}/{target_followers_count:,} seen)"
+            reason = stop_reasons.end_of_list(total_usernames_seen, target_followers_count)
             self.logger.info(f"🏁 Reached end of list: seen {total_usernames_seen:,}/{target_followers_count:,} followers (~95%)")
             return True, reason
         
         if scroll_detector.is_the_end():
-            reason = f"No new followers found ({total_usernames_seen} profiles seen)"
+            reason = stop_reasons.no_new_profiles(total_usernames_seen)
             self.logger.info("🏁 ScrollEndDetector: end of list reached")
             return True, reason
         
         if tracker.is_end_of_list():
-            reason = f"End of followers list (same profiles repeated)"
+            reason = stop_reasons.end_of_list_repeated()
             self.logger.info("🏁 Tracker: same followers seen multiple times - end of list")
             return True, reason
         
@@ -345,10 +343,7 @@ class DirectNavigationMixin:
             legacy_max_no_new_usernames_scrolls is not None
             and no_new_profiles_count >= legacy_max_no_new_usernames_scrolls
         ):
-            reason = (
-                f"No new followers after {legacy_max_no_new_usernames_scrolls} scroll attempts "
-                f"({total_usernames_seen} seen)"
-            )
+            reason = stop_reasons.scroll_streak(legacy_max_no_new_usernames_scrolls, total_usernames_seen)
             self.logger.info(
                 f"🏁 No new usernames found after {legacy_max_no_new_usernames_scrolls} attempts "
                 f"(seen {total_usernames_seen:,} usernames)"
@@ -374,6 +369,6 @@ class DirectNavigationMixin:
             return False, None
         elif load_more_result is False:
             self.logger.info("🏁 End of followers list detected (suggestions section)")
-            return True, "End of followers list (suggestions section)"
+            return True, stop_reasons.end_of_list_suggestions()
         
         return False, None

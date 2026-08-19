@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 from ....core.stats import create_workflow_stats, sync_aliases
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from ..common.interaction_config import build_interaction_config
 from ..common.revisit_policy import RevisitPolicy
 
@@ -66,7 +67,7 @@ class ProfileListWorkflowMixin:
         if not targets:
             self.logger.error("No profiles provided for the profile-list workflow")
             sync_aliases(stats, 'followers_direct')
-            stats['stop_reason'] = 'no_targets'
+            stats['stop_reason'] = stop_reasons.no_targets()
             return stats
 
         session_stop_reason = None
@@ -198,7 +199,7 @@ class ProfileListWorkflowMixin:
                 else:
                     self.automation.helpers.finalize_session(
                         status='COMPLETED',
-                        reason=f"Workflow completed ({stats['interacted']} interactions)")
+                        reason=stop_reasons.completed(stats['interacted']))
 
             return stats
 

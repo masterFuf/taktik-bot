@@ -11,6 +11,7 @@ from ..common.list_sources import resolve_list_source
 from .interaction_plan import resolve_interaction_plan
 from ....core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
@@ -191,7 +192,7 @@ class HashtagBusiness(
         self.logger.info(f"📋 Plan on #{hashtag}: {plan.describe()}")
         if plan.is_noop:
             self.logger.warning("Nothing enabled in the plan — no post would be engaged")
-            stats['stop_reason'] = 'empty_plan'
+            stats['stop_reason'] = stop_reasons.empty_plan()
             return stats
 
         if self.session_manager:
@@ -206,7 +207,7 @@ class HashtagBusiness(
             if need_to_open_post:
                 current = self._find_first_valid_post(hashtag, effective_config, skip_count=0)
                 if not current:
-                    stop_reason = 'no_valid_post'
+                    stop_reason = stop_reasons.no_valid_post()
                     self.logger.warning("No post matching the criteria")
                     break
                 need_to_open_post = False
@@ -228,7 +229,7 @@ class HashtagBusiness(
                 )
                 stats['already_filtered'] = stats.get('already_filtered', 0) + 1
                 if not self._swipe_to_next_post(known_signature=self._signature_of(current)):
-                    stop_reason = 'no_new_post'
+                    stop_reason = stop_reasons.no_new_post()
                     break
                 continue
 
@@ -263,7 +264,7 @@ class HashtagBusiness(
                     except Exception as exc:
                         self.logger.debug(f"Failed to send post_skipped: {exc}")
                     if not self._swipe_to_next_post(known_signature=self._signature_of(current)):
-                        stop_reason = 'no_new_post'
+                        stop_reason = stop_reasons.no_new_post()
                         break
                     self._human_like_delay('navigation')
                     continue
@@ -306,16 +307,16 @@ class HashtagBusiness(
                 self.logger.debug(f"Reading pause skipped: {exc}")
 
             if posts_engaged >= max_posts:
-                stop_reason = 'budget_reached'
+                stop_reason = stop_reasons.posts_cap(posts_engaged, max_posts)
                 break
             if not self._swipe_to_next_post(known_signature=self._signature_of(current)):
-                stop_reason = 'no_new_post'
+                stop_reason = stop_reasons.no_new_post()
                 break
 
         if not stop_reason and examined >= max_to_examine:
-            stop_reason = 'max_posts_examined'
+            stop_reason = stop_reasons.posts_examined_cap(examined, max_to_examine)
 
-        stats['stop_reason'] = stop_reason or 'budget_reached'
+        stats['stop_reason'] = stop_reason or stop_reasons.posts_cap(posts_engaged, max_posts)
         stats['success'] = posts_engaged > 0
         self.logger.info(
             f"✅ Posts mode finished: {posts_engaged} post(s) engaged "

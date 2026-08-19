@@ -16,6 +16,7 @@ from ....core.base_business import BaseBusinessAction
 from ....core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from .revisit_policy import RevisitPolicy
 from .list_sources import InteractionListSource, make_likers_source
@@ -154,9 +155,8 @@ class LikersWorkflowBase(BaseBusinessAction):
                         max_consecutive_known_usernames is not None
                         and known_usernames_streak >= max_consecutive_known_usernames
                     ):
-                        stop_reason = (
-                            f"No new followers after {max_consecutive_known_usernames} known usernames in a row "
-                            f"({stats['users_found']} seen)"
+                        stop_reason = stop_reasons.known_streak(
+                            max_consecutive_known_usernames, stats['users_found']
                         )
                         stats['stop_reason'] = stop_reason
                         self.logger.info(

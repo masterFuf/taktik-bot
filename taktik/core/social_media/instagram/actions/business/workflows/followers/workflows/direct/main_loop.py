@@ -6,6 +6,7 @@ from typing import Dict, Any
 from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from ....common.revisit_policy import RevisitPolicy
 from ....common.private_streak_policy import PrivateStreakPolicy
@@ -175,7 +176,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         # screen / navigation drift). Blind-scrolling further is pure waste and
                         # a detectable non-human burst.
                         self.logger.error("🛑 Followers list unavailable (4 consecutive empty scans) — ending run")
-                        session_stop_reason = session_stop_reason or 'followers_list_unavailable'
+                        session_stop_reason = session_stop_reason or stop_reasons.list_unavailable()
                         break
                     # Handle end of list, suggestions and scrolling
                     should_break = self._handle_empty_followers_screen(scroll_detector)
@@ -431,11 +432,11 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     # INTERRUPTED (already an accepted terminal status — Ctrl+C uses it) so the
                     # operator can tell a degraded run (626: 23/46) from a healthy one.
                     self.automation.helpers.finalize_session(
-                        status='INTERRUPTED', reason=session_stop_reason or 'navigation_lost')
+                        status='INTERRUPTED', reason=session_stop_reason or stop_reasons.navigation_lost())
                 elif session_stop_reason:
                     self.automation.helpers.finalize_session(status='COMPLETED', reason=session_stop_reason)
                 else:
-                    reason = f"Workflow completed ({stats['interacted']} interactions)"
+                    reason = stop_reasons.completed(stats['interacted'])
                     self.automation.helpers.finalize_session(status='COMPLETED', reason=reason)
 
             return stats

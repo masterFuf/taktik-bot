@@ -10,6 +10,7 @@ from pathlib import Path
 from loguru import logger
 
 from .....database import InstagramProfile, get_db_service
+from ..management.session import stop_reasons
 from ..management.session import SessionManager
 from ...actions.core.base_action import BaseAction
 from ...actions.compatibility.modern_instagram_actions import ModernInstagramActions
@@ -184,7 +185,7 @@ class InstagramAutomation:
         )
 
         if not getattr(self, 'session_finalized', False):
-            reason = last_stop_reason or f"Workflow completed ({outcome['processed']} interactions)"
+            reason = last_stop_reason or stop_reasons.completed(outcome['processed'])
             self._finalize_session(status='COMPLETED', reason=reason)
 
         self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
@@ -226,7 +227,7 @@ class InstagramAutomation:
         )
 
         if not getattr(self, 'session_finalized', False):
-            reason = result.get('stop_reason') or f"Workflow completed ({result.get('interacted', 0)} interactions)"
+            reason = result.get('stop_reason') or stop_reasons.completed(result.get('interacted', 0))
             self._finalize_session(status='COMPLETED', reason=reason)
 
         return result
@@ -366,7 +367,7 @@ class InstagramAutomation:
                 # session duration ran out, doing nothing but navigation.
                 if not iteration_made_progress:
                     self.logger.info("Full iteration made no progress — sources exhausted, ending session")
-                    self._finalize_session(status='COMPLETED', reason='Sources exhausted (no further progress)')
+                    self._finalize_session(status='COMPLETED', reason=stop_reasons.sources_exhausted())
                     return
 
                 self.logger.info("End of complete workflow iteration")
