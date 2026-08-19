@@ -115,28 +115,16 @@ def _resolve_comment_language(base_lang: "str | None", post_language: Any) -> "s
 
 
 def _load_cached_qualification(username: str) -> "dict | None":
-    """Return this profile's already-stored AI qualification (niche / category / profession) from the
-    local DB, or None if it was never AI-qualified.
+    """This profile's already-stored AI qualification, or None if it was never classified.
 
-    Lets the interaction hook REUSE a prior scraping analysis instead of re-paying for the vision
-    classification of a profile we've already qualified — the same dedup the scraping deep-qualify
-    path already applies (avoids paying twice for the same profile analysis)."""
-    if not username:
-        return None
-    try:
-        from taktik.core.database.local.service import get_local_database
+    Lets the interaction hook REUSE a classification any account already paid for instead of
+    re-sending the profile to the vision model. What decides "already classified" is NOT
+    inlined here: it lives in `ProfileQualification`, the single gate shared with the scraping
+    path — an inline copy is exactly how this reuse silently stopped working for months.
+    """
+    from taktik.core.database.profile_qualification import ProfileQualification
 
-        rows = get_local_database().get_profiles_by_usernames([username]) or []
-    except Exception:
-        return None
-    target = username.lower()
-    for row in rows:
-        if str(row.get("username", "")).lower() != target:
-            continue
-        # Only reuse when there is an actual AI classification stored (not just a bare profile row).
-        if any([row.get("niche_category"), row.get("niche"), row.get("profession")]):
-            return row
-    return None
+    return ProfileQualification.load(username, platform="instagram")
 
 
 def crop_screenshot_to_post(img: Any, device: Any) -> Any:
@@ -772,11 +760,20 @@ def install_instagram_ai_hooks(
                     img = device.screenshot()
                     img.save(screenshot_path, format="PNG")
 
+                    # Ask for the engagement verdict only when something will USE it — the same
+                    # condition the cached path above already applies. The verdict answers "is
+                    # this profile worth engaging FOR THE OPERATED ACCOUNT", which is a question
+                    # only the autonomous mode asks: in `off` (manual) and `enrich`
+                    # (AI qualification) the operator drives the interactions and we are here to
+                    # classify and store the profile, not to score it against our own niche.
+                    # Asking anyway costs ~980 prompt tokens and ~70 completion tokens per
+                    # profile for an answer nobody reads.
+                    wants_verdict = bool(relevance_gating or decision_mode)
                     result = ai.classify_profile_niche(
                         username=username,
                         screenshot_path=screenshot_path,
                         profile_context=profile_data or {},
-                        include_engagement=True,
+                        include_engagement=wants_verdict,
                         account_niche=account_niche,
                         account_sub_niche=account_sub_niche,
                         account_persona=account_persona,

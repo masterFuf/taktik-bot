@@ -7,69 +7,19 @@ Distinct from `social_graph_repository`, which owns the bot account's OWN follow
 sync. This one is about OTHER people's edges, used to build seed lists ("everyone we know of
 who follows @source").
 
-The enriched reads go through `profile_ai_read_model`, which inspects the schema before
-building its SELECT: the AI columns live in `profile_ai_enrichments` on a current base, but a
-standalone base may predate that table. Asking SQLite what exists beats assuming.
+The enriched reads go through the shared `profile_ai_read_model` (one module for the whole
+Instagram domain), which inspects the schema before building its SELECT: the AI columns live
+in `profile_qualification` on a desktop base and in `profile_ai_enrichments` on a standalone
+one. Asking SQLite what exists beats assuming.
 """
 
-import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
 from ..._base.base_repository import BaseRepository
-
-
-def profile_ai_read_model(conn: sqlite3.Connection, profile_alias: str) -> Dict[str, str]:
-    """SQL fragments for reading a profile's AI fields, adapted to what the base has.
-
-    Returns the JOIN and the four column expressions. On a base without
-    `profile_ai_enrichments`, the AI fields resolve to NULL rather than failing the query —
-    a standalone bot reads what it has instead of erroring.
-    """
-    # PRAGMA table_info yields (cid, name, type, notnull, default, pk). Read the name by
-    # POSITION rather than by key: the repositories set `row_factory = sqlite3.Row`, but this
-    # function is also reachable with a plain connection, where a row is a bare tuple.
-    columns = {
-        row[1]
-        for row in conn.execute("PRAGMA table_info(instagram_profiles)").fetchall()
-    }
-
-    def column(name: str) -> str:
-        return f"{profile_alias}.{name}" if name in columns else "NULL"
-
-    factual = {
-        "niche": "NULL",
-        "sub_niche": "NULL",
-        "profession": "NULL",
-        "city": column("location_city"),
-    }
-
-    has_enrichment = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name = 'profile_ai_enrichments'"
-    ).fetchone() is not None
-
-    if not has_enrichment:
-        return {"join": "", **factual}
-
-    return {
-        "join": f"""
-                LEFT JOIN profile_ai_enrichments pae
-                    ON pae.enrichment_id = (
-                        SELECT latest_pae.enrichment_id
-                        FROM profile_ai_enrichments latest_pae
-                        WHERE latest_pae.platform = 'instagram'
-                        AND latest_pae.profile_id = {profile_alias}.profile_id
-                        ORDER BY datetime(latest_pae.updated_at) DESC, latest_pae.enrichment_id DESC
-                        LIMIT 1
-                    )
-        """,
-        "niche": "pae.ai_niche",
-        "sub_niche": "pae.ai_specific_niche",
-        "profession": "pae.ai_profession",
-        "city": f"COALESCE(pae.location_city, {factual['city']})",
-    }
+from ..profile_ai_read_model import profile_ai_read_model
 
 
 class ProfileFollowingRepository(BaseRepository):

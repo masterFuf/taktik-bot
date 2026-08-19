@@ -624,10 +624,11 @@ def cli(ctx, lang=None):
                         from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
                         
                         console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
-                        from taktik.core.app.ai.providers.openrouter import AIService
+                        from taktik.core.app.ai.factory import build_ai_service
 
                         def _build_scraping_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None):
-                            return AIService(
+                            # Standalone CLI: no premium taxonomy to inject.
+                            return build_ai_service(
                                 api_key=api_key,
                                 ipc=ipc,
                                 vision_model=vision_model,
