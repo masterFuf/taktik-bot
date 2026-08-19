@@ -37,12 +37,12 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 
-#: What kind of ending this is, in the only terms that change what the operator does about it.
-#: Three, on purpose: an earlier five-way split named things the developer reading it could not
-#: guess. The precise motive is always in `code`; the family only says how alarming it is.
-FAMILY_NORMAL = "normal"                    # stopped as expected -- nothing to do
-FAMILY_CRASHED = "crashed"                  # could not do its job -- go look
-FAMILY_STOPPED_BY_USER = "stopped_by_user"  # someone pressed stop
+#: Does the operator need to go and look? That is the only question the family answers, and the
+#: reason there are three of them rather than the five this started with: on five, three names
+#: made the developer reading them guess something else. The precise motive is always in `code`.
+FAMILY_OK = "ok"          # stopped as expected -- nothing to do
+FAMILY_FAILED = "failed"  # did not run -- go look
+FAMILY_MANUAL = "manual"  # someone pressed stop
 
 
 @dataclass(frozen=True)
@@ -71,13 +71,13 @@ def _reason(code: str, family: str, text: str, **params: Any) -> StopReason:
     return StopReason(code=code, params=params, text=text, family=family)
 
 
-# -- Normal: the run stopped as expected ---------------------------------------
+# -- ok: the run stopped as expected -------------------------------------------
 #
 # Limits first: duration, profiles, follows, likes, the warmup caps, the hashtag budget.
 
 def duration_cap(limit_minutes: Any) -> StopReason:
     return _reason(
-        "duration_cap", FAMILY_NORMAL,
+        "duration_cap", FAMILY_OK,
         f"Maximum session duration reached ({limit_minutes} minutes)",
         limit_minutes=limit_minutes,
     )
@@ -85,7 +85,7 @@ def duration_cap(limit_minutes: Any) -> StopReason:
 
 def profiles_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
-        "profiles_cap", FAMILY_NORMAL,
+        "profiles_cap", FAMILY_OK,
         f"Profiles limit reached ({count}/{limit})",
         count=count, limit=limit,
     )
@@ -93,7 +93,7 @@ def profiles_cap(count: Any, limit: Any) -> StopReason:
 
 def follows_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
-        "follows_cap", FAMILY_NORMAL,
+        "follows_cap", FAMILY_OK,
         f"Follows limit reached ({count}/{limit})",
         count=count, limit=limit,
     )
@@ -101,7 +101,7 @@ def follows_cap(count: Any, limit: Any) -> StopReason:
 
 def likes_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
-        "likes_cap", FAMILY_NORMAL,
+        "likes_cap", FAMILY_OK,
         f"Likes limit reached ({count}/{limit})",
         count=count, limit=limit,
     )
@@ -109,7 +109,7 @@ def likes_cap(count: Any, limit: Any) -> StopReason:
 
 def daily_budget(count: Any, limit: Any) -> StopReason:
     return _reason(
-        "daily_budget", FAMILY_NORMAL,
+        "daily_budget", FAMILY_OK,
         f"Daily action budget reached ({count}/{limit})",
         count=count, limit=limit,
     )
@@ -117,7 +117,7 @@ def daily_budget(count: Any, limit: Any) -> StopReason:
 
 def session_action_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
-        "session_action_cap", FAMILY_NORMAL,
+        "session_action_cap", FAMILY_OK,
         f"Session action cap reached ({count}/{limit})",
         count=count, limit=limit,
     )
@@ -126,7 +126,7 @@ def session_action_cap(count: Any, limit: Any) -> StopReason:
 def posts_cap(count: Any, limit: Any) -> StopReason:
     """Hashtag posts budget spent. Legacy text is the bare code ``budget_reached``."""
     return _reason(
-        "posts_cap", FAMILY_NORMAL,
+        "posts_cap", FAMILY_OK,
         "budget_reached",
         count=count, limit=limit,
     )
@@ -137,7 +137,7 @@ def posts_cap(count: Any, limit: Any) -> StopReason:
 def end_of_list(seen: int, total: int) -> StopReason:
     # The legacy sentence groups thousands (`:,`); reproduce it exactly, separators included.
     return _reason(
-        "end_of_list", FAMILY_NORMAL,
+        "end_of_list", FAMILY_OK,
         f"End of followers list ({seen:,}/{total:,} seen)",
         seen=seen, total=total,
     )
@@ -145,21 +145,21 @@ def end_of_list(seen: int, total: int) -> StopReason:
 
 def end_of_list_repeated() -> StopReason:
     return _reason(
-        "end_of_list_repeated", FAMILY_NORMAL,
+        "end_of_list_repeated", FAMILY_OK,
         "End of followers list (same profiles repeated)",
     )
 
 
 def end_of_list_suggestions() -> StopReason:
     return _reason(
-        "end_of_list_suggestions", FAMILY_NORMAL,
+        "end_of_list_suggestions", FAMILY_OK,
         "End of followers list (suggestions section)",
     )
 
 
 def no_new_profiles(seen: Any) -> StopReason:
     return _reason(
-        "no_new_profiles", FAMILY_NORMAL,
+        "no_new_profiles", FAMILY_OK,
         f"No new followers found ({seen} profiles seen)",
         seen=seen,
     )
@@ -167,7 +167,7 @@ def no_new_profiles(seen: Any) -> StopReason:
 
 def known_streak(streak: Any, seen: Any) -> StopReason:
     return _reason(
-        "known_streak", FAMILY_NORMAL,
+        "known_streak", FAMILY_OK,
         f"No new followers after {streak} known usernames in a row ({seen} seen)",
         streak=streak, seen=seen,
     )
@@ -175,7 +175,7 @@ def known_streak(streak: Any, seen: Any) -> StopReason:
 
 def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
     return _reason(
-        "scroll_streak", FAMILY_NORMAL,
+        "scroll_streak", FAMILY_OK,
         f"No new followers after {scrolls} scroll attempts ({seen} seen)",
         scrolls=scrolls, seen=seen,
     )
@@ -183,23 +183,23 @@ def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
 
 def sources_exhausted() -> StopReason:
     return _reason(
-        "sources_exhausted", FAMILY_NORMAL,
+        "sources_exhausted", FAMILY_OK,
         "Sources exhausted (no further progress)",
     )
 
 
 def no_valid_post() -> StopReason:
-    return _reason("no_valid_post", FAMILY_NORMAL, "no_valid_post")
+    return _reason("no_valid_post", FAMILY_OK, "no_valid_post")
 
 
 def no_new_post() -> StopReason:
-    return _reason("no_new_post", FAMILY_NORMAL, "no_new_post")
+    return _reason("no_new_post", FAMILY_OK, "no_new_post")
 
 
 def posts_examined_cap(examined: Any, limit: Any) -> StopReason:
     """Hashtag examined-posts ceiling. Legacy text is the bare code ``max_posts_examined``."""
     return _reason(
-        "posts_examined_cap", FAMILY_NORMAL,
+        "posts_examined_cap", FAMILY_OK,
         "max_posts_examined",
         examined=examined, limit=limit,
     )
@@ -209,35 +209,35 @@ def posts_examined_cap(examined: Any, limit: Any) -> StopReason:
 
 def completed(interactions: Any) -> StopReason:
     return _reason(
-        "completed", FAMILY_NORMAL,
+        "completed", FAMILY_OK,
         f"Workflow completed ({interactions} interactions)",
         interactions=interactions,
     )
 
 
-# -- Crashed: the run could not do its job -------------------------------------
+# -- failed: the run did not run ------------------------------------------------
 #
-# Includes an empty plan and a missing target list. Neither is a crash in the strict sense, but
-# both mean the same thing to the operator: it did not work, go and look at the settings.
+# Includes an empty plan and a missing target list. Neither is a crash, but both mean the same
+# thing to the operator: it did not run, go and look at the settings.
 
 def navigation_lost() -> StopReason:
-    return _reason("navigation_lost", FAMILY_CRASHED, "navigation_lost")
+    return _reason("navigation_lost", FAMILY_FAILED, "navigation_lost")
 
 
 def list_unavailable() -> StopReason:
     """Followers list gone (suggestions screen / navigation drift)."""
-    return _reason("list_unavailable", FAMILY_CRASHED, "followers_list_unavailable")
+    return _reason("list_unavailable", FAMILY_FAILED, "followers_list_unavailable")
 
 
 def empty_plan() -> StopReason:
-    return _reason("empty_plan", FAMILY_CRASHED, "empty_plan")
+    return _reason("empty_plan", FAMILY_FAILED, "empty_plan")
 
 
 def no_targets() -> StopReason:
-    return _reason("no_targets", FAMILY_CRASHED, "no_targets")
+    return _reason("no_targets", FAMILY_FAILED, "no_targets")
 
 
-# -- Stopped by the user -------------------------------------------------------
+# -- manual: someone pressed stop ----------------------------------------------
 
 def manual_stop() -> StopReason:
-    return _reason("manual_stop", FAMILY_STOPPED_BY_USER, "Manual stop (Ctrl+C)")
+    return _reason("manual_stop", FAMILY_MANUAL, "Manual stop (Ctrl+C)")
