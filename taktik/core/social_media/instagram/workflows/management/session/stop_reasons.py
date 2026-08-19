@@ -96,11 +96,13 @@ def _reason(code: str, family: str, text: str, **params: Any) -> StopReason:
 #
 # Limits first: duration, profiles, follows, likes, the warmup caps, the hashtag budget.
 
-def duration_cap(limit_minutes: Any) -> StopReason:
+def duration_cap(minutes: Any) -> StopReason:
+    # `minutes` rather than `limit_minutes`: the param names become the placeholders of the
+    # translated sentence, so they are read by whoever writes the translations.
     return _reason(
         "duration_cap", FAMILY_OK,
-        f"Maximum session duration reached ({limit_minutes} minutes)",
-        limit_minutes=limit_minutes,
+        f"Maximum session duration reached ({minutes} minutes)",
+        minutes=minutes,
     )
 
 
