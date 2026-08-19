@@ -390,9 +390,17 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
         action_type = "interact_with_followers"
         session_workflow_type = "target_followers"
 
+    # The feed budget is counted in POSTS, not in profiles: its page sends `maxProfiles` filled
+    # with the number of posts to browse. Publishing that as a PROFILE ceiling was harmless only
+    # while nothing incremented the profile counter; now that walking a post's likers does, a
+    # feed run of 30 posts visiting 5 likers each would stop after six posts, on a limit the
+    # operator never set in those units. The feed's real budget stays the action's
+    # `max_interactions`; zero here means "no profile ceiling".
+    profiles_limit = 0 if action_type == "feed" else max_profiles
+
     session_settings: Dict[str, Any] = {
         "workflow_type": session_workflow_type,
-        "total_profiles_limit": max_profiles,
+        "total_profiles_limit": profiles_limit,
         "total_follows_limit": math.ceil(max_profiles * (follow_percentage / 100))
         if follow_percentage > 0
         else 0,

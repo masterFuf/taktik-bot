@@ -250,6 +250,14 @@ class LikersWorkflowBase(BaseBusinessAction):
 
                 if result.actually_interacted:
                     stats['users_interacted'] += 1
+                    # Feed the SESSION profile counter too. This loop walks PEOPLE -- the likers
+                    # or commenters of a post -- so one pass through here is exactly one unit of
+                    # the operator's "max profiles" budget. It never told the SessionManager,
+                    # which left `total_profiles_limit` unenforceable on every workflow reaching
+                    # profiles this way (post-likers, hashtag likers/commenters, feed likers):
+                    # the counter stayed at zero for the whole run while the budget was spent.
+                    if self.session_manager:
+                        self.session_manager.record_profile_processed()
                     stats['likes_made'] += result.likes
                     stats['follows_made'] += result.follows
                     stats['comments_made'] += result.comments
