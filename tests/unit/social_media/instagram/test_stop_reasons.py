@@ -145,12 +145,22 @@ def test_codes_are_unique():
 
 
 def test_no_motive_is_empty_or_untyped():
-    families = {sr.FAMILY_CAP, sr.FAMILY_EXHAUSTED, sr.FAMILY_COMPLETED,
-                sr.FAMILY_DEGRADED, sr.FAMILY_EXTERNAL}
+    families = {sr.FAMILY_NORMAL, sr.FAMILY_CRASHED, sr.FAMILY_STOPPED_BY_USER}
     for reason in _every_reason():
         assert reason.code, "a motive has no code"
         assert reason.text, f"{reason.code} has no text"
         assert reason.family in families, f"{reason.code} has an unknown family"
+
+
+def test_only_a_failed_run_is_flagged_as_crashed():
+    # The family is what tells the operator whether to go and look. A spent limit or an exhausted
+    # source must never be dressed up as a failure, and a failure must never pass for routine.
+    crashed = {reason.code for reason in _every_reason() if reason.family == sr.FAMILY_CRASHED}
+
+    assert crashed == {"navigation_lost", "list_unavailable", "empty_plan", "no_targets"}
+    assert sr.follows_cap(5, 5).family == sr.FAMILY_NORMAL
+    assert sr.end_of_list(1, 2).family == sr.FAMILY_NORMAL
+    assert sr.manual_stop().family == sr.FAMILY_STOPPED_BY_USER
 
 
 def test_event_fields_stay_additive():
