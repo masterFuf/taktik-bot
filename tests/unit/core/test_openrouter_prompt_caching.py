@@ -81,3 +81,75 @@ def test_two_accounts_share_one_cached_prefix():
         response_language="en", include_engagement=True, account_niche="art_design")
     assert first[0]["text"] == second[0]["text"]
     assert first[1]["text"] != second[1]["text"]
+
+
+# ---------------------------------------------------------------------------
+# Output is the expensive half: ~250 completion tokens at $1.49/M against ~2 900 prompt
+# tokens at $0.25/M. A field removed from the ANSWER is worth six removed from the question.
+# ---------------------------------------------------------------------------
+
+def test_following_insights_is_only_asked_when_there_is_a_following_sample():
+    """Automation sends no sample, so the field came back empty on ~10 000 calls a month."""
+    without = _captured_system_prompt(profile_context={"biography": "bio"})
+    assert "following_insights" not in "".join(block["text"] for block in without)
+
+    with_sample = _captured_system_prompt(
+        profile_context={"biography": "bio", "_following_sample": ["a", "b"]},
+    )
+    text = "".join(block["text"] for block in with_sample)
+    assert "following_insights" in text
+    # Asked for real, not hedged with "if a sample was provided" — there is one.
+    assert "if a following sample was provided" not in text
+
+
+def test_the_summary_asks_for_a_claim_not_an_essay():
+    text = "".join(block["text"] for block in _captured_system_prompt())
+    assert "1-2 sentences describing who this person is" in text
+    assert "2-3 sentences" not in text
+
+
+def test_the_request_states_a_backend_preference_that_can_still_fall_back():
+    """The prompt cache is warm per backend; a hard pin would fail a whole run when it is down."""
+    from taktik.core.app.ai.providers.openrouter import PROVIDER_PREFERENCE
+
+    assert PROVIDER_PREFERENCE["allow_fallbacks"] is True
+    assert PROVIDER_PREFERENCE["order"], "a preference with no order is not a preference"
+
+
+def test_the_served_backend_is_reported_not_the_gateway():
+    """`provider` is always 'openrouter' (the gateway) — the cache turns on the BACKEND."""
+    import json as _json
+
+    service = AIService(api_key="test-key")
+    captured = {}
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        @staticmethod
+        def read():
+            return _json.dumps({
+                "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+                "model": "google/gemini-3.1-flash-lite",
+                "provider": "Google AI Studio",
+                "usage": {"prompt_tokens": 10, "completion_tokens": 2, "cost": 0.0001},
+            }).encode()
+
+    def fake_urlopen(request, **_):
+        captured["body"] = _json.loads(request.data.decode())
+        return _Resp()
+
+    import urllib.request as _urllib
+    original = _urllib.urlopen
+    _urllib.urlopen = fake_urlopen
+    try:
+        result = service._call_openrouter("google/gemini-3.1-flash-lite", [], label="t")
+    finally:
+        _urllib.urlopen = original
+
+    assert result["upstream"] == "Google AI Studio"
+    assert captured["body"]["provider"]["allow_fallbacks"] is True

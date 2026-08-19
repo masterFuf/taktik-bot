@@ -49,6 +49,26 @@ OPENROUTER_TOTAL_TIMEOUT_SECONDS = 45.0
 # TEXT separately (scraped, not OCR'd). Re-validate before going lower.
 VISION_IMAGE_MAX_EDGE = 768
 
+# Which upstream backend OpenRouter should route to, and why it is a PREFERENCE and not a pin.
+#
+# The prompt cache only pays off when consecutive calls land on the same warm instance. Measured
+# over 3 879 August calls, it fired 48,7 % of the time — and the misses are not a TTL expiring:
+# at under 60 s between calls the hit rate is 37 %, at 60-180 s it is 63 %. That is routing, not
+# time. Every miss re-bills ~1 800 prefix tokens at full price instead of a fifth.
+#
+# `allow_fallbacks` stays TRUE on purpose. A hard pin to a slug that is renamed, saturated or down
+# fails EVERY call in a run; a preference that cannot be honoured simply routes elsewhere and we
+# lose the cache, which is exactly where we are today. The cost of being wrong is asymmetric, so
+# the safe side is the one that degrades.
+#
+# The served backend is logged (see `_call_openrouter`) because we never recorded it: the run log
+# said `provider=openrouter`, which is the gateway, not the backend. Without that line there is no
+# way to tell whether this preference is honoured — re-read it before tightening anything here.
+PROVIDER_PREFERENCE = {
+    "order": ["google-ai-studio", "google-vertex"],
+    "allow_fallbacks": True,
+}
+
 # Platform display label for prompts (so the provider is reusable across platforms,
 # not hardcoded to Instagram). Defaults keep the Instagram wording byte-equivalent.
 
@@ -160,6 +180,7 @@ class AIService(CommentGenerationMixin):
             # can prove whether the cached prefix is actually being HIT. Without it a
             # regression that silently kills caching reads exactly like a working setup.
             "usage": {"include": True},
+            "provider": PROVIDER_PREFERENCE,
         }).encode("utf-8")
 
         req = urllib.request.Request(OPENROUTER_API_URL, data=body, headers=headers, method="POST")
@@ -188,6 +209,11 @@ class AIService(CommentGenerationMixin):
                         "text": text.strip(),
                         "model": data.get("model", model),
                         "provider": "openrouter",
+                        # The BACKEND OpenRouter routed to, which is what the prompt cache is
+                        # warm on. `provider` above is the gateway and is always "openrouter",
+                        # so the run log could never answer "did we land on the same instance
+                        # as the previous call?" — the question the cache hit rate turns on.
+                        "upstream": data.get("provider"),
                         "usage": usage,
                         "cost_usd": cost,
                         "finish_reason": finish_reason,
@@ -248,10 +274,14 @@ class AIService(CommentGenerationMixin):
             # cache that stops being hit is visible in the run log instead of only in the bill.
             cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
             cached_txt = f" (cached {cached})" if cached else ""
+            # The BACKEND, not the gateway: the prompt cache is warm per instance, so a run whose
+            # hit rate collapses is answered by whether this value keeps changing between calls.
+            upstream = result.get("upstream")
+            upstream_txt = f" · via={upstream}" if upstream else ""
             logger.info(
                 f"[AIService] {label or 'call'} · model={served}{routed} · "
                 f"tokens={usage.get('prompt_tokens', '?')}{cached_txt}+{usage.get('completion_tokens', '?')} · "
-                f"cost={cost_txt}"
+                f"cost={cost_txt}{upstream_txt}"
             )
         return result
 
@@ -1056,6 +1086,22 @@ class AIService(CommentGenerationMixin):
                 '"score": "<number 0.0-1.0>", "reason": "<short reason>"}'
             )
 
+        # `following_insights` only means something when a following sample was actually sent, and
+        # only `deep_qualify` sends one. Asked unconditionally it came back empty on every
+        # automation profile — three lines of instruction and a JSON field paid for on ~10 000
+        # calls a month to be told there was nothing to say. Asked only when there IS a sample,
+        # the answer is worth its tokens and the other path stops carrying the question.
+        has_following_sample = bool((profile_context or {}).get('_following_sample'))
+        insights_instr = (
+            "For 'following_insights': write 1-2 sentences explaining what the following sample "
+            "reveals about this person (interests, community circles, cultural background, location "
+            "signals, professional network, etc.). Be concrete: name specific patterns you observe.\n"
+        ) if has_following_sample else ""
+        insights_field_label = ", 'following_insights'" if has_following_sample else ""
+        insights_json = (
+            '"following_insights": "What the following sample reveals about this person.", '
+        ) if has_following_sample else ""
+
         # The prompt is deliberately split in two. Everything down to `age_group` is
         # byte-identical on every call — ~2.2k tokens in production, taxonomy included — so it
         # is sent as a cached prefix billed at a tenth of the input price. The output language
@@ -1075,9 +1121,13 @@ class AIService(CommentGenerationMixin):
             "If the person has a clear professional trade (Actor, Director, Screenwriter, Photographer, Chef, Coach, Tattoo Artist, Musician, Model, etc.), set profession to that trade in the profile language. "
             "Set profession_tags to up to 3 subcategory tags (e.g. ['UGC', 'short film', 'coaching'] for an actor). "
             "If no clear profession is identifiable, set profession to null and profession_tags to [].\n"
-            "For 'summary': write 2-3 sentences describing who this person is, their content style, typical audience, and likely purpose. Be specific and insightful — avoid generic descriptions.\n"
-            "For 'following_insights': if a following sample was provided, write 1-2 sentences explaining what it reveals about this person (interests, community circles, cultural background, location signals, professional network, etc.). "
-            "Be concrete: name specific patterns you observe. Set to null if no following data was provided.\n"
+            # Output is the expensive half of this call: ~250 completion tokens at $1.49/M against
+            # ~2 900 prompt tokens at $0.25/M, so a sentence removed here is worth six removed
+            # above. 'summary' was asking for 2-3 sentences (~75 tokens, 12 % of the call) where
+            # 1-2 carry the same signal — it feeds the profile card and the text-only verdict on
+            # an already-classified profile, both of which read a claim, not an essay.
+            "For 'summary': write 1-2 sentences describing who this person is, their content style, typical audience, and likely purpose. Be specific and insightful — avoid generic descriptions.\n"
+            + insights_instr +
             "For 'country': the country this account is most likely based in, as an English country name "
             "(e.g. 'France', 'Switzerland', 'United States'). Infer it from the bio, the cities, the writing "
             "language and the following sample. Only answer when the signals reasonably support one country; "
@@ -1086,13 +1136,13 @@ class AIService(CommentGenerationMixin):
             "For 'age_group': estimate the person's age range as 'teen' (<18), 'young_adult' (18-24), 'adult' (25-34), 'mature' (35+), or 'unknown'. Use 'unknown' for brands or if unclear.\n"
         )
         variable_prompt = (
-            f"Write the human-readable text fields — 'summary', 'following_insights' and the engagement 'reason' — in {_lang_full} (they are shown to the user in the app). "
+            f"Write the human-readable text fields — 'summary'{insights_field_label} and the engagement 'reason' — in {_lang_full} (they are shown to the user in the app). "
             "All structured fields (niche_category, niche, language, content_type, tags, cities, country, profession, profession_tags, gender, age_group) must remain in English.\n"
             + engagement_instr +
             "Respond ONLY with valid JSON — no extra text:\n"
             '{"niche_category": "travel", "niche": "Adventure & Backpacking", '
-            '"summary": "2-3 sentences describing the account in detail.", '
-            '"following_insights": "What the following sample reveals about this person, or null.", '
+            '"summary": "1-2 sentences describing the account.", '
+            + insights_json +
             '"language": "en", "content_type": "creator", "tags": ["tag1", "tag2"], '
             '"cities": [], "country": null, "profession": null, "profession_tags": [], '
             '"gender": "female", "age_group": "young_adult"'
