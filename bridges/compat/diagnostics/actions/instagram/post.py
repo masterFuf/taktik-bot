@@ -132,3 +132,46 @@ def return_to_grid_and_reopen(a, p):
             "behavior_state": a.like._behavior_state_snapshot(),
         },
     }
+
+
+@action("post.read_context")
+def read_post_context(a, p):
+    """Author, publish date, window and caption of the FRAMED post.
+
+    The exact context the AI smart comment grounds on — same production path
+    (PostReadingMixin.framed_post_context + clean_post_caption), so what the Lab
+    reports here is literally what the comment model would be given.
+    """
+    from taktik.core.social_media.instagram.workflows.core.caption_hygiene import (
+        clean_post_caption,
+    )
+
+    ctx = a.scroll.framed_post_context()
+    if not ctx:
+        return {"success": False,
+                "message": "aucun post cadre (pas de header visible dans le dump)"}
+    cleaned = clean_post_caption(ctx.get("caption_text"), author_hint=ctx.get("author"))
+    flags = []
+    if cleaned.truncated:
+        flags.append("tronquee")
+    if cleaned.mangled:
+        flags.append("emoji manges par le dump")
+    if not cleaned.has_substance:
+        flags.append("sans matiere")
+    caption_note = f"caption {len(cleaned.text)} car." + (f" ({', '.join(flags)})" if flags else "")
+    return {
+        "success": True,
+        "message": f"@{ctx.get('author') or '?'} | {ctx.get('header_desc') or 'header sans date'} | {caption_note}",
+        "details": {
+            "author": ctx.get("author"),
+            "header_desc": ctx.get("header_desc"),
+            "caption_clean": cleaned.text,
+            "caption_raw": ctx.get("caption_text"),
+            "caption_truncated": cleaned.truncated,
+            "caption_mangled": cleaned.mangled,
+            "caption_has_substance": cleaned.has_substance,
+            "header_bounds": ctx.get("header_bounds"),
+            "buttons_bounds": ctx.get("buttons_bounds"),
+            "window_bottom": ctx.get("window_bottom"),
+        },
+    }
