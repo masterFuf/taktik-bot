@@ -99,6 +99,37 @@ class PostedCommentRepository(BaseRepository):
             logger.error(f"Error reading posted comments for @{target_username}: {exc}")
             return []
 
+    def recent_texts(
+        self,
+        account_id: Optional[int] = None,
+        platform: str = 'instagram',
+        limit: int = 12,
+        kind: str = 'comment',
+    ) -> List[str]:
+        """The account's latest published comment texts, newest first.
+
+        Feeds the generation-side anti-tic guard: the model is shown what THIS account just
+        published so it stops repeating its own openers and emoji. Scoped to one account when
+        `account_id` is known — another account's voice is not this account's tic — and to
+        AI-written comments (a template repeating is the operator's choice, not a tic).
+        """
+        try:
+            where = "platform = ? AND kind = ? AND source = 'ai'"
+            params: list = [platform, kind]
+            if account_id is not None:
+                where += " AND account_id = ?"
+                params.append(account_id)
+            rows = self.query_orm_first(
+                f"""SELECT comment_text FROM posted_comments
+                    WHERE {where}
+                    ORDER BY posted_at DESC LIMIT ?""",
+                (*params, limit),
+            )
+            return [r['comment_text'] for r in rows if r.get('comment_text')]
+        except Exception as exc:
+            logger.error(f"Error reading recent posted comments: {exc}")
+            return []
+
     def attach_post_url(self, comment_id: int, post_url: str) -> bool:
         """Fill in the shareable post link after the fact.
 

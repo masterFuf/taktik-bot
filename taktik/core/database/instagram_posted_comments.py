@@ -91,5 +91,20 @@ class InstagramPostedComments:
             logger.warning(f"Could not attach post URL to comment {comment_id}: {exc}")
             return False
 
+    @staticmethod
+    def recent_texts(account_id: Optional[int] = None, limit: int = 12) -> list:
+        """The account's latest AI-published comment texts (anti-tic guard input).
+
+        Best effort: any failure returns [] — generation then simply runs without the
+        repetition guard, which is the standalone behaviour anyway.
+        """
+        try:
+            return InstagramPostedComments._db().posted_comments.recent_texts(
+                account_id=account_id, limit=limit,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not read recent posted comments: {exc}")
+            return []
+
 
 __all__ = ["InstagramPostedComments", "build_post_ref"]

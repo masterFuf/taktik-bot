@@ -156,3 +156,28 @@ def test_post_ref_degrades_instead_of_failing():
     assert build_post_ref("alice", None) == "alice"       # no caption: author alone
     assert build_post_ref("@Alice", None) == "alice"       # @ and case normalised
     assert build_post_ref(None, None) is None              # nothing to key on
+
+
+def test_recent_texts_scopes_to_account_and_ai_comments(repo):
+    repo.record(target_username="a", comment_text="mine newest", account_id=1, source="ai",
+                posted_at="2026-08-20 10:00:00")
+    repo.record(target_username="b", comment_text="mine older", account_id=1, source="ai",
+                posted_at="2026-08-19 10:00:00")
+    repo.record(target_username="c", comment_text="other account", account_id=2, source="ai",
+                posted_at="2026-08-20 11:00:00")
+    repo.record(target_username="d", comment_text="a template", account_id=1, source="template",
+                posted_at="2026-08-20 12:00:00")
+    repo.record(target_username="e", comment_text="a reply", account_id=1, source="ai",
+                kind="reply", reply_to_username="e", reply_to_text="hey",
+                posted_at="2026-08-20 13:00:00")
+
+    texts = repo.recent_texts(account_id=1, limit=10)
+    assert texts == ["mine newest", "mine older"]
+
+
+def test_recent_texts_without_account_returns_all_ai_comments(repo):
+    repo.record(target_username="a", comment_text="one", account_id=1, source="ai",
+                posted_at="2026-08-20 10:00:00")
+    repo.record(target_username="b", comment_text="two", account_id=2, source="ai",
+                posted_at="2026-08-20 11:00:00")
+    assert repo.recent_texts(limit=10) == ["two", "one"]
