@@ -320,6 +320,13 @@ def cmd_like(device_id: str, username: str, package_name: str = None) -> None:
     emit_notif_json({"type": "result", "command": "like", **result}, flush=True)
 
 
+def cmd_follow_back(device_id: str, username: str, package_name: str = None) -> None:
+    """Follow ``username`` back inline from their "started following you" row."""
+    bridge = _connect(device_id, package_name, restart=False)
+    result = bridge.build_workflow().follow_back(username)
+    emit_notif_json({"type": "result", "command": "follow_back", **result}, flush=True)
+
+
 def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> None:
     """Run a LIST of notification actions inside ONE session.
 
@@ -334,7 +341,8 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> 
     did happen. Stop is a process kill by design (the operator asked to stop, not to finish the
     current one), so nothing here polls a flag: the last emitted step IS the record.
 
-    Each action is ``{"action": "like"|"reply"|"accept"|"ignore", "username": str, "text": str?}``.
+    Each action is ``{"action": "like"|"reply"|"accept"|"ignore"|"follow_back",
+    "username": str, "text": str?}``.
     One failing action does not abort the rest — a comment whose row scrolled out of reach must not
     cancel the nine others.
     """
@@ -370,6 +378,8 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> 
                 result = workflow.accept_request(username)
             elif action == "ignore":
                 result = workflow.ignore_request(username)
+            elif action == "follow_back":
+                result = workflow.follow_back(username)
             else:
                 result = {"success": False, "error": f"Unknown action: {action}"}
         except Exception as exc:  # noqa: BLE001
@@ -468,6 +478,7 @@ def run_notifications_cli(args: list[str]) -> None:
             "  accept_all <device_id> [max]\n"
             "  reply <device_id> <username> [text]\n"
             "  like <device_id> <username>\n"
+            "  follow_back <device_id> <username>\n"
             '  batch <device_id> \'[{"action":"like","username":"x"},...]\''
         )
         sys.exit(1)
@@ -520,6 +531,12 @@ def run_notifications_cli(args: list[str]) -> None:
                 emit_notif_error("Usage: notifications.py like <device_id> <username>")
                 sys.exit(1)
             cmd_like(args[1], args[2], package_name=package_name)
+
+        elif command == "follow_back":
+            if len(args) < 3:
+                emit_notif_error("Usage: notifications.py follow_back <device_id> <username>")
+                sys.exit(1)
+            cmd_follow_back(args[1], args[2], package_name=package_name)
 
         elif command == "batch":
             # The action list travels as ONE argv element (spawn, no shell), so unicode and spaces

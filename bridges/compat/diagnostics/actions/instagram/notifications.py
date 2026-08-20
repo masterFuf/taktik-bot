@@ -304,6 +304,14 @@ def like_comment(a, p):
     return _workflow(a).like_comment((p.get("username") or "").strip())
 
 
+@action("notifications.follow_back")
+def follow_back(a, p):
+    """Tap the inline 'Follow back' on the new-follower row of ``username`` (scrolls to
+    reveal it). Param: username (optional → follows back the first row with the button).
+    Exact-label match: an already-followed row reads as "no button", never an unfollow."""
+    return _workflow(a).follow_back((p.get("username") or "").strip())
+
+
 @action("notifications.open_mention")
 def open_mention(a, p):
     """Open the comment thread of ``username``'s row WITHOUT typing (row-scoped).

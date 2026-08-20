@@ -8,6 +8,7 @@ substring must match both.
 from lxml import etree
 
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
+    find_inline_follow_back_target,
     find_inline_like_target,
     find_row_reply_target,
     find_truncated_targets,
@@ -141,6 +142,45 @@ def test_find_inline_like_skips_already_liked_unlike_button():
 def test_find_inline_like_none_when_username_absent():
     point = find_inline_like_target(_root(LIKE_XML), "activity_feed_newsfeed_story_row",
                                     ["Like button"], "carol")
+    assert point is None
+
+
+# New-follower rows carry an inline "Follow back" igds_button whose CONTAINER is empty
+# — the label lives on a child TextView (real IG 410 dump geometry). The already-
+# followed row shows "Suivi(e)"/"Following" and must never match.
+FOLLOW_BACK_XML = """<hierarchy>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,530][1080,770]">
+    <node text="alice a commencé à vous suivre. 20 h" bounds="[150,560][640,700]" />
+    <node resource-id="com.instagram.android:id/igds_button" bounds="[655,583][1036,715]">
+      <node text="Suivre en retour" bounds="[700,610][990,688]" />
+    </node>
+  </node>
+  <node resource-id="activity_feed_newsfeed_story_row" bounds="[0,770][1080,1010]">
+    <node text="bob a commencé à vous suivre. 1 j" bounds="[150,800][640,940]" />
+    <node resource-id="com.instagram.android:id/igds_button" bounds="[655,793][1036,925]">
+      <node text="Suivi(e)" bounds="[700,820][990,898]" />
+    </node>
+  </node>
+</hierarchy>"""
+
+
+def test_find_inline_follow_back_returns_label_center_for_username():
+    point = find_inline_follow_back_target(_root(FOLLOW_BACK_XML), "activity_feed_newsfeed_story_row",
+                                           ["Suivre en retour", "Follow back"], "alice")
+    assert point == (845, 649)  # center of the label [700,610][990,688]
+
+
+def test_find_inline_follow_back_skips_already_followed_row():
+    # "Suivi(e)" must NOT match "Suivre en retour" (exact label), so bob's already-
+    # followed row finds no button -> None, and a follow is never undone.
+    point = find_inline_follow_back_target(_root(FOLLOW_BACK_XML), "activity_feed_newsfeed_story_row",
+                                           ["Suivre en retour", "Follow back"], "bob")
+    assert point is None
+
+
+def test_find_inline_follow_back_none_when_username_absent():
+    point = find_inline_follow_back_target(_root(FOLLOW_BACK_XML), "activity_feed_newsfeed_story_row",
+                                           ["Suivre en retour", "Follow back"], "carol")
     assert point is None
 
 

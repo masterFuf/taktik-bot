@@ -201,6 +201,23 @@ def find_inline_like_target(
     return _find_row_control(root, row_bare_id, like_content_descs, username, ("content-desc",))
 
 
+def find_inline_follow_back_target(
+    root,
+    row_bare_id: str,
+    follow_back_labels: List[str],
+    username: str,
+) -> Optional[Tuple[int, int]]:
+    """Tap center of the inline "Follow back" button on the feed row for ``username``.
+
+    New-follower rows ("X started following you") carry an ``igds_button`` whose
+    container is empty — the label lives on a child TextView — so the label text is
+    matched EXACTLY and paired to the row by bounds containment, like the inline like.
+    Exact match keeps the already-followed "Following"/"Suivi(e)" state from matching,
+    so a follow is never undone.
+    """
+    return _find_row_control(root, row_bare_id, follow_back_labels, username, ("text", "content-desc"))
+
+
 def find_row_reply_target(
     root,
     row_bare_id: str,

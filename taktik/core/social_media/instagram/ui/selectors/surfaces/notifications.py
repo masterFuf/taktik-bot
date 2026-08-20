@@ -179,6 +179,15 @@ class NotificationSelectors:
     def reply_label(self) -> List[str]:
         return L_all("notification.reply_label")
 
+    # --- Inline "Follow back" label on a new-follower row ---
+    # Plain text (NOT xpath): the igds_button container is empty, the label lives on a
+    # child TextView, so the parse matches the label text by EXACT equality and pairs it
+    # with its row by bounds. Exact match keeps the already-followed "Following"/"Suivi(e)"
+    # state from ever matching. Union FR+EN via L_all.
+    @property
+    def inline_follow_back_button(self) -> List[str]:
+        return L_all("notification.inline_follow_back_button")
+
     # --- Inline "… more" / "… suite" truncation-expander words (for OCR) ---
     # Plain words (NOT xpath): the expander is a span with no node, so it is located
     # by OCR on the row crop. Union FR+EN via L_all.

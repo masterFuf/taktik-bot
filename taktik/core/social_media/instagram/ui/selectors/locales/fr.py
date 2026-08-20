@@ -485,6 +485,14 @@ STRINGS: Dict[str, List[str]] = {
     "notification.reply_label": [
         "Répondre",
     ],
+    # Inline follow-back LABEL on a "a commencé à vous suivre" row (raw text, NOT an
+    # xpath — the igds_button container is empty, the label lives on a child TextView;
+    # matched by EXACT text equality so the already-followed "Suivi(e)" state never
+    # matches and a follow is never undone). From dump navigation.go_notifications
+    # 2026-06-30 (FR, IG 410.0.0.53.71).
+    "notification.inline_follow_back_button": [
+        "Suivre en retour",
+    ],
     # Inline truncation-expander WORD. A ClickableSpan with no node, so it is located
     # by OCR on the row crop (not an xpath) and tapped to reveal the full comment.
     #

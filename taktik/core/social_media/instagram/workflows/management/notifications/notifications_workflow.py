@@ -39,6 +39,7 @@ from ....ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .classifier import clean_label, longest_clean_run
 from .dump_parsing import (
     concat_text,
+    find_inline_follow_back_target,
     find_inline_like_target,
     find_row_reply_target,
     find_truncated_targets,
@@ -803,6 +804,60 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         result["success"] = True
         result["message"] = (f"Liked {username}" if username else "Liked comment")
         self._notify("like", "done", result["message"], username=username)
+        return result
+
+    # ------------------------------------------------------------------
+    # Inline follow back — follow a new follower directly from the feed
+    # ------------------------------------------------------------------
+    def _find_inline_follow_back(self, username: str) -> Optional[tuple]:
+        root = self._dump_root()
+        if root is None:
+            return None
+        return find_inline_follow_back_target(
+            root,
+            self.selectors.notification_row_resource_id,
+            self.selectors.inline_follow_back_button,
+            username,
+        )
+
+    def follow_back(self, username: str = "") -> Dict[str, Any]:
+        """Follow ``username`` back inline, from their "started following you" row.
+
+        New-follower rows carry a clickable inline "Follow back" button, so we tap
+        it directly — no profile visit. Same navigation self-heal and below-the-fold
+        scrolling as ``like_comment``. The exact-label match means an already-followed
+        row ("Following"/"Suivi(e)") reads as "no button", never as an unfollow.
+        """
+        result = {"success": False, "username": username, "message": ""}
+        if not self.ensure_notifications_screen():
+            result["message"] = "Notifications screen not reachable"
+            self._notify("follow_back", "failed", result["message"], username=username)
+            return result
+        self._optimize_locale()  # the "Follow back" label is localized
+        self._notify("follow_back", "running", username or "new follower", username=username)
+
+        point = self._find_inline_follow_back(username)
+        for _ in range(4):
+            if point:
+                break
+            if not self._human_scroll("up"):
+                break
+            time.sleep(0.7)
+            point = self._find_inline_follow_back(username)
+        if not point:
+            result["message"] = (f"No inline follow-back for: {username}" if username
+                                 else "No follow-backable row on screen")
+            self._notify("follow_back", "failed", result["message"], username=username)
+            return result
+
+        if not self._tap_point(point, f"follow back {username}".strip()):
+            result["message"] = f"Could not tap follow back for {username}"
+            self._notify("follow_back", "failed", result["message"], username=username)
+            return result
+        time.sleep(0.8)
+        result["success"] = True
+        result["message"] = (f"Followed back {username}" if username else "Followed back")
+        self._notify("follow_back", "done", result["message"], username=username)
         return result
 
     # ------------------------------------------------------------------
