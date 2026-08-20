@@ -30,29 +30,10 @@ def _bio_text_looks_truncated(text: str, expander_words=None) -> bool:
     return False
 
 
-# A run of 2+ dots, or a single dot carrying an emoji variation selector. See
-# ``_text_lost_emoji`` for why that is the signature of a mangled emoji.
-_MANGLED_EMOJI_RE = re.compile(r"\.{2,}|\.[\uFE0E\uFE0F]")
-
-
-def _text_lost_emoji(text: Optional[str]) -> bool:
-    """Return whether an XML-dumped text lost emoji to Android's XML sanitiser.
-
-    UIAutomator serialises the hierarchy through AOSP's ``AccessibilityNodeInfoDumper``,
-    whose ``stripInvalidXMLChars`` walks the string **one UTF-16 code unit at a time** and
-    replaces anything outside the XML-legal ranges with ``"."``. UTF-16 surrogates are
-    outside those ranges, so an astral emoji — which is a surrogate PAIR — comes back as
-    exactly two dots, while a BMP symbol (heart, cloud, bullet: one code unit) survives.
-
-    Measured on the local base: 9 490 bios hold a dot run, even-length runs outnumber odd
-    ones 9.6 to 1, 828 runs are immediately followed by a variation selector (a character
-    that only ever trails an emoji), and NOT ONE of those bios still contains an astral
-    character — while 1 386 bios do carry BMP symbols intact.
-
-    A real ellipsis ("great photographer...") also matches, which is why the caller only
-    uses this as a hint to re-read the text through a channel that does not go through XML.
-    """
-    return bool(text) and bool(_MANGLED_EMOJI_RE.search(text))
+# Mangled-emoji detection moved to its shared owner (`taktik.core.shared.text`): the scar
+# is a property of every uiautomator2 XML dump, not of profile extraction. Kept under its
+# historical private name for the call sites below.
+from taktik.core.shared.text import text_lost_emoji as _text_lost_emoji
 
 
 class ProfileExtractionMixin(BaseAction):

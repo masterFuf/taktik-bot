@@ -155,6 +155,10 @@ class FeedScrollSelectors:
 
     # --- Feed perception: leaf resource-ids read from the dump ---
     header_id: str = "row_feed_photo_profile_name"      # header / author (one per full-frame post)
+    profile_header_id: str = "row_feed_profile_header"  # full header row; its content-desc carries
+                                                        # "author a publié un(e) photo le <date>" —
+                                                        # author + publish date for free, no gesture
+    buttons_row_id: str = "row_feed_view_group_buttons" # like/comment/share/save row (post bottom edge)
     like_button_id: str = "row_feed_button_like"        # engagement bar = proof the post was fully seen
     action_bar_id: str = "main_feed_action_bar"         # top bar of the feed (only present at the top)
     tab_bar_id: str = "tab_bar"                         # bottom navigation bar
@@ -182,6 +186,7 @@ class FeedScrollSelectors:
     caption_layout_class: str = "com.instagram.ui.widget.textview.IgTextLayoutView"
     caption_expand_descs: tuple = ("plus", "more")             # EXACT content-desc of the expand button
     caption_expand_suffixes: tuple = (" plus", " more")        # end of a truncated text
+    caption_collapse_suffixes: tuple = (" moins", " less")     # end of an EXPANDED text (collapse control)
 
     # --- Carousel inline ---
     carousel_viewpager_id: str = "carousel_viewpager"

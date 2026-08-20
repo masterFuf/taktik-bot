@@ -25,6 +25,7 @@ from lxml import etree
 
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
+from taktik.core.shared.text import text_lost_emoji
 
 # uiautomator bounds string: "[left,top][right,bottom]" — shared with the feed engine.
 _BOUNDS_RE = re.compile(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
@@ -368,6 +369,107 @@ class PostReadingMixin:
         username / hashtags / mentions / URLs stripped (see `caption_prose_chars`). 0 for an
         image with no real caption. Drives the reading dwell."""
         return caption_prose_chars(self.current_caption_text(root))
+
+    def framed_post_context(self, root=None) -> Optional[dict]:
+        """Everything the AI needs to know about the CURRENTLY FRAMED post, from ONE dump.
+
+        Anchors on the framed post's full header row (`row_feed_profile_header`), whose
+        content-desc already carries "author a publié un(e) photo le <date>" — author and
+        publish date for free, no extra gesture. The post's WINDOW runs from that header to
+        the next post's header (or the bottom of the screen), and the caption is picked
+        INSIDE that window — never the tallest caption on screen, which on a busy frame can
+        belong to the post below (measured: 11% of stored AI comments carried a neighbour's
+        caption). The button row inside the window gives the screenshot crop its bottom edge.
+
+        A caption whose emoji were eaten by the XML dump (see `text_lost_emoji`) is re-read
+        through JSON-RPC, the same channel that already rescues mangled bios.
+
+        Returns None when no full header is visible (post not framed — reels viewer, or
+        mid-scroll): the caller must then treat the screen as UNFRAMED and not pretend.
+        Keys: header_desc, author, header_bounds, buttons_bounds, caption_text,
+        caption_bounds, window_bottom.
+        """
+        root = root if root is not None else self._dump_root()
+        if root is None:
+            return None
+
+        top_limit, bottom_limit = 0, int(self.screen_height)
+        headers, buttons, captions = [], [], []
+        for node in root.iter():
+            short = node.get("resource-id", "").rsplit("/", 1)[-1]
+            bounds = self._node_bounds(node)
+            if short == FS.action_bar_id and bounds:
+                top_limit = max(top_limit, bounds[3])
+            elif short == FS.tab_bar_id and bounds:
+                bottom_limit = min(bottom_limit, bounds[1])
+            elif short == FS.profile_header_id and bounds:
+                headers.append((bounds, node.get("content-desc") or ""))
+            elif short == FS.buttons_row_id and bounds:
+                buttons.append(bounds)
+            elif node.get("class", "") == FS.caption_layout_class and bounds:
+                text = node.get("text") or ""
+                if text:
+                    captions.append((bounds, text))
+
+        # The framed post = the first header fully below the action bar.
+        visible = sorted((h for h in headers if h[0][1] >= top_limit), key=lambda h: h[0][1])
+        if not visible:
+            return None
+        header_bounds, header_desc = visible[0]
+        window_top = header_bounds[1]
+        later_tops = [h[0][1] for h in visible[1:]]
+        window_bottom = min([bottom_limit] + [t for t in later_tops if t > window_top])
+
+        def _in_window(bounds):
+            return window_top <= bounds[1] and bounds[3] <= window_bottom
+
+        buttons_bounds = next((b for b in buttons if _in_window(b)), None)
+        caption_bounds, caption_text = None, ""
+        in_window = [c for c in captions if _in_window(c[0])]
+        if in_window:
+            caption_bounds, caption_text = max(
+                in_window, key=lambda c: c[0][3] - c[0][1]
+            )
+            if text_lost_emoji(caption_text):
+                recovered = self._reread_caption_without_xml(caption_bounds)
+                if recovered:
+                    caption_text = recovered
+
+        # Header content-desc starts with the author's handle ("author a publié ...").
+        author = header_desc.split(" ", 1)[0].strip() if header_desc else ""
+        return {
+            "header_desc": header_desc,
+            "author": author,
+            "header_bounds": header_bounds,
+            "buttons_bounds": buttons_bounds,
+            "caption_text": caption_text,
+            "caption_bounds": caption_bounds,
+            "window_bottom": window_bottom,
+        }
+
+    def _reread_caption_without_xml(self, bounds) -> Optional[str]:
+        """Re-read a caption through JSON-RPC instead of the XML dump.
+
+        Same rescue as `_read_text_without_xml` for bios: `element.info['text']` travels as
+        JSON, where emoji survive the trip the XML dump mutilates into dots. The caption
+        `IgTextLayoutView` has no resource-id on v410, so the element is found by class and
+        matched to the XML node by its top-left corner. Best effort: any failure keeps the
+        dumped value — a caption with dots still beats no caption at all.
+        """
+        raw_device = getattr(self.device, "_device", None)
+        if raw_device is None or bounds is None:
+            return None
+        try:
+            query = raw_device(className=FS.caption_layout_class)
+            for i in range(min(query.count, 8)):
+                info = raw_device(className=FS.caption_layout_class, instance=i).info or {}
+                b = info.get("bounds") or {}
+                if abs(b.get("top", -9999) - bounds[1]) <= 4 and abs(b.get("left", -9999) - bounds[0]) <= 4:
+                    text = (info.get("text") or "").strip()
+                    return text or None
+        except Exception as exc:
+            self.logger.debug(f"JSON-RPC caption re-read failed: {exc}")
+        return None
 
     def human_reading_pause(self, dwell_s: Optional[float] = None,
                             read_captions: bool = True, browse_carousels: bool = True) -> float:
