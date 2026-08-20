@@ -112,3 +112,73 @@ def test_post_specific_comment_decision_fails_closed_on_bare_text(monkeypatch):
 
     assert out["should_comment"] is False
     assert out["comment"] == ""
+
+
+# --- Temporal anchor + anti-tic blocks (prompt content) ---
+
+def _service_capturing_prompt(monkeypatch, captured):
+    svc = _service(monkeypatch, '{"reasoning": "r", "comment": "c"}')
+
+    def fake_completion(system_prompt, user_prompt, **k):
+        captured["system"] = system_prompt
+        captured["user"] = user_prompt
+        return {"success": True, "text": '{"reasoning": "r", "comment": "c"}',
+                "model": "test/model", "cost_usd": 0.0}
+
+    svc.text_completion = fake_completion
+    return svc
+
+
+def test_prompt_carries_todays_date_and_time_check(monkeypatch):
+    import time as _time
+    captured = {}
+    svc = _service_capturing_prompt(monkeypatch, captured)
+    svc.generate_smart_comment(post_description="d", username="x", language="en", app_language="en")
+    today = _time.strftime("%Y-%m-%d")
+    assert f"Today's date: {today}." in captured["system"]
+    assert "TIME CHECK" in captured["system"]
+
+
+def test_prompt_carries_publish_label_when_known(monkeypatch):
+    captured = {}
+    svc = _service_capturing_prompt(monkeypatch, captured)
+    svc.generate_smart_comment(post_description="d", username="x", language="en", app_language="en",
+                               post_published="il y a 20 heures")
+    assert 'The post was published: "il y a 20 heures"' in captured["system"]
+    assert 'Published: "il y a 20 heures"' in captured["user"]
+
+
+def test_anti_tic_block_bans_repeated_openers_and_emoji(monkeypatch):
+    captured = {}
+    svc = _service_capturing_prompt(monkeypatch, captured)
+    svc.generate_smart_comment(
+        post_description="d", username="x", language="fr", app_language="fr",
+        recent_comments=[
+            "Le rendu est incroyable ✨",
+            "Le rendu est superbe ✨",
+            "Magnifique ce cadrage 🌿",
+        ],
+    )
+    system = captured["system"]
+    assert "most recent published comments" in system
+    assert '"le rendu"' in system          # opener seen twice -> explicitly banned
+    assert "✨" in system                   # emoji seen twice -> explicitly banned
+    assert '"magnifique ce"' not in system  # seen once -> not banned
+
+
+def test_no_anti_tic_block_without_recent_comments(monkeypatch):
+    captured = {}
+    svc = _service_capturing_prompt(monkeypatch, captured)
+    svc.generate_smart_comment(post_description="d", username="x", language="en", app_language="en")
+    assert "most recent published comments" not in captured["system"]
+
+
+def test_reply_prompt_also_gets_temporal_and_recent(monkeypatch):
+    captured = {}
+    svc = _service_capturing_prompt(monkeypatch, captured)
+    svc.generate_comment_reply(
+        comment_text="On se voit là-bas ?", username="x", language="fr", app_language="fr",
+        recent_comments=["Trop hâte d'y être 🔥", "Trop hâte de tester 🔥"],
+    )
+    assert "Today's date:" in captured["system"]
+    assert "🔥" in captured["system"]

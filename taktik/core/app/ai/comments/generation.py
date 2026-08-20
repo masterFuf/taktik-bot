@@ -37,6 +37,83 @@ _COMMENT_WRITING_RULES = """- No hashtags
 - Match the energy/tone you are answering"""
 
 
+def _build_temporal_block(post_published: str = "") -> str:
+    """Anchor the model in time — without it, a caption's "Août 2025" reads as UPCOMING.
+
+    An LLM has no idea what day it is: it anchors on its training cutoff, so any date after
+    that cutoff feels like the future. That is exactly how a stored comment said "hâte de
+    voir ça en août à Lausanne" under a RECAP of an August 2025 event, commented in 2026 —
+    with the model's own reasoning proudly calling it an "upcoming event". Measured: 3 of
+    the 39 stored captions carrying an explicit year got a wrongly-anticipating comment.
+
+    `post_published` is the raw publish label read from the post header ("il y a 20 heures",
+    "16 juillet"…) — passed verbatim, the model resolves it against today.
+    """
+    today = time.strftime("%Y-%m-%d")
+    lines = [f"Today's date: {today}."]
+    if post_published:
+        lines.append(
+            f'The post was published: "{post_published}" (raw app label; relative dates are '
+            "relative to today)."
+        )
+    lines.append(
+        "TIME CHECK before writing: dates or events in the caption can be in the PAST (a recap, "
+        "an archive, a previous edition). Compare them against today's date and the publish date. "
+        'Express anticipation ("can\'t wait", "hâte de", "vivement") ONLY for something verifiably '
+        "still upcoming — otherwise react to the content itself (the images, the result, the story) "
+        "with no anticipation."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _build_anti_tic_block(recent_comments: Any, max_items: int = 12, max_len: int = 200) -> str:
+    """Repetition guard: the account's own recent comments, injected as counter-examples.
+
+    Prompt rules alone do not hold over hundreds of generations — measured on the stored
+    corpus: "hâte de voir" in 7.9% of comments, "Le rendu…" opening 28 of them, and the
+    sparkle at 13.6% of all emoji despite being nominally banned. On one account that
+    becomes a recognizable signature. Openers and emoji that already appear twice or more
+    in the recent window are banned EXPLICITLY (a deterministic list, not a vibe).
+    Absent/empty -> "" (standalone bot, or a fresh account)."""
+    if not isinstance(recent_comments, (list, tuple)):
+        return ""
+    texts: list = []
+    for item in recent_comments:
+        if not isinstance(item, str):
+            continue
+        text = " ".join(item.split()).strip()
+        if text and len(text) <= max_len:
+            texts.append(text)
+        if len(texts) >= max_items:
+            break
+    if not texts:
+        return ""
+
+    opener_counts: Dict[str, int] = {}
+    emoji_counts: Dict[str, int] = {}
+    for text in texts:
+        opener = " ".join(text.lower().split()[:2])
+        if opener:
+            opener_counts[opener] = opener_counts.get(opener, 0) + 1
+        for ch in text:
+            if ord(ch) >= 0x2190:  # arrows/symbols/emoji — never letters or punctuation
+                emoji_counts[ch] = emoji_counts.get(ch, 0) + 1
+    banned_openers = [o for o, c in opener_counts.items() if c >= 2]
+    banned_emoji = [e for e, c in emoji_counts.items() if c >= 2]
+
+    listing = "\n".join(f'- "{text}"' for text in texts)
+    block = (
+        f"\nThis account's most recent published comments:\n{listing}\n"
+        "Your comment must be CLEARLY different from ALL of the above: different opening "
+        "words, different sentence shape, different emoji (or none)."
+    )
+    if banned_openers:
+        block += " Do NOT start with: " + ", ".join(f'"{o}"' for o in banned_openers) + "."
+    if banned_emoji:
+        block += " Do NOT use these overused emoji: " + " ".join(banned_emoji) + "."
+    return block + "\n"
+
+
 def _build_style_block(who: str, samples: Any, max_samples: int = 12, max_len: int = 240) -> str:
     """Few-shot writing-style block: real examples of how the operated account writes.
 
@@ -81,7 +158,8 @@ class CommentGenerationMixin:
     def generate_comment_reply(self, comment_text: str, username: str,
                                niche: str = "general", language: str = "auto",
                                post_caption: str = "", account_persona: dict = None,
-                               platform: str = "instagram", app_language: str = "en") -> Dict[str, Any]:
+                               platform: str = "instagram", app_language: str = "en",
+                               recent_comments: Any = None) -> Dict[str, Any]:
         """Write a reply to somebody's COMMENT under a post (not a comment on the post).
 
         Same model, same persona voice and the same benchmark-validated writing rules as
@@ -113,7 +191,7 @@ class CommentGenerationMixin:
         system_prompt = f"""You are a {_platform_label(platform)} engagement expert for the "{niche}" niche.
 Someone left a comment under a post. Write a short, authentic REPLY to that person — the way a real
 account owner answers in their comment thread.
-{brand_block}{style_block}
+{_build_temporal_block()}{brand_block}{style_block}{_build_anti_tic_block(recent_comments)}
 Decide first whether this comment is worth answering at all. Say no when it carries nothing to
 answer: emoji-only, a bare "🔥"/"top"/"👏", a tag of another account, a link drop, spam, or anything
 hostile. Replying to those is exactly what makes an account look automated.
@@ -203,7 +281,9 @@ Respond with ONLY a JSON object, on a single line, nothing else:
                                 post_caption: str = "", account_persona: dict = None,
                                 platform: str = "instagram", app_language: str = "en",
                                 post_screenshot_path: str = None,
-                                require_relevance_decision: bool = False) -> Dict[str, Any]:
+                                require_relevance_decision: bool = False,
+                                post_published: str = "",
+                                recent_comments: Any = None) -> Dict[str, Any]:
         """
         Generate a contextual smart comment based on post analysis.
         `post_description` is the vision model's description of the post image;
@@ -275,9 +355,12 @@ one of its posts comment-worthy.
                 '"comment": "<the comment>"}'
             )
 
+        temporal_block = _build_temporal_block(post_published)
+        anti_tic_block = _build_anti_tic_block(recent_comments)
+
         system_prompt = f"""You are a {_platform_label(platform)} engagement expert for the "{niche}" niche.
 Write a short, authentic comment that reacts to the post the way a REAL person scrolling {_platform_label(platform)} would — NOT a polished, literary or formal sentence.
-{brand_block}{style_block}{decision_rules}Rules for the COMMENT:
+{temporal_block}{brand_block}{style_block}{anti_tic_block}{decision_rules}Rules for the COMMENT:
 {_COMMENT_WRITING_RULES}
 - React to the SPECIFIC point of the post — the exact offer, contest, question, result or detail — not just the general vibe
 - If the author's caption is provided, react to what THEY said (their announcement, question or joke), not only the visual
@@ -291,6 +374,8 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             parts.append(f'What the post shows (vision analysis): "{post_description}"')
         if post_caption:
             parts.append(f'The author\'s caption: "{post_caption[:1000]}"')
+        if post_published:
+            parts.append(f'Published: "{post_published[:120]}"')
         user_prompt = "\n\n".join(parts) + "\n\nGenerate a natural, engaging comment."
 
         result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
