@@ -716,3 +716,142 @@ def test_both_paths_agree_on_when_the_verdict_is_wanted(monkeypatch):
 
         assert vision["classify_kwargs"]["include_engagement"] is expected
         assert asked["verdict"] is expected, f"paths disagree for {ai_config}"
+
+
+# --- Grounded comment pipeline: framing, hygiene, temporal anchor, anti-tics ---
+
+class _FramedScroll:
+    """Stand-in scroll_actions: a framed post whose caption carries UI chrome."""
+
+    def __init__(self, caption, header_desc="jane_doe a publié un(e) photo le 16 juillet"):
+        self._caption = caption
+        self._header_desc = header_desc
+        self._last_reveal_scroll_px = 0
+
+    def expand_caption_if_truncated(self):
+        return False
+
+    def current_caption_text(self):
+        return self._caption
+
+    def framed_post_context(self):
+        return {
+            "header_desc": self._header_desc,
+            "author": self._header_desc.split(" ", 1)[0],
+            "header_bounds": (0, 136, 1080, 190),
+            "buttons_bounds": (0, 1550, 1080, 1620),
+            "caption_text": self._caption,
+            "caption_bounds": (0, 1400, 1080, 1500),
+            "window_bottom": 1700,
+        }
+
+
+class _CroppableShot:
+    size = (1080, 1920)
+
+    def crop(self, _box):
+        return self
+
+    def save(self, *_args, **_kwargs):
+        return None
+
+
+def _install_comment_hook(monkeypatch, ai, captured, ai_config=None):
+    from taktik.core.social_media.instagram.actions.business.actions.comment.action import (
+        CommentAction,
+    )
+
+    def original_comment(*_args, **kwargs):
+        captured["posted"] = kwargs
+        return {"commented": True, "success": True, "errors": 0, "comment_text": kwargs.get("comment_text")}
+
+    monkeypatch.setattr(CommentAction, "comment_on_post", original_comment)
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        staticmethod(lambda *a, **k: None),
+    )
+    # The analysis cache facade reaches the LIVE local DB — a unit test must neither read a
+    # stale row from it nor WRITE a fixture row into it.
+    for method in ("load", "store", "mark_reused"):
+        monkeypatch.setattr(
+            "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+            f"InstagramPostAnalysis.{method}",
+            staticmethod(lambda *a, **k: None),
+        )
+
+    class Device:
+        def screenshot(self):
+            return _CroppableShot()
+
+    install_instagram_ai_hooks(
+        ai=ai,
+        ai_config=ai_config or {
+            "smartComments": True,
+            "postAnalysis": False,
+            "accountProfile": {"niche": "Cinema", "language": "fr"},
+        },
+        device=Device(),
+        language="fr",
+        log=lambda *_a: None,
+    )
+    return CommentAction
+
+
+def test_verified_framing_always_runs_vision_and_passes_publish_date(monkeypatch):
+    from types import SimpleNamespace
+
+    captured = {}
+
+    class FakeAI:
+        def analyze_post(self, **kwargs):
+            captured["analysis"] = kwargs
+            return {"success": True, "description": "Un plateau de tournage", "post_language": "french"}
+
+        def generate_smart_comment(self, **kwargs):
+            captured["generation"] = kwargs
+            return {"success": True, "should_comment": True, "comment": "Belle lumière sur ce plateau",
+                    "reasoning": "r"}
+
+    action_cls = _install_comment_hook(monkeypatch, FakeAI(), captured)
+    host = SimpleNamespace(
+        scroll_actions=_FramedScroll("jane_doe Tournage du clip hier soir à Lyon moins"),
+        _get_account_id=lambda: None,
+    )
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+        "InstagramPostedComments.recent_texts",
+        staticmethod(lambda account_id=None, limit=12: ["Le rendu est top 🔥"]),
+    )
+    result = action_cls.comment_on_post(host, username="jane_doe")
+
+    assert result.get("commented") is True
+    # postAnalysis toggle is OFF and decision mode OFF: vision ran anyway (framing verified).
+    assert "analysis" in captured
+    gen = captured["generation"]
+    # Caption reached the model CLEANED: no glued handle, no trailing collapse word.
+    assert gen["post_caption"] == "Tournage du clip hier soir à Lyon"
+    # Publish label from the header content-desc reached the temporal anchor.
+    assert "16 juillet" in gen["post_published"]
+    # The account's recent comments reached the anti-tic guard.
+    assert gen["recent_comments"] == ["Le rendu est top 🔥"]
+
+
+def test_no_context_at_all_is_skipped_not_invented(monkeypatch):
+    from types import SimpleNamespace
+
+    captured = {}
+
+    class FakeAI:
+        def analyze_post(self, **kwargs):
+            raise AssertionError("no framing -> vision must not run")
+
+        def generate_smart_comment(self, **kwargs):
+            raise AssertionError("nothing to ground on -> generation must not run")
+
+    action_cls = _install_comment_hook(monkeypatch, FakeAI(), captured)
+    # No scroll_actions at all: no framed context, no caption -> nothing to ground on.
+    host = SimpleNamespace()
+    result = action_cls.comment_on_post(host, username="_jimmy_gauthier")
+
+    assert result["skipped"] is True
+    assert "posted" not in captured

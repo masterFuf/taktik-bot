@@ -7,8 +7,12 @@ from typing import Any, Callable, Mapping
 from loguru import logger
 
 from taktik.core.database.instagram_post_analysis import InstagramPostAnalysis
+from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.shared.text import detect_text_language
+from taktik.core.social_media.instagram.workflows.core.caption_hygiene import (
+    clean_post_caption,
+)
 from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_DETAIL_SELECTORS,
@@ -125,6 +129,33 @@ def _load_cached_qualification(username: str) -> "dict | None":
     from taktik.core.database.profile_qualification import ProfileQualification
 
     return ProfileQualification.load(username, platform="instagram")
+
+
+def _crop_from_context(img: Any, post_context: "dict | None") -> Any:
+    """Crop the screenshot to the framed post using the ALREADY-PARSED window bounds.
+
+    Same edges as `crop_screenshot_to_post` (header top → button row bottom + margin), but
+    from the single dump `framed_post_context` already paid for — no extra selector round
+    trips, and the crop is guaranteed to describe the same post as the caption that came out
+    of that dump. Returns None when the window is not fully anchored (no header or no button
+    row): the caller must then treat the screenshot as UNFRAMED and keep it away from the
+    vision model.
+    """
+    if not post_context:
+        return None
+    header = post_context.get("header_bounds")
+    buttons = post_context.get("buttons_bounds")
+    if not header or not buttons:
+        return None
+    try:
+        width, height = img.size
+        crop_top = max(0, header[1] - 8)
+        crop_bottom = min(height, buttons[3] + int(height * 0.03))
+        if crop_bottom > crop_top + 50:
+            return img.crop((0, crop_top, width, crop_bottom))
+    except Exception:
+        return None
+    return None
 
 
 def crop_screenshot_to_post(img: Any, device: Any) -> Any:
@@ -284,20 +315,19 @@ def install_instagram_ai_hooks(
                     tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
                     os.makedirs(tmp_dir, exist_ok=True)
                     screenshot_path = os.path.join(tmp_dir, f'post_{username or "unknown"}.png')
-                    img = crop_screenshot_to_post(device.screenshot(), device)
-                    img.save(screenshot_path, format="PNG")
 
                     # The author's ACTUAL caption: expand it ('… plus' / '… more') like a human
-                    # reading the post, then read its full text from the UI. The screenshot crop
-                    # stops at the button row, so this TEXT channel is the only way the model
-                    # sees what the author wrote (announcement, question, wordplay).
+                    # reading the post, then read it — and only THEN screenshot, so the image
+                    # and the text describe the same framed moment. The screenshot crop stops
+                    # at the button row, so this TEXT channel is the only way the model sees
+                    # what the author wrote (announcement, question, wordplay).
                     post_caption = ""
+                    post_context = None
+                    scroll = getattr(self_comment, "scroll_actions", None)
                     try:
-                        scroll = getattr(self_comment, "scroll_actions", None)
                         if scroll is not None:
                             scroll._last_reveal_scroll_px = 0
                             scroll.expand_caption_if_truncated()
-                            post_caption = scroll.current_caption_text()
                             # Reading may have scrolled down to reveal the caption —
                             # reframe the post so the comment button click that follows
                             # targets THIS post's row, not the next one's.
@@ -305,15 +335,47 @@ def install_instagram_ai_hooks(
                             if reveal_px:
                                 scroll._reframe_post_after_reading(reveal_px)
                                 scroll._last_reveal_scroll_px = 0
+                            # ONE dump: the framed post's window (header → next header) gives
+                            # the author + publish date (header content-desc), the caption
+                            # scoped to THIS post (never a neighbour's), and the crop bounds.
+                            post_context = scroll.framed_post_context()
+                            post_caption = (
+                                (post_context or {}).get("caption_text")
+                                or scroll.current_caption_text()
+                            )
                     except Exception as exc:
                         log("warning", f"Caption read failed for @{username}: {exc}")
 
+                    # Strip the UI chrome off the rendered caption (glued author handle,
+                    # trailing 'plus'/'moins' expander words) before anything reasons on it.
+                    post_author = (post_context or {}).get("author") or ""
+                    post_published = (post_context or {}).get("header_desc") or ""
+                    cleaned = clean_post_caption(post_caption, author_hint=post_author or username)
+                    if post_author and username and post_author.lower() != (username or "").lower():
+                        log("info", f"@{username}: framed post is authored by @{post_author} "
+                                    f"(collab/repost or feed post)")
+                    post_caption = cleaned.text
+
+                    img = device.screenshot()
+                    cropped = _crop_from_context(img, post_context)
+                    framing_verified = cropped is not None
+                    if cropped is None:
+                        # Legacy per-selector crop: still useful for the record/screenshot,
+                        # but WITHOUT verified framing the screenshot may show two posts —
+                        # never send it to the vision model as "the post".
+                        cropped = crop_screenshot_to_post(img, device)
+                    cropped.save(screenshot_path, format="PNG")
+
                     post_desc = ""
                     post_language = None
-                    # A profile-level decision only nominates a comment candidate.
-                    # Autonomous mode always analyzes the exact framed post before
-                    # publishing, even when the optional broad postAnalysis toggle is off.
-                    if ai_config.get("postAnalysis", False) or decision_mode:
+                    # A comment is ALWAYS grounded on a vision analysis of the framed post
+                    # when the framing is verified (header + button row anchored the crop).
+                    # Commenting blind was the norm before: 556/556 stored AI comments were
+                    # written from the caption alone — including 46 written from a caption
+                    # that carried nothing at all. The postAnalysis toggle still governs the
+                    # broader analyze-on-like hook; a comment costs one vision call (~$0.0005)
+                    # and is rare enough that seeing the post is never optional.
+                    if framing_verified or decision_mode:
                         # Reuse a vision analysis already paid for on THIS post — by any account.
                         # What a post shows is a FACT, independent of who is looking at it, so a
                         # post crossed by several accounts of the fleet is analysed once instead
@@ -355,8 +417,15 @@ def install_instagram_ai_hooks(
                                     f"Post analysis failed for @{username}: {analysis.get('error')}",
                                 )
 
-                    if not post_desc and not post_caption:
-                        reason = "no vision description or caption"
+                    # Substance gate: with no vision description, the caption alone must carry
+                    # enough real prose to ground a comment. A dot-run caption (emoji eaten by
+                    # the XML dump) or a bare place name is NOT matter — writing from it is how
+                    # 8.3% of the stored comments INVENTED a subject to praise.
+                    if not post_desc and not cleaned.has_substance:
+                        reason = (
+                            "caption mangled by the dump and post not analyzable"
+                            if cleaned.mangled else "no vision description and no usable caption"
+                        )
                         log("info", f"No post context for @{username} ({reason}), skipping comment (AI mode)")
                         return skip_comment(reason, "missing_context")
 
@@ -406,6 +475,14 @@ def install_instagram_ai_hooks(
                             f"Skipping comment for @{username}: {reason}",
                         )
                         return skip_comment(reason, "caption_language")
+                    # Anti-tic guard input: what THIS account just published (best effort).
+                    try:
+                        recent_comments = InstagramPostedComments.recent_texts(
+                            account_id=self_comment._get_account_id(),
+                        )
+                    except Exception:
+                        recent_comments = []
+
                     result = ai.generate_smart_comment(
                         post_description=post_desc,
                         username=username or "unknown",
@@ -416,6 +493,8 @@ def install_instagram_ai_hooks(
                         app_language=language,
                         post_screenshot_path=screenshot_path,
                         require_relevance_decision=decision_mode,
+                        post_published=post_published,
+                        recent_comments=recent_comments,
                     )
                     if (
                         decision_mode
@@ -477,7 +556,9 @@ def install_instagram_ai_hooks(
                                 "reasoning": result.get("reasoning"),
                                 "post_caption": post_caption,
                                 "post_description": post_desc,
-                                "post_author": username,
+                                # The FRAMED author when the header gave it (collab/repost
+                                # posts are signed by the original author, not the target).
+                                "post_author": post_author or username,
                                 "language": comment_lang,
                             },
                         )
