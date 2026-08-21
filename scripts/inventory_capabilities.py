@@ -44,11 +44,9 @@ LAYOUT_TYPES_PATH = APP / "src" / "app" / "types" / "layout.types.ts"
 NAV_HUBS_PATH = APP / "src" / "app" / "layout" / "navHubs.ts"
 WORKFLOW_TYPES_PATH = APP / "src" / "app" / "types" / "workflow.types.ts"
 
-# Families that describe where a workflow is DISPLAYED, not what it does. They carry no
-# handler by construction, so counting them as unimplemented would be noise.
-UI_ONLY_FAMILIES = {"panel", "live_panel"}
-# A family that declares intent rather than capability. Its own name says so.
-DECLARED_TODO_FAMILIES = {"planned"}
+#: Families whose kind the manifest does not classify. Reported rather than guessed: an
+#: unclassified family is a gap in the manifest, and silently defaulting it would hide that.
+UNKNOWN_KIND = "?"
 
 ACTION_RE = re.compile(r'^@action\("([^"]+)"\)', re.M)
 TS_ARRAY_RE = re.compile(r"export const (?P<name>[A-Z0-9_]+)[^=]*= \[(?P<body>.*?)\]", re.S)
@@ -88,6 +86,31 @@ def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8-sig"))
 
 
+def platform_families(manifest: dict):
+    """Yield (platform, family, workflows), skipping the manifest's non-platform sections."""
+    for platform, families in manifest.items():
+        if not isinstance(families, dict) or platform == "kinds":
+            continue
+        for family, workflows in families.items():
+            if isinstance(workflows, list):
+                yield platform, family, workflows
+
+
+def kind_of(manifest: dict, platform: str, family: str, workflow: str | None = None) -> str:
+    """How this family (or one workflow of it) runs, as the MANIFEST declares it.
+
+    The classification used to be two hardcoded sets in this script, which meant an audit
+    asserting something about the product from its own assumptions. It belongs to the
+    manifest, next to the workflows it describes.
+    """
+    kinds = manifest.get("kinds") or {}
+    if workflow is not None:
+        override = (kinds.get("overrides") or {}).get(f"{platform}.{family}.{workflow}")
+        if override:
+            return override
+    return (kinds.get("families") or {}).get(family, UNKNOWN_KIND)
+
+
 def load_registry_ids() -> tuple[list[str], list[tuple[str, str]]]:
     """The workflows that have a runnable Agent handler.
 
@@ -107,31 +130,33 @@ def report_runs(manifest: dict, registry_ids: list[str]) -> list[str]:
     registered = set(registry_ids)
     findings: list[str] = []
 
-    print(f"{'plateforme.famille':<34} {'declares':>9} {'handler':>9}  ecart")
+    print(f"{'plateforme.famille':<30} {'genre':>8} {'declares':>9} {'handler':>8}  ecart")
     print("-" * 78)
-    for platform, families in manifest.items():
-        for family, workflows in families.items():
-            declared = list(workflows)
-            if family in UI_ONLY_FAMILIES:
-                print(f"{platform + '.' + family:<34} {len(declared):>9} {'-':>9}  (affichage seul)")
-                continue
-            if family in DECLARED_TODO_FAMILIES:
-                print(f"{platform + '.' + family:<34} {len(declared):>9} {'-':>9}  (TODO declare)")
-                continue
-            has_handler = [w for w in declared if f"{platform}.{family}.{w}" in registered]
-            missing = [w for w in declared if w not in has_handler]
-            note = "" if not missing else "sans handler: " + ", ".join(missing)
-            print(f"{platform + '.' + family:<34} {len(declared):>9} {len(has_handler):>9}  {note}")
-            if missing:
-                findings.append(
-                    f"{platform}.{family}: {len(missing)} workflow(s) declares sans handler Agent "
-                    f"({', '.join(missing)})"
-                )
+    for platform, family, workflows in platform_families(manifest):
+        declared = list(workflows)
+        kind = kind_of(manifest, platform, family)
+        label = f"{platform}.{family}"
+
+        if kind in ("ui", "planned"):
+            note = "affichage seul" if kind == "ui" else "TODO declare"
+            print(f"{label:<30} {kind:>8} {len(declared):>9} {'-':>8}  ({note})")
+            continue
+        if kind == UNKNOWN_KIND:
+            findings.append(f"{label}: famille non classee dans manifest.kinds.families")
+
+        has_handler = [w for w in declared if f"{platform}.{family}.{w}" in registered]
+        missing = [w for w in declared if w not in has_handler]
+        note = "" if not missing else "sans handler: " + ", ".join(missing)
+        print(f"{label:<30} {kind:>8} {len(declared):>9} {len(has_handler):>8}  {note}")
+        if missing:
+            findings.append(
+                f"{label}: {len(missing)} workflow(s) declares sans handler Agent "
+                f"({', '.join(missing)})"
+            )
 
     declared_ids = {
         f"{platform}.{family}.{workflow}"
-        for platform, families in manifest.items()
-        for family, workflows in families.items()
+        for platform, family, workflows in platform_families(manifest)
         for workflow in workflows
     }
     undeclared = sorted(registered - declared_ids)
@@ -309,6 +334,12 @@ def report_sessions(manifest: dict) -> list[str]:
     legacy = arrays.get("LEGACY_WORKFLOW_TYPES", [])
 
     panels = manifest["instagram"]["panel"] + manifest["tiktok"]["panel"]
+    tasks = sorted({
+        f"{platform}.{family}"
+        for platform, family, _ in platform_families(manifest)
+        if kind_of(manifest, platform, family) == "task"
+    })
+    print(f"  familles 'task'    : {len(tasks)} : {', '.join(tasks)}")
     missing = [w for w in panels if w not in sessions]
 
     print(f"  types de session   : {len(sessions)} : {', '.join(sessions)}")

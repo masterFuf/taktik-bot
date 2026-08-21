@@ -112,5 +112,24 @@
       "watch_feed",
       "search"
     ]
+  },
+  "kinds": {
+    "_comment": "How each family RUNS, which is orthogonal to what it acts on. A 'run' is launched against a list of targets and has a session; a 'task' is a one-shot; 'ui' families only say where something is displayed. Recorded here rather than assumed by the audit scripts, and expressed WITHOUT renaming any workflow id: ids are persisted in saved schedules and are the CLI's canonical handles.",
+    "families": {
+      "automation": "run",
+      "scraping": "run",
+      "engagement": "run",
+      "standalone": "run",
+      "task": "task",
+      "account": "task",
+      "publish": "task",
+      "panel": "ui",
+      "live_panel": "ui",
+      "planned": "planned"
+    },
+    "overrides": {
+      "tiktok.standalone.upload_post": "task"
+    },
+    "_overrides_comment": "'standalone' is not a way of running, it is a leftover label: three of its four entries are runs and upload_post is a publish, i.e. a one-shot. Per-workflow overrides say so without pretending the family is homogeneous."
   }
 }
