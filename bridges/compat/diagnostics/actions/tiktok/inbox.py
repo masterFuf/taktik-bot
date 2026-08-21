@@ -9,16 +9,19 @@ from bridges.compat.diagnostics.actions.tiktok import action
 
 @action("tt.inbox.open_new_followers")
 def open_new_followers(a, p):
+    """Open the "new followers" page of the TikTok inbox."""
     return a.dm.open_new_followers_page()
 
 
 @action("tt.inbox.get_new_followers")
 def get_new_followers(a, p):
+    """List the accounts on the new-followers page, read-only. Param: max_items."""
     return a.dm.get_new_followers(int(p.get("max_items", 50)))
 
 
 @action("tt.inbox.follow_back")
 def follow_back(a, p):
+    """Follow back one account of the new-followers page. Param: username."""
     return a.dm.follow_back(p.get("username", ""))
 
 

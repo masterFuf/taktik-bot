@@ -37,7 +37,10 @@ sys.path.insert(0, str(CORE / "scripts"))
 
 MANIFEST_PATH = CORE / "workflows.manifest.json"
 BRIDGES_MANIFEST_PATH = CORE / "bridges" / "bridges.manifest.json"
-LAB_ACTIONS_DIR = CORE / "bridges" / "compat" / "diagnostics" / "actions"
+#: The Lab actions do NOT all live under one root. Instagram and TikTok share the compat
+#: diagnostics registry; YouTube has its own under `bridges/youtube/diagnostics`. Scanning
+#: only the first missed 26 actions and reported them as front entries with no bot action.
+LAB_ACTIONS_ROOT = CORE / "bridges"
 
 CARTOGRAPHY_PATH = APP / "src" / "features" / "tools" / "cartography" / "data" / "cartography.json"
 LAYOUT_TYPES_PATH = APP / "src" / "app" / "types" / "layout.types.ts"
@@ -196,18 +199,28 @@ def report_bridges() -> list[str]:
 def load_lab_actions() -> dict[str, list[tuple[str, int]]]:
     """Every `@action` id the bot exposes, per platform, with its source line.
 
+    Walks every `diagnostics/actions` tree under `bridges/`, not just the compat one: a
+    platform is free to carry its own registry, and an inventory that knows about one root
+    silently under-reports the product.
+
     The line number is kept because the registry is a plain dict assignment
     (`self.actions[action_id] = fn`): a duplicate id silently shadows the earlier one, and
     finding which of the two survived needs the file position.
     """
     per_platform: dict[str, list[tuple[str, int]]] = {}
-    for path in sorted(LAB_ACTIONS_DIR.rglob("*.py")):
+    for path in sorted(LAB_ACTIONS_ROOT.rglob("diagnostics/actions/**/*.py")):
         if "__pycache__" in str(path):
             continue
-        platform = path.parent.name
-        if platform == "actions":
-            continue
-        text = path.read_text(encoding="utf-8", errors="replace")
+        parts = path.relative_to(LAB_ACTIONS_ROOT).parts
+        # bridges/<platform>/diagnostics/actions/**  ->  <platform>
+        # bridges/compat/diagnostics/actions/<platform>/**  ->  <platform>
+        platform = parts[0]
+        if platform == "compat":
+            after_actions = parts[parts.index("actions") + 1:]
+            if len(after_actions) < 2:
+                continue  # a module sitting directly in actions/ is shared plumbing
+            platform = after_actions[0]
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
         for match in ACTION_RE.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
             per_platform.setdefault(platform, []).append((match.group(1), line))
@@ -242,10 +255,14 @@ def report_capabilities(lab: dict[str, list[tuple[str, int]]]) -> list[str]:
 
 
 def report_lab_mirror(lab: dict[str, list[tuple[str, int]]]) -> list[str]:
-    """The front catalogue must carry the SAME id as the bot action (AGENTS rule).
+    """The front catalogue must carry the SAME id as every bot action.
 
-    An action the bot exposes but the front does not list is a capability no operator can
-    test; a front entry with no bot action behind it is a dead button.
+    ONE catalogue since 2026-08-21: cartography.json holds the wording, the params and the
+    surface placement. There used to be a second one (the Action Tester's actionCatalog.tsx)
+    and the two drifted four different ways — entries missing from each, a duplicate id
+    copied into both, descriptions diverging — which is exactly what a second copy of a list
+    does. Entries flagged `runtime: "electron"` are desktop-side actions (AI calls) with no
+    bot @action by design; anything else without a bot action is a dead entry.
     """
     rule("4. MIROIR LAB - bot <-> catalogue front (regle 'meme id')")
     if not CARTOGRAPHY_PATH.exists():
@@ -253,31 +270,36 @@ def report_lab_mirror(lab: dict[str, list[tuple[str, int]]]) -> list[str]:
         return []
 
     catalogue = json.loads(CARTOGRAPHY_PATH.read_text(encoding="utf-8-sig"))
-    front_ids = set(catalogue.get("actionCatalog", {}))
-    bot_ids = {action_id for entries in lab.values() for action_id, _ in entries}
+    entries = catalogue.get("actionCatalog", {})
+    front_ids = set(entries)
+    electron_ids = {i for i, e in entries.items() if e.get("runtime") == "electron"}
+    bot_ids = {action_id for platform_entries in lab.values() for action_id, _ in platform_entries}
 
-    missing_front = sorted(bot_ids - front_ids)
-    orphan_front = sorted(front_ids - bot_ids)
+    missing = sorted(bot_ids - front_ids)
+    dead = sorted(front_ids - electron_ids - bot_ids)
+    with_params = sum(1 for e in entries.values() if e.get("params"))
 
     print(f"  actions bot            : {len(bot_ids)}")
-    print(f"  entrees catalogue front: {len(front_ids)}")
-    print(f"  sans miroir front      : {len(missing_front)}")
-    print(f"  front sans action bot  : {len(orphan_front)}")
+    print(f"  entrees catalogue      : {len(front_ids)} (dont {len(electron_ids)} cote Electron, {with_params} avec params)")
+    print(f"  sans miroir front      : {len(missing)}")
+    print(f"  entrees mortes         : {len(dead)} (ni action bot, ni flag electron)")
 
-    if missing_front:
-        print("\n  Capacites non testables depuis le Lab :")
-        for action_id in missing_front:
+    if missing:
+        print()
+        print("  Capacites bot absentes du catalogue :")
+        for action_id in missing:
             print(f"    - {action_id}")
-    if orphan_front:
-        print("\n  Entrees front sans action bot :")
-        for action_id in orphan_front:
+    if dead:
+        print()
+        print("  Entrees sans rien derriere :")
+        for action_id in dead:
             print(f"    - {action_id}")
 
     findings = []
-    if missing_front:
-        findings.append(f"{len(missing_front)} capacite(s) bot sans miroir dans le catalogue front")
-    if orphan_front:
-        findings.append(f"{len(orphan_front)} entree(s) du catalogue front sans action bot")
+    if missing:
+        findings.append(f"{len(missing)} capacite(s) bot sans entree dans le catalogue front")
+    if dead:
+        findings.append(f"{len(dead)} entree(s) du catalogue sans action bot ni flag electron")
     return findings
 
 
