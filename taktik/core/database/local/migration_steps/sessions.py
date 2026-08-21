@@ -110,6 +110,7 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
             shares INTEGER DEFAULT 0,
             errors INTEGER DEFAULT 0,
             videos_watched INTEGER DEFAULT 0,
+            ai_cost_by_kind TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
             sync_id TEXT,
@@ -118,6 +119,16 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
     """)
     try:
         cursor.execute("ALTER TABLE sessions_unified ADD COLUMN sync_id TEXT")
+    except sqlite3.OperationalError:
+        pass
+    # What the session's AI money went ON, as a JSON map keyed by the closed spend vocabulary
+    # of `taktik/core/app/ai/spend.py`: {"profile": 0.102, "post": 0.0048, ...}. A map rather
+    # than one column per kind because the vocabulary grows and each addition would otherwise
+    # be a migration. `ai_total_cost_usd` stays the authoritative total; this explains it.
+    # Written by Electron (it owns the session row); declared here so a standalone bot base
+    # has the same shape.
+    try:
+        cursor.execute("ALTER TABLE sessions_unified ADD COLUMN ai_cost_by_kind TEXT")
     except sqlite3.OperationalError:
         pass
     try:
