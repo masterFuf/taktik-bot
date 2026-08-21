@@ -204,6 +204,70 @@ def story_is_ad(a, p):
     }
 
 
+@action("story.open_share_sheet")
+def story_open_share_sheet(a, p):
+    """Open the Direct sheet from the story toolbar (production gesture, verified).
+
+    The toolbar button reads "send the story", not "share": on a third-party story its
+    purpose is a DM. Run this on an OPEN story viewer, then story.add_to_my_story to find out
+    whether the sheet also carries the re-share cell.
+    """
+    ok = a.click.open_story_share_sheet()
+    return {
+        "success": bool(ok),
+        "message": "share sheet ouvert" if ok else "share sheet non ouvert",
+        "details": {"opened": bool(ok)},
+    }
+
+
+@action("story.add_to_my_story")
+def story_add_to_my_story(a, p):
+    """Tap "add to my story" in the OPEN share sheet.
+
+    A false answer here is INFORMATION, not necessarily a broken selector: Instagram only
+    offers this cell for a story that mentions us. This is the action that settles, on a real
+    device, whether the native relay path is usable for a given source account.
+    """
+    ok = a.click.tap_add_to_my_story()
+    return {
+        "success": bool(ok),
+        "message": "ajout a ma story declenche" if ok
+                   else "cellule absente — la story ne mentionne probablement pas ce compte",
+        "details": {"offered": bool(ok)},
+    }
+
+
+@action("story.relay_from_source")
+def story_relay_from_source(a, p):
+    """Run the FULL production relay task against a source account.
+
+    Same entry point the Agent registry resolves for `instagram.task.story_relay` — no
+    Lab-only path. Params: source_username (required), account_id, max_stories.
+    """
+    from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
+        DEFAULT_MAX_STORIES,
+        relay_source_stories,
+    )
+
+    source = str(p.get("source_username") or "").strip().lstrip("@")
+    if not source:
+        return {"success": False, "message": "source_username requis", "details": {}}
+
+    raw_account = p.get("account_id")
+    report = relay_source_stories(
+        device=a.device,
+        source_username=source,
+        account_id=int(raw_account) if raw_account not in (None, "") else None,
+        max_stories=int(p.get("max_stories") or DEFAULT_MAX_STORIES),
+    )
+    message = (
+        f"@{source}: {report['relayed']} relayee(s), {report['already_handled']} deja faite(s), "
+        f"{report['unavailable']} non proposee(s), {report['failed']} echec(s)"
+    )
+    logger.info(f"Story relay: {message}")
+    return {"success": bool(report.get("success")), "message": message, "details": report}
+
+
 @action("story.scroll_tray")
 def story_scroll_tray(a, p):
     """Scroll the home feed story tray left to reveal more friends' stories."""

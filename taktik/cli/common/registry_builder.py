@@ -33,6 +33,8 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_instagram_account_handlers"),
     ("Instagram scraping", "taktik.core.social_media.instagram.workflows.scraping.agent_handler",
      "register_instagram_scraping_handlers"),
+    ("Instagram tasks", "taktik.core.social_media.instagram.workflows.tasks.agent_handler",
+     "register_instagram_task_handlers"),
     ("TikTok For You", "taktik.core.social_media.tiktok.actions.business.workflows.for_you.agent_handler",
      "register_tiktok_for_you_handlers"),
     ("TikTok search/hashtag/target", "taktik.core.social_media.tiktok.actions.business.workflows.search.agent_handler",

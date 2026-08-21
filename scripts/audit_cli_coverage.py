@@ -43,82 +43,20 @@ class _NullDeviceManager:
             f"Building the registry touched device_manager.{name}; handlers must stay lazy."
         )
 
-
 def build_full_registry():
-    """Register every handler the bot exposes, and return (registry, failures)."""
-    from taktik.core.agent.kernel.registry import WorkflowRegistry
+    """Register every handler the bot exposes, and return (registry, failures).
 
-    registry = WorkflowRegistry()
-    device_manager = _NullDeviceManager()
-    failures: list[tuple[str, str]] = []
+    Delegates to the CLI's own `build_registry`: the registrar list belongs to the module
+    that assembles the registry for real, and this audit keeping a second copy meant the
+    coverage report would silently stop seeing a platform the day one list was extended
+    alone. Reading the production list is also the only way the report can be trusted to
+    describe production.
+    """
+    from taktik.cli.common.registry_builder import build_registry
 
-    registrars = [
-        ("instagram.automation", "taktik.core.social_media.instagram.workflows.core.agent_handler",
-         "register_instagram_automation_handlers"),
-        ("instagram.account", "taktik.core.social_media.instagram.workflows.management.agent_handler",
-         "register_instagram_account_handlers"),
-        ("instagram.scraping", "taktik.core.social_media.instagram.workflows.scraping.agent_handler",
-         "register_instagram_scraping_handlers"),
-        ("tiktok.for_you", "taktik.core.social_media.tiktok.actions.business.workflows.for_you.agent_handler",
-         "register_tiktok_for_you_handlers"),
-        ("tiktok.search", "taktik.core.social_media.tiktok.actions.business.workflows.search.agent_handler",
-         "register_tiktok_search_handlers"),
-        ("tiktok.followers", "taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler",
-         "register_tiktok_followers_handlers"),
-        ("tiktok.dm", "taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler",
-         "register_tiktok_dm_handlers"),
-        ("tiktok.dm_outreach", "taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler",
-         "register_tiktok_dm_outreach_handlers"),
-        ("tiktok.unfollow", "taktik.core.social_media.tiktok.actions.business.workflows.unfollow.agent_handler",
-         "register_tiktok_unfollow_handlers"),
-        ("tiktok.scraping", "taktik.core.social_media.tiktok.actions.business.workflows.scraping.agent_handler",
-         "register_tiktok_scraping_handlers"),
-        ("tiktok.account", "taktik.core.social_media.tiktok.workflows.management.agent_handler",
-         "register_tiktok_account_handlers"),
-        ("tiktok.publish", "taktik.core.social_media.tiktok.workflows.publish.agent_handler",
-         "register_tiktok_publish_handlers"),
-        ("threads.automation", "taktik.core.social_media.threads.workflows.agent_handler",
-         "register_threads_automation_handlers"),
-        ("gmail.account", "taktik.core.app.email.gmail.workflows.agent_handler",
-         "register_gmail_account_handlers"),
-        ("youtube.account", "taktik.core.social_media.youtube.workflows.account.agent_handler",
-         "register_youtube_account_handlers"),
-        ("youtube.publish", "taktik.core.social_media.youtube.workflows.publish.agent_handler",
-         "register_youtube_publish_handlers"),
-    ]
-
-    import importlib
-    import inspect
-
-    # Registrars do not share one signature: some take `device_manager`, some `device`, some both
-    # `device` and `device_id`, and Threads takes a `startup_provider`. Rather than hardcode each
-    # case — which would rot the first time a registrar changes — supply whatever its signature
-    # asks for.
-    def _stub_for(name: str):
-        if name in ("device_manager", "device"):
-            return device_manager
-        if name == "device_id":
-            return "audit-device"
-        if name == "startup_provider":
-            return lambda *a, **k: None
-        return None
-
-    for label, module_path, func_name in registrars:
-        try:
-            module = importlib.import_module(module_path)
-            register = getattr(module, func_name)
-            params = inspect.signature(register).parameters
-            kwargs = {
-                name: _stub_for(name)
-                for name, p in params.items()
-                if p.kind is inspect.Parameter.KEYWORD_ONLY and p.default is inspect.Parameter.empty
-            }
-            register(registry, **kwargs)
-        except Exception as exc:  # noqa: BLE001 - the report must survive a broken registrar
-            failures.append((label, f"{type(exc).__name__}: {exc}"))
-
-    return registry, failures
-
+    build = build_registry(device=_NullDeviceManager(), device_id="audit-device",
+                           startup_provider=lambda *a, **k: None)
+    return build.registry, build.failures
 
 def registered_ids(registry) -> list[str]:
     handlers = getattr(registry, "_handlers", {})

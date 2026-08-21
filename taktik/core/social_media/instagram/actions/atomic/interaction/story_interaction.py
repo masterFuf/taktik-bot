@@ -3,6 +3,7 @@
 from typing import Optional
 
 from ...core.base_action import BaseAction
+from ....ui.selectors.shell.popups import POPUP_SELECTORS
 from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 
@@ -188,6 +189,40 @@ class StoryInteractionMixin(BaseAction):
     def open_story_reply_composer(self) -> bool:
         """Focus the story reply text field (message composer) for typing a reply."""
         return self._find_and_click(STORY_SELECTORS.story_message_composer, timeout=3)
+
+    def open_story_share_sheet(self) -> bool:
+        """Open the Direct sheet from the story toolbar, and confirm it actually came up.
+
+        The toolbar button is labelled "send the story", not "share": on a third-party story
+        its primary purpose is a DM. Whether the sheet it opens also offers "add to my story"
+        depends on the story, which is why this only opens and verifies — the caller decides
+        what the sheet's contents mean.
+        """
+        try:
+            if not self._find_and_click(STORY_SELECTORS.story_share_button, timeout=3):
+                self.logger.debug("Story share button not found")
+                return False
+            return self._wait_for_element(
+                POPUP_SELECTORS.share_sheet_indicators, timeout=4, silent=True
+            )
+        except Exception as e:
+            self.logger.error(f"Error opening the story share sheet: {e}")
+            return False
+
+    def tap_add_to_my_story(self) -> bool:
+        """Tap "add to my story" in the OPEN share sheet. False when it is not offered.
+
+        False here is a meaningful answer, not only a miss: Instagram withholds this cell for
+        a story that does not mention us. The caller must distinguish it from a failure.
+        """
+        try:
+            if self._find_and_click(POPUP_SELECTORS.add_to_story_row, timeout=3):
+                return True
+            # The row exists but its clickable child could not be reached — try the wording.
+            return self._find_and_click(POPUP_SELECTORS.add_to_story_labels, timeout=2)
+        except Exception as e:
+            self.logger.error(f"Error tapping add-to-my-story: {e}")
+            return False
 
     def react_to_story(self, reaction: Optional[str] = None, emoji_index: Optional[int] = None) -> bool:
         """React to the current story using Instagram's 2x3 quick reaction grid.

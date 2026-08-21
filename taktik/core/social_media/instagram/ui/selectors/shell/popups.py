@@ -159,6 +159,37 @@ class PopupSelectors:
         '//*[contains(@resource-id, "direct_external_reshare_row")]',
     ])
 
+    # The "add this to my own story" cell of that sheet's external-reshare row.
+    #
+    # Structure from a real dump (`post.open_share`, IG v410, FR device): the row is a
+    # RecyclerView `direct_external_reshare_row` whose clickable child is an ImageView with
+    # the generic id `button`, labelled by content-desc; a sibling TextView `label` repeats
+    # the wording and is NOT clickable. We therefore anchor on the row and take the clickable
+    # descendant, and only fall back to the label text — `button` and `label` are far too
+    # generic to be searched screen-wide.
+    #
+    # The wording itself lives in the locale overlay, shared with the feed tray's empty-ring
+    # badge which uses the SAME label; see `content_creation.add_to_story_texts`.
+    #
+    # NOTE: confirmed for a POST's share sheet. Whether a STORY's share sheet offers this row
+    # at all is a product question — Instagram only lets you re-share someone's story when it
+    # mentions you. The relay task reports its absence as 'unavailable' rather than as a
+    # failure, which is how running it once answers the question.
+    add_to_story_row: str = (
+        '//*[contains(@resource-id, "direct_external_reshare_row")]//*[@clickable="true"]'
+    )
+
+    @property
+    def add_to_story_labels(self) -> List[str]:
+        """Text fallback for the same cell, scoped to the sheet's reshare row."""
+        from ..surfaces.content_creation import CONTENT_CREATION_SELECTORS
+
+        return [
+            f'//*[contains(@resource-id, "direct_external_reshare_row")]'
+            f'//*[@text="{label}" or @content-desc="{label}"]'
+            for label in CONTENT_CREATION_SELECTORS.add_to_story_texts
+        ]
+
     # === Unfollow confirmation selectors ===
     @property
     def unfollow_confirmation_selectors(self) -> List[str]:

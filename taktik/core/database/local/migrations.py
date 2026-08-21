@@ -22,6 +22,7 @@ from .migration_steps.instagram import (
     run_instagram_profile_core_migrations,
 )
 from .migration_steps.feed_ads import run_feed_ads_migrations
+from .migration_steps.content_relays import run_content_relays_migrations
 from .migration_steps.legacy import drop_legacy_discovery_tables
 from .migration_steps.social_graph import (
     run_profile_following_migrations,
@@ -71,6 +72,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_account_restriction_migrations(cursor)  # additive: observable platform-flag signals per account
     run_posted_comments_migrations(cursor)  # additive: kind ('comment' | 'reply') + reply_to_*
     run_feed_ads_migrations(cursor)  # additive: sponsored creatives met in the feed (local-only corpus)
+    run_content_relays_migrations(cursor)  # additive: what one account already re-shared from another
     drop_legacy_discovery_tables(cursor)
     # Lot 4 (audit): runs last so every scraping_sessions column-add (platform) is already
     # applied; only acts on front-touched DBs that still carry the dead discovery column.

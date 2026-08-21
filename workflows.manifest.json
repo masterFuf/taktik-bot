@@ -31,6 +31,9 @@
       "taktik_agent",
       "notifications"
     ],
+    "task": [
+      "story_relay"
+    ],
     "panel": [
       "target",
       "hashtag",
