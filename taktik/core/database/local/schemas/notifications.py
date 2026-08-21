@@ -49,10 +49,31 @@ def create_notifications_tables(cursor: sqlite3.Cursor) -> None:
         )
         """
     )
+    # One row per ACTION WE TOOK on a notification (like / reply / accept / ignore /
+    # follow_back), written by the bridge when the action succeeds (or fails). LOCAL,
+    # not Turso-synced (see notifications-autopilot-spec.md): idempotence is per PC.
+    # `content_hash` links back to the notification when the caller carried its identity
+    # (batch actions do; unit actions do not -> NULL). Distinct from the `attributed_*`
+    # columns above, which describe the INCOMING cause of a notification.
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS notification_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL DEFAULT 'instagram',
+            account_id INTEGER NOT NULL,            -- accounts.legacy_account_id (our account)
+            content_hash TEXT,                      -- notifications.content_hash (nullable)
+            actor_username TEXT,                    -- who we acted on
+            action TEXT NOT NULL,                   -- like | reply | accept | ignore | follow_back
+            source TEXT NOT NULL DEFAULT 'manual',  -- manual | batch | autopilot
+            success INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """
+    )
 
 
 def create_notifications_indexes(cursor: sqlite3.Cursor) -> None:
-    """Create supporting indexes for the notifications table."""
+    """Create supporting indexes for the notifications tables."""
     cursor.execute(
         "CREATE INDEX IF NOT EXISTS idx_notifications_account "
         "ON notifications(platform, account_id, last_seen_at)"
@@ -64,6 +85,14 @@ def create_notifications_indexes(cursor: sqlite3.Cursor) -> None:
     cursor.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_sync_id "
         "ON notifications(sync_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notification_actions_account "
+        "ON notification_actions(platform, account_id, action, created_at)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_notification_actions_hash "
+        "ON notification_actions(platform, account_id, content_hash)"
     )
 
 

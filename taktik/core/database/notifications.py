@@ -14,7 +14,10 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from taktik.core.database.local.paths import get_default_database_path
-from taktik.core.database.repositories.notifications import NotificationRepository
+from taktik.core.database.repositories.notifications import (
+    NotificationActionRepository,
+    NotificationRepository,
+)
 
 
 class NotificationService:
@@ -117,6 +120,67 @@ class NotificationService:
             logger.warning(f"Error recording notifications: {exc}")
             flags.extend([False] * (len(items) - len(flags)))
             return flags
+        finally:
+            conn.close()
+
+    # ------------------------------------------------------------------
+    # Actions WE took on notifications (audit + idempotence — autopilot spec)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def identity_hash(platform: str, account_id: int,
+                      identity: Optional[Dict[str, Any]]) -> Optional[str]:
+        """The notification's stable content_hash from a caller-supplied identity
+        ``{ntype, actor, text, time}`` (the batch entries carry it), or None."""
+        if not identity:
+            return None
+        actor = (identity.get("actor") or "").strip().lower() or None
+        ntype = identity.get("ntype")
+        if not (actor or ntype):
+            return None
+        return NotificationRepository.content_hash(
+            platform, account_id, ntype, actor, identity.get("text"), identity.get("time"))
+
+    @staticmethod
+    def record_action(
+        *,
+        platform: str,
+        account_id: int,
+        action: str,
+        actor_username: Optional[str] = None,
+        content_hash: Optional[str] = None,
+        source: str = "manual",
+        success: bool = True,
+    ) -> None:
+        """Persist one executed action (best-effort: never raises into the action flow)."""
+        conn = NotificationService._open()
+        if conn is None:
+            return
+        try:
+            NotificationActionRepository(conn).record(
+                platform=platform, account_id=account_id, action=action,
+                actor_username=actor_username, content_hash=content_hash,
+                source=source, success=success,
+            )
+            conn.commit()
+        except Exception as exc:
+            logger.warning(f"Could not record notification action '{action}': {exc}")
+        finally:
+            conn.close()
+
+    @staticmethod
+    def actioned_hashes(platform: str, account_id: int, action: str) -> set:
+        """content_hashes on which ``action`` already succeeded — for the batch's
+        idempotent skip. Best-effort: empty set on any error (=> nothing is skipped)."""
+        conn = NotificationService._open()
+        if conn is None:
+            return set()
+        try:
+            return NotificationActionRepository(conn).actioned_hashes(
+                platform, account_id, action)
+        except Exception as exc:
+            logger.warning(f"Could not load actioned hashes: {exc}")
+            return set()
         finally:
             conn.close()
 

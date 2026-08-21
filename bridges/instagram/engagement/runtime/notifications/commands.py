@@ -9,7 +9,10 @@ from bridges.instagram.engagement.runtime.notifications.ai import install_notifi
 from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json, emit_notif_step
 from bridges.instagram.engagement.runtime.notifications.persistence import (
+    batch_identity_hash,
     build_known_checker,
+    load_actioned_hashes,
+    record_notification_action,
     record_scan_notifications,
     resolve_account_id,
 )
@@ -278,21 +281,31 @@ def cmd_list_requests(device_id: str, limit: int, package_name: str = None) -> N
     }, flush=True)
 
 
-def cmd_accept(device_id: str, username: str, package_name: str = None) -> None:
+def cmd_accept(device_id: str, username: str, package_name: str = None,
+               account_username: str = None) -> None:
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().accept_request(username)
+    record_notification_action(account_username, action="accept", actor_username=username,
+                               success=bool(result.get("success")))
     emit_notif_json({"type": "result", "command": "accept", **result}, flush=True)
 
 
-def cmd_ignore(device_id: str, username: str, package_name: str = None) -> None:
+def cmd_ignore(device_id: str, username: str, package_name: str = None,
+               account_username: str = None) -> None:
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().ignore_request(username)
+    record_notification_action(account_username, action="ignore", actor_username=username,
+                               success=bool(result.get("success")))
     emit_notif_json({"type": "result", "command": "ignore", **result}, flush=True)
 
 
-def cmd_accept_all(device_id: str, limit: int, package_name: str = None) -> None:
+def cmd_accept_all(device_id: str, limit: int, package_name: str = None,
+                   account_username: str = None) -> None:
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().accept_all_requests(max_requests=limit if limit > 0 else 50)
+    for accepted in result.get("accepted", []):
+        record_notification_action(account_username, action="accept", actor_username=accepted,
+                                   success=True, source="batch")
     emit_notif_json({
         "type": "result",
         "command": "accept_all",
@@ -303,31 +316,43 @@ def cmd_accept_all(device_id: str, limit: int, package_name: str = None) -> None
     }, flush=True)
 
 
-def cmd_reply(device_id: str, username: str, text: str = "", package_name: str = None) -> None:
+def cmd_reply(device_id: str, username: str, text: str = "", package_name: str = None,
+              account_username: str = None) -> None:
     """Reply to ``username``'s comment/mention with ``text`` (click-in + type + send).
 
-    Empty ``text`` opens the reply UI only (operator types by hand on the device).
+    Empty ``text`` opens the reply UI only (operator types by hand on the device) —
+    nothing is sent by our hand, so nothing is recorded.
     """
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().reply_to_comment(username, text)
+    if text.strip():
+        record_notification_action(account_username, action="reply", actor_username=username,
+                                   success=bool(result.get("success")), content=text)
     emit_notif_json({"type": "result", "command": "reply", **result}, flush=True)
 
 
-def cmd_like(device_id: str, username: str, package_name: str = None) -> None:
+def cmd_like(device_id: str, username: str, package_name: str = None,
+             account_username: str = None) -> None:
     """Like the comment / mention of ``username`` inline from the feed."""
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().like_comment(username)
+    record_notification_action(account_username, action="like", actor_username=username,
+                               success=bool(result.get("success")))
     emit_notif_json({"type": "result", "command": "like", **result}, flush=True)
 
 
-def cmd_follow_back(device_id: str, username: str, package_name: str = None) -> None:
+def cmd_follow_back(device_id: str, username: str, package_name: str = None,
+                    account_username: str = None) -> None:
     """Follow ``username`` back inline from their "started following you" row."""
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().follow_back(username)
+    record_notification_action(account_username, action="follow_back", actor_username=username,
+                               success=bool(result.get("success")))
     emit_notif_json({"type": "result", "command": "follow_back", **result}, flush=True)
 
 
-def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> None:
+def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
+              account_username: str = None, source: str = "batch") -> None:
     """Run a LIST of notification actions inside ONE session.
 
     Every action used to be its own bridge invocation: a Python process, a fresh uiautomator2
@@ -342,7 +367,15 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> 
     current one), so nothing here polls a flag: the last emitted step IS the record.
 
     Each action is ``{"action": "like"|"reply"|"accept"|"ignore"|"follow_back",
-    "username": str, "text": str?}``.
+    "username": str, "text": str?}`` plus an OPTIONAL notification identity
+    ``notif_type`` / ``notif_text`` / ``notif_time`` (``text`` is already taken by the
+    reply body, hence the prefix). When the identity is there, the entry's stable
+    content_hash is computed and the action becomes IDEMPOTENT across scans: an action
+    already recorded as succeeded for this account is skipped (``skipped: true`` in its
+    result) instead of re-tapped — the autopilot's belt-and-braces above the scan's
+    ``is_new``. Executed actions are recorded (audit + budget interactions), see
+    ``record_notification_action``.
+
     One failing action does not abort the rest — a comment whose row scrolled out of reach must not
     cancel the nine others.
     """
@@ -353,11 +386,35 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> 
     results: list[dict] = []
     done = 0
     failed = 0
+    skipped = 0
+    # Preloaded once per verb present in the batch (no per-action DB hit).
+    actioned_by_verb: dict[str, set] = {}
 
     for index, entry in enumerate(actions):
         action = (entry.get("action") or "").strip()
         username = (entry.get("username") or "").strip()
         text = entry.get("text") or ""
+        identity = None
+        if entry.get("notif_type") or entry.get("notif_text"):
+            identity = {"ntype": entry.get("notif_type"), "actor": username,
+                        "text": entry.get("notif_text"), "time": entry.get("notif_time")}
+        entry_hash = batch_identity_hash(account_username, identity)
+
+        if entry_hash:
+            if action not in actioned_by_verb:
+                actioned_by_verb[action] = load_actioned_hashes(account_username, action)
+            if entry_hash in actioned_by_verb[action]:
+                skipped += 1
+                results.append({"action": action, "username": username,
+                                "success": True, "skipped": True,
+                                "message": f"Already {action}ed — skipped"})
+                emit_notif_json({
+                    "type": "notification_step", "step": "batch_result",
+                    "index": index, "total": total, "action": action,
+                    "username": username, "success": True,
+                    "message": f"[{index + 1}/{total}] {action} @{username} already done — skipped",
+                }, flush=True)
+                continue
 
         emit_notif_json({
             "type": "notification_step",
@@ -392,6 +449,17 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> 
         failed += 0 if ok else 1
         results.append({"action": action, "username": username, **result})
 
+        # Bookkeeping: audit row (+ budget interaction on success) for every EXECUTED
+        # action; a nothing-sent reply (empty text opens the UI only) records nothing.
+        if action != "reply" or text.strip():
+            record_notification_action(
+                account_username, action=action, actor_username=username,
+                identity=identity, success=ok, source=source,
+                content=text if action == "reply" else None,
+            )
+            if ok and entry_hash:
+                actioned_by_verb.setdefault(action, set()).add(entry_hash)
+
         emit_notif_json({
             "type": "notification_step",
             "step": "batch_result",
@@ -410,6 +478,7 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None) -> 
         "total": total,
         "done": done,
         "failed": failed,
+        "skipped": skipped,
         "results": results,
     }, flush=True)
 
@@ -424,12 +493,22 @@ def run_notifications_cli(args: list[str]) -> None:
             args = args[:idx] + args[idx + 2:]
 
     # The owning account (the front resolves it via getLatestDeviceAccounts) — used by
-    # `scan` to persist + dedup notifications, since the activity screen has no header.
+    # `scan` to persist + dedup notifications (the activity screen has no header), and by
+    # every ACTION command to record what was done (audit + budget interactions).
     account_username = None
     if "--account" in args:
         idx = args.index("--account")
         if idx + 1 < len(args):
             account_username = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+
+    # Who triggered a batch: 'batch' (operator selection, default) or 'autopilot'
+    # (policy-driven, e.g. auto-like after a scan). Recorded in notification_actions.
+    batch_source = "batch"
+    if "--source" in args:
+        idx = args.index("--source")
+        if idx + 1 < len(args):
+            batch_source = (args[idx + 1] or "batch").strip() or "batch"
             args = args[:idx] + args[idx + 2:]
 
     # Opt-in: how many suggested accounts to VISIT at the END of a scan, from the block
@@ -471,6 +550,7 @@ def run_notifications_cli(args: list[str]) -> None:
         emit_notif_error(
             "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
             "       [--follow-suggestions <n>] [--ai-config <json>] [--language <code>]\n"
+            "       [--source <batch|autopilot>]\n"
             "  scan <device_id> [scroll]\n"
             "  list_requests <device_id> [limit]\n"
             "  accept <device_id> <username>\n"
@@ -505,38 +585,44 @@ def run_notifications_cli(args: list[str]) -> None:
             if len(args) < 3:
                 emit_notif_error("Usage: notifications.py accept <device_id> <username>")
                 sys.exit(1)
-            cmd_accept(args[1], args[2], package_name=package_name)
+            cmd_accept(args[1], args[2], package_name=package_name,
+                       account_username=account_username)
 
         elif command == "ignore":
             if len(args) < 3:
                 emit_notif_error("Usage: notifications.py ignore <device_id> <username>")
                 sys.exit(1)
-            cmd_ignore(args[1], args[2], package_name=package_name)
+            cmd_ignore(args[1], args[2], package_name=package_name,
+                       account_username=account_username)
 
         elif command == "accept_all":
             if len(args) < 2:
                 emit_notif_error("Usage: notifications.py accept_all <device_id> [max]")
                 sys.exit(1)
-            cmd_accept_all(args[1], int(args[2]) if len(args) > 2 else 50, package_name=package_name)
+            cmd_accept_all(args[1], int(args[2]) if len(args) > 2 else 50,
+                           package_name=package_name, account_username=account_username)
 
         elif command == "reply":
             if len(args) < 3:
                 emit_notif_error("Usage: notifications.py reply <device_id> <username> [text]")
                 sys.exit(1)
             reply_text = " ".join(args[3:]) if len(args) > 3 else ""
-            cmd_reply(args[1], args[2], reply_text, package_name=package_name)
+            cmd_reply(args[1], args[2], reply_text, package_name=package_name,
+                      account_username=account_username)
 
         elif command == "like":
             if len(args) < 3:
                 emit_notif_error("Usage: notifications.py like <device_id> <username>")
                 sys.exit(1)
-            cmd_like(args[1], args[2], package_name=package_name)
+            cmd_like(args[1], args[2], package_name=package_name,
+                     account_username=account_username)
 
         elif command == "follow_back":
             if len(args) < 3:
                 emit_notif_error("Usage: notifications.py follow_back <device_id> <username>")
                 sys.exit(1)
-            cmd_follow_back(args[1], args[2], package_name=package_name)
+            cmd_follow_back(args[1], args[2], package_name=package_name,
+                            account_username=account_username)
 
         elif command == "batch":
             # The action list travels as ONE argv element (spawn, no shell), so unicode and spaces
@@ -552,7 +638,8 @@ def run_notifications_cli(args: list[str]) -> None:
             if not isinstance(parsed, list) or not parsed:
                 emit_notif_error("Batch actions must be a non-empty list")
                 sys.exit(1)
-            cmd_batch(args[1], parsed, package_name=package_name)
+            cmd_batch(args[1], parsed, package_name=package_name,
+                      account_username=account_username, source=batch_source)
 
         else:
             emit_notif_error(f"Unknown command: {command}")

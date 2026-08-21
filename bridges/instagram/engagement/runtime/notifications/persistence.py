@@ -72,6 +72,84 @@ def record_scan_notifications(
         return [False] * len(items)
 
 
+# Which interaction each verb writes (canonical facade -> interactions + daily_stats,
+# so Safety rhythm / warmup / analytics count it). Verbs absent here (accept / ignore)
+# consume no daily budget: audit row only. See notifications-autopilot-spec.md, lot 0c.
+_INTERACTION_FOR_ACTION = {
+    "follow_back": "FOLLOW",     # a real follow MUST consume the follow budget
+    "reply": "COMMENT",          # public writing, same budget as comments
+    "like": "COMMENT_LIKE",      # existing mapping: shares the daily like budget
+}
+
+
+def record_notification_action(
+    account_username: Optional[str],
+    *,
+    action: str,
+    actor_username: Optional[str],
+    identity: Optional[Dict[str, Any]] = None,
+    success: bool = True,
+    source: str = "manual",
+    content: Optional[str] = None,
+) -> None:
+    """Bookkeeping for ONE executed notification action. Best-effort: never raises.
+
+    Two writes (autopilot spec, lot 0): the audit row in ``notification_actions``
+    (idempotence + trail of what was actually done — failures included, so an
+    autopilot can decide retry policy instead of retrying out of amnesia), and — for
+    the verbs that consume a daily budget — the canonical interaction via
+    ``record_individual_actions``. ``identity`` is the batch entry's optional
+    ``{ntype, actor, text, time}``; without it the audit row simply has no hash.
+    """
+    account_id = resolve_account_id(account_username or "")
+    if account_id is None:
+        return  # unknown account: recording under another account would be worse than nothing
+    try:
+        content_hash = NotificationService.identity_hash(_PLATFORM, account_id, identity)
+        NotificationService.record_action(
+            platform=_PLATFORM, account_id=account_id, action=action,
+            actor_username=actor_username, content_hash=content_hash,
+            source=source, success=success,
+        )
+    except Exception as exc:
+        logger.warning(f"[NOTIF] Action bookkeeping failed ({action}): {exc}")
+
+    if not success:
+        return
+    interaction_type = _INTERACTION_FOR_ACTION.get(action)
+    if not interaction_type or not actor_username:
+        return
+    try:
+        from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+
+        # session_id=None by design: an inline action belongs to no session. It still
+        # counts in the daily budgets (that is the point); it just has no session
+        # drill-down row — documented in the autopilot spec.
+        InstagramWorkflowStateService.record_individual_actions(
+            username=actor_username, action_type=interaction_type, count=1,
+            account_id=account_id, session_id=None, content=content,
+        )
+    except Exception as exc:
+        logger.warning(f"[NOTIF] Interaction bookkeeping failed ({interaction_type}): {exc}")
+
+
+def load_actioned_hashes(account_username: Optional[str], action: str) -> set:
+    """content_hashes already actioned (success) for this account+verb — the batch's
+    idempotent-skip preload. Empty set when the account is unknown (=> no skip)."""
+    account_id = resolve_account_id(account_username or "")
+    if account_id is None:
+        return set()
+    return NotificationService.actioned_hashes(_PLATFORM, account_id, action)
+
+
+def batch_identity_hash(account_username: Optional[str], identity: Optional[Dict[str, Any]]) -> Optional[str]:
+    """The stable content_hash for a batch entry's identity, or None."""
+    account_id = resolve_account_id(account_username or "")
+    if account_id is None:
+        return None
+    return NotificationService.identity_hash(_PLATFORM, account_id, identity)
+
+
 def build_known_checker(account_username: Optional[str]):
     """Predicate ``item -> bool`` = "already recorded for this account", for the scan's early-stop.
 
@@ -101,4 +179,11 @@ def build_known_checker(account_username: Optional[str]):
     return _is_known
 
 
-__all__ = ["build_known_checker", "record_scan_notifications", "resolve_account_id"]
+__all__ = [
+    "batch_identity_hash",
+    "build_known_checker",
+    "load_actioned_hashes",
+    "record_notification_action",
+    "record_scan_notifications",
+    "resolve_account_id",
+]
