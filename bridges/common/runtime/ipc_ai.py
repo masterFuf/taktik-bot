@@ -4,6 +4,26 @@
 class AIIpcMixin:
     """Emit AI and Agent events through the core IPC send primitive."""
 
+    def ai_spend(self, cost_usd: float, model: str = None, label: str = None) -> None:
+        """Report the cost of ONE paid model call — the session's only cost source.
+
+        Emitted by the transport (`_call_openrouter`), so a call cannot be paid for without
+        being counted. The semantic events (`ai_profile_done`, `ai_screenshot_done`,
+        `ai_comment_done`) still carry their own `cost_usd` for the Agent card that displays
+        them, but they are NOT a reliable ledger: they only fire on the paths that produce a
+        card. A declined comment, a declined reply, a batch username classification or an
+        agent decision all cost real money and emit no card — that spend used to be invisible
+        in the session total and in Analytics.
+        """
+        if cost_usd is None:
+            return
+        data = dict(cost_usd=cost_usd, workflow_type="automation")
+        if model:
+            data["model"] = model
+        if label:
+            data["label"] = label
+        self.send("ai_spend", **data)
+
     def ai_profile_analyzing(self, username: str, prompt: str = None, model: str = None,
                               image_url: str = None, avatar_url: str = None,
                               prompt_key: str = None) -> None:

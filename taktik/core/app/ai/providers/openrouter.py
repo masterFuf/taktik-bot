@@ -283,6 +283,16 @@ class AIService(CommentGenerationMixin):
                 f"tokens={usage.get('prompt_tokens', '?')}{cached_txt}+{usage.get('completion_tokens', '?')} · "
                 f"cost={cost_txt}{upstream_txt}"
             )
+            # The session's ONLY cost ledger. Reported here, at the single point every paid
+            # call passes through, so spend cannot escape accounting: the per-card events
+            # only fire on paths that produce a card, and a declined comment, a declined
+            # reply, a batch username classification or an agent decision produce none while
+            # costing real money. Best effort — accounting must never break a run.
+            if self.ipc is not None and isinstance(cost, (int, float)):
+                try:
+                    self.ipc.ai_spend(cost, model=served, label=label)
+                except Exception as exc:
+                    logger.debug(f"[AIService] ai_spend emit failed: {exc}")
         return result
 
     def _image_to_base64_url(self, image_path: str) -> Optional[str]:
