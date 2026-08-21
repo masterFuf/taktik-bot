@@ -27,19 +27,33 @@ _TAG_RE = re.compile(r"[#@]\S+")
 _EXPAND_LABEL_RE = re.compile(r"\b(?:plus|more|moins|less)\s*$", re.IGNORECASE)
 
 
+def caption_prose_text(text: str) -> str:
+    """A caption reduced to its PROSE: URLs, hashtags, @mentions and the trailing
+    expand/collapse label ('plus'/'more'/'moins'/'less') removed, whitespace collapsed.
+
+    Single owner of "what counts as prose in a caption", shared by the reading dwell (how
+    long a human spends on this post) and by the AI comment substance gate (is there
+    anything here to react to). A hashtag wall is not something you read, and it is not
+    something you can write an honest comment about either — one definition, both uses.
+    Does NOT drop a leading username: callers that still carry one strip it themselves.
+    """
+    if not text:
+        return ""
+    body = _URL_RE.sub(" ", text)
+    body = _TAG_RE.sub(" ", body)
+    body = _EXPAND_LABEL_RE.sub("", body.strip())
+    return re.sub(r"\s+", " ", body).strip()
+
+
 def caption_prose_chars(text: str) -> int:
-    """Length of the REAL prose in a caption: drop the leading username token, strip URLs, hashtags
-    and @mentions, and the trailing expand/collapse label ('plus'/'more'/'moins'/'less'). Returns
-    the remaining character count — what a human actually reads, used to size the reading dwell."""
+    """Length of the REAL prose in a caption: drop the leading username token, then keep only
+    the prose (see `caption_prose_text`). Returns the remaining character count — what a human
+    actually reads, used to size the reading dwell."""
     if not text:
         return 0
     body = text.split(" ", 1)
     body = body[1] if len(body) > 1 else ""     # everything after the username
-    body = _URL_RE.sub(" ", body)
-    body = _TAG_RE.sub(" ", body)
-    body = _EXPAND_LABEL_RE.sub("", body.strip())
-    body = re.sub(r"\s+", " ", body).strip()
-    return len(body)
+    return len(caption_prose_text(body))
 
 
 def content_dwell(prose_len: int) -> float:

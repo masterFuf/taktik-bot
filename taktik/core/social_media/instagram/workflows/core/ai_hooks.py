@@ -381,11 +381,17 @@ def install_instagram_ai_hooks(
                         # post crossed by several accounts of the fleet is analysed once instead
                         # of once per account. Only the facts are reused; the per-account verdict
                         # is still decided below. Mirrors _load_cached_qualification for profiles.
-                        cached_post = InstagramPostAnalysis.load(username, post_caption)
+                        # Keyed on the FRAMED author, not the target: a collab/repost carries
+                        # the ORIGINAL author's caption, and keying it under whoever we happened
+                        # to be visiting both stores a wrong author and misses the reuse when the
+                        # same post is crossed from another profile (seen in the 2026-08-21 run:
+                        # a rockenbievre_o post filed under @taiman.band.et.festival).
+                        cache_author = post_author or username
+                        cached_post = InstagramPostAnalysis.load(cache_author, post_caption)
                         if cached_post:
                             post_desc = cached_post.get("description") or ""
                             post_language = cached_post.get("post_language")
-                            InstagramPostAnalysis.mark_reused(username, post_caption)
+                            InstagramPostAnalysis.mark_reused(cache_author, post_caption)
                             log(
                                 "info",
                                 f"@{username}: analyse du post déjà en base — réutilisée "
@@ -404,7 +410,7 @@ def install_instagram_ai_hooks(
                                 post_desc = analysis["description"]
                                 post_language = analysis.get("post_language")
                                 InstagramPostAnalysis.store(
-                                    post_author=username,
+                                    post_author=cache_author,
                                     post_caption=post_caption,
                                     description=post_desc,
                                     post_language=post_language,

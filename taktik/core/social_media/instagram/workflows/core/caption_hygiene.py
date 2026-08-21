@@ -15,6 +15,7 @@ never inlined here.
 from dataclasses import dataclass
 from typing import Optional
 
+from taktik.core.shared.behavior.dwell import caption_prose_text
 from taktik.core.shared.text import text_lost_emoji
 
 from ...ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
@@ -36,8 +37,15 @@ class CleanCaption:
 
     @property
     def has_substance(self) -> bool:
-        """Whether there is enough real prose to ground a comment on."""
-        prose = "".join(ch for ch in self.text if ch not in ".…·").strip()
+        """Whether there is enough real prose to ground a comment on.
+
+        Hashtags, mentions and URLs are not prose: a caption reading
+        "#Ornevy #LivrePhoto #Souvenirs #EntrepreneuriatFéminin" says nothing a comment can
+        honestly react to (seen in a real run — only the vision analysis of the image saved
+        that one). Dots are dropped too: they are what the XML dump leaves of an emoji.
+        """
+        prose = caption_prose_text(self.text)
+        prose = "".join(ch for ch in prose if ch not in ".…·").strip()
         return len(prose) >= MIN_CAPTION_SUBSTANCE_CHARS
 
 

@@ -63,3 +63,26 @@ def test_real_caption_has_substance():
 def test_empty_and_none_are_safe():
     assert clean_post_caption(None).text == ""
     assert not clean_post_caption("").has_substance
+
+
+def test_hashtag_only_caption_has_no_substance():
+    # Real case (2026-08-21 run, @ornevy.creation): only the vision analysis of the image
+    # carried anything to react to — the caption itself says nothing.
+    got = clean_post_caption(
+        "ornevy.creation #Ornevy #LivrePhoto #Souvenirs #EntrepreneuriatFéminin #MadeInFrance",
+        author_hint="ornevy.creation",
+    )
+    assert not got.has_substance
+
+
+def test_prose_with_hashtags_still_has_substance():
+    got = clean_post_caption(
+        "ornevy.creation Vos plus beaux souvenirs mis en lumière #Ornevy #MadeInFrance",
+        author_hint="ornevy.creation",
+    )
+    assert got.has_substance
+
+
+def test_url_only_caption_has_no_substance():
+    got = clean_post_caption("brand https://example.com/very/long/link", author_hint="brand")
+    assert not got.has_substance
