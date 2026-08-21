@@ -74,6 +74,21 @@ class ContentCreationSelectors:
     def story_publish_texts(self) -> List[str]:
         return L("content_creation.story_publish_texts")
 
+    @property
+    def gallery_texts(self) -> List[str]:
+        return L("content_creation.gallery_texts")
+
+    @property
+    def your_story_texts(self) -> List[str]:
+        return L("content_creation.your_story_texts")
+
+    # "Ajouter à la story" — the SAME label appears on the feed tray's empty-ring badge and on
+    # the share sheet's external reshare row (real dump `post.open_share`, IG v410). One key,
+    # both surfaces: they are the same affordance and must not drift apart.
+    @property
+    def add_to_story_texts(self) -> List[str]:
+        return L("content_creation.add_to_story_texts")
+
     # "OK" is identical in both languages -> neutral.
     _popup_button_texts_base: List[str] = field(default_factory=lambda: [
         "OK",
@@ -266,14 +281,15 @@ class ContentCreationSelectors:
         The first tray bubble is our own story; tapping it opens story creation. We
         anchor on the empty-ring '+' badge (content-desc 'Add to story') and the
         'Your story' label, with the badge resource-id as fallback."""
-        return self._text_xpaths(["Add to story", "Ajouter à la story", "Ajouter a la story"]) + [
-            '//*[@text="Your story" or @text="Votre story"]',
-            self._rid_xpath(self.reel_empty_badge),
-        ]
+        return (
+            self._text_xpaths(self.add_to_story_texts)
+            + self._text_xpaths(self.your_story_texts)
+            + [self._rid_xpath(self.reel_empty_badge)]
+        )
 
     def gallery_open_xpaths(self) -> List[str]:
         """Open the gallery picker from the create camera (bottom-left preview button)."""
-        return [self._rid_xpath(self.gallery_preview_button)] + self._text_xpaths(["Gallery", "Galerie"])
+        return [self._rid_xpath(self.gallery_preview_button)] + self._text_xpaths(self.gallery_texts)
 
     def composer_xpaths(self) -> List[str]:
         """Caption composer field (presence => composer screen reached)."""

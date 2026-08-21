@@ -60,7 +60,7 @@ _FR_WORDS: Set[str] = {
     "Répondre", "Ajouter un commentaire", "Pas maintenant",
     "Refuser", "REFUSER", "Ne pas autoriser", "Autoriser",
     "Non", "Plus de", "Sponsorise", "Publicite",
-    "J'aime", "Attribuer un", "Partager une vidÃ©o",
+    "J'aime", "Attribuer un", "Partager une vidéo",
     "Lire ou ajouter des commentaires", "commentaires", "Son :",
     # Inbox / Messages (sections, demandes, follow-back)
     "Nouveaux followers", "Nouveaux abonnés", "Activité",

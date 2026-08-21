@@ -205,15 +205,14 @@ def publish_tap_share(a, p):
 @action("publish.open_story_gallery")
 def publish_open_story_gallery(a, p):
     """Story flow: open the gallery from the story camera."""
-    selectors = [_rid(CC.gallery_preview_button)] + _by_texts(["Gallery", "Galerie"])
-    ok = a.click._find_and_click(selectors, timeout=4)
+    ok = a.click._find_and_click(CC.gallery_open_xpaths(), timeout=4)
     return _result(ok, "galerie story ouverte", "bouton galerie introuvable", selector="gallery_preview_button")
 
 
 @action("publish.tap_your_story")
 def publish_tap_your_story(a, p):
     """Story flow: tap the 'Your story' publish button."""
-    ok = a.click._find_and_click(_by_texts(["Your story", "Votre story"]), timeout=4)
+    ok = a.click._find_and_click(CC.story_publish_xpaths(), timeout=4)
     return _result(ok, "Your story clique", "Your story introuvable", selector="your_story")
 
 

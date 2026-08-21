@@ -163,15 +163,34 @@ STRINGS: Dict[str, List[str]] = {
         "Publier",
     ],
     "content_creation.reel_draft_bodies": [
-        "Si vous commencez une nouvelle vidÃ©o, ce brouillon sera enregistrÃ©.",
+        "Si vous commencez une nouvelle vidéo, ce brouillon sera enregistré.",
     ],
     "content_creation.reel_draft_headlines": [
         "Continuer la modification de votre brouillon ?",
     ],
     "content_creation.reel_draft_start_new_texts": [
-        "Commencer une nouvelle vidÃ©o",
+        "Commencer une nouvelle vidéo",
     ],
-    "content_creation.story_publish_texts": [],
+    # Bouton de publication de l'editeur de story. La cle existait vide, et `L()` ne retombe
+    # PAS sur l'anglais quand la cle est presente : sur un device FR `_publish_story()` cherchait
+    # donc dans une liste vide et echouait au dernier tap. Le noeud n'a pas de resource-id (dump
+    # reel `publish.tap_your_story`, IG v410) — seul le libelle permet de le viser.
+    "content_creation.story_publish_texts": [
+        "Votre story",
+        "Partager",
+    ],
+    "content_creation.gallery_texts": [
+        "Galerie",
+    ],
+    "content_creation.your_story_texts": [
+        "Votre story",
+    ],
+    # Meme libelle sur le badge du tray (anneau vide) et sur la ligne de repartage externe
+    # du share sheet — dump reel `post.open_share`, IG v410, device FR.
+    "content_creation.add_to_story_texts": [
+        "Ajouter à la story",
+        "Ajouter a la story",
+    ],
     # --- detection ---
     "detection.business_account_indicators": [
         "//*[contains(@text, \"Professionnel\")]",

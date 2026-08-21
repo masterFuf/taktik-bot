@@ -191,6 +191,15 @@ STRINGS: Dict[str, List[str]] = {
         "Share",
         "Your story",
     ],
+    "content_creation.gallery_texts": [
+        "Gallery",
+    ],
+    "content_creation.your_story_texts": [
+        "Your story",
+    ],
+    "content_creation.add_to_story_texts": [
+        "Add to story",
+    ],
     # --- detection ---
     "detection.business_account_indicators": [
         "//*[contains(@text, \"Professional\")]",
