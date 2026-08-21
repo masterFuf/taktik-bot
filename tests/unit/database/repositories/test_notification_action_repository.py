@@ -37,6 +37,20 @@ def test_failed_action_is_recorded_but_never_skips(conn):
     assert repo.actioned_hashes("instagram", 1, "follow_back") == set()
 
 
+def test_count_today_counts_only_todays_successes(conn):
+    repo = NotificationActionRepository(conn)
+    repo.record(platform="instagram", account_id=1, action="follow_back", actor_username="a")
+    repo.record(platform="instagram", account_id=1, action="follow_back", actor_username="b")
+    repo.record(platform="instagram", account_id=1, action="follow_back", actor_username="c",
+                success=False)                                        # failure: not counted
+    repo.record(platform="instagram", account_id=1, action="like", actor_username="d")  # other verb
+    conn.execute("UPDATE notification_actions SET created_at = '2000-01-01 00:00:00' "
+                 "WHERE actor_username = 'a'")                        # yesterday: not counted
+    conn.commit()
+    assert repo.count_today("instagram", 1, "follow_back") == 1
+    assert repo.count_today("instagram", 2, "follow_back") == 0
+
+
 def test_actioned_hashes_preload_ignores_null_hashes(conn):
     # Unit actions carry no identity (hash NULL): they audit but never feed the skip set.
     repo = NotificationActionRepository(conn)

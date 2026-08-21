@@ -16,9 +16,11 @@ from typing import Dict, List, Tuple
 _TIME_RE = re.compile(r"\b(\d+\s*(?:min|mois|sem|[smhjdwy]))\b", re.IGNORECASE)
 
 # Inline action affordances that mark a row as actionable (FR + EN).
+# "suivre en retour" was missing while "follow back" was there: on a FR device a
+# new-follower row with its follow-back button read as has_action=False.
 _ACTION_WORDS = (
     "confirmer", "confirm", "répondre", "repondre", "reply",
-    "follow back", "se réabonner", "message", "supprimer", "remove",
+    "follow back", "suivre en retour", "se réabonner", "message", "supprimer", "remove",
 )
 
 

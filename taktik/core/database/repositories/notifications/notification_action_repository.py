@@ -69,6 +69,17 @@ class NotificationActionRepository(BaseRepository):
         )
         return row is not None
 
+    def count_today(self, platform: str, account_id: int, action: str) -> int:
+        """How many times ``action`` SUCCEEDED today (UTC day, matching created_at's
+        ``datetime('now')``) — feeds the autopilot's dedicated daily caps."""
+        row = self.query_one(
+            "SELECT COUNT(*) AS n FROM notification_actions "
+            "WHERE platform = ? AND account_id = ? AND action = ? "
+            "AND success = 1 AND date(created_at) = date('now')",
+            (platform, account_id, action),
+        )
+        return int(row["n"]) if row else 0
+
     def actioned_hashes(self, platform: str, account_id: int, action: str) -> Set[str]:
         """All content_hashes on which ``action`` already succeeded for this account —
         preloaded once by a batch so the skip check costs no per-action DB hit."""

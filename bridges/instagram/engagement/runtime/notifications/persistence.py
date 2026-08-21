@@ -133,6 +133,14 @@ def record_notification_action(
         logger.warning(f"[NOTIF] Interaction bookkeeping failed ({interaction_type}): {exc}")
 
 
+def count_actions_today(account_username: Optional[str], action: str) -> int:
+    """Today's successful ``action`` count for this account (0 when unknown)."""
+    account_id = resolve_account_id(account_username or "")
+    if account_id is None:
+        return 0
+    return NotificationService.count_actions_today(_PLATFORM, account_id, action)
+
+
 def load_actioned_hashes(account_username: Optional[str], action: str) -> set:
     """content_hashes already actioned (success) for this account+verb — the batch's
     idempotent-skip preload. Empty set when the account is unknown (=> no skip)."""
@@ -182,6 +190,7 @@ def build_known_checker(account_username: Optional[str]):
 __all__ = [
     "batch_identity_hash",
     "build_known_checker",
+    "count_actions_today",
     "load_actioned_hashes",
     "record_notification_action",
     "record_scan_notifications",

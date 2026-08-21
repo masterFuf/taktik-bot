@@ -169,6 +169,22 @@ class NotificationService:
             conn.close()
 
     @staticmethod
+    def count_actions_today(platform: str, account_id: int, action: str) -> int:
+        """Successful ``action`` count for today (UTC) — the autopilot's daily-cap read.
+        Best-effort: 0 on any error (=> the cap never blocks by accident... the CALLER
+        must treat 0 as 'unknown-but-allow' only for reads, never invert the guard)."""
+        conn = NotificationService._open()
+        if conn is None:
+            return 0
+        try:
+            return NotificationActionRepository(conn).count_today(platform, account_id, action)
+        except Exception as exc:
+            logger.warning(f"Could not count today's '{action}' actions: {exc}")
+            return 0
+        finally:
+            conn.close()
+
+    @staticmethod
     def actioned_hashes(platform: str, account_id: int, action: str) -> set:
         """content_hashes on which ``action`` already succeeded — for the batch's
         idempotent skip. Best-effort: empty set on any error (=> nothing is skipped)."""
