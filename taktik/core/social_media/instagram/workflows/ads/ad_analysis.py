@@ -22,6 +22,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from taktik.core.app.ai.spend import AI_SPEND_AD
+
 log = logger.bind(module="instagram-ad-analysis")
 
 _SYSTEM_PROMPT = (
@@ -107,6 +109,7 @@ def analyze_pending_ads(ai_service, *, limit: int = 20,
                 _USER_PROMPT + context,
                 path,
                 label="ad_analysis",
+                kind=AI_SPEND_AD,
             )
             payload = result.get("payload") if isinstance(result, dict) else None
             if payload:

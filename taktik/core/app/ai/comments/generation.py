@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 
 from ..prompting import platform_label as _platform_label
+from ..spend import AI_SPEND_COMMENT
 
 
 _LANGUAGE_NAMES = {
@@ -213,7 +214,8 @@ Respond with ONLY a JSON object, on a single line, nothing else:
 
         result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
                                       model=self.model_generation,
-                                      label=f"generate_comment_reply @{username or '?'}")
+                                      label=f"generate_comment_reply @{username or '?'}",
+                                      kind=AI_SPEND_COMMENT)
         duration_ms = int((time.time() - t0) * 1000)
 
         if not result["success"]:
@@ -380,7 +382,8 @@ Respond with ONLY a JSON object, on a single line, nothing else:
 
         result = self.text_completion(system_prompt, user_prompt, temperature=0.9, max_tokens=220,
                                       model=self.model_generation,
-                                      label=f"generate_smart_comment @{username or '?'}")
+                                      label=f"generate_smart_comment @{username or '?'}",
+                                      kind=AI_SPEND_COMMENT)
         duration_ms = int((time.time() - t0) * 1000)
 
         if not result["success"]:

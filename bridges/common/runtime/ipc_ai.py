@@ -4,7 +4,8 @@
 class AIIpcMixin:
     """Emit AI and Agent events through the core IPC send primitive."""
 
-    def ai_spend(self, cost_usd: float, model: str = None, label: str = None) -> None:
+    def ai_spend(self, cost_usd: float, model: str = None, label: str = None,
+                 kind: str = "other") -> None:
         """Report the cost of ONE paid model call — the session's only cost source.
 
         Emitted by the transport (`_call_openrouter`), so a call cannot be paid for without
@@ -14,10 +15,15 @@ class AIIpcMixin:
         card. A declined comment, a declined reply, a batch username classification or an
         agent decision all cost real money and emit no card — that spend used to be invisible
         in the session total and in Analytics.
+
+        `kind` is the closed spend vocabulary (`taktik.core.app.ai.spend`): profile, post,
+        comment, verdict, audience, decision, dm, other. It is what the desktop groups the
+        session's cost BY — the `label` beside it carries a username and is free text, so it
+        can only ever be read by a human.
         """
         if cost_usd is None:
             return
-        data = dict(cost_usd=cost_usd, workflow_type="automation")
+        data = dict(cost_usd=cost_usd, kind=kind or "other", workflow_type="automation")
         if model:
             data["model"] = model
         if label:

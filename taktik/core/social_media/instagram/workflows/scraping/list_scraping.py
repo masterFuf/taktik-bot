@@ -2,6 +2,8 @@
 
 import time
 from datetime import datetime
+
+from taktik.core.app.ai.spend import AI_SPEND_PROFILE
 from typing import Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
@@ -708,7 +710,9 @@ class ScrapingListMixin(DeepQualifyMixin):
         )
 
         t0 = _time.time()
-        result = self._ai_service.text_completion(system_prompt, user_prompt, temperature=0.2, max_tokens=150)
+        result = self._ai_service.text_completion(system_prompt, user_prompt, temperature=0.2,
+                                                  max_tokens=150, label=f'qualify_profile @{username}',
+                                                  kind=AI_SPEND_PROFILE)
         duration_ms = int((_time.time() - t0) * 1000)
 
         if not result.get('success'):

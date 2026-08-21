@@ -25,6 +25,10 @@ from loguru import logger
 
 from taktik.core.shared.actions.optional_call import run_bounded_optional
 from ..prompting import platform_label as _platform_label
+from ..spend import (
+    AI_SPEND_AUDIENCE, AI_SPEND_OTHER, AI_SPEND_POST, AI_SPEND_PROFILE, AI_SPEND_VERDICT,
+    normalize_spend_kind,
+)
 from ..comments.generation import CommentGenerationMixin
 
 # Two fixed models by task nature (both multimodal). Single source of truth for every LLM call.
@@ -156,12 +160,17 @@ class AIService(CommentGenerationMixin):
     # ------------------------------------------------------------------
 
     def _call_openrouter(self, model: str, messages: list, temperature: float = 0.7,
-                         max_tokens: int = 2000, label: str = "") -> Dict[str, Any]:
+                         max_tokens: int = 2000, label: str = "",
+                         kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
         """Call OpenRouter chat completions API. Returns dict with success, text, usage, cost.
 
         `label` names the calling operation (classify / comment / post…) for the one-line
         cost log emitted on success — without it a finished run gave no way to tell which
-        model actually served a call, nor what each call cost."""
+        model actually served a call, nor what each call cost.
+
+        `kind` is the STABLE spend category reported to the desktop (see AI_SPEND_KINDS).
+        The label carries a username and is free text, so it can only ever be read by a
+        human; the kind is what a cost breakdown can be grouped by."""
         import urllib.request
         import urllib.error
 
@@ -290,7 +299,8 @@ class AIService(CommentGenerationMixin):
             # costing real money. Best effort — accounting must never break a run.
             if self.ipc is not None and isinstance(cost, (int, float)):
                 try:
-                    self.ipc.ai_spend(cost, model=served, label=label)
+                    self.ipc.ai_spend(cost, model=served, label=label,
+                                      kind=normalize_spend_kind(kind))
                 except Exception as exc:
                     logger.debug(f"[AIService] ai_spend emit failed: {exc}")
         return result
@@ -391,7 +401,8 @@ class AIService(CommentGenerationMixin):
 
     def text_completion(self, system_prompt: str, user_prompt: str,
                         temperature: float = 0.7, max_tokens: int = 2000,
-                        model: str = None, label: str = "text") -> Dict[str, Any]:
+                        model: str = None, label: str = "text",
+                        kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
         """Simple text completion. Defaults to the analysis model; generation callers pass
         `model=self.model_generation` explicitly."""
         messages = [
@@ -399,7 +410,7 @@ class AIService(CommentGenerationMixin):
             {"role": "user", "content": user_prompt},
         ]
         return self._call_openrouter(model or self.model_analysis, messages, temperature,
-                                     max_tokens, label=label)
+                                     max_tokens, label=label, kind=kind)
 
     def classify_following_usernames_batch(
         self,
@@ -467,7 +478,8 @@ class AIService(CommentGenerationMixin):
             try:
                 result = self.text_completion(system_prompt, user_prompt, temperature=0.1,
                                               max_tokens=max_tokens,
-                                              label=f"classify_following_batch ({len(batch)})")
+                                              label=f"classify_following_batch ({len(batch)})",
+                                              kind=AI_SPEND_AUDIENCE)
                 if not result.get("success"):
                     logger.warning(f"[AIService] classify_following_usernames_batch failed: {result.get('error')}")
                     continue
@@ -495,7 +507,7 @@ class AIService(CommentGenerationMixin):
 
     def vision_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                           temperature: float = 0.3, max_tokens: int = 1500,
-                          label: str = "vision") -> Dict[str, Any]:
+                          label: str = "vision", kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
         """Vision completion — sends an image + prompt to the vision model.
 
         `system_prompt` is either a plain string or the block list built by
@@ -513,12 +525,13 @@ class AIService(CommentGenerationMixin):
                 {"type": "text", "text": user_prompt},
             ]},
         ]
-        return self._call_openrouter(self.vision_model, messages, temperature, max_tokens,
+        return self._call_openrouter(self.vision_model, messages, temperature, max_tokens, kind=kind,
                                      label=label)
 
     def vision_json_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                                temperature: float = 0.3, max_tokens: int = 1500,
-                               label: str = "vision") -> Dict[str, Any]:
+                               label: str = "vision",
+                               kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
         """Vision completion whose answer must be JSON — retried once if it comes back unusable.
 
         Upstream truncation is rare but real: replaying the exact production call 9 times in a
@@ -533,7 +546,7 @@ class AIService(CommentGenerationMixin):
         for attempt in (1, 2):
             last = self.vision_completion(system_prompt, user_prompt, image_path,
                                           temperature=temperature, max_tokens=max_tokens,
-                                          label=label)
+                                          label=label, kind=kind)
             if not last.get("success"):
                 return last  # transport/HTTP failure: retrying here would just double the wait
 
@@ -983,7 +996,7 @@ class AIService(CommentGenerationMixin):
         user_prompt = "\n".join(parts)
 
         result = self.text_completion(system_prompt, user_prompt, temperature=0.2, max_tokens=220,
-                                      label=f"engagement_verdict @{username}")
+                                      label=f"engagement_verdict @{username}", kind=AI_SPEND_VERDICT)
         duration_ms = int((time.time() - t0) * 1000)
         if not result.get("success"):
             return {"success": False, "error": result.get("error", "verdict failed"), "duration_ms": duration_ms}
@@ -1218,7 +1231,7 @@ class AIService(CommentGenerationMixin):
         result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
                                              temperature=0.2,
                                              max_tokens=1100 if include_engagement else 900,
-                                             label=f"classify_profile_niche @{username}")
+                                             label=f"classify_profile_niche @{username}", kind=AI_SPEND_PROFILE)
         duration_ms = int((time.time() - t0) * 1000)
 
         logger.debug(
@@ -1335,7 +1348,7 @@ class AIService(CommentGenerationMixin):
 
         result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
                                              temperature=0.2, max_tokens=500,
-                                             label=f"analyze_profile_screenshot @{username}")
+                                             label=f"analyze_profile_screenshot @{username}", kind=AI_SPEND_PROFILE)
         duration_ms = int((time.time() - t0) * 1000)
 
         classification = result.get("payload")
@@ -1406,7 +1419,7 @@ No markdown formatting."""
 
         result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
                                         temperature=0.2, max_tokens=300,
-                                        label=f"analyze_post @{username or '?'}")
+                                        label=f"analyze_post @{username or '?'}", kind=AI_SPEND_POST)
         duration_ms = int((time.time() - t0) * 1000)
 
         if not result["success"]:

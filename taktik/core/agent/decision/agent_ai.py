@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional
 from loguru import logger
 
 from taktik.core.agent.kernel.ports import AgentAIService
+from taktik.core.app.ai.spend import AI_SPEND_DECISION
 
 
 # Full language names for the operator-facing "reason" field. The reason is shown in the Taktik
@@ -132,6 +133,7 @@ class AgentAI:
             image_path=screenshot_path,
             temperature=0.3,
             max_tokens=150,
+            kind=AI_SPEND_DECISION,
         )
         duration_ms = int((time.time() - t0) * 1000)
 
@@ -210,6 +212,7 @@ class AgentAI:
             image_path=screenshot_path,
             temperature=0.3,
             max_tokens=100,
+            kind=AI_SPEND_DECISION,
         )
         duration_ms = int((time.time() - t0) * 1000)
 

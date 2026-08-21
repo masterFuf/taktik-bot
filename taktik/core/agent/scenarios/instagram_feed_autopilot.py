@@ -20,6 +20,8 @@ import tempfile
 from typing import Dict, Any, Optional
 from loguru import logger
 
+from taktik.core.app.ai.spend import AI_SPEND_HASHTAGS
+
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.database import get_db_service
 from taktik.core.app.ai.comments.comment_ai import UserProfile
@@ -501,7 +503,8 @@ class TaktikAgentWorkflow:
         )
 
         try:
-            result = self._ai.ai_service.text_completion(system, user, temperature=0.7, max_tokens=200)
+            result = self._ai.ai_service.text_completion(system, user, temperature=0.7, max_tokens=200,
+                                                         label='autopilot_hashtags', kind=AI_SPEND_HASHTAGS)
             if result.get("success"):
                 content = result.get("content", "")
                 match = re.search(r'\[.*?\]', content, re.DOTALL)

@@ -24,7 +24,8 @@ class _FakeAIService:
     vision_model = "vision-test"
     text_model = "text-test"
 
-    def vision_completion(self, system_prompt, user_prompt, image_path, temperature=0.3, max_tokens=1500):
+    def vision_completion(self, system_prompt, user_prompt, image_path, temperature=0.3,
+                          max_tokens=1500, label="vision", kind="other"):
         return {
             "success": True,
             "text": '{"action": "like", "visit_profile": false, "comment": "", "reason": "relevant"}',
@@ -32,7 +33,8 @@ class _FakeAIService:
             "model": self.vision_model,
         }
 
-    def text_completion(self, system_prompt, user_prompt, temperature=0.7, max_tokens=2000):
+    def text_completion(self, system_prompt, user_prompt, temperature=0.7, max_tokens=2000,
+                        label="text", kind="other"):
         return {"success": True, "content": '["growth"]'}
 
 

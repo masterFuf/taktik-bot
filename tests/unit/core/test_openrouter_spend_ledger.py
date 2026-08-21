@@ -20,9 +20,9 @@ class _RecordingIpc:
     def __init__(self):
         self.events = []
 
-    def ai_spend(self, cost_usd, model=None, label=None):
+    def ai_spend(self, cost_usd, model=None, label=None, kind="other"):
         self.events.append({"type": "ai_spend", "cost_usd": cost_usd,
-                            "model": model, "label": label})
+                            "model": model, "label": label, "kind": kind})
 
 
 def _service_with_response(payload, ipc=None):
@@ -62,12 +62,13 @@ _OK = {
 def test_a_paid_call_reports_its_spend():
     ipc = _RecordingIpc()
     service, fake = _service_with_response(_OK, ipc)
-    result = _call(service, fake, label="engagement_verdict @x")
+    result = _call(service, fake, label="engagement_verdict @x", kind="verdict")
 
     assert result["cost_usd"] == 0.00042
     assert ipc.events == [{
         "type": "ai_spend", "cost_usd": 0.00042,
         "model": "google/gemini-3.1-flash-lite", "label": "engagement_verdict @x",
+        "kind": "verdict",
     }]
 
 
@@ -118,3 +119,39 @@ def test_a_broken_ipc_never_breaks_the_call():
 
     service, fake = _service_with_response(_OK, _Exploding())
     assert _call(service, fake)["success"] is True
+
+
+def test_an_unknown_kind_never_invents_a_bucket():
+    """A typo at a call site must land in `other`, not create a category of its own."""
+    ipc = _RecordingIpc()
+    service, fake = _service_with_response(_OK, ipc)
+    _call(service, fake, kind="comnent")
+    assert ipc.events[0]["kind"] == "other"
+
+
+def test_every_paid_call_site_declares_a_kind():
+    """The breakdown is only honest if nothing silently falls into `other`.
+
+    Guards against the real failure mode: a new generator is added, nobody threads a kind,
+    and its spend quietly joins the unlabelled bucket while the tile still looks complete.
+    """
+    import inspect
+    import re
+
+    from taktik.core.app.ai.providers import openrouter as provider
+    from taktik.core.app.ai.comments import generation
+
+    for module in (provider, generation):
+        source = inspect.getsource(module)
+        for match in re.finditer(r"self\.(?:text_completion|vision_completion|vision_json_completion)\(", source):
+            tail = source[match.end():match.end() + 600]
+            depth, end = 1, 0
+            for i, ch in enumerate(tail):
+                depth += (ch == "(") - (ch == ")")
+                if depth == 0:
+                    end = i
+                    break
+            call = tail[:end]
+            assert "kind=" in call, (
+                f"a paid call in {module.__name__} declares no spend kind: {call[:120]}"
+            )

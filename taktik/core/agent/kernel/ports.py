@@ -11,6 +11,10 @@ class AgentAIService(Protocol):
     vision_model: str
     text_model: str
 
+    # `kind` is the spend category the provider reports the call's cost under (see
+    # `taktik.core.app.ai.spend`). Part of the contract, not an implementation detail: an
+    # agent decision is a PAID call, and a provider that drops the kind makes it land in the
+    # `other` bucket of the operator's cost breakdown.
     def vision_completion(
         self,
         system_prompt: str,
@@ -18,6 +22,8 @@ class AgentAIService(Protocol):
         image_path: str,
         temperature: float = 0.3,
         max_tokens: int = 1500,
+        label: str = "vision",
+        kind: str = "other",
     ) -> Dict[str, Any]:
         ...
 
@@ -27,6 +33,8 @@ class AgentAIService(Protocol):
         user_prompt: str,
         temperature: float = 0.7,
         max_tokens: int = 2000,
+        label: str = "text",
+        kind: str = "other",
     ) -> Dict[str, Any]:
         ...
 
