@@ -150,7 +150,7 @@ def sample_comments(conn: sqlite3.Connection, count: int, seed: int) -> List[sql
     rows = conn.execute(
         """
         SELECT target_username, post_author, post_caption, post_description,
-               comment_text, ai_model, language, posted_at
+               comment_text, ai_model, language, posted_at, account_id
         FROM posted_comments
         WHERE platform = 'instagram' AND kind = 'comment'
           AND comment_text IS NOT NULL AND comment_text <> ''
@@ -159,6 +159,61 @@ def sample_comments(conn: sqlite3.Connection, count: int, seed: int) -> List[sql
     ).fetchall()
     random.Random(seed).shuffle(rows)
     return rows[:count]
+
+
+def load_persona(conn: sqlite3.Connection, username: str) -> Optional[Dict[str, Any]]:
+    """The voice of ONE named account, in the shape `generate_smart_comment` expects.
+
+    Named explicitly rather than joined from the comment, because the join does not hold: on this
+    base `posted_comments.account_id` (and `sessions_unified.account_id` with it) carries ids that
+    exist in `social_profiles`, not in `accounts` — 621 of 625 comments and every recent
+    interaction point at nothing. Resolving a persona through that would have quietly dressed
+    every replayed comment in the wrong account's voice, or in none, and the benchmark would have
+    been judging the wrong thing.
+
+    Without it, comments are replayed generic — fair between models, but not what actually goes
+    out. The run says which of the two it did.
+    """
+    if not username:
+        return None
+    try:
+        row = conn.execute(
+            """
+            SELECT display_name, niche, product_service, objective, tone_personality,
+                   unique_selling_point, custom_context, preferred_language
+            FROM accounts WHERE lower(username) = lower(?) LIMIT 1
+            """,
+            (username,),
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    if not row:
+        return None
+    persona = {
+        "displayName": row["display_name"] or "",
+        "niche": row["niche"] or "",
+        "productService": row["product_service"] or "",
+        "objective": row["objective"] or "",
+        "tonePersonality": row["tone_personality"] or "",
+        "uniqueSellingPoint": row["unique_selling_point"] or "",
+        "customContext": row["custom_context"] or "",
+        "language": row["preferred_language"] or "",
+    }
+    return persona if any(persona.values()) else None
+    for row in rows:
+        persona = {
+            "displayName": row["display_name"] or "",
+            "niche": row["niche"] or "",
+            "productService": row["product_service"] or "",
+            "objective": row["objective"] or "",
+            "tonePersonality": row["tone_personality"] or "",
+            "uniqueSellingPoint": row["unique_selling_point"] or "",
+            "customContext": row["custom_context"] or "",
+            "language": row["preferred_language"] or "",
+        }
+        if any(persona.values()):
+            personas[row["id"]] = persona
+    return personas
 
 
 def write_screenshots(rows: List[sqlite3.Row], out_dir: Path) -> Dict[str, Path]:
@@ -262,6 +317,7 @@ def replay_profiles(
 def replay_comments(
     model: str,
     rows: List[sqlite3.Row],
+    persona: Optional[Dict[str, Any]],
     api_key: str,
     spend: SpendCapture,
     budget: float,
@@ -283,6 +339,7 @@ def replay_comments(
                 username=row["post_author"] or row["target_username"] or "",
                 post_caption=row["post_caption"] or "",
                 language=row["language"] or "auto",
+                account_persona=persona,
                 platform="instagram",
             ) or {}
         except Exception as exc:  # noqa: BLE001
@@ -291,6 +348,7 @@ def replay_comments(
         results.append({
             "target": row["target_username"],
             "model": model,
+            "persona": bool(persona),
             "usd": round(spend.total_usd - before, 6),
             "seconds": round(time.time() - started, 2),
             "caption": (row["post_caption"] or "")[:300],
@@ -369,6 +427,8 @@ def main() -> int:
     parser.add_argument("--taxonomy", type=Path, help="premium niche taxonomy JSON (front-owned)")
     parser.add_argument("--out", type=Path, default=Path("eval-out"), help="where results are written")
     parser.add_argument("--seed", type=int, default=20260822, help="sampling seed — same seed, same sample")
+    parser.add_argument("--persona-account", default="",
+                        help="username of OUR account whose voice the comments must be written in")
     parser.add_argument("--budget", type=float, default=1.0, help="hard ceiling in USD")
     parser.add_argument("--run", action="store_true", help="actually call the models")
     args = parser.parse_args()
@@ -400,11 +460,19 @@ def main() -> int:
     conn = connect(args.db)
     profile_rows = sample_profiles(conn, args.profiles, args.seed) if args.profiles else []
     comment_rows = sample_comments(conn, args.comments, args.seed) if args.comments else []
+    persona = load_persona(conn, args.persona_account) if comment_rows else None
     conn.close()
     niches = sorted({row["niche_slug"] for row in profile_rows})
     print(f"Sample: {len(profile_rows)} profiles across {len(niches)} niches, "
           f"{len(comment_rows)} comments (seed {args.seed})")
     print(f"  niches: {', '.join(niches)}")
+
+    if comment_rows:
+        if persona:
+            print(f"  persona: @{args.persona_account} — comments replayed in that account's voice")
+        else:
+            print("  persona: NONE — comments replayed generic. Pass --persona-account <username> "
+                  "to judge what actually goes out.")
 
     args.out.mkdir(parents=True, exist_ok=True)
     shots = write_screenshots(profile_rows, args.out / "screenshots")
@@ -422,7 +490,9 @@ def main() -> int:
             )
         for model in comment_models:
             print(f"\n== comments · {model} ==")
-            comment_results.extend(replay_comments(model, comment_rows, api_key, spend, args.budget))
+            comment_results.extend(
+                replay_comments(model, comment_rows, persona, api_key, spend, args.budget)
+            )
     except BudgetExceeded as exc:
         stopped = str(exc)
         print(f"\nSTOPPED: {exc}")
