@@ -2,6 +2,7 @@
 
 import time
 from typing import Dict, Any
+from taktik.core.shared.diagnostics import capture_screen_snapshot
 
 from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
@@ -265,6 +266,9 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                   source_type="FOLLOWERS")
                         navigation_lost = True
                         session_stop_reason = session_stop_reason or stop_reasons.navigation_lost()
+                        # Keep the screen we could not read. Without it the next occurrence is as
+                        # opaque as this one: the app is closed seconds later and the evidence with it.
+                        capture_screen_snapshot(self.device, 'navigation_lost')
                         break
 
                     # Consecutive-private streak. `None` = no profile was opened, so the visit
@@ -295,6 +299,9 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         self.logger.error("Could not return to followers list, stopping")
                         navigation_lost = True
                         session_stop_reason = session_stop_reason or stop_reasons.navigation_lost()
+                        # Keep the screen we could not read. Without it the next occurrence is as
+                        # opaque as this one: the app is closed seconds later and the evidence with it.
+                        capture_screen_snapshot(self.device, 'navigation_lost')
                         break
                     
                     # Position check after coming back
