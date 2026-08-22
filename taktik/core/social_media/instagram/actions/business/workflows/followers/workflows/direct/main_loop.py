@@ -70,7 +70,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                 target_username, stats, config, deep_link_percentage, force_search_for_target
             )
             if target_followers_count is None:
-                return stats  # Setup failed
+                # Setup failed. `stats['stop_reason']` carries WHY (set by the setup); returning
+                # it is what lets the terminal path file this run as INTERRUPTED instead of
+                # "completed with 0 interactions".
+                return stats
             
             # Start the interaction phase
             if self.session_manager:

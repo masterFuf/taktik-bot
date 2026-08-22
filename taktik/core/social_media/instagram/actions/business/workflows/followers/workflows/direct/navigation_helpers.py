@@ -2,11 +2,12 @@
 
 import time
 import json
+from taktik.core.shared.diagnostics import capture_screen_snapshot
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from typing import Dict, Any, Optional
 
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 
 class DirectNavigationMixin:
@@ -145,6 +146,18 @@ class DirectNavigationMixin:
         self.logger.info(f"🚧 Transport done: {effective}/{planned} gestures moved the list")
         return effective
 
+    def _fail_setup(self, stats, reason, label):
+        """Record WHY the setup gave up, and keep the screen that explains it.
+
+        A setup failure used to return a bare `(None, None)`: the caller returned at once, no motive
+        was ever set, and the driver concluded `completed (0 interactions)` — a run that never
+        managed to open a single list was filed exactly like one that did its whole job. Two such
+        runs in one evening, both reported as successes.
+        """
+        stats['stop_reason'] = reason
+        capture_screen_snapshot(self.device, label)
+        return None, None
+
     def _setup_direct_workflow(self, target_username, stats, config, deep_link_percentage, force_search_for_target):
         """Navigate to target profile, open followers/following list. Returns (followers_count, profile_info) or (None, None) on failure."""
         self.logger.info(f"🎯 Opening followers list of @{target_username}")
@@ -155,7 +168,7 @@ class DirectNavigationMixin:
             force_search=force_search_for_target
         ):
             self.logger.error(f"Failed to navigate to @{target_username}")
-            return None, None
+            return self._fail_setup(stats, stop_reasons.navigation_lost(), 'setup_navigation_failed')
         
         self._human_like_delay('click')
         
@@ -163,6 +176,9 @@ class DirectNavigationMixin:
         
         if profile_info and profile_info.get('is_private', False):
             self.logger.warning(f"@{target_username} is a private account")
+            # NOT a technical failure: a private target has no list to open. The operator has to
+            # pick another source, which is a different action from "go and look at the phone".
+            stats['stop_reason'] = stop_reasons.list_unavailable()
             return None, None
         
         target_followers_count = profile_info.get('followers_count', 0) if profile_info else 0
@@ -192,12 +208,12 @@ class DirectNavigationMixin:
             self.logger.info(f"📋 Opening FOLLOWING list of @{target_username}")
             if not self.nav_actions.open_following_list():
                 self.logger.error("Failed to open following list")
-                return None, None
+                return self._fail_setup(stats, stop_reasons.list_unavailable(), 'setup_following_list_unavailable')
         else:
             self.logger.info(f"📋 Opening FOLLOWERS list of @{target_username}")
             if not self.nav_actions.open_followers_list():
                 self.logger.error("Failed to open followers list")
-                return None, None
+                return self._fail_setup(stats, stop_reasons.list_unavailable(), 'setup_followers_list_unavailable')
         
         self._human_like_delay('click')
         return target_followers_count, profile_info
