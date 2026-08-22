@@ -28,9 +28,12 @@ their own vocabularies and must not be merged into it: why a PROFILE was rejecte
 (``feed/suggestions``, diagnostic only, never surfaced), and the process lifecycle
 (STOPPED / INTERRUPTED, owned by the desktop side).
 
-The terminal STATUS (COMPLETED / INTERRUPTED) stays the caller's decision for now. Attaching it
-here would silently reclassify runs the day callers migrate, which is a behaviour change and
-belongs to its own step.
+The terminal STATUS is now DERIVED from the family (see ``terminal_status``). It used to be the
+caller's decision, and every caller decided the same thing: ``COMPLETED``, whatever had happened.
+Measured on 25 consecutive runs, 23 were filed COMPLETED — including five that ended on
+``navigation_lost`` and one that never managed to open the followers list and stopped after 44
+seconds with zero interactions. The motive was right there in the log; the status contradicted it,
+so the operator had no way to tell a finished run from a failed one.
 """
 
 
@@ -43,6 +46,28 @@ from typing import Any, Dict
 FAMILY_OK = "ok"          # stopped as expected -- nothing to do
 FAMILY_FAILED = "failed"  # did not run -- go look
 FAMILY_MANUAL = "manual"  # someone pressed stop
+
+
+#: Terminal status of a session, derived from the reason's family. `failed` is the only family
+#: that means "this did not run" — `ok` covers every legitimate end (limits reached, sources
+#: exhausted, list finished) and `manual` is the operator's own stop, which the caller already
+#: reports as STOPPED.
+STATUS_COMPLETED = "COMPLETED"
+STATUS_INTERRUPTED = "INTERRUPTED"
+
+
+def terminal_status(reason: Any, default: str = STATUS_COMPLETED) -> str:
+    """The status a run ending on `reason` deserves.
+
+    Accepts a `StopReason` (which carries its family) or the bare legacy string a few call sites
+    still pass. An unknown string keeps `default`: a motive nobody declared must not silently
+    reclassify a run as failed — the mistake would be the same one this function fixes, in the
+    other direction.
+    """
+    family = getattr(reason, "family", None)
+    if family is None:
+        family = _FAMILY_BY_CODE.get(str(reason or "").strip().lower())
+    return STATUS_INTERRUPTED if family == FAMILY_FAILED else default
 
 
 class StopReason(str):
@@ -202,6 +227,16 @@ def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
         f"No new followers after {scrolls} scroll attempts ({seen} seen)",
         scrolls=scrolls, seen=seen,
     )
+
+
+#: Codes a caller may still pass as a plain string. Only the FAILED ones need listing: anything
+#: absent keeps the caller's default, which is the safe direction.
+_FAMILY_BY_CODE = {
+    "navigation_lost": FAMILY_FAILED,
+    "list_unavailable": FAMILY_FAILED,
+    "followers_list_unavailable": FAMILY_FAILED,
+    "empty_plan": FAMILY_FAILED,
+}
 
 
 def sources_exhausted() -> StopReason:

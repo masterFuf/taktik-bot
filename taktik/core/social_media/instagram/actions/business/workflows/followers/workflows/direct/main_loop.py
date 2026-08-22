@@ -264,7 +264,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                                   reason="processing_error", encounter_order=total_usernames_seen,
                                   source_type="FOLLOWERS")
                         navigation_lost = True
-                        session_stop_reason = session_stop_reason or 'navigation_lost'
+                        session_stop_reason = session_stop_reason or stop_reasons.navigation_lost()
                         break
 
                     # Consecutive-private streak. `None` = no profile was opened, so the visit
@@ -294,7 +294,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         # without the flag the while-loop kept scrolling a dead screen for minutes.
                         self.logger.error("Could not return to followers list, stopping")
                         navigation_lost = True
-                        session_stop_reason = session_stop_reason or 'navigation_lost'
+                        session_stop_reason = session_stop_reason or stop_reasons.navigation_lost()
                         break
                     
                     # Position check after coming back

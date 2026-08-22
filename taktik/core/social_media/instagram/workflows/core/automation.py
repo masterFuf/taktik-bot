@@ -186,7 +186,10 @@ class InstagramAutomation:
 
         if not getattr(self, 'session_finalized', False):
             reason = last_stop_reason or stop_reasons.completed(outcome['processed'])
-            self._finalize_session(status='COMPLETED', reason=reason)
+            # The STATUS follows the motive. This line used to say COMPLETED whatever had
+            # happened, so a run that lost navigation after 44 seconds was filed exactly like one
+            # that did its whole job — the motive said otherwise two fields away.
+            self._finalize_session(status=stop_reasons.terminal_status(reason), reason=reason)
 
         self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
         return all_results
@@ -228,7 +231,7 @@ class InstagramAutomation:
 
         if not getattr(self, 'session_finalized', False):
             reason = result.get('stop_reason') or stop_reasons.completed(result.get('interacted', 0))
-            self._finalize_session(status='COMPLETED', reason=reason)
+            self._finalize_session(status=stop_reasons.terminal_status(reason), reason=reason)
 
         return result
 
@@ -358,7 +361,7 @@ class InstagramAutomation:
 
                 should_continue, stop_reason = self.session_manager.should_continue()
                 if not should_continue:
-                    self._finalize_session(status='COMPLETED', reason=stop_reason)
+                    self._finalize_session(status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
                     return
 
                 # The loop exists to retry while there is still potential (session limits not
