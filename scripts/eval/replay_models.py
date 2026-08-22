@@ -99,6 +99,20 @@ class BudgetExceeded(Exception):
     """Raised the moment the ceiling is crossed — the caller writes out and stops."""
 
 
+def append_jsonl(path: Path, record: Dict[str, Any]) -> None:
+    """Write one result NOW, not at the end.
+
+    A benchmark is stopped mid-way for the most ordinary reason there is: you look at the first
+    numbers and decide you have seen enough. Buffering everything until the last line means that
+    decision throws away every call already paid for — which happened, on the run that produced
+    this function. Appending costs nothing and makes an interrupted run worth exactly what it
+    cost.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 def connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
@@ -117,9 +131,14 @@ def sample_profiles(conn: sqlite3.Connection, count: int, seed: int) -> List[sql
         """
         SELECT q.username, q.ai_classification, q.niche_slug, q.sub_niche_slug,
                q.ai_profession, q.ai_gender, q.ai_age_group, q.ai_account_based_in,
-               s.image_data
+               s.image_data,
+               p.biography, p.business_category, p.website,
+               p.followers_count, p.following_count, p.posts_count,
+               p.is_private, p.is_verified
         FROM profile_qualification q
         JOIN ai_screenshots s ON s.filename = 'ai_' || q.username || '.jpg'
+        LEFT JOIN social_profiles p
+               ON p.platform = 'instagram' AND lower(p.username) = lower(q.username)
         WHERE q.platform = 'instagram'
           AND q.ai_classification IS NOT NULL AND q.ai_classification <> ''
           AND q.niche_slug IS NOT NULL AND q.niche_slug <> ''
@@ -241,6 +260,69 @@ def write_screenshots(rows: List[sqlite3.Row], out_dir: Path) -> Dict[str, Path]
     return paths
 
 
+def profile_context_of(row: sqlite3.Row) -> Dict[str, Any]:
+    """The text hints production sends ALONGSIDE the screenshot.
+
+    `classify_profile_niche` reads `biography`, `business_category` and the counts out of this
+    dict and puts them in the prompt. Replaying with the screenshot alone asks the candidate model
+    a harder question than the one the stored answer was given — every disagreement would then be
+    the missing bio, not the model. The fields come from `social_profiles`, which is where the run
+    had read them too.
+    """
+    context: Dict[str, Any] = {}
+    for key, column in (
+        ("biography", "biography"),
+        ("business_category", "business_category"),
+        ("website", "website"),
+    ):
+        value = row[column] if column in row.keys() else None
+        if value:
+            context[key] = value
+    for key in ("followers_count", "following_count", "posts_count"):
+        value = row[key] if key in row.keys() else None
+        if value is not None:
+            context[key] = value
+    for key in ("is_private", "is_verified"):
+        value = row[key] if key in row.keys() else None
+        if value is not None:
+            context[key] = bool(value)
+    return context
+
+
+def service_on(model: str, api_key: str, spend: SpendCapture, taxonomy: Optional[Dict[str, list]]):
+    """An AIService that actually calls `model`.
+
+    `build_ai_service(vision_model=..., text_model=...)` does NOT honour those arguments: since
+    the two-fixed-models migration the constructor overwrites them with `MODEL_ANALYSIS` /
+    `MODEL_GENERATION` and its own comment says they are "ignored". Passing them therefore
+    benchmarks the model we already use — 50 calls, a real bill, and a table of zeroes that looks
+    like the candidate model failing when nothing of the sort happened.
+
+    The models are attributes on the instance, so the honest injection is to set them after
+    construction. Nothing in production reads them from anywhere else; the constants stay the
+    single source for every real run.
+    """
+    service = build_ai_service(api_key=api_key, ipc=spend, niche_taxonomy=taxonomy)
+    service.model_analysis = model
+    service.model_generation = model
+    # Display aliases some call sites read for their labels — kept in step so a log line never
+    # names a model that was not called.
+    service.vision_model = model
+    service.text_model = model
+    return service
+
+
+def unwrap(answer: Dict[str, Any]) -> Dict[str, Any]:
+    """The classification itself, out of the envelope the service returns.
+
+    `classify_profile_niche` answers `{success, classification: {...}, model, cost_usd, ...}`.
+    Comparing the envelope compares `niche_category` against nothing at all, which scores every
+    model at 0 % — the fields are simply one level down.
+    """
+    inner = answer.get("classification")
+    return inner if isinstance(inner, dict) else answer
+
+
 def field(payload: Dict[str, Any], name: str) -> str:
     value = payload.get(name)
     if value is None:
@@ -274,11 +356,10 @@ def replay_profiles(
     api_key: str,
     spend: SpendCapture,
     budget: float,
+    sink: Path,
 ) -> List[Dict[str, Any]]:
     """Classify each sampled profile again, on `model`, through the production entry point."""
-    service = build_ai_service(
-        api_key=api_key, ipc=spend, vision_model=model, text_model=model, niche_taxonomy=taxonomy
-    )
+    service = service_on(model, api_key, spend, taxonomy)
     results: List[Dict[str, Any]] = []
     for index, row in enumerate(rows, start=1):
         username = row["username"]
@@ -294,6 +375,7 @@ def replay_profiles(
             answer = service.classify_profile_niche(
                 username=username,
                 screenshot_path=str(shot),
+                profile_context=profile_context_of(row),
                 response_language="fr",
                 platform="instagram",
             ) or {}
@@ -301,15 +383,21 @@ def replay_profiles(
             answer = {"error": str(exc)}
 
         baseline = json.loads(row["ai_classification"] or "{}")
-        results.append({
+        candidate = unwrap(answer)
+        record = {
             "username": username,
             "model": model,
+            # What the service says it CALLED, not what we asked for: a benchmark that cannot
+            # prove which model answered is not a benchmark.
+            "served_model": answer.get("model"),
             "usd": round(spend.total_usd - before, 6),
             "seconds": round(time.time() - started, 2),
             "baseline": baseline,
-            "candidate": answer,
-            "agreement": compare_classification(baseline, answer) if "error" not in answer else {},
-        })
+            "candidate": candidate,
+            "agreement": compare_classification(baseline, candidate) if "error" not in answer else {},
+        }
+        results.append(record)
+        append_jsonl(sink, record)
         print(f"  [{model}] {index}/{len(rows)} @{username} · ${spend.total_usd:.4f}", flush=True)
     return results
 
@@ -321,11 +409,10 @@ def replay_comments(
     api_key: str,
     spend: SpendCapture,
     budget: float,
+    sink: Path,
 ) -> List[Dict[str, Any]]:
     """Write each sampled comment again, on `model`, from the same post context."""
-    service = build_ai_service(
-        api_key=api_key, ipc=spend, vision_model=model, text_model=model, niche_taxonomy=None
-    )
+    service = service_on(model, api_key, spend, None)
     results: List[Dict[str, Any]] = []
     for index, row in enumerate(rows, start=1):
         if spend.total_usd >= budget:
@@ -345,7 +432,7 @@ def replay_comments(
         except Exception as exc:  # noqa: BLE001
             answer = {"error": str(exc)}
 
-        results.append({
+        record = {
             "target": row["target_username"],
             "model": model,
             "persona": bool(persona),
@@ -355,7 +442,9 @@ def replay_comments(
             "original": row["comment_text"],
             "original_model": row["ai_model"],
             "candidate": answer.get("comment") or answer.get("text") or answer.get("error") or "",
-        })
+        }
+        results.append(record)
+        append_jsonl(sink, record)
         print(f"  [{model}] {index}/{len(rows)} @{row['target_username']} · ${spend.total_usd:.4f}", flush=True)
     return results
 
@@ -466,6 +555,8 @@ def main() -> int:
     print(f"Sample: {len(profile_rows)} profiles across {len(niches)} niches, "
           f"{len(comment_rows)} comments (seed {args.seed})")
     print(f"  niches: {', '.join(niches)}")
+    with_bio = sum(1 for row in profile_rows if (row["biography"] if "biography" in row.keys() else None))
+    print(f"  context: {with_bio}/{len(profile_rows)} profiles replayed with their bio, as production sends it")
 
     if comment_rows:
         if persona:
@@ -477,6 +568,13 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     shots = write_screenshots(profile_rows, args.out / "screenshots")
 
+    profiles_sink = args.out / "profiles.jsonl"
+    comments_sink = args.out / "comments.jsonl"
+    # A fresh run starts fresh files; every result then lands as it is produced.
+    for sink in (profiles_sink, comments_sink):
+        if sink.exists():
+            sink.unlink()
+
     spend = SpendCapture()
     profile_results: List[Dict[str, Any]] = []
     comment_results: List[Dict[str, Any]] = []
@@ -486,23 +584,16 @@ def main() -> int:
         for model in models:
             print(f"\n== profiles · {model} ==")
             profile_results.extend(
-                replay_profiles(model, profile_rows, shots, taxonomy, api_key, spend, args.budget)
+                replay_profiles(model, profile_rows, shots, taxonomy, api_key, spend, args.budget, profiles_sink)
             )
         for model in comment_models:
             print(f"\n== comments · {model} ==")
             comment_results.extend(
-                replay_comments(model, comment_rows, persona, api_key, spend, args.budget)
+                replay_comments(model, comment_rows, persona, api_key, spend, args.budget, comments_sink)
             )
     except BudgetExceeded as exc:
         stopped = str(exc)
         print(f"\nSTOPPED: {exc}")
-
-    (args.out / "profiles.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in profile_results), encoding="utf-8"
-    )
-    (args.out / "comments.jsonl").write_text(
-        "\n".join(json.dumps(r, ensure_ascii=False) for r in comment_results), encoding="utf-8"
-    )
 
     print("\n=== agreement with what is already stored ===")
     print(f"{'model':<38} {'n':>4} {'category':>9} {'niche':>7} {'gender':>7} {'age':>6} {'country':>8} {'$':>8}")
@@ -523,7 +614,7 @@ def main() -> int:
           f"({', '.join(f'{k} ${v:.4f}' for k, v in sorted(spend.by_kind.items()))})")
     if stopped:
         print(f"Incomplete: {stopped}")
-    print(f"Results: {args.out}/profiles.jsonl · {args.out}/comments.jsonl")
+    print(f"Results: {profiles_sink} · {comments_sink}")
     print("Comments are NOT scored — read them side by side, that call is yours.")
     return 0
 
