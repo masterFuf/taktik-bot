@@ -36,3 +36,4 @@ __all__ = [
     'StatsRepository',
     'TikTokRepository',
 ]
+from .eval import AIBenchmarkRepository  # noqa: E402,F401

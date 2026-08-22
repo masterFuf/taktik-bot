@@ -17,6 +17,10 @@ from .schemas.account_restrictions import (
     create_account_restriction_tables,
     create_account_restriction_indexes,
 )
+from .schemas.ai_benchmarks import (
+    create_ai_benchmark_tables,
+    create_ai_benchmark_indexes,
+)
 from .schemas.post_analysis import (
     create_post_analysis_tables,
     create_post_analysis_indexes,
@@ -54,5 +58,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_posted_comments_indexes(cursor)
     create_post_analysis_tables(cursor)
     create_post_analysis_indexes(cursor)
+    create_ai_benchmark_tables(cursor)
+    create_ai_benchmark_indexes(cursor)
 
     conn.commit()

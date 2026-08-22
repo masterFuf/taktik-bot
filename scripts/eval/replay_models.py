@@ -55,6 +55,7 @@ from typing import Any, Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from taktik.core.app.ai.factory import build_ai_service  # noqa: E402
+from taktik.core.database.ai_benchmark import AIBenchmark  # noqa: E402
 
 # Cost of one replayed call on the reference model, measured on the production ledger over
 # 2026-08-20..22 (1 799 profiles, 107 comments). Used ONLY for the dry-run estimate; the real
@@ -357,6 +358,7 @@ def replay_profiles(
     spend: SpendCapture,
     budget: float,
     sink: Path,
+    run_id: Optional[int],
 ) -> List[Dict[str, Any]]:
     """Classify each sampled profile again, on `model`, through the production entry point."""
     service = service_on(model, api_key, spend, taxonomy)
@@ -398,6 +400,11 @@ def replay_profiles(
         }
         results.append(record)
         append_jsonl(sink, record)
+        AIBenchmark.record(
+            run_id=run_id, task="profile", case_ref=username, model=model,
+            served_model=record["served_model"], cost_usd=record["usd"], seconds=record["seconds"],
+            baseline=baseline, candidate=candidate, agreement=record["agreement"],
+        )
         print(f"  [{model}] {index}/{len(rows)} @{username} · ${spend.total_usd:.4f}", flush=True)
     return results
 
@@ -410,6 +417,7 @@ def replay_comments(
     spend: SpendCapture,
     budget: float,
     sink: Path,
+    run_id: Optional[int],
 ) -> List[Dict[str, Any]]:
     """Write each sampled comment again, on `model`, from the same post context."""
     service = service_on(model, api_key, spend, None)
@@ -445,6 +453,12 @@ def replay_comments(
         }
         results.append(record)
         append_jsonl(sink, record)
+        AIBenchmark.record(
+            run_id=run_id, task="comment", case_ref=row["target_username"] or "", model=model,
+            served_model=answer.get("model"), cost_usd=record["usd"], seconds=record["seconds"],
+            baseline={"comment": record["original"], "model": record["original_model"], "caption": record["caption"]},
+            candidate={"comment": record["candidate"], "persona": record["persona"]},
+        )
         print(f"  [{model}] {index}/{len(rows)} @{row['target_username']} · ${spend.total_usd:.4f}", flush=True)
     return results
 
@@ -516,6 +530,7 @@ def main() -> int:
     parser.add_argument("--taxonomy", type=Path, help="premium niche taxonomy JSON (front-owned)")
     parser.add_argument("--out", type=Path, default=Path("eval-out"), help="where results are written")
     parser.add_argument("--seed", type=int, default=20260822, help="sampling seed — same seed, same sample")
+    parser.add_argument("--note", default="", help="why this run exists — shown in the app")
     parser.add_argument("--persona-account", default="",
                         help="username of OUR account whose voice the comments must be written in")
     parser.add_argument("--budget", type=float, default=1.0, help="hard ceiling in USD")
@@ -575,6 +590,25 @@ def main() -> int:
         if sink.exists():
             sink.unlink()
 
+    # The run is opened BEFORE the first call: a benchmark interrupted half-way is then visible
+    # in the app as an unfinished run carrying what it did pay for, not as nothing at all.
+    run_id = AIBenchmark.start_run(
+        seed=args.seed,
+        sample_size=max(len(profile_rows), len(comment_rows)),
+        budget_usd=args.budget,
+        config={
+            "tasks": [t for t, rows_ in (("profile", profile_rows), ("comment", comment_rows)) if rows_],
+            "models": {"profile": models if profile_rows else [], "comment": comment_models if comment_rows else []},
+            "profiles": len(profile_rows),
+            "comments": len(comment_rows),
+            "persona_account": args.persona_account or None,
+            "taxonomy_categories": len(taxonomy) if taxonomy else 0,
+        },
+        note=args.note or None,
+    )
+    if run_id:
+        print(f"Benchmark run #{run_id} — visible in the app's admin benchmark page")
+
     spend = SpendCapture()
     profile_results: List[Dict[str, Any]] = []
     comment_results: List[Dict[str, Any]] = []
@@ -584,16 +618,25 @@ def main() -> int:
         for model in models:
             print(f"\n== profiles · {model} ==")
             profile_results.extend(
-                replay_profiles(model, profile_rows, shots, taxonomy, api_key, spend, args.budget, profiles_sink)
+                replay_profiles(model, profile_rows, shots, taxonomy, api_key, spend, args.budget, profiles_sink, run_id)
             )
         for model in comment_models:
             print(f"\n== comments · {model} ==")
             comment_results.extend(
-                replay_comments(model, comment_rows, persona, api_key, spend, args.budget, comments_sink)
+                replay_comments(model, comment_rows, persona, api_key, spend, args.budget, comments_sink, run_id)
             )
     except BudgetExceeded as exc:
         stopped = str(exc)
         print(f"\nSTOPPED: {exc}")
+    except KeyboardInterrupt:
+        stopped = "interrupted by the operator"
+        print("\nSTOPPED: interrupted")
+    finally:
+        AIBenchmark.finish_run(
+            run_id=run_id,
+            status="stopped" if stopped else "completed",
+            total_cost_usd=spend.total_usd,
+        )
 
     print("\n=== agreement with what is already stored ===")
     print(f"{'model':<38} {'n':>4} {'category':>9} {'niche':>7} {'gender':>7} {'age':>6} {'country':>8} {'$':>8}")
