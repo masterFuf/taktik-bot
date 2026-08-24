@@ -63,7 +63,11 @@ class WorkflowHelpers:
         # Update session in DB
         if hasattr(self.automation, 'current_session_id') and self.automation.current_session_id:
             try:
-                self.automation._update_workflow_session(self.automation.current_session_id, status=status)
+                # The motive travels to the row, not only to the wire: `session_stop` is consumed
+                # by a live panel that closes, and the session then kept nothing but a status.
+                self.automation._update_workflow_session(
+                    self.automation.current_session_id, status=status, reason=reason,
+                )
                 self.logger.info(f"✅ Session {self.automation.current_session_id} updated in DB with status: {status}")
             except Exception as e:
                 self.logger.error(f"❌ Error updating session {self.automation.current_session_id}: {e}")
@@ -339,7 +343,7 @@ class WorkflowHelpers:
             self.logger.error(f"❌ Error creating session: {e}")
             return None
     
-    def update_workflow_session(self, session_id: int, status: str = 'COMPLETED') -> bool:
+    def update_workflow_session(self, session_id: int, status: str = 'COMPLETED', reason: Any = None) -> bool:
         # Every caller of this method ends the session (COMPLETED, INTERRUPTED via the
         # signal handler, ERROR in automation), so finalize with the full snapshot:
         # end_time + stats_* aggregated from interactions. Electron only writes that
@@ -366,6 +370,7 @@ class WorkflowHelpers:
                     session_id, status,
                     duration_seconds=session_duration,
                     posts_engaged=posts_engaged,
+                    stop_reason=reason,
                 )
 
                 if success:

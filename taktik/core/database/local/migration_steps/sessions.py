@@ -111,6 +111,8 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
             errors INTEGER DEFAULT 0,
             videos_watched INTEGER DEFAULT 0,
             ai_cost_by_kind TEXT,
+            stop_reason_code TEXT,
+            stop_reason_params TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now')),
             sync_id TEXT,
@@ -131,6 +133,16 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         cursor.execute("ALTER TABLE sessions_unified ADD COLUMN ai_cost_by_kind TEXT")
     except sqlite3.OperationalError:
         pass
+    # WHY a run ended, in the vocabulary of `workflows/management/session/stop_reasons.py`
+    # (`duration_cap`, `navigation_lost`, `crashed`, ...). The motive travelled on the wire in the
+    # `session_stop` event and died with the process: the row kept a three-valued `status` and an
+    # `error_message` the bot never filled, so no post-mortem was possible from the database.
+    # `stop_reason_params` is the JSON map the translated sentence needs ({"minutes": 45}).
+    for column in ("stop_reason_code TEXT", "stop_reason_params TEXT"):
+        try:
+            cursor.execute(f"ALTER TABLE sessions_unified ADD COLUMN {column}")
+        except sqlite3.OperationalError:
+            pass
     try:
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_sessions_unified_account "

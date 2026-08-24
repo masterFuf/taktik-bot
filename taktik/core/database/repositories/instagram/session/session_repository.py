@@ -115,7 +115,8 @@ class SessionRepository(BaseRepository):
         status: str,
         duration_seconds: Optional[int] = None,
         error_message: Optional[str] = None,
-        posts_engaged: Optional[int] = None
+        posts_engaged: Optional[int] = None,
+        stop_reason: Any = None,
     ) -> bool:
         """Terminal update: status + end_time + the stats_* snapshot aggregated from
         `interactions`.
@@ -171,6 +172,22 @@ class SessionRepository(BaseRepository):
         if duration_seconds is not None:
             updates.append('duration_seconds = ?')
             values.append(duration_seconds)
+
+        # WHY the run ended. A `StopReason` carries its code and params; a caller still passing a
+        # bare string gets its text kept as the error message, which is what used to happen to
+        # every motive: it travelled in the session_stop event and was never written down.
+        if stop_reason is not None:
+            code = getattr(stop_reason, 'code', None)
+            if code:
+                updates.append('stop_reason_code = ?')
+                values.append(str(code))
+                params = getattr(stop_reason, 'params', None)
+                if params:
+                    updates.append('stop_reason_params = ?')
+                    values.append(json.dumps(params, ensure_ascii=False))
+            if not error_message and getattr(stop_reason, 'family', None) == 'failed':
+                error_message = str(stop_reason)[:500]
+
         if error_message:
             updates.append('error_message = ?')
             values.append(error_message)

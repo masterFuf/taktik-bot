@@ -301,8 +301,8 @@ class InstagramAutomation:
     def _create_workflow_session(self, action_override: Dict[str, Any] = None) -> Optional[int]:
         return self.helpers.create_workflow_session(action_override)
 
-    def _update_workflow_session(self, session_id: int, status: str = 'COMPLETED') -> bool:
-        return self.helpers.update_workflow_session(session_id, status)
+    def _update_workflow_session(self, session_id: int, status: str = 'COMPLETED', reason: Any = None) -> bool:
+        return self.helpers.update_workflow_session(session_id, status, reason=reason)
 
 
     def display_session_stats(self, profile_username: str = None) -> None:
