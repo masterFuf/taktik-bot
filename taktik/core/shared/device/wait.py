@@ -19,6 +19,8 @@ from __future__ import annotations
 import time
 from typing import Callable, Optional, Sequence
 
+from taktik.core.shared.telemetry import emit_step
+
 
 def wait_for_any(
     device,
@@ -45,7 +47,8 @@ def wait_for_any(
     Returns:
         The winning selector, or `None` if none matched within the deadline.
     """
-    deadline = time.time() + timeout
+    started = time.time()
+    deadline = started + timeout
     while time.time() < deadline:
         for sel in selectors:
             try:
@@ -58,6 +61,17 @@ def wait_for_any(
         time.sleep(poll_interval)
     if log and label:
         log("debug", f"❌ [{label}] no match after {timeout:.0f}s ({len(selectors)} selectors tried)")
+    # Report the miss even when the caller passed no logger: a selector that stops matching is
+    # how an app update announces itself, and it used to leave nothing but an optional log line.
+    emit_step(
+        "selector_miss",
+        action="wait_for_any",
+        target=(selectors[0][:120] if selectors else None),
+        label=label or None,
+        selector_count=len(selectors),
+        timeout_s=timeout,
+        elapsed_ms=round((time.time() - started) * 1000),
+    )
     return None
 
 
@@ -127,6 +141,7 @@ def wait_for_element(device, selectors: Sequence[str], timeout: float = 5.0):
     every auth and signup flow. When a bounded TOTAL wait is what you want, use
     :func:`wait_for_any`, which scans all selectors inside one deadline.
     """
+    started = time.time()
     for selector in selectors or []:
         try:
             element = device.xpath(selector)
@@ -134,6 +149,14 @@ def wait_for_element(device, selectors: Sequence[str], timeout: float = 5.0):
                 return element
         except Exception:
             continue
+    emit_step(
+        "selector_miss",
+        action="wait_for_element",
+        target=(selectors[0][:120] if selectors else None),
+        selector_count=len(selectors or []),
+        timeout_s=timeout,
+        elapsed_ms=round((time.time() - started) * 1000),
+    )
     return None
 
 

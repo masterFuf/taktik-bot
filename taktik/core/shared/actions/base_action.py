@@ -127,7 +127,19 @@ class SharedBaseAction:
         self.logger.warning(f"🚫 No element found after {timeout}s")
         if last_error:
             self.logger.debug(f"Last error: {last_error}")
-        
+
+        # A selector that stops matching is THE signal that an app update broke something, and it
+        # used to produce a warning line and nothing else: no name on the wire, so neither the run
+        # log nor a crash report could say which one gave up.
+        emit_step(
+            "selector_miss",
+            action="find_and_click",
+            target=selectors[0][:120] if selectors else None,
+            selector_count=len(selectors),
+            timeout_s=timeout,
+            elapsed_ms=round((time.time() - start_time) * 1000),
+            last_error=str(last_error)[:160] if last_error else None,
+        )
         self._method_stats['errors'] += 1
         return False
 
@@ -181,6 +193,17 @@ class SharedBaseAction:
         
         if not silent:
             self.logger.warning(f"⏰ Timeout: element not found after {timeout}s")
+        # Silent waits stay silent in the log but still report the miss: a probe that never
+        # matches is exactly what a broken app version looks like from the outside.
+        emit_step(
+            "selector_miss",
+            action="wait_for_element",
+            target=selectors[0][:120] if selectors else None,
+            selector_count=len(selectors),
+            timeout_s=timeout,
+            elapsed_ms=round((time.time() - start_time) * 1000),
+            silent=silent,
+        )
         self._method_stats['errors'] += 1
         return False
     
