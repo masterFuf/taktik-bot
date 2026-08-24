@@ -74,11 +74,16 @@ class IPC(InstagramIpcMixin, ThreadsIpcMixin, TikTokIpcMixin, DMIpcMixin, AIIpcM
         """Send a status update (connecting, launching, running, etc.)."""
         self.send("status", status=status, message=message)
 
-    def error(self, error: str, error_code: str = None) -> None:
-        """Send an error message with optional error_code for i18n."""
+    def error(self, error: str, error_code: str = None, **extra: Any) -> None:
+        """Send an error message with optional error_code for i18n.
+
+        `extra` carries the diagnostic context the desktop folds into a crash report — a
+        `traceback` above all, which used to stay on stderr and never reach the ticket.
+        """
         data = {"error": error}
         if error_code:
             data["error_code"] = error_code
+        data.update({key: value for key, value in extra.items() if value is not None})
         self.send("error", **data)
 
     def progress(self, current: int, total: int, action: str = "") -> None:

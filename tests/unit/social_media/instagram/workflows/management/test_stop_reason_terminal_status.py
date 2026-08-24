@@ -28,6 +28,26 @@ class TestTerminalStatus:
         ):
             assert stop_reasons.terminal_status(reason) == 'COMPLETED', reason
 
+    def test_a_crash_is_a_stop_reason(self):
+        """The critical catch had no motive at all: it logged and returned without session_stop.
+
+        A crash ends a run like anything else — it is simply the reason nobody had declared, so
+        the desktop's live card hung on a run that was already dead.
+        """
+        reason = stop_reasons.crashed(RuntimeError('device exploded'))
+
+        assert reason.code == 'crashed'
+        assert reason.family == stop_reasons.FAMILY_FAILED
+        assert stop_reasons.terminal_status(reason) == 'INTERRUPTED'
+        assert 'device exploded' in reason.text
+        assert reason.params['error'] == 'device exploded'
+
+    def test_crash_reason_survives_an_exception_with_no_message(self):
+        reason = stop_reasons.crashed(ValueError())
+
+        assert reason.code == 'crashed'
+        assert 'ValueError' in reason.text
+
     def test_bare_legacy_string_still_classifies(self):
         """Some call sites still hand over the plain code; it must not lose its family."""
         assert stop_reasons.terminal_status('navigation_lost') == 'INTERRUPTED'

@@ -76,6 +76,13 @@ def main():
         print(json.dumps(error), flush=True)
         sys.exit(1)
 
+    # Every bridge goes through here, so this is the one place a floor can be put under all of
+    # them: an uncaught exception (including one raised while importing the bridge below) now
+    # reports a machine-readable UNHANDLED_EXCEPTION event with its traceback instead of dying
+    # with nothing but an exit code.
+    from bridges.common.runtime.crash_hooks import install_crash_hooks
+    install_crash_hooks(bridge_name)
+
     # Shift argv so the bridge sees itself as the "script":
     # Before: ["taktik_launcher.exe", "desktop_bridge", ...]
     # After:  ["desktop_bridge", ...]

@@ -45,9 +45,13 @@ def send_status(status: str, message: str = "") -> None:
     _ipc.status(status, message)
 
 
-def send_error(error: str, error_code: Optional[str] = None) -> None:
-    """Send an error to the desktop app, with an optional i18n code."""
-    _ipc.error(error, error_code)
+def send_error(error: str, error_code: Optional[str] = None, **extra: Any) -> None:
+    """Send an error to the desktop app, with an optional i18n code.
+
+    `extra` carries diagnostic context (notably `traceback`) that the desktop folds into a crash
+    report — it used to stay on stderr and never reach the ticket.
+    """
+    _ipc.error(error, error_code, **extra)
 
 
 def send_log(level: str, message: str) -> None:

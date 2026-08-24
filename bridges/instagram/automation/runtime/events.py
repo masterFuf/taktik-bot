@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import traceback
+
 from bridges.instagram.runtime.ipc import send_error, send_message, send_stats
+
+#: Tail of the traceback attached to a workflow error. The cause is at the end.
+MAX_TRACEBACK_CHARS = 8000
 
 
 def send_instagram_session_config(config: dict, *, ai_enabled: bool) -> None:
@@ -30,13 +35,32 @@ def send_instagram_workflow_final_stats(stats: dict) -> None:
 
 
 def send_instagram_workflow_error(error: Exception) -> None:
+    """Report a workflow failure, with the traceback that explains it.
+
+    The classification stays a substring match on the message — the exceptions raised down there
+    are plain `Exception`s and carry no code — but the traceback now travels with the event, so a
+    crash report no longer arrives as one sentence with no frame to look at.
+    """
     error_msg = str(error)
+    tb = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )[-MAX_TRACEBACK_CHARS:]
+
     if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
         send_error(
             f"UIAutomator2 crashed during workflow: {error_msg}",
             error_code="ATX_AGENT_CRASHED",
+            traceback=tb,
         )
     elif "timeout" in error_msg.lower():
-        send_error(f"Workflow timed out: {error_msg}", error_code="WORKFLOW_TIMEOUT")
+        send_error(
+            f"Workflow timed out: {error_msg}",
+            error_code="WORKFLOW_TIMEOUT",
+            traceback=tb,
+        )
     else:
-        send_error(f"Workflow error: {error_msg}", error_code="WORKFLOW_ERROR")
+        send_error(
+            f"Workflow error: {error_msg}",
+            error_code="WORKFLOW_ERROR",
+            traceback=tb,
+        )

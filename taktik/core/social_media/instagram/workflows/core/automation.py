@@ -380,8 +380,17 @@ class InstagramAutomation:
                 
         except Exception as e:
             self.logger.error(f"Critical error executing workflow: {str(e)[:200]}", exc_info=True)
-            if hasattr(self, 'current_session_id') and self.current_session_id:
-                self._update_workflow_session(self.current_session_id, status='ERROR')
+            # Emit the terminal event. This path used to log, mark the row ERROR and return, so
+            # the desktop never received `session_stop`: its live card hung on a run that was
+            # already dead, and the session kept no motive. finalize_session also writes the
+            # status and closes the app, so the DB update below it is no longer needed here.
+            try:
+                self._finalize_session(status='ERROR', reason=stop_reasons.crashed(e))
+            except Exception as finalize_error:
+                # Never let the cleanup hide the crash that caused it.
+                self.logger.error(f"Failed to finalize crashed session: {finalize_error}")
+                if hasattr(self, 'current_session_id') and self.current_session_id:
+                    self._update_workflow_session(self.current_session_id, status='ERROR')
 
     def _finalize_session(self, status='COMPLETED', reason='Limits reached'):
         self.helpers.finalize_session(status, reason)

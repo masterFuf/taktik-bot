@@ -295,6 +295,18 @@ def no_targets() -> StopReason:
     return _reason("no_targets", FAMILY_FAILED, "no_targets")
 
 
+def crashed(error: Any) -> StopReason:
+    """The run died on an unhandled exception.
+
+    The critical catch used to log, mark the row ERROR and return — without emitting
+    ``session_stop``. The desktop's live card then hung forever on a run that was already dead,
+    and the session kept no motive at all. A crash is a stop reason like any other; it is simply
+    the one nobody had declared.
+    """
+    text = str(error).strip() or error.__class__.__name__
+    return _reason("crashed", FAMILY_FAILED, f"Workflow crashed: {text[:200]}", error=text[:200])
+
+
 # -- manual: someone pressed stop ----------------------------------------------
 
 def manual_stop() -> StopReason:
