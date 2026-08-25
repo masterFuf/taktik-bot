@@ -76,11 +76,28 @@ def _rewrite_kwargs(kwargs: dict, official: str, clone: str) -> dict:
     return kwargs
 
 
+# A `@resource-id="…"` EQUALITY test inside an xpath predicate. Only equality is rewritten;
+# a `contains(@resource-id, …)` form is already partial and left as-is.
+_XPATH_RID_EQ = re.compile(r'@resource-id\s*=\s*"([^"]+)"')
+
+
 def _rewrite_str(value: Any, official: str, clone: str) -> Any:
-    """Rewrite a string if it contains the official package; pass-through otherwise."""
-    if isinstance(value, str) and official in value:
-        return value.replace(official, clone)
-    return value
+    """Make every ``@resource-id="pkg:id/X"`` equality in an xpath package-agnostic.
+
+    Same reasoning as the kwarg path: an exact `@resource-id="com.instagram.android:id/X"`
+    misses the bare `X` that Compose exposes on IG 442 (and misses a clone's prefix too).
+    Each equality becomes `(substring-after(@resource-id,":id/")="X" or @resource-id="X")`,
+    which matches the id under ANY prefix or none. `official`/`clone` are unused now (the
+    form is prefix-free) but kept for one signature across both call sites.
+    """
+    if not (isinstance(value, str) and "@resource-id" in value):
+        return value
+
+    def _repl(match: "re.Match") -> str:
+        token = match.group(1).rsplit(":id/", 1)[-1]
+        return f'(substring-after(@resource-id,":id/")="{token}" or @resource-id="{token}")'
+
+    return _XPATH_RID_EQ.sub(_repl, value)
 
 
 class _UiObjectProxy:
