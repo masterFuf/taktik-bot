@@ -10,6 +10,43 @@ from rich.console import Console
 console = Console()
 
 
+def _describe_device(device_id: str) -> str:
+    """One line of context read over ADB: Instagram version and system locale.
+
+    Picking a phone by its serial alone tells the operator nothing about what the
+    run will face. The Instagram version decides which selector catalog actually
+    applies (baseline, or version overrides — see `taktik.core.compat.selectors`),
+    so the list says it up front, with a marker when overrides will kick in. The
+    locale shown is the SYSTEM one (`persist.sys.locale`): the app's own language
+    needs Instagram open on screen, which a device list must not do.
+
+    Best-effort: a phone that answers nothing is still selectable.
+    """
+    parts = []
+    try:
+        from taktik.core.shared.device.app_inspection import get_installed_app_version
+
+        version = get_installed_app_version(device_id, "com.instagram.android", "instagram")
+        if version:
+            from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION
+
+            marker = "baseline" if version == INSTAGRAM_TARGET_VERSION else "overrides"
+            parts.append(f"IG {version} [{marker}]")
+        else:
+            parts.append("IG absent")
+    except Exception:
+        pass
+    try:
+        from taktik.core.shared.device.adb import run_adb_shell
+
+        locale = (run_adb_shell(device_id, "getprop persist.sys.locale") or "").strip()
+        if locale:
+            parts.append(locale)
+    except Exception:
+        pass
+    return " · ".join(parts)
+
+
 def select_device(device_manager, translations: dict) -> str:
     """Show device list and let user pick one.
     
@@ -27,7 +64,9 @@ def select_device(device_manager, translations: dict) -> str:
     
     console.print(f"\n[bold cyan]{translations.get('select_device', '📱 Select device')}[/bold cyan]")
     for idx, device in enumerate(devices, 1):
-        console.print(f"[bold]{idx}.[/bold] {device['id']} ({device['status']})")
+        detail = _describe_device(device['id'])
+        suffix = f" [dim]- {detail}[/dim]" if detail else ""
+        console.print(f"[bold]{idx}.[/bold] {device['id']} ({device['status']}){suffix}")
     
     selected = click.prompt(
         f"\n[bold]{translations.get('prompt_choice', 'Your choice')}[/bold]",
