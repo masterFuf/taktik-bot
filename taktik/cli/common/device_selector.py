@@ -25,15 +25,23 @@ def _describe_device(device_id: str) -> str:
     parts = []
     try:
         from taktik.core.shared.device.app_inspection import get_installed_app_version
+        from taktik.core.compat.selectors.setup import (
+            INSTAGRAM_TARGET_VERSION,
+            TIKTOK_TARGET_VERSION,
+        )
 
-        version = get_installed_app_version(device_id, "com.instagram.android", "instagram")
-        if version:
-            from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION
-
-            marker = "baseline" if version == INSTAGRAM_TARGET_VERSION else "overrides"
-            parts.append(f"IG {version} [{marker}]")
-        else:
-            parts.append("IG absent")
+        # Both platforms, because the pick happens before the workflow choice: the
+        # operator must see what EITHER run would face on this phone.
+        for label, package, platform, baseline in (
+            ("IG", "com.instagram.android", "instagram", INSTAGRAM_TARGET_VERSION),
+            ("TT", "com.zhiliaoapp.musically", "tiktok", TIKTOK_TARGET_VERSION),
+        ):
+            version = get_installed_app_version(device_id, package, platform)
+            if version:
+                marker = "baseline" if version == baseline else "overrides"
+                parts.append(f"{label} {version} [{marker}]")
+            else:
+                parts.append(f"{label} absent")
     except Exception:
         pass
     try:
