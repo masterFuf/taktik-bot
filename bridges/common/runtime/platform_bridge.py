@@ -66,7 +66,40 @@ class PlatformBridgeBase:
         # Instagram clone rewriter does), and the facade has to wrap whatever ends up in play
         # or that proxy drops out of the chain.
         self.device = self._wrap_in_facade(self.device)
+        self._apply_selector_version_overrides()
         return True
+
+    def _apply_selector_version_overrides(self) -> None:
+        """Patch the selector catalogs for the app version actually installed.
+
+        The version-override framework (`taktik.core.compat.selectors`) existed and
+        worked — but only the Cartography Lab's workflow-test bench ever called it.
+        Production bridges ran on the baseline selectors whatever the phone had, so
+        an auto-updated Instagram (v442 rebuilt the DM inbox in Compose, dropping
+        every row resource-id) failed with "No threads found" while the Lab, on the
+        same phone, would have patched itself and passed. A compat table only the
+        test bench reads is a fix that never ships.
+
+        Best-effort by design: no override file, an undetectable version, or a
+        version equal to the baseline are all no-ops, and a failure here must never
+        prevent a bridge from running — the baseline selectors are still the right
+        answer for the validated version.
+        """
+        if self.PLATFORM not in ("instagram", "tiktok"):
+            return
+        try:
+            version = self._app.get_installed_version() if self._app else None
+            if not version:
+                return
+            from taktik.core.compat.selectors.setup import apply_version_overrides
+
+            apply_version_overrides(self.PLATFORM, version)
+        except Exception as exc:  # noqa: BLE001 — overrides are an upgrade, never a gate
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Selector version overrides skipped: %s", exc
+            )
 
     def _wrap_in_facade(self, device):
         """Expose a DeviceFacade rather than the raw uiautomator2 device.
