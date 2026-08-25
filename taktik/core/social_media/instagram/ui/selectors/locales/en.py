@@ -340,6 +340,16 @@ STRINGS: Dict[str, List[str]] = {
         "Active",
         "Online",
     ],
+    "direct_message.message_system_text_fragments": [
+        # English twins of the fr-FR strings verified on device. Best-effort wording: only
+        # the fr forms were observed live, so an unmatched en hint degrades to "one extra
+        # line captured", never to a lost message.
+        "double tap to",
+        "add to your story",
+        "swipe up",
+        "mentioned you",
+        "you invited",
+    ],
     "direct_message.new_message_button": [],
     "direct_message.outgoing_digest_prefixes": [],
     "direct_message.send_button": [

@@ -222,6 +222,39 @@ class DirectMessageSelectors:
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
+
+    # --- Compose thread (IG 442+): a message text has NO resource-id any more ---
+    # `direct_text_message_text_view` disappeared when the thread moved to Jetpack Compose,
+    # so the bubble text is a BARE TextView inside `message_list`. Everything that is NOT a
+    # message in that list keeps an id (the context header `thread_context_item_*`, the
+    # partner name, the CTA buttons), which makes "no id" the usable signature of content.
+    #
+    # `@resource-id=""` and not `not(@resource-id)`: uiautomator2 always emits the attribute,
+    # empty when absent — the `not()` form matches nothing (verified live: 0 vs 3).
+    #
+    # Three kinds of node come back and the reader tells them apart by GEOMETRY, which is
+    # language-independent: the date separator is full-width, a reaction chip is tiny, a
+    # message is neither. Only the leftover UI hints need the localized list below.
+    message_list_bare_text: str = (
+        '//*[@resource-id="com.instagram.android:id/message_list"]'
+        '//android.widget.TextView[@resource-id=""]'
+    )
+
+    # A reaction chip (the ❤ dropped on a bubble) is a tiny bare TextView sitting just under
+    # its message. Measured on a real 442 thread: 47x47 px on a 1080 screen, ~4%.
+    reaction_max_width_ratio: float = 0.12
+    # Vertical gap between a bubble's bottom and its reaction chip (31 px measured).
+    reaction_max_gap_px: int = 120
+
+    @property
+    def message_system_text_fragments(self) -> List[str]:
+        """Lowercased fragments of the UI hints IG renders INSIDE the message list.
+
+        Geometry cannot separate these from a real bubble (a "Add to your story" CTA has the
+        shape of a short message), so they are matched by text — the one place a localized
+        list is unavoidable. Kept as fragments, matched case-insensitively.
+        """
+        return L("direct_message.message_system_text_fragments")
     reel_share_item_resource_id: str = "com.instagram.android:id/reel_share_item_view"
     reel_author_title_resource_id: str = "com.instagram.android:id/title_text"
     invite_sent_text_contains: List[str] = field(default_factory=lambda: [

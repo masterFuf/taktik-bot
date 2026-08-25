@@ -21,6 +21,37 @@ _MAX_HISTORY_SCROLLS = 4
 _TIME_RE = re.compile(r"\b\d{1,2}\s?[:hH]\s?\d{2}\b")
 
 
+def _is_symbol_only(text: str) -> bool:
+    """True when the text carries no letter or digit — an emoji reaction rather than words."""
+    return not any(character.isalnum() for character in text)
+
+
+def _attach_reactions(messages: list[dict], reactions: list[dict]) -> None:
+    """Tag each message with the reaction chip that sits under it.
+
+    A chip belongs to the bubble directly ABOVE it that it overlaps horizontally — the two
+    are left-aligned by construction (measured: bubble left 179, chip left 176). Vertical
+    distance breaks a tie when two bubbles stack tightly.
+
+    What this records is that a reaction EXISTS, and which emoji. It does NOT record who
+    left it: the accessibility tree carries no author for the chip (no content-desc, and the
+    only way to know is to open the chip's sheet, which is a round-trip per reaction).
+    """
+    for reaction in reactions:
+        best = None
+        best_gap = None
+        for message in messages:
+            gap = reaction["top"] - message.get("_bottom", message["top"])
+            if gap < 0 or gap > DM_SELECTORS.reaction_max_gap_px:
+                continue
+            if reaction["right"] < message.get("_left", 0) or reaction["left"] > message.get("_right", 0):
+                continue
+            if best_gap is None or gap < best_gap:
+                best, best_gap = message, gap
+        if best is not None:
+            best["reaction"] = reaction["emoji"]
+
+
 class DMMessageExtractionMixin:
     """Collect visible text and reel messages from an opened DM conversation."""
 
@@ -60,6 +91,9 @@ class DMMessageExtractionMixin:
                 "text": message["text"],
                 "is_sent": message["is_sent"],
                 **({"timestamp": message["timestamp"]} if message.get("timestamp") else {}),
+                # Present only when a reaction chip was found under the bubble — the front
+                # can then say "already reacted" instead of proposing the same gesture twice.
+                **({"reaction": message["reaction"]} if message.get("reaction") else {}),
             }
             for message in collected
         ]
@@ -157,6 +191,79 @@ class DMMessageExtractionMixin:
             pass
 
     def _collect_text_messages(self) -> list[dict]:
+        items = self._collect_text_messages_by_id()
+        if items:
+            return items
+        # Compose thread (IG 442+): the bubble text lost its resource-id, so the id path
+        # returns nothing. Falling back only when it is EMPTY keeps every older build — and
+        # every clone — on the exact path they already use.
+        return self._collect_compose_text_messages()
+
+    def _collect_compose_text_messages(self) -> list[dict]:
+        """Read bubbles from a Compose thread, where a message is a bare TextView.
+
+        Three kinds of node come back from `message_list_bare_text` and they are separated by
+        GEOMETRY first, because geometry does not need translating:
+
+        - the DATE separator is full-width and carries a clock pattern (same rule the
+          timestamp reader already uses);
+        - a REACTION chip is tiny (a 47x47 heart on a 1080 screen) and sits just under the
+          bubble it belongs to — it is attached to that message rather than emitted as one;
+        - anything else is a message, minus the localized UI hints that share a bubble's
+          shape ("Add to your story"), which only text can rule out.
+        """
+        try:
+            nodes = self.device.xpath(DM_SELECTORS.message_list_bare_text).all()
+        except Exception:
+            return []
+
+        hints = [fragment.lower() for fragment in DM_SELECTORS.message_system_text_fragments]
+        messages: list[dict] = []
+        reactions: list[dict] = []
+
+        for node in nodes:
+            try:
+                text = (node.text or "").strip()
+                if not text:
+                    continue
+                bounds = node.bounds  # (left, top, right, bottom)
+                left, top, right, bottom = bounds[0], bounds[1], bounds[2], bounds[3]
+                width = right - left
+
+                # Date separator: spans the screen, and says a time.
+                if left < self.screen_width * 0.25 and right > self.screen_width * 0.75:
+                    if _TIME_RE.search(text):
+                        continue
+
+                if width <= self.screen_width * DM_SELECTORS.reaction_max_width_ratio and _is_symbol_only(text):
+                    reactions.append({"emoji": text, "top": top, "left": left, "right": right})
+                    continue
+
+                lowered = text.lower()
+                if any(fragment in lowered for fragment in hints):
+                    continue
+
+                messages.append({
+                    "type": "text",
+                    "text": text,
+                    # Same rule as the id path: a received bubble hugs the left edge.
+                    "is_sent": left >= self.screen_width * 0.25,
+                    "top": top,
+                    "_left": left,
+                    "_right": right,
+                    "_bottom": bottom,
+                })
+            except Exception:
+                continue
+
+        _attach_reactions(messages, reactions)
+        for message in messages:
+            message.pop("_left", None)
+            message.pop("_right", None)
+            message.pop("_bottom", None)
+        return messages
+
+    def _collect_text_messages_by_id(self) -> list[dict]:
         items = []
         msg_elements = self.device(resourceId=DM_SELECTORS.message_item_resource_id)
         for j in range(msg_elements.count):

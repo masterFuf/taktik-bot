@@ -322,6 +322,14 @@ STRINGS: Dict[str, List[str]] = {
         "Actif",
         "Active",
     ],
+    "direct_message.message_system_text_fragments": [
+        # Hints IG renders inside the thread; verified on a live fr-FR 442 device.
+        "appuyez deux fois pour",
+        "ajoutez à votre story",
+        "balayez vers le haut",
+        "a mentionné votre nom",
+        "vous avez invité",
+    ],
     "direct_message.new_message_button": [
         "//*[@content-desc=\"Créer une publicité Envoyer un message\"]",
     ],
