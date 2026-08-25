@@ -157,9 +157,29 @@ class DetectionSelectors:
     def hashtag_search_bar_selectors(self) -> List[str]:
         return self._hashtag_search_bar_selectors_base + L("detection.hashtag_search_bar_selectors")
 
+    # Structural proof that we are ON a hashtag page, before any localized text.
+    #
+    # IG 442 renders the page as a media grid under an action bar whose SEARCH FIELD keeps the
+    # query -- `action_bar_title` is gone, and none of the "posts"/"publications"/"Top"/"Recent"
+    # labels the overlay looks for are rendered at all. Measured on device: 0 of the 4 localized
+    # indicators matched on a hashtag page that had clearly loaded.
+    #
+    # Neither half alone identifies the surface: the grid is also the Explore grid (10 matches
+    # there), and a search field holding "#voyage" is also the SEARCH RESULTS screen. The
+    # predicate below is a real conjunction -- an absolute path inside a predicate is evaluated
+    # from the document root -- so it means "a media grid, on a screen whose search field holds a
+    # hashtag". Verified across four captured screens: 6 matches on the hashtag page, 0 on the
+    # search results, 0 on Explore, 0 on a comments sheet.
+    _hashtag_page_indicators_base: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, "grid_card_layout_container")]'
+        '[//*[contains(@resource-id, "action_bar_search_edit_text") and starts-with(@text, "#")]]',
+        '//*[contains(@resource-id, "media_container")]'
+        '[//*[contains(@resource-id, "action_bar_search_edit_text") and starts-with(@text, "#")]]',
+    ])
+
     @property
     def hashtag_page_indicators(self) -> List[str]:
-        return L("detection.hashtag_page_indicators")
+        return self._hashtag_page_indicators_base + L("detection.hashtag_page_indicators")
 
     # === Post errors (unavailable, private, not found) ===
     @property

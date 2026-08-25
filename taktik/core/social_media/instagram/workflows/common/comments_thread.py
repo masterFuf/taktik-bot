@@ -33,15 +33,79 @@ def _matches_any(value: str, tokens: List[str]) -> bool:
     return any(token.lower() in low for token in tokens if token)
 
 
-def _username_center_y(root, target: str) -> Optional[int]:
-    """Vertical centre of `target`'s username button — the anchor every row control pairs to."""
+def _normalise(value: Optional[str]) -> str:
+    """A label reduced to comparable form.
+
+    Compose pads its labels with no-break spaces (U+00A0, sometimes U+202F), which look
+    like ordinary spaces in a dump and in an editor while comparing unequal. Collapsing on
+    the Unicode whitespace class handles every one of them without putting an invisible
+    character in this file.
+    """
+    return re.sub(r"\s+", " ", value or "").strip().lstrip("@").lower()
+
+
+# An Instagram handle: letters, digits, dots, underscores, at most 30 of them. This is what
+# tells a username label apart from everything else in a comment row that carries text.
+_HANDLE_RE = re.compile(r"^[A-Za-z0-9._]{1,30}$")
+
+
+def _handle_shape(node) -> Optional[str]:
+    """The handle a node's text spells, or None when the text is not a handle at all.
+
+    Excludes a purely numeric label: a like counter is indistinguishable from a username by
+    attributes alone, and on this surface it is never one.
+    """
+    text = (node.get("text") or "").strip().lstrip("@")
+    if not text or text.isdigit() or not _HANDLE_RE.match(text):
+        return None
+    return text.lower()
+
+
+def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
+    """Every username label on screen as ``(handle, bounds)``, document order.
+
+    Two shapes exist, both real, and they must NOT be mixed in one pass:
+
+    - IG 442 (Compose): the username TextView repeats its text in content-desc (with a
+      trailing no-break space). This is the shape that broke everything -- the first version
+      required an EMPTY content-desc, so on 442 no anchor was ever found and comment liking
+      and replying both silently stopped working.
+    - pre-442: the username Button carries text and an EMPTY content-desc.
+
+    The Compose rule additionally requires a TextView, and that is not decoration. On 442 the
+    row's OTHER labels repeat themselves in content-desc too -- "Reply", "See translation",
+    the timestamp, "Author" -- so desc == text alone would collect them and, worse, would
+    collect "Reply" on the LEGACY layout as well, wiping out every real anchor there. Measured
+    on a real 442 thread, TextView + desc == text + handle shape yields exactly the usernames:
+    "Reply" is a View, a @mention inside a body is a Button with an empty content-desc, and the
+    feed showing THROUGH the sheet contributes a Button too.
+
+    Preferring the Compose shape when it is present is what keeps that @mention from being read
+    as that person's own comment row -- it only qualifies under the legacy rule, which 442 never
+    reaches. The body itself is excluded by shape alone: it reads "<user> said <text>", which has
+    spaces and is therefore not a handle.
+    """
+    compose: List[Tuple[str, Tuple[int, int, int, int]]] = []
+    legacy: List[Tuple[str, Tuple[int, int, int, int]]] = []
     for node in root.iter("node"):
-        if (node.get("content-desc") or "") != "":
-            continue
-        if (node.get("text") or "").strip().lstrip("@").lower() != target:
+        handle = _handle_shape(node)
+        if not handle:
             continue
         box = parse_bounds(node.get("bounds", ""))
-        if box:
+        if not box:
+            continue
+        desc = _normalise(node.get("content-desc"))
+        if not desc:
+            legacy.append((handle, box))
+        elif desc == handle and (node.get("class") or "").endswith("TextView"):
+            compose.append((handle, box))
+    return compose or legacy
+
+
+def _username_center_y(root, target: str) -> Optional[int]:
+    """Vertical centre of `target`'s username label — the anchor every row control pairs to."""
+    for handle, box in _username_nodes(root):
+        if handle == target:
             return (box[1] + box[3]) // 2
     return None
 
@@ -138,17 +202,11 @@ def find_comment_reply_target(
 
 
 def _username_anchors(root) -> List[Tuple[str, int, int]]:
-    """Every username button on screen as ``(handle, vertical_centre, top)``, top to bottom."""
-    anchors: List[Tuple[str, int, int]] = []
-    for node in root.iter("node"):
-        if (node.get("content-desc") or "") != "":
-            continue
-        handle = (node.get("text") or "").strip().lstrip("@").lower()
-        if not handle:
-            continue
-        box = parse_bounds(node.get("bounds", ""))
-        if box:
-            anchors.append((handle, (box[1] + box[3]) // 2, box[1]))
+    """Every username label on screen as ``(handle, vertical_centre, top)``, top to bottom."""
+    anchors = [
+        (handle, (box[1] + box[3]) // 2, box[1])
+        for handle, box in _username_nodes(root)
+    ]
     anchors.sort(key=lambda item: item[1])
     return anchors
 

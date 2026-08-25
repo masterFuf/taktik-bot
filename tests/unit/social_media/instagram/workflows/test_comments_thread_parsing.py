@@ -190,3 +190,92 @@ def test_an_unknown_commenter_has_no_reply_target():
 
 def test_no_labels_means_no_blind_tap():
     assert find_comment_reply_target(_root(), "commenter42", []) is None
+
+
+# ── IG 442: the same thread, rendered in Compose ────────────────────────────────────────
+#
+# Structure copied from a real 442 dump (2026-08-26), handles replaced. Three things changed
+# and each one broke the pairing:
+#   - the username moved from a Button with an EMPTY content-desc to a TextView that REPEATS
+#     its text in content-desc, padded with a no-break space (written &#160; here so the file
+#     carries no invisible character);
+#   - "Reply", "See translation", the timestamp and the body repeat themselves the same way,
+#     so "same text and desc" alone does not identify a username -- the TextView class does;
+#   - a @mention inside a body is a Button with an empty content-desc, i.e. it looks exactly
+#     like a LEGACY username label and would otherwise be read as a comment row of its own.
+COMPOSE_THREAD = """
+<hierarchy>
+  <node class="android.view.ViewGroup" bounds="[0,1037][1080,1280]" content-desc="">
+    <node class="android.widget.ImageView" bounds="[42,1068][137,1163]" content-desc="View commenter42's story"/>
+    <node class="android.view.ViewGroup" bounds="[148,1058][933,1199]" content-desc="">
+      <node class="android.widget.TextView" bounds="[172,1058][423,1099]" text="commenter42" content-desc="commenter42&#160; "/>
+      <node class="android.view.ViewGroup" bounds="[426,1058][472,1099]" text="6h" content-desc="6h"/>
+      <node class="android.view.ViewGroup" bounds="[172,1110][933,1199]"
+            text="commenter42 said what a place" content-desc="commenter42 said what a place"/>
+    </node>
+    <node class="android.view.View" bounds="[172,1199][363,1280]" text="Reply" content-desc="Reply"/>
+    <node class="android.view.View" bounds="[363,1199][666,1280]" text="See translation" content-desc="See translation"/>
+    <node class="android.widget.Button" bounds="[933,1037][1080,1195]" content-desc="Tap to like comment">
+      <node class="android.widget.ImageView" bounds="[933,1037][1080,1153]" content-desc="Like"/>
+    </node>
+  </node>
+  <node class="android.view.ViewGroup" bounds="[0,1337][1080,1540]" content-desc="">
+    <node class="android.widget.ImageView" bounds="[148,1364][222,1438]" content-desc="Go to taktik_r2d2's profile"/>
+    <node class="android.view.ViewGroup" bounds="[229,1358][933,1459]" content-desc="">
+      <node class="android.widget.TextView" bounds="[253,1358][462,1401]" text="taktik_r2d2" content-desc="taktik_r2d2&#160; "/>
+      <node class="android.view.ViewGroup" bounds="[465,1358][511,1401]" text="5h" content-desc="5h"/>
+      <node class="android.view.ViewGroup" bounds="[253,1412][619,1459]"
+            text="taktik_r2d2 said @commenter42 right!?" content-desc="taktik_r2d2 said @commenter42 right!?">
+        <node class="android.widget.Button" bounds="[253,1412][499,1459]" text="@commenter42" content-desc=""/>
+      </node>
+    </node>
+    <node class="android.view.View" bounds="[253,1459][444,1540]" text="Reply" content-desc="Reply"/>
+    <node class="android.widget.Button" bounds="[933,1337][1080,1495]"
+          content-desc="45 likes. Double tap to like a comment and press and hold to see all likes">
+      <node class="android.widget.ImageView" bounds="[933,1337][1080,1453]" content-desc="Like"/>
+      <node class="android.view.View" bounds="[987,1453][1025,1491]" text="45"/>
+    </node>
+  </node>
+</hierarchy>
+"""
+
+
+def _compose_root():
+    return etree.fromstring(COMPOSE_THREAD.encode())
+
+
+def test_compose_usernames_are_found_despite_the_repeated_content_desc():
+    root = _compose_root()
+    assert find_comment_reply_target(root, "commenter42", ["reply"]) is not None
+    assert find_comment_reply_target(root, "taktik_r2d2", ["reply"]) is not None
+
+
+def test_compose_reply_lands_under_its_own_comment():
+    root = _compose_root()
+    assert find_comment_reply_target(root, "commenter42", ["reply"]) == (172, 1199, 363, 1280)
+    assert find_comment_reply_target(root, "taktik_r2d2", ["reply"]) == (253, 1459, 444, 1540)
+
+
+def test_a_mention_inside_a_body_is_not_read_as_its_own_comment_row():
+    # The @commenter42 mention sits INSIDE taktik_r2d2's body, between that username and its
+    # Reply. Counting it as a row would cut the row short and lose the Reply underneath it.
+    root = _compose_root()
+    assert find_comment_reply_target(root, "taktik_r2d2", ["reply"]) == (253, 1459, 444, 1540)
+
+
+def test_compose_like_control_is_paired_to_its_row():
+    root = _compose_root()
+    target = find_comment_like_target(root, "commenter42", EN_LIKE, EN_UNLIKE)
+    assert target is not None
+    assert target["bounds"] == (933, 1037, 1080, 1195)
+    assert target["already_liked"] is False
+
+
+def test_a_comment_that_already_has_likes_is_left_alone_for_now():
+    # KNOWN GAP, deliberate. On 442 a comment that already carries likes describes its heart as
+    # "... to like A comment ...", which none of our labels match, so nothing is returned and the
+    # caller does nothing. Broadening the label is NOT safe until the ALREADY-LIKED wording has
+    # been observed on a device: if that wording keeps the same instruction sentence, a broader
+    # match would tap a liked comment and UNLIKE it while reporting a like.
+    root = _compose_root()
+    assert find_comment_like_target(root, "taktik_r2d2", EN_LIKE, EN_UNLIKE) is None

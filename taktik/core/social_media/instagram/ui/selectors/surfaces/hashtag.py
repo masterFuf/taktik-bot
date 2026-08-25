@@ -8,8 +8,14 @@ class HashtagSelectors:
     """Selectors for the hashtag workflow."""
 
     # === Détection page hashtag ===
+    # IG 442 removed `action_bar_title` from this screen: the hashtag is shown in the action
+    # bar's SEARCH FIELD instead (verified on device -- 0 matches for the old id, the field
+    # holding "#voyage"). The old id stays first for older builds. Note this is the TITLE, not
+    # a surface proof: the same field exists on the search screen, so use
+    # `DETECTION_SELECTORS.hashtag_page_indicators` to know where you are.
     _hashtag_header_base: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/action_bar_title"]'
+        '//*[@resource-id="com.instagram.android:id/action_bar_title"]',
+        '//*[contains(@resource-id, "action_bar_search_edit_text") and starts-with(@text, "#")]',
     ])
 
     @property
