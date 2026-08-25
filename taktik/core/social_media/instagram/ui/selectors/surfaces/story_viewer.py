@@ -6,8 +6,26 @@ class StorySelectors:
     """Selectors for stories."""
     
     # === Éléments de base ===
-    story_image: str = '//android.widget.ImageView[contains(@resource-id, "reel_media_image")]'
-    story_video: str = '//android.widget.VideoView[contains(@resource-id, "reel_media_video")]'
+    # Two ids and NO tag constraint, on purpose. IG 442 renamed the still-image node to
+    # `reel_viewer_image_view` and made it a FrameLayout, so the old
+    # `//android.widget.ImageView[... "reel_media_image"]` failed twice over — wrong id and wrong
+    # class. Verified on a live 442 story: the node is
+    # `FrameLayout#reel_viewer_image_view`. The legacy id stays for older builds; `contains`
+    # keeps both forms package-agnostic, and this selector is joined into a `|` union by the
+    # story-viewer detector, so a wider match here only makes that detection more robust.
+    story_image: str = (
+        '//*[contains(@resource-id, "reel_media_image")'
+        ' or contains(@resource-id, "reel_viewer_image_view")]'
+    )
+    # No VideoView and no `reel_media_video` id survive on 442 — a video story renders into the
+    # same `reel_viewer_media_container` a photo uses, with no distinct node of its own. This
+    # selector is only ever read as part of the story-viewer DETECTION union (see
+    # search_navigation), never to tell a photo from a video, so matching the shared container is
+    # exactly what it needs: the union keeps firing whatever the story is made of.
+    story_video: str = (
+        '//*[contains(@resource-id, "reel_media_video")'
+        ' or contains(@resource-id, "reel_viewer_media_container")]'
+    )
 
     # === Home feed story tray ===
     feed_story_tray: str = '//*[contains(@resource-id, "reels_tray_container")]'
