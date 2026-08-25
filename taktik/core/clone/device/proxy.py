@@ -1,29 +1,41 @@
 """
-Clone-aware device proxy.
+Package-agnostic device proxy (historically "clone-aware").
 
 Transparently wraps a uiautomator2 device so that code written against the
 official Instagram package name (``com.instagram.android``) keeps working
-unchanged on cloned packages (e.g. ``com.taktik.ig1``, ``com.nomix.ig.c1``).
+unchanged whatever prefix the id ACTUALLY has on screen:
 
-The proxy rewrites the package prefix in three places:
+  - ``com.instagram.android:id/X`` — stock Instagram;
+  - ``com.taktik.ig1:id/X`` / ``com.nomix.ig.c1:id/X`` — a cloned package;
+  - ``X`` — NO package prefix at all, which is what Instagram's Jetpack Compose
+    screens (v442+) expose for their content ids.
 
-1. ``device(resourceId="com.instagram.android:id/…")``
-2. ``device.xpath("…com.instagram.android:id/…")``
-3. UiObjects returned by ``device(...)`` are themselves wrapped so calls like
-   ``item.child(resourceId="com.instagram.android:id/…")`` and
-   ``item.sibling(...)`` also rewrite their kwargs.
+It does this by turning an EXACT ``resourceId``/``@resource-id`` into a
+``resourceIdMatches``/``substring-after`` form — ``^(.*:id/)?X$`` — that spans all
+three. It used to only swap one prefix for another, which could not handle the
+bare form, so a phone that auto-updated to a Compose build stopped finding its
+rows even on the stock app. Same idiom TikTok DM already used
+(``DMActions._resource_id_pattern``), generalised to any prefix.
+
+Three interception points:
+
+1. ``device(resourceId="…")``            → agnostic ``resourceIdMatches`` kwarg
+2. ``device.xpath("…@resource-id=…")``   → agnostic ``substring-after`` predicate
+3. UiObjects returned by ``device(...)`` are wrapped so ``item.child(resourceId=…)``
+   and ``item.sibling(…)`` convert their kwargs too.
 
 Everything else (``device.press``, ``device.swipe``, ``device.info``,
 ``device.screenshot``, attribute writes, etc.) is forwarded unchanged.
 
-The proxy is a no-op when the active package equals the official one, so
-installing it is always safe — there is no overhead on stock Instagram.
+NOT a no-op on stock any more: it is mounted for EVERY Instagram bridge, because
+the stock 442 app is exactly the one that needs the bare-id match. The overhead is
+one regex build per selector, matched device-side by uiautomator.
 
 Usage:
     from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
     proxy = CloneAwareDeviceProxy(raw_device, "com.taktik.ig1")
     proxy(resourceId="com.instagram.android:id/search_tab").click()
-    # → internally: device(resourceId="com.taktik.ig1:id/search_tab").click()
+    # → internally: device(resourceIdMatches=r"^(.*:id/)?search_tab$").click()
 """
 
 import re
