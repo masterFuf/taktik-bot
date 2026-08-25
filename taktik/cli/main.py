@@ -728,7 +728,17 @@ def automation():
 
 @cli.group()
 def tiktok():
-    pass
+    """TikTok automation.
+
+    Configures the database itself. `taktik-tiktok` is its own console_script, so it enters
+    HERE and never runs the `cli()` callback -- and without that call `get_db_service()`
+    raises on the first query. Guarded so the normal `taktik tiktok ...` path, which has
+    already configured it, does not build a second client.
+    """
+    from taktik.core import database as _database
+
+    if getattr(_database, "db_service", None) is None:
+        configure_db_service()
 
 @device.command(name="list")
 def list_devices():

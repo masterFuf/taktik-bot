@@ -42,7 +42,7 @@ def login_instagram(device_id, username, password, save_session, save_instagram_
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             console.print("[blue]💡 Assurez-vous que l'appareil est connecté et que ADB est configuré.[/blue]")
             return
-        device_id = devices[0]
+        device_id = devices[0]['id']
         console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
     
     # Ask for the username when not provided
@@ -716,7 +716,8 @@ def dm_send(device_id, to, message):
         config = DMOutreachConfig(
             recipients=[to],
             message_template=message,
-            delay_between_dms=(3, 5),
+            delay_min=3,
+            delay_max=5,
             follow_before_dm=False
         )
         
@@ -784,7 +785,7 @@ def post_single(device_id, image, caption, location, hashtags):
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             return
-        device_id = devices[0]
+        device_id = devices[0]['id']
         console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
     
     try:
@@ -864,7 +865,7 @@ def post_bulk(device_id, images, captions, delay):
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             return
-        device_id = devices[0]
+        device_id = devices[0]['id']
         console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
     
     try:
@@ -934,7 +935,7 @@ def post_story(device_id, image):
         if not devices:
             console.print("[red]❌ Aucun appareil connecté.[/red]")
             return
-        device_id = devices[0]
+        device_id = devices[0]['id']
         console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
     
     try:

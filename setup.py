@@ -19,7 +19,9 @@ setup(
     entry_points={
         "console_scripts": [
             "taktik=taktik.cli.main:cli",
-            "taktik-instagram=taktik.cli.main:instagram",
+            # No `taktik-instagram`: it pointed at `taktik.cli.main:instagram`, which does not
+            # exist, so the entry point failed at import for anyone who installed the package.
+            # Instagram is reached as `taktik automation ...` / `taktik management ...`.
             "taktik-tiktok=taktik.cli.main:tiktok"
         ],
     },
