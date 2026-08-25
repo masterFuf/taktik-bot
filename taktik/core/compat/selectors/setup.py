@@ -231,6 +231,40 @@ def _patch_singleton(
     return patched
 
 
+def apply_overrides_for_device(device_id: str) -> Dict[str, int]:
+    """Patch every platform's selector catalog to match what is installed on THIS phone.
+
+    The catalog is a process-global. A bridge patches it in `PlatformBridgeBase.connect()`,
+    which is why a desktop run has always faced the right selectors -- but the standalone CLI
+    has no such base class, and an audit found the patch reached only two of its entry points.
+    Everywhere else, an open-source user on a phone that auto-updated to IG 442 was running the
+    v410 baseline: the overrides existed, were correct, and were simply never applied.
+
+    Called at CONNECT time on purpose: that is the moment a process learns which phone it is
+    on, and it is the one funnel every caller already goes through. Both platforms are patched
+    because the phone is chosen before the workflow is, and they touch disjoint singletons.
+    TikTok is looked up across its known package variants -- a phone carrying the `trill` or
+    `aweme` build has TikTok installed even though the canonical package is absent.
+
+    Best-effort by construction: it returns what it managed to apply and never raises, because
+    failing to read a version must not stop a run from starting.
+    """
+    from taktik.core.clone.packages.package_map import get_package_variants
+    from taktik.core.shared.device.app_inspection import get_installed_app_version
+
+    applied: Dict[str, int] = {}
+    for platform in ("instagram", "tiktok"):
+        try:
+            for package in get_package_variants(platform):
+                version = get_installed_app_version(device_id, package, platform)
+                if version:
+                    applied[platform] = apply_version_overrides(platform, version)
+                    break
+        except Exception as exc:
+            logger.debug(f"[Compat] Could not apply {platform} overrides for {device_id}: {exc}")
+    return applied
+
+
 def apply_version_overrides(
     app: str,
     detected_version: str,

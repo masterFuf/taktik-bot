@@ -16,6 +16,8 @@ class DeviceManager:
         self.device_id = device_id
         self.device = None
         self._atx_verified = False
+        # Serial the selector catalog was last patched for; see connect().
+        self._compat_device = None
     
     @classmethod
     def list_devices(cls) -> List[Dict[str, str]]:
@@ -59,6 +61,15 @@ class DeviceManager:
             
             self.device = u2.connect(self.device_id)
             logger.info(f"Connected to device: {self.device_id}")
+
+            # The selector catalog is a process-global and must match THIS phone. Bridges patch
+            # it in their own connect(); the standalone CLI has no such base class, so an
+            # open-source run was facing baseline selectors on an app that had moved on. Doing
+            # it here covers every caller through the one funnel they all share. Once per
+            # device: reading the installed versions costs two adb round trips.
+            if self._compat_device != self.device_id:
+                self._compat_device = self.device_id
+                self._apply_selector_overrides(self.device_id)
             
             # Verify ATX agent is working (only once per session)
             # Non-blocking: log warning but don't prevent connection
@@ -76,6 +87,18 @@ class DeviceManager:
             logger.error(f"Failed to connect to device {self.device_id}: {e}")
             return False
     
+    @staticmethod
+    def _apply_selector_overrides(device_id: str) -> None:
+        """Match the selector catalog to the apps installed on this phone. Never raises."""
+        try:
+            from taktik.core.compat.selectors.setup import apply_overrides_for_device
+
+            applied = apply_overrides_for_device(device_id)
+            if applied:
+                logger.debug(f"[Compat] Selector overrides applied for {device_id}: {applied}")
+        except Exception as exc:
+            logger.debug(f"[Compat] Selector overrides skipped for {device_id}: {exc}")
+
     def _verify_and_repair_atx(self, max_retries: int = 2) -> bool:
         """Verify ATX agent is working, attempt repair if not.
         

@@ -7,7 +7,7 @@ from .registry import (
     build_full_selector_map,
     build_selector_map_from_dataclass,
 )
-from .setup import create_registry, apply_version_overrides
+from .setup import create_registry, apply_version_overrides, apply_overrides_for_device
 from .tracer import SelectorTracer
 
 __all__ = [
@@ -18,5 +18,6 @@ __all__ = [
     "build_selector_map_from_dataclass",
     "create_registry",
     "apply_version_overrides",
+    "apply_overrides_for_device",
     "SelectorTracer",
 ]
