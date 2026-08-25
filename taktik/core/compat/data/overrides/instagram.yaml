@@ -23,9 +23,30 @@ meta:
   app: instagram
   package: com.instagram.android
   baseline_version: "410.0.0.53.71"
-  last_updated: "2026-03-07"
+  last_updated: "2026-08-25"
 
 versions:
+
+  # ─── Instagram v442.x ───────────────────────────────────────────────
+  # Verified against a live v442.0.0.46.79 device dump (2026-08-25).
+  #
+  # v442 rebuilt the DM inbox rows in Jetpack Compose: the rows carry NO
+  # resource-ids at all any more (row_inbox_container / row_inbox_username /
+  # row_inbox_digest are gone). What survives is the accessibility layer:
+  # each row exposes one android.view.View whose content-desc is the same
+  # digest the old container carried ("username, [unread,] preview, time"),
+  # with a full-row android.widget.Button as its following sibling.
+  #
+  # The selector below anchors on the thread-list recyclerview (still
+  # present), requires a comma in the content-desc (folder tabs like
+  # "All, 3 unread" also have commas but no Button sibling; the search row
+  # has a Button sibling but no comma) and was validated 7/7 rows with zero
+  # false positives on the live dump.
+  "442.0.0.0":
+
+    dm.thread_container:
+      - '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]//android.view.View[contains(@content-desc, ",")][following-sibling::android.widget.Button]'
+
   # ─── Instagram v417.x ───────────────────────────────────────────────
   # Based on compat-report v417.0.0.54.77 (2026-03-06)
   # Score: 27.3% — 18/66 found, 48 never found

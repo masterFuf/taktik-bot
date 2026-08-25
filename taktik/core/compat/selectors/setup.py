@@ -185,14 +185,27 @@ def _patch_singleton(
             continue
 
         current = getattr(singleton, field_name)
-        if isinstance(current, list):
-            setattr(singleton, field_name, xpaths)
-        elif isinstance(current, str):
-            setattr(singleton, field_name, xpaths[0] if xpaths else current)
-        else:
+        # Field by field, never all-or-nothing: the locale refactor turned some list
+        # fields into read-only @property (a locale-aware getter), and one such field
+        # in an override used to raise AttributeError and abort the WHOLE apply — every
+        # override after it, other domains included, silently never landed. A property
+        # cannot be patched this way; say so and keep going.
+        try:
+            if isinstance(current, list):
+                setattr(singleton, field_name, xpaths)
+            elif isinstance(current, str):
+                setattr(singleton, field_name, xpaths[0] if xpaths else current)
+            else:
+                logger.warning(
+                    f"[Compat] Override {action_key}: unexpected type "
+                    f"{type(current).__name__}, skipping"
+                )
+                continue
+        except AttributeError:
             logger.warning(
-                f"[Compat] Override {action_key}: unexpected type "
-                f"{type(current).__name__}, skipping"
+                f"[Compat] Override {action_key}: field is a read-only property "
+                f"on {type(singleton).__name__}, skipping (override the *_base "
+                f"field instead)"
             )
             continue
 
