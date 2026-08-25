@@ -548,7 +548,12 @@ def cli(ctx, lang=None):
                     # been defined in this scope either. It raised on every single automation run
                     # started from the CLI. The bot has no licence limits in standalone — the only
                     # quota is the desktop app's device count, which lives on that side.
-                    automation.config = dynamic_config
+                    #
+                    # Same runtime setup as the desktop bridges — version-specific selector
+                    # overrides and app-language detection included. The CLI used to assign the
+                    # config by hand and skip both, so an open-source user on a newer Instagram
+                    # ran the baseline selectors the desktop had already outgrown.
+                    _prepare_instagram_cli_runtime(automation, dynamic_config, device_id)
                     console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
                     
                     automation.run_workflow()
@@ -803,7 +808,9 @@ def workflow_instagram(device_id, config):
             
         console.print("[blue]Initialisation de l'automatisation Instagram...[/blue]")
         automation = InstagramAutomation(device_manager, config=final_config)
-        
+        # Same runtime setup as the desktop bridges (selector version overrides + language).
+        _prepare_instagram_cli_runtime(automation, final_config or {}, device_id)
+
         console.print("[green]Automatisation initialisée avec succès[/green]")
         
         if final_config:
@@ -822,6 +829,35 @@ def workflow_instagram(device_id, config):
         return
     automation.run_workflow()
     
+
+def _prepare_instagram_cli_runtime(automation, workflow_config: dict, device_id: str) -> None:
+    """The bridges' runtime setup, from the CLI: selector version overrides + language.
+
+    One implementation, two entry points. The desktop bridges go through
+    `prepare_instagram_automation_runtime` (and `PlatformBridgeBase.connect()`), so a
+    phone whose Instagram auto-updated gets the version-patched selectors; the CLI
+    built the automation by hand and got neither the overrides nor the language
+    detection — the standalone user was the one running blind on a new version.
+    Best-effort like everywhere else: a failure logs and the run proceeds on the
+    baseline selectors.
+    """
+    try:
+        from taktik.core.shared.device.app_inspection import get_installed_app_version
+        from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
+            prepare_instagram_automation_runtime,
+        )
+
+        prepare_instagram_automation_runtime(
+            automation=automation,
+            workflow_config=workflow_config,
+            installed_version_provider=lambda: get_installed_app_version(
+                device_id, "com.instagram.android", "instagram"
+            ),
+            log=lambda level, message: console.print(f"[cyan]{message}[/cyan]"),
+        )
+    except Exception as exc:  # noqa: BLE001 — setup is an upgrade, never a gate
+        console.print(f"[yellow]Runtime setup partiel: {exc}[/yellow]")
+
 
 @tiktok.command("launch")
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
