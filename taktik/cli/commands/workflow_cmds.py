@@ -164,9 +164,14 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
     platform = workflow_id.split(".", 1)[0]
     invocation = WorkflowInvocation(platform=platform, workflow_id=workflow_id, params=resolved_params)
 
+    # The serial belongs in the payload, the way the bridges send it: several handlers read
+    # `deviceId` from there to build their own device startup, and without it they fall back to
+    # a placeholder and connect to nothing. An explicit --param wins over what we inject.
+    payload = {"deviceId": device_id, "device_id": device_id, **dict(resolved_params)}
+
     console.print(f"[blue]Running[/blue] [bold]{workflow_id}[/bold] on [cyan]{device_id}[/cyan]")
     try:
-        result = handler(invocation, dict(resolved_params))
+        result = handler(invocation, payload)
     except Exception as exc:  # noqa: BLE001 - a failed run must report, not traceback at the user
         console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
         raise SystemExit(1)

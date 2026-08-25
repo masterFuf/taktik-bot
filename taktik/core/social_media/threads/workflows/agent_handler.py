@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
@@ -33,7 +33,7 @@ FeedRunner = Callable[..., Any]
 
 def build_threads_automation_handler(
     *,
-    startup_provider: StartupProvider,
+    startup_provider: Optional[StartupProvider] = None,
     search_runner: SearchRunner = run_search_and_interact,
     feed_runner: FeedRunner = run_feed_and_interact,
     on_log=None,
@@ -46,9 +46,16 @@ def build_threads_automation_handler(
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         merged = dict(payload)
         merged.update(invocation.params)
-        startup = startup_provider(invocation, merged)
-        if startup is None:
-            raise ValueError("Threads Agent handler requires injected startup")
+        # A provider is an OPTION, not a requirement. Both runners already build their own
+        # startup from `config.device_id` when none is injected -- the path they document as
+        # the default. Demanding one here made every CLI-driven Threads run die with
+        # "'NoneType' object is not callable" on its first line, before touching the device,
+        # while the three ids sat in the registry looking perfectly runnable.
+        startup = None
+        if startup_provider is not None:
+            startup = startup_provider(invocation, merged)
+            if startup is None:
+                raise ValueError("Threads Agent handler requires injected startup")
 
         if invocation.workflow_id == THREADS_FEED_WORKFLOW_ID:
             stats = feed_runner(
@@ -79,7 +86,7 @@ def build_threads_automation_handler(
 def register_threads_automation_handlers(
     registry: WorkflowRegistry,
     *,
-    startup_provider: StartupProvider,
+    startup_provider: Optional[StartupProvider] = None,
     search_runner: SearchRunner = run_search_and_interact,
     feed_runner: FeedRunner = run_feed_and_interact,
     on_log=None,
