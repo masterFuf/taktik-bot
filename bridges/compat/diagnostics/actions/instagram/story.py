@@ -129,11 +129,13 @@ def story_count_in_viewer(a, p):
 
     Different from story.count_highlights, which counts the always-available bubbles on a
     profile. This one answers "how far into this person's stories am I", which is what the
-    viewer loop needs in order to know when to stop.
+    viewer loop needs in order to know when to stop. On IG 442 the content-desc is empty and
+    the bar is a single Compose node, so the total comes from reading the bar's pixels —
+    ``read_segments`` is what opts the metadata path into that same reading.
     """
     current, total = a.detection.get_story_count_from_viewer()
     if total == 0:
-        meta = a.detection.get_story_viewer_metadata()
+        meta = a.detection.get_story_viewer_metadata(read_segments=True)
         current = current or int(meta.get("current_story") or 0)
         total = total or int(meta.get("total_stories") or 0)
     if total > 0:

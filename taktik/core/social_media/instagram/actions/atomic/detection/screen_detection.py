@@ -4,6 +4,8 @@ import time
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
+from taktik.core.shared.vision import count_progress_segments, screenshot_pil
+
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from ..story_state import parse_story_position
@@ -327,31 +329,78 @@ class ScreenDetectionMixin(BaseAction):
         return False
     
     def get_story_count_from_viewer(self) -> tuple[int, int]:
+        """(current, total) for the open viewer; 0 stands for "unknown", never for "none".
+
+        The viewer's own "story X of Y" content-desc stays authoritative. IG 442 leaves that
+        content-desc EMPTY, so we then count the segments DRAWN in the progress bar, which
+        yields the TOTAL only — the current index is not derived from pixels, and every caller
+        already treats 0 as unknown.
+        """
         try:
             element = self.device.xpath(STORY_SELECTORS.story_viewer_text_container).get()
-            
+
             if element:
                 content_desc = element.attrib.get('content-desc', '')
                 self.logger.debug(f"📱 Story viewer content-desc: {content_desc}")
-                
+
                 position = parse_story_position(content_desc)
-                
+
                 if position:
                     current_story, total_stories = position
                     self.logger.info(f"📊 Stories detected: {current_story}/{total_stories}")
                     return (current_story, total_stories)
-                else:
-                    self.logger.debug(f"⚠️ Story position not found in: {content_desc}")
-                    return (0, 0)
+
+                self.logger.debug(f"⚠️ Story position not found in: {content_desc}")
             else:
                 self.logger.debug("⚠️ Element story_viewer_text_container not found")
-                return (0, 0)
-                
+
         except Exception as e:
             self.logger.debug(f"Error extracting story count: {e}")
+
+        try:
+            total_stories = self._count_story_segments()
+        except Exception as e:
+            self.logger.debug(f"Error counting story segments: {e}")
             return (0, 0)
 
-    def get_story_viewer_metadata(self) -> Dict[str, Any]:
+        if total_stories:
+            self.logger.info(f"📊 Stories detected from the progress bar: {total_stories}")
+        return (0, total_stories)
+
+    def _count_story_segments(self, *, allow_pixels: bool = True) -> int:
+        """Segments of the story progress bar — the number of stories (0 = unknown).
+
+        Before IG 442 the bar was one NODE per segment, so counting nodes was the answer.
+        Compose collapsed it into a SINGLE childless node carrying no content-desc, where
+        counting nodes answers 1 whether the account posted one story or nine. We therefore
+        trust the node count only when it exceeds 1, and read the drawn pixels otherwise —
+        verified on device against 1, 2, 3 and 4-story accounts, over dark and white stories.
+
+        The pixel path costs a screenshot, so callers that only want the title or the
+        timestamp pass ``allow_pixels=False`` and keep the cheap node count.
+        """
+        try:
+            nodes = self.device.xpath(STORY_SELECTORS.story_progress_bar).all() or []
+        except Exception as e:
+            self.logger.debug(f"Error reading the story progress bar: {e}")
+            return 0
+
+        if len(nodes) > 1:
+            return len(nodes)
+        if not nodes or not allow_pixels:
+            return 0
+
+        try:
+            bounds = nodes[0].bounds  # (left, top, right, bottom), device pixels
+        except Exception as e:
+            self.logger.debug(f"Story progress bar has no bounds: {e}")
+            return 0
+
+        # The capture is unscaled, so bounds and image share one coordinate space. Were that
+        # ever untrue, the primitive answers 0 (unknown) instead of a wrong count.
+        return count_progress_segments(screenshot_pil(self.device), bounds)
+
+    def get_story_viewer_metadata(self, *, read_segments: bool = False) -> Dict[str, Any]:
         """
         Extract metadata exposed by Instagram's story viewer.
 
@@ -362,6 +411,10 @@ class ScreenDetectionMixin(BaseAction):
         - "Highlight title Travaux, story 3 of 56, February 6"
 
         Duration is not exposed in the UI dump; only progress-bar bounds are.
+
+        ``read_segments`` opts into READING those bounds (one screenshot) to recover the story
+        count on builds where the content-desc is empty and the bar is a single Compose node —
+        IG 442. Off by default because this runs once per slide inside the viewer loop.
         """
         metadata: Dict[str, Any] = {
             'is_open': False,
@@ -437,9 +490,9 @@ class ScreenDetectionMixin(BaseAction):
                 if ts_el:
                     metadata['timestamp'] = (ts_el.attrib.get('text') or '').strip() or None
             if not metadata['total_stories']:
-                segments = self.device.xpath(STORY_SELECTORS.story_progress_bar).all() or []
-                if segments:
-                    metadata['total_stories'] = len(segments)
+                # Cheap by default (node count); ``read_segments`` opts into the screenshot
+                # that IG 442 makes necessary. See _count_story_segments.
+                metadata['total_stories'] = self._count_story_segments(allow_pixels=read_segments)
 
             # Sponsored story (ad): the title is a brand, not a friend. Flag it so callers
             # (and workflows) never treat it as a real user story.

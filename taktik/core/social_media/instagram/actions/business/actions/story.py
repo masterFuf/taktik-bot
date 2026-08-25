@@ -96,7 +96,7 @@ class StoryBusiness(BaseBusinessAction):
             
             self._human_like_delay('story_load')
             
-            current_story, total_stories = self.detection_actions.get_story_count_from_viewer()
+            _, total_stories = self.detection_actions.get_story_count_from_viewer()
             if total_stories > 0:
                 stats['total_stories_detected'] = total_stories
                 self.logger.info(f"{total_stories} stories detected for @{username}")
@@ -124,9 +124,12 @@ class StoryBusiness(BaseBusinessAction):
                         self._wait_after_story_advance(config)
                         continue
 
-                    current_story, total_stories = self.detection_actions.get_story_count_from_viewer()
+                    # The total was read ONCE when the viewer opened; the slide index is the
+                    # loop's own. Re-asking the device per slide bought nothing but a round
+                    # trip — and the count now costs a screenshot on builds where only the
+                    # drawn progress bar carries it.
                     if total_stories > 0:
-                        self.logger.debug(f"Viewing story {current_story}/{total_stories}")
+                        self.logger.debug(f"Viewing story {i+1}/{total_stories}")
                     else:
                         self.logger.debug(f"Viewing story {i+1}")
                     
