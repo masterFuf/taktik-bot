@@ -816,6 +816,9 @@ STRINGS: Dict[str, List[str]] = {
     # comment" on a comment with no likes yet, or "<N> likes. Double tap to like comment
     # and press and hold to see all likes". Both share the fragment below).
     # IG 442 prefixes the comment body with "<handle> said ". Stripped when reading.
+    "post_comments.comment_empty_state_texts": [
+        "No comments",
+    ],
     "post_comments.comment_said_connectors": [
         "said",
     ],

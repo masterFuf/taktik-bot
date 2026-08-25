@@ -765,6 +765,9 @@ STRINGS: Dict[str, List[str]] = {
     # Heart control of a comment row, NOT-LIKED state (raw text, NOT an xpath —
     # matched by CONTAINMENT against the node content-desc).
     # IG 442 prefixe le corps du commentaire par "<pseudo> a dit ". Fragment retire a la lecture.
+    "post_comments.comment_empty_state_texts": [
+        "Aucun commentaire",
+    ],
     "post_comments.comment_said_connectors": [
         "a dit",
     ],

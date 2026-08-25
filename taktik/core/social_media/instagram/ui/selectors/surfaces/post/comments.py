@@ -103,7 +103,23 @@ class PostCommentsSelectors:
         '//android.widget.TextView[contains(@resource-id, "row_comment_textview_comment") or '
         'contains(@resource-id, "comment_text")]'
     )
-    comment_empty_state_view: str = '//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]'
+    _comment_empty_state_view_base: str = (
+        '//*[@resource-id="com.instagram.android:id/comment_empty_state_view"]'
+    )
+
+    @property
+    def comment_empty_state_view(self) -> str:
+        """"Nobody has commented yet" — by id first, then by its localized wording.
+
+        IG 442 draws the empty state in Compose: a ViewGroup carrying the sentence and NO
+        resource-id, so the id alone answered "not empty" on a thread that plainly was. The
+        difference matters: a thread that is empty and a thread that failed to load look the
+        same to a caller that cannot tell them apart.
+        """
+        clauses = [self._comment_empty_state_view_base]
+        for fragment in L("post_comments.comment_empty_state_texts"):
+            clauses.append(f'//*[contains(@text, "{fragment}")]')
+        return " | ".join(clauses)
     comment_title_defocus: str = (
         '//*[contains(@resource-id, "title_text_view")]'
         '[@text="Comments" or @text="Commentaires"]'
@@ -135,7 +151,29 @@ class PostCommentsSelectors:
     expand_replies_description_contains: Tuple[str, ...] = ("more repl", "more reply", "réponse")
     reply_button_labels: Tuple[str, ...] = ("reply", "répondre")
     reply_search_ignored_usernames: Tuple[str, ...] = ("like", "reply", "répondre")
-    expand_replies_selector: str = POST_SELECTORS.expand_replies_selector
+    @property
+    def expand_replies_selector(self) -> str:
+        """The "view N replies" affordance, in every language this catalog knows.
+
+        The single English form it replaced ('View ... more repl' on content-desc) matched
+        nothing on a French phone and nothing on 442 either, where the row reads "Voir 1
+        reponse precedente" / "Voir 3 autres reponses" and carries it in text AND
+        content-desc. Composed from the vocabulary already declared above, so no new literal
+        enters here, and the COLLAPSE variant is excluded -- it opens with the same word.
+        """
+        def any_of(tokens):
+            forms = []
+            for token in tokens:
+                for form in {token, token.capitalize(), token.lower()}:
+                    forms.append(f'contains(@text, "{form}")')
+                    forms.append(f'contains(@content-desc, "{form}")')
+            return "(" + " or ".join(forms) + ")"
+
+        return (
+            f"//*[{any_of(self.expand_replies_text_contains)}"
+            f" and {any_of(self.expand_replies_positive_tokens)}"
+            f" and not({any_of(self.expand_replies_hidden_tokens)})]"
+        )
     post_comments_count_selectors: List[str] = field(
         default_factory=lambda: list(POST_SELECTORS.post_comments_count_selectors)
     )
