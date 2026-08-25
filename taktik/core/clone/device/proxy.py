@@ -26,6 +26,7 @@ Usage:
     # → internally: device(resourceId="com.taktik.ig1:id/search_tab").click()
 """
 
+import re
 from typing import Any, Optional
 
 from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
@@ -35,12 +36,43 @@ from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
 _UI_OBJECT_RETURNING = frozenset({"child", "sibling", "left", "right", "up", "down"})
 
 
+def _agnostic_pattern(resource_id: str) -> str:
+    """A `resourceIdMatches` regex that matches an id under ANY package prefix, or none.
+
+    `^(.*:id/)?<token>$` matches all three forms the same node can take:
+      - `com.instagram.android:id/<token>` — the official package;
+      - `com.nomix.ig.c1:id/<token>`       — a clone package;
+      - `<token>`                          — no prefix at all, which is what Instagram's
+        Jetpack Compose screens (442+) expose for their content ids.
+
+    The token is the id after the last `:id/` (or the whole string when there is none),
+    escaped so an id is never read as a regex. This is the same idiom TikTok DM already
+    uses (`DMActions._resource_id_pattern`) — extended here to be package-agnostic.
+    """
+    token = resource_id.rsplit(":id/", 1)[-1]
+    return f"^(.*:id/)?{re.escape(token)}$"
+
+
 def _rewrite_kwargs(kwargs: dict, official: str, clone: str) -> dict:
-    """Rewrite ``resourceId`` in *kwargs* if it contains the official package."""
+    """Turn an exact ``resourceId`` into a package-agnostic ``resourceIdMatches``.
+
+    Why not the old prefix swap (`com.instagram.android` -> clone package)? Because it
+    only ever handled ONE alternative prefix and could not handle the ABSENCE of a prefix.
+    On Instagram 442 the official app exposes its Compose content ids with no package at
+    all (`activity_feed_newsfeed_story_row`, not `com.instagram.android:id/…`), so an exact
+    match found nothing. The agnostic regex covers the clone case AND the bare case AND the
+    stock case in one shape — verified on a live 442 device against a 410 baseline: it
+    recovers the bare ids and never regresses the prefixed native ones.
+
+    `official`/`clone` are no longer needed for the match (the regex spans every prefix) but
+    stay in the signature so the two call sites keep one contract. A caller that already
+    passes `resourceIdMatches` is left untouched — it knows what it is doing.
+    """
     rid = kwargs.get("resourceId")
-    if rid and isinstance(rid, str) and official in rid:
+    if rid and isinstance(rid, str):
         kwargs = dict(kwargs)
-        kwargs["resourceId"] = rid.replace(official, clone)
+        del kwargs["resourceId"]
+        kwargs["resourceIdMatches"] = _agnostic_pattern(rid)
     return kwargs
 
 

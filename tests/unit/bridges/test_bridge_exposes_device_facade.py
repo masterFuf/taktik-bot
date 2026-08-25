@@ -62,7 +62,11 @@ def test_none_stays_none():
 
 def test_the_clone_proxy_survives_the_wrap():
     """Regression guard for cloned accounts: the facade must wrap the PROXY, and the proxy
-    must keep rewriting the package prefix underneath it."""
+    must turn the exact resourceId into a package-agnostic resourceIdMatches underneath it.
+
+    The regex `^(.*:id/)?search_tab$` still covers the clone package
+    (`com.taktik.ig1:id/search_tab`), now alongside the official prefix and the bare form
+    Instagram 442 exposes — one shape instead of a single-alternative prefix swap."""
     raw = _RawDevice()
     proxy = CloneAwareDeviceProxy(raw, "com.taktik.ig1")
 
@@ -70,7 +74,7 @@ def test_the_clone_proxy_survives_the_wrap():
     wrapped(resourceId="com.instagram.android:id/search_tab")
 
     assert wrapped.device is proxy
-    assert raw.calls == [{"resourceId": "com.taktik.ig1:id/search_tab"}]
+    assert raw.calls == [{"resourceIdMatches": r"^(.*:id/)?search_tab$"}]
 
 
 def test_facade_capabilities_become_reachable_from_a_bridge():
