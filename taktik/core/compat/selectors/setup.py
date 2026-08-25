@@ -148,7 +148,23 @@ def _resolve_overrides_for_version(
     if not versions or isinstance(versions, str):
         return {}
 
-    applicable = sorted(v for v in versions if str(v) <= target_version)
+    # NUMERIC comparison, segment by segment — not string order. Lexicographically
+    # "442.0.0.5" sorts AFTER "442.0.0.46" ('5' > '4'), so an override keyed on a
+    # two-digit build would silently stop applying to later one-digit ones. Version
+    # keys we cannot parse fall back to never-applicable rather than to string luck.
+    def _vtuple(version: str):
+        try:
+            return tuple(int(part) for part in str(version).split("."))
+        except ValueError:
+            return None
+
+    target_tuple = _vtuple(target_version)
+    if target_tuple is None:
+        return {}
+    applicable = sorted(
+        (v for v in versions if _vtuple(v) is not None and _vtuple(v) <= target_tuple),
+        key=_vtuple,
+    )
 
     merged: Dict[str, List[str]] = {}
     for version in applicable:
