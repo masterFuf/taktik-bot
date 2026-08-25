@@ -69,8 +69,12 @@ versions:
       - '//*[contains(@hint, "Add a comment")]'
       - '//*[contains(@hint, "Ajouter un commentaire")]'
 
-    # text_input.comment_field_selectors: List[str] fallback list
-    text_input.comment_field_selectors:
+    # Patch the *_base field, NEVER the property: `comment_field_selectors` is
+    # `_comment_field_selectors_base + L(...)`, so the property is read-only and an override
+    # aimed at it was silently skipped -- measured on a 442 device, 0 of the 13 baseline
+    # selectors found the comment field. The pre-417 entries are kept as a tail because IG
+    # serves layouts per account.
+    text_input._comment_field_selectors_base:
       - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
       - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
       - '//*[contains(@resource-id, "comment_thread_edittext")]'
@@ -79,9 +83,19 @@ versions:
       - '//*[contains(@hint, "Add a comment")]'
       - '//*[contains(@hint, "Ajouter un commentaire")]'
       - '//*[contains(@resource-id, "comment_edittext")]'
+      - '//android.widget.AutoCompleteTextView[contains(@resource-id, "comment")]'
+      - '//*[@resource-id="com.instagram.android:id/comment_box_text"]'
+      - '//*[@resource-id="com.instagram.android:id/inline_compose_box"]'
+      - '//*[contains(@resource-id, "comment_box")]'
+      - '//*[contains(@hint, "Aggiungi un commento")]'
+      - '//*[contains(@hint, "Añade un comentario")]'
+      - '//android.widget.EditText[contains(@resource-id, "comment")]'
+      - '//android.widget.EditText[@focused="true"]'
+      - '//android.widget.EditText[@clickable="true"]'
+      - '//android.widget.EditText'
 
-    # feed.comment_input: List[str]
-    feed.comment_input:
+    # Same reason as above: `comment_input` is `_comment_input_base + L(...)`.
+    feed._comment_input_base:
       - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
       - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
       - '//*[contains(@resource-id, "comment_thread_edittext")]'
@@ -90,10 +104,12 @@ versions:
       - '//*[contains(@text, "Ajouter un commentaire")]'
       - '//android.widget.AutoCompleteTextView[contains(@resource-id, "comment")]'
       - '//android.widget.EditText[contains(@resource-id, "comment")]'
+      - '//android.widget.EditText'
 
     # ── Comments view indicators (for _is_comments_view_open detection) ──
-    # v417: new edittext resource-id + new hint "Join the conversation"
-    popup.comments_view_indicators:
+    # v417: new edittext resource-id + new hint "Join the conversation".
+    # Same reason as above: `comments_view_indicators` is `_base + L(...)`.
+    popup._comments_view_indicators_base:
       - '//*[@text="Comments"]'
       - '//*[@text="Commentaires"]'
       - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
@@ -121,16 +137,12 @@ versions:
       - '//*[@resource-id="com.instagram.android:id/comment_count"]'
       - '//*[contains(@content-desc, "comment") and contains(@content-desc, "number")]'
 
-    # ── Reel indicators — clips_* removed from baseline 2026-03-07 ──
-    # "Reel by" found 21/51, clips_* all 0/30 → removed from baseline.
-    # Override just ensures priority order (Reel by first for EN).
-    post.reel_indicators:
-      - '//*[contains(@content-desc, "Reel by")]'
-      - '//*[contains(@content-desc, "Reel de")]'
-
-    detection.reel_indicators:
-      - '//*[contains(@content-desc, "Reel by")]'
-      - '//*[contains(@content-desc, "Reel de")]'
+    # ── Reel indicators — nothing to override here ──
+    # `post.reel_indicators` and `detection.reel_indicators` are properties returning the
+    # LOCALE overlay alone (the clips_* ids were dropped from the baseline on 2026-03-07,
+    # 0/30 on v417). "Reel by" / "Reel de" already live in locales/en.py and locales/fr.py,
+    # which is their right home -- they are language, not version. The overrides that used to
+    # sit here duplicated them and were skipped as read-only properties.
 
     # ── Followers list — view_pager/mutual/followers removed from baseline 2026-03-07 ──
     # tab_layout 15/30 (only working indicator). Others all 0 found.
