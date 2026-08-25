@@ -6,9 +6,33 @@ from bridges.compat.diagnostics.runtime.action_test.action_bundle import ActionB
 
 
 def create_instagram_device_facade(raw_device):
+    """The Lab's device, wrapped exactly like production wraps it.
+
+    Every production Instagram bridge mounts `CloneAwareDeviceProxy`, which turns an exact
+    `resourceId="com.instagram.android:id/x"` into a prefix-agnostic match. IG 442 renders
+    surfaces in Compose with BARE ids (no package prefix), so that rewrite is what keeps
+    production finding its rows -- and the Lab, which mounted nothing, saw those same selectors
+    fail. A bench that reports a selector broken while the workflow using it works is worse
+    than no bench, because it sends you fixing what is not broken.
+
+    The proxy is mounted with the package the phone is actually running when one is registered,
+    otherwise the official one. The agnostic rewrite does not depend on that choice; it only
+    affects the clone-specific substitution, which the Lab never had at all.
+    """
+    from taktik.core.clone import get_active_package
+    from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+    from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
     from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
 
-    return DeviceFacade(raw_device)
+    if isinstance(raw_device, CloneAwareDeviceProxy):
+        return DeviceFacade(raw_device)
+
+    try:
+        package = get_active_package() or OFFICIAL_PACKAGE
+    except Exception:
+        package = OFFICIAL_PACKAGE
+    logger.info(f"Mounting the clone-aware proxy for {package}")
+    return DeviceFacade(CloneAwareDeviceProxy(raw_device, package))
 
 
 def build_instagram_action_bundle(device_facade):
