@@ -227,9 +227,9 @@ class DetectionSelectors:
     _loading_spinner_indicators_base: List[str] = field(default_factory=lambda: [
         # Instagram's "Load more" button with loading animation
         '//*[@resource-id="com.instagram.android:id/row_load_more_button"]',
-        # Generic progress indicators
+        # Generic progress indicators. Matched by TAG only: u2 renames `<node class="X">` to
+        # `<X>`, so an `@class="…ProgressBar"` predicate never matches (the tag above does).
         '//android.widget.ProgressBar',
-        '//*[@class="android.widget.ProgressBar"]',
         '//*[contains(@resource-id, "progress")]'
     ])
 

@@ -32,7 +32,13 @@ class ProfileSelectors:
     profile_header_container: str = '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
 
     bio: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[@class="android.widget.TextView"]',
+        # The bio moved into a Jetpack Compose container on IG 442 (`profile_user_info_compose_view`),
+        # and `profile_header_bio_text` disappeared. The text node is reached by TAG, not by
+        # `@class=`: uiautomator2 renames every `<node class="X">` to `<X>`, so `@class` no longer
+        # exists in its tree and `//*[@class="android.widget.TextView"]` matched nothing (0 on a live
+        # 442 device, where `//android.widget.TextView` matched 14). The legacy resource-id stays as a
+        # fallback for older builds that still expose it.
+        '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView',
         '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
         '//*[contains(@resource-id, "profile_header_bio_text")]'
     ])
@@ -277,7 +283,7 @@ class ProfileSelectors:
 
     enrichment_bio_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView',
-        '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//*[@class="android.widget.TextView"]',
+        # (the `@class="…TextView"` twin that used to sit here was dead under u2 — tag matches, @class never does)
         '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
     ])
 
