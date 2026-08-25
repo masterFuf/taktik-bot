@@ -103,20 +103,28 @@ class DmMessageRepository(BaseRepository):
         displayed_at: Optional[str] = None,
         ai_model: Optional[str] = None,
         ai_cost_usd: Optional[float] = None,
+        reaction: Optional[str] = None,
     ) -> bool:
         """Insert one message (idempotent on re-read). Return True if a new row was written.
 
         ``sent_at`` stays a sortable datetime (insertion time fallback / sync delta cursor);
         ``displayed_at`` is the raw IG date/time label kept only for display.
+
+        ``reaction`` is the one MUTABLE field here, and an INSERT alone could never carry it: a
+        message already on record is swallowed by ``INSERT OR IGNORE`` (the unique key is
+        direction + content hash), so a heart dropped on it AFTER the first read would never
+        land. When the insert is ignored, the row is updated instead — with the observed value,
+        NULL included, because a re-read that saw the bubble also saw that its reaction was
+        removed.
         """
         self.ensure_table()
         cursor = self.execute(
             """
             INSERT OR IGNORE INTO dm_messages (
                 platform, thread_sync_id, account_id, partner_username, direction, msg_type,
-                text, content_hash, seq, sent_at, displayed_at, ai_model, ai_cost_usd, sync_id
+                text, content_hash, seq, sent_at, displayed_at, ai_model, ai_cost_usd, reaction, sync_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?, lower(hex(randomblob(16))))
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?, ?, lower(hex(randomblob(16))))
             """,
             (
                 platform,
@@ -132,9 +140,30 @@ class DmMessageRepository(BaseRepository):
                 displayed_at,
                 ai_model,
                 ai_cost_usd,
+                reaction,
             ),
         )
-        return cursor.rowcount > 0
+        if cursor.rowcount > 0:
+            return True
+
+        # Already on record: keep the mutable part in sync with what we just saw.
+        self.execute(
+            """
+            UPDATE dm_messages
+               SET reaction = ?
+             WHERE platform = ? AND thread_sync_id = ? AND direction = ? AND content_hash = ?
+               AND IFNULL(reaction, '') <> IFNULL(?, '')
+            """,
+            (
+                reaction,
+                platform,
+                thread_sync_id,
+                direction,
+                _content_hash(direction, text),
+                reaction,
+            ),
+        )
+        return False
 
 
 __all__ = ["DmMessageRepository"]

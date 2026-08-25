@@ -105,7 +105,8 @@ class DmConversationService:
     ) -> Optional[str]:
         """Upsert a read conversation + its messages. Return the thread sync_id.
 
-        ``messages`` items: {direction: 'sent'|'received', text, msg_type?, ai_model?, ai_cost_usd?}.
+        ``messages`` items: {direction: 'sent'|'received', text, msg_type?, ai_model?, ai_cost_usd?,
+        reaction?}.
         """
         conn = DmConversationService._open()
         if conn is None:
@@ -144,6 +145,7 @@ class DmConversationService:
                     displayed_at=message.get("displayed_at"),
                     ai_model=message.get("ai_model"),
                     ai_cost_usd=message.get("ai_cost_usd"),
+                    reaction=message.get("reaction"),
                 )
             logger.info(f"Recorded DM conversation with {partner_username} ({len(messages)} messages)")
             return thread_sync_id

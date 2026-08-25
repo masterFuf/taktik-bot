@@ -27,3 +27,12 @@ def run_messaging_migrations(cursor: sqlite3.Cursor) -> None:
     except sqlite3.OperationalError:
         logger.info("Migration: Adding displayed_at to dm_messages")
         cursor.execute("ALTER TABLE dm_messages ADD COLUMN displayed_at TEXT")
+
+    # `reaction` holds the emoji left on a bubble (❤ / 👍 …), NULL when there is none. It is
+    # MUTABLE state on an already-recorded message — see DmMessageRepository.add_message for
+    # why an INSERT alone could never persist it.
+    try:
+        cursor.execute("SELECT reaction FROM dm_messages LIMIT 1")
+    except sqlite3.OperationalError:
+        logger.info("Migration: Adding reaction to dm_messages")
+        cursor.execute("ALTER TABLE dm_messages ADD COLUMN reaction TEXT")

@@ -61,6 +61,7 @@ def create_messaging_tables(cursor: sqlite3.Cursor) -> None:
             seq INTEGER DEFAULT 0,                  -- read-order index within the thread (display)
             sent_at TEXT DEFAULT (datetime('now')), -- sortable insertion datetime (sync delta cursor / fallback)
             displayed_at TEXT,                      -- raw IG date/time label for display (e.g. "Jun 12, 10:29 AM")
+            reaction TEXT,                          -- emoji dropped on the bubble (❤), NULL when none
             ai_model TEXT,                          -- for our AI-generated replies
             ai_cost_usd REAL,
             sync_id TEXT,

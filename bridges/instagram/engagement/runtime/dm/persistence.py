@@ -131,6 +131,9 @@ def _messages_payload(conv: Dict[str, Any]) -> List[Dict[str, Any]]:
                 # Raw IG date/time label (e.g. "Jun 12, 10:29 AM") -> displayed_at for display
                 # only; the message's sent_at keeps its sortable insertion-time default.
                 "displayed_at": message.get("timestamp"),
+                # Emoji left on the bubble, when the reader saw one. Absent (None) is a value:
+                # it means the bubble carried no reaction on this pass.
+                "reaction": message.get("reaction"),
             }
         )
     return payload
