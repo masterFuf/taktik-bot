@@ -68,6 +68,15 @@ class PostCommentsSelectors:
     commenter_button_nodes_selector: str = POST_SELECTORS.all_button_nodes_selector
 
     @property
+    def comment_said_connectors(self) -> List[str]:
+        """The word IG puts between an author and its comment body on 442 ("said", "a dit").
+
+        Compose renders the body as "<handle> <connector> <text>" in both text and
+        content-desc; the reader strips the handle and this fragment to recover the comment.
+        """
+        return L("post_comments.comment_said_connectors")
+
+    @property
     def comment_like_labels(self) -> List[str]:
         """Content-desc fragments of a comment's heart in its NOT-liked state."""
         return L("post_comments.comment_like_button")

@@ -103,20 +103,15 @@ class PersonaCommentsMixin:
             scroll_attempts = 0
             while len(comments) < self.max_comments and scroll_attempts < 4:
                 try:
-                    comment_nodes = self.device.xpath(POST_COMMENTS_SELECTORS.comment_text_nodes_selector).all()
                     found_new = False
-                    for node in comment_nodes:
-                        try:
-                            text = node.get_text() or ""
-                            text = text.strip()
-                            if text and text not in seen and len(text) > 3:
-                                seen.add(text)
-                                comments.append(text)
-                                found_new = True
-                                if len(comments) >= self.max_comments:
-                                    break
-                        except Exception:
-                            pass
+                    for text in self._visible_comment_texts():
+                        text = (text or "").strip()
+                        if text and text not in seen and len(text) > 3:
+                            seen.add(text)
+                            comments.append(text)
+                            found_new = True
+                            if len(comments) >= self.max_comments:
+                                break
 
                     # Attribute the analyzed account's OWN lines from the rows currently on screen
                     # (its writing voice). Reveal its REPLIES first (nested under others' comments).
@@ -160,6 +155,43 @@ class PersonaCommentsMixin:
                 pass
 
         return comments, owner_lines
+
+    def _visible_comment_texts(self) -> list:
+        """The comment bodies currently on screen, whatever layout IG serves.
+
+        The resource-id path is the fast one and stays first. IG 442 stopped giving the body
+        an id at all, so it returns nothing there and the persona reader came back empty on
+        every post; the fallback re-reads the same rows from a dump, pairing each body to the
+        author above it. Falling back only when the id path is EMPTY leaves every older build
+        and every clone on the path they already use.
+        """
+        try:
+            nodes = self.device.xpath(POST_COMMENTS_SELECTORS.comment_text_nodes_selector).all()
+        except Exception:
+            nodes = []
+        if nodes:
+            texts = []
+            for node in nodes:
+                try:
+                    texts.append(node.get_text() or "")
+                except Exception:
+                    continue
+            if texts:
+                return texts
+
+        try:
+            from lxml import etree
+
+            from taktik.core.social_media.instagram.workflows.common.comments_thread import (
+                read_comment_texts,
+            )
+
+            raw = self.device.dump_hierarchy()
+            root = etree.fromstring(raw.encode("utf-8") if isinstance(raw, str) else raw)
+            connectors = list(POST_COMMENTS_SELECTORS.comment_said_connectors)
+            return [text for _author, text in read_comment_texts(root, connectors)]
+        except Exception:
+            return []
 
     def _expand_comment_replies(self, comments_selectors) -> None:
         """Best-effort: tap visible 'View X replies' to reveal replies (where the owner's replies

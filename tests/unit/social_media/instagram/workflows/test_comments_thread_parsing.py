@@ -13,6 +13,7 @@ from taktik.core.social_media.instagram.workflows.common.comments_thread import 
     find_comment_like_target,
     find_comment_reply_target,
     parse_bounds,
+    read_comment_texts,
 )
 
 EN_LIKE = ["to like comment"]
@@ -279,3 +280,33 @@ def test_a_comment_that_already_has_likes_is_left_alone_for_now():
     # match would tap a liked comment and UNLIKE it while reporting a like.
     root = _compose_root()
     assert find_comment_like_target(root, "taktik_r2d2", EN_LIKE, EN_UNLIKE) is None
+
+
+def test_compose_bodies_are_read_with_their_author():
+    # On 442 the body has no resource-id and spells "<handle> said <text>" in BOTH text and
+    # content-desc. Without this the persona reader came back empty on every post.
+    assert read_comment_texts(_compose_root(), ["said", "a dit"]) == [
+        ("commenter42", "what a place"),
+        ("taktik_r2d2", "@commenter42 right!?"),
+    ]
+
+
+def test_a_body_survives_an_unknown_connector():
+    # Degrade to a slightly noisy line rather than to nothing when the language is not covered.
+    assert read_comment_texts(_compose_root(), []) == [
+        ("commenter42", "said what a place"),
+        ("taktik_r2d2", "said @commenter42 right!?"),
+    ]
+
+
+def test_row_labels_are_not_read_as_comment_bodies():
+    # "Reply", "See translation" and the timestamp repeat themselves in content-desc exactly
+    # like a body does; only the "<handle> ..." opening tells them apart.
+    bodies = [text for _author, text in read_comment_texts(_compose_root(), ["said"])]
+    assert not any(label in bodies for label in ("Reply", "See translation", "6h", "5h"))
+
+
+def test_the_legacy_layout_yields_no_compose_bodies():
+    # Older builds keep the id-based path; this reader must not invent rows there.
+    assert read_comment_texts(etree.fromstring(REAL_THREAD.encode()), ["said"]) == []
+

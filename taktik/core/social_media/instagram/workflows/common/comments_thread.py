@@ -153,6 +153,60 @@ def find_comment_like_target(
     return None
 
 
+def read_comment_texts(root, connectors: Optional[List[str]] = None) -> List[Tuple[str, str]]:
+    """Every comment visible on screen as ``(author, text)``, top to bottom.
+
+    IG 442 stopped giving the comment body a resource-id, so the id-based selector returns
+    nothing and the persona reader came back empty on every post. The body is still there: it
+    is the node of the row that spells "<author> <connector> <text>" in BOTH text and
+    content-desc -- exactly the same string, which is how it is told apart from the timestamp
+    and the "Reply" / "See translation" labels that also repeat themselves.
+
+    Pairing is by the row band: a body belongs to the author whose label sits above it and
+    before the next author's. ``connectors`` are the localized "said" fragments; when none
+    matches, only the handle is stripped, so an unknown language degrades to a slightly noisy
+    line rather than to nothing.
+    """
+    anchors = _username_anchors(root)
+    if not anchors:
+        return []
+
+    bands = []
+    for index, (handle, center, _top) in enumerate(anchors):
+        next_center = anchors[index + 1][1] if index + 1 < len(anchors) else None
+        bands.append((handle, center, next_center))
+
+    stems = [c.strip().lower() for c in (connectors or []) if c and c.strip()]
+    out: List[Tuple[str, str]] = []
+    for node in root.iter("node"):
+        text = (node.get("text") or "").strip()
+        if not text or " " not in text:
+            continue
+        if _normalise(node.get("content-desc")) != _normalise(text):
+            continue
+        box = parse_bounds(node.get("bounds", ""))
+        if not box:
+            continue
+        center = (box[1] + box[3]) // 2
+        for handle, anchor_center, next_center in bands:
+            if center < anchor_center:
+                continue
+            if next_center is not None and center >= next_center:
+                continue
+            lowered = text.lower()
+            if not lowered.startswith(handle):
+                break  # a label of that row, not its body
+            body = text[len(handle):].strip()
+            for stem in stems:
+                if body.lower().startswith(stem):
+                    body = body[len(stem):].strip()
+                    break
+            if body:
+                out.append((handle, body))
+            break
+    return out
+
+
 def find_comment_reply_target(
     root,
     username: str,
@@ -216,4 +270,5 @@ __all__ = [
     "center",
     "find_comment_like_target",
     "find_comment_reply_target",
+    "read_comment_texts",
 ]
