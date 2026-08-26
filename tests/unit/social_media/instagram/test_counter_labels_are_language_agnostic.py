@@ -146,3 +146,40 @@ def test_a_counter_with_no_number_is_not_a_likers_entry_point():
 def test_a_bare_number_still_works_on_a_regular_post():
     """Post detail exposes the count as plain text ("35"), not as a sentence."""
     assert _finder_for(_Element(text="35")) is not None
+
+
+class _DeviceServingMediaLabel:
+    """Device where only the media-label selector answers, with `label` as content-desc."""
+
+    def __init__(self, label):
+        self._label = label
+
+    def xpath(self, selector):
+        served = [_Element(content_desc=self._label)] if "photo_imageview" in selector else []
+
+        class _Query:
+            def all(self_inner):
+                return served
+
+        return _Query()
+
+
+@pytest.mark.parametrize("label,likes,comments", [
+    # Verbatim from a 442 device. Both counts live in ONE string, which is what makes the read
+    # atomic -- and the apostrophe is typographic, which is what used to break the likes half.
+    ("Reel de arproductionstudio, 96 J’aime, 9 commentaires, 9 août", 96, 9),
+    ("Reel by taktik_r2d2, 12 likes, 3 comments", 12, 3),
+    ("Reel de marie, 4,5 K J'aime, 18 commentaires", 4500, 18),
+])
+def test_both_counts_are_read_from_the_same_media_label(label, likes, comments):
+    stats = InstagramUIExtractors(_DeviceServingMediaLabel(label)).extract_post_stats_atomic()
+    assert stats == {"likes": likes, "comments": comments}
+
+
+def test_a_label_carrying_only_one_count_is_not_reported_as_a_pair():
+    # Half a pair is worse than none: the caller would take the missing half from another post.
+    stats = InstagramUIExtractors(
+        _DeviceServingMediaLabel("Reel de arproductionstudio, 96 J’aime")
+    ).extract_post_stats_atomic()
+    assert stats is None
+

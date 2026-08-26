@@ -28,8 +28,15 @@ class InstagramUIExtractors:
             dict: {'likes': int, 'comments': int} or None if extraction failed
         """
         try:
-            # Try to find carousel elements that contain both likes and comments in content-desc
-            for selector in self.detection_selectors.carousel_selectors:
+            # The media label is the atomic source on IG 442: one string carries BOTH counts
+            # ("Reel de X, 96 J<U+2019>aime, 9 commentaires, 9 aout"), which is exactly what this
+            # method exists to read. Without it no carousel selector matched on a French phone
+            # -- the only generic one wants the English "likes"/"comment" -- so the atomic path
+            # always failed and callers fell back to reading the two counts SEPARATELY, which on
+            # a screen showing two posts takes them from different ones.
+            sources = list(self.detection_selectors.carousel_selectors)
+            sources.append(self.post_selectors.photo_imageview_selector)
+            for selector in sources:
                 try:
                     elements = self.device.xpath(selector).all()
                     for element in elements:
@@ -40,8 +47,11 @@ class InstagramUIExtractors:
                             continue
                         
                         # Extract likes
+                        # The apostrophe is TYPOGRAPHIC on the device (U+2019), not the ASCII one
+                        # this pattern used to spell -- so on a French phone the likes never matched while
+                        # the comments did, the pair was never complete, and the atomic read always failed.
                         likes_match = re.search(
-                            r'(\d+(?:[,.]\d+)?(?:\s?[KkMmBb])?)\s*(?:like|j\'aime)',
+                            r'(\d+(?:[,.]\d+)?(?:\s?[KkMmBb])?)\s*(?:like|j[\x27’`]?aime)',
                             content_desc,
                             re.IGNORECASE
                         )
