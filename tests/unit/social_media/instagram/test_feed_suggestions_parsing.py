@@ -285,3 +285,63 @@ def test_a_cta_left_of_its_header_is_not_paired():
         etree.fromstring(mirrored.encode()), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["cta_bounds"] is None
+
+
+# The inline cards on 442: only the follow control kept an id, and it names its own target.
+COMPOSE_CARDS = """
+<hierarchy>
+  <node class="android.view.ViewGroup" bounds="[0,1350][1080,2211]" content-desc="">
+    <node class="android.view.ViewGroup" bounds="[42,1399][595,1450]"
+          text="Suggestions pour vous" content-desc="Suggestions pour vous"/>
+    <node class="android.view.ViewGroup" bounds="[790,1399][963,1450]"
+          text="Voir tout" content-desc="Voir tout"/>
+    <node class="android.view.ViewGroup" resource-id="com.instagram.android:id/recycler_view_container_id"
+          bounds="[0,1498][1080,2211]">
+      <node class="android.view.ViewGroup" bounds="[37,1498][675,2211]">
+        <node class="android.view.ViewGroup" bounds="[336,1933][377,1984]" text="LV" content-desc="LV"/>
+        <node class="android.widget.TextView" resource-id="com.instagram.android:id/inline_follow_button"
+              bounds="[69,2099][643,2183]" text="Suivre" content-desc="Suivre LV"/>
+      </node>
+      <node class="android.view.ViewGroup" bounds="[707,1498][1080,2211]">
+        <node class="android.view.ViewGroup" bounds="[927,1933][1080,1984]"
+              text="Rae Lyn Lee" content-desc="Rae Lyn Lee"/>
+        <node class="android.widget.TextView" resource-id="com.instagram.android:id/inline_follow_button"
+              bounds="[739,2099][1080,2183]" text="Suivre" content-desc="Suivre Rae Lyn Lee"/>
+      </node>
+    </node>
+  </node>
+</hierarchy>
+"""
+
+
+def test_the_compose_cards_are_read_from_their_follow_control():
+    carousel = parse_feed_suggestions_carousel(
+        etree.fromstring(COMPOSE_CARDS.encode()), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["cards"] == [
+        {"name": "LV", "state_label": "Suivre", "follow_bounds": (69, 2099, 643, 2183)},
+        {"name": "Rae Lyn Lee", "state_label": "Suivre", "follow_bounds": (739, 2099, 1080, 2183)},
+    ]
+
+
+def test_the_account_name_is_the_difference_between_desc_and_text():
+    # No label list and therefore no language: the control says "Suivre Rae Lyn Lee" and reads
+    # "Suivre", so what is left is the account. An English phone works the same way.
+    english = COMPOSE_CARDS.replace('text="Suivre" content-desc="Suivre Rae Lyn Lee"',
+                                    'text="Follow" content-desc="Follow Rae Lyn Lee"')
+    carousel = parse_feed_suggestions_carousel(
+        etree.fromstring(english.encode()), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["cards"][1]["name"] == "Rae Lyn Lee"
+    assert carousel["cards"][1]["state_label"] == "Follow"
+
+
+def test_a_control_whose_description_does_not_start_with_its_label_yields_no_name():
+    # Better an empty name than a wrong one: the caller records who it followed.
+    odd = COMPOSE_CARDS.replace('content-desc="Suivre LV"', 'content-desc="Abonnement a LV"')
+    carousel = parse_feed_suggestions_carousel(
+        etree.fromstring(odd.encode()), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["cards"][0]["name"] == ""
+    assert carousel["cards"][0]["follow_bounds"] == (69, 2099, 643, 2183)
+

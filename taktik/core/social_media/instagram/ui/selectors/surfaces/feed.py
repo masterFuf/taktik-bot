@@ -166,6 +166,11 @@ class FeedSuggestionsSelectors:
     card_container_id: str = "suggested_entity_card_container"
     card_name_id: str = "suggested_entity_card_name"
     card_follow_button_id: str = "suggested_user_card_follow_button"
+    # IG 442 renamed the card's follow control and dropped every other id in the block. This
+    # one node is enough on its own: its content-desc names the account ("Suivre Rae Lyn Lee")
+    # while its text is the action alone ("Suivre"), so the name is the difference between the
+    # two -- no label list, no language.
+    card_inline_follow_button_id: str = "inline_follow_button"
 
     # --- Compose fallback: the labels, because IG 442 left nothing else ---
     # Verified on device: the carousel's header and its CTA are two ViewGroups carrying only

@@ -82,6 +82,37 @@ def _labelled(node) -> str:
     return ""
 
 
+
+def _compose_cards(root, selectors) -> List[Dict[str, Any]]:
+    """The carousel's inline cards on IG 442, where only the follow control kept an id.
+
+    That one node carries everything needed: its content-desc names the account and its text is
+    the action alone, so the account name is what the content-desc has and the text does not.
+    Subtracting one from the other avoids a label list and therefore a language -- and the pair
+    can only disagree on the name, since both come from the same node.
+    """
+    marker = getattr(selectors, "card_inline_follow_button_id", "")
+    if not marker:
+        return []
+
+    cards: List[Dict[str, Any]] = []
+    for node in root.iter("node"):
+        if marker not in (node.get("resource-id") or ""):
+            continue
+        box = parse_bounds(node.get("bounds") or "")
+        if not box:
+            continue
+        action = (node.get("text") or "").strip()
+        described = (node.get("content-desc") or "").strip()
+        name = described[len(action):].strip() if action and described.startswith(action) else ""
+        cards.append({
+            "name": name,
+            "state_label": action,
+            "follow_bounds": box,
+        })
+    return cards
+
+
 def _compose_header_and_cta(root, selectors):
     """The carousel's ``(title, cta_bounds)`` read from labels alone, or ``(None, None)``.
 
@@ -154,6 +185,9 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
                 "state_label": _label_of(follow_node),
                 "follow_bounds": parse_bounds(follow_node.get("bounds") or ""),
             })
+
+    if not result["cards"]:
+        result["cards"] = _compose_cards(root, selectors)
 
     # IG 442 rebuilt the block in Compose and kept NO resource-id: `netego_carousel_*` is
     # absent from the dump entirely, so everything above finds nothing and the only entry point
