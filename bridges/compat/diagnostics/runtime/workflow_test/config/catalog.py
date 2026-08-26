@@ -24,6 +24,7 @@ NEEDS_TARGET = (
     "scrape_account",
     "scrape_hashtag",
     "scrape_post_url",
+    "scrape_profile_posts",
     "scrape_e_story",
 )
 
@@ -37,7 +38,9 @@ INSTAGRAM_AUTOMATION_WF = (
     "notifications",
     "unfollow",
 )
-INSTAGRAM_SCRAPING_WF = ("scrape_account", "scrape_hashtag", "scrape_post_url", "scrape_e_story")
+INSTAGRAM_SCRAPING_WF = (
+    "scrape_account", "scrape_hashtag", "scrape_post_url", "scrape_profile_posts", "scrape_e_story",
+)
 INSTAGRAM_DM_WF = ("dm_response", "dm_outreach")
 INSTAGRAM_PUBLISH_WF = ("upload_post", "upload_carousel", "upload_reel", "upload_story")
 

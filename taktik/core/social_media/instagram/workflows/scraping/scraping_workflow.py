@@ -6,11 +6,15 @@ This module provides scraping functionality to extract profiles from:
 - Hashtag posts (authors or likers)
 - Post URL likers
 
+and one source that extracts POSTS rather than profiles:
+- Profile posts — the catalogue a post_url run draws from (social_posts)
+
 Internal structure (SRP split):
-- post_scraping_helpers.py — Post opening, reel detection, likers/commenters extraction
-- list_scraping.py         — Generic list scraping, hashtag scraping, post URL scraping
-- persistence.py           — CSV export, DB save, session management, enrichment, stats
-- scraping_workflow.py     — Orchestrator (this file)
+- post_scraping_helpers.py   — Post opening, reel detection, likers/commenters extraction
+- list_scraping.py           — Generic list scraping, hashtag scraping, post URL scraping
+- profile_posts_scraping.py  — Post catalogue of target profiles
+- persistence.py             — CSV export, DB save, session management, enrichment, stats
+- scraping_workflow.py       — Orchestrator (this file)
 """
 
 import json
@@ -31,6 +35,7 @@ from taktik.core.database.local.service import get_local_database
 
 from .post_scraping_helpers import ScrapingPostHelpersMixin
 from .list_scraping import ScrapingListMixin
+from .profile_posts_scraping import ProfilePostsScrapingMixin
 from .persistence import ScrapingPersistenceMixin
 from ..common.session import should_continue_session
 
@@ -41,15 +46,17 @@ console = Console()
 class ScrapingWorkflow(
     ScrapingPostHelpersMixin,
     ScrapingListMixin,
+    ProfilePostsScrapingMixin,
     ScrapingPersistenceMixin
 ):
     """
     Workflow for scraping Instagram profiles without interaction.
-    
+
     Supports:
     - Target scraping: Extract followers/following from target accounts
     - Hashtag scraping: Extract post authors or likers from hashtag
     - URL scraping: Extract likers from a specific post
+    - Profile posts: Catalogue the posts of target accounts (social_posts), no profile scraped
     """
     
     def __init__(
@@ -82,6 +89,8 @@ class ScrapingWorkflow(
         
         # Stats
         self.scraped_profiles: List[Dict[str, Any]] = []
+        # Profile-posts source: the cards catalogued this run (posts, not profiles).
+        self.scraped_posts: List[Dict[str, Any]] = []
         self.start_time = None
         self.session_duration_minutes = config.get('session_duration_minutes', 60)
         self.scraping_session_id: Optional[int] = None
@@ -141,6 +150,9 @@ class ScrapingWorkflow(
                 # No source screen: the operator hands over the profiles by name. Same per-profile
                 # qualification as every other source, only the way we reach each profile differs.
                 result = self._scrape_username_list()
+            elif scraping_type == 'profile_posts':
+                # Produces POSTS, not profiles: the catalogue a post_url run draws from.
+                result = self._scrape_profile_posts()
             else:
                 self.logger.error(f"Unknown scraping type: {scraping_type}")
                 self._complete_scraping_session(error_message=f"Unknown scraping type: {scraping_type}")

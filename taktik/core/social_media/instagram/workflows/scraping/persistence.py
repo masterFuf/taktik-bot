@@ -15,6 +15,15 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PRO
 console = Console()
 
 
+def _targets_label(targets) -> str:
+    """The session row's source name for a list of accounts: the first three, then a count."""
+    targets = list(targets or [])
+    label = ', '.join(f"@{t}" for t in targets[:3])
+    if len(targets) > 3:
+        label += f" (+{len(targets) - 3} more)"
+    return label
+
+
 class ScrapingPersistenceMixin:
     """Mixin: CSV export, DB save, session management, enrichment, stats display."""
 
@@ -249,10 +258,12 @@ class ScrapingPersistenceMixin:
             
             if scraping_type == 'target':
                 source_type = 'TARGET'
-                targets = self.config.get('target_usernames', [])
-                source_name = ', '.join([f"@{t}" for t in targets[:3]])
-                if len(targets) > 3:
-                    source_name += f" (+{len(targets) - 3} more)"
+                source_name = _targets_label(self.config.get('target_usernames', []))
+            elif scraping_type == 'profile_posts':
+                # Posts, not profiles: the session row still says which accounts were walked.
+                source_type = 'PROFILE_POSTS'
+                scrape_type = 'profile_posts'
+                source_name = _targets_label(self.config.get('target_usernames', []))
             elif scraping_type == 'hashtag':
                 source_type = 'HASHTAG'
                 source_name = f"#{self.config.get('hashtag', 'unknown')}"
@@ -291,15 +302,17 @@ class ScrapingPersistenceMixin:
         
         try:
             local_db = self._local_db()
+            # A profile-posts run counts posts; every other source counts profiles.
+            total = len(self.scraped_profiles) + len(getattr(self, 'scraped_posts', []))
             local_db.complete_scraping_session(
                 scraping_id=self.scraping_session_id,
-                total_scraped=len(self.scraped_profiles),
+                total_scraped=total,
                 csv_path=self.csv_export_path,
                 error_message=error_message
             )
-            
+
             status = 'ERROR' if error_message else 'COMPLETED'
-            self.logger.info(f"Scraping session {self.scraping_session_id} {status}: {len(self.scraped_profiles)} profiles")
+            self.logger.info(f"Scraping session {self.scraping_session_id} {status}: {total} rows")
             
         except Exception as e:
             self.logger.warning(f"Could not complete scraping session: {e}")

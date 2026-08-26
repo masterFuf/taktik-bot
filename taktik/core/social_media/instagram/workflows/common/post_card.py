@@ -82,12 +82,7 @@ def read_open_post_card(
     if not author and author_hint:
         author = author_hint.strip().lstrip("@").lower() or None
 
-    post_url = None
-    if with_url:
-        raw_url = get_post_url_from_share(device, logger)
-        post_url = canonical_post_url(raw_url)
-        if raw_url and not post_url and logger:
-            logger.warning(f"read_open_post_card: share URL without a shortcode: {raw_url!r}")
+    post_url = read_open_post_url(device, logger) if with_url else None
 
     return PostCard(
         author=author,
@@ -100,6 +95,19 @@ def read_open_post_card(
         post_ref=build_post_ref(author, caption),
         counters_atomic=atomic,
     )
+
+
+def read_open_post_url(device, logger=None) -> Optional[str]:
+    """The open post's shareable URL in canonical form, or None.
+
+    The expensive read (share sheet, copy link, read back), kept separate so a caller that
+    recognised the post by its `post_ref` can skip it.
+    """
+    raw_url = get_post_url_from_share(device, logger)
+    post_url = canonical_post_url(raw_url)
+    if raw_url and not post_url and logger:
+        logger.warning(f"read_open_post_url: share URL without a shortcode: {raw_url!r}")
+    return post_url
 
 
 def _read_counters(extractors, is_reel: bool, logger=None):
@@ -216,4 +224,4 @@ def _read_reel_context(device, logger=None):
     return author, caption, date_label
 
 
-__all__ = ["PostCard", "read_open_post_card"]
+__all__ = ["PostCard", "read_open_post_card", "read_open_post_url"]

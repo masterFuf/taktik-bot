@@ -10,8 +10,11 @@ its own device connection, which would fight the one the bench already holds. Th
 targets `run_scraping_workflow`, the layer just below — the same one the bridge itself calls once
 it has connected — and hands it the bench's own device manager.
 
-`scrape_e_story` stays unwired: the production scraping workflow only knows target, hashtag and
-post_url.
+`scrape_profile_posts` probes the post catalogue source: with persistence off it opens a few posts
+of the target and reads their cards without writing a row.
+
+`scrape_e_story` stays unwired: the production scraping workflow only knows target, hashtag,
+post_url and profile_posts.
 """
 from __future__ import annotations
 
@@ -22,6 +25,7 @@ _SCRAPING_TYPES = {
     "scrape_account": "target",
     "scrape_hashtag": "hashtag",
     "scrape_post_url": "post_url",
+    "scrape_profile_posts": "profile_posts",
 }
 
 
@@ -51,6 +55,9 @@ def _bridge_config(scraping_type: str, target, limits: dict, delays) -> dict:
     elif scraping_type == "hashtag":
         config["hashtags"] = [str(t).lstrip("#") for t in targets]
         config["maxPosts"] = 5
+    elif scraping_type == "profile_posts":
+        config["targetUsernames"] = [str(t).lstrip("@") for t in targets]
+        config["maxPostsPerTarget"] = 3
     else:
         config["postUrls"] = targets
 
@@ -66,7 +73,7 @@ def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, del
             ipc,
             workflow_type,
             "bridges.instagram.scraping.runtime.workflow.run_scraping_workflow "
-            "(production knows target, hashtag and post_url only)",
+            "(production knows target, hashtag, post_url and profile_posts only)",
         )
 
     if not target:

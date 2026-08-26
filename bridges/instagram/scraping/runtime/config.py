@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import re
 
+from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scraping import (
+    DEFAULT_MAX_POSTS_PER_TARGET,
+)
+
 
 #: Profile filters read by ScrapingListMixin._get_profile_filter_reason. They stay in camelCase
 #: on purpose: that is exactly what the workflow reads (list_scraping.py). Renaming them here
@@ -95,6 +99,16 @@ def build_scraping_config(config: dict) -> dict:
         # reached by navigating to it. `source_name` is free text kept for the scraping session row.
         scraping_config['usernames'] = config.get('usernames', [])
         scraping_config['source_name'] = config.get('sourceName', 'manual selection')
+    elif config.get('type') == 'profile_posts':
+        # Catalogue the POSTS of these accounts (social_posts); no profile is scraped.
+        scraping_config['target_usernames'] = config.get('targetUsernames', [])
+        scraping_config['scrape_type'] = 'profile_posts'
+        max_posts = config.get('maxPostsPerTarget')
+        scraping_config['max_posts_per_target'] = (
+            int(max_posts) if max_posts is not None and int(max_posts) > 0 else DEFAULT_MAX_POSTS_PER_TARGET
+        )
+        # Re-read the counters of posts already catalogued (default) or leave them untouched.
+        scraping_config['refresh_known'] = bool(config.get('refreshKnown', True))
 
     ai_config = config.get('ai', {})
     if ai_config and ai_config.get('enabled'):

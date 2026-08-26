@@ -15,7 +15,8 @@
     "scraping": [
       "target",
       "hashtag",
-      "post_url"
+      "post_url",
+      "profile_posts"
     ],
     "account": [
       "login",
