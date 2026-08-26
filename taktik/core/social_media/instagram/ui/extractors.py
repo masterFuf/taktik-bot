@@ -637,10 +637,15 @@ def parse_number_from_text(text: str) -> int:
         return 0
 
 
-# "Reel by <username>. Double-tap…" — two words of label, then the username, then the end of
-# the sentence. The username is matched lazily and the sentence must end with a dot FOLLOWED BY
-# a space (or the string end), so a dot INSIDE a username is not read as the sentence end.
-_MEDIA_LABEL_AUTHOR = re.compile(r'^\S+\s+\S+\s+([A-Za-z0-9._]+?)(?:\.\s|\.?$)')
+# "Reel by <username>. Double-tap…" — two words of label, then the username, then whatever
+# closes it. The username is matched lazily and must be followed by a dot AND a space, a comma,
+# or the string end, so a dot INSIDE a username is never read as the terminator.
+#
+# The comma is not decoration: IG 442 appends the counters to the same label — "Reel de
+# arproductionstudio, 96 J’aime, 9 commentaires, 9 août" — so a rule that only accepted a
+# closing dot found no author at all on that build, and the hashtag workflow's 7-day dedup,
+# which keys on the author, went quietly back to processing the same reels.
+_MEDIA_LABEL_AUTHOR = re.compile(r'^\S+\s+\S+\s+([A-Za-z0-9._]+?)(?:\.\s|,|\.?$)')
 
 
 def username_from_media_label(label: Optional[str]) -> Optional[str]:

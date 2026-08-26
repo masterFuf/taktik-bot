@@ -382,7 +382,13 @@ STRINGS: Dict[str, List[str]] = {
     "hashtag.hashtag_header": [
         "//*[contains(@text, \"publications\")]",
     ],
-    "hashtag.reel_author_container": [],
+    # Le libelle du media est traduit : "Reel de X" ici, "Reel by X" en anglais. La liste
+    # etait VIDE cote francais, donc sur un telephone FR le seul candidat restant etait
+    # `clips_media_component` -- disparu en 442 -- et l'auteur d'un reel etait toujours
+    # illisible. `username_from_media_label` sait deja lire les deux formes.
+    "hashtag.reel_author_container": [
+        "//*[contains(@content-desc, \"Reel de\")]",
+    ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
     # labels, not xpaths: the fields of that surface carry no resource-id, so the text
     # seul point d'ancrage possible.

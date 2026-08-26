@@ -73,6 +73,19 @@ def test_reads_the_author_whatever_the_language(label, expected):
     assert username_from_media_label(label) == expected
 
 
+@pytest.mark.parametrize("label,expected", [
+    # IG 442 appends the counters to the very same label, so the author is followed by a comma
+    # instead of the closing dot the rule used to require -- and no author came back at all.
+    # Verbatim from a 442 device.
+    ("Reel de arproductionstudio, 96 J’aime, 9 commentaires, 9 août", "arproductionstudio"),
+    ("Reel by taktik_r2d2, 12 likes, 3 comments", "taktik_r2d2"),
+    # A dot inside the username still survives the comma rule.
+    ("Reel de marie.dupont, 4 J’aime", "marie.dupont"),
+])
+def test_reads_the_author_when_the_counters_follow_it(label, expected):
+    assert username_from_media_label(label) == expected
+
+
 def test_a_dot_inside_a_username_is_not_the_end_of_the_sentence():
     assert username_from_media_label("Reel de marie.dupont. Appuyez deux fois") == "marie.dupont"
 
