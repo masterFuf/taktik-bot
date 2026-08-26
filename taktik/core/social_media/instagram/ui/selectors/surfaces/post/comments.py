@@ -126,7 +126,23 @@ class PostCommentsSelectors:
     )
     comment_drag_handle_frame: str = '//*[contains(@resource-id, "bottom_sheet_drag_handle_frame")]'
     ime_nav_back_button: str = '//*[@resource-id="android:id/input_method_nav_back"]'
-    comment_sort_button: str = POST_SELECTORS.comment_sort_button
+    @property
+    def comment_sort_button(self) -> str:
+        """The sort control of a comments sheet, showing whatever sort is CURRENTLY applied.
+
+        It used to be the single English content-desc "For you", so it matched nothing on a
+        French phone -- and the caller then went on believing it had switched the sort while the
+        thread stayed on the default. Every label the catalog knows is accepted, on text as well
+        as content-desc: on IG 442 the label lives in the TEXT of a child View that carries no
+        content-desc at all (measured: `<Button><View text="Pour vous"/></Button>`).
+        """
+        labels = [label for pair in self.sort_options.values() for label in pair]
+        predicate = " or ".join(f'@text="{label}" or @content-desc="{label}"' for label in labels)
+        # Scoped to the comments list, and not for tidiness: the FEED's own header reads "Pour
+        # vous" too, and so does a tab on the hashtag page, so the unscoped form matched a
+        # control on screens that have no comment sorting at all. Measured across the captured
+        # screens, the scoped form answers 1 on a populated comments sheet and 0 on every other.
+        return f"{self.comments_list_selector()}//*[{predicate}]"
     default_sort_label: str = "For you"
     sort_button_labels: Tuple[str, ...] = ("Most recent", "Les plus récents", "Meta Verified")
     sort_options: Dict[str, Tuple[str, ...]] = field(default_factory=lambda: {
@@ -194,9 +210,14 @@ class PostCommentsSelectors:
         """Return the comments list selector from the catalog-owned resource id."""
         return f'//*[@resource-id="{self.comments_list_resource_id}"]'
 
-    def sort_option_by_content_description(self, label: str) -> str:
-        """Return the context-menu option selector for a visible sort label."""
-        return f'//*[@content-desc="{label}"]'
+    def sort_option_selector(self, label: str) -> str:
+        """The sort menu's option carrying `label`, by content-desc or by text.
+
+        Measured on 442: an option is `<Button resource-id=context_menu_item content-desc="Les
+        plus recents">` wrapping a `<TextView content-desc="" text="Les plus recents">`, so the
+        label appears on one attribute or the other depending which node answers first.
+        """
+        return f'//*[@content-desc="{label}" or @text="{label}"]'
 
 
 POST_COMMENTS_SELECTORS = PostCommentsSelectors()

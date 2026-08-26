@@ -251,22 +251,31 @@ class PostEngagementScrapingMixin:
                     sort_btn.click()
                 time.sleep(1)
                 
-                # Select the desired sort option
-                sort_map = {
-                    'most_recent': 'Most recent',
-                    'meta_verified': 'Meta Verified'
-                }
-                
-                target = sort_map.get(self.comment_sort, 'Most recent')
-                option = self.device.xpath(
-                    POST_COMMENTS_SELECTORS.sort_option_by_content_description(target)
+                # The option labels come from the catalog, in every language it knows: the
+                # English map hardcoded here matched nothing on a French phone, where the menu
+                # reads "Les plus recents" -- so the menu opened, no option was found, and the
+                # thread silently kept its default sort while the run reported the switch.
+                labels = POST_COMMENTS_SELECTORS.sort_options.get(
+                    self.comment_sort, POST_COMMENTS_SELECTORS.sort_options['most_recent']
                 )
-                if option.exists:
+                chosen = None
+                for label in labels:
+                    option = self.device.xpath(POST_COMMENTS_SELECTORS.sort_option_selector(label))
+                    if not option.exists:
+                        continue
                     if not tap_element_human(self.device, option):
                         option.click()
+                    chosen = label
+                    break
+
+                if chosen:
                     time.sleep(1)
-                    console.print(f"[dim]Sorted by: {target}[/dim]")
+                    console.print(f"[dim]Sorted by: {chosen}[/dim]")
                 else:
+                    self.logger.warning(
+                        f"Comment sort '{self.comment_sort}' not offered by this menu "
+                        f"(tried {list(labels)}) - leaving the default"
+                    )
                     # Click outside to close menu
                     self.device.press("back")
                     
