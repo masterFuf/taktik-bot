@@ -816,6 +816,16 @@ STRINGS: Dict[str, List[str]] = {
     # comment" on a comment with no likes yet, or "<N> likes. Double tap to like comment
     # and press and hold to see all likes". Both share the fragment below).
     # IG 442 prefixes the comment body with "<handle> said ". Stripped when reading.
+    # IG 442 rebuilt the feed suggestions carousel in Compose: no resource-id survives, so
+    # the header/CTA pair is the only handle left. Paired on one row, never alone.
+    "feed_suggestions.carousel_title_texts": [
+        "Suggested for you",
+        "Suggestions for you",
+    ],
+    "feed_suggestions.carousel_cta_texts": [
+        "See all",
+        "See All",
+    ],
     "post_comments.comment_empty_state_texts": [
         "No comments",
     ],

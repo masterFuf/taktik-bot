@@ -72,6 +72,52 @@ def _top_of(node) -> Optional[int]:
 # Suggestions carousel in the feed
 # =============================================================================
 
+
+def _labelled(node) -> str:
+    """The node's visible label, from text or content-desc, normalised for comparison."""
+    for attribute in ("text", "content-desc"):
+        value = (node.get(attribute) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _compose_header_and_cta(root, selectors):
+    """The carousel's ``(title, cta_bounds)`` read from labels alone, or ``(None, None)``.
+
+    The pairing rule is what makes a label-based match safe: the CTA must sit on the SAME ROW
+    as the carousel's own header and to its RIGHT. A "See all" heading some other feed section
+    has a different header on its row, so it cannot be mistaken for this one.
+    """
+    titles = {t.strip().lower() for t in getattr(selectors, "carousel_title_texts", []) if t}
+    ctas = {c.strip().lower() for c in getattr(selectors, "carousel_cta_texts", []) if c}
+    if not titles or not ctas:
+        return None, None
+
+    headers, buttons = [], []
+    for node in root.iter("node"):
+        label = _labelled(node)
+        if not label:
+            continue
+        box = parse_bounds(node.get("bounds") or "")
+        if not box:
+            continue
+        lowered = label.lower()
+        if lowered in titles:
+            headers.append((label, box))
+        elif lowered in ctas:
+            buttons.append(box)
+
+    for label, header_box in headers:
+        header_centre = (header_box[1] + header_box[3]) // 2
+        for cta_box in buttons:
+            on_same_row = cta_box[1] <= header_centre <= cta_box[3]
+            to_the_right = cta_box[0] >= header_box[2]
+            if on_same_row and to_the_right:
+                return label, cta_box
+    return None, None
+
+
 def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
     """State of the suggestions carousel in the feed dump.
 
@@ -108,6 +154,18 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
                 "state_label": _label_of(follow_node),
                 "follow_bounds": parse_bounds(follow_node.get("bounds") or ""),
             })
+
+    # IG 442 rebuilt the block in Compose and kept NO resource-id: `netego_carousel_*` is
+    # absent from the dump entirely, so everything above finds nothing and the only entry point
+    # to the people-discovery screen became unreachable. The header and the CTA survive as two
+    # labelled nodes on one row, which is the handle used here -- paired, never alone, because
+    # "See all" by itself also heads other feed sections.
+    if not result["cta_bounds"]:
+        title, cta_bounds = _compose_header_and_cta(root, selectors)
+        if cta_bounds:
+            result["cta_bounds"] = cta_bounds
+            if title and not result["title"]:
+                result["title"] = title
 
     # A lone CTA with no container, which an alternative server layout serves, is enough
     # to consider the block present: it is what gets tapped.

@@ -765,6 +765,16 @@ STRINGS: Dict[str, List[str]] = {
     # Heart control of a comment row, NOT-LIKED state (raw text, NOT an xpath —
     # matched by CONTAINMENT against the node content-desc).
     # IG 442 prefixe le corps du commentaire par "<pseudo> a dit ". Fragment retire a la lecture.
+    # IG 442 rebuilt the feed suggestions carousel in Compose: no resource-id survives, so
+    # the header/CTA pair is the only handle left. Paired on one row, never alone.
+    "feed_suggestions.carousel_title_texts": [
+        "Suggestions pour vous",
+        "Suggestions pour toi",
+    ],
+    "feed_suggestions.carousel_cta_texts": [
+        "Voir tout",
+        "Tout afficher",
+    ],
     "post_comments.comment_empty_state_texts": [
         "Aucun commentaire",
     ],

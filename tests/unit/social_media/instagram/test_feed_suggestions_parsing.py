@@ -19,6 +19,10 @@ import pytest
 
 from lxml import etree
 
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import (
+    FEED_SUGGESTIONS_SELECTORS,
+)
+
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
 )
@@ -224,3 +228,60 @@ def test_only_the_french_follow_rows_are_followable():
         assert [row['label'] for row in followable_rows(rows)] == ['Inconnu']
     finally:
         set_active_locale(None)
+
+
+# ── IG 442: the carousel kept its shape and lost every resource-id ───────────────────────
+#
+# Structure from a real 442 capture (2026-08-26). `netego_carousel_*` is absent from the dump
+# ENTIRELY -- header and CTA are two labelled ViewGroups on one row, and nothing else marks the
+# block. Since that CTA is the only entry point to the people-discovery screen in the whole
+# codebase, losing it made the surface unreachable rather than merely undetected.
+COMPOSE_CAROUSEL = """
+<hierarchy>
+  <node class="android.view.ViewGroup" bounds="[0,1560][1080,1700]" content-desc="">
+    <node class="android.view.ViewGroup" bounds="[42,1604][595,1655]"
+          text="Suggestions pour vous" content-desc="Suggestions pour vous"/>
+    <node class="android.view.ViewGroup" bounds="[790,1604][963,1655]"
+          text="Voir tout" content-desc="Voir tout"/>
+  </node>
+</hierarchy>
+"""
+
+# The same labels, but belonging to two different rows: a "See all" that heads another feed
+# section must never be taken for the suggestions CTA.
+COMPOSE_OTHER_SECTION = """
+<hierarchy>
+  <node class="android.view.ViewGroup" bounds="[0,900][1080,1040]" content-desc="">
+    <node class="android.view.ViewGroup" bounds="[42,944][595,995]"
+          text="Reels populaires" content-desc="Reels populaires"/>
+    <node class="android.view.ViewGroup" bounds="[790,944][963,995]"
+          text="Voir tout" content-desc="Voir tout"/>
+  </node>
+</hierarchy>
+"""
+
+
+def test_the_compose_carousel_is_found_without_a_single_resource_id():
+    carousel = parse_feed_suggestions_carousel(
+        etree.fromstring(COMPOSE_CAROUSEL.encode()), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["present"] is True
+    assert carousel["title"] == "Suggestions pour vous"
+    assert carousel["cta_bounds"] == (790, 1604, 963, 1655)
+
+
+def test_a_see_all_heading_another_section_is_not_the_carousel():
+    carousel = parse_feed_suggestions_carousel(
+        etree.fromstring(COMPOSE_OTHER_SECTION.encode()), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["present"] is False
+    assert carousel["cta_bounds"] is None
+
+
+def test_a_cta_left_of_its_header_is_not_paired():
+    # Guards the geometry rather than the labels: the CTA sits at the right end of the row.
+    mirrored = COMPOSE_CAROUSEL.replace('bounds="[790,1604][963,1655]"', 'bounds="[10,1604][40,1655]"')
+    carousel = parse_feed_suggestions_carousel(
+        etree.fromstring(mirrored.encode()), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["cta_bounds"] is None

@@ -116,9 +116,34 @@ class FeedSuggestionsSelectors:
     ])
 
     # === "See all" CTA -> people discovery screen ===
-    carousel_see_all: List[str] = field(default_factory=lambda: [
+    _carousel_see_all_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/netego_carousel_cta"]',
     ])
+
+    @property
+    def carousel_see_all(self) -> List[str]:
+        """The CTA: by id first, then by label with the carousel's header required on screen.
+
+        This list feeds the LIGHT probe that runs on every post of the feed loop, so it must
+        stay cheap -- hence one composed clause rather than one per label pair. On IG 442 the
+        block carries no id at all, so without the second clause the carousel is never seen and
+        the people-discovery screen is unreachable. A lone "See all" would not do: other feed
+        sections head their row with the same word, which is why the clause also demands the
+        suggestions header somewhere on screen. Exact row pairing is left to
+        `parse_feed_suggestions_carousel`, which the callers run straight after.
+        """
+        clauses = list(self._carousel_see_all_base)
+        titles = self.carousel_title_texts
+        ctas = self.carousel_cta_texts
+        if titles and ctas:
+            cta_predicate = " or ".join(
+                f'@text="{label}" or @content-desc="{label}"' for label in ctas
+            )
+            title_predicate = " or ".join(
+                f'@text="{label}" or @content-desc="{label}"' for label in titles
+            )
+            clauses.append(f"//*[{cta_predicate}][//*[{title_predicate}]]")
+        return clauses
 
     # === Inline carousel cards (follow without leaving the feed) ===
     card_container: List[str] = field(default_factory=lambda: [
@@ -141,6 +166,19 @@ class FeedSuggestionsSelectors:
     card_container_id: str = "suggested_entity_card_container"
     card_name_id: str = "suggested_entity_card_name"
     card_follow_button_id: str = "suggested_user_card_follow_button"
+
+    # --- Compose fallback: the labels, because IG 442 left nothing else ---
+    # Verified on device: the carousel's header and its CTA are two ViewGroups carrying only
+    # text and content-desc, with NO resource-id anywhere in the block -- `netego_carousel_*`
+    # is entirely absent. Labels are a last resort, which is why they are paired by row rather
+    # than matched alone: "See all" on its own also heads other feed sections.
+    @property
+    def carousel_title_texts(self) -> List[str]:
+        return L("feed_suggestions.carousel_title_texts")
+
+    @property
+    def carousel_cta_texts(self) -> List[str]:
+        return L("feed_suggestions.carousel_cta_texts")
 
 
 FEED_SUGGESTIONS_SELECTORS = FeedSuggestionsSelectors()
