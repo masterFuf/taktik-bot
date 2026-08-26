@@ -31,6 +31,10 @@ from .schemas.posted_comments import (
 )
 from .schemas.scraping import create_scraping_tables, create_scraping_indexes
 from .schemas.social_graph import create_social_graph_tables
+from .schemas.social_posts import (
+    create_social_posts_tables,
+    create_social_posts_indexes,
+)
 from .schemas.tiktok import create_tiktok_tables, create_tiktok_indexes
 
 
@@ -58,6 +62,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_posted_comments_indexes(cursor)
     create_post_analysis_tables(cursor)
     create_post_analysis_indexes(cursor)
+    create_social_posts_tables(cursor)
+    create_social_posts_indexes(cursor)
     create_ai_benchmark_tables(cursor)
     create_ai_benchmark_indexes(cursor)
 

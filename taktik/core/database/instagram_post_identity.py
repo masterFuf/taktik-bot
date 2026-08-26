@@ -19,11 +19,63 @@ Known limits, deliberate:
 from __future__ import annotations
 
 import hashlib
-from typing import Optional
+from typing import Optional, Tuple
+from urllib.parse import urlsplit
 
 # Below this many characters a caption is too weak to identify a post on its own
 # ("Merci ❤️", "✨", an emoji row are all plausible duplicates across posts).
 MIN_DISCRIMINATING_CAPTION = 15
+
+# URL path markers that precede a post's shortcode, mapped to the post type they imply.
+_POST_URL_KINDS = {"p": "post", "reel": "reel", "reels": "reel", "tv": "post"}
+
+
+def split_post_url(post_url: Optional[str]) -> Optional[Tuple[str, str]]:
+    """The (kind, shortcode) carried by an Instagram post URL, or None.
+
+    Accepts every shape the app hands out: ``/p/<code>/``, ``/reel/<code>/``,
+    ``/reels/<code>/``, ``/tv/<code>/``, the web form ``/<user>/p/<code>/``, with or
+    without scheme, trailing slash, query (``?igsh=...``) or fragment.
+    """
+    raw = (post_url or "").strip()
+    if not raw:
+        return None
+    if "://" not in raw:
+        raw = "https://" + raw
+    segments = [s for s in urlsplit(raw).path.split("/") if s]
+    for marker, code in zip(segments, segments[1:]):
+        kind = _POST_URL_KINDS.get(marker.lower())
+        if kind and code:
+            return kind, code
+    return None
+
+
+def canonical_post_url(post_url: Optional[str]) -> Optional[str]:
+    """One URL per post, whatever copy of it we were given.
+
+    A share-sheet link carries a per-copy ``?igsh=`` token, so two copies of the SAME post
+    never compare equal as-is; keyed raw, the catalogue would hold one row per copy. The
+    canonical form keeps only what identifies the post: ``https://www.instagram.com/p/<code>/``
+    (``reels`` folds into ``reel``). Returns None when no shortcode can be read.
+    """
+    parts = split_post_url(post_url)
+    if parts is None:
+        return None
+    kind, code = parts
+    segment = "reel" if kind == "reel" else "p"
+    return f"https://www.instagram.com/{segment}/{code}/"
+
+
+def post_shortcode_from_url(post_url: Optional[str]) -> Optional[str]:
+    """The shortcode inside a post URL, or None."""
+    parts = split_post_url(post_url)
+    return parts[1] if parts else None
+
+
+def post_type_from_url(post_url: Optional[str]) -> Optional[str]:
+    """``'post'`` or ``'reel'`` as implied by the URL, or None."""
+    parts = split_post_url(post_url)
+    return parts[0] if parts else None
 
 
 def build_post_ref(post_author: Optional[str], post_caption: Optional[str]) -> Optional[str]:
@@ -54,4 +106,12 @@ def is_discriminating_post_ref(post_caption: Optional[str]) -> bool:
     return len((post_caption or "").strip()) >= MIN_DISCRIMINATING_CAPTION
 
 
-__all__ = ["build_post_ref", "is_discriminating_post_ref", "MIN_DISCRIMINATING_CAPTION"]
+__all__ = [
+    "build_post_ref",
+    "is_discriminating_post_ref",
+    "MIN_DISCRIMINATING_CAPTION",
+    "split_post_url",
+    "canonical_post_url",
+    "post_shortcode_from_url",
+    "post_type_from_url",
+]

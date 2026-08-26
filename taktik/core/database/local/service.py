@@ -24,6 +24,7 @@ from ..repositories import (
     SessionRepository,
     ScrapedProfileRepository,
     SocialGraphRepository,
+    SocialPostRepository,
     StatsRepository,
     TikTokRepository
 )
@@ -81,6 +82,7 @@ class LocalDatabaseService:
         self._ai_benchmarks: Optional[AIBenchmarkRepository] = None
         self._sessions: Optional[SessionRepository] = None
         self._scraped_profiles: Optional[ScrapedProfileRepository] = None
+        self._social_posts: Optional[SocialPostRepository] = None
         self._social_graph: Optional[SocialGraphRepository] = None
         self._stats: Optional[StatsRepository] = None
         self._tiktok: Optional[TikTokRepository] = None
@@ -150,6 +152,7 @@ class LocalDatabaseService:
         self._ai_benchmarks = AIBenchmarkRepository(conn, orm)
         self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn, orm)
+        self._social_posts = SocialPostRepository(conn, orm)
         self._social_graph = SocialGraphRepository(conn, orm)
         self._account_restrictions = AccountRestrictionRepository(conn, orm)
         self._stats = StatsRepository(conn, orm)
@@ -237,6 +240,13 @@ class LocalDatabaseService:
         if not self._scraped_profiles:
             self._init_repositories()
         return self._scraped_profiles
+
+    @property
+    def social_posts(self) -> SocialPostRepository:
+        """Access SocialPostRepository — the catalogue of posts observed on target accounts."""
+        if not self._social_posts:
+            self._init_repositories()
+        return self._social_posts
 
     @property
     def social_graph(self) -> SocialGraphRepository:

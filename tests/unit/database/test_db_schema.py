@@ -57,6 +57,7 @@ EXPECTED_TABLES = {
     "processed_hashtag_posts",
     "scraped_profiles",
     # scraped_comments removed (Vague F1): dead table dropped, see smart_comment_replies
+    "social_posts",
     "profile_ai_enrichments",
     # TikTok
     "tiktok_accounts",

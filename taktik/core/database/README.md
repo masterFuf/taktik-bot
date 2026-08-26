@@ -206,17 +206,17 @@ database/
 │ account_id FK           │       └──────────────────────────────┘
 │ date TEXT               │
 │ total_likes INTEGER     │       ┌──────────────────────────────┐
-│ total_follows INTEGER   │       │     instagram_posts          │
+│ total_follows INTEGER   │       │        social_posts          │
 │ total_unfollows INTEGER │       │──────────────────────────────│
-│ total_comments INTEGER  │       │ post_id PK AUTO              │
-│ total_story_views INT   │       │ profile_id FK                │
-│ total_story_likes INT   │       │ account_id FK                │
-│ total_sessions INTEGER  │       │ instagram_post_id TEXT UNIQUE │
-│ completed_sessions INT  │       │ media_type TEXT               │
-│ failed_sessions INTEGER │       │ caption TEXT                  │
+│ total_comments INTEGER  │       │ id PK AUTO                   │
+│ total_story_views INT   │       │ platform TEXT                │
+│ total_story_likes INT   │       │ post_url TEXT (UNIQUE/plat.) │
+│ total_sessions INTEGER  │       │ author_username TEXT         │
+│ completed_sessions INT  │       │ post_ref, shortcode, type    │
+│ failed_sessions INTEGER │       │ caption_preview TEXT         │
 │ total_duration_seconds  │       │ likes_count, comments_count  │
-│ synced_to_api INTEGER   │       │ posted_at TEXT                │
-│ UNIQUE(account_id, date)│       │ status TEXT                   │
+│ synced_to_api INTEGER   │       │ first_seen_at, last_scraped  │
+│ UNIQUE(account_id, date)│       │ scraping_id, sync_id         │
 └─────────────────────────┘       └──────────────────────────────┘
 ```
 

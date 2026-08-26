@@ -8,6 +8,7 @@ from .posted_comment import PostedCommentRepository
 from .session import SessionRepository
 from .scraping import ScrapedProfileRepository
 from .social_graph import SocialGraphRepository
+from .social_post import SocialPostRepository
 from .stats import StatsRepository
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     'SessionRepository',
     'ScrapedProfileRepository',
     'SocialGraphRepository',
+    'SocialPostRepository',
     'StatsRepository',
 ]

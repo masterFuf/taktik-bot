@@ -15,6 +15,7 @@ from .instagram import (
     SessionRepository,
     ScrapedProfileRepository,
     SocialGraphRepository,
+    SocialPostRepository,
     StatsRepository,
 )
 from .restrictions import AccountRestrictionRepository
@@ -33,6 +34,7 @@ __all__ = [
     'SessionRepository',
     'ScrapedProfileRepository',
     'SocialGraphRepository',
+    'SocialPostRepository',
     'StatsRepository',
     'TikTokRepository',
 ]
