@@ -123,19 +123,18 @@ versions:
       - '//*[contains(@hint, "What do you think")]'
       - '//*[@resource-id="com.instagram.android:id/row_comment_textview_comment"]'
 
-    # ── Reel counters (str) — 0/51 each ──────────────────────────────
-    # like_count and comment_count resource-ids no longer present in v417.
-    # Reel like count: the button-based selectors in post.like_count_selectors
-    # still work (row_feed_view_group_buttons//Button found 76/76), but the
-    # standalone reel counter str selectors are broken.
-    detection.reel_like_count_selector:
-      - '//*[@resource-id="com.instagram.android:id/like_count"]'
-      - '//*[contains(@content-desc, "like") and contains(@content-desc, "number")]'
-      - '(//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]//android.widget.Button[@text])[1]'
-
-    detection.reel_comment_count_selector:
-      - '//*[@resource-id="com.instagram.android:id/comment_count"]'
-      - '//*[contains(@content-desc, "comment") and contains(@content-desc, "number")]'
+    # ── Reel counters — nothing to override here ───────────────────
+    # `detection.reel_like_count_selector` and `_comment_count_selector` are `str` fields, so a
+    # YAML list gives them only its FIRST entry -- and that entry was `like_count` /
+    # `comment_count`, which is exactly what the baseline already says. The override was a
+    # no-op that read like a repair, and the compat log counted it as applied. Removed rather
+    # than reordered: the fallbacks it listed are not equivalent. The button-based one returns
+    # the like BUTTON, whose text on 442 is the word "J’aime", not a number, and the
+    # content-desc one is English-only.
+    #
+    # The real reading lives in the extractor: on 442 the media label carries BOTH counts in
+    # one string ("Reel de X, 96 J’aime, 9 commentaires"), which is also what makes the read
+    # atomic. See `extract_post_stats_atomic` and journal IG-UI-025.
 
     # ── Reel indicators — nothing to override here ──
     # `post.reel_indicators` and `detection.reel_indicators` are properties returning the
