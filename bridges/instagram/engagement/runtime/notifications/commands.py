@@ -15,7 +15,15 @@ from bridges.instagram.engagement.runtime.notifications.persistence import (
     load_actioned_hashes,
     record_notification_action,
     record_scan_notifications,
+    record_welcome_dm,
     resolve_account_id,
+)
+from bridges.instagram.engagement.runtime.notifications.welcome_dm import (
+    WELCOME_DM_ACTION,
+    order_batch_actions,
+    send_welcome_dm,
+    wait_before_next_welcome_dm,
+    welcome_dm_skip_reason,
 )
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_session import suggestion_session
@@ -354,7 +362,8 @@ def cmd_follow_back(device_id: str, username: str, package_name: str = None,
 
 def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
               account_username: str = None, source: str = "batch",
-              follow_back_daily_cap: int = None) -> None:
+              follow_back_daily_cap: int = None,
+              welcome_dm_daily_cap: int = None) -> None:
     """Run a LIST of notification actions inside ONE session.
 
     Every action used to be its own bridge invocation: a Python process, a fresh uiautomator2
@@ -368,8 +377,8 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     did happen. Stop is a process kill by design (the operator asked to stop, not to finish the
     current one), so nothing here polls a flag: the last emitted step IS the record.
 
-    Each action is ``{"action": "like"|"reply"|"accept"|"ignore"|"follow_back",
-    "username": str, "text": str?}`` plus an OPTIONAL notification identity
+    Each action is ``{"action": "like"|"reply"|"accept"|"ignore"|"follow_back"|
+    "welcome_dm", "username": str, "text": str?}`` plus an OPTIONAL notification identity
     ``notif_type`` / ``notif_text`` / ``notif_time`` (``text`` is already taken by the
     reply body, hence the prefix). When the identity is there, the entry's stable
     content_hash is computed and the action becomes IDEMPOTENT across scans: an action
@@ -378,12 +387,19 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     ``is_new``. Executed actions are recorded (audit + budget interactions), see
     ``record_notification_action``.
 
+    ``welcome_dm`` sends the private message the app wrote for a brand-new follower. It is
+    the odd one out: it leaves the activity feed, so every ``welcome_dm`` is REORDERED to
+    the end of the batch, it is paced between sends, and it carries its own guards (see
+    ``welcome_dm_skip_reason``) plus a dedicated daily cap. See welcome-dm-spec.md.
+
     One failing action does not abort the rest — a comment whose row scrolled out of reach must not
     cancel the nine others.
     """
     bridge = _connect(device_id, package_name, restart=False)
     workflow = bridge.build_workflow()
 
+    # Welcome DMs walk away from the activity feed, so they run after everything else.
+    actions = order_batch_actions(actions)
     total = len(actions)
     results: list[dict] = []
     done = 0
@@ -391,11 +407,20 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     skipped = 0
     # Preloaded once per verb present in the batch (no per-action DB hit).
     actioned_by_verb: dict[str, set] = {}
-    # Dedicated daily cap for follow_back (autopilot tier 2): counted from the audit
-    # table ONCE, then advanced locally as this batch lands follows. Enforced HERE, not
-    # only front-side: the bot owns the audit table, so the truth of "today" lives here.
-    follow_backs_today = (count_actions_today(account_username, "follow_back")
-                          if follow_back_daily_cap is not None else 0)
+    # Dedicated daily caps (follow_back = autopilot tier 2, welcome_dm = the private
+    # message): counted from the audit table ONCE per verb, then advanced locally as this
+    # batch lands actions. Enforced HERE, not only front-side: the bot owns the audit
+    # table, so the truth of "today" lives here. A verb with no cap passed is uncapped —
+    # that is what an operator's manual selection is.
+    daily_caps = {verb: cap for verb, cap in (("follow_back", follow_back_daily_cap),
+                                              (WELCOME_DM_ACTION, welcome_dm_daily_cap))
+                  if cap is not None}
+    used_today = {verb: count_actions_today(account_username, verb) for verb in daily_caps}
+    # Resolved once, only when the batch actually carries a welcome DM: without it nothing
+    # could be recorded, and the same message would be re-sent at every scan.
+    welcome_account_id = (resolve_account_id(account_username or "")
+                          if any((entry.get("action") or "").strip() == WELCOME_DM_ACTION
+                                 for entry in actions) else None)
 
     for index, entry in enumerate(actions):
         action = (entry.get("action") or "").strip()
@@ -407,34 +432,44 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
                         "text": entry.get("notif_text"), "time": entry.get("notif_time")}
         entry_hash = batch_identity_hash(account_username, identity)
 
-        if action == "follow_back" and follow_back_daily_cap is not None \
-                and follow_backs_today >= follow_back_daily_cap:
-            skipped += 1
-            results.append({"action": action, "username": username,
-                            "success": True, "skipped": True, "reason": "daily_cap",
-                            "message": f"Daily follow-back cap reached ({follow_back_daily_cap})"})
+        def _skip(reason: str, why: str) -> None:
+            """Record one entry as skipped and narrate it. A skip is a SUCCESS carrying a
+            reason: nothing failed, a guard did its job."""
+            results.append({"action": action, "username": username, "success": True,
+                            "skipped": True, "reason": reason, "message": why})
             emit_notif_json({
                 "type": "notification_step", "step": "batch_result",
                 "index": index, "total": total, "action": action,
                 "username": username, "success": True,
-                "message": f"[{index + 1}/{total}] follow_back @{username} — daily cap reached",
+                "message": f"[{index + 1}/{total}] {action} @{username} - {why}",
             }, flush=True)
+
+        cap = daily_caps.get(action)
+        if cap is not None and used_today.get(action, 0) >= cap:
+            skipped += 1
+            _skip("daily_cap", f"daily {action} cap reached ({cap})")
             continue
+
+        if action == WELCOME_DM_ACTION:
+            # Guards a tap-a-row verb does not need: we are about to write to someone
+            # privately, and a second welcome message is worse than none at all.
+            welcome_skip = welcome_dm_skip_reason(welcome_account_id, username)
+            if welcome_skip:
+                skipped += 1
+                _skip(welcome_skip, {
+                    "no_account": "unknown account, nothing could be recorded",
+                    "no_recipient": "no recipient",
+                    "already_dmed": "already messaged",
+                    "conversation_exists": "conversation already started",
+                }.get(welcome_skip, welcome_skip))
+                continue
 
         if entry_hash:
             if action not in actioned_by_verb:
                 actioned_by_verb[action] = load_actioned_hashes(account_username, action)
             if entry_hash in actioned_by_verb[action]:
                 skipped += 1
-                results.append({"action": action, "username": username,
-                                "success": True, "skipped": True,
-                                "message": f"Already {action}ed — skipped"})
-                emit_notif_json({
-                    "type": "notification_step", "step": "batch_result",
-                    "index": index, "total": total, "action": action,
-                    "username": username, "success": True,
-                    "message": f"[{index + 1}/{total}] {action} @{username} already done — skipped",
-                }, flush=True)
+                _skip("already_done", "already done, skipped")
                 continue
 
         emit_notif_json({
@@ -458,6 +493,8 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
                 result = workflow.ignore_request(username)
             elif action == "follow_back":
                 result = workflow.follow_back(username)
+            elif action == WELCOME_DM_ACTION:
+                result = send_welcome_dm(bridge.device, username, text)
             else:
                 result = {"success": False, "error": f"Unknown action: {action}"}
         except Exception as exc:  # noqa: BLE001
@@ -476,12 +513,16 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
             record_notification_action(
                 account_username, action=action, actor_username=username,
                 identity=identity, success=ok, source=source,
-                content=text if action == "reply" else None,
+                content=text if action in ("reply", WELCOME_DM_ACTION) else None,
             )
             if ok and entry_hash:
                 actioned_by_verb.setdefault(action, set()).add(entry_hash)
-        if ok and action == "follow_back":
-            follow_backs_today += 1
+        if ok and action in daily_caps:
+            used_today[action] = used_today.get(action, 0) + 1
+        if ok and action == WELCOME_DM_ACTION:
+            # The shared duplicate marker + the conversation itself, so the message shows
+            # up in DM Responses and syncs to Turso like any other reply we sent.
+            record_welcome_dm(welcome_account_id, username, text)
 
         emit_notif_json({
             "type": "notification_step",
@@ -493,6 +534,11 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
             "success": ok,
             "message": f"[{index + 1}/{total}] {action} @{username} {'ok' if ok else 'failed'}",
         }, flush=True)
+
+        if action == WELCOME_DM_ACTION:
+            # Pace consecutive private messages. The reordering guarantees the DMs are the
+            # tail of the batch, so "last entry" is "last DM".
+            wait_before_next_welcome_dm(is_last=index >= total - 1)
 
     emit_notif_json({
         "type": "result",
@@ -546,6 +592,18 @@ def run_notifications_cli(args: list[str]) -> None:
                 follow_back_daily_cap = None
             args = args[:idx] + args[idx + 2:]
 
+    # Dedicated daily cap for welcome_dm inside a batch. Same contract as the follow-back
+    # cap: absent = uncapped, which is what an operator sending one message by hand is.
+    welcome_dm_daily_cap = None
+    if "--welcome-dm-daily-cap" in args:
+        idx = args.index("--welcome-dm-daily-cap")
+        if idx + 1 < len(args):
+            try:
+                welcome_dm_daily_cap = max(0, int(args[idx + 1]))
+            except ValueError:
+                welcome_dm_daily_cap = None
+            args = args[:idx] + args[idx + 2:]
+
     # Opt-in: how many suggested accounts to VISIT at the END of a scan, from the block
     # at the bottom of the activity screen. Absent / 0 = the scan behaves exactly as before.
     follow_suggestions = 0
@@ -586,6 +644,7 @@ def run_notifications_cli(args: list[str]) -> None:
             "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
             "       [--follow-suggestions <n>] [--ai-config <json>] [--language <code>]\n"
             "       [--source <batch|autopilot>] [--follow-back-daily-cap <n>]\n"
+            "       [--welcome-dm-daily-cap <n>]\n"
             "  scan <device_id> [scroll]\n"
             "  list_requests <device_id> [limit]\n"
             "  accept <device_id> <username>\n"
@@ -675,7 +734,8 @@ def run_notifications_cli(args: list[str]) -> None:
                 sys.exit(1)
             cmd_batch(args[1], parsed, package_name=package_name,
                       account_username=account_username, source=batch_source,
-                      follow_back_daily_cap=follow_back_daily_cap)
+                      follow_back_daily_cap=follow_back_daily_cap,
+                      welcome_dm_daily_cap=welcome_dm_daily_cap)
 
         else:
             emit_notif_error(f"Unknown command: {command}")

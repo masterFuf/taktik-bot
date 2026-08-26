@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.database import configure_db_service, get_db_service
+from taktik.core.database.messaging import DmConversationService, SentDMService
 from taktik.core.database.notifications import NotificationService
 from taktik.core.database.repositories.notifications import NotificationRepository
 
@@ -187,12 +188,82 @@ def build_known_checker(account_username: Optional[str]):
     return _is_known
 
 
+# ---------------------------------------------------------------------------
+# Welcome DM bookkeeping (welcome-dm-spec.md, lot 1)
+# ---------------------------------------------------------------------------
+# A welcome DM is the only notification verb that WRITES to someone privately, so it
+# carries two extra guards the tap-a-row verbs do not need, and it records into the
+# messaging tables rather than into `interactions`: DMs are counted by the front from
+# `dm_messages` (NotificationAttributionRepository, kind 'DM'), so an interaction row
+# would double-count them.
+
+
+def dm_already_sent(account_id: int, recipient: str) -> bool:
+    """True when this account already sent a DM to ``recipient`` (any source).
+
+    The marker is `sent_dms`, SHARED with the cold DM workflow on purpose: someone we
+    already wrote to is not a stranger to greet, whichever flow wrote first.
+    """
+    if not account_id or not recipient:
+        return False
+    try:
+        return SentDMService.check_already_sent(account_id, recipient.strip().lower(), platform=_PLATFORM)
+    except Exception as exc:
+        logger.warning(f"[NOTIF] Sent-DM check failed for @{recipient}: {exc}")
+        return False
+
+
+def dm_conversation_exists(account_id: int, recipient: str) -> bool:
+    """True when a thread with ``recipient`` already carries a message WE sent.
+
+    Welcoming someone we are already talking to reads as a bot. `sent_dms` alone misses
+    this: a conversation started from the inbox (auto-reply, manual answer) never writes
+    that marker.
+    """
+    if not account_id or not recipient:
+        return False
+    try:
+        state = DmConversationService.thread_answer_state(_PLATFORM, account_id, recipient.strip().lower())
+        return bool(state.get("has_sent"))
+    except Exception as exc:
+        logger.warning(f"[NOTIF] DM thread check failed for @{recipient}: {exc}")
+        return False
+
+
+def record_welcome_dm(account_id: int, recipient: str, message: str) -> None:
+    """Record a SENT welcome DM: the shared duplicate marker + the conversation itself.
+
+    Only successes are recorded. `sent_dms` has no success filter on read
+    (`check_already_sent` matches the row whatever its `success`), so recording a failed
+    send would lock the recipient out of every later attempt — the opposite of what a
+    failure means. The audit row in `notification_actions` keeps the failure trail.
+
+    SECURITY (AGENTS): the message body goes to the DB, never to the logs.
+    """
+    if not account_id or not recipient or not message:
+        return
+    handle = recipient.strip().lower()
+    try:
+        SentDMService.record(account_id, handle, message, True, platform=_PLATFORM)
+    except Exception as exc:
+        logger.warning(f"[NOTIF] Could not record the sent-DM marker for @{handle}: {exc}")
+    try:
+        DmConversationService.record_sent_message(
+            platform=_PLATFORM, account_id=account_id, partner_username=handle, text=message,
+        )
+    except Exception as exc:
+        logger.warning(f"[NOTIF] Could not record the DM conversation for @{handle}: {exc}")
+
+
 __all__ = [
     "batch_identity_hash",
     "build_known_checker",
     "count_actions_today",
+    "dm_already_sent",
+    "dm_conversation_exists",
     "load_actioned_hashes",
     "record_notification_action",
     "record_scan_notifications",
+    "record_welcome_dm",
     "resolve_account_id",
 ]
