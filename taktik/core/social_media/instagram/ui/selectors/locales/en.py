@@ -834,11 +834,16 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "post_comments.comment_like_button": [
         "to like comment",
+        # Mirror of the French rework measured on 442, where the article appears once the
+        # comment already carries likes. NOT read on an English device -- harmless if wrong,
+        # since an unmatched control is simply left alone.
+        "to like a comment",
     ],
     # Same control, ALREADY-liked state. Tested FIRST and wins, so a liked comment is never
     # tapped again (which would unlike it).
     "post_comments.comment_unlike_button": [
         "to unlike comment",
+        "to unlike a comment",
     ],
     # --- post_grid ---
     "post_grid.back_button_selectors": [

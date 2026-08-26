@@ -783,12 +783,20 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "post_comments.comment_like_button": [
         "aimer le commentaire",
+        # IG 442 reworded the heart, and the wording depends on the like COUNT: a comment with
+        # none says "Appuyez pour aimer LE commentaire", one that already has some says
+        # "... pour aimer UN commentaire ...". Both read on a 442 device.
+        "aimer un commentaire",
     ],
     # Same control, ALREADY-LIKED state. Tested FIRST and taking priority: the
     # already-liked label CONTAINS the fragment above, so testing the positive one
     # first would tap an already-liked comment and silently UNLIKE it.
     "post_comments.comment_unlike_button": [
         "ne plus aimer le commentaire",
+        # Same rework, already-liked side. Read on a device by liking a comment and dumping:
+        # "2 J'aime. Appuyez deux fois pour ne plus aimer un commentaire ...". It CONTAINS the
+        # positive fragment above, which is exactly why this list is tested FIRST.
+        "ne plus aimer un commentaire",
     ],
     # --- post_grid ---
     "post_grid.back_button_selectors": [],

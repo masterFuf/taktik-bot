@@ -16,10 +16,14 @@ from taktik.core.social_media.instagram.workflows.common.comments_thread import 
     read_comment_texts,
 )
 
-EN_LIKE = ["to like comment"]
-EN_UNLIKE = ["to unlike comment"]
-FR_LIKE = ["aimer le commentaire"]
-FR_UNLIKE = ["ne plus aimer le commentaire"]
+# The article changes with the like COUNT on IG 442: a comment with none says "aimer LE
+# commentaire", one that already has some says "aimer UN commentaire". Both fragments are read
+# off a device, and the already-liked wording CONTAINS the positive one -- which is why the
+# unlike list is always tested first.
+EN_LIKE = ["to like comment", "to like a comment"]
+EN_UNLIKE = ["to unlike comment", "to unlike a comment"]
+FR_LIKE = ["aimer le commentaire", "aimer un commentaire"]
+FR_UNLIKE = ["ne plus aimer le commentaire", "ne plus aimer un commentaire"]
 
 # Real dump, trimmed to the comment rows. Note the post card's own counter buttons at the
 # bottom: they sit under the sheet and must never be mistaken for a row.
@@ -272,14 +276,28 @@ def test_compose_like_control_is_paired_to_its_row():
     assert target["already_liked"] is False
 
 
-def test_a_comment_that_already_has_likes_is_left_alone_for_now():
-    # KNOWN GAP, deliberate. On 442 a comment that already carries likes describes its heart as
-    # "... to like A comment ...", which none of our labels match, so nothing is returned and the
-    # caller does nothing. Broadening the label is NOT safe until the ALREADY-LIKED wording has
-    # been observed on a device: if that wording keeps the same instruction sentence, a broader
-    # match would tap a liked comment and UNLIKE it while reporting a like.
+def test_a_comment_that_already_has_likes_is_actionable():
+    # A comment carrying likes describes its heart with the article ("to like A comment"), which
+    # the earlier single fragment missed -- so those comments were silently never liked.
     root = _compose_root()
-    assert find_comment_like_target(root, "taktik_r2d2", EN_LIKE, EN_UNLIKE) is None
+    target = find_comment_like_target(root, "taktik_r2d2", EN_LIKE, EN_UNLIKE)
+    assert target is not None
+    assert target["already_liked"] is False
+
+
+def test_an_already_liked_comment_is_never_tapped_again():
+    # THE dangerous case, and the reason the unlike list is tested first: "ne plus aimer un
+    # commentaire" CONTAINS "aimer un commentaire", so reading the positive fragment first would
+    # tap a liked comment -- UNLIKING it while reporting a like. Wording read on a 442 device.
+    liked = COMPOSE_THREAD.replace(
+        "45 likes. Double tap to like a comment and press and hold to see all likes",
+        "45 J’aime. Appuyez deux fois pour ne plus aimer un commentaire et maintenez appuye",
+    )
+    target = find_comment_like_target(
+        etree.fromstring(liked.encode()), "taktik_r2d2", FR_LIKE, FR_UNLIKE
+    )
+    assert target is not None
+    assert target["already_liked"] is True
 
 
 def test_compose_bodies_are_read_with_their_author():
