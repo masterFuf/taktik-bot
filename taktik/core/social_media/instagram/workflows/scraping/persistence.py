@@ -229,9 +229,20 @@ class ScrapingPersistenceMixin:
         table.add_column("Value", style="yellow")
         
         table.add_row("⏱️  Duration", f"{elapsed_min}m {elapsed_sec}s")
+
+        # The post collector produces POSTS. Reporting "0 profiles scraped" on a run that
+        # collected forty post URLs describes another run entirely.
+        if self.config.get('type') == 'profile_posts':
+            collected = len(getattr(self, 'scraped_posts', []))
+            table.add_row("🔗 Posts collected", str(collected))
+            table.add_row("📊 Rate", f"{collected / (elapsed / 60):.1f} posts/min" if elapsed > 0 else "N/A")
+            console.print(table)
+            console.print("=" * 60)
+            return
+
         table.add_row("👤 Profiles scraped", str(len(self.scraped_profiles)))
         table.add_row("📊 Rate", f"{len(self.scraped_profiles) / (elapsed / 60):.1f} profiles/min" if elapsed > 0 else "N/A")
-        
+
         # Count by source type
         source_counts = {}
         for p in self.scraped_profiles:
