@@ -42,6 +42,7 @@ from .migration_steps.messaging import run_messaging_migrations
 from .migration_steps.notifications import run_notifications_migrations
 from .migration_steps.account_restrictions import run_account_restriction_migrations
 from .migration_steps.posted_comments import run_posted_comments_migrations
+from .migration_steps.social_posts import run_social_posts_migrations
 
 
 def run_migrations(conn: sqlite3.Connection) -> None:
@@ -73,6 +74,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     run_posted_comments_migrations(cursor)  # additive: kind ('comment' | 'reply') + reply_to_*
     run_feed_ads_migrations(cursor)  # additive: sponsored creatives met in the feed (local-only corpus)
     run_content_relays_migrations(cursor)  # additive: what one account already re-shared from another
+    run_social_posts_migrations(cursor)  # rebuild the empty table without its cut columns
     drop_legacy_discovery_tables(cursor)
     # Lot 4 (audit): runs last so every scraping_sessions column-add (platform) is already
     # applied; only acts on front-touched DBs that still carry the dead discovery column.

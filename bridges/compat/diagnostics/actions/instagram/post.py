@@ -82,39 +82,6 @@ def read_stats(a, p):
     }
 
 
-@action("post.read_card")
-def read_card(a, p):
-    """Read the OPEN post's catalogue card: author, counters, caption, date and share URL.
-
-    The exact composition the profile-posts scan writes to `social_posts`
-    (`read_open_post_card`), on the production extractors, framed-post reader and
-    share-sheet URL read. `with_url=no` skips the share sheet — the cheap read the scan
-    uses to recognise a post it already holds. `username` is the grid's owner, used when
-    the author cannot be read on screen.
-    """
-    from taktik.core.social_media.instagram.workflows.common.post_card import read_open_post_card
-
-    with_url = str(p.get("with_url", "yes")).strip().lower() not in ("no", "false", "0", "")
-    card = read_open_post_card(
-        a.device,
-        logger,
-        ui_extractors=a.like.ui_extractors,
-        scroll_actions=a.scroll,
-        with_url=with_url,
-        author_hint=(p.get("username") or "").strip() or None,
-    )
-    complete = bool(card.author) and (card.post_url is not None or not with_url)
-    return {
-        "success": complete,
-        "message": (
-            f"@{card.author or '?'} | likes={card.likes_count} comments={card.comments_count}"
-            f"{' (atomic)' if card.counters_atomic else ''} | {'reel' if card.is_reel else 'post'}"
-            f" | {card.post_url or ('url skipped' if not with_url else 'no url')}"
-        ),
-        "details": card.as_dict(),
-    }
-
-
 @action("post.navigate_next")
 def navigate_next(a, p):
     """Advance to the next post in the in-viewer sequence with the humanised swipe

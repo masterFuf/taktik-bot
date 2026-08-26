@@ -72,12 +72,6 @@ def post_shortcode_from_url(post_url: Optional[str]) -> Optional[str]:
     return parts[1] if parts else None
 
 
-def post_type_from_url(post_url: Optional[str]) -> Optional[str]:
-    """``'post'`` or ``'reel'`` as implied by the URL, or None."""
-    parts = split_post_url(post_url)
-    return parts[0] if parts else None
-
-
 def build_post_ref(post_author: Optional[str], post_caption: Optional[str]) -> Optional[str]:
     """A cheap, stable-ish identity for a post: author + short hash of its caption.
 
@@ -113,5 +107,4 @@ __all__ = [
     "split_post_url",
     "canonical_post_url",
     "post_shortcode_from_url",
-    "post_type_from_url",
 ]
