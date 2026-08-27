@@ -249,8 +249,14 @@ class DirectNavigationMixin:
                 self.logger.warning(f"⚠️ Position lost - restarting from beginning (was at {total_usernames_seen} usernames)")
         return True
 
-    def _handle_empty_followers_screen(self, scroll_detector):
-        """Handle case when no visible followers found. Returns True if should break."""
+    def _handle_empty_followers_screen(self, scroll_detector, total_usernames_seen=0):
+        """Handle case when no visible followers found.
+
+        Returns the reason to STOP on, or None to carry on. It used to return a bare bool,
+        so the three ways out of here reached the caller stripped of what they knew, the loop
+        broke with no motive set, and the run was filed `completed` — the fallback of a silent
+        exit. Thirteen runs of one account in a week, every one reported as a job done.
+        """
         self.logger.debug("No visible followers found on screen")
         
         # Are we in the suggestions section?
@@ -260,7 +266,7 @@ class DirectNavigationMixin:
             if scroll_detector.click_load_more_if_present():
                 self._human_like_delay('load_more')
                 time.sleep(1.5)
-                return False  # continue
+                return None  # continue
             else:
                 self.logger.debug("No 'See more' button found, trying a small scroll...")
                 self.scroll_actions.scroll_followers_list_down()
@@ -269,30 +275,39 @@ class DirectNavigationMixin:
                 if scroll_detector.click_load_more_if_present():
                     self._human_like_delay('load_more')
                     time.sleep(1.5)
-                    return False  # continue
-                
+                    return None  # continue
+
+                # READ the screen that rescue scroll produced before concluding. This door
+                # used to break on ONE empty scan without ever looking again — while the main
+                # loop needs four consecutive empty scans to call a list gone. A scan that
+                # outruns the loading looks exactly like the end of a list, and the run was
+                # filed as a completed one: 9 profiles of the 69 allowed, at 11% of the list.
+                if self.detection_actions.get_visible_followers_with_elements():
+                    self.logger.info("📋 Followers came back after the scroll - not the end of the list")
+                    return None  # continue
+
                 self.logger.info("🏁 No more real followers to load - end of list")
-                return True  # break
+                return stop_reasons.end_of_list_suggestions()
         
         if scroll_detector.click_load_more_if_present():
             self._human_like_delay('load_more')
-            return False  # continue
+            return None  # continue
         
         if scroll_detector.is_the_end():
             self.logger.info("🏁 End of followers list detected")
-            return True  # break
+            return stop_reasons.no_new_profiles(total_usernames_seen)
         
         load_more_result = self.scroll_actions.check_and_click_load_more()
         if load_more_result is True:
             self.logger.info("✅ 'Voir plus' clicked (no visible followers) - loading more real followers")
             self._human_like_delay('load_more')
             time.sleep(1.0)
-            return False  # continue
+            return None  # continue
         elif load_more_result is False:
             self.logger.info("🏁 End of followers list detected (suggestions section)")
-            return True  # break
+            return stop_reasons.end_of_list_suggestions()
         
-        return False  # continue (will scroll in caller)
+        return None  # continue (will scroll in caller)
 
     def _handle_scroll_and_end_detection(
         self, new_usernames_found, no_new_profiles_count, total_usernames_seen,

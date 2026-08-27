@@ -161,6 +161,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         consecutive_top_loops += 1
                         if consecutive_top_loops >= 8:
                             self.logger.error("🛑 Stuck at top of followers list (8 scans, scrolling does not advance) — stopping")
+                            session_stop_reason = (
+                                session_stop_reason or stop_reasons.stuck_at_top(consecutive_top_loops))
                             break
                         self.logger.info(
                             f"🔄 Back at top of followers list — scrolling past the already-seen region "
@@ -183,8 +185,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         session_stop_reason = session_stop_reason or stop_reasons.list_unavailable()
                         break
                     # Handle end of list, suggestions and scrolling
-                    should_break = self._handle_empty_followers_screen(scroll_detector)
-                    if should_break:
+                    end_reason = self._handle_empty_followers_screen(
+                        scroll_detector, total_usernames_seen)
+                    if end_reason:
+                        session_stop_reason = session_stop_reason or end_reason
                         break
                     scroll_attempts += 1
                     self.scroll_actions.scroll_followers_list_down()
@@ -417,6 +421,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                             continue
                         elif load_more_result is False:
                             self.logger.info("🏁 End of followers list detected (suggestions section)")
+                            session_stop_reason = (
+                                session_stop_reason or stop_reasons.end_of_list_suggestions())
                             break
                         
                         tracker.log_scroll("down")
@@ -424,6 +430,16 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         self._human_like_delay('scroll')
                         scroll_attempts += 1
             
+            # The loop's own scroll ceiling is an exit too. Reached mid-list with budget still
+            # to spend, it used to fall through to the `completed` fallback and reach the
+            # operator as a job done — three runs of one account in a week, one of them at 18%
+            # of a 517-follower list.
+            if (scroll_attempts >= max_scroll_attempts
+                    and stats['interacted'] < max_interactions
+                    and not session_stop_reason):
+                session_stop_reason = stop_reasons.scroll_budget(
+                    scroll_attempts, total_usernames_seen)
+
             # Finalization — sync aliased keys before return
             sync_aliases(stats, 'followers_direct')
             # Surface the session-level stop to callers: a multi-target driver must stop
@@ -443,11 +459,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     # operator can tell a degraded run (626: 23/46) from a healthy one.
                     self.automation.helpers.finalize_session(
                         status='INTERRUPTED', reason=session_stop_reason or stop_reasons.navigation_lost())
-                elif session_stop_reason:
-                    self.automation.helpers.finalize_session(status='COMPLETED', reason=session_stop_reason)
                 else:
-                    reason = stop_reasons.completed(stats['interacted'])
-                    self.automation.helpers.finalize_session(status='COMPLETED', reason=reason)
+                    # The STATUS follows the motive, as it already does at the driver level.
+                    # Hard-coding COMPLETED here filed a run that lost its list exactly like one
+                    # that spent its budget — visible only on a single-target run, since a
+                    # multi-target one finalises at the driver and derived it correctly.
+                    reason = session_stop_reason or stop_reasons.completed(stats['interacted'])
+                    self.automation.helpers.finalize_session(
+                        status=stop_reasons.terminal_status(reason), reason=reason)
 
             return stats
 

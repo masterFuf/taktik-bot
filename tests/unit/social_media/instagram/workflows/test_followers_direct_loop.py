@@ -67,6 +67,11 @@ class _ScrollDetector:
     def notify_new_page(self, visible, processed):
         self.notified.append(list(visible))
 
+    #: The real `_handle_empty_followers_screen` asks the detector twice before concluding.
+    #: Neutral by default: no button to click, not the end.
+    def click_load_more_if_present(self): return False
+    def is_the_end(self): return False
+
 
 class _Helpers:
     def __init__(self):
@@ -93,6 +98,7 @@ class _Actions:
 
     def __init__(self, pages, trace=None):
         self.pages = list(pages) or [[]]
+        self.suggestions_on_pages = set()
         self.index = 0
         self.scrolls = 0
         self.load_more_calls = 0
@@ -115,6 +121,10 @@ class _Actions:
         self.load_more_calls += 1
         return None
 
+    def is_in_suggestions_section(self):
+        """True once the list has run past its real followers, per page index."""
+        return self.index in self.suggestions_on_pages
+
 
 class _StatsManager:
     def display_stats(self, **k): pass
@@ -125,7 +135,8 @@ class Runner(FollowerDirectWorkflowMixin):
     """The REAL mixin, with every collaborator faked out."""
 
     def __init__(self, pages, *, followers_count=100, process_results=None,
-                 ensure_back=True, private_flags=None, loop_on_scan=None):
+                 ensure_back=True, private_flags=None, loop_on_scan=None,
+                 real_empty_screen_handler=False):
         self.logger = _Logger()
         self.device = object()
         self.session_manager = None
@@ -140,6 +151,7 @@ class Runner(FollowerDirectWorkflowMixin):
         self._private_flags = list(private_flags or [])
         self._last_visit_was_private = None
         self._loop_on_scan = list(loop_on_scan or [])
+        self._real_empty_screen_handler = real_empty_screen_handler
         self.processed_calls = []
         self.escaped = 0
         self.empty_screen_calls = 0
@@ -153,9 +165,11 @@ class Runner(FollowerDirectWorkflowMixin):
     def _setup_direct_workflow(self, target_username, stats, config, deep_link, force_search):
         return self._followers_count, {}
 
-    def _handle_empty_followers_screen(self, detector):
+    def _handle_empty_followers_screen(self, detector, total_usernames_seen=0):
         self.empty_screen_calls += 1
-        return False
+        if self._real_empty_screen_handler:
+            return super()._handle_empty_followers_screen(detector, total_usernames_seen)
+        return None
 
     def _process_single_follower_direct(self, username, idx, stats, cfg, account_id,
                                         target, target_count, seen, max_interactions, tracker):
@@ -354,6 +368,11 @@ def test_a_list_stuck_at_the_top_does_eventually_end_the_run():
         f"{runner.detection_actions.scrolls} scrolls on a list that never advances — "
         "the stuck-at-top ceiling is gone"
     )
+    # And it says which ceiling it hit: a list that will not advance is a screen to go and
+    # look at, not a run that did its job.
+    status, reason = runner.automation.helpers.finalized[-1]
+    assert getattr(reason, 'code', None) == 'stuck_at_top'
+    assert status == "INTERRUPTED"
 
 
 def test_lost_navigation_ends_the_whole_run_not_just_the_inner_loop():
@@ -736,3 +755,74 @@ def test_already_known_profiles_stay_out_of_the_rejection_buckets(monkeypatch):
     assert stats['skipped'] == 0
     assert stats['filtered'] == 0
     assert runner.processed_calls == [], "opened a profile it already knew"
+
+
+# --- what a run says when it stops -------------------------------------------
+#
+# Reproduced from institut.rentable, 2026-08-20..27. Eighteen runs filed COMPLETED /
+# `completed`; exactly ONE had reached the budget the operator set. The other seventeen
+# stopped on an exhausted source or an exhausted scroll allowance and said the same word.
+# `completed` is the fallback of a loop that broke without setting a motive, so every silent
+# exit reaches the operator as "the workflow did its job".
+
+
+def _finalised_code(runner):
+    """The stop reason a finalised run carried, by code."""
+    assert runner.automation.helpers.finalized, "the run never finalised"
+    _, reason = runner.automation.helpers.finalized[-1]
+    return getattr(reason, 'code', str(reason))
+
+
+def test_the_end_of_a_source_is_not_a_completed_run():
+    """manon_nail_studio, 2026-08-25: stopped at 9 profiles of the 69 allowed, 14 min of
+    the 125 allowed, having seen 24 of the target's 218 followers. Filed `completed`.
+
+    The list ending is a perfectly good reason to stop. Calling it `completed` is what makes
+    an operator believe their budget was spent.
+    """
+    runner = Runner(pages=[["alice"], [], []], real_empty_screen_handler=True)
+    runner.detection_actions.suggestions_on_pages = {1, 2}
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert _finalised_code(runner) == 'end_of_list_suggestions', (
+        "a run that ran out of followers reports the same motive as one that spent its budget"
+    )
+
+
+def test_an_empty_screen_is_not_the_end_of_the_list_on_its_own():
+    """The root cause of the seventeen. `_handle_empty_followers_screen` concludes on ONE
+    empty scan: suggestions section, no 'See more', a rescue scroll — then it breaks WITHOUT
+    ever reading the screen that scroll produced.
+
+    The main loop tolerates four consecutive empty scans before calling a list gone; this
+    door has no tolerance at all. On a device, a scan that outruns the loading looks exactly
+    like the end of a list.
+    """
+    runner = Runner(pages=[["alice"], [], ["bob", "carol"]], real_empty_screen_handler=True)
+    runner.detection_actions.suggestions_on_pages = {1}
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert runner.processed_calls == ["alice", "bob", "carol"], (
+        "followers were on screen after the rescue scroll and the run had already given up"
+    )
+
+
+def test_an_exhausted_scroll_allowance_says_so():
+    """calystabeaute (88% of the list, 57 profiles of 69) and mbeautestudio48 (36%, 21 of 69),
+    both stopped on exactly 100 scrolls — the hard-coded `max_scroll_attempts`.
+
+    linstantbeautebaraqueville is the same stop reached differently: 63 scrolls plus 37
+    private-zone transport flings, at 18% of a 517-follower list. The transport billing its
+    gestures to the scroll budget is deliberate and tested (a transport that under-reports
+    lets a run fling past its cap) — what is missing is the run SAYING the allowance ran out.
+    """
+    runner = Runner(pages=[["alice"]])
+
+    runner.interact_with_followers_direct("target", max_interactions=50, finalize=True)
+
+    assert runner.detection_actions.scrolls >= 100, "the scenario did not reach the cap"
+    assert _finalised_code(runner) == 'scroll_budget', (
+        "a run that ran out of scroll allowance mid-list reports itself as completed"
+    )
