@@ -174,7 +174,10 @@ class InstagramAutomation:
             stop_reason = result.get('stop_reason') or ''
             if stop_reason:
                 last_stop_reason = stop_reason
-            return result.get('processed', 0), bool(stop_reason)
+            # A spent SOURCE hands over to the next target; only a session motive cancels what
+            # the remaining ones were allotted. `bool(stop_reason)` made no such distinction,
+            # so one target's list ending ended the run — half a budget left unspent.
+            return result.get('processed', 0), stop_reasons.ends_the_session(stop_reason)
 
         distribution = normalize_distribution((config or {}).get('distribution'))
         if len(target_usernames) > 1:

@@ -9,6 +9,7 @@ from ...actions.business.workflows.common.distribution import (
     run_distributed,
 )
 from taktik.core.shared.config import resolve_filter_criteria
+from ..management.session import stop_reasons
 
 
 class WorkflowRunner:
@@ -176,13 +177,14 @@ class WorkflowRunner:
             stop_reason = (result or {}).get('stop_reason') or ''
             if stop_reason:
                 last_stop_reason = stop_reason
-            return interacted, bool(stop_reason)
+            return interacted, stop_reasons.ends_the_session(stop_reason)
 
         run_distributed(hashtags, budget, distribution, run_one_hashtag,
                         on_progress=ipc_source_progress('hashtag'))
 
         if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
-            self.automation.helpers.finalize_session(status='COMPLETED', reason=last_stop_reason)
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(last_stop_reason), reason=last_stop_reason)
 
         self.logger.debug(f"Hashtag workflow completed: {total_interacted} users interacted")
 
@@ -232,13 +234,14 @@ class WorkflowRunner:
             stop_reason = result.get('stop_reason') or ''
             if stop_reason:
                 last_stop_reason = stop_reason
-            return interacted, bool(stop_reason)
+            return interacted, stop_reasons.ends_the_session(stop_reason)
 
         run_distributed(post_urls, budget, distribution, run_one_post,
                         on_progress=ipc_source_progress('post_url'))
 
         if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
-            self.automation.helpers.finalize_session(status='COMPLETED', reason=last_stop_reason)
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(last_stop_reason), reason=last_stop_reason)
 
         # Return True only if we actually interacted with users
         return total_interacted > 0
