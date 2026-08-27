@@ -122,3 +122,27 @@ def text_lost_emoji(text: Optional[str]) -> bool:
     uiautomator2 XML dump is scarred the same way, whatever the app.
     """
     return bool(text) and bool(_MANGLED_EMOJI_RE.search(text))
+
+
+def text_is_truncated_utf16(text: Optional[str]) -> bool:
+    """Return whether a text came back as a UTF-16 string truncated to its LOW bytes.
+
+    A different scar from ``text_lost_emoji``, and a worse one. Something on the read path keeps
+    only the low byte of each UTF-16 code unit and the result is re-decoded as UTF-8, so:
+
+    - ``Cadeaux Personnalisés`` -> ``Cadeaux Personnalis\ufffds`` (the accent is GONE, not just
+      the emoji);
+    - ``\U0001F4CD Metz`` -> ``=\ufffd Metz`` (``0x3D`` = ``=`` is the low byte of ``\ud83d``,
+      the first surrogate; the second becomes the replacement character).
+
+    Both shapes were reproduced exactly with ``s.encode('utf-16-le')[::2].decode('utf-8', 'replace')``
+    and both are in the base verbatim: 64 721 of 121 423 bios carry U+FFFD.
+
+    The point of detecting it: a dotted bio has LOST its emoji but kept its accents, so it is
+    strictly better than a truncated one. A caller re-reading a text through another channel must
+    treat this as a failed read and keep what it had.
+
+    U+FFFD never appears in text a person typed — it is by definition what a decoder writes when
+    it gave up — so its presence alone is the signal.
+    """
+    return bool(text) and '\ufffd' in text

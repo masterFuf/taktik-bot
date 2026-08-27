@@ -33,7 +33,10 @@ def _bio_text_looks_truncated(text: str, expander_words=None) -> bool:
 # Mangled-emoji detection moved to its shared owner (`taktik.core.shared.text`): the scar
 # is a property of every uiautomator2 XML dump, not of profile extraction. Kept under its
 # historical private name for the call sites below.
-from taktik.core.shared.text import text_lost_emoji as _text_lost_emoji
+from taktik.core.shared.text import (
+    text_is_truncated_utf16 as _text_is_truncated_utf16,
+    text_lost_emoji as _text_lost_emoji,
+)
 
 
 class ProfileExtractionMixin(BaseAction):
@@ -224,7 +227,8 @@ class ProfileExtractionMixin(BaseAction):
         two would drift apart, and it trips the selector-hardcode audit for good reason.
 
         Best effort: any failure keeps the dumped value, since a bio with dots still beats
-        no bio at all.
+        no bio at all — and a TRUNCATED answer counts as a failure, because it costs the accents
+        on top of the emoji (see ``text_is_truncated_utf16``).
         """
         raw_device = getattr(self.device, 'device', None)
         if raw_device is None:
@@ -236,8 +240,18 @@ class ProfileExtractionMixin(BaseAction):
                 if not element.exists:
                     continue
                 text = (element.info or {}).get('text')
-                if text and text.strip():
-                    return text.strip()
+                if not text or not text.strip():
+                    continue
+                # The channel can hand back a UTF-16 string truncated to its low bytes, which
+                # destroys the ACCENTS as well as the emoji — strictly worse than the dotted text
+                # we already hold. Measured on the 2026-08-27 run: of 49 bios written that day,
+                # NOT ONE came back with an intact astral emoji; 21 came back truncated and 18
+                # kept the dumped dots. Treating a scarred answer as a failed read is what stops
+                # the re-read from making the bio worse than it was.
+                if _text_is_truncated_utf16(text):
+                    self.logger.debug(f"JSON-RPC text re-read came back truncated, keeping the dump: {resource_id}")
+                    continue
+                return text.strip()
             except Exception as exc:
                 self.logger.debug(f"JSON-RPC text re-read failed: {exc}")
                 continue
