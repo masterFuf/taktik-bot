@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.vision import capture_non_blank
 from ..common.post_navigation import open_likers_list
 from ..common.detection import is_likers_popup_open
 from .list_strategy import (
@@ -21,6 +22,26 @@ from .list_strategy import (
 from .deep_qualify import DeepQualifyMixin
 
 console = Console()
+
+
+def _read_nothing(profile_data: Dict[str, Any]) -> bool:
+    """True when the profile page yielded no fact at all — the screen was not there to be read.
+
+    Every counter at zero AND no name AND no bio. Unanimity is the point: a real account can have
+    no posts, or no followers, or no bio, but not all of them at once with no display name either.
+    Anything short of unanimity would start dropping real, empty-looking accounts.
+
+    A private account is NOT this case — it still reports its counters and its name — so the guard
+    does not silently swallow the profiles `skipPrivateProfiles` is meant to arbitrate.
+    """
+    counters = (
+        profile_data.get('followers_count') or 0,
+        profile_data.get('following_count') or 0,
+        profile_data.get('posts_count') or 0,
+    )
+    if any(counters):
+        return False
+    return not (profile_data.get('full_name') or '').strip() and not (profile_data.get('biography') or '').strip()
 
 
 class ScrapingListMixin(DeepQualifyMixin):
@@ -92,6 +113,22 @@ class ScrapingListMixin(DeepQualifyMixin):
         else:
             self.logger.warning(f"Could not get profile info for @{username}")
 
+        # The page gave us NOTHING — do not qualify a profile we never read.
+        #
+        # `get_complete_profile_info` returns a dict even when the screen was not there to be read:
+        # every field comes back at its default, so `enriched_data` is truthy and the run carries on
+        # as if it had a profile. Measured on the 2026-08-27 run: 36 profiles saved with 0 followers,
+        # 0 posts, no name and no bio — and every one of them qualified anyway, by the username
+        # alone, with an average confidence of 0.95. They now hold an invented niche, which is
+        # exactly the damage a re-qualification pass is meant to repair.
+        #
+        # The test is deliberately unanimous: a real account can have 0 posts, or 0 followers, but
+        # not all of that AND no display name AND no bio at once. Returning a reason (rather than
+        # skipping silently) puts the profile in `filtered_profiles` where the funnel can see it.
+        if _read_nothing(profile_data):
+            self.logger.warning(f"⏭ @{username}: profile page read empty — not qualifying")
+            return 'profile page read empty (screen not loaded)'
+
         # No enriched data => the filters cannot be evaluated. Saving (and deep-qualifying, which
         # costs AI credits) a profile we could not check would silently break the operator's
         # criteria, so skip it — but only when filters were actually requested.
@@ -124,11 +161,20 @@ class ScrapingListMixin(DeepQualifyMixin):
         if getattr(self, '_ai_service', None) and not _skip_ai_for_existing:
             try:
                 import tempfile as _tempfile, os as _os2
-                _tmp_dir = _os2.path.join(_tempfile.gettempdir(), 'taktik_ai')
-                _os2.makedirs(_tmp_dir, exist_ok=True)
-                _screenshot_path = _os2.path.join(_tmp_dir, f'profile_{username}.png')
-                self.device.screenshot().save(_screenshot_path, format='PNG')
-                profile_data['_screenshot_path'] = _screenshot_path
+                # A device hands back a valid, entirely BLACK image when the surface was not
+                # composed at the moment of the grab, and nothing downstream can tell it from a
+                # real screen. `capture_non_blank` retries once and returns None rather than a
+                # black frame: the AI then takes the text path instead of describing a void with
+                # a confidence of 0.95. See shared/vision/capture.py.
+                _image = capture_non_blank(self.device)
+                if _image is None:
+                    self.logger.warning(f"@{username}: screenshot came back blank — AI runs without vision")
+                else:
+                    _tmp_dir = _os2.path.join(_tempfile.gettempdir(), 'taktik_ai')
+                    _os2.makedirs(_tmp_dir, exist_ok=True)
+                    _screenshot_path = _os2.path.join(_tmp_dir, f'profile_{username}.png')
+                    _image.save(_screenshot_path, format='PNG')
+                    profile_data['_screenshot_path'] = _screenshot_path
             except Exception as _e:
                 self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
 
