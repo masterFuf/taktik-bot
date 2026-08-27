@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from bridges.instagram.engagement.runtime.cold_dm.timing import wait_before_next_cold_dm
+from bridges.instagram.engagement.runtime.notifications.follow_actor import FOLLOW_ACTOR_ACTION
 from bridges.instagram.engagement.runtime.notifications.persistence import (
     dm_already_sent,
     dm_conversation_exists,
@@ -24,6 +25,11 @@ from bridges.instagram.engagement.runtime.notifications.persistence import (
 from bridges.instagram.runtime.ipc import logger
 
 WELCOME_DM_ACTION = "welcome_dm"
+
+# Verbs that LEAVE the activity screen: they open a profile, and from there a conversation.
+# Every other verb acts on the feed the scan left on screen. Ordered among themselves too —
+# a follow is one tap on a page we are already on, a DM walks further.
+OFF_SCREEN_ACTIONS = (FOLLOW_ACTOR_ACTION, WELCOME_DM_ACTION)
 
 # Pause between two welcome DMs. Wider than the batch's other verbs on purpose: the tap
 # verbs stay on one screen, a DM walks profile -> conversation -> home each time, and a
@@ -33,19 +39,20 @@ WELCOME_DM_DELAY_MAX = 70
 
 
 def order_batch_actions(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Return ``actions`` with every ``welcome_dm`` moved to the end, order preserved.
+    """Return ``actions`` with the screen-leaving verbs moved to the end, order preserved.
 
-    Every other verb acts on the activity feed the scan left on screen; a DM leaves it
-    (profile, then conversation). Running the DMs last means the cheap taps are all
-    landed before anything navigates away — and a batch stopped mid-DM has already done
-    the likes and the follow-backs. The bot imposes the order rather than trusting the
+    The tap verbs act on the activity feed the scan left on screen; a follow opens a
+    profile and a DM walks on to a conversation. Running those last means the cheap taps
+    are all landed before anything navigates away — and a batch stopped mid-DM has already
+    done the likes and the follow-backs. The bot imposes the order rather than trusting the
     caller to have sorted its list.
     """
-    others = [entry for entry in actions
-              if (entry.get("action") or "").strip() != WELCOME_DM_ACTION]
-    welcomes = [entry for entry in actions
-                if (entry.get("action") or "").strip() == WELCOME_DM_ACTION]
-    return others + welcomes
+    def rank(entry: Dict[str, Any]) -> int:
+        action = (entry.get("action") or "").strip()
+        return OFF_SCREEN_ACTIONS.index(action) + 1 if action in OFF_SCREEN_ACTIONS else 0
+
+    # Stable: entries of equal rank keep the order the caller sent them in.
+    return sorted(actions, key=rank)
 
 
 def welcome_dm_skip_reason(account_id: Optional[int], recipient: str) -> Optional[str]:
@@ -107,8 +114,12 @@ def _return_home(device) -> None:
         logger.warning(f"[NOTIF] Could not return home after a welcome DM: {exc}")
 
 
-def wait_before_next_welcome_dm(*, is_last: bool) -> None:
-    """Pace two consecutive welcome DMs — the Cold DM helper, same sampling."""
+def wait_before_next_off_screen_action(*, is_last: bool) -> None:
+    """Pace two consecutive screen-leaving actions — the Cold DM helper, same sampling.
+
+    A follow costs less than a DM, but both mean walking to someone's profile: chaining
+    them back to back is what makes a session look machine-driven.
+    """
     if is_last:
         return
     wait_before_next_cold_dm(index=0, total=2,
@@ -116,9 +127,10 @@ def wait_before_next_welcome_dm(*, is_last: bool) -> None:
 
 
 __all__ = [
+    "OFF_SCREEN_ACTIONS",
     "WELCOME_DM_ACTION",
     "order_batch_actions",
     "send_welcome_dm",
-    "wait_before_next_welcome_dm",
+    "wait_before_next_off_screen_action",
     "welcome_dm_skip_reason",
 ]

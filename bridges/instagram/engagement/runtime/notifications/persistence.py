@@ -78,6 +78,7 @@ def record_scan_notifications(
 # consume no daily budget: audit row only. See notifications-autopilot-spec.md, lot 0c.
 _INTERACTION_FOR_ACTION = {
     "follow_back": "FOLLOW",     # a real follow MUST consume the follow budget
+    "follow_actor": "FOLLOW",    # so does following someone who engaged with our comment
     "reply": "COMMENT",          # public writing, same budget as comments
     "like": "COMMENT_LIKE",      # existing mapping: shares the daily like budget
 }

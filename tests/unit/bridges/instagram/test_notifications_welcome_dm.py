@@ -60,7 +60,7 @@ def harness(monkeypatch):
     monkeypatch.setattr(commands, "batch_identity_hash", lambda *a, **k: None)
     monkeypatch.setattr(commands, "count_actions_today", lambda *a, **k: 0)
     monkeypatch.setattr(commands, "resolve_account_id", lambda *a, **k: 7)
-    monkeypatch.setattr(commands, "wait_before_next_welcome_dm", lambda **k: None)
+    monkeypatch.setattr(commands, "wait_before_next_off_screen_action", lambda **k: None)
     monkeypatch.setattr(
         commands, "record_notification_action",
         lambda account, **kwargs: audit.append((kwargs.get("action"), kwargs.get("actor_username"),
@@ -83,16 +83,21 @@ def harness(monkeypatch):
 # Ordering
 # ---------------------------------------------------------------------------
 
-def test_welcome_dms_are_moved_to_the_end_order_preserved():
+def test_screen_leaving_verbs_are_moved_to_the_end_order_preserved():
     ordered = welcome_dm.order_batch_actions([
         {"action": "welcome_dm", "username": "a"},
         {"action": "like", "username": "b"},
         {"action": "welcome_dm", "username": "c"},
+        {"action": "follow_actor", "username": "e"},
         {"action": "follow_back", "username": "d"},
     ])
 
+    # Taps first (in the order given), then the profile walks: a follow is one tap on a page
+    # we open anyway, a DM walks on from there.
     assert [(e["action"], e["username"]) for e in ordered] == [
-        ("like", "b"), ("follow_back", "d"), ("welcome_dm", "a"), ("welcome_dm", "c"),
+        ("like", "b"), ("follow_back", "d"),
+        ("follow_actor", "e"),
+        ("welcome_dm", "a"), ("welcome_dm", "c"),
     ]
 
 

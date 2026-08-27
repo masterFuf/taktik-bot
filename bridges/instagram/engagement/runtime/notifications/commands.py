@@ -18,11 +18,16 @@ from bridges.instagram.engagement.runtime.notifications.persistence import (
     record_welcome_dm,
     resolve_account_id,
 )
+from bridges.instagram.engagement.runtime.notifications.follow_actor import (
+    FOLLOW_ACTOR_ACTION,
+    follow_actor,
+)
 from bridges.instagram.engagement.runtime.notifications.welcome_dm import (
+    OFF_SCREEN_ACTIONS,
     WELCOME_DM_ACTION,
     order_batch_actions,
     send_welcome_dm,
-    wait_before_next_welcome_dm,
+    wait_before_next_off_screen_action,
     welcome_dm_skip_reason,
 )
 from bridges.instagram.runtime.ipc import logger
@@ -363,7 +368,8 @@ def cmd_follow_back(device_id: str, username: str, package_name: str = None,
 def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
               account_username: str = None, source: str = "batch",
               follow_back_daily_cap: int = None,
-              welcome_dm_daily_cap: int = None) -> None:
+              welcome_dm_daily_cap: int = None,
+              follow_actor_daily_cap: int = None) -> None:
     """Run a LIST of notification actions inside ONE session.
 
     Every action used to be its own bridge invocation: a Python process, a fresh uiautomator2
@@ -378,7 +384,7 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     current one), so nothing here polls a flag: the last emitted step IS the record.
 
     Each action is ``{"action": "like"|"reply"|"accept"|"ignore"|"follow_back"|
-    "welcome_dm", "username": str, "text": str?}`` plus an OPTIONAL notification identity
+    "welcome_dm"|"follow_actor", "username": str, "text": str?}`` plus an OPTIONAL identity
     ``notif_type`` / ``notif_text`` / ``notif_time`` (``text`` is already taken by the
     reply body, hence the prefix). When the identity is there, the entry's stable
     content_hash is computed and the action becomes IDEMPOTENT across scans: an action
@@ -387,10 +393,11 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     ``is_new``. Executed actions are recorded (audit + budget interactions), see
     ``record_notification_action``.
 
-    ``welcome_dm`` sends the private message the app wrote for a brand-new follower. It is
-    the odd one out: it leaves the activity feed, so every ``welcome_dm`` is REORDERED to
-    the end of the batch, it is paced between sends, and it carries its own guards (see
-    ``welcome_dm_skip_reason``) plus a dedicated daily cap. See welcome-dm-spec.md.
+``welcome_dm`` sends the private message the app wrote for a brand-new follower, and
+    ``follow_actor`` follows whoever engaged with one of OUR comments. Those two are the odd
+    ones out: they leave the activity feed for a profile, so they are REORDERED to the end of
+    the batch, paced between them, and each carries its own guards and dedicated daily cap.
+    See welcome-dm-spec.md.
 
     One failing action does not abort the rest — a comment whose row scrolled out of reach must not
     cancel the nine others.
@@ -413,7 +420,8 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     # table, so the truth of "today" lives here. A verb with no cap passed is uncapped —
     # that is what an operator's manual selection is.
     daily_caps = {verb: cap for verb, cap in (("follow_back", follow_back_daily_cap),
-                                              (WELCOME_DM_ACTION, welcome_dm_daily_cap))
+                                              (WELCOME_DM_ACTION, welcome_dm_daily_cap),
+                                              (FOLLOW_ACTOR_ACTION, follow_actor_daily_cap))
                   if cap is not None}
     used_today = {verb: count_actions_today(account_username, verb) for verb in daily_caps}
     # Resolved once, only when the batch actually carries a welcome DM: without it nothing
@@ -495,6 +503,8 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
                 result = workflow.follow_back(username)
             elif action == WELCOME_DM_ACTION:
                 result = send_welcome_dm(bridge.device, username, text)
+            elif action == FOLLOW_ACTOR_ACTION:
+                result = follow_actor(bridge.device, username)
             else:
                 result = {"success": False, "error": f"Unknown action: {action}"}
         except Exception as exc:  # noqa: BLE001
@@ -503,13 +513,21 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
             result = {"success": False, "error": str(exc)}
 
         ok = bool(result.get("success"))
-        done += 1 if ok else 0
-        failed += 0 if ok else 1
+        # A verb can decide, once on screen, that there is nothing to do — `follow_actor`
+        # reads the relationship and steps back. That is a skip, not a success: counting it
+        # as done would inflate the run, and recording it would spend a slot of the cap on
+        # an action that never happened.
+        self_skipped = bool(result.get("skipped"))
+        if self_skipped:
+            skipped += 1
+        else:
+            done += 1 if ok else 0
+            failed += 0 if ok else 1
         results.append({"action": action, "username": username, **result})
 
         # Bookkeeping: audit row (+ budget interaction on success) for every EXECUTED
         # action; a nothing-sent reply (empty text opens the UI only) records nothing.
-        if action != "reply" or text.strip():
+        if not self_skipped and (action != "reply" or text.strip()):
             record_notification_action(
                 account_username, action=action, actor_username=username,
                 identity=identity, success=ok, source=source,
@@ -517,9 +535,9 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
             )
             if ok and entry_hash:
                 actioned_by_verb.setdefault(action, set()).add(entry_hash)
-        if ok and action in daily_caps:
+        if ok and not self_skipped and action in daily_caps:
             used_today[action] = used_today.get(action, 0) + 1
-        if ok and action == WELCOME_DM_ACTION:
+        if ok and not self_skipped and action == WELCOME_DM_ACTION:
             # The shared duplicate marker + the conversation itself, so the message shows
             # up in DM Responses and syncs to Turso like any other reply we sent.
             record_welcome_dm(welcome_account_id, username, text)
@@ -535,10 +553,11 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
             "message": f"[{index + 1}/{total}] {action} @{username} {'ok' if ok else 'failed'}",
         }, flush=True)
 
-        if action == WELCOME_DM_ACTION:
-            # Pace consecutive private messages. The reordering guarantees the DMs are the
-            # tail of the batch, so "last entry" is "last DM".
-            wait_before_next_welcome_dm(is_last=index >= total - 1)
+        if action in OFF_SCREEN_ACTIONS and not self_skipped:
+            # Pace the actions that walk to a profile. The reordering guarantees they are
+            # the tail of the batch, so "last entry" is "last of them". A self-skip walked
+            # nowhere worth pausing for.
+            wait_before_next_off_screen_action(is_last=index >= total - 1)
 
     emit_notif_json({
         "type": "result",
@@ -604,6 +623,18 @@ def run_notifications_cli(args: list[str]) -> None:
                 welcome_dm_daily_cap = None
             args = args[:idx] + args[idx + 2:]
 
+    # Dedicated daily cap for follow_actor. A follow is a follow: it also goes through the
+    # warmup budget front-side, this is the per-verb ceiling on top of it.
+    follow_actor_daily_cap = None
+    if "--follow-actor-daily-cap" in args:
+        idx = args.index("--follow-actor-daily-cap")
+        if idx + 1 < len(args):
+            try:
+                follow_actor_daily_cap = max(0, int(args[idx + 1]))
+            except ValueError:
+                follow_actor_daily_cap = None
+            args = args[:idx] + args[idx + 2:]
+
     # Opt-in: how many suggested accounts to VISIT at the END of a scan, from the block
     # at the bottom of the activity screen. Absent / 0 = the scan behaves exactly as before.
     follow_suggestions = 0
@@ -644,7 +675,7 @@ def run_notifications_cli(args: list[str]) -> None:
             "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
             "       [--follow-suggestions <n>] [--ai-config <json>] [--language <code>]\n"
             "       [--source <batch|autopilot>] [--follow-back-daily-cap <n>]\n"
-            "       [--welcome-dm-daily-cap <n>]\n"
+            "       [--welcome-dm-daily-cap <n>] [--follow-actor-daily-cap <n>]\n"
             "  scan <device_id> [scroll]\n"
             "  list_requests <device_id> [limit]\n"
             "  accept <device_id> <username>\n"
@@ -735,7 +766,8 @@ def run_notifications_cli(args: list[str]) -> None:
             cmd_batch(args[1], parsed, package_name=package_name,
                       account_username=account_username, source=batch_source,
                       follow_back_daily_cap=follow_back_daily_cap,
-                      welcome_dm_daily_cap=welcome_dm_daily_cap)
+                      welcome_dm_daily_cap=welcome_dm_daily_cap,
+                      follow_actor_daily_cap=follow_actor_daily_cap)
 
         else:
             emit_notif_error(f"Unknown command: {command}")
