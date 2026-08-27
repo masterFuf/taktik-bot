@@ -56,6 +56,36 @@ STATUS_COMPLETED = "COMPLETED"
 STATUS_INTERRUPTED = "INTERRUPTED"
 
 
+#: Motives that describe ONE source, not the session. A run over several targets splits its
+#: budget between them; when a list runs dry that says nothing about the targets still waiting,
+#: so the driver must hand over instead of cancelling what they were allotted. Everything else
+#: — the duration, the global caps, a lost navigation — ends the session wherever it happens.
+#:
+#: Measured before this existed: a two-target run whose first list repeated itself stopped after
+#: 25 minutes with the second target never opened, and filed itself COMPLETED.
+_SOURCE_SCOPED_CODES = frozenset({
+    "end_of_list",
+    "end_of_list_repeated",
+    "end_of_list_suggestions",
+    "no_new_profiles",
+    "known_streak",
+    "scroll_streak",
+    "scroll_budget",
+})
+
+
+def ends_the_session(reason: Any) -> bool:
+    """Does this motive stop the whole run, or only the source it came from?
+
+    Unknown and empty motives end the session: a driver that cannot place a motive must not
+    keep spending budget on a run it no longer understands.
+    """
+    if not reason:
+        return False
+    code = getattr(reason, "code", None) or str(reason).strip().lower()
+    return code not in _SOURCE_SCOPED_CODES
+
+
 def terminal_status(reason: Any, default: str = STATUS_COMPLETED) -> str:
     """The status a run ending on `reason` deserves.
 
@@ -221,6 +251,21 @@ def known_streak(streak: Any, seen: Any) -> StopReason:
     )
 
 
+def scroll_budget(scrolls: Any, seen: Any) -> StopReason:
+    """The loop's own scroll allowance ran out, mid-list.
+
+    Not a source that ended: a run stopped by this has followers left to work and budget left
+    to spend. It reached a ceiling internal to the loop — including the gestures a private-zone
+    transport bills to the same allowance, which is deliberate (a transport that under-reports
+    lets a run fling past its cap). Saying so is what separates it from a run that finished.
+    """
+    return _reason(
+        "scroll_budget", FAMILY_OK,
+        f"Scroll allowance exhausted ({scrolls} scrolls, {seen} usernames seen)",
+        scrolls=scrolls, seen=seen,
+    )
+
+
 def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
     return _reason(
         "scroll_streak", FAMILY_OK,
@@ -233,6 +278,7 @@ def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
 #: absent keeps the caller's default, which is the safe direction.
 _FAMILY_BY_CODE = {
     "navigation_lost": FAMILY_FAILED,
+    "stuck_at_top": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
@@ -277,6 +323,15 @@ def completed(interactions: Any) -> StopReason:
 #
 # Includes an empty plan and a missing target list. Neither is a crash, but both mean the same
 # thing to the operator: it did not run, go and look at the settings.
+
+def stuck_at_top(scans: Any) -> StopReason:
+    """Scrolling stopped advancing: the same head of list came back N scans in a row."""
+    return _reason(
+        "stuck_at_top", FAMILY_FAILED,
+        f"Stuck at the top of the list ({scans} scans without advancing)",
+        scans=scans,
+    )
+
 
 def navigation_lost() -> StopReason:
     return _reason("navigation_lost", FAMILY_FAILED, "navigation_lost")
