@@ -257,47 +257,32 @@ def detect_and_optimize(device, override: Optional[str] = None) -> str:
         log.info("Language unknown — overlay union + no in-place filtering")
         return lang
 
-    # Import every singleton from the selectors barrel
-    from .selectors import (
-        AUTH_SELECTORS, SIGNUP_SELECTORS, LOGOUT_SELECTORS,
-        COUNTRY_PICKER_SELECTORS, NAVIGATION_SELECTORS, PROFILE_SELECTORS,
-        VIDEO_CREATOR_SELECTORS, VIDEO_ENGAGEMENT_SELECTORS,
-        VIDEO_MEDIA_SELECTORS, VIDEO_STATE_SELECTORS,
-        COMMENT_SELECTORS, SEARCH_SELECTORS,
-        INBOX_SELECTORS, CONVERSATION_SELECTORS, POPUP_SELECTORS,
-        SCROLL_SELECTORS, DETECTION_SELECTORS, FOLLOWERS_SELECTORS,
-        PUBLISH_COMPOSER_SELECTORS,
-        PUBLISH_CREATION_ENTRY_SELECTORS,
-        PUBLISH_EDITOR_SELECTORS,
-        PUBLISH_MEDIA_PICKER_SELECTORS,
-        PUBLISH_PROGRESS_SELECTORS,
-    )
+    # Every dataclass singleton the barrel exports, derived rather than listed.
+    #
+    # This was a hand-written enumeration of 23 names — the THIRD list of the same objects, beside
+    # the barrel's own `__all__` and `TIKTOK_SELECTOR_DOMAINS`. Ten catalogues had already fallen
+    # out of the compat map that way, unreachable by any override, so a fourth hand-copy was the
+    # last thing this needed. The compat map keeps its literal spelling because its keys are a
+    # contract (override YAML addresses `domain.field`); this list has no such contract — its
+    # names are only log labels — so it derives.
+    #
+    # Facades are skipped by construction: `is_dataclass` is False for them, and a facade would
+    # be optimised through its `__getattr__` onto a phantom attribute, which is exactly the bug
+    # the clone patcher was just fixed for.
+    from dataclasses import is_dataclass
 
-    instances = [
-        ("AuthSelectors", AUTH_SELECTORS),
-        ("SignupSelectors", SIGNUP_SELECTORS),
-        ("LogoutSelectors", LOGOUT_SELECTORS),
-        ("CountryPickerSelectors", COUNTRY_PICKER_SELECTORS),
-        ("NavigationSelectors", NAVIGATION_SELECTORS),
-        ("ProfileSelectors", PROFILE_SELECTORS),
-        ("VideoCreatorSelectors", VIDEO_CREATOR_SELECTORS),
-        ("VideoEngagementSelectors", VIDEO_ENGAGEMENT_SELECTORS),
-        ("VideoMediaSelectors", VIDEO_MEDIA_SELECTORS),
-        ("VideoStateSelectors", VIDEO_STATE_SELECTORS),
-        ("CommentSelectors", COMMENT_SELECTORS),
-        ("SearchSelectors", SEARCH_SELECTORS),
-        ("InboxSelectors", INBOX_SELECTORS),
-        ("ConversationSelectors", CONVERSATION_SELECTORS),
-        ("PopupSelectors", POPUP_SELECTORS),
-        ("ScrollSelectors", SCROLL_SELECTORS),
-        ("DetectionSelectors", DETECTION_SELECTORS),
-        ("FollowersSelectors", FOLLOWERS_SELECTORS),
-        ("PublishCreationEntrySelectors", PUBLISH_CREATION_ENTRY_SELECTORS),
-        ("PublishMediaPickerSelectors", PUBLISH_MEDIA_PICKER_SELECTORS),
-        ("PublishEditorSelectors", PUBLISH_EDITOR_SELECTORS),
-        ("PublishComposerSelectors", PUBLISH_COMPOSER_SELECTORS),
-        ("PublishProgressSelectors", PUBLISH_PROGRESS_SELECTORS),
-    ]
+    from . import selectors as _barrel
+
+    instances = []
+    seen: set = set()
+    for _name in getattr(_barrel, "__all__", ()):
+        if not _name.endswith("SELECTORS"):
+            continue
+        _obj = getattr(_barrel, _name, None)
+        if _obj is None or not is_dataclass(_obj) or id(_obj) in seen:
+            continue
+        seen.add(id(_obj))
+        instances.append((type(_obj).__name__, _obj))
 
     total_removed = 0
     for name, inst in instances:

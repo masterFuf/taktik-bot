@@ -101,3 +101,30 @@ def test_every_shipped_catalogue_is_reachable_by_the_override_machinery():
     assert not unreachable, (
         f"catalogues shipped but not registered in TIKTOK_SELECTOR_DOMAINS: {sorted(unreachable)}"
     )
+
+
+def test_the_compat_map_and_the_language_optimiser_see_the_same_catalogues():
+    """Two enumerations of the same objects must not drift — that is how ten went missing.
+
+    The compat map keeps a literal spelling because its keys are a contract: override YAML
+    addresses `domain.field`. The language optimiser derives its list from the barrel. This
+    asserts they still describe the same set, so a catalogue added tomorrow is either reached by
+    both or caught here.
+    """
+    from dataclasses import is_dataclass
+
+    from taktik.core.social_media.tiktok.ui import selectors as barrel
+
+    derived = set()
+    for name in getattr(barrel, "__all__", ()):
+        if not name.endswith("SELECTORS"):
+            continue
+        obj = getattr(barrel, name, None)
+        if obj is not None and is_dataclass(obj):
+            derived.add(id(obj))
+
+    registered = {id(obj) for obj in TIKTOK_SELECTOR_DOMAINS.values()}
+    assert registered == derived, (
+        "the compat map and the barrel disagree on which catalogues exist — "
+        f"{len(registered)} registered against {len(derived)} shipped"
+    )
