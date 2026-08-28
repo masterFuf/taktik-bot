@@ -1,3 +1,4 @@
+import os
 import time
 import signal
 import sys
@@ -5,6 +6,7 @@ import random
 from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
+from taktik.core.shared.diagnostics import capture_screen_snapshot
 from .....database.local.service import get_local_database
 from ...ui.language import redetect_if_unknown
 from ..management.session import stop_reasons
@@ -26,6 +28,31 @@ class WorkflowHelpers:
         if hasattr(signal, 'SIGTERM'):
             signal.signal(signal.SIGTERM, signal_handler)
     
+    def _capture_final_screen(self, reason) -> dict:
+        """Keep the last screen of the run, and say where it landed. Never raises.
+
+        The paths travel on `session_stop` rather than through an index of their own: the event
+        already carries what the desktop needs to file a finished run, and one more field costs
+        nothing. The session id is in the file name too, so a capture stays findable even if the
+        event is missed.
+        """
+        session_id = getattr(self.automation, 'current_session_id', None)
+        device = getattr(self.automation, 'device', None)
+        label = getattr(reason, 'code', None) or 'session_end'
+        try:
+            base = capture_screen_snapshot(device, label, session_id=session_id)
+        except Exception as exc:  # noqa: BLE001 — a diagnostic must never break a finalisation
+            self.logger.debug(f"Could not keep the final screen: {exc}")
+            return {}
+        if not base:
+            return {}
+        found = {}
+        for key, extension in (('screenshot', '.png'), ('hierarchy', '.xml')):
+            path = f'{base}{extension}'
+            if os.path.exists(path):
+                found[key] = path
+        return found
+
     def finalize_session(self, status='COMPLETED', reason='Limits reached'):
         self.logger.info(f"🏁 Finalizing session: {reason}")
         
@@ -58,6 +85,10 @@ class WorkflowHelpers:
         }
         if isinstance(reason, StopReason):
             stop_message.update(reason.event_fields())
+        # The screen the run ended on, kept for every session and not only the failures: an
+        # operator asking "where did it stop?" gets an answer instead of a motive to interpret.
+        # Taken HERE because the app is force-stopped a few lines below, and with it the evidence.
+        stop_message.update(self._capture_final_screen(reason))
         print(json.dumps(stop_message), flush=True)
         
         # Update session in DB

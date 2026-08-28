@@ -29,16 +29,24 @@ def _snapshot_dir() -> str:
         os.path.expanduser('~'), 'taktik-desktop', 'logs', 'screens')
 
 
-def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True) -> Optional[str]:
+def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True,
+                            session_id: Any = None) -> Optional[str]:
     """Save what is on screen right now. Returns the base path, or None.
 
     `label` names the moment (`navigation_lost`, `list_unavailable`…) — it becomes part of the
     file name, so a folder listing reads as a list of incidents.
+
+    `session_id` goes in the name too, and it is what lets the desktop show an operator the
+    screen their run ended on. Without it a capture can only be matched to a session by
+    proximity in time, which breaks the moment two devices stop within the same second — and
+    runs are launched in waves of four.
     """
     if device is None:
         return None
     stamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
     safe_label = ''.join(c if c.isalnum() or c in '-_' else '_' for c in (label or 'snapshot'))[:60]
+    if session_id is not None:
+        safe_label = f"s{session_id}_{safe_label}"
     try:
         directory = _snapshot_dir()
         os.makedirs(directory, exist_ok=True)
@@ -79,5 +87,34 @@ def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True)
 
     if wrote:
         logger.info(f"📸 Screen kept for diagnosis: {base}.* ({label})")
+        _prune(directory)
         return base
     return None
+
+
+#: Two files per capture, so this is roughly the last 200 sessions. The folder is now written on
+#: EVERY finalisation, not only on incidents, which is what makes a ceiling necessary: at ~300 KB
+#: an image and 28 runs a day it would otherwise pass a gigabyte within four months.
+MAX_SNAPSHOT_FILES = 400
+
+
+def _prune(directory: str) -> None:
+    """Keep the newest MAX_SNAPSHOT_FILES files. Never raises: housekeeping is not the job."""
+    try:
+        entries = []
+        for name in os.listdir(directory):
+            path = os.path.join(directory, name)
+            try:
+                entries.append((os.path.getmtime(path), path))
+            except OSError:
+                continue
+        if len(entries) <= MAX_SNAPSHOT_FILES:
+            return
+        entries.sort(reverse=True)
+        for _, path in entries[MAX_SNAPSHOT_FILES:]:
+            try:
+                os.remove(path)
+            except OSError:
+                continue
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"Could not prune the snapshot folder: {exc}")
