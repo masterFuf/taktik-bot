@@ -283,6 +283,12 @@ class ScrapingPersistenceMixin:
                 source_name = self.config.get('post_url', 'unknown')[:100]
             elif scraping_type == 'usernames':
                 source_type = 'USERNAME_LIST'
+                # This run walks no list and mines nobody's audience: it visits profiles that are
+                # already known and reads them again. Calling it 'followers' — which is what the
+                # default left behind on all 86 stored sessions of this kind — describes the wrong
+                # work entirely, and makes a qualification pass indistinguishable from a follower
+                # scrape in the history and in every count grouped by type.
+                scrape_type = 'qualification'
                 names = self.config.get('usernames', [])
                 source_name = self.config.get('source_name') or 'manual selection'
                 source_name = f"{source_name} ({len(names)})"[:100]
