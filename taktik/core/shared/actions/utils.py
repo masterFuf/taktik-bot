@@ -12,20 +12,40 @@ from typing import Optional, List, Dict, Any, Union
 from loguru import logger
 
 
+# Every space separator a phone can put between thousands, mapped to a plain one.
+#
+# U+00A0 was already handled; U+202F is the one French Android actually emits, and it was the
+# difference between `parse_count('5 215') == 5215` and `== 0`. Measured on the real strings:
+# the narrow no-break space survived the `.replace(' ', '')` below, `int()` then failed, and the
+# function returned 0 for every French counter. Its sibling truncated instead — `188 472` -> 188 —
+# which is worse, because a plausible number does not look like a failure.
+#
+# One table, used by both parsers here, so a fourth separator is added in one place rather than
+# in two that drift.
+_SPACE_SEPARATORS = ('\xa0', ' ', ' ', ' ', ' ')
+
+
+def normalise_number_spaces(text: str) -> str:
+    """Turn every Unicode space separator into a plain space."""
+    for separator in _SPACE_SEPARATORS:
+        text = text.replace(separator, ' ')
+    return text
+
+
 def parse_count(text: str) -> int:
     """Parse count strings like '18.5K', '1.2M', '3B', '424', '166 K' to integer.
-    
+
     Handles formats:
-    - Plain numbers: '1234', '1,234'
+    - Plain numbers: '1234', '1,234', and French thousands ('5 215', narrow no-break space)
     - K/M/B suffix with or without space: '1.5K', '166 K', '1.2M', '2 M'
     - European decimal separator: '1,5K'
-    
+
     Standalone convenience function used by workflows, profile_actions, etc.
     """
     if not text:
         return 0
     try:
-        text_str = str(text).strip().replace('\xa0', ' ').strip()
+        text_str = normalise_number_spaces(str(text).strip()).strip()
         multipliers = {'K': 1_000, 'M': 1_000_000, 'B': 1_000_000_000}
         for suffix, multiplier in multipliers.items():
             # "166 K" format
@@ -55,11 +75,17 @@ class ActionUtils:
     
     @staticmethod
     def parse_number_from_text(text: str) -> Optional[int]:
-        """Parse number from text with K/M/B suffixes (e.g., '1.2K', '500', '2.5M')."""
+        """Parse number from text with K/M/B suffixes (e.g., '1.2K', '500', '2.5M').
+
+        The space normalisation is not cosmetic: without it the first pattern below matched the
+        digits BEFORE a French thousands separator and `\\s*` swallowed the separator itself, so
+        `'188 472'` returned 188. A wrong number that looks right is worse than none — a follower
+        threshold silently compared against a hundredth of the real count.
+        """
         if not text:
             return None
-        
-        text = text.strip().replace(',', '.').replace(' ', '')
+
+        text = normalise_number_spaces(text.strip()).replace(',', '.').replace(' ', '')
         
         patterns = [
             r'(\d+(?:\.\d+)?)\s*([KkMmBb]?)',  # 1.2K, 500, 2.5M
