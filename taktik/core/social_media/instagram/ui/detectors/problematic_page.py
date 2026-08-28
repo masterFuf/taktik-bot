@@ -558,6 +558,23 @@ class ProblematicPageDetector:
         }
         logger.info("📊 Statistiques de rate limiting réinitialisées")
     
+    def is_action_blocked(self) -> bool:
+        """Is Instagram showing its rate-limit dialog right now? Reads only, closes nothing.
+
+        `detect_and_handle_problematic_pages` would CLOSE this one (`close_methods: ok_button`)
+        and let the run carry on — which is acting again immediately after being told to stop,
+        the surest way to turn a temporary limit into a lasting one. A caller that needs to
+        decide whether to keep going has to be able to ask without touching the screen.
+        """
+        pattern = self.detection_patterns.get('try_again_later_page') or {}
+        indicators = pattern.get('indicators') or []
+        if not indicators:
+            return False
+        content = self._get_ui_content(context="action_blocked")
+        if not content:
+            return False
+        return self._is_page_detected(content, indicators)
+
     def should_stop_session(self) -> bool:
         """
         Should the session stop, given how many rate limits were seen?

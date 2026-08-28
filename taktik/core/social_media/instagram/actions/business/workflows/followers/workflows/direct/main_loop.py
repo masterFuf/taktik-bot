@@ -131,6 +131,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # and a fresh net is earned by interacting again — never by waiting again.
             reload_policy = ListReloadPolicy.from_config(config)
             reload_spent_at = None
+            # Same shape for the relaunch: one per stretch of progress, never on a block.
+            restart_spent_at = None
 
             def list_was_only_loading(reason, already_seen=None):
                 """True if the list came back — the caller must then resume, not stop.
@@ -306,11 +308,36 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         emit_step("follower_decision", action="error", target=username,
                                   reason="processing_error", encounter_order=total_usernames_seen,
                                   source_type="FOLLOWERS")
+                        # Ask WHAT stopped us before naming it. A rate-limit dialog and a lost
+                        # navigation are the same symptom here and opposite decisions.
+                        lost_reason = self._diagnose_lost_navigation(
+                            account_username=account_username, source_name=target_username,
+                            source_followers=target_followers_count,
+                            encounter_order=total_usernames_seen)
+                        # A genuinely lost navigation earns one relaunch per stretch of progress.
+                        # A block earns none: relaunching after "Try again later" is acting again
+                        # seconds after being told to stop.
+                        if (getattr(lost_reason, 'code', None) == 'navigation_lost'
+                                and (restart_spent_at is None
+                                     or stats['interacted'] > restart_spent_at)
+                                and self._restart_app_and_reopen(
+                                    target_username, stats, config, deep_link_percentage,
+                                    force_search_for_target)):
+                            restart_spent_at = stats['interacted']
+                            # The relaunch lands at the TOP: the run must be able to scroll back
+                            # down past what it already worked, so it gets its allowance back.
+                            scroll_attempts = 0
+                            consecutive_empty_screens = 0
+                            consecutive_top_loops = 0
+                            no_new_profiles_count = 0
+                            known_usernames_streak = 0
+                            scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
+                            break
                         navigation_lost = True
-                        session_stop_reason = session_stop_reason or stop_reasons.navigation_lost()
+                        session_stop_reason = session_stop_reason or lost_reason
                         # Keep the screen we could not read. Without it the next occurrence is as
                         # opaque as this one: the app is closed seconds later and the evidence with it.
-                        capture_screen_snapshot(self.device, 'navigation_lost')
+                        capture_screen_snapshot(self.device, getattr(lost_reason, 'code', 'navigation_lost'))
                         break
 
                     # Consecutive-private streak. `None` = no profile was opened, so the visit
@@ -339,11 +366,36 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         # "stopping" must mean STOPPING: this break only exits the for-loop, so
                         # without the flag the while-loop kept scrolling a dead screen for minutes.
                         self.logger.error("Could not return to followers list, stopping")
+                        # Ask WHAT stopped us before naming it. A rate-limit dialog and a lost
+                        # navigation are the same symptom here and opposite decisions.
+                        lost_reason = self._diagnose_lost_navigation(
+                            account_username=account_username, source_name=target_username,
+                            source_followers=target_followers_count,
+                            encounter_order=total_usernames_seen)
+                        # A genuinely lost navigation earns one relaunch per stretch of progress.
+                        # A block earns none: relaunching after "Try again later" is acting again
+                        # seconds after being told to stop.
+                        if (getattr(lost_reason, 'code', None) == 'navigation_lost'
+                                and (restart_spent_at is None
+                                     or stats['interacted'] > restart_spent_at)
+                                and self._restart_app_and_reopen(
+                                    target_username, stats, config, deep_link_percentage,
+                                    force_search_for_target)):
+                            restart_spent_at = stats['interacted']
+                            # The relaunch lands at the TOP: the run must be able to scroll back
+                            # down past what it already worked, so it gets its allowance back.
+                            scroll_attempts = 0
+                            consecutive_empty_screens = 0
+                            consecutive_top_loops = 0
+                            no_new_profiles_count = 0
+                            known_usernames_streak = 0
+                            scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
+                            break
                         navigation_lost = True
-                        session_stop_reason = session_stop_reason or stop_reasons.navigation_lost()
+                        session_stop_reason = session_stop_reason or lost_reason
                         # Keep the screen we could not read. Without it the next occurrence is as
                         # opaque as this one: the app is closed seconds later and the evidence with it.
-                        capture_screen_snapshot(self.device, 'navigation_lost')
+                        capture_screen_snapshot(self.device, getattr(lost_reason, 'code', 'navigation_lost'))
                         break
                     
                     # Position check after coming back

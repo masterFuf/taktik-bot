@@ -81,10 +81,30 @@ class _Helpers:
         self.finalized.append((status, reason))
 
 
+class _RestartableHelpers(_Helpers):
+    def _get_package(self): return "com.instagram.android"
+
+
+class _DeviceManager:
+    def __init__(self): self.launches = []
+    def launch_app(self, package, stop_first=False):
+        self.launches.append((package, stop_first))
+        return True
+
+
 class _Automation:
-    def __init__(self, username="me"):
+    """Restarting the app is opt-in.
+
+    A run can only relaunch when the automation exposes both a device manager and the package
+    name; without them the loop stops on a lost navigation exactly as it did before. Keeping
+    that the DEFAULT here is what lets the older tests go on pinning "a lost navigation ends the
+    run" — which is still true whenever the relaunch is unavailable or fails.
+    """
+
+    def __init__(self, username="me", restartable=False):
         self.active_username = username
-        self.helpers = _Helpers()
+        self.helpers = _RestartableHelpers() if restartable else _Helpers()
+        self.device_manager = _DeviceManager() if restartable else None
 
 
 class _Actions:
@@ -136,11 +156,12 @@ class Runner(FollowerDirectWorkflowMixin):
 
     def __init__(self, pages, *, followers_count=100, process_results=None,
                  ensure_back=True, private_flags=None, loop_on_scan=None,
-                 real_empty_screen_handler=False, end_detection_results=None):
+                 real_empty_screen_handler=False, end_detection_results=None,
+                 restartable=False):
         self.logger = _Logger()
         self.device = object()
         self.session_manager = None
-        self.automation = _Automation()
+        self.automation = _Automation(restartable=restartable)
         self.trace = []
         self.detection_actions = _Actions(pages, trace=self.trace)
         self.scroll_actions = self.detection_actions
@@ -153,6 +174,7 @@ class Runner(FollowerDirectWorkflowMixin):
         self._loop_on_scan = list(loop_on_scan or [])
         self._real_empty_screen_handler = real_empty_screen_handler
         self._end_detection_results = list(end_detection_results or [])
+        self.recorded_signals = []
         self.processed_calls = []
         self.escaped = 0
         self.empty_screen_calls = 0
@@ -199,7 +221,7 @@ class Runner(FollowerDirectWorkflowMixin):
             actions.index += 1
         return 3
 
-    def _record_restriction_signal(self, **k): pass
+    def _record_restriction_signal(self, **k): self.recorded_signals.append(k)
 
     def _handle_scroll_and_end_detection(self, *a, **k):
         self.end_detection_args = a
@@ -934,3 +956,80 @@ def test_at_the_no_new_usernames_gate_a_familiar_row_proves_nothing(monkeypatch)
     assert len(slept) == 3, (
         f"the net stopped after {len(slept)} wait(s) — it took an already-known row for a return"
     )
+
+
+def test_a_rate_limited_run_says_so_instead_of_blaming_navigation():
+    """The five stops filed as `navigation_lost` that were Instagram saying "Try again later".
+
+    Same symptom from inside the loop — the list is out of reach — and opposite decisions: a
+    lost navigation is worth retrying, a block is worth stopping on, because acting again right
+    after one is what turns a temporary limit into a lasting one.
+    """
+    class _Blocked:
+        def is_action_blocked(self): return True
+
+    runner = Runner(pages=[["alice"]], process_results=[None])
+    runner.nav_actions = type('_N', (), {'problematic_page_detector': _Blocked()})()
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    status, reason = runner.automation.helpers.finalized[-1]
+    assert getattr(reason, 'code', None) == 'action_blocked'
+    assert status == "INTERRUPTED"
+    assert [s['signal'] for s in runner.recorded_signals] == ['action_blocked'], (
+        "the block was not written down, so nothing counts how often this account is limited"
+    )
+
+
+def test_a_genuinely_lost_navigation_is_still_a_lost_navigation():
+    """The net must not relabel every failure as a block — that would hide real breakage."""
+    class _NotBlocked:
+        def is_action_blocked(self): return False
+
+    runner = Runner(pages=[["alice"]], process_results=[None])
+    runner.nav_actions = type('_N', (), {'problematic_page_detector': _NotBlocked()})()
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    _, reason = runner.automation.helpers.finalized[-1]
+    assert getattr(reason, 'code', None) == 'navigation_lost'
+    assert runner.recorded_signals == []
+
+
+def test_a_lost_navigation_relaunches_the_app_and_carries_on():
+    """The operator's ask: when the run loses its way, get it back on its feet.
+
+    Bounded exactly like the network net — one relaunch per stretch of progress — and the
+    scroll allowance is handed back, because a relaunch lands at the TOP of the list and the
+    run has to scroll down past everything it already worked.
+    """
+    class _NotBlocked:
+        def is_action_blocked(self): return False
+
+    runner = Runner(pages=[["alice"]], process_results=[None], restartable=True)
+    runner.nav_actions = type('_N', (), {'problematic_page_detector': _NotBlocked()})()
+
+    runner.interact_with_followers_direct("target", max_interactions=2, finalize=True)
+
+    assert runner.automation.device_manager.launches == [("com.instagram.android", True)]
+    _, reason = runner.automation.helpers.finalized[-1]
+    assert getattr(reason, 'code', None) != 'navigation_lost', (
+        "the run relaunched successfully and still filed itself as lost"
+    )
+
+
+def test_a_blocked_account_is_never_relaunched():
+    """The whole point of telling the two apart: relaunching after "Try again later" is acting
+    again seconds after being told to stop."""
+    class _Blocked:
+        def is_action_blocked(self): return True
+
+    runner = Runner(pages=[["alice"]], process_results=[None], restartable=True)
+    runner.nav_actions = type('_N', (), {'problematic_page_detector': _Blocked()})()
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert runner.automation.device_manager.launches == [], (
+        "the app was relaunched while Instagram was rate-limiting the account"
+    )
+    assert _finalised_code(runner) == 'action_blocked'

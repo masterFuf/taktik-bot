@@ -279,6 +279,7 @@ def scroll_streak(scrolls: Any, seen: Any) -> StopReason:
 _FAMILY_BY_CODE = {
     "navigation_lost": FAMILY_FAILED,
     "stuck_at_top": FAMILY_FAILED,
+    "action_blocked": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
@@ -323,6 +324,17 @@ def completed(interactions: Any) -> StopReason:
 #
 # Includes an empty plan and a missing target list. Neither is a crash, but both mean the same
 # thing to the operator: it did not run, go and look at the settings.
+
+def action_blocked() -> StopReason:
+    """Instagram is showing "Try again later": it is rate-limiting this account right now.
+
+    Told apart from `navigation_lost` on purpose. They looked identical from the outside — the
+    run cannot reach its list either way — but they call for opposite moves: a lost navigation
+    is worth retrying, a block is worth stopping on. Five runs filed as lost navigation were
+    this dialog, and the difference decides whether the next gesture makes things worse.
+    """
+    return _reason("action_blocked", FAMILY_FAILED, "action_blocked")
+
 
 def stuck_at_top(scans: Any) -> StopReason:
     """Scrolling stopped advancing: the same head of list came back N scans in a row."""

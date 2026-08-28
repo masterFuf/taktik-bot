@@ -46,7 +46,8 @@ class DirectNavigationMixin:
         return False
 
     def _record_restriction_signal(self, account_username, source_name, source_followers,
-                                   streak, encounter_order, jump_index, gestures):
+                                   streak, encounter_order, jump_index, gestures,
+                                   signal="private_first_ordering"):
         """Persist one detection. Never raises — losing a measurement must not lose the run."""
         if not account_username or account_username == "unknown":
             return
@@ -58,6 +59,7 @@ class DirectNavigationMixin:
             LocalDatabaseService().account_restrictions.record_signal(
                 account_username,
                 platform="instagram",
+                signal=signal,
                 source_type="FOLLOWERS",
                 source_name=source_name,
                 source_followers=source_followers,
@@ -247,6 +249,83 @@ class DirectNavigationMixin:
                     return False
                 self._human_like_delay('navigation')
                 self.logger.warning(f"⚠️ Position lost - restarting from beginning (was at {total_usernames_seen} usernames)")
+        return True
+
+    def _diagnose_lost_navigation(self, account_username=None, source_name=None,
+                                  source_followers=None, encounter_order=None):
+        """Name what actually stopped the run before calling it a lost navigation.
+
+        Both look the same from here — the list is out of reach — but they call for opposite
+        moves. A lost navigation is worth retrying; a rate limit is worth stopping on, because
+        the next gesture after "Try again later" is what turns a temporary limit into a lasting
+        one. Five stops filed as `navigation_lost` were this dialog, kept on disk the whole time
+        by the screen captures nobody could find.
+        """
+        detector = getattr(getattr(self, 'nav_actions', None), 'problematic_page_detector', None)
+        if detector is None or not hasattr(detector, 'is_action_blocked'):
+            return stop_reasons.navigation_lost()
+        try:
+            blocked = detector.is_action_blocked()
+        except Exception as exc:  # noqa: BLE001 — a diagnosis must never end a run itself
+            self.logger.debug(f"Could not read the screen for a block: {exc}")
+            return stop_reasons.navigation_lost()
+        if not blocked:
+            return stop_reasons.navigation_lost()
+
+        self.logger.error(
+            "🛑 Instagram is rate-limiting this account (\"Try again later\") — stopping instead "
+            "of retrying"
+        )
+        emit_step('account_restriction', action='action_blocked', target=account_username or '')
+        self._record_restriction_signal(
+            account_username=account_username, source_name=source_name,
+            source_followers=source_followers, streak=None,
+            encounter_order=encounter_order, jump_index=None, gestures=None,
+            signal="action_blocked",
+        )
+        return stop_reasons.action_blocked()
+
+    def _restart_app_and_reopen(self, target_username, stats, config, deep_link_percentage,
+                                force_search_for_target):
+        """Relaunch the app and reopen the source list. Returns True if the run can carry on.
+
+        Only ever called on a navigation that is genuinely lost — never on a rate limit, where
+        relaunching would mean acting again seconds after Instagram said stop. That check
+        belongs to `_diagnose_lost_navigation`; this method only performs.
+
+        The position in the list does NOT survive: a relaunch lands at the top. The already-seen
+        usernames are still in memory, so the run skips them on the way down — which costs
+        scrolls, and is why the caller gives its scroll allowance back.
+        """
+        automation = getattr(self, 'automation', None)
+        manager = getattr(automation, 'device_manager', None)
+        helpers = getattr(automation, 'helpers', None)
+        if manager is None or helpers is None or not hasattr(helpers, '_get_package'):
+            return False
+        try:
+            package = helpers._get_package()
+            self.logger.warning(f"♻️ Navigation lost — relaunching {package} to get the run back")
+            emit_step('app_restart', action='attempt', target=package)
+            if not manager.launch_app(package, stop_first=True):
+                emit_step('app_restart', action='failed', target=package)
+                return False
+            time.sleep(5)
+            followers_count, _ = self._setup_direct_workflow(
+                target_username, stats, config, deep_link_percentage, force_search_for_target)
+        except Exception as exc:  # noqa: BLE001 — a rescue must not become the failure
+            self.logger.error(f"Could not relaunch and reopen the list: {exc}")
+            return False
+
+        if followers_count is None:
+            self.logger.error("♻️ Relaunched, but the list could not be reopened — ending the run")
+            emit_step('app_restart', action='reopen_failed', target=target_username)
+            return False
+
+        # `_setup_direct_workflow` records its own failure reason in stats; on the way back up it
+        # would be read as the run's motive even though we recovered.
+        stats['stop_reason'] = ''
+        self.logger.info("♻️ Back on the list after a relaunch — resuming from the top")
+        emit_step('app_restart', action='recovered', target=target_username)
         return True
 
     def _list_came_back_after_waiting(self, policy, reason, total_usernames_seen=0,
