@@ -219,6 +219,9 @@ def isolate(monkeypatch):
     monkeypatch.setattr(main_loop, "emit_step", lambda *a, **k: None)
     monkeypatch.setattr(profile_processing, "emit_step", lambda *a, **k: None)
     monkeypatch.setattr(navigation_helpers, "emit_step", lambda *a, **k: None)
+    # No test may ever wait on the wall clock. The safety net for a slow list is the only
+    # code here that sleeps; tests that care about it re-patch this with `_sleepless`.
+    monkeypatch.setattr(navigation_helpers.time, "sleep", lambda seconds: None)
 
 
 def test_a_plain_run_interacts_with_every_visible_follower():
@@ -825,4 +828,83 @@ def test_an_exhausted_scroll_allowance_says_so():
     assert runner.detection_actions.scrolls >= 100, "the scenario did not reach the cap"
     assert _finalised_code(runner) == 'scroll_budget', (
         "a run that ran out of scroll allowance mid-list reports itself as completed"
+    )
+
+
+# --- the list that had not finished loading ----------------------------------
+#
+# Operator report, 2026-08-27, watching the phones: the network in that room drops for
+# seconds at a time, and the list is visibly still loading when the run calls it finished.
+# The bot cannot tell the two apart — a list that has not loaded and a list that has ended
+# are the same screen, zero clickable rows, and it decided on four scans spent in SIX
+# seconds (measured on `sonailsbienetre`, 19:49:46 to 19:49:52, 35 profiles of 67 done).
+#
+# So: a safety net, and only that. It fires where the run was about to STOP, never while it
+# is working, and a run that makes no progress does not get a second one.
+
+
+def _sleepless(monkeypatch, on_sleep=None):
+    """No real waiting in tests; `on_sleep` is what the passing time does to the screen."""
+    slept = []
+    def fake_sleep(seconds):
+        slept.append(seconds)
+        if on_sleep:
+            on_sleep()
+    monkeypatch.setattr(navigation_helpers.time, "sleep", fake_sleep)
+    return slept
+
+
+def test_a_list_still_loading_is_given_its_chance_before_the_run_ends(monkeypatch):
+    """The reported case: the rows land during the wait, and the run carries on."""
+    # Still empty after the immediate re-read (the outage outlasts a rescue scroll), so the
+    # net is the only thing left between this run and a false end of list.
+    runner = Runner(pages=[["alice"], [], [], ["bob", "carol"]], real_empty_screen_handler=True)
+    runner.detection_actions.suggestions_on_pages = {1, 2}
+    # The WAIT is what makes the list appear — not a scroll.
+    slept = _sleepless(monkeypatch, on_sleep=lambda: setattr(runner.detection_actions, 'index', 3))
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert slept, "the run concluded without ever giving the list a chance"
+    assert runner.processed_calls == ["alice", "bob", "carol"], (
+        "the list came back during the wait and the run stopped anyway"
+    )
+
+
+def test_a_list_that_stays_empty_still_ends_the_run(monkeypatch):
+    """The net must not turn a finished source into a run that waits for ever."""
+    runner = Runner(pages=[["alice"], [], [], []], real_empty_screen_handler=True)
+    runner.detection_actions.suggestions_on_pages = {1, 2, 3}
+    slept = _sleepless(monkeypatch)
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert _finalised_code(runner) == 'end_of_list_suggestions'
+    assert len(slept) <= 3, f"waited {len(slept)} times on a list that was simply finished"
+
+
+def test_the_safety_net_never_fires_while_the_run_is_working(monkeypatch):
+    """It is a net, not a toll: a healthy run must not pay a second for it."""
+    runner = Runner(pages=[["alice", "bob", "carol"]])
+    slept = _sleepless(monkeypatch)
+
+    runner.interact_with_followers_direct("target", max_interactions=3, finalize=True)
+
+    assert slept == [], "a run that spent its budget still waited on the network"
+
+
+def test_a_run_that_made_no_progress_does_not_get_a_second_net(monkeypatch):
+    """The anti-loop rule: a fresh chance is earned by interacting, not by waiting again.
+
+    Without it, a list that comes back empty-handed — rows visible, none of them new —
+    would buy another wait every lap and the run would never end.
+    """
+    runner = Runner(pages=[["alice"], [], [], ["alice"]], real_empty_screen_handler=True)
+    runner.detection_actions.suggestions_on_pages = {1, 2}
+    slept = _sleepless(monkeypatch, on_sleep=lambda: setattr(runner.detection_actions, 'index', 3))
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert len(slept) <= 3, (
+        f"the run bought {len(slept)} waits without ever interacting again"
     )

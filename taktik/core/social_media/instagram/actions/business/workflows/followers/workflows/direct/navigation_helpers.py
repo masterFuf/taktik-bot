@@ -249,6 +249,35 @@ class DirectNavigationMixin:
                 self.logger.warning(f"⚠️ Position lost - restarting from beginning (was at {total_usernames_seen} usernames)")
         return True
 
+    def _list_came_back_after_waiting(self, policy, reason, total_usernames_seen=0):
+        """Wait, rescan, and say whether the list was merely slow to load.
+
+        Called ONLY where the run was about to stop on a spent source. Reading the screen is
+        the workflow's job; how long to wait belongs to `ListReloadPolicy`.
+        """
+        if policy is None or not policy.covers(reason):
+            return False
+
+        code = getattr(reason, 'code', None) or str(reason or '')
+        for index, seconds in enumerate(policy.steps(), start=1):
+            self.logger.info(
+                f"⏳ List looks finished ({code}) — giving it {seconds:.0f}s in case it is "
+                f"still loading ({index}/{len(policy.steps())})"
+            )
+            time.sleep(seconds)
+            if self.detection_actions.get_visible_followers_with_elements():
+                self.logger.info(f"✅ The list came back after {seconds:.0f}s — resuming")
+                emit_step('list_reload', action='recovered', target=code,
+                          waited_seconds=seconds, attempt=index, seen=total_usernames_seen)
+                return True
+
+        emit_step('list_reload', action='gave_up', target=code,
+                  waited_seconds=policy.budget_seconds, seen=total_usernames_seen)
+        self.logger.info(
+            f"🏁 Nothing came back after {policy.budget_seconds:.0f}s — the source is finished"
+        )
+        return False
+
     def _handle_empty_followers_screen(self, scroll_detector, total_usernames_seen=0):
         """Handle case when no visible followers found.
 

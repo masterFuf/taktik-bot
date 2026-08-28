@@ -14,6 +14,7 @@ from ....common.private_streak_policy import PrivateStreakPolicy
 from ....common.followers_tracker import FollowersTracker
 from ....common.interaction_config import build_interaction_config
 from ....common.stop_limits import resolve_stop_limits
+from ....common.list_reload_policy import ListReloadPolicy
 from .navigation_helpers import DirectNavigationMixin
 from .profile_processing import DirectProfileProcessingMixin
 
@@ -124,6 +125,32 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # the streak from ever forming on a list we have already worked.
             private_streak = 0
             private_zone_jumps = 0
+            # The safety net for a list that has not finished loading. Consulted ONLY where the
+            # run is about to stop on a spent source, so a healthy run never waits. `None` means
+            # no net has been spent yet; afterwards it holds the interaction count at the time,
+            # and a fresh net is earned by interacting again — never by waiting again.
+            reload_policy = ListReloadPolicy.from_config(config)
+            reload_spent_at = None
+
+            def list_was_only_loading(reason):
+                """True if the list came back — the caller must then resume, not stop."""
+                nonlocal reload_spent_at, scroll_detector, consecutive_empty_screens
+                nonlocal consecutive_top_loops, no_new_profiles_count, known_usernames_streak
+                if reload_spent_at is not None and stats['interacted'] <= reload_spent_at:
+                    return False
+                if not self._list_came_back_after_waiting(
+                        reload_policy, reason, total_usernames_seen):
+                    return False
+                reload_spent_at = stats['interacted']
+                # The same gates the private-zone transport clears, for the same reason: they
+                # were filled by the screens the outage produced, and reading them now would
+                # end the run on evidence that is no longer true.
+                consecutive_empty_screens = 0
+                consecutive_top_loops = 0
+                no_new_profiles_count = 0
+                known_usernames_streak = 0
+                scroll_detector = ScrollEndDetector(repeats_to_end=5, device=self.device)
+                return True
 
             while stats['interacted'] < max_interactions and scroll_attempts < max_scroll_attempts:
                 # Vérifier si on doit prendre une pause
@@ -182,12 +209,16 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         # screen / navigation drift). Blind-scrolling further is pure waste and
                         # a detectable non-human burst.
                         self.logger.error("🛑 Followers list unavailable (4 consecutive empty scans) — ending run")
+                        if list_was_only_loading(stop_reasons.list_unavailable()):
+                            continue
                         session_stop_reason = session_stop_reason or stop_reasons.list_unavailable()
                         break
                     # Handle end of list, suggestions and scrolling
                     end_reason = self._handle_empty_followers_screen(
                         scroll_detector, total_usernames_seen)
                     if end_reason:
+                        if list_was_only_loading(end_reason):
+                            continue
                         session_stop_reason = session_stop_reason or end_reason
                         break
                     scroll_attempts += 1
@@ -380,6 +411,9 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     max_consecutive_known_usernames, legacy_max_no_new_usernames_scrolls
                 )
                 
+                if should_stop and list_was_only_loading(stop_reason):
+                    continue
+
                 if stop_reason:
                     session_stop_reason = stop_reason
                 
@@ -421,6 +455,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                             continue
                         elif load_more_result is False:
                             self.logger.info("🏁 End of followers list detected (suggestions section)")
+                            if list_was_only_loading(stop_reasons.end_of_list_suggestions()):
+                                continue
                             session_stop_reason = (
                                 session_stop_reason or stop_reasons.end_of_list_suggestions())
                             break
