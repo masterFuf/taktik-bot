@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, Tuple
 
 from ......core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.shared.config import resolve_filter_criteria
+from ....common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
@@ -107,13 +108,9 @@ class DirectProfileProcessingMixin:
         # FAIL-OPEN: an unreadable row, such as a partially scrolled last one, falls
         # through to the tap plus the profile guard, so no valid target is ever lost.
         fc = resolve_filter_criteria(interaction_config)
-        if fc.get('skip_follows_us') or fc.get('skip_already_following'):
+        if wants_relationship_skip(fc):
             row_state = self.detection_actions.get_row_follow_state(username)
-            reason = None
-            if fc.get('skip_follows_us') and row_state == 'follow_back':
-                reason = 'Already follows us'
-            elif fc.get('skip_already_following') and row_state in ('following', 'requested'):
-                reason = 'Already followed by us'
+            reason = relationship_skip_reason(fc, row_state)
             if reason:
                 self.logger.info(f"🤝 @{username} ignoré (liste, sans ouvrir le profil) — {reason}")
                 self.stats_manager.increment('relationship_skipped')

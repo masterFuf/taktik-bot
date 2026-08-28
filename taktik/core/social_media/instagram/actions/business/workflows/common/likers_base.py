@@ -19,6 +19,7 @@ from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from .revisit_policy import RevisitPolicy
+from .relationship_filter import relationship_skip_reason, wants_relationship_skip
 from .list_sources import InteractionListSource, make_likers_source
 from taktik.core.shared.config import resolve_filter_criteria
 
@@ -174,13 +175,9 @@ class LikersWorkflowBase(BaseBusinessAction):
             # FAIL-OPEN: an unreadable row falls through to the click plus the
             # profile-level guard, which stays the source of truth.
                 fc = resolve_filter_criteria(effective_config)
-                if fc.get('skip_follows_us') or fc.get('skip_already_following'):
+                if wants_relationship_skip(fc):
                     row_state = source.row_follow_state(username)
-                    rel_reason = None
-                    if fc.get('skip_follows_us') and row_state == 'follow_back':
-                        rel_reason = 'Already follows us'
-                    elif fc.get('skip_already_following') and row_state in ('following', 'requested'):
-                        rel_reason = 'Already followed by us'
+                    rel_reason = relationship_skip_reason(fc, row_state)
                     if rel_reason:
                         self.logger.info(f"🤝 @{username} ignoré (liste, sans ouvrir le profil) — {rel_reason}")
                         self.stats_manager.increment('relationship_skipped')
