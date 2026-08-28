@@ -208,8 +208,10 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Following\"]",
         "//*[@text=\"Following\"]",
     ],
+    # `contains(…, "Friend")` and not an equality on `Friends`: TikTok pluralises its own
+    # labels, and the French side of this key was unreachable for exactly that reason.
     "navigation.friends_tab": [
-        "//android.widget.FrameLayout[@content-desc=\"Friends\"]",
+        "//android.widget.FrameLayout[contains(@content-desc, \"Friend\")]",
     ],
     "navigation.home_tab": [
         "//android.widget.FrameLayout[@content-desc=\"Home\"]",

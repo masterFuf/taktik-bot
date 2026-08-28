@@ -136,8 +136,13 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.following_tab": [
         "//*[contains(@content-desc, \"Abonnements\")]",
     ],
+    # `Ami`, not `Amis`. Measured on both phones: the tab's content-desc is `Ami(e)s`, and
+    # `Amis` is not contained in it — the string runs A-m-i-(-e-)-s. The id alternative covered
+    # for it on 43.1.4; on 46.6.3 that id is gone and ALL THREE alternatives resolved nothing,
+    # so the friends tab was unreachable. Scoped to the bottom-bar FrameLayout, so the shorter
+    # form cannot wander into another word.
     "navigation.friends_tab": [
-        "//android.widget.FrameLayout[contains(@content-desc, \"Amis\")]",
+        "//android.widget.FrameLayout[contains(@content-desc, \"Ami\")]",
     ],
     "navigation.home_tab": [
         "//android.widget.FrameLayout[contains(@content-desc, \"Accueil\")]",
@@ -235,7 +240,11 @@ STRINGS: Dict[str, List[str]] = {
         "J'aime",
     ],
     # Raw LABEL of a MUTUAL follow button, which the unfollow workflow may skip.
+    # Both spellings written out rather than a shortened `Ami`: this one decides a RELATIONSHIP,
+    # and a loose substring on a button label is how a match wanders. `Ami(e)s` is what the tab
+    # shows; `Amis` stays for versions that write it that way.
     "profile.friends_button_labels": [
+        "Ami(e)s",
         "Amis",
     ],
     "profile.privacy_blocked_message": [],

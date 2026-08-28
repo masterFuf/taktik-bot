@@ -176,3 +176,20 @@ def test_following_is_still_decided_before_followers():
 
     assert classify_profile_stat_label("Following") == "following"
     assert classify_profile_stat_label("Follower") == "followers"
+
+
+def test_the_friends_label_matches_what_the_bar_writes():
+    """`Amis` is not contained in `Ami(e)s` — the string runs A-m-i-(-e-)-s.
+
+    Measured on both phones: the bottom bar writes `Ami(e)s`. On 43.1.4 an obfuscated id covered
+    for the wrong label; on 46.6.3 that id is gone and all three alternatives resolved nothing, so
+    the tab was unreachable. This is the relationship oracle too, so both spellings are listed
+    explicitly rather than shortened — a loose substring on a follow-state button wanders.
+    """
+    from taktik.core.social_media.tiktok.ui.labels import is_friends_button
+
+    assert is_friends_button("Ami(e)s")
+    assert is_friends_button("Amis")
+    assert is_friends_button("Friends")
+    assert not is_friends_button("Suivre")
+    assert not is_friends_button("Abonné")
