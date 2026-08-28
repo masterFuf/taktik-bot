@@ -139,3 +139,40 @@ def test_an_empty_screen_returns_defaults_rather_than_raising():
 def test_a_known_username_survives_an_unreadable_screen():
     data = extract_profile_from_screen(_FakeDevice({}), username="from_the_caller")
     assert data["username"] == "from_the_caller"
+
+
+# --- the labels a real phone actually shows, measured 2026-08-28 on both accounts ---
+
+def test_the_labels_the_device_really_shows_are_classified():
+    """Read off two live profiles: TikTok fr-FR says `Suivis` and `Followers`, not `Abonnements`
+    and `Abonnés`. The catalogue had been written from a guess, and two counts out of three
+    stayed at zero on a screen that displayed them."""
+    from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
+
+    assert classify_profile_stat_label("Suivis") == "following"
+    assert classify_profile_stat_label("Followers") == "followers"
+    assert classify_profile_stat_label("J’aime") == "likes"
+
+
+def test_singular_and_plural_both_classify():
+    """TikTok pluralises its own labels: an account with one follower shows `Follower`. Catalogue
+    entries are therefore SINGULAR, since a match asks whether the entry is contained in the
+    screen text — measured on the 6 Pro, whose row read `Suivis 1 / Follower 1`."""
+    from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
+
+    for singular, plural, expected in (
+        ("Follower", "Followers", "followers"),
+        ("Suivi", "Suivis", "following"),
+        ("Abonné", "Abonnés", "followers"),
+        ("Abonnement", "Abonnements", "following"),
+    ):
+        assert classify_profile_stat_label(singular) == expected, singular
+        assert classify_profile_stat_label(plural) == expected, plural
+
+
+def test_following_is_still_decided_before_followers():
+    """The order that keeps `Following` from being read as `Follower`."""
+    from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
+
+    assert classify_profile_stat_label("Following") == "following"
+    assert classify_profile_stat_label("Follower") == "followers"

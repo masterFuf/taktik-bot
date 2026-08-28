@@ -353,11 +353,16 @@ STRINGS: Dict[str, List[str]] = {
     # label. That classification used to be hardcoded English, so a French TikTok
     # reported zero for all three counts. Order matters in the caller: following
     # before followers, since one contains the other.
+    # SINGULAR on purpose. `_matches` asks whether the catalogue entry is CONTAINED in the
+    # screen text, so "Follower" covers both "Follower" and "Followers" — and TikTok pluralises
+    # its own labels: an account with exactly one follower shows "Follower", which the plural
+    # entry could not match. Measured on a real 43.1.4 profile (Pixel 6 Pro, 2026-08-28), where
+    # the row read `Suivis 1 / Follower 1 / J'aime 19` and only the last one classified.
     "profile.stat_label_following": [
         "Following",
     ],
     "profile.stat_label_followers": [
-        "Followers",
+        "Follower",
     ],
     "profile.stat_label_likes": [
         "Likes",

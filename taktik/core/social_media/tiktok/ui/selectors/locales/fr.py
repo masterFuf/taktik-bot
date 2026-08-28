@@ -220,11 +220,16 @@ STRINGS: Dict[str, List[str]] = {
     # three values share an identifier, so telling WHICH one is held requires reading
     # its label. Order matters here: the following label is a prefix of the followers
     # one, so it must be tested first.
+    # Measured on device, not written from a guess — the previous values were, and they were
+    # wrong. TikTok 43.1.4 in fr-FR labels the row `Suivis` and `Follower`: a French word for
+    # following, and an ENGLISH one, singular, for followers. `Abonnements` / `Abonne` are kept
+    # because other versions do show them. Singular everywhere, see the note in en.py.
     "profile.stat_label_following": [
-        "Abonnements",
+        "Suivi",
+        "Abonnement",
     ],
     "profile.stat_label_followers": [
-        "Abonnés",
+        "Abonné",
     ],
     "profile.stat_label_likes": [
         "J'aime",
