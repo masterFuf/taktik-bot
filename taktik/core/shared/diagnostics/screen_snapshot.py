@@ -30,7 +30,8 @@ def _snapshot_dir() -> str:
 
 
 def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True,
-                            session_id: Any = None) -> Optional[str]:
+                            session_id: Any = None,
+                            directory: Optional[str] = None) -> Optional[str]:
     """Save what is on screen right now. Returns the base path, or None.
 
     `label` names the moment (`navigation_lost`, `list_unavailable`…) — it becomes part of the
@@ -40,6 +41,12 @@ def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True,
     screen their run ended on. Without it a capture can only be matched to a session by
     proximity in time, which breaks the moment two devices stop within the same second — and
     runs are launched in waves of four.
+
+    `directory` sends the pair somewhere else — the Cartography Lab keeps its surface captures
+    beside its baselines, not among run incidents, because they answer a different question and
+    are pruned on a different rule. Everything else is shared on purpose: a second function that
+    dumps a hierarchy and grabs a screenshot would be a second set of the traps this one already
+    knows (`screenshot()` writes and returns a bool; `screenshot_pil()` returns the image).
     """
     if device is None:
         return None
@@ -48,7 +55,7 @@ def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True,
     if session_id is not None:
         safe_label = f"s{session_id}_{safe_label}"
     try:
-        directory = _snapshot_dir()
+        directory = directory or _snapshot_dir()
         os.makedirs(directory, exist_ok=True)
         base = os.path.join(directory, f'{stamp}_{safe_label}')
     except Exception as exc:  # noqa: BLE001 — a diagnostic must never end a run
@@ -87,7 +94,11 @@ def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True,
 
     if wrote:
         logger.info(f"📸 Screen kept for diagnosis: {base}.* ({label})")
-        _prune(directory)
+        # Only the shared incident folder is pruned here. A caller that chose its own
+        # directory owns its retention: the Lab keeps a capture per layout, not per run, and
+        # a 400-file ceiling would silently drop the oldest layouts it exists to remember.
+        if directory == _snapshot_dir():
+            _prune(directory)
         return base
     return None
 
