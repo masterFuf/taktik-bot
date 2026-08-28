@@ -16,6 +16,8 @@ writes, so a bad run and its screen are found together.
 from __future__ import annotations
 
 import os
+
+from taktik.core.shared.app_paths import get_app_subdir
 from datetime import datetime
 from typing import Any, Optional
 
@@ -23,8 +25,8 @@ from loguru import logger
 
 
 def _snapshot_dir() -> str:
-    appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
-    return os.path.join(appdata, 'taktik-desktop', 'logs', 'screens')
+    return get_app_subdir('logs', 'screens', create=False) or os.path.join(
+        os.path.expanduser('~'), 'taktik-desktop', 'logs', 'screens')
 
 
 def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True) -> Optional[str]:
@@ -59,11 +61,19 @@ def capture_screen_snapshot(device: Any, label: str, *, with_image: bool = True)
         logger.debug(f"Could not dump the hierarchy for {label}: {exc}")
 
     if with_image:
+        # `screenshot()` on the facade WRITES to a path and returns a bool; only `screenshot_pil()`
+        # returns an image. Calling the first as if it were the second raised on every single
+        # capture ("missing 1 required positional argument: 'filename'"), so an incident left its
+        # hierarchy behind and never its picture — the one artefact an operator can read at a glance.
         try:
-            image = device.screenshot()
-            if image is not None:
-                image.save(f'{base}.png', format='PNG')
-                wrote = True
+            grab = getattr(device, 'screenshot_pil', None)
+            if callable(grab):
+                image = grab()
+                if image is not None:
+                    image.save(f'{base}.png', format='PNG')
+                    wrote = True
+            elif callable(getattr(device, 'screenshot', None)):
+                wrote = bool(device.screenshot(f'{base}.png')) or wrote
         except Exception as exc:  # noqa: BLE001
             logger.debug(f"Could not screenshot for {label}: {exc}")
 

@@ -5,8 +5,8 @@ import logging
 import os
 
 # Use AppData folder for logs to avoid permission issues
-_app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
-_logs_dir = os.path.join(_app_data, 'taktik-desktop', 'logs')
+from taktik.core.shared.app_paths import get_app_data_dir
+_logs_dir = os.path.join(get_app_data_dir(), 'logs')
 os.makedirs(_logs_dir, exist_ok=True)
 
 logging.basicConfig(

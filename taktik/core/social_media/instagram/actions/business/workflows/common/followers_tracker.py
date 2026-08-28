@@ -2,6 +2,8 @@
 
 import json
 import os
+
+from taktik.core.shared.app_paths import get_app_data_dir
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -21,8 +23,8 @@ class FollowersTracker:
         self.session_start = datetime.now()
         
         # Create the log directory in the user data folder to avoid permission issues
-        app_data = os.environ.get('APPDATA', os.path.expanduser('~'))
-        self.log_dir = Path(app_data) / 'taktik-desktop' / 'logs' / 'followers_tracking'
+        app_data = get_app_data_dir()
+        self.log_dir = Path(app_data) / 'logs' / 'followers_tracking'
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
         # Log file for this session
