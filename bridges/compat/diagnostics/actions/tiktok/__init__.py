@@ -13,9 +13,11 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.tiktok import account  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import app  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import detection  # noqa: F401
+    from bridges.compat.diagnostics.actions.tiktok import followers  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import inbox  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import navigation  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import popups  # noqa: F401
+    from bridges.compat.diagnostics.actions.tiktok import profile  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import publish  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import scroll  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import search  # noqa: F401
