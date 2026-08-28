@@ -11,7 +11,7 @@ import time
 from ....atomic.navigation_actions import NavigationActions
 from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
-from ....core.utils import extract_resource_id as _extract_rid
+from ....core.utils import extract_resource_id as _extract_rid, first_matching
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
@@ -151,21 +151,25 @@ class ScrapingWorkflow:
             while len(profiles) < max_profiles and scroll_attempts < max_scroll_attempts and not self.stopped:
                 raw_device = self.device._device if hasattr(self.device, '_device') else self.device
 
-                username_rid = _extract_rid(self._followers_sel.follower_username)
-                display_rid = _extract_rid(self._followers_sel.follower_display_name)
-                username_elements = raw_device(resourceId=username_rid)
-                if not username_elements.exists:
-                    username_elements = raw_device(resourceId=display_rid)
+                # Read through the selector list. Both follower anchors are written
+                # `contains(@resource-id, …)`, which the id extractor cannot parse — and unlike
+                # the profile extractor, this loop had NO `if rid:` guard, so it was asking the
+                # device for `resourceId=''` on every iteration and scrolling a list it could not
+                # read. The display name is the fallback: some rows show only that.
+                username_elements = first_matching(raw_device, self._followers_sel.follower_username)
+                display_name_elements = first_matching(
+                    raw_device, self._followers_sel.follower_display_name)
+                if not username_elements:
+                    username_elements = display_name_elements
 
                 found_new = False
-                display_name_elements = raw_device(resourceId=display_rid)
 
-                for i in range(username_elements.count):
+                for i in range(len(username_elements)):
                     if self.stopped:
                         break
                     try:
                         elem = username_elements[i]
-                        username_text = elem.get_text()
+                        username_text = elem.text
                         if username_text and username_text not in scraped_usernames:
                             username = username_text.replace('@', '').strip()
                             if username:
@@ -173,9 +177,9 @@ class ScrapingWorkflow:
                                 found_new = True
 
                                 display_name = ''
-                                if display_name_elements.exists and i < display_name_elements.count:
+                                if i < len(display_name_elements):
                                     try:
-                                        display_name = display_name_elements[i].get_text() or ''
+                                        display_name = display_name_elements[i].text or ''
                                     except Exception:
                                         pass
 
