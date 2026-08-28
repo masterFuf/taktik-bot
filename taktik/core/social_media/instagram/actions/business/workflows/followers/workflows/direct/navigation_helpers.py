@@ -249,11 +249,17 @@ class DirectNavigationMixin:
                 self.logger.warning(f"⚠️ Position lost - restarting from beginning (was at {total_usernames_seen} usernames)")
         return True
 
-    def _list_came_back_after_waiting(self, policy, reason, total_usernames_seen=0):
+    def _list_came_back_after_waiting(self, policy, reason, total_usernames_seen=0,
+                                      already_seen=None):
         """Wait, rescan, and say whether the list was merely slow to load.
 
         Called ONLY where the run was about to stop on a spent source. Reading the screen is
         the workflow's job; how long to wait belongs to `ListReloadPolicy`.
+
+        `already_seen` is what makes the answer mean something at the gate where the screen was
+        never empty in the first place ("no new usernames"): there, rows being visible proves
+        nothing — only a row we have NOT seen does. Without it the net would report success on
+        the page it was already stuck on, burn its one chance, and change nothing.
         """
         if policy is None or not policy.covers(reason):
             return False
@@ -265,7 +271,10 @@ class DirectNavigationMixin:
                 f"still loading ({index}/{len(policy.steps())})"
             )
             time.sleep(seconds)
-            if self.detection_actions.get_visible_followers_with_elements():
+            visible = self.detection_actions.get_visible_followers_with_elements()
+            if already_seen is not None:
+                visible = [f for f in visible if f.get('username') not in already_seen]
+            if visible:
                 self.logger.info(f"✅ The list came back after {seconds:.0f}s — resuming")
                 emit_step('list_reload', action='recovered', target=code,
                           waited_seconds=seconds, attempt=index, seen=total_usernames_seen)

@@ -132,14 +132,18 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             reload_policy = ListReloadPolicy.from_config(config)
             reload_spent_at = None
 
-            def list_was_only_loading(reason):
-                """True if the list came back — the caller must then resume, not stop."""
+            def list_was_only_loading(reason, already_seen=None):
+                """True if the list came back — the caller must then resume, not stop.
+
+                `already_seen` is required at the gate where the screen was NOT empty: there,
+                only a row we have never seen proves the list moved.
+                """
                 nonlocal reload_spent_at, scroll_detector, consecutive_empty_screens
                 nonlocal consecutive_top_loops, no_new_profiles_count, known_usernames_streak
                 if reload_spent_at is not None and stats['interacted'] <= reload_spent_at:
                     return False
                 if not self._list_came_back_after_waiting(
-                        reload_policy, reason, total_usernames_seen):
+                        reload_policy, reason, total_usernames_seen, already_seen):
                     return False
                 reload_spent_at = stats['interacted']
                 # The same gates the private-zone transport clears, for the same reason: they
@@ -411,7 +415,7 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     max_consecutive_known_usernames, legacy_max_no_new_usernames_scrolls
                 )
                 
-                if should_stop and list_was_only_loading(stop_reason):
+                if should_stop and list_was_only_loading(stop_reason, processed_usernames):
                     continue
 
                 if stop_reason:

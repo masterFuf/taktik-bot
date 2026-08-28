@@ -136,7 +136,7 @@ class Runner(FollowerDirectWorkflowMixin):
 
     def __init__(self, pages, *, followers_count=100, process_results=None,
                  ensure_back=True, private_flags=None, loop_on_scan=None,
-                 real_empty_screen_handler=False):
+                 real_empty_screen_handler=False, end_detection_results=None):
         self.logger = _Logger()
         self.device = object()
         self.session_manager = None
@@ -152,6 +152,7 @@ class Runner(FollowerDirectWorkflowMixin):
         self._last_visit_was_private = None
         self._loop_on_scan = list(loop_on_scan or [])
         self._real_empty_screen_handler = real_empty_screen_handler
+        self._end_detection_results = list(end_detection_results or [])
         self.processed_calls = []
         self.escaped = 0
         self.empty_screen_calls = 0
@@ -204,6 +205,8 @@ class Runner(FollowerDirectWorkflowMixin):
         self.end_detection_args = a
         # Position 11 is known_usernames_streak, the two last are the operator limits.
         self.trace.append(('end_check', a[11]))
+        if self._end_detection_results:
+            return self._end_detection_results.pop(0)
         return False, None
 
 
@@ -907,4 +910,27 @@ def test_a_run_that_made_no_progress_does_not_get_a_second_net(monkeypatch):
 
     assert len(slept) <= 3, (
         f"the run bought {len(slept)} waits without ever interacting again"
+    )
+
+
+def test_at_the_no_new_usernames_gate_a_familiar_row_proves_nothing(monkeypatch):
+    """The gate where the screen was never empty needs a different question.
+
+    "No new usernames" fires on a page FULL of rows we have already worked. Asking the net
+    "are there rows?" there answers yes every time: it would report a recovery, burn the run's
+    one chance on the page it was already stuck on, and change nothing. Only a row we have
+    never seen proves the list actually moved.
+    """
+    runner = Runner(
+        pages=[["alice"]],
+        end_detection_results=[(False, None),
+                               (True, main_loop.stop_reasons.end_of_list_repeated())],
+    )
+    slept = _sleepless(monkeypatch)
+
+    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+
+    assert _finalised_code(runner) == 'end_of_list_repeated'
+    assert len(slept) == 3, (
+        f"the net stopped after {len(slept)} wait(s) — it took an already-known row for a return"
     )
