@@ -34,7 +34,18 @@ from ...social_media.tiktok.ui.selectors import (
     COUNTRY_PICKER_SELECTORS as TT_COUNTRY_PICKER,
     NAVIGATION_SELECTORS as TT_NAVIGATION,
     PROFILE_SELECTORS as TT_PROFILE,
-    VIDEO_SELECTORS as TT_VIDEO,
+    # The four catalogues BEHIND `VIDEO_SELECTORS`, not the facade over them. Registering the
+    # facade looked right and reached nothing: it is a `__getattr__` object, so a patch aimed at
+    # it lands on a phantom attribute while production imports these four.
+    VIDEO_CREATOR_SELECTORS as TT_VIDEO_CREATOR,
+    VIDEO_ENGAGEMENT_SELECTORS as TT_VIDEO_ENGAGEMENT,
+    VIDEO_MEDIA_SELECTORS as TT_VIDEO_MEDIA,
+    VIDEO_STATE_SELECTORS as TT_VIDEO_STATE,
+    PUBLISH_COMPOSER_SELECTORS as TT_PUBLISH_COMPOSER,
+    PUBLISH_CREATION_ENTRY_SELECTORS as TT_PUBLISH_CREATION_ENTRY,
+    PUBLISH_EDITOR_SELECTORS as TT_PUBLISH_EDITOR,
+    PUBLISH_MEDIA_PICKER_SELECTORS as TT_PUBLISH_MEDIA_PICKER,
+    PUBLISH_PROGRESS_SELECTORS as TT_PUBLISH_PROGRESS,
     COMMENT_SELECTORS as TT_COMMENT,
     SEARCH_SELECTORS as TT_SEARCH,
     INBOX_SELECTORS as TT_INBOX,
@@ -76,7 +87,19 @@ TIKTOK_SELECTOR_DOMAINS = {
     "country_picker": TT_COUNTRY_PICKER,
     "navigation": TT_NAVIGATION,
     "profile": TT_PROFILE,
-    "video": TT_VIDEO,
+    # `video` used to point at the VideoSelectors FACADE. Measured: the override machinery
+    # reached 15 of the catalogue's 25 distinct objects, and the one non-dataclass among them
+    # absorbed its patches silently. The four real video catalogues and the five publish ones
+    # are registered by name instead — nothing addresses a facade any more.
+    "video_creator": TT_VIDEO_CREATOR,
+    "video_engagement": TT_VIDEO_ENGAGEMENT,
+    "video_media": TT_VIDEO_MEDIA,
+    "video_state": TT_VIDEO_STATE,
+    "publish_composer": TT_PUBLISH_COMPOSER,
+    "publish_creation_entry": TT_PUBLISH_CREATION_ENTRY,
+    "publish_editor": TT_PUBLISH_EDITOR,
+    "publish_media_picker": TT_PUBLISH_MEDIA_PICKER,
+    "publish_progress": TT_PUBLISH_PROGRESS,
     "comment": TT_COMMENT,
     "search": TT_SEARCH,
     "inbox": TT_INBOX,

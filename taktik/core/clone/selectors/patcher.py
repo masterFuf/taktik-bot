@@ -17,7 +17,7 @@ Usage:
     # → all Instagram selector singletons now reference androie resource-ids
 """
 
-from dataclasses import fields as dc_fields
+from dataclasses import fields as dc_fields, is_dataclass
 from typing import Any, Dict, List
 from loguru import logger
 from taktik.core.clone.packages.package_map import ORIGINAL_PACKAGES
@@ -79,7 +79,23 @@ def _patch_singleton_package(singleton: Any, old_pkg: str, new_pkg: str) -> int:
     *new_pkg* in all ``str`` and ``List[str]`` values.
 
     Returns the number of individual string values that were changed.
+
+    REFUSES a target that is not a dataclass, and that guard is not defensive programming — it
+    closes a measured hole. `VIDEO_SELECTORS` is a `__getattr__` facade over four real catalogues;
+    `dataclasses.fields()` follows that forwarding and hands back the UNDERLYING dataclass's
+    fields, so `setattr` wrote every patched value onto the FACADE as a new own-attribute. The
+    call reported "6 selector value(s) patched" and production, which imports the modules behind
+    the facade, saw none of it. A patch that logs success and changes nothing is worse than one
+    that fails.
     """
+    if not is_dataclass(singleton) or isinstance(singleton, type):
+        logger.error(
+            f"Refusing to patch {type(singleton).__name__}: not a dataclass instance. "
+            "A facade absorbs the patch into a phantom attribute while production reads the "
+            "objects behind it — register those objects instead."
+        )
+        return 0
+
     patched = 0
 
     for f in dc_fields(singleton):
