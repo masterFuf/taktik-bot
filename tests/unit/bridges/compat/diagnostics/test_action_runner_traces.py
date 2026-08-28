@@ -497,3 +497,52 @@ def test_detect_screen_prefers_home_over_feed_post_indicators():
 
 def test_detect_screen_prefers_profile_over_selected_home_tab():
     assert action_runner._detect_screen(_ProfileAndHomeBundle()) == "instagram.profile"
+
+
+def test_captured_phases_carry_a_layout_fingerprint(tmp_path):
+    """The shape of each captured screen reaches the report, and stays out of `artifacts`.
+
+    `artifacts` is a map of file paths — the front reads it as such, and the test above asserts
+    every value exists on disk. A hash among them is a quiet contract break. It belongs with the
+    report's other facts, where it lets two runs of the same action be compared across time: a
+    boolean flip says something broke, the fingerprint says whether the screen underneath changed.
+    """
+    from bridges.compat.diagnostics.runtime.action_test.artifacts import (
+        ActionArtifactContext,
+        capture_phase_artifacts,
+    )
+
+    class _Device:
+        # `get_xml_dump`, the facade's name for it — `_safe_get_xml` looks for exactly that.
+        @staticmethod
+        def get_xml_dump():
+            return (
+                '<hierarchy><node class="android.widget.TextView" '
+                'resource-id="com.instagram.android:id/row_feed_button_like" /></hierarchy>'
+            )
+
+    class _Bundle:
+        device = _Device()
+
+    context = ActionArtifactContext(
+        bot_root=tmp_path,
+        device_id="device-1",
+        platform="instagram",
+        app_version="410.0.0.53.71",
+        action_id="post.like",
+        run_id="run-1",
+        mode="manual",
+        package_name="com.instagram.android",
+        resolution=None,
+        model=None,
+        manufacturer=None,
+        android_version=None,
+        density_dpi=None,
+        scaled_density=None,
+        started_at="2026-08-28T00:00:00Z",
+    )
+
+    artifacts = capture_phase_artifacts(_Bundle(), context, "before")
+
+    assert context.layout_fingerprints.get("before", "").startswith("v1:")
+    assert not any(key.lower().startswith("layout") for key in artifacts)

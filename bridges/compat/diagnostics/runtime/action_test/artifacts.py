@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+from taktik.core.shared.diagnostics.layout_fingerprint import layout_fingerprint
 
 
 UNKNOWN_DEVICE = "unknown-device"
@@ -36,6 +38,12 @@ class ActionArtifactContext:
     density_dpi: int | None
     scaled_density: float | None
     started_at: str
+    #: Layout fingerprint per phase, filled by `capture_phase_artifacts`.
+    #:
+    #: NOT in `artifacts`: that dict is a map of file paths, read as such by the front and
+    #: asserted as such by the runner's tests. A hash living among paths is the kind of quiet
+    #: contract break that surfaces three screens later.
+    layout_fingerprints: dict = field(default_factory=dict)
 
     @property
     def artifact_dir(self) -> Path:
@@ -148,7 +156,15 @@ def build_artifact_context(
 
 
 def capture_phase_artifacts(bundle: Any, context: ActionArtifactContext, phase: str) -> dict[str, str]:
-    """Capture XML + screenshot for one phase and return JSON-safe paths."""
+    """Capture XML + screenshot for one phase and return JSON-safe paths.
+
+    Also names the SHAPE of that screen. The dump is already in hand here, so the fingerprint is
+    a hash away — and it is what turns a folder of per-run artifacts into something that can be
+    compared across runs. Without it the Lab can show you two screens side by side but cannot
+    tell you whether they are the same screen, which is the question a server-side layout change
+    asks: Instagram serves story variants to a single app version, so a validated action breaks
+    while every version string stays put.
+    """
     artifacts: dict[str, str] = {}
     context.artifact_dir.mkdir(parents=True, exist_ok=True)
 
@@ -157,6 +173,9 @@ def capture_phase_artifacts(bundle: Any, context: ActionArtifactContext, phase: 
         xml_path = context.artifact_dir / f"{phase}.xml"
         xml_path.write_text(xml, encoding="utf-8")
         artifacts[f"xml{phase.title()}"] = str(xml_path)
+        fingerprint = layout_fingerprint(xml)
+        if fingerprint:
+            context.layout_fingerprints[phase] = fingerprint
 
     screenshot_path = context.artifact_dir / f"{phase}.png"
     if _safe_screenshot(bundle, screenshot_path):
@@ -256,6 +275,10 @@ def build_report_payload(
         "selectorTraces": selector_traces,
         "uiActionTrace": ui_action_trace,
         "artifacts": artifacts,
+        # The SHAPE of each captured screen, so two runs of the same action can be
+        # compared across time — a boolean flip says something broke, this says whether
+        # the screen underneath it changed.
+        "layoutFingerprints": dict(context.layout_fingerprints),
     }
 
 
