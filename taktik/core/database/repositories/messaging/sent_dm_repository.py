@@ -12,7 +12,18 @@ class SentDMRepository(BaseRepository):
     """Persist sent direct messages across supported social platforms."""
 
     def ensure_table(self) -> None:
-        """Create the legacy table when the bot runs against a standalone DB."""
+        """Create the legacy table when the bot runs against a standalone DB, and migrate it.
+
+        `CREATE TABLE IF NOT EXISTS` is not a schema migration, and treating it as one is what
+        broke the duplicate guard on every existing database: the `platform` column below was
+        added to this statement long after the table had been created, so it was never applied.
+        Both queries then failed with `no such column: platform`, and `SentDMService` catches
+        Exception and answers False — "never messaged". Instagram cold DM had no duplicate
+        protection at all.
+
+        The desktop owns the real migration (`migrations.ts`); this keeps a standalone bot
+        working on a database the desktop has never opened.
+        """
         self.execute(
             """
             CREATE TABLE IF NOT EXISTS sent_dms (
@@ -29,6 +40,20 @@ class SentDMRepository(BaseRepository):
             )
             """
         )
+        self._add_platform_column_if_missing()
+
+    def _add_platform_column_if_missing(self) -> None:
+        """Additive and idempotent. Existing rows are Instagram — the only writer there ever was."""
+        try:
+            if self.column_exists("sent_dms", "platform"):
+                return
+        except Exception:
+            return
+        try:
+            self.execute("ALTER TABLE sent_dms ADD COLUMN platform TEXT DEFAULT 'instagram'")
+        except Exception:
+            # Another process may have added it between the read and the write.
+            return
 
     def check_already_sent(self, account_id: int, recipient: str, platform: str = "instagram") -> bool:
         """Return whether a DM was already sent to this recipient on a platform."""
