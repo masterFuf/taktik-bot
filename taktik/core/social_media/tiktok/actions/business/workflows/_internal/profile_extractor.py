@@ -8,7 +8,7 @@ Used by both ScrapingWorkflow (enrichment) and ProfileDataMixin (followers).
 
 from typing import Dict, Any, Optional
 
-from ....core.utils import parse_count, extract_resource_id
+from ....core.utils import parse_count, first_matching, first_text
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from .....ui.labels import classify_profile_stat_label
 
@@ -38,53 +38,44 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
             'is_enriched': True,
         }
 
+        # Read through the SELECTOR LIST, not through a resource-id pulled out of it. The
+        # catalogue writes its anchors as `contains(@resource-id, ":id/…")`, which the id
+        # extractor cannot parse — so every read below took an `if rid:` false branch and this
+        # function returned its defaults, on both app versions, since ~March 2026. It is the same
+        # idiom `profile_actions.get_profile_info` already uses correctly on the same screen.
         # --- Username ---
-        username_rid = extract_resource_id(PROFILE_SELECTORS.username)
-        if username_rid:
-            username_elem = raw_device(resourceId=username_rid)
-            if username_elem.exists:
-                data['username'] = username_elem.get_text().replace('@', '').strip()
+        username = first_text(raw_device, PROFILE_SELECTORS.username)
+        if username:
+            data['username'] = username.replace('@', '').strip()
 
         # --- Display name ---
-        display_rid = extract_resource_id(PROFILE_SELECTORS.display_name)
-        if display_rid:
-            display_elem = raw_device(resourceId=display_rid)
-            if display_elem.exists:
-                data['display_name'] = display_elem.get_text() or ''
+        data['display_name'] = first_text(raw_device, PROFILE_SELECTORS.display_name)
 
         # --- Stats (followers / following / likes) ---
-        stat_count_rid = extract_resource_id(PROFILE_SELECTORS.stat_value)
-        stat_label_rid = extract_resource_id(PROFILE_SELECTORS.stat_label)
-        if stat_count_rid and stat_label_rid:
-            stat_counts = raw_device(resourceId=stat_count_rid)
-            stat_labels = raw_device(resourceId=stat_label_rid)
-            if stat_counts.exists and stat_labels.exists:
-                for i in range(min(stat_counts.count, stat_labels.count)):
-                    try:
-                        count_text = stat_counts[i].get_text() or '0'
-                        label_text = stat_labels[i].get_text() or ''
-                        count = parse_count(count_text)
-                        # Same classification as `profile_actions` — shared, and localized:
-                        # comparing against English words made every count zero on a
-                        # French phone, with no error to show for it.
-                        stat = classify_profile_stat_label(label_text)
-                        if stat == 'following':
-                            data['following_count'] = count
-                        elif stat == 'followers':
-                            data['followers_count'] = count
-                        elif stat == 'likes':
-                            data['likes_count'] = count
-                    except Exception:
-                        pass
+        stat_counts = first_matching(raw_device, PROFILE_SELECTORS.stat_value)
+        stat_labels = first_matching(raw_device, PROFILE_SELECTORS.stat_label)
+        for i in range(min(len(stat_counts), len(stat_labels))):
+            try:
+                count_text = stat_counts[i].text or '0'
+                label_text = stat_labels[i].text or ''
+                count = parse_count(count_text)
+                # Same classification as `profile_actions` — shared, and localized:
+                # comparing against English words made every count zero on a
+                # French phone, with no error to show for it.
+                stat = classify_profile_stat_label(label_text)
+                if stat == 'following':
+                    data['following_count'] = count
+                elif stat == 'followers':
+                    data['followers_count'] = count
+                elif stat == 'likes':
+                    data['likes_count'] = count
+            except Exception:
+                pass
 
-        # --- Bio (qfx selector or fallback: long button text) ---
-        bio_rid = extract_resource_id(PROFILE_SELECTORS.bio_text)
-        if bio_rid:
-            bio_elem = raw_device(resourceId=bio_rid)
-            if bio_elem.exists:
-                bio_text = bio_elem.get_text() or ''
-                if len(bio_text) > 3:
-                    data['bio'] = bio_text
+        # --- Bio (catalogue selector, or fallback: long button text) ---
+        bio_text = first_text(raw_device, PROFILE_SELECTORS.bio_text)
+        if len(bio_text) > 3:
+            data['bio'] = bio_text
 
         if not data['bio']:
             # Fallback: look for buttons with long text (bio area)
