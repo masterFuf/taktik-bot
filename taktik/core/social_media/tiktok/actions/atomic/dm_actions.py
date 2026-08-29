@@ -646,6 +646,23 @@ class DMActions(BaseAction):
         self.logger.warning(f"Conversation not found: {name}")
         return False
     
+    def scroll_inbox_to_top(self, max_swipes: int = 5) -> bool:
+        """Bring the inbox back to its top, where the notification sections live.
+
+        Measured on device: `read_notifications` returned an EMPTY list whenever another inbox
+        workflow had run first. Nothing was broken -- the sections had simply scrolled off, and
+        `_ensure_on_inbox` answers yes as soon as the title is present, whatever the scroll
+        position. The caller then reported "no activity" for an account that had some.
+
+        Stops as soon as the sections are visible, so a first read costs nothing.
+        """
+        for _ in range(max_swipes):
+            if self._element_exists(self.inbox_selectors.section_title, timeout=1):
+                return True
+            self._scroll_up()
+            time.sleep(0.6)
+        return self._element_exists(self.inbox_selectors.section_title, timeout=1)
+
     def scroll_inbox(self, direction: str = 'down') -> bool:
         """Scroll the inbox list.
         

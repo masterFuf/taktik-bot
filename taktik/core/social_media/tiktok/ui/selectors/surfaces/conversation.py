@@ -192,6 +192,9 @@ class ConversationSelectors:
     reaction_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/uc")]',
         '//*[contains(@resource-id, ":id/ug")]',
+        # A2: a reaction button IS one of the three reactions, and their content-descs are
+        # identical across versions -- measured, one hit each on both.
+        '//*[@content-desc="Heart" or @content-desc="Lol" or @content-desc="ThumbsUp"]',
     ])
     
     reaction_heart: List[str] = field(default_factory=lambda: [

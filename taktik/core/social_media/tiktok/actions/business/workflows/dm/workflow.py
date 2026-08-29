@@ -752,6 +752,11 @@ class DMWorkflow(BaseTikTokWorkflow):
                 self.logger.error("Inbox inatteignable -> notifications")
                 return []
 
+            # The sections live at the TOP. Being "on the inbox" says nothing about the scroll
+            # position, and a workflow that ran before this one leaves the list scrolled down --
+            # which made this read return an empty list on an account that had notifications.
+            self.dm.scroll_inbox_to_top()
+
             notifications = self.dm.get_inbox_notifications(max_items)
             for notif in notifications:
                 if self._on_notification_callback:
