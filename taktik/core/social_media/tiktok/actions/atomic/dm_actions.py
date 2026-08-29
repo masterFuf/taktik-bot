@@ -382,13 +382,24 @@ class DMActions(BaseAction):
             return False
 
         selectors = self.inbox_selectors.follow_back_for_username(username)
-        if self._find_and_click(selectors, timeout=3):
-            self.logger.info(f"Suivi en retour : {username}")
-            time.sleep(0.5)
-            return True
+        if not self._find_and_click(selectors, timeout=3):
+            self.logger.warning(f"« Suivre en retour » introuvable pour {username}")
+            return False
 
-        self.logger.warning(f"« Suivre en retour » introuvable pour {username}")
-        return False
+        # Having clicked is not having followed. Measured on device: the tap landed on the right
+        # button, this function returned True, and the button was still there after a COLD
+        # RELOAD of the page -- the follow had not happened. A caller that records a follow on
+        # that word writes a fact no screen supports, and the next pass then skips the profile
+        # as already handled.
+        time.sleep(1.5)
+        if self._element_exists(selectors, timeout=2):
+            self.logger.warning(
+                f"« Suivre en retour » toujours present pour {username} — suivi NON confirme"
+            )
+            return False
+
+        self.logger.info(f"Suivi en retour : {username}")
+        return True
 
     # ==========================================================================
     # CONVERSATIONS NON-RÉPONDUES (Phase 2 inbox v2)

@@ -365,12 +365,20 @@ class InboxSelectors:
             # A2. The three ids above are 43.1.4 only, so on 46.6.3 this resolved nothing:
             # `can_follow_back` came back False for every follower and `follow_back` could never
             # find its button -- the follow-back mode was dead on that version, silently.
-            # Measured on the real page: the username is a BUTTON, and the follow-back button is
-            # the row's OTHER button carrying text. No label is named, so this holds in any
-            # language.
-            f'//android.widget.Button[contains(@text, "{name}")]'
-            '/ancestor::*[@clickable="true"][1]'
-            f'//android.widget.Button[string-length(@text)>0][not(contains(@text, "{name}"))]',
+            #
+            # The row is the nearest clickable ancestor of the username BUTTON (the handle is a
+            # button here, not a text view). Inside it, the follow affordance is matched by its
+            # LABEL and nothing else: measured on device, the very same node carries three
+            # states in turn -- "Suivre en retour" when you may follow, "Envoie un message" once
+            # you do, "Demande" when the account is private and a request went out. A
+            # label-free "the row's other button" anchor was tried first and matched all three,
+            # so `can_follow_back` said yes to followers already followed. The state IS the
+            # label; the labels come from `follow_back_button`, not respelled here.
+            *[
+                f'//android.widget.Button[contains(@text, "{name}")]'
+                '/ancestor::*[@clickable="true"][1]' + selector
+                for selector in self.follow_back_button
+            ],
         ]
 
 
