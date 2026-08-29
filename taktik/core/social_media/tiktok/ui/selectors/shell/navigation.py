@@ -21,9 +21,13 @@ class NavigationSelectors:
     """
 
     # === Bottom Navigation Bar (resource-ids réels) ===
-    bottom_nav_container: List[str] = field(default_factory=lambda: [
+    _bottom_nav_container_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mky")]',
     ])
+
+    @property
+    def bottom_nav_container(self) -> List[str]:
+        return self._bottom_nav_container_base + L("navigation.bottom_nav_container_anchors")
 
     _home_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mkq")]',

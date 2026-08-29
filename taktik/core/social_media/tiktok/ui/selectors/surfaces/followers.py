@@ -155,9 +155,13 @@ class FollowersSelectors:
         '//*[contains(@resource-id, ":id/cover")]',
     ])
 
-    post_view_count: List[str] = field(default_factory=lambda: [
+    _post_view_count_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/xxy")]',
     ])
+
+    @property
+    def post_view_count(self) -> List[str]:
+        return self._post_view_count_base + L("followers.post_view_count_anchors")
 
     # language-dependent (locales overlay)
     @property

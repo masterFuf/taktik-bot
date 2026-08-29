@@ -276,6 +276,23 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/tv_play_count\")]",
         "//*[contains(@resource-id, \":id/cover\")]/../..//android.widget.TextView",
     ],
+    # The bar is "whatever holds the Profile tab". Measured: exactly 1 on every screen of
+    # both versions — feed, profile, inbox — where the id resolves on neither.
+    "navigation.bottom_nav_container_anchors": [
+        "//*[@content-desc=\"Profil\"]/..",
+        "//*[@content-desc=\"Profile\"]/..",
+    ],
+    # The INNERMOST container holding both the invite button and its close cross. Without the
+    # `not(...)` clause every ancestor matched — 18 of them — and a caller would have dismissed
+    # the whole screen instead of the banner.
+    "popup.promo_banner_anchors": [
+        "//*[.//*[@text=\"Inviter\" or @text=\"Invite\"] and .//*[@content-desc=\"Fermer\" or @content-desc=\"Close\"] and not(.//*[.//*[@text=\"Inviter\" or @text=\"Invite\"] and .//*[@content-desc=\"Fermer\" or @content-desc=\"Close\"]])]",
+    ],
+    # Same shape as the profile grid's view count: the TextView inside the tile carrying the
+    # thumbnail. `cover` is a readable id, written identically on both versions.
+    "followers.post_view_count_anchors": [
+        "//*[contains(@resource-id, \":id/cover\")]/../..//android.widget.TextView",
+    ],
     "profile.username_anchors": [
         "//android.widget.Button[starts-with(@text, \"@\")]",
         # `contains(@content-desc, "@")` was tried here and dropped: it matches an inbox

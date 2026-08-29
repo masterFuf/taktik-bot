@@ -84,9 +84,13 @@ class PopupSelectors:
         return self._notification_popup_base + L("popup.notification_popup")
 
     # === Bannières promotionnelles (comme "Hatch a Streak Pet") ===
-    promo_banner: List[str] = field(default_factory=lambda: [
+    _promo_banner_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/faf")]',
     ])
+
+    @property
+    def promo_banner(self) -> List[str]:
+        return self._promo_banner_base + L("popup.promo_banner_anchors")
 
     _promo_close_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/fad")]',
