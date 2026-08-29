@@ -163,11 +163,15 @@ class ConversationSelectors:
         '//*[contains(@resource-id, ":id/jt2")]',
     ])
     
-    message_input_field: List[str] = field(default_factory=lambda: [
+    _message_input_field_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jt3")]//android.widget.EditText',
         '//android.widget.EditText[@hint="Message..."]',
         '//android.widget.EditText[contains(@hint, "Message")]',
     ])
+
+    @property
+    def message_input_field(self) -> List[str]:
+        return self._message_input_field_base + L("conversation.message_input_field_anchors")
     
     emoji_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ja2")][@content-desc="Open stickers, gifs and emojis"]',
@@ -179,10 +183,14 @@ class ConversationSelectors:
         '//*[contains(@resource-id, ":id/c8f")]',
     ])
     
-    send_button: List[str] = field(default_factory=lambda: [
+    _send_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jt8")]',
         '//android.widget.Button[@content-desc="Send"]',
     ])
+
+    @property
+    def send_button(self) -> List[str]:
+        return self._send_button_base + L("conversation.send_button_anchors")
     
     # === Sticker suggestion (new conversation) ===
     sticker_suggestion: List[str] = field(default_factory=lambda: [

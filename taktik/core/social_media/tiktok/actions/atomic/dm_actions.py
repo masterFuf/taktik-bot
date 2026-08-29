@@ -714,14 +714,20 @@ class DMActions(BaseAction):
         
         time.sleep(0.3)
         
-        # The same chain Instagram's composer uses — Taktik keyboard, then send_keys — and NOT a
-        # clear-then-type.
+        # Clear, then type, both through the Taktik keyboard.
         #
-        # `device.clear_text()` was the first call here, and on Android 14+ it raises: the
-        # uiautomator2 agent implements it through `InputManager.getInstance`, a method Android
-        # removed. Measured on both lab phones (Android 16): the call raised, this function
-        # returned False, and no TikTok DM could be sent at all. The composer is opened fresh on
-        # a conversation and has nothing to clear, so the call bought nothing.
+        # The clear used to go through `device.clear_text()`, which on Android 14+ raises: the
+        # uiautomator2 agent implements it with `InputManager.getInstance`, a method Android
+        # removed. Measured on both lab phones (Android 16) — the call raised, this function
+        # returned False, and no TikTok DM could be sent at all.
+        #
+        # Dropping the clear was tried and is wrong: a failed send leaves its text in the
+        # composer, so the next attempt CONCATENATES. Measured too — "Test TAKTIKTest TAKTIK"
+        # went out. `_clear_text_with_taktik_keyboard` broadcasts to our own IME and touches none
+        # of the removed API, which is what the search path has been using all along.
+        self._clear_text_with_taktik_keyboard()
+        time.sleep(0.2)
+
         device_id = getattr(self.device, "device_id", None) or getattr(self.device, "serial", None)
         if device_id:
             try:
@@ -750,19 +756,44 @@ class DMActions(BaseAction):
         """
         self.logger.debug("📤 Sending message")
         
-        # Try send button
-        if self._find_and_click(self.conversation_selectors.send_button, timeout=2):
-            self._human_like_delay('click')
-            return True
-        
-        # Fallback: press Enter key
-        try:
-            self.device.press("enter")
-            self._human_like_delay('click')
-            return True
-        except Exception as e:
-            self.logger.warning(f"Failed to send message: {e}")
+        # What the composer holds BEFORE, so "did it leave" is answerable afterwards.
+        pending = self._composer_text()
+
+        clicked = self._find_and_click(self.conversation_selectors.send_button, timeout=2)
+        if not clicked:
+            try:
+                self.device.press("enter")
+                clicked = True
+            except Exception as e:
+                self.logger.warning(f"Failed to send message: {e}")
+                return False
+        self._human_like_delay('click')
+
+        # A send is confirmed by the composer EMPTYING, not by the click landing. This used to
+        # return True on either path, so a message still sitting on screen was recorded as sent —
+        # measured on device: True returned, text still in the field.
+        if pending:
+            for _ in range(6):
+                if self._composer_text() != pending:
+                    return True
+                time.sleep(0.5)
+            self.logger.warning(
+                "Send reported no error but the composer still holds the message — not sent")
             return False
+
+        # Nothing was in the composer to begin with: nothing to confirm, and nothing to claim.
+        return clicked
+
+    def _composer_text(self) -> str:
+        """Whatever the message field currently holds, or '' when it cannot be read."""
+        try:
+            for selector in self.conversation_selectors.message_input_field:
+                element = self.device.xpath(selector)
+                if element.exists:
+                    return (element.get_text() or "").strip()
+        except Exception:
+            pass
+        return ""
     
     def send_text_message(self, text: str) -> bool:
         """Type and send a text message.

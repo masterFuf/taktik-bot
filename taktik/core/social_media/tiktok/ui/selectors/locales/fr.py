@@ -296,6 +296,18 @@ STRINGS: Dict[str, List[str]] = {
     "followers.post_view_count_anchors": [
         "//*[contains(@resource-id, \":id/cover\")]/../..//android.widget.TextView",
     ],
+    # === A2 anchors for the composer ===
+    #
+    # Captured from a real conversation: the send control is an ImageView carrying
+    # `content-desc="Envoyer"` and NO resource-id at all; the input is a bare EditText, also
+    # without one. Every catalogue anchor for both was an obfuscated id, so neither was ever
+    # found — the message stayed in the composer while the send reported success.
+    "conversation.message_input_field_anchors": [
+        "//android.widget.EditText",
+    ],
+    "conversation.send_button_anchors": [
+        "//*[@content-desc=\"Envoyer\" or @content-desc=\"Send\"]",
+    ],
     "profile.username_anchors": [
         "//android.widget.Button[starts-with(@text, \"@\")]",
         # `contains(@content-desc, "@")` was tried here and dropped: it matches an inbox
