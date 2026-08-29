@@ -99,6 +99,10 @@ class _Workflow:
     )
 
     _filter_current_profile = _Source._filter_current_profile
+    # Taken from the real class rather than restated, so the attribution below stays a check on
+    # what the workflow actually does. Both are overridden by the target-profiles workflow.
+    FILTER_SOURCE_TYPE = _Source.FILTER_SOURCE_TYPE
+    _filter_source_name = _Source._filter_source_name
 
     def __init__(self, criteria):
         from types import SimpleNamespace

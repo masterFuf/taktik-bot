@@ -19,8 +19,6 @@ from typing import Optional, Dict, Any, List, Callable, Set
 import time
 import random
 
-from taktik.core.shared.telemetry.sink import emit_step
-
 from taktik.core.social_media.tiktok.services.followers.stop_policy import (
     KnownProfileDecision,
     KnownProfilesStopPolicy,
@@ -43,6 +41,7 @@ from .page_detection import PageDetectionMixin
 from .story_handling import StoryHandlingMixin
 from .interaction import VideoInteractionMixin
 from .profile_data import ProfileDataMixin
+from .profile_processing import ProfileProcessingMixin
 from .navigation import NavigationMixin
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
@@ -54,6 +53,7 @@ class FollowersWorkflow(
     StoryHandlingMixin,
     VideoInteractionMixin,
     ProfileDataMixin,
+    ProfileProcessingMixin,
     NavigationMixin,
     BaseTikTokWorkflow,
 ):
@@ -71,11 +71,24 @@ class FollowersWorkflow(
         - StoryHandlingMixin: _handle_story_view, _try_like_story
         - VideoInteractionMixin: _interact_with_profile_posts, like/favorite/follow actions
         - ProfileDataMixin: _get_current_profile_username, _extract_and_save_profile_data
+        - ProfileProcessingMixin: _process_current_profile (shared with target_profiles)
         - NavigationMixin: _navigate_to_followers_list, _safe_return_to_followers_list, recovery
     """
     
+    #: Where a rejected profile is attributed in `filtered_profiles`. Overridden by the
+    #: target-profiles workflow: a profile rejected from a hand-picked list did not come from
+    #: anybody's followers, and filing it as if it did makes the reject stats unreadable.
+    FILTER_SOURCE_TYPE = 'followers'
+
+    #: Log channel. A subclass gets its own so its lines are attributable in a run log.
+    MODULE_NAME = "tiktok-followers-workflow"
+
+    @property
+    def _filter_source_name(self) -> str:
+        return self.config.search_query
+
     def __init__(self, device, config: FollowersConfig):
-        super().__init__(device, module_name="tiktok-followers-workflow")
+        super().__init__(device, module_name=self.MODULE_NAME)
         self.config = config
         self.stats = FollowersStats()
         
@@ -389,46 +402,10 @@ class FollowersWorkflow(
             
             self._human_delay()
             
-            # Now we're on the follower's profile - get username and interact
-            self._current_profile_username = self._get_current_profile_username()
-            self.stats.profiles_visited += 1
-            self._send_stats_update()
-            
-            # Heartbeat: attribute the per-profile processing time (extract → browse posts
-            # → interact → follow) in the cadence/run log.
-            _username = self._current_profile_username
-            _likes0 = getattr(self.stats, 'likes', 0)
-            _follows0 = getattr(self.stats, 'follows', 0)
-            _t0 = time.time()
-            emit_step("analysis", action="start", target=_username)
-            try:
-                # Extract and save profile data (followers, likes, bio, etc.)
-                profile_data = self._extract_and_save_profile_data()
+            # Now we're on the follower's profile — read it, filter it, interact. Same body the
+            # target-profiles workflow runs, kept in one place on purpose.
+            self._process_current_profile()
 
-                # Send profile visit action for Live Activity
-                self._send_action('profile_visit', self._current_profile_username)
-
-                self.logger.info(f"👤 Visiting profile @{self._current_profile_username} ({self.stats.profiles_visited}/{self.config.max_followers})")
-
-                # Filters, applied on what was just read rather than on a second reading. A
-                # rejection skips the interactions -- but NOT the return to the followers list
-                # below, without which the next iteration would look for rows on a profile
-                # screen.
-                if not self._filter_current_profile(profile_data):
-                    # Interact with posts on this profile
-                    self._interact_with_profile_posts()
-
-                    # Optionally follow this user
-                    if random.random() < self.config.follow_probability:
-                        if self.stats.follows < self.config.max_follows_per_session:
-                            self._try_follow_current_profile()
-            finally:
-                _acted = (getattr(self.stats, 'likes', 0) > _likes0
-                          or getattr(self.stats, 'follows', 0) > _follows0)
-                emit_step("analysis", action="done", target=_username,
-                          duration_ms=int((time.time() - _t0) * 1000),
-                          outcome="interacted" if _acted else "watched")
-            
             # Safe return to followers list with verification
             if not self._safe_return_to_followers_list():
                 self.logger.warning("⚠️ Failed to return to followers list, attempting recovery...")
@@ -559,8 +536,8 @@ class FollowersWorkflow(
             account_id=self._account_id,
             username=username,
             reason=reason_text,
-            source_type='followers',
-            source_name=self.config.search_query,
+            source_type=self.FILTER_SOURCE_TYPE,
+            source_name=self._filter_source_name,
             session_id=self._session_id,
         )
         self._send_stats_update()
