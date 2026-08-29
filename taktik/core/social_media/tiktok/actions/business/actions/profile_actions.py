@@ -43,27 +43,45 @@ class ProfileActions(BaseAction):
     
     def navigate_to_own_profile(self) -> bool:
         """Navigate to the user's own profile page.
-        
+
+        The verification only accepts markers that exist on OUR profile and nowhere else.
+        It used to fall back on "a username is visible", which is true on every profile in the
+        app: a tap that landed on somebody else's page passed, and `get_own_profile_info` then
+        recorded THEIR follower count as the bot's own. Measured 2026-08-29 while capturing the
+        own lists — the probe walked away with a stranger's 235 K followers.
+
+        Two anchors, measured on both shipped versions (1 on our profile, 0 on a stranger's):
+        the profile menu, and the edit button where it exists. `username` is deliberately not a
+        third chance — it fires for everyone, which is the whole problem.
+
         Returns:
-            True if successfully navigated to profile, False otherwise.
+            True if we are standing on OUR profile, False otherwise.
         """
         logger.info("📱 Navigating to own profile...")
-        
+
         if self._find_and_click(NAVIGATION_SELECTORS.profile_tab, timeout=5.0):
             self._random_sleep(1.5, 2.5)
-            
-            # Verify we're on profile page by checking for Edit button or username
+
             try:
                 if self._element_exists(PROFILE_SELECTORS.edit_profile_button, timeout=2):
                     logger.info("✅ Successfully navigated to own profile (Edit button found)")
                     return True
-                
-                if self._element_exists(PROFILE_SELECTORS.username, timeout=2):
-                    logger.info("✅ Successfully navigated to profile page (username found)")
+
+                # `edit_profile_button` is `@text="Modifier"`, which reads 0 on 46.6.3 FR; the
+                # profile menu is what survives there.
+                if self._element_exists(PROFILE_SELECTORS.profile_menu_button, timeout=2):
+                    logger.info("✅ Successfully navigated to own profile (profile menu found)")
                     return True
+
+                if self._element_exists(PROFILE_SELECTORS.username, timeout=1):
+                    logger.warning(
+                        "❌ On a profile, but not ours — no owner marker found. Refusing rather "
+                        "than reading somebody else's numbers as the bot's."
+                    )
+                    return False
             except Exception as e:
                 logger.debug(f"Verification failed: {e}")
-        
+
         logger.warning("❌ Could not navigate to profile page")
         return False
     
