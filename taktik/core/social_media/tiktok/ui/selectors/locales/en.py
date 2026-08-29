@@ -73,6 +73,29 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[contains(@text, \"Try again later\")]",
     ],
     # --- followers ---
+    # === A2 anchors for the follower list ===
+    #
+    # `txt_user_name` and `txt_desc` are names a developer wrote, not build-time symbols — and a
+    # readable id survived every version bump measured (100%, against 1% for an obfuscated one).
+    # On a real 46.6.3 list they resolve 10 rows, and nothing on the profile, the inbox or the
+    # suggestions list.
+    #
+    # UNVERIFIED on 43.1.4: its follower list rendered only the tab row on the one account
+    # available — a single follower, whose row never appeared in the dump. The obfuscated id
+    # stays first, so that version is untouched either way.
+    # A Button whose GRANDPARENT holds a `txt_user_name` — i.e. the button of a row that
+    # names someone. `tvn` alone was tried: it resolves on the suggestions list too, where
+    # the same 10 buttons mean "follow a stranger", not "this is a follower row". The
+    # structural form gives 10 on a real list and 0 on suggestions, profile and feed.
+    "followers.follower_any_button_anchors": [
+        "//android.widget.Button[../..//*[contains(@resource-id, \":id/txt_user_name\")]]",
+    ],
+    "followers.follower_username_anchors": [
+        "//*[contains(@resource-id, \":id/txt_desc\")]",
+    ],
+    "followers.follower_display_name_anchors": [
+        "//*[contains(@resource-id, \":id/txt_user_name\")]",
+    ],
     "followers.follower_follow_button": [
         "//*[contains(@resource-id, \":id/rdh\")][@text=\"Follow\"]",
         "//android.widget.Button[contains(@resource-id, \":id/rdh\")][@text=\"Follow\"]",

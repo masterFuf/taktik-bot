@@ -90,16 +90,24 @@ class FollowersSelectors:
     ])
 
     # Display name in followers list
-    follower_display_name: List[str] = field(default_factory=lambda: [
+    _follower_display_name_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/yhq")]',
         '//android.widget.TextView[contains(@resource-id, ":id/yhq")]',
     ])
 
+    @property
+    def follower_display_name(self) -> List[str]:
+        return self._follower_display_name_base + L("followers.follower_display_name_anchors")
+
     # Username in followers list
-    follower_username: List[str] = field(default_factory=lambda: [
+    _follower_username_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ygv")]',
         '//android.widget.TextView[contains(@resource-id, ":id/ygv")]',
     ])
+
+    @property
+    def follower_username(self) -> List[str]:
+        return self._follower_username_base + L("followers.follower_username_anchors")
 
     # Follow button in the followers list — language-dependent (locales overlay)
     @property
@@ -112,10 +120,14 @@ class FollowersSelectors:
         return L("followers.follower_following_button")
 
     # Any follow button (Follow, Following, or Friends)
-    follower_any_button: List[str] = field(default_factory=lambda: [
+    _follower_any_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/rdh")]',
         '//android.widget.Button[contains(@resource-id, ":id/rdh")]',
     ])
+
+    @property
+    def follower_any_button(self) -> List[str]:
+        return self._follower_any_button_base + L("followers.follower_any_button_anchors")
 
     # Private account notice
     private_notice: List[str] = field(default_factory=lambda: [
