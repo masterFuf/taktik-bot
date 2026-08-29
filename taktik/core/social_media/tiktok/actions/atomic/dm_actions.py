@@ -353,9 +353,9 @@ class DMActions(BaseAction):
                             activity = ''
 
                     # The follow-back button exists only when we do not already follow them
-                    can_follow_back = self.device.xpath(
-                        self.inbox_selectors.follow_back_for_username(name)
-                    ).exists
+                    can_follow_back = self._element_exists(
+                        self.inbox_selectors.follow_back_for_username(name), timeout=1
+                    )
 
                     followers.append({
                         'username': name,
@@ -381,8 +381,8 @@ class DMActions(BaseAction):
         if not username:
             return False
 
-        selector = self.inbox_selectors.follow_back_for_username(username)
-        if self._find_and_click([selector], timeout=3):
+        selectors = self.inbox_selectors.follow_back_for_username(username)
+        if self._find_and_click(selectors, timeout=3):
             self.logger.info(f"Suivi en retour : {username}")
             time.sleep(0.5)
             return True

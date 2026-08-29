@@ -69,6 +69,10 @@ class InboxSelectors:
     # === Notification sections (shared title id, so the text is what tells them apart) ===
     section_title: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b8h")]',
+        # A2: the id above is 43.1.4 only. The section titles are a KNOWN, closed set -- the same
+        # three the markers vocabularies already list -- so naming them is measurement, not
+        # invention. Three hits on a real inbox on BOTH versions.
+        '//android.widget.TextView[@text="Nouveaux followers" or @text="Activité" or @text="Notifications système" or @text="New followers" or @text="Activity" or @text="System notifications"]',
     ])
 
     # === Conversations ===
@@ -135,6 +139,8 @@ class InboxSelectors:
     # === Notification sections (items) ===
     notification_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/s28")]',
+        # A2: the section row is the title's nearest clickable ancestor.
+        '//android.widget.TextView[@text="Nouveaux followers" or @text="Activité" or @text="Notifications système" or @text="New followers" or @text="Activity" or @text="System notifications"]/ancestor::*[@clickable="true"][1]',
     ])
 
     notification_subtitle: List[str] = field(default_factory=lambda: [
@@ -154,15 +160,26 @@ class InboxSelectors:
     # === Page Nouveaux followers (dédiée) ===
     new_followers_page_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/o0v")]',
+        # A2: the row is the avatar's great-grandparent. Three rows on the captured page.
+        '//*[@content-desc="Photo de profil" or @content-desc="Profile photo"]/../../..',
     ])
     new_followers_page_username: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/o0f")]',
+        # A2: the username is a BUTTON carrying the handle, not a TextView -- read off the screen.
+        '//*[@content-desc="Photo de profil" or @content-desc="Profile photo"]/../../..//android.widget.Button[string-length(@text)>0]',
     ])
     new_followers_page_activity: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nzo")]',
+        # A2: the only TextView with text in a row ("s'est abonne(e) a ton compte").
+        '//*[@content-desc="Photo de profil" or @content-desc="Profile photo"]/../../..//android.widget.TextView[string-length(@text)>0]',
     ])
     new_followers_page_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nzy")]',
+        # A2, measured on the real page (46.6.3, 2026-08-29). All four fields held a single
+        # 43.1.4 id, so `_is_on_new_followers_page` found nothing, `get_new_followers`
+        # returned an empty list and the new_followers workflow reported zero on that
+        # version. The avatar carries a content-desc, which is what the row hangs off.
+        '//*[@content-desc="Photo de profil" or @content-desc="Profile photo"]',
     ])
     _see_all_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/y6h")]',
@@ -330,7 +347,7 @@ class InboxSelectors:
             f'[.//*[contains(@resource-id, ":id/user_name")][contains(@text, "{name}")]]',
         ]
 
-    def follow_back_for_username(self, name: str) -> str:
+    def follow_back_for_username(self, name: str) -> List[str]:
         """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
 
         Dynamic selector built from the centralized resource-ids: the follow-back button
@@ -338,11 +355,20 @@ class InboxSelectors:
         entouré de marques bidi invisibles (‎⁨…⁩) — `name` doit être nettoyé de
         wrapped in invisible marks and the name is cleaned beforehand. This is what stops the
         """
-        return (
+        return [
             '//*[contains(@resource-id, ":id/o0v")]'
             f'[.//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]]'
-            '//*[contains(@resource-id, ":id/rdh")]'
-        )
+            '//*[contains(@resource-id, ":id/rdh")]',
+            # A2. The three ids above are 43.1.4 only, so on 46.6.3 this resolved nothing:
+            # `can_follow_back` came back False for every follower and `follow_back` could never
+            # find its button -- the follow-back mode was dead on that version, silently.
+            # Measured on the real page: the username is a BUTTON, and the follow-back button is
+            # the row's OTHER button carrying text. No label is named, so this holds in any
+            # language.
+            f'//android.widget.Button[contains(@text, "{name}")]'
+            '/ancestor::*[@clickable="true"][1]'
+            f'//android.widget.Button[string-length(@text)>0][not(contains(@text, "{name}"))]',
+        ]
 
 
 INBOX_SELECTORS = InboxSelectors()
