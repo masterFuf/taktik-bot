@@ -170,8 +170,20 @@ STRINGS: Dict[str, List[str]] = {
     "followers.followers_counter": [
         "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Follower\") or contains(@text, \"Abonné\")]]",
     ],
-    "followers.followers_tab": [],
-    "followers.followers_tab_selected": [],
+    # L'onglet porte un content-desc « <Libelle> <N> » sur les deux versions, d'ou le
+    # `starts-with`. Mesure : 6/6 listes, 0 sur les 39 autres captures.
+    "followers.followers_list_anchors": [
+        "//androidx.recyclerview.widget.RecyclerView[@scrollable=\"true\"][ancestor::*[.//*[@clickable=\"true\"][starts-with(@content-desc, \"Followers\")]]]",
+    ],
+    "followers.followers_tab": [
+        "//*[@clickable=\"true\"][starts-with(@content-desc, \"Followers\")]",
+    ],
+    # `text1` est un id LISIBLE present sur les deux versions, et la selection est portee par
+    # `@selected`. Mesure : 4/6 listes (les deux 0 sont corrects — sur ces captures l'onglet
+    # actif est « Suggere » ou « Suivis »), 0 sur les 39 autres captures.
+    "followers.followers_tab_selected": [
+        "//android.widget.TextView[contains(@resource-id, \":id/text1\")][@selected=\"true\"][starts-with(@text, \"Followers\")]",
+    ],
     "followers.following_counter": [],
     # Mesuré sur le profil du compte opéré (46.6.3 et 43.1.4, 2026-08-29) : TikTok en français
     # écrit « Suivis », pas « Abonnements ». Cette entrée était VIDE, donc seule la liste anglaise
@@ -182,7 +194,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Suivis\")]]",
     ],
     "followers.following_or_friends_button": [],
-    "followers.following_tab": [],
+    "followers.following_tab": [
+        "//*[@clickable=\"true\"][starts-with(@content-desc, \"Suivis\")]",
+    ],
     # Measured on a real visited profile (43.1.4, 2026-08-29): the button is the `eme` node and
     # its text is « Suivre ». This entry was EMPTY, so only the English list applied -- and it
     # matches `@text="Follow"` exactly, which no French screen ever shows. `_find_and_click`
@@ -310,14 +324,23 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.home_tab": [
         "//android.widget.FrameLayout[contains(@content-desc, \"Accueil\")]",
     ],
-    "navigation.home_tab_selected": [],
+    # Les ids de la barre du bas ont change (`mkq` -> `ofc`), donc « suis-je sur l'accueil ? »
+    # repondait NON sur chaque ecran d'accueil de 46.6.3 — et tout ce qui depend d'un etat de
+    # navigation partait de faux. Le content-desc, lui, est identique d'une version a l'autre.
+    # Mesure : 4/4 fils, 0 sur les 42 autres captures.
+    "navigation.home_tab_selected": [
+        "//*[@clickable=\"true\"][@content-desc=\"Accueil\"][@selected=\"true\"]",
+    ],
     # `Messages`, measured on the bar of both versions — not "Boîte de réception", which the
     # catalogue asked for and no screen writes. The obfuscated id covered for it until it died;
     # same family of guessed label as `Amis` against `Ami(e)s`.
     "navigation.inbox_tab": [
         "//android.widget.FrameLayout[contains(@content-desc, \"Messages\")]",
     ],
-    "navigation.inbox_tab_selected": [],
+    # Meme famille que `home_tab_selected`. Mesure : 6/6 inbox, 0 sur les 40 autres captures.
+    "navigation.inbox_tab_selected": [
+        "//*[@clickable=\"true\"][@content-desc=\"Messages\"][@selected=\"true\"]",
+    ],
     "navigation.profile_tab": [
         "//android.widget.FrameLayout[contains(@content-desc, \"Profil\")]",
     ],
@@ -381,15 +404,32 @@ STRINGS: Dict[str, List[str]] = {
     "profile.follow_button": [
         "//android.widget.Button[@text=\"Suivre\"]",
     ],
-    "profile.followers_count": [],
+    # Le conteneur CLIQUABLE des compteurs : c'est lui qu'on tape pour ouvrir la liste.
+    # Cette entree etait VIDE en francais, donc `scraping/workflow.py` cliquait dans le vide et
+    # le scraping des abonnes ne demarrait jamais — sans erreur.
+    #
+    # Les deux graphies : TikTok ecrit « Follower » au SINGULIER quand le compte en a un seul,
+    # et la route anglaise existante, ancree sur l'egalite avec « Followers », lisait 0 sur ce
+    # profil-la. Mesure : 4/4 profils, 0 sur les 41 autres captures.
+    "profile.followers_count": [
+        "//android.widget.TextView[@text=\"Followers\" or @text=\"Follower\"]/ancestor::*[@clickable=\"true\"][1]",
+    ],
     "profile.following_button": [
         "//android.widget.Button[@text=\"Abonné\"]",
     ],
-    "profile.following_count": [],
+    # Le predicat `preceding-sibling` n'est pas decoratif : « Suivis » nu tire aussi sur
+    # l'onglet « Suivis » du fil d'accueil (4 captures). Cadre par sa valeur, 4/4 et 0/41.
+    "profile.following_count": [
+        "//android.widget.TextView[@text=\"Suivis\"][preceding-sibling::android.widget.TextView]/ancestor::*[@clickable=\"true\"][1]",
+    ],
     "profile.liked_videos_tab": [
         "//*[contains(@content-desc, \"Vidéos aimées\")]",
     ],
-    "profile.likes_count": [],
+    # Les deux formes d'apostrophe dans la MEME expression : TikTok rend U+2019 sur certains
+    # ecrans et U+0027 sur d'autres, et un selecteur qui n'en nomme qu'une ne matche rien.
+    "profile.likes_count": [
+        "//android.widget.TextView[@text=\"J'aime\" or @text=\"J’aime\"]/ancestor::*[@clickable=\"true\"][1]",
+    ],
     # Raw LABELS, not xpaths. The profile stats row is matched by POSITION, since the
     # POSITION (resource-id qfv/qfw), mais dire LAQUELLE des trois valeurs on tient
     # three values share an identifier, so telling WHICH one is held requires reading

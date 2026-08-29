@@ -160,6 +160,11 @@ STRINGS: Dict[str, List[str]] = {
         "//android.view.ViewGroup[@clickable=\"true\"][.//android.widget.TextView[contains(@resource-id, \":id/qfv\")][@text=\"Followers\"]]",
         "//*[.//android.widget.TextView[@text=\"Followers\"]][@clickable=\"true\"]",
     ],
+    # Mirror of the French anchor. NOT verified on an English device (all three phones are
+    # fr-FR); the shape is the measured one, only the label differs.
+    "followers.followers_list_anchors": [
+        "//androidx.recyclerview.widget.RecyclerView[@scrollable=\"true\"][ancestor::*[.//*[@clickable=\"true\"][starts-with(@content-desc, \"Followers\")]]]",
+    ],
     "followers.followers_tab": [
         "//android.widget.TextView[contains(@text, \"Followers\")]",
         "//*[contains(@text, \"Followers\")][@clickable=\"true\"]",

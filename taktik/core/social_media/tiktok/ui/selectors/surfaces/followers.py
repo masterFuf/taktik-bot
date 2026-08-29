@@ -87,14 +87,36 @@ class FollowersSelectors:
         return L("followers.following_tab")
 
     # RecyclerView containing followers list
-    followers_list: List[str] = field(default_factory=lambda: [
+    _followers_list_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/s6p")]',
         '//androidx.recyclerview.widget.RecyclerView[contains(@resource-id, ":id/s6p")]',
     ])
 
+    @property
+    def followers_list(self) -> List[str]:
+        """The scrollable list itself. `s6p` is 43.1.4 only and reads 0 on every 46.6.3 capture.
+
+        The A2 route is structural but SCOPED to the tab bar: the bare form
+        `RecyclerView[@scrollable="true"]` fires on fifteen other screens -- a decoration, not an
+        indicator. Framed by the Followers tab it is 6/6 on the lists and 0 on the 39 others.
+        """
+        return self._followers_list_base + L("followers.followers_list_anchors")
+
     # Individual follower item (clickable row)
+    #: CAVEAT on the first form, measured: it also fires on the inbox, the Friends tab and the
+    #: 43.1.4 inbox capture -- a row with a follow button is not only a follower row. It is kept
+    #: because it is the ONLY route on 43.1.4 (that version's rows carry no readable name at all),
+    #: and every consumer gates on `_is_on_followers_list` first. Do not use it unscoped.
     follower_item: List[str] = field(default_factory=lambda: [
         '//android.widget.LinearLayout[@clickable="true"][.//android.widget.Button[contains(@resource-id, ":id/rdh")]]',
+        # A2 for 46.6.3, where `rdh` is gone: the row is the nearest clickable ancestor of the
+        # handle. 10, 10, 5 and 10 rows on the four 46.6.3 captures, 0 on the 39 other screens.
+        #
+        # It COMPLETES the form above rather than replacing it -- `txt_desc` does not exist on
+        # 43.1.4, where the row carries no readable name at all. Three purely structural forms
+        # were measured and rejected: they fire on eleven to twenty-one other screens (inbox,
+        # suggestions, the Users tab, the comment sheet).
+        '//*[contains(@resource-id, ":id/txt_desc")]/ancestor::*[@clickable="true"][1]',
     ])
 
     # Display name in followers list
