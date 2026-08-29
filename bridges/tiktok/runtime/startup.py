@@ -27,6 +27,26 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
 
     time.sleep(4)
 
+    # An Android permission dialog sits ON TOP of TikTok and belongs to another package, so
+    # every selector below it resolves nothing. Measured on device: a "let TikTok record audio"
+    # prompt left a Followers run reporting "Failed to open search" -- a sentence about the
+    # search field, on a screen that had none of TikTok on it. The handler already existed and
+    # was wired only to the publish and YouTube paths; the engagement workflows never saw it.
+    #
+    # DENY, not grant: an engagement run records nothing and films nothing, so a permission it
+    # never needs must not be granted while nobody is watching.
+    try:
+        from taktik.core.shared.device.permissions import PermissionHandler
+
+        handler = PermissionHandler(manager.device_manager.device, device_id)
+        if handler.is_visible():
+            dismissed = handler.deny(rounds=2)
+            logger.warning(f"🔐 Boite de permission Android ecartee ({dismissed})")
+            send_log("info", "Android permission dialog dismissed before starting")
+            time.sleep(1.5)
+    except Exception as e:
+        logger.warning(f"Permission dialog check failed (non-fatal): {e}")
+
     try:
         from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
 
