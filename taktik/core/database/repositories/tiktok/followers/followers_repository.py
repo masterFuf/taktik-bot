@@ -98,6 +98,34 @@ class TikTokFollowersRepository:
         self._db.get_or_create_tiktok_profile(profile_data)
         return True
 
+    def is_profile_filtered(self, *, account_id: Optional[int], username: str) -> bool:
+        if not account_id or not username:
+            return False
+        return bool(self._db.is_tiktok_profile_filtered(username, account_id))
+
+    def record_filtered_profile(
+        self,
+        *,
+        account_id: Optional[int],
+        username: str,
+        reason: str,
+        source_type: str,
+        source_name: str,
+        session_id: Optional[int] = None,
+    ) -> bool:
+        if not account_id or not username:
+            return False
+        return bool(
+            self._db.record_tiktok_filtered_profile(
+                account_id=account_id,
+                username=username,
+                reason=reason,
+                source_type=source_type,
+                source_name=source_name,
+                session_id=session_id,
+            )
+        )
+
     def record_interaction(
         self,
         *,

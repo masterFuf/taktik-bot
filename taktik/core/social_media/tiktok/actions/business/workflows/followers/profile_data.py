@@ -22,13 +22,17 @@ class ProfileDataMixin:
     
     def _extract_and_save_profile_data(self):
         """Extract profile data from the current profile page and save to database.
-        
+
         Uses the shared extract_profile_from_screen utility for data extraction,
         then enriches with video count and saves to the local database.
+
+        Returns the extracted profile dict, or None when nothing could be read. The filtering
+        step needs those very numbers, and re-reading the screen for them would pay the
+        extraction twice and could disagree with what was just persisted.
         """
         if not self._current_profile_username or self._current_profile_username == "unknown":
-            return
-        
+            return None
+
         try:
             from .._internal.profile_extractor import extract_profile_from_screen
             
@@ -37,7 +41,7 @@ class ProfileDataMixin:
             
             extracted = extract_profile_from_screen(raw_device, self._current_profile_username)
             if not extracted:
-                return
+                return None
             
             # Map to DB schema (bio → biography, display_name stays)
             profile_data = {
@@ -72,6 +76,10 @@ class ProfileDataMixin:
                                      f"{profile_data['likes_count']} likes")
             except Exception as e:
                 self.logger.debug(f"Error saving profile data: {e}")
-                    
+
+            return profile_data
+
         except Exception as e:
             self.logger.debug(f"Error extracting profile data: {e}")
+
+        return None

@@ -49,6 +49,11 @@ class FollowersConfig:
     skip_private_accounts: bool = False
     max_consecutive_known_usernames: int = 150
 
+    # Profile filter criteria, in the evaluator's snake_case vocabulary. EMPTY means no
+    # filtering, which is how TikTok ships: a run that says nothing about filters behaves
+    # exactly as it did before they existed.
+    filters: Dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class FollowersStats:
@@ -56,6 +61,7 @@ class FollowersStats:
     
     followers_seen: int = 0
     profiles_visited: int = 0
+    profiles_filtered: int = 0
     posts_watched: int = 0
     likes: int = 0
     comments: int = 0
@@ -78,6 +84,7 @@ class FollowersStats:
         return {
             'followers_seen': self.followers_seen,
             'profiles_visited': self.profiles_visited,
+            'profiles_filtered': self.profiles_filtered,
             'posts_watched': self.posts_watched,
             'likes': self.likes,
             'comments': self.comments,

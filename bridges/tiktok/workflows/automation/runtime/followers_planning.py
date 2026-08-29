@@ -2,6 +2,10 @@
 
 from typing import Any, Dict, List, Tuple
 
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.filtering import (
+    resolve_tiktok_filter_criteria,
+)
+
 
 def build_target_list(config: Dict[str, Any]) -> List[str]:
     """Return normalized target usernames from current and legacy payload fields."""
@@ -64,6 +68,7 @@ def build_followers_config(
         pause_duration_max=config.get("pauseDurationMax", 60.0),
         include_friends=config.get("includeFriends", False),
         max_consecutive_known_usernames=config.get("maxConsecutiveKnownUsernames", 150),
+        filters=resolve_tiktok_filter_criteria(config),
     )
 
 

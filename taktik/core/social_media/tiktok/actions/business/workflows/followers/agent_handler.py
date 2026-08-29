@@ -14,6 +14,9 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_
     notify,
     probability_param,
 )
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.filtering import (
+    resolve_tiktok_filter_criteria,
+)
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersConfig
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow import FollowersWorkflow
 
@@ -111,6 +114,7 @@ def _followers_config(merged: Mapping[str, Any]) -> FollowersConfig:
         skip_private_accounts=bool_param(
             merged, "skip_private_accounts", "skipPrivateAccounts", default=False
         ),
+        filters=resolve_tiktok_filter_criteria(merged),
         max_consecutive_known_usernames=int_param(
             merged,
             "max_consecutive_known_usernames",

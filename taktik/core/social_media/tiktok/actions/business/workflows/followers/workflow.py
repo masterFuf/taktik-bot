@@ -37,6 +37,7 @@ from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
 from taktik.core.database.repositories.tiktok.followers import TikTokFollowersRepository
 
 from .._internal import BaseTikTokWorkflow
+from .filtering import evaluate_tiktok_profile
 from .models import FollowersConfig, FollowersStats
 from .page_detection import PageDetectionMixin
 from .story_handling import StoryHandlingMixin
@@ -340,6 +341,22 @@ class FollowersWorkflow(
                 self.logger.debug(f"Skipping Friends/Following account @{username}")
                 continue
             
+            # Already rejected by the filters on an earlier pass. Checked BEFORE the profile is
+            # opened: a profile discarded once for being too small or too empty stays that way,
+            # and re-visiting it would spend a visit to reach the same verdict.
+            if username and self._account_id and self.config.filters:
+                if self._followers_repository.is_profile_filtered(
+                    account_id=self._account_id, username=username
+                ):
+                    self.stats.profiles_filtered += 1
+                    self._processed_usernames.add(username_key)
+                    if self._observe_username(username, is_known=True, reason='already_filtered'):
+                        return False
+                    self._send_stats_update()
+                    self._send_action('skip_filtered', username)
+                    self.logger.debug(f"Skipping previously filtered profile @{username}")
+                    continue
+
             # Check if already interacted with this profile in database
             if username and self._account_id:
                 try:
@@ -386,20 +403,25 @@ class FollowersWorkflow(
             emit_step("analysis", action="start", target=_username)
             try:
                 # Extract and save profile data (followers, likes, bio, etc.)
-                self._extract_and_save_profile_data()
+                profile_data = self._extract_and_save_profile_data()
 
                 # Send profile visit action for Live Activity
                 self._send_action('profile_visit', self._current_profile_username)
 
                 self.logger.info(f"👤 Visiting profile @{self._current_profile_username} ({self.stats.profiles_visited}/{self.config.max_followers})")
 
-                # Interact with posts on this profile
-                self._interact_with_profile_posts()
+                # Filters, applied on what was just read rather than on a second reading. A
+                # rejection skips the interactions -- but NOT the return to the followers list
+                # below, without which the next iteration would look for rows on a profile
+                # screen.
+                if not self._filter_current_profile(profile_data):
+                    # Interact with posts on this profile
+                    self._interact_with_profile_posts()
 
-                # Optionally follow this user
-                if random.random() < self.config.follow_probability:
-                    if self.stats.follows < self.config.max_follows_per_session:
-                        self._try_follow_current_profile()
+                    # Optionally follow this user
+                    if random.random() < self.config.follow_probability:
+                        if self.stats.follows < self.config.max_follows_per_session:
+                            self._try_follow_current_profile()
             finally:
                 _acted = (getattr(self.stats, 'likes', 0) > _likes0
                           or getattr(self.stats, 'follows', 0) > _follows0)
@@ -509,6 +531,42 @@ class FollowersWorkflow(
             return 'max_follows_reached'
         return ''
     
+    def _filter_current_profile(self, profile_data: Optional[Dict[str, Any]]) -> bool:
+        """Return True when the visited profile is rejected by the configured filters.
+
+        No criteria means no filtering, so the whole step costs one boolean test and the run
+        behaves exactly as it did before filters existed.
+
+        A profile whose data could not be read is NOT rejected: an unreadable screen is not a
+        verdict, and treating it as one would silently discard profiles for a device problem.
+        """
+        if not self.config.filters or not profile_data:
+            return False
+
+        username = profile_data.get('username') or self._current_profile_username
+        verdict = evaluate_tiktok_profile(profile_data, self.config.filters)
+        if verdict.get('suitable', True):
+            return False
+
+        reasons = verdict.get('reasons', [])
+        reason_text = ', '.join(reasons) if reasons else 'filtered'
+        self.stats.profiles_filtered += 1
+        self.logger.info(f"🚫 @{username} filtre : {reason_text}")
+
+        # The record is what stops the next pass from coming back to this profile. Without it
+        # the check above would never see it and the same visit would be paid again.
+        self._followers_repository.record_filtered_profile(
+            account_id=self._account_id,
+            username=username,
+            reason=reason_text,
+            source_type='followers',
+            source_name=self.config.search_query,
+            session_id=self._session_id,
+        )
+        self._send_stats_update()
+        self._send_action('filter', username)
+        return True
+
     def _send_action(self, action: str, target: str = ""):
         """Send action event via callback."""
         if self._on_action_callback:
