@@ -225,6 +225,31 @@ class DmConversationService:
             conn.close()
 
     @staticmethod
+    def known_sent_texts(
+        platform: str, account_id: int, partner_username: str, limit: int = 50
+    ) -> List[str]:
+        """Texts we already recorded as OURS in a thread. Empty on any failure.
+
+        For a reader that cannot see who wrote a bubble. TikTok's mobile UI gives no sender, so
+        its reader would file every message -- our own replies included -- as received, and the
+        'have we answered' question would then be answered wrong by the very table meant to
+        answer it. What we sent is certain at send time; this is how a later read finds it again.
+        """
+        conn = DmConversationService._open()
+        if conn is None:
+            return []
+        try:
+            sync_id = DmThreadRepository(conn).find_sync_id(platform, account_id, partner_username)
+            if not sync_id:
+                return []
+            return DmMessageRepository(conn).sent_texts(platform, sync_id, limit)
+        except Exception as exc:
+            logger.warning(f"Error reading DM sent texts: {exc}")
+            return []
+        finally:
+            conn.close()
+
+    @staticmethod
     def mark_thread_answered(platform: str, account_id: int, inbox_username: str) -> bool:
         """Re-assert that WE answered a thread (last_message_is_ours, can_reply=False) when an
         ephemeral re-read downgraded it. Bot-owned fact write; returns True if a row changed."""

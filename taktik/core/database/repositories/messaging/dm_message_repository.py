@@ -61,6 +61,22 @@ class DmMessageRepository(BaseRepository):
         )
         return [row["text"] for row in rows if row["text"]]
 
+    def sent_texts(self, platform: str, thread_sync_id: str, limit: int = 30) -> list[str]:
+        """Recent texts WE sent in a thread (newest first).
+
+        The mirror of ``received_texts``, and the only way a reader that cannot see who wrote a
+        bubble can still tell ours apart: a text already on record as sent is ours. TikTok's
+        conversation reader is exactly that reader -- the mobile UI gives it no sender.
+        """
+        self.ensure_table()
+        rows = self.query(
+            "SELECT text FROM dm_messages "
+            "WHERE platform = ? AND thread_sync_id = ? AND direction = 'sent' AND text IS NOT NULL "
+            "ORDER BY seq DESC LIMIT ?",
+            (platform, thread_sync_id, limit),
+        )
+        return [row["text"] for row in rows if row["text"]]
+
     def recent_texts(self, platform: str, thread_sync_id: str, limit: int = 30) -> list[str]:
         """Recent message texts (BOTH directions, newest first) of a thread — for matching an
         inbox-row preview against what we actually have on record, more reliably than the

@@ -6,6 +6,10 @@ from typing import Any, Dict
 from bridges.tiktok.runtime.ipc import logger, send_dm_stats, send_error, send_status, set_workflow
 from bridges.tiktok.runtime.startup import tiktok_startup
 from bridges.tiktok.workflows.engagement.runtime.dm_callbacks import wire_dm_read_callbacks
+from bridges.tiktok.workflows.engagement.runtime.dm_persistence import (
+    record_conversations,
+    resolve_account_id,
+)
 
 
 def run_dm_read_workflow(config: Dict[str, Any]):
@@ -24,7 +28,7 @@ def run_dm_read_workflow(config: Dict[str, Any]):
             DMWorkflow,
         )
 
-        manager, _ = tiktok_startup(device_id, fetch_profile=True)
+        manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
 
         workflow_config = DMConfig(
             max_conversations=config.get("maxConversations", 20),
@@ -43,6 +47,13 @@ def run_dm_read_workflow(config: Dict[str, Any]):
 
         logger.info("â–¶ï¸ Reading conversations...")
         conversations = workflow.read_conversations()
+
+        # Persistence is best-effort and comes AFTER the read: a database problem must not
+        # cost the conversations that were just read off the screen.
+        record_conversations(
+            resolve_account_id(bot_username),
+            [c.to_dict() if hasattr(c, "to_dict") else dict(c) for c in conversations],
+        )
 
         stats = workflow.get_stats()
         send_dm_stats(stats.to_dict())

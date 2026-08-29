@@ -6,6 +6,10 @@ from typing import Any, Dict
 from bridges.tiktok.runtime.ipc import logger, send_dm_stats, send_error, send_status, set_workflow
 from bridges.tiktok.runtime.startup import tiktok_startup
 from bridges.tiktok.workflows.engagement.runtime.dm_callbacks import wire_dm_send_callbacks
+from bridges.tiktok.workflows.engagement.runtime.dm_persistence import (
+    record_sent_results,
+    resolve_account_id,
+)
 
 
 def run_dm_send_workflow(config: Dict[str, Any]):
@@ -30,7 +34,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
             DMWorkflow,
         )
 
-        manager, _ = tiktok_startup(device_id, fetch_profile=True)
+        manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
 
         workflow_config = DMConfig(
             delay_between_conversations=config.get("delayBetweenMessages", 1.0),
@@ -46,6 +50,10 @@ def run_dm_send_workflow(config: Dict[str, Any]):
 
         results = workflow.send_bulk_messages(messages)
         sent_count = sum(1 for result in results if result["success"])
+
+        # What we sent is the CERTAIN half of the direction question: the reader cannot see who
+        # wrote a bubble, so a later read recognises our own messages only from these rows.
+        record_sent_results(resolve_account_id(bot_username), messages, results)
 
         stats = workflow.get_stats()
         send_dm_stats(stats.to_dict())
