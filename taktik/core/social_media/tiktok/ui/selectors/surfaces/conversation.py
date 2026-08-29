@@ -43,9 +43,13 @@ class ConversationSelectors:
     def back_button(self) -> List[str]:
         return self._back_button_base + L("conversation.back_button")
     
-    conversation_name: List[str] = field(default_factory=lambda: [
+    _conversation_name_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/h4a")]',
     ])
+
+    @property
+    def conversation_name(self) -> List[str]:
+        return self._conversation_name_base + L("conversation.conversation_name_anchors")
     
     conversation_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/k9u")]',

@@ -14,10 +14,54 @@ from typing import Dict, Any, List
 from loguru import logger
 
 from ..core.base_action import BaseAction
-from ..core.utils import extract_resource_id
+from ..core.utils import extract_resource_id, first_matching
 from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ...ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
 from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
+
+
+class _XPathCollection:
+    """A uiautomator2 UiObject collection, backed by xpath matches.
+
+    `_find_all_by_rid` promises `.exists` / `.count` / `[i].get_text()`; an xpath match is an
+    XMLElement with `.text`. This adapts the second to the first so callers stay unchanged —
+    the same difference that separated the working profile reader from the broken one.
+    """
+
+    def __init__(self, elements):
+        self._elements = list(elements)
+
+    @property
+    def exists(self) -> bool:
+        return bool(self._elements)
+
+    @property
+    def count(self) -> int:
+        return len(self._elements)
+
+    def __getitem__(self, index):
+        return _XPathNode(self._elements[index])
+
+
+class _XPathNode:
+    """One xpath match, wearing the UiObject shape callers expect.
+
+    A first version exposed `get_text()` and nothing else, so `click()` and the bounds lookup
+    raised — and the callers swallow exceptions and move on, which turned "found it" into
+    "conversation not found". Everything not named here forwards to the element itself.
+    """
+
+    def __init__(self, element):
+        self._element = element
+
+    def get_text(self) -> str:
+        try:
+            return self._element.text or ''
+        except Exception:
+            return ''
+
+    def __getattr__(self, name):
+        return getattr(self._element, name)
 
 
 class DMActions(BaseAction):
@@ -86,11 +130,22 @@ class DMActions(BaseAction):
         extraction, which returned an empty resource-id, and therefore zero matches, for the
         sélecteurs en forme contains. API UiObject identique (.exists/.count/[i]/.get_text()).
         """
-        pattern = self._resource_id_pattern(selectors)
-        if not pattern:
-            return None
         raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-        return raw_device(resourceIdMatches=pattern)
+
+        pattern = self._resource_id_pattern(selectors)
+        if pattern:
+            found = raw_device(resourceIdMatches=pattern)
+            if found.exists:
+                return found
+
+        # No resource-id in the list, or the one there is dead on this version: walk the
+        # selectors as xpaths instead. Every A2 anchor is structural or text-based and carries no
+        # id at all, so without this fallback a repaired catalogue entry stays invisible to every
+        # caller of this function — which is most of the inbox.
+        elements = first_matching(raw_device, selectors)
+        if not elements:
+            return None
+        return _XPathCollection(elements)
     
     # ==========================================================================
     # INBOX NAVIGATION
@@ -454,8 +509,8 @@ class DMActions(BaseAction):
         username = self._clean_username(username)
         if not username:
             return False
-        selector = self.inbox_selectors.message_request_by_username(username)
-        if self._find_and_click([selector], timeout=3):
+        selectors = self.inbox_selectors.message_request_by_username(username)
+        if self._find_and_click(selectors, timeout=3):
             time.sleep(1)
             return True
         self.logger.warning(f"Demande introuvable pour {username}")
@@ -795,6 +850,39 @@ class DMActions(BaseAction):
             pass
         return ""
     
+    def is_conversation_with(self, username: str) -> bool:
+        """Is the open conversation the one with `username`?
+
+        A send answers "did it leave", never "did it reach the right person" — and a navigation
+        that drifts one row is enough to write into someone else's thread. That happened during
+        this survey: a request list shifted between two runs and a reply went to a stranger.
+
+        Compared on the conversation HEADER, loosely: TikTok shows the display name there, and a
+        caller usually holds the handle. Returns False when the header cannot be read, so an
+        unverifiable conversation is never treated as verified.
+        """
+        wanted = self._clean_username(username).lower()
+        if not wanted:
+            return False
+        header = (self.get_conversation_info().get("name") or "").lower()
+        header = self._clean_username(header)
+        if not header:
+            return False
+        return wanted in header or header in wanted
+
+    def send_text_message_to(self, username: str, text: str) -> bool:
+        """Send `text`, but only into the conversation with `username`.
+
+        The guarded form of `send_text_message`. Any workflow that navigates before writing
+        should use this one: the unguarded version cannot tell whose thread it is in.
+        """
+        if not self.is_conversation_with(username):
+            info = self.get_conversation_info().get("name")
+            self.logger.error(
+                f"Refusing to send: conversation header is {info!r}, expected @{username}")
+            return False
+        return self.send_text_message(text)
+
     def send_text_message(self, text: str) -> bool:
         """Type and send a text message.
         

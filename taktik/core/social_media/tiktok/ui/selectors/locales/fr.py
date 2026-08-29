@@ -108,7 +108,13 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Suivre en retour\"]",
         "//*[@text=\"Suivre en retour\"]",
     ],
-    "inbox.inbox_title": [],
+    # One of the empty French keys the audit counted, and the reason every DM flow stopped at
+    # "Failed to navigate to Inbox" while standing ON the inbox: with nothing here `L()` fell back
+    # to English, which asks for `@text="Inbox"` — and a French phone writes "Messages". The
+    # readable id `title` was right all along. Measured on both versions.
+    "inbox.inbox_title": [
+        "//*[contains(@resource-id, \":id/title\")][@text=\"Messages\"]",
+    ],
     "inbox.message_requests_page_title": [
         "//*[contains(@resource-id, \":id/nmh\")][contains(@text, \"Demandes de messages\")]",
     ],
@@ -197,8 +203,12 @@ STRINGS: Dict[str, List[str]] = {
     "popup.collections_popup": [],
     "popup.comment_input_area": [],
     "popup.comments_close_button": [],
+    # `J'ai compris` was missing, and it is the button of an interstitial TikTok raises INSIDE
+    # a conversation ("Recommandations de stickers personnalisées"). It covers the composer, so
+    # the message field reads as absent and a reply cannot be typed — measured on device, mid-DM.
     "popup.dismiss_button": [
         "//android.widget.Button[contains(@text, \"Pas maintenant\")]",
+        "//*[contains(@text, \"J’ai compris\") or contains(@text, \"J'ai compris\")]",
     ],
     "popup.follow_friends_close": [],
     "popup.follow_friends_popup": [
@@ -307,6 +317,33 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "conversation.send_button_anchors": [
         "//*[@content-desc=\"Envoyer\" or @content-desc=\"Send\"]",
+    ],
+    # === A2 anchors for the message-request rows ===
+    #
+    # Captured from a list holding four real requests. `user_name` is a readable id; the preview
+    # and the timestamp hang off it structurally rather than off their own obfuscated ids.
+    #
+    # The page title matches on its TEXT. That is what broke `open_message_requests_page`: it
+    # required the id `nmh`, dead on 46.6.3, so the condition could never hold — the navigation
+    # had landed on the page and the function reported it had not.
+    "inbox.conversation_username_anchors": [
+        "//*[contains(@resource-id, \":id/user_name\")]",
+    ],
+    "inbox.conversation_last_message_anchors": [
+        "//*[contains(@resource-id, \":id/user_name\")]/../..//android.widget.TextView[not(contains(@text, \"·\"))][2]",
+    ],
+    "inbox.conversation_timestamp_anchors": [
+        "//android.widget.TextView[contains(@text, \"·\")]",
+    ],
+    "inbox.message_requests_page_title_anchors": [
+        "//*[contains(@text, \"Demandes de messages\") or contains(@text, \"Message requests\")]",
+    ],
+    # The header name, reached from the back button rather than from its own id — both ids
+    # there are obfuscated and dead on 46.6.3, so `get_conversation_info` returned None and
+    # the recipient guard could never pass. Measured: the right name on both versions, and
+    # nothing on the requests page or a profile.
+    "conversation.conversation_name_anchors": [
+        "//*[@content-desc=\"Retour\" or @content-desc=\"Back\"]/../..//android.widget.TextView[1]",
     ],
     "profile.username_anchors": [
         "//android.widget.Button[starts-with(@text, \"@\")]",

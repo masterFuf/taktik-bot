@@ -290,7 +290,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/dqh\")][@content-desc=\"Close\"]",
         "//android.widget.ImageView[@content-desc=\"Close\"]",
     ],
+    # "Got it" closes the in-conversation sticker interstitial; see the note in fr.py.
     "popup.dismiss_button": [
+        "//*[contains(@text, \"Got it\")]",
         "//android.widget.Button[@text=\"Not now\"]",
         "//android.widget.Button[contains(@text, \"Not now\")]",
         "//android.widget.Button[contains(@text, \"Skip\")]",
@@ -436,6 +438,33 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "conversation.send_button_anchors": [
         "//*[@content-desc=\"Envoyer\" or @content-desc=\"Send\"]",
+    ],
+    # === A2 anchors for the message-request rows ===
+    #
+    # Captured from a list holding four real requests. `user_name` is a readable id; the preview
+    # and the timestamp hang off it structurally rather than off their own obfuscated ids.
+    #
+    # The page title matches on its TEXT. That is what broke `open_message_requests_page`: it
+    # required the id `nmh`, dead on 46.6.3, so the condition could never hold — the navigation
+    # had landed on the page and the function reported it had not.
+    "inbox.conversation_username_anchors": [
+        "//*[contains(@resource-id, \":id/user_name\")]",
+    ],
+    "inbox.conversation_last_message_anchors": [
+        "//*[contains(@resource-id, \":id/user_name\")]/../..//android.widget.TextView[not(contains(@text, \"·\"))][2]",
+    ],
+    "inbox.conversation_timestamp_anchors": [
+        "//android.widget.TextView[contains(@text, \"·\")]",
+    ],
+    "inbox.message_requests_page_title_anchors": [
+        "//*[contains(@text, \"Demandes de messages\") or contains(@text, \"Message requests\")]",
+    ],
+    # The header name, reached from the back button rather than from its own id — both ids
+    # there are obfuscated and dead on 46.6.3, so `get_conversation_info` returned None and
+    # the recipient guard could never pass. Measured: the right name on both versions, and
+    # nothing on the requests page or a profile.
+    "conversation.conversation_name_anchors": [
+        "//*[@content-desc=\"Retour\" or @content-desc=\"Back\"]/../..//android.widget.TextView[1]",
     ],
     "profile.username_anchors": [
         "//android.widget.Button[starts-with(@text, \"@\")]",

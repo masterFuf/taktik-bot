@@ -80,17 +80,29 @@ class InboxSelectors:
         '//*[contains(@resource-id, ":id/b5h")]',
     ])
 
-    conversation_username: List[str] = field(default_factory=lambda: [
+    _conversation_username_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/z05")]',
     ])
 
-    conversation_last_message: List[str] = field(default_factory=lambda: [
+    @property
+    def conversation_username(self) -> List[str]:
+        return self._conversation_username_base + L("inbox.conversation_username_anchors")
+
+    _conversation_last_message_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/l35")]',
     ])
 
-    conversation_timestamp: List[str] = field(default_factory=lambda: [
+    @property
+    def conversation_last_message(self) -> List[str]:
+        return self._conversation_last_message_base + L("inbox.conversation_last_message_anchors")
+
+    _conversation_timestamp_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/l3a")]',
     ])
+
+    @property
+    def conversation_timestamp(self) -> List[str]:
+        return self._conversation_timestamp_base + L("inbox.conversation_timestamp_anchors")
 
     unread_badge: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/fa7")]',
@@ -148,15 +160,27 @@ class InboxSelectors:
     message_request_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/t5a")]',
     ])
-    message_request_username: List[str] = field(default_factory=lambda: [
+    _message_request_username_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/z05")]',
     ])
-    message_request_preview: List[str] = field(default_factory=lambda: [
+
+    @property
+    def message_request_username(self) -> List[str]:
+        return self._message_request_username_base + L("inbox.conversation_username_anchors")
+    _message_request_preview_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/l35")]',
     ])
-    message_request_timestamp: List[str] = field(default_factory=lambda: [
+
+    @property
+    def message_request_preview(self) -> List[str]:
+        return self._message_request_preview_base + L("inbox.conversation_last_message_anchors")
+    _message_request_timestamp_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/l3a")]',
     ])
+
+    @property
+    def message_request_timestamp(self) -> List[str]:
+        return self._message_request_timestamp_base + L("inbox.conversation_timestamp_anchors")
     message_request_unread_badge: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ydj")]',
     ])
@@ -210,7 +234,9 @@ class InboxSelectors:
 
     @property
     def message_requests_page_title(self) -> List[str]:
-        return self._message_requests_page_title_base + L("inbox.message_requests_page_title")
+        return (self._message_requests_page_title_base
+                + L("inbox.message_requests_page_title")
+                + L("inbox.message_requests_page_title_anchors"))
 
     @property
     def accept_request_button(self) -> List[str]:
@@ -274,16 +300,21 @@ class InboxSelectors:
         """
         return f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]'
 
-    def message_request_by_username(self, name: str) -> str:
-        """Build the message-request item (t5a) selector for a visible username (page demandes).
+    def message_request_by_username(self, name: str) -> List[str]:
+        """Selectors for the message-request row of a visible username, richest first.
 
         Containment, because the username is wrapped in invisible bidi marks (see
         DMActions._clean_username) ; on remonte à l'item t5a cliquable contenant ce username.
         """
-        return (
+        return [
             '//*[contains(@resource-id, ":id/t5a")]'
-            f'[.//*[contains(@resource-id, ":id/z05")][contains(@text, "{name}")]]'
-        )
+            f'[.//*[contains(@resource-id, ":id/z05")][contains(@text, "{name}")]]',
+            # Both ids above are dead on 46.6.3, so the row could not be opened there at all.
+            # Structural fallback: the clickable ancestor of the row that names this person.
+            # `user_name` is a readable id, which is what makes it addressable across versions.
+            '//*[@clickable="true"]'
+            f'[.//*[contains(@resource-id, ":id/user_name")][contains(@text, "{name}")]]',
+        ]
 
     def follow_back_for_username(self, name: str) -> str:
         """Build the 'Suivre en retour' button scoped to the new-follower item of `name`.
