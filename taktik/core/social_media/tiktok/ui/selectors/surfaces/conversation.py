@@ -78,27 +78,47 @@ class ConversationSelectors:
     # === Profile info (for new conversations) ===
     profile_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qbd")]',
+        # A2: resolves exactly one on all four captured conversations, on both versions, and
+        # ZERO on the other 28 captured screens.
+        '//android.widget.TextView[starts-with(@text, "@")]/../..//android.widget.ImageView',
     ])
     
     profile_display_name: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qf7")]',
+        # A2: resolves exactly one on all four captured conversations, on both versions, and
+        # ZERO on the other 28 captured screens.
+        '//android.widget.TextView[starts-with(@text, "@")]/../android.widget.TextView[1]',
     ])
     
     profile_username: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qgb")]//android.widget.TextView[contains(@text, "@")]',
+        # A2: resolves exactly one on all four captured conversations, on both versions, and
+        # ZERO on the other 28 captured screens.
+        # The '@' prefix is the handle's own
+        # punctuation, so this holds in any language.
+        '//android.widget.TextView[starts-with(@text, "@")]',
     ])
     
     profile_stats: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qgb")]//android.widget.TextView[contains(@text, "following")]',
+        # A2: the profile card's counts line ("36 suivis · 105 followers"), reached from the
+        # handle. One hit on all four captured conversations, none on the other 28 screens.
+        '//android.widget.TextView[starts-with(@text, "@")]/../android.widget.TextView[contains(@text, "·")]',
     ])
     
     # === Messages list ===
     messages_list: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/r_k")]',
+        # A2. Like every field on this surface it is only meaningful once the caller knows it
+        # is IN a conversation: on its own the expression also matches other screens.
+        '//*[@scrollable="true"]',
     ])
     
     message_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/tow")]',
+        # A2. Like every field on this surface it is only meaningful once the caller knows it
+        # is IN a conversation: on its own the expression also matches other screens.
+        '//*[@focusable="true"][string-length(@text)>0][not(@content-desc) or @content-desc=""][not(self::android.widget.EditText)][not(self::android.widget.Button)]/../..',
     ])
     
     message_sender: List[str] = field(default_factory=lambda: [
@@ -112,6 +132,9 @@ class ConversationSelectors:
     
     message_content_container: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/e7j")]',
+        # A2. Like every field on this surface it is only meaningful once the caller knows it
+        # is IN a conversation: on its own the expression also matches other screens.
+        '//*[@focusable="true"][string-length(@text)>0][not(@content-desc) or @content-desc=""][not(self::android.widget.EditText)][not(self::android.widget.Button)]/..',
     ])
     
     _message_text_base: List[str] = field(default_factory=lambda: [
@@ -194,6 +217,9 @@ class ConversationSelectors:
         '//*[contains(@resource-id, ":id/yi7")]',
         '//*[contains(@resource-id, ":id/fwt")]',
         '//*[contains(@resource-id, ":id/jt2")]',
+        # A2. Like every field on this surface it is only meaningful once the caller knows it
+        # is IN a conversation: on its own the expression also matches other screens.
+        '//android.widget.EditText/..',
     ])
     
     _message_input_field_base: List[str] = field(default_factory=lambda: [
@@ -263,6 +289,8 @@ class ConversationSelectors:
     
     cards_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/v1")][@text="Cards"]',
+        # A2: the label is the same node on both versions, only the id moves.
+        '//*[@text="Cartes" or @text="Cards"]',
     ])
 
 
