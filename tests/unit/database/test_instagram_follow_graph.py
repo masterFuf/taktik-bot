@@ -12,6 +12,9 @@ from taktik.core.database.local.migration_steps.interactions import (
 from taktik.core.database.local.migration_steps.social_graph import (
     run_social_graph_sync_migrations,
 )
+from taktik.core.database.local.migration_steps.social_profiles import (
+    run_social_profiles_unification_migrations,
+)
 from taktik.core.database.repositories.instagram.social_graph import SocialGraphRepository
 
 
@@ -26,6 +29,11 @@ class _FakeLocalDb:
         # schema; follow-history and social-graph lookups read them.
         run_interactions_unification_migrations(cursor)
         run_social_graph_sync_migrations(cursor)
+        # Profiles are unified too: `social_profiles` is the real table and `instagram_profiles`
+        # is a VIEW over it. Without this step the fake DB kept the pre-unification shape, so it
+        # could not catch a lookup reading the wrong one -- which is exactly the mistake that
+        # scopes a query to Instagram forever.
+        run_social_profiles_unification_migrations(cursor)
         self._conn.commit()
         self.social_graph = SocialGraphRepository(self._conn)
 
@@ -46,8 +54,8 @@ def test_has_bot_follow_record_and_days_since_follow(monkeypatch):
     _seed_account(fake_db, account_id=4)
     conn = fake_db._get_connection()
     conn.execute(
-        "INSERT INTO instagram_profiles (profile_id, username) VALUES (?, ?)",
-        (12, "TargetUser"),
+        "INSERT INTO social_profiles (platform, legacy_profile_id, username) VALUES (?, ?, ?)",
+        ("instagram", 12, "TargetUser"),
     )
     conn.execute(
         """INSERT INTO interactions
