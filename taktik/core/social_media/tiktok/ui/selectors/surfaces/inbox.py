@@ -74,10 +74,17 @@ class InboxSelectors:
     # === Conversations ===
     conversation_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/t5a")]',
+        # A2: the row is the nearest clickable ancestor of the READABLE `user_name` id. Three rows
+        # on a real inbox, four on the requests page, and nothing on a screen without rows.
+        '//*[contains(@resource-id, ":id/user_name")]/ancestor::*[@clickable="true"][1]',
     ])
 
     conversation_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b5h")]',
+        # A2: the row's picture. Two of the three rows on the captured inbox carry one; the
+        # message-requests row has none, which is why this is a partial anchor and not a
+        # replacement for the id above.
+        '//*[contains(@resource-id, ":id/user_name")]/../..//android.widget.ImageView',
     ])
 
     _conversation_username_base: List[str] = field(default_factory=lambda: [
@@ -164,6 +171,8 @@ class InboxSelectors:
     # === Message-requests page (dedicated) — list ===
     message_request_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/t5a")]',
+        # A2: same shape as a conversation row -- the requests page reuses it.
+        '//*[contains(@resource-id, ":id/user_name")]/ancestor::*[@clickable="true"][1]',
     ])
     _message_request_username_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/z05")]',
