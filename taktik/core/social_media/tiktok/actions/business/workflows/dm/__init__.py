@@ -10,6 +10,15 @@ from .agent_handler import (
     register_tiktok_dm_outreach_handlers,
     register_tiktok_dm_handlers,
 )
+from .inbox_agent_handler import (
+    TIKTOK_DM_ACTIVITY_WORKFLOW_ID,
+    TIKTOK_DM_REQUESTS_WORKFLOW_ID,
+    TIKTOK_DM_UNREPLIED_WORKFLOW_ID,
+    TIKTOK_INBOX_WORKFLOW_IDS,
+    TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID,
+    build_tiktok_inbox_handler,
+    register_tiktok_inbox_handlers,
+)
 from .outreach import TikTokDMOutreachWorkflow
 from .workflow import DMWorkflow, DMConfig, DMStats, ConversationData
 
@@ -18,6 +27,11 @@ __all__ = [
     "TIKTOK_DM_SEND_WORKFLOW_ID",
     "TIKTOK_DM_OUTREACH_WORKFLOW_ID",
     "TIKTOK_DM_WORKFLOW_IDS",
+    "TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID",
+    "TIKTOK_DM_UNREPLIED_WORKFLOW_ID",
+    "TIKTOK_DM_REQUESTS_WORKFLOW_ID",
+    "TIKTOK_DM_ACTIVITY_WORKFLOW_ID",
+    "TIKTOK_INBOX_WORKFLOW_IDS",
     "DMWorkflow",
     "DMConfig",
     "DMStats",
@@ -25,6 +39,8 @@ __all__ = [
     "TikTokDMOutreachWorkflow",
     "build_tiktok_dm_handler",
     "build_tiktok_dm_outreach_handler",
+    "build_tiktok_inbox_handler",
+    "register_tiktok_inbox_handlers",
     "register_tiktok_dm_handlers",
     "register_tiktok_dm_outreach_handlers",
 ]

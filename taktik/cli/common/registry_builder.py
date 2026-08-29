@@ -45,6 +45,8 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_tiktok_dm_handlers"),
     ("TikTok DM outreach", "taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler",
      "register_tiktok_dm_outreach_handlers"),
+    ("TikTok inbox", "taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler",
+     "register_tiktok_inbox_handlers"),
     ("TikTok unfollow", "taktik.core.social_media.tiktok.actions.business.workflows.unfollow.agent_handler",
      "register_tiktok_unfollow_handlers"),
     ("TikTok scraping", "taktik.core.social_media.tiktok.actions.business.workflows.scraping.agent_handler",
