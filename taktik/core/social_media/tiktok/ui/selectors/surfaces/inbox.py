@@ -145,6 +145,9 @@ class InboxSelectors:
 
     notification_subtitle: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ln_")]',
+        # A2: the section's preview line, reached from its title and excluding the timestamp
+        # (which carries the middle dot). Three hits on a real inbox on BOTH versions.
+        '//android.widget.TextView[@text="Nouveaux followers" or @text="Activité" or @text="Notifications système" or @text="New followers" or @text="Activity" or @text="System notifications"]/ancestor::*[@clickable="true"][1]//android.widget.TextView[not(@text="Nouveaux followers" or @text="Activité" or @text="Notifications système" or @text="New followers" or @text="Activity" or @text="System notifications")][not(contains(@text, "·"))]',
     ])
 
     # === Group chat indicators ===
