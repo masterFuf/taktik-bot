@@ -190,27 +190,42 @@ class SearchSelectors:
     ])
 
     def user_result_selectors_for_username(self, username: str) -> List[str]:
-        """The row of ONE named user on the search Users tab.
+        """The row of ONE named user on the search Users tab — the exact handle, nobody else.
 
-        Measured on a real tab (46.6.3, 2026-08-29), the two forms this replaces were both wrong:
+        The bidi marks were half the story, and scoping the containment to `tv_username` did not
+        finish it. Measured again on 2026-08-30 on BOTH versions, asking for `@lena_situations`:
 
-        - `@text="@name"` matched NOTHING. The tab prints the handle without its "@", wrapped in
-          invisible bidi marks, so an equality test could never hold.
-        - `contains(@text, "name")` matched SEVEN nodes for one query. Fan accounts carry the
-          searched handle as their DISPLAY name, so the first match was somebody else's row —
-          a workflow given a list of usernames would have visited the wrong people and called it
-          done.
+        - the `tv_username`-scoped containment returned **five** rows on 46.6.3
+          (`lena_situations1`, `lena_situations`, `lena_situationss`, `lena_situations_fane`,
+          `lena_situations__`) and the tap takes the first, so the run opened a 12-follower fan
+          account instead of the target — every time, deterministically;
+        - on 43.1.4 it returned **nothing at all**: that version names the row `ye2`, not
+          `tv_username`, so the whole list fell through to the blind "first row of the list".
 
-        The containment is scoped to `tv_username`, a readable id holding the handle and nothing
-        else, and the tappable row is its nearest clickable ancestor: exactly one row per query,
-        carrying exactly the handle asked for.
+        What survives both is not an id but the TEXT SHAPE. TikTok wraps every handle in
+        directional isolates — `U+200E U+2068 <handle> U+2069` — identically on 43.1.4 and
+        46.6.3, and those isolates DELIMIT the handle. Containing `⁨handle⁩` therefore means
+        "this row's handle is exactly this", because anything longer puts a character where the
+        closing isolate has to be. Measured: exactly one row, the right one, on both versions,
+        for three different queries.
+
+        The loose forms are gone rather than kept as a net. `_landed_on_profile_of` refuses to
+        INTERACT with the wrong profile, but it cannot un-open it: opening a stranger's profile
+        is already a view on their account. Finding nothing is the better failure.
+
+        TikTok handles are `[a-zA-Z0-9._]` (`ActionUtils.is_valid_username`), so no quote can
+        reach the expression below.
         """
+        # U+2068 FIRST STRONG ISOLATE / U+2069 POP DIRECTIONAL ISOLATE, written by name because
+        # they are invisible in an editor and a stripped copy-paste would silently loosen this
+        # back into a prefix match.
+        isolated = f"⁨{username}⁩"
         return [
-            f'//*[contains(@resource-id, ":id/tv_username")][contains(@text, "{username}")]'
+            f'//android.widget.TextView[contains(@text, "{isolated}")]'
             '/ancestor::*[@clickable="true"][1]',
-            f'//android.widget.TextView[@text="@{username}"]',
-            f'//android.widget.TextView[contains(@text, "{username}")]',
-            *self.first_search_result,
+            # Should a version ever drop the isolates, the handle stands alone in its own node.
+            f'//android.widget.TextView[@text="{username}"]/ancestor::*[@clickable="true"][1]',
+            f'//android.widget.TextView[@text="@{username}"]/ancestor::*[@clickable="true"][1]',
         ]
 
 
