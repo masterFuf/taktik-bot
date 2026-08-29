@@ -54,6 +54,7 @@ from ...social_media.tiktok.ui.selectors import (
     SCROLL_SELECTORS as TT_SCROLL,
     DETECTION_SELECTORS as TT_DETECTION,
     FOLLOWERS_SELECTORS as TT_FOLLOWERS,
+    SETTINGS_SELECTORS as TT_SETTINGS,
 )
 
 INSTAGRAM_TARGET_VERSION = "410.0.0.53.71"
@@ -108,6 +109,7 @@ TIKTOK_SELECTOR_DOMAINS = {
     "scroll": TT_SCROLL,
     "detection": TT_DETECTION,
     "followers": TT_FOLLOWERS,
+    "settings": TT_SETTINGS,
 }
 
 

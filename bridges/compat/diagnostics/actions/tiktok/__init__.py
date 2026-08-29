@@ -22,6 +22,7 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.tiktok import publish  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import scroll  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import search  # noqa: F401
+    from bridges.compat.diagnostics.actions.tiktok import settings  # noqa: F401
     from bridges.compat.diagnostics.actions.tiktok import video  # noqa: F401
 
     # Shared with Instagram, same id, one implementation — see actions/common/capture.py.

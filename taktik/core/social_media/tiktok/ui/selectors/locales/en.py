@@ -762,6 +762,32 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/sm6\")][@text=\"View all\"]",
         "//android.widget.TextView[@text=\"View all\"]",
     ],
+    # --- settings (path to the app language) ---
+    #
+    # MEASURED on a real English phone (43.1.4, 2026-08-29) — captured while the app was in
+    # English, then used to switch it to French. Every label below was read off the screen, not
+    # translated from the French one.
+    "settings.settings_and_privacy_row": [
+        "//*[@text=\"Settings and privacy\"]",
+    ],
+    "settings.language_row": [
+        "//android.widget.TextView[@text=\"Language\"]",
+    ],
+    "settings.app_language_row": [
+        "//android.widget.TextView[@text=\"App language\"]",
+    ],
+    "settings.picker_indicator": [
+        "//*[@text=\"App language\"][not(@clickable=\"true\")]",
+    ],
+    "settings.picker_confirm_button": [
+        "//android.widget.Button[@text=\"Done\"]",
+    ],
+    "settings.picker_cancel_button": [
+        "//android.widget.Button[@text=\"Cancel\"]",
+    ],
+    "settings.settings_back_button": [
+        "//*[@content-desc=\"Back to previous screen\"]",
+    ],
     # --- signup ---
     "signup.back_button": [
         "//android.widget.Button[@content-desc=\"Go back\"]",
@@ -895,8 +921,13 @@ STRINGS: Dict[str, List[str]] = {
     # word "Partager" where the share count would be when nothing has been shared. So an
     # absent counter means zero, not a dead anchor — and a caller that treats absence as
     # failure will report a healthy screen as broken.
+    # MEASURED on an English phone (43.1.4, 2026-08-29) — the first time any English entry in
+    # this catalogue was ever put in front of a real screen. The device says
+    # `Like video 22 likes`; this looked for "Like this video", which no screen carries, so the
+    # like counter read nothing on an English phone while `like_button` (which says "Like video")
+    # worked right next to it. The two could not both be right, and the wrong one was silent.
     "video_engagement.like_count_anchors": [
-        "//*[starts-with(@content-desc, \"Like this video\")]/descendant::*[@text != \"\"][1]",
+        "//*[starts-with(@content-desc, \"Like video\")]/descendant::*[@text != \"\"][1]",
     ],
     "video_engagement.comment_count_anchors": [
         "//*[starts-with(@content-desc, \"Read or add comments\")]/descendant::*[@text != \"\"][1]",
@@ -904,8 +935,11 @@ STRINGS: Dict[str, List[str]] = {
     "video_engagement.favorite_count_anchors": [
         "//*[starts-with(@content-desc, \"Add or remove this video\")]/descendant::*[@text != \"\"][1]",
     ],
+    # Same measurement, same family: the device says `Share video 1 shares`, not "Share a video".
+    # The French wording ("Partager une vidéo. N partages") reads as "Share a video", which is
+    # very likely how the guess was made — a plausible translation is not a measurement.
     "video_engagement.share_count_anchors": [
-        "//*[starts-with(@content-desc, \"Share a video\")]/descendant::*[@text != \"\"][1]",
+        "//*[starts-with(@content-desc, \"Share video\")]/descendant::*[@text != \"\"][1]",
     ],
     "video_engagement.like_button": [
         "//*[@resource-id=\"com.zhiliaoapp.musically:id/f57\"][contains(@content-desc, \"Like video\")]",

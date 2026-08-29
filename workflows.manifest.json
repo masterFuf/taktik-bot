@@ -69,7 +69,8 @@
     "account": [
       "login",
       "register",
-      "logout"
+      "logout",
+      "change_language"
     ],
     "standalone": [
       "tiktok_unfollow",

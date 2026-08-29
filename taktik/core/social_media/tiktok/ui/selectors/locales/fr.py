@@ -721,6 +721,39 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[@text=\"Vidéos\"]",
     ],
     "search.view_all_button": [],
+    # --- settings (chemin vers la langue de l'application) ---
+    #
+    # Chemin parcouru et mesure sur appareil le 2026-08-29, DANS LES DEUX SENS : releve sur un
+    # telephone dont TikTok etait en anglais, puis utilise pour le repasser en francais — le seul
+    # essai qui prouve que le chemin marche depuis une langue ou l'on n'a pas commence.
+    "settings.settings_and_privacy_row": [
+        "//*[@text=\"Paramètres et confidentialité\"]",
+    ],
+    "settings.language_row": [
+        "//android.widget.TextView[@text=\"Langue\"]",
+    ],
+    # PAS le meme que `language_row` : l'ecran Langue porte aussi une section Traductions dont les
+    # lignes affichent des noms de langue (« Traduire en : Francais »). Taper la mauvaise change ce
+    # qui est traduit, pas ce que l'app parle.
+    "settings.app_language_row": [
+        "//android.widget.TextView[@text=\"Langue de l'application\" or @text=\"Langue de l’application\"]",
+    ],
+    "settings.picker_indicator": [
+        "//*[@text=\"Langue de l'application\" or @text=\"Langue de l’application\"]"
+        "[not(@clickable=\"true\")]",
+    ],
+    # Mesure : selectionner une langue ne relabellise PAS l'entete — il dit encore « Terminé » au
+    # moment ou on le tape, et l'app ne bascule qu'apres. Le libelle est donc ancrable, a condition
+    # de porter les deux langues, ce que l'union des locales fait.
+    "settings.picker_confirm_button": [
+        "//android.widget.Button[@text=\"Terminé\" or @text=\"Termine\"]",
+    ],
+    "settings.picker_cancel_button": [
+        "//android.widget.Button[@text=\"Annuler\"]",
+    ],
+    "settings.settings_back_button": [
+        "//*[@content-desc=\"Retour à l'écran précédent\" or @content-desc=\"Retour à l’écran précédent\"]",
+    ],
     # --- signup ---
     "signup.back_button": [
         "//android.widget.Button[(@content-desc=\"Retour à l'écran précédent\" or @content-desc=\"Retour à l’écran précédent\")]",

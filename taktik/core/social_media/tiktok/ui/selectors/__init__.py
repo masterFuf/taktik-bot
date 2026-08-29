@@ -1,6 +1,9 @@
 """TikTok UI selectors organized by UI scope."""
 
 from .flows import (
+    APP_LANGUAGE_NATIVE_NAMES,
+    SETTINGS_SELECTORS,
+    SettingsSelectors,
     PUBLISH_COMPOSER_SELECTORS,
     PUBLISH_CREATION_ENTRY_SELECTORS,
     PUBLISH_EDITOR_SELECTORS,
@@ -116,4 +119,7 @@ __all__ = [
     "PUBLISH_MEDIA_PICKER_SELECTORS",
     "PUBLISH_PROGRESS_SELECTORS",
     "PUBLISH_SELECTORS",
+    "APP_LANGUAGE_NATIVE_NAMES",
+    "SETTINGS_SELECTORS",
+    "SettingsSelectors",
 ]
