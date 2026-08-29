@@ -53,6 +53,9 @@ class ConversationSelectors:
     
     conversation_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/k9u")]',
+        # A2: the header node carrying the correspondent's name, reached from the back button.
+        # Resolves exactly one on all four captured conversations, on both versions.
+        '//*[@content-desc="Retour" or @content-desc="Back"]/../..//*[@clickable="true"][string-length(@content-desc)>0][not(@content-desc="Retour" or @content-desc="Back" or @content-desc="Plus" or @content-desc="More" or @content-desc="Signaler" or @content-desc="Report")]',
     ])
     
     group_member_count: List[str] = field(default_factory=lambda: [
@@ -61,10 +64,15 @@ class ConversationSelectors:
     
     report_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/j47")][@content-desc="Report"]',
+        # A2. Present on 43.1.4's header; 46.6.3 keeps it behind the overflow.
+        '//*[@clickable="true"][@content-desc="Signaler" or @content-desc="Report"]',
     ])
     
     more_options_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/j1_")][@content-desc="More"]',
+        # A2: the header's overflow. Scoped to the header on purpose -- a bare clickable "Plus"
+        # resolves ten times on a followers list.
+        '//*[@content-desc="Retour" or @content-desc="Back"]/../..//*[@clickable="true"][@content-desc="Plus" or @content-desc="More"]',
     ])
     
     # === Profile info (for new conversations) ===
@@ -154,6 +162,8 @@ class ConversationSelectors:
     reactions_bar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ue")]',
         '//*[contains(@resource-id, ":id/ur")]',
+        # A2: the DIRECT parent of the reactions. An `.//` form matched every ancestor, fifteen of them.
+        '//*[*[@content-desc="Heart"]]',
     ])
     
     reaction_button: List[str] = field(default_factory=lambda: [
@@ -163,14 +173,20 @@ class ConversationSelectors:
     
     reaction_heart: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ug")][@content-desc="Heart"]',
+        # A2: the reaction descs are IDENTICAL across versions; only the ids move.
+        '//*[@content-desc="Heart"]',
     ])
     
     reaction_lol: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ug")][@content-desc="Lol"]',
+        # A2, see reaction_heart.
+        '//*[@content-desc="Lol"]',
     ])
     
     reaction_thumbsup: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ug")][@content-desc="ThumbsUp"]',
+        # A2, see reaction_heart.
+        '//*[@content-desc="ThumbsUp"]',
     ])
     
     # === Message input ===
@@ -193,11 +209,15 @@ class ConversationSelectors:
     emoji_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ja2")][@content-desc="Open stickers, gifs and emojis"]',
         '//*[contains(@resource-id, ":id/ja2")]',
+        # A2.
+        '//*[@clickable="true"][contains(@content-desc, "stickers")]',
     ])
     
     voice_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jtf")]',
         '//*[contains(@resource-id, ":id/c8f")]',
+        # A2.
+        '//*[contains(@content-desc, "Message vocal") or contains(@content-desc, "Voice message")]',
     ])
     
     _send_button_base: List[str] = field(default_factory=lambda: [

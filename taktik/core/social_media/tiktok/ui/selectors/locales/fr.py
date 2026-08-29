@@ -32,7 +32,13 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[contains(@content-desc, \"Publier\")]",
     ],
     # --- conversation ---
-    "conversation.back_button": [],
+    # A2: measured on four real conversations across BOTH versions (2026-08-29). The
+    # content-descs are IDENTICAL from one version to the other; only the obfuscated ids move,
+    # which is why every id-only field scored zero on 46.6.3. This key was also one of the 53
+    # left EMPTY in French.
+    "conversation.back_button": [
+        "//*[@clickable=\"true\"][@content-desc=\"Retour\" or @content-desc=\"Back\"]",
+    ],
     "conversation.close_sticker_suggestion": [],
     # Measured on device (43.1.4, 2026-08-29): opening a conversation raised a MODAL
     # "Statut de lecture" sheet that replaced the whole hierarchy, so the open was reported as

@@ -133,12 +133,17 @@ class SearchSelectors:
     user_result_container: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/sh2")]',
         '//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]',
+        # A2, same screen.
+        '//*[contains(@resource-id, ":id/tv_username")]/../..',
     ])
     
     # Username in search results
     user_result_username: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ye2")]',
         '//android.widget.TextView[contains(@resource-id, ":id/ye2")]',
+        # A2, measured on a real Users tab (46.6.3). NOTE the app's own naming: `tv_username` holds
+        # the @handle and `tv_aweme_id` the display name -- the reverse of what the names suggest.
+        '//*[contains(@resource-id, ":id/tv_username")]',
     ])
     
     # User bio in search results
@@ -149,6 +154,8 @@ class SearchSelectors:
     # User followers count in search results
     user_result_followers: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/xf0")]',
+        # A2: the row's stats line ("159,3 M followers · ..."), not a bio.
+        '//*[contains(@resource-id, ":id/tv_desc")]',
     ])
     
     # Follow button in search results — base neutre (resource-id) + overlay locales/

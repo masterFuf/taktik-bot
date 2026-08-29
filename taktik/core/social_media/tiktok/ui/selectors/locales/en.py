@@ -39,6 +39,7 @@ STRINGS: Dict[str, List[str]] = {
     "conversation.back_button": [
         "//*[contains(@resource-id, \":id/nmy\")][@content-desc=\"Back\"]",
         "//android.widget.ImageView[@content-desc=\"Back\"]",
+        "//*[@clickable=\"true\"][@content-desc=\"Retour\" or @content-desc=\"Back\"]",
     ],
     "conversation.close_sticker_suggestion": [
         "//*[contains(@resource-id, \":id/dgd\")][@content-desc=\"Close\"]",

@@ -38,6 +38,12 @@ class FollowersSelectors:
         '//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]]',
         '//android.widget.Button[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/ye2")]]',
         '//android.widget.Button[@clickable="true"][.//android.widget.Button[contains(@resource-id, ":id/rdh")]]',
+    # A2: the readable ids of a search result row. Measured on a real Users tab (46.6.3,
+    # 2026-08-29), where EVERY selector above scored zero — all four are 43.1.4 ids, and the
+    # workflow died on "Failed to click on target user" with a list of ten results on screen.
+    # `tv_username` is a name a developer wrote, and the row is its nearest clickable ancestor:
+    # ten rows on the tab, nothing anywhere else across 28 captured screens.
+        '//*[contains(@resource-id, ":id/tv_username")]/ancestor::*[@clickable="true"][1]',
     ])
 
     # First user in search results (Users tab)
@@ -46,6 +52,8 @@ class FollowersSelectors:
         '(//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]])[1]',
         '(//android.widget.Button[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/ye2")]])[1]',
         '(//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")][@clickable="true"])[1]',
+        # Same anchor as `user_search_item`, taking the first row.
+        '(//*[contains(@resource-id, ":id/tv_username")]/ancestor::*[@clickable="true"][1])[1]',
     ])
 
     # === Profile page elements ===
