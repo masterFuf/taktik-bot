@@ -9,16 +9,23 @@ The anchors below come from two real sheets (3 comments on 43.1.4, 6 on 46.6.3) 
 against every other captured screen, which is the half that decides whether an anchor is an
 indicator or a decoration:
 
-    anchor                     43.1.4 sheet   46.6.3 sheet   everywhere else
-    comment like button              3              5              0
-    header ("N commentaires")        1              1              0
-    reply button                     3              5              0
-    author (`title`)                 3              6         1 on the inbox AND the feed
-    like count (`tv_like_count`)     0              4              0
+    anchor                     43.1.4 sheet   46.6.3 sheet   empty sheet   everywhere else
+    composer affordance              1              1              1              0
+    comment like button              3              5              0              0
+    header ("N commentaires")        1              1              1              0
+    reply button                     3              5              0              0
+    author (`title`)                 3              6              0     1 on the inbox AND the feed
+    like count (`tv_like_count`)     0              4              0              0
 
-So `title` is NOT comment-specific — it is a generic id TikTok reuses — and the row readers below
-are only meaningful once `sheet_indicator` says the sheet is open. That gate is the contract, the
-same way the follower-row readers are gated on being on the followers list.
+Two things that column of zeroes decided.
+
+`title` is NOT comment-specific — it is a generic id TikTok reuses — so the row readers below are
+only meaningful once `sheet_indicator` says the sheet is open. That gate is the contract, the same
+way the follower-row readers are gated on being on the followers list.
+
+And the gate itself is the COMPOSER, not a comment's like button. The like button scored just as
+cleanly on full sheets and answers NO on an open-but-EMPTY one, which would have made the bot
+refuse to comment on precisely the videos where a first comment is worth something.
 """
 
 from typing import List
@@ -33,9 +40,13 @@ class CommentSelectors:
 
     # === Is the sheet open at all? ===
     #
-    # The per-comment like button: content-desc, present on BOTH versions, and the only candidate
-    # measured at zero on every non-sheet screen. Everything else here is read only after this
-    # answers yes.
+    # The COMPOSER affordance, present on both versions. Measured 1 on all seven captured sheets
+    # -- empty, full, and mid-typing -- and 0 on every other screen.
+    #
+    # The first version of this used a comment's like button, which scored just as cleanly on the
+    # full sheets and answered NO on an open-but-EMPTY one. It proved "there are comments", not
+    # "the sheet is open", so the bot would have refused to comment on exactly the videos where a
+    # first comment is worth something. Everything else here is read only after this answers yes.
     @property
     def sheet_indicator(self) -> List[str]:
         return L("comment.sheet_indicator")
@@ -79,9 +90,19 @@ class CommentSelectors:
         ]
 
     # === Composer ===
+    #
+    # The hint-based anchors below find the input while it is EMPTY. Once text is typed the hint
+    # is gone and they read 0 — measured, and it matters: a workflow types, then needs the input
+    # again to check the field emptied after sending. `_comment_input_typed` is that second
+    # reading. It is only valid inside an open sheet: a followers list and the search page each
+    # have their own EditText.
+    _comment_input_typed: List[str] = field(default_factory=lambda: [
+        '//android.widget.EditText[@clickable="true"]',
+    ])
+
     @property
     def comment_input(self) -> List[str]:
-        return L("comment.comment_input")
+        return L("comment.comment_input") + self._comment_input_typed
 
     @property
     def post_comment_button(self) -> List[str]:

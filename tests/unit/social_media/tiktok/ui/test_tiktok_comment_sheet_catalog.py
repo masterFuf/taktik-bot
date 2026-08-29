@@ -33,23 +33,41 @@ def test_the_comment_body_is_scoped_to_its_own_row():
 
 def test_the_composer_is_anchored_on_its_hint_not_its_id():
     """The id moves between versions (`dpl` -> `egn`); the hint is identical on both. `contains`
-    also steps over the U+2026 ellipsis TikTok appends."""
+    also steps over the U+2026 ellipsis TikTok appends.
+
+    The last entry is the second reading: once text is typed the hint is GONE and the hint-based
+    anchors read 0 — measured, and it matters, because the send check needs to find the field
+    again to see it emptied."""
     assert COMMENT_SELECTORS.comment_input
     for selector in COMMENT_SELECTORS.comment_input:
-        assert "@hint" in selector or "@text" in selector
-        assert ":id/" not in selector
+        assert ":id/" not in selector, selector
+    hint_based = [s for s in COMMENT_SELECTORS.comment_input if "@hint" in s or "@text" in s]
+    typed = [s for s in COMMENT_SELECTORS.comment_input if "EditText" in s and "@hint" not in s]
+    assert hint_based, "no way to find the composer while it is empty"
+    assert typed, "no way to find the composer once it holds text"
 
 
 def test_both_languages_are_carried_by_one_field():
     """Splitting an anchor per language does not work here: the resolver stops at the first
     selector that finds anything, and TikTok mixes languages on a French phone. Every localized
     field must offer both spellings at once."""
-    for field in (COMMENT_SELECTORS.sheet_indicator,
-                  COMMENT_SELECTORS.reply_button,
-                  COMMENT_SELECTORS.comment_input):
+    for field, fr_words, en_words in (
+        (COMMENT_SELECTORS.sheet_indicator, ("Mentionne",), ("Mention someone",)),
+        (COMMENT_SELECTORS.reply_button, ("Répondre",), ("Reply",)),
+        (COMMENT_SELECTORS.comment_input, ("Ajouter",), ("Add comment",)),
+    ):
         joined = " ".join(field)
-        assert any(fr in joined for fr in ("Pouce", "Répondre", "Ajouter")), joined
-        assert any(en in joined for en in ("Like", "Reply", "Add comment")), joined
+        assert any(w in joined for w in fr_words), joined
+        assert any(w in joined for w in en_words), joined
+
+
+def test_the_indicator_carries_both_apostrophe_shapes():
+    """TikTok renders U+2019 on some screens and U+0027 on others; a selector naming only one
+    matches NOTHING, silently. The repo has a guard for this — it caught this very field."""
+    mention = [s for s in COMMENT_SELECTORS.sheet_indicator if "Mentionne" in s]
+    assert mention, "the French mention anchor is gone"
+    for selector in mention:
+        assert "quelqu'un" in selector and "quelqu’un" in selector, selector
 
 
 def test_the_author_row_climbs_to_what_is_tappable():

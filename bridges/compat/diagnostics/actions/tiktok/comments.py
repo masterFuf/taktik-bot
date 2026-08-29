@@ -14,6 +14,7 @@ from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.atomic.comment_actions import CommentActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 
 
@@ -88,4 +89,72 @@ def read(a, p):
             # anchor, which is why it is reported apart rather than folded into the total.
             "likeCounts": likes[:15],
         },
+    }
+
+
+@action("tt.comment.post")
+def post(a, p):
+    """Post a comment on the video whose sheet is open. ACTS — this publishes.
+
+    In the Lab alongside `tt.inbox.send_message`, which sends a real DM: the families that write
+    belong here too, or the only capabilities ever tested are the harmless ones. The caller
+    chooses the video; the action refuses to invent the text.
+
+    Verified by the composer EMPTYING, never by the tap landing.
+    """
+    text = (p or {}).get("text") or ""
+    if not text.strip():
+        return {"success": False, "message": "no text given — refusing to post"}
+
+    actions = CommentActions(a.device)
+    if not actions.is_comment_sheet_open():
+        return {"success": False, "message": "comment sheet not open"}
+
+    before = len(actions.read_comments())
+    posted = actions.post_comment(text)
+    if not posted:
+        actions.discard_draft()
+    after = actions.read_comments()
+    landed = any(text.strip() in (c.get("text") or "") for c in after)
+
+    logger.info(f"tt.comment.post: posted={posted} visible={landed} ({before} -> {len(after)})")
+    return {
+        # Both halves: the composer emptied AND the text is readable back on the sheet. The first
+        # alone is what "the click landed" looks like.
+        "success": bool(posted and landed),
+        "message": f"{'posted' if posted else 'refused'}, visible={landed}",
+        "details": {"before": before, "after": len(after), "visible": landed},
+    }
+
+
+@action("tt.comment.reply")
+def reply(a, p):
+    """Reply under one comment. ACTS — this publishes.
+
+    Params: author (required), text (required), toText (optional but recommended — one person
+    often leaves several comments, and the author alone picks the first of them).
+    """
+    params = p or {}
+    author = (params.get("author") or "").strip()
+    text = (params.get("text") or "").strip()
+    to_text = (params.get("toText") or "").strip() or None
+    if not author or not text:
+        return {"success": False, "message": "author and text are required"}
+
+    actions = CommentActions(a.device)
+    if not actions.is_comment_sheet_open():
+        return {"success": False, "message": "comment sheet not open"}
+
+    replied = actions.reply_to_comment(author, text, to_text=to_text)
+    if not replied:
+        actions.discard_draft()
+    visible = any(text in (c.get("text") or "") for c in actions.read_comments())
+
+    logger.info(f"tt.comment.reply: replied={replied} visible={visible}")
+    return {
+        # A reply can sit inside a collapsed thread ("Afficher N reponses"), so invisibility here
+        # is not proof of failure — reported apart rather than folded into success.
+        "success": bool(replied),
+        "message": f"{'replied' if replied else 'refused'}, visible in the flat list={visible}",
+        "details": {"visibleInFlatList": visible, "toText": to_text},
     }

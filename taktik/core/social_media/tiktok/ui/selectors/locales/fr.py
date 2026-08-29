@@ -35,8 +35,23 @@ STRINGS: Dict[str, List[str]] = {
     # Le bouton « j'aime » d'un commentaire est le seul candidat qui tire sur les feuilles (3 en
     # 43.1.4, 5 en 46.6.3) et **zero partout ailleurs** : c'est lui qui dit que la feuille est
     # ouverte, et les lecteurs de ligne n'ont de sens qu'une fois cette question repondue.
+    # L'affordance du COMPOSEUR, pas le bouton « j'aime » d'un commentaire.
+    #
+    # Premiere version : le bouton « j'aime » — 3 et 5 sur les feuilles pleines, 0 partout
+    # ailleurs, ce qui semblait parfait. Il repond pourtant NON sur une feuille **ouverte et
+    # vide** (mesure sur une video sans commentaire : « Les commentaires apparaissent ici »).
+    # Il prouvait « il y a des commentaires », pas « la feuille est ouverte » — donc le bot aurait
+    # refuse de commenter exactement les videos ou un premier commentaire compte.
+    #
+    # Le composeur, lui, est la des que la feuille est ouverte : 1 sur les SEPT dumps de feuille
+    # (vide, pleine, et avec du texte saisi), 0 sur tous les autres ecrans captures.
+    # Les DEUX formes d'apostrophe : l'appareil mesure ici la droite (U+0027), mais TikTok rend
+    # ailleurs la courbe (U+2019) et un selecteur qui n'en nomme qu'une ne matche RIEN, en
+    # silence — c'est ainsi que le compteur de likes FR rendait « 0 element » avec le libelle a
+    # l'ecran. « Stickers » n'en a pas et couvre les deux cas a lui seul.
     "comment.sheet_indicator": [
-        "//*[@content-desc=\"Pouce vers le haut\"]",
+        "//*[@content-desc=\"Stickers\"]",
+        "//*[@content-desc=\"Mentionne quelqu'un\" or @content-desc=\"Mentionne quelqu’un\"]",
     ],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Répondre\"]",
@@ -48,9 +63,21 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@hint, \"Ajouter un commentaire\")]",
         "//android.widget.EditText[contains(@text, \"Ajouter un commentaire\")]",
     ],
-    # NON VERIFIE : le bouton n'apparait qu'une fois du texte saisi, ce qui suppose de commenter
-    # une vraie video. A mesurer quand la capacite commentaire sera decidee.
+    # Mesure le 2026-08-29 en TAPANT du texte sans jamais publier (le bouton n'existe pas tant que
+    # le champ est vide). Sur LES DEUX versions il ne porte NI texte NI content-desc lisible : sa
+    # description est une ressource Android non resolue (`@2131823344` / `@2131888145`), qui change
+    # d'un build a l'autre et ne peut donc pas servir d'ancre.
+    #
+    # Ce qui survit, c'est sa POSITION : c'est le premier Button a description non resolue qui
+    # SUIT l'affordance « Mentionne quelqu'un », elle lisible sur les deux versions.
+    #
+    # La contrainte sur « @ » n'est pas cosmetique. Sans elle, l'ancre renvoie le bouton
+    # **Recherche** quand le champ est vide — elle repondrait avec assurance en designant autre
+    # chose. Mesure : 1 sur les deux composeurs remplis, 0 sur les deux feuilles vides, 0 sur tous
+    # les autres ecrans captures.
     "comment.post_comment_button": [
+        "//*[@content-desc=\"Mentionne quelqu'un\" or @content-desc=\"Mentionne quelqu’un\"]"
+        "/following::android.widget.Button[starts-with(@content-desc, \"@\")][1]",
         "//android.widget.Button[contains(@content-desc, \"Publier\")]",
     ],
     # « Fermer » nu tire sur plusieurs surfaces (feuille de commentaires, liste d'abonnes,

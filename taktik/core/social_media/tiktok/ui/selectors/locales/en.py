@@ -35,8 +35,11 @@ STRINGS: Dict[str, List[str]] = {
     # three phones are fr-FR, so these are the English strings TikTok is expected to use and they
     # carry the same shape (content-desc and hint, never an id) rather than a translation guess at
     # a resource name.
+    # See the French entry: the composer affordance, not a comment's like button, because the
+    # latter answers NO on an open-but-empty sheet.
     "comment.sheet_indicator": [
-        "//*[@content-desc=\"Like\"]",
+        "//*[@content-desc=\"Mention someone\"]",
+        "//*[@content-desc=\"Stickers\"]",
     ],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Reply\"]",
@@ -45,7 +48,12 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@hint, \"Add comment\")]",
         "//android.widget.EditText[contains(@text, \"Add comment\")]",
     ],
+    # See the French entry for the measurement. The send button carries an UNRESOLVED Android
+    # resource as its description on both versions, so its only durable anchor is its position
+    # after the mention affordance. NOT verified on an English device (all three phones are fr-FR).
     "comment.post_comment_button": [
+        "//*[@content-desc=\"Mention someone\"]"
+        "/following::android.widget.Button[starts-with(@content-desc, \"@\")][1]",
         "//android.widget.Button[contains(@content-desc, \"Post\")]",
     ],
     "comment.close_button": [
