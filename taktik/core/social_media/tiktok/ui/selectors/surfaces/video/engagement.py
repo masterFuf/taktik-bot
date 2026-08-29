@@ -31,7 +31,11 @@ class VideoEngagementSelectors:
     def like_button_for_count(self) -> List[str]:
         return self._like_button_for_count_base + L("video_engagement.like_button_for_count")
 
-    like_count: List[str] = field(default_factory=lambda: [*resource_ids("f4z")])
+    _like_count_base: List[str] = field(default_factory=lambda: [*resource_ids("f4z")])
+
+    @property
+    def like_count(self) -> List[str]:
+        return self._like_count_base + L("video_engagement.like_count_anchors")
 
     _comment_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("dtv"),
@@ -51,7 +55,11 @@ class VideoEngagementSelectors:
     def comment_button_for_count(self) -> List[str]:
         return self._comment_button_for_count_base + L("video_engagement.comment_button_for_count")
 
-    comment_count: List[str] = field(default_factory=lambda: [*resource_ids("dp6", "dp9")])
+    _comment_count_base: List[str] = field(default_factory=lambda: [*resource_ids("dp6", "dp9")])
+
+    @property
+    def comment_count(self) -> List[str]:
+        return self._comment_count_base + L("video_engagement.comment_count_anchors")
 
     _favorite_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("guh"),
@@ -61,7 +69,11 @@ class VideoEngagementSelectors:
     def favorite_button(self) -> List[str]:
         return self._favorite_button_base + L("video_engagement.favorite_button")
 
-    favorite_count: List[str] = field(default_factory=lambda: [*resource_ids("gtv")])
+    _favorite_count_base: List[str] = field(default_factory=lambda: [*resource_ids("gtv")])
+
+    @property
+    def favorite_count(self) -> List[str]:
+        return self._favorite_count_base + L("video_engagement.favorite_count_anchors")
 
     _share_button_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "t_j"),
@@ -74,7 +86,11 @@ class VideoEngagementSelectors:
     def share_button(self) -> List[str]:
         return self._share_button_base + L("video_engagement.share_button")
 
-    share_count: List[str] = field(default_factory=lambda: [*resource_ids("t_2")])
+    _share_count_base: List[str] = field(default_factory=lambda: [*resource_ids("t_2")])
+
+    @property
+    def share_count(self) -> List[str]:
+        return self._share_count_base + L("video_engagement.share_count_anchors")
 
 
 VIDEO_ENGAGEMENT_SELECTORS = VideoEngagementSelectors()

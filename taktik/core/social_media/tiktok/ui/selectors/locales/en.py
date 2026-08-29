@@ -676,6 +676,33 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[contains(@content-desc, \"Favorites\")]",
         "//*[contains(@content-desc, \"Add or remove this video from Favour\")]",
     ],
+    # === A2 anchors for the four video counters ===
+    #
+    # The count sits INSIDE its own button, and the button is named by its content-desc — not by
+    # its id: the like button and the share button carry the SAME id on both versions, so an id
+    # cannot tell those two apart at all.
+    #
+    # `descendant::` and not `following::`. The second steps OVER the button and lands on the
+    # next counter, which returns a plausible number for the wrong field on every row — measured.
+    # UNVERIFIED: every lab phone is fr-FR, so these phrases could not be read
+    # off a screen. They follow the app's own wording; treat as a hypothesis.
+    # Two things this rail does, learned from a low-engagement video: TikTok HIDES a count
+    # that is zero (no comment node at all, not a node reading "0"), and it writes the
+    # word "Partager" where the share count would be when nothing has been shared. So an
+    # absent counter means zero, not a dead anchor — and a caller that treats absence as
+    # failure will report a healthy screen as broken.
+    "video_engagement.like_count_anchors": [
+        "//*[starts-with(@content-desc, \"Like this video\")]/descendant::*[@text != \"\"][1]",
+    ],
+    "video_engagement.comment_count_anchors": [
+        "//*[starts-with(@content-desc, \"Read or add comments\")]/descendant::*[@text != \"\"][1]",
+    ],
+    "video_engagement.favorite_count_anchors": [
+        "//*[starts-with(@content-desc, \"Add or remove this video\")]/descendant::*[@text != \"\"][1]",
+    ],
+    "video_engagement.share_count_anchors": [
+        "//*[starts-with(@content-desc, \"Share a video\")]/descendant::*[@text != \"\"][1]",
+    ],
     "video_engagement.like_button": [
         "//*[@resource-id=\"com.zhiliaoapp.musically:id/f57\"][contains(@content-desc, \"Like video\")]",
         "//*[@resource-id=\"com.ss.android.ugc.trill:id/f57\"][contains(@content-desc, \"Like video\")]",
