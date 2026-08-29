@@ -428,15 +428,30 @@ STRINGS: Dict[str, List[str]] = {
     "profile.bio_text_anchors": [
         "//android.widget.Button[string-length(@text) > 40]",
     ],
+    # Hardening, not a guess: the SAME stats row already serves one of its three labels in
+    # English on a French screen ("Followers"). A classification vocabulary only recognises,
+    # it never acts, so accepting a rendering TikTok is already known to use costs nothing and
+    # closes the door on the identical failure landing here.
     "profile.stat_label_following": [
         "Suivi",
         "Abonnement",
+        "Following",
     ],
+    # Measured on three real French profiles, on BOTH app versions (2026-08-29): TikTok's
+    # French UI writes the followers label in ENGLISH -- "Follower" in the singular, "Followers"
+    # in the plural -- while writing "Suivis" and "J'aime" in French. This entry held only the
+    # plausible translation, so `classify_profile_stat_label` returned None for the label that is
+    # actually on screen and `followers_count` came back 0 for EVERY profile read on a French
+    # phone, silently. The filtering shipped the same day then rejected everyone for "Too few
+    # followers (0 < N)", on a number that had never been read.
     "profile.stat_label_followers": [
+        "Follower",
         "Abonné",
     ],
+    # Same hardening as above.
     "profile.stat_label_likes": [
         "J'aime",
+        "Likes",
     ],
     # Raw LABEL of a MUTUAL follow button, which the unfollow workflow may skip.
     # Both spellings written out rather than a shortened `Ami`: this one decides a RELATIONSHIP,
