@@ -9,6 +9,8 @@ import re
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
+from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
+
 from ..core.base_action import BaseAction
 from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
 
@@ -246,7 +248,11 @@ class VideoDetector(BaseAction):
             except Exception:
                 pass
 
-            screenshot = self.device.screenshot_pil()
+            # Same shared helper as the AI hook, and for the same reason: `screenshot_pil` is a
+            # facade method, and this action is handed the raw uiautomator2 device at runtime.
+            # The failure was invisible here too -- the crop is inside a try/except that returns
+            # None, so the OCR count simply never happened.
+            screenshot = shared_screenshot_pil(self.device)
             if screenshot is None:
                 return None
 

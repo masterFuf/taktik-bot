@@ -22,6 +22,8 @@ import os
 import tempfile
 from typing import Any, Callable, Optional
 
+from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
+
 LogCallback = Callable[[str, str], None]
 EmitRelevance = Callable[[str, dict], None]
 EmitClassification = Callable[[str, dict], None]
@@ -61,7 +63,14 @@ def qualify_tiktok_profile(
         os.makedirs(tmp_dir, exist_ok=True)
         safe = "".join(c for c in username if c.isalnum() or c in "._-") or "profile"
         screenshot_path = os.path.join(tmp_dir, f"tt_profile_{safe}.png")
-        img = device.screenshot_pil()
+        # Through the SHARED helper, which accepts both device shapes. `device.screenshot_pil()`
+        # is a method of the project's facade, and TikTok workflows are handed the RAW
+        # uiautomator2 device (`DeviceManager.device = u2.connect(...)`) — so every TikTok
+        # profile analysis died on `'Device' object has no attribute 'screenshot_pil'`, caught
+        # and logged as a warning while the run carried on. That is the whole reason
+        # `profile_qualification` held zero TikTok rows: not a missing pipeline, a missing
+        # screenshot. Measured on device 2026-08-30, on two profiles out of two.
+        img = shared_screenshot_pil(device)
         if img is None:
             log("warning", f"Pas de capture pour @{username}: aucun verdict IA")
             return None
