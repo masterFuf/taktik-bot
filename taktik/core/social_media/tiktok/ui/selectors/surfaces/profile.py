@@ -156,17 +156,25 @@ class ProfileSelectors:
         '//android.widget.GridView',
     ])
 
-    video_item: List[str] = field(default_factory=lambda: [
+    _video_item_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/e52")]',
     ])
+
+    @property
+    def video_item(self) -> List[str]:
+        return self._video_item_base + L("profile.video_item_anchors")
 
     video_cover: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/cover")]',
     ])
 
-    video_view_count: List[str] = field(default_factory=lambda: [
+    _video_view_count_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/xxy")]',
     ])
+
+    @property
+    def video_view_count(self) -> List[str]:
+        return self._video_view_count_base + L("profile.video_view_count_anchors")
 
     # === Profile action buttons, on someone else's profile ===
     @property

@@ -391,6 +391,22 @@ STRINGS: Dict[str, List[str]] = {
     #
     # They come AFTER the id in each field's list: on 43.1.4 the id still wins and nothing moves;
     # on 46.6.3 it resolves nothing and these take over.
+    # === A2 anchors for the profile's video grid ===
+    #
+    # `cover` is one of the eleven readable ids, written identically on both versions. The view
+    # count is `tv_play_count` on 46.6.3 — readable too — but obfuscated on 43.1.4, so it is
+    # reached structurally: the TextView inside the tile that carries the thumbnail. Measured 6
+    # tiles on 43.1.4 and 9 on 46.6.3, and nothing on the feed or the follower list.
+    #
+    # It does resolve on search RESULTS, which also show video tiles. That is not a leak: a video
+    # thumbnail is a video thumbnail, and the caller knows which screen it is on.
+    "profile.video_item_anchors": [
+        "//android.widget.GridView//*[contains(@resource-id, \":id/cover\")]",
+    ],
+    "profile.video_view_count_anchors": [
+        "//*[contains(@resource-id, \":id/tv_play_count\")]",
+        "//*[contains(@resource-id, \":id/cover\")]/../..//android.widget.TextView",
+    ],
     "profile.username_anchors": [
         "//android.widget.Button[starts-with(@text, \"@\")]",
         # `contains(@content-desc, "@")` was tried here and dropped: it matches an inbox
