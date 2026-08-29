@@ -29,11 +29,30 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@content-desc, \"Phone number\")]",
     ],
     # --- comment ---
+    # === comment sheet ===
+    #
+    # Mirrors the French entries measured on device on 2026-08-29. NOT verified on a device: all
+    # three phones are fr-FR, so these are the English strings TikTok is expected to use and they
+    # carry the same shape (content-desc and hint, never an id) rather than a translation guess at
+    # a resource name.
+    "comment.sheet_indicator": [
+        "//*[@content-desc=\"Like\"]",
+    ],
+    "comment.reply_button": [
+        "//android.widget.Button[@text=\"Reply\"]",
+    ],
     "comment.comment_input": [
-        "//android.widget.EditText[contains(@content-desc, \"Add comment\")]",
+        "//android.widget.EditText[contains(@hint, \"Add comment\")]",
+        "//android.widget.EditText[contains(@text, \"Add comment\")]",
     ],
     "comment.post_comment_button": [
         "//android.widget.Button[contains(@content-desc, \"Post\")]",
+    ],
+    "comment.close_button": [
+        "//*[@content-desc=\"Close\"][@clickable=\"true\"]",
+    ],
+    "comment.comment_count_header": [
+        "//android.widget.TextView[contains(@text, \"comment\")]",
     ],
     # --- conversation ---
     "conversation.back_button": [

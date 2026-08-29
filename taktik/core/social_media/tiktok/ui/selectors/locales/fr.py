@@ -25,11 +25,43 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[(contains(@content-desc, \"E-mail ou nom d'utilisateur\") or contains(@content-desc, \"E-mail ou nom d’utilisateur\"))]",
     ],
     # --- comment ---
-    "comment.comment_input": [
-        "//android.widget.EditText[contains(@content-desc, \"Ajouter un commentaire\")]",
+    # === feuille de commentaires ===
+    #
+    # Surface ouverte pour la premiere fois le 2026-08-29 ; l'ancien catalogue lisait 0 sur 6 sur
+    # LES DEUX versions (des ids Android devines : `comment_input`, `post`, `comment_list`).
+    # Chaque entree ci-dessous est mesuree sur deux feuilles reelles, ET verifiee a 0 sur tous les
+    # autres ecrans captures.
+    #
+    # Le bouton « j'aime » d'un commentaire est le seul candidat qui tire sur les feuilles (3 en
+    # 43.1.4, 5 en 46.6.3) et **zero partout ailleurs** : c'est lui qui dit que la feuille est
+    # ouverte, et les lecteurs de ligne n'ont de sens qu'une fois cette question repondue.
+    "comment.sheet_indicator": [
+        "//*[@content-desc=\"Pouce vers le haut\"]",
     ],
+    "comment.reply_button": [
+        "//android.widget.Button[@text=\"Répondre\"]",
+    ],
+    # Le hint est IDENTIQUE d'une version a l'autre alors que l'id bouge (`dpl` -> `egn`) : c'est
+    # exactement le cas ou ancrer sur le lisible survit et ancrer sur l'id meurt. `contains` evite
+    # au passage les points de suspension U+2026 que TikTok met en fin de hint.
+    "comment.comment_input": [
+        "//android.widget.EditText[contains(@hint, \"Ajouter un commentaire\")]",
+        "//android.widget.EditText[contains(@text, \"Ajouter un commentaire\")]",
+    ],
+    # NON VERIFIE : le bouton n'apparait qu'une fois du texte saisi, ce qui suppose de commenter
+    # une vraie video. A mesurer quand la capacite commentaire sera decidee.
     "comment.post_comment_button": [
         "//android.widget.Button[contains(@content-desc, \"Publier\")]",
+    ],
+    # « Fermer » nu tire sur plusieurs surfaces (feuille de commentaires, liste d'abonnes,
+    # recherche) — c'est justement pourquoi la fermeture de conversation est cadree ailleurs. Ici
+    # la feuille EST la surface visee, et cette entree ne sert qu'une fois `sheet_indicator`
+    # positif.
+    "comment.close_button": [
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
+    ],
+    "comment.comment_count_header": [
+        "//android.widget.TextView[contains(@text, \"commentaire\")]",
     ],
     # --- conversation ---
     # A2: measured on four real conversations across BOTH versions (2026-08-29). The
