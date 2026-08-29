@@ -200,6 +200,15 @@ class ProfileSelectors:
     _profile_page_indicator_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qh5")]',
         '//*[contains(@resource-id, ":id/gxd")]',
+        # A2. The two ids above are 43.1.4 only — on 46.6.3 the header is ss2/svt/fij and the
+        # whole indicator read 0 while standing on charlidamelio's profile, so "am I on a
+        # profile" answered no on every profile of the newer version.
+        #
+        # The handle itself is the anchor: TikTok renders it as a Button whose text starts with
+        # "@", on both versions and in both languages. Measured 1 on a profile and 0 on the feed
+        # on 43.1.4 AND 46.6.3 — the second half is what makes it an indicator rather than a
+        # decoration.
+        '//android.widget.Button[starts-with(@text, "@")]',
     ])
 
     @property

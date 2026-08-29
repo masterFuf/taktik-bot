@@ -215,17 +215,70 @@ class SearchActions(BaseAction):
                 self._find_and_click(self.search_selectors.users_tab, timeout=3)
                 self._human_like_delay('click')
             
-            # Click on first result (should be exact match)
+            # The row of the user actually asked for. The Users tab also lists fan accounts
+            # carrying that handle as their DISPLAY name, so "the first row" is not the same
+            # thing as "the right person".
             first_result_selectors = self.search_selectors.user_result_selectors_for_username(username)
-            
+
             if self._find_and_click(first_result_selectors, timeout=5):
                 self._human_like_delay('navigation')
-                self.logger.success(f"✅ Navigated to @{username}'s profile")
-                return True
-            
+                return self._landed_on_profile_of(username)
+
             self.logger.warning(f"❌ Failed to find @{username} in search results")
             return False
-            
+
         except Exception as e:
             self.logger.error(f"Error navigating to @{username}: {e}")
             return False
+
+    def _landed_on_profile_of(self, username: str, *, settle_timeout: float = 5.0) -> bool:
+        """Did the tap actually open THIS person's profile?
+
+        Reporting success on the click alone is what lets a workflow interact with the wrong
+        account and record it under the right one. So the answer comes from the screen, in two
+        steps that answer two different questions.
+
+        First: are we on a profile at all? Measured on 43.1.4, a search can land on something
+        that is not a profile — an interstitial, a blocked-term safety screen — and stay there.
+        An unreadable handle there is not a slow header, it is the wrong screen, and the whole
+        point of this check is to refuse it.
+
+        Then, and only on a profile: is it the right one? A handle that cannot be read on a
+        screen that IS a profile is let through, because TikTok sometimes renders the header a
+        beat after the grid and refusing there would turn a slow screen into a failed target.
+        Same two steps as the Instagram navigation.
+        """
+        from taktik.core.social_media.tiktok.services.profile.username import (
+            UNKNOWN_USERNAME,
+            clean_profile_username,
+            get_current_profile_username,
+        )
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import (
+            PROFILE_SELECTORS,
+        )
+
+        # Polled rather than read once: the profile screen is what we are waiting FOR, and a
+        # single read a beat too early would refuse a profile that is simply still drawing.
+        if not self._element_exists(PROFILE_SELECTORS.profile_page_indicator, timeout=settle_timeout):
+            self.logger.error(
+                f"❌ Looking for @{username}, but this screen is not a profile — not interacting"
+            )
+            return False
+
+        expected = clean_profile_username(username).lower()
+        landed = get_current_profile_username(self.device)
+
+        if landed == UNKNOWN_USERNAME or not landed:
+            self.logger.warning(
+                f"⚠️ On a profile but could not read its handle after opening @{username} — continuing"
+            )
+            return True
+
+        if clean_profile_username(landed).lower() != expected:
+            self.logger.error(
+                f"❌ Opened @{landed} while looking for @{username} — wrong profile, not interacting"
+            )
+            return False
+
+        self.logger.success(f"✅ Navigated to @{username}'s profile")
+        return True
