@@ -94,18 +94,8 @@ class BaseAction(
         self._last_behavior_gesture = dict(decision)
         return decision
 
-    def _behavior_reading_scale(self, context: str) -> float:
-        """Return the current attention multiplier without consuming another gesture beat."""
-        state = getattr(self, "behavior_state", None)
-        if state is not None and hasattr(state, "reading_scale"):
-            return float(state.reading_scale(context=context))
-        return 1.0
-
-    def _behavior_state_snapshot(self) -> Dict[str, Any]:
-        state = getattr(self, "behavior_state", None)
-        if state is not None and hasattr(state, "snapshot"):
-            return state.snapshot()
-        return {}
+    # `_behavior_reading_scale` / `_behavior_state_snapshot` live on SharedBaseAction now,
+    # so TikTok gets the same two rather than a second spelling of them.
 
 
 __all__ = ['BaseAction']

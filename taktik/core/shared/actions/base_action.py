@@ -143,6 +143,24 @@ class SharedBaseAction:
         self._method_stats['errors'] += 1
         return False
 
+    # ── Behaviour session state ───────────────────────────────────────────────
+    # Instagram carried these two on its own base; TikTok had no access to them at all, which is
+    # why its dwell was a flat `random.uniform(min, max)` with no session memory. They belong to
+    # the shared base: they read an OPTIONAL attribute and fall back to a neutral 1.0, so a class
+    # that never sets `behavior_state` behaves exactly as before.
+
+    def _behavior_reading_scale(self, context: str) -> float:
+        """The current attention multiplier, without consuming another gesture beat."""
+        from taktik.core.shared.behavior.session_state import reading_scale_of
+
+        return reading_scale_of(getattr(self, "behavior_state", None), context)
+
+    def _behavior_state_snapshot(self) -> Dict[str, Any]:
+        state = getattr(self, "behavior_state", None)
+        if state is not None and hasattr(state, "snapshot"):
+            return state.snapshot()
+        return {}
+
     def _human_tap_element(self, element) -> bool:
         """Tap a uiautomator2 XPath element at a human-sampled point within its bounds
         (never its exact centre). Returns False if the bounds can't be read, so the

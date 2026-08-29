@@ -12,6 +12,8 @@ from typing import Optional, Dict, Any
 import time
 import random
 
+from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
+
 from taktik.core.shared.telemetry.sink import emit_step
 
 from .._internal import BaseVideoWorkflow, VideoWorkflowStats, FeedInterruptionsMixin
@@ -97,8 +99,14 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 # the watch time (the bot then sleeps exactly this value). Ads are skipped
                 # without watching, so they carry no watch_time.
                 if not (self.config.skip_ads and video_info.get('is_ad', False)):
-                    video_info['watch_time'] = round(
-                        random.uniform(self.config.min_watch_time, self.config.max_watch_time), 1)
+                    # Content-driven, session-scaled, bounded by the operator's range. A flat
+                    # draw gave a three-word clip the same dwell as an unreadable wall of text.
+                    video_info['watch_time'] = round(video_watch_seconds(
+                        video_info,
+                        minimum=self.config.min_watch_time,
+                        maximum=self.config.max_watch_time,
+                        reading_scale=self._behavior_reading_scale('tiktok_feed_video'),
+                    ), 1)
 
                 # Send video info callback immediately (before any processing)
                 if self._on_video_callback:

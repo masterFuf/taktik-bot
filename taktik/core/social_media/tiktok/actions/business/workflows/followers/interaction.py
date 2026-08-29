@@ -7,6 +7,8 @@ and recording interactions in the database.
 import time
 import random
 
+from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
+
 from taktik.core.shared.telemetry.sink import emit_step
 
 
@@ -50,8 +52,15 @@ class VideoInteractionMixin:
             if self._check_limits_reached():
                 break
             
-            # Watch the video
-            watch_time = random.uniform(self.config.min_watch_time, self.config.max_watch_time)
+            # Watch the video. Content-driven and session-scaled, bounded by the operator's
+            # range: a flat draw gave a three-word clip the same dwell as a wall of text, and
+            # gave the whole run the same rhythm from the first video to the last.
+            watch_time = video_watch_seconds(
+                self.detection.get_video_info(),
+                minimum=self.config.min_watch_time,
+                maximum=self.config.max_watch_time,
+                reading_scale=self._behavior_reading_scale('tiktok_profile_video'),
+            )
             self.logger.debug(f"Watching video {i+1}/{posts_to_interact} for {watch_time:.1f}s")
             time.sleep(watch_time)
             

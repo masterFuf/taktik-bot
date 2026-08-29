@@ -15,6 +15,11 @@ import random
 from typing import Optional, Callable, Dict, Any
 from loguru import logger
 
+from taktik.core.shared.behavior.session_state import (
+    BehaviorSessionState,
+    reading_scale_of,
+)
+
 from ....atomic.click_actions import ClickActions
 from ....atomic.navigation_actions import NavigationActions
 from ....atomic.scroll_actions import ScrollActions
@@ -45,6 +50,14 @@ class BaseTikTokWorkflow:
             self.click, self.detection, owned_surfaces=self.OWNED_SURFACES
         )
 
+        # One behaviour memory per run, shared by every action this workflow owns. Instagram has
+        # had this for months; TikTok had none, which is why its dwell was a flat draw with no
+        # correlation from one video to the next. Attaching it here means a workflow does not
+        # have to remember to, and an action that never reads it is unaffected.
+        self.behavior_state = BehaviorSessionState()
+        for action in (self.click, self.navigation, self.scroll, self.detection):
+            action.behavior_state = self.behavior_state
+
         self.logger = logger.bind(module=module_name)
 
         # Lifecycle state
@@ -61,6 +74,10 @@ class BaseTikTokWorkflow:
     # ------------------------------------------------------------------
     # Stats callback
     # ------------------------------------------------------------------
+
+    def _behavior_reading_scale(self, context: str) -> float:
+        """The run's current attention multiplier, for dwell decisions taken by the workflow."""
+        return reading_scale_of(getattr(self, "behavior_state", None), context)
 
     def set_on_stats_callback(self, callback: Callable[[Dict[str, Any]], None]):
         """Set callback called after each action to send real-time stats."""

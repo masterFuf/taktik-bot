@@ -89,6 +89,17 @@ _PROFILE_STYLE_WEIGHTS = {
 }
 
 
+def reading_scale_of(state: Optional["BehaviorSessionState"], context: str) -> float:
+    """The attention multiplier carried by `state`, or a neutral 1.0 when there is none.
+
+    Written once and called from both bases — the action base and the TikTok workflow base — so
+    "no session memory means 1.0" is decided in a single place rather than re-spelled per caller.
+    """
+    if state is not None and hasattr(state, "reading_scale"):
+        return float(state.reading_scale(context=context))
+    return 1.0
+
+
 class BehaviorSessionState:
     """Mutable behaviour memory scoped to one running session.
 
