@@ -60,7 +60,8 @@ class BaseAction(SharedBaseAction):
             selectors = [selectors]
         
         start_time = time.time()
-        
+        last_error = None
+
         while time.time() - start_time < timeout:
             for selector in selectors:
                 try:
@@ -155,12 +156,20 @@ class BaseAction(SharedBaseAction):
                         self._human_like_delay('typing')
                         return True
                 except Exception as e:
+                    last_error = e
                     self.logger.debug(f"Error inputting text to {selector[:50]}: {e}")
                     continue
-            
+
             time.sleep(0.5)
-        
-        self.logger.warning(f"Failed to input text after {timeout}s")
+
+        # Say WHY, not just that it failed. Every attempt is swallowed and retried above, so a
+        # raising keyboard and a missing field produced the same line — and the real cause, an
+        # Android API the agent calls that no longer exists, stayed invisible for a whole
+        # timeout's worth of retries.
+        if last_error is not None:
+            self.logger.warning(f"Failed to input text after {timeout}s — last error: {last_error}")
+        else:
+            self.logger.warning(f"Failed to input text after {timeout}s — field never found")
         return False
     
     # =========================================================================

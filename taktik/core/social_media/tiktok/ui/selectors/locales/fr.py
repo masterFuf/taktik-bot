@@ -171,8 +171,11 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.FrameLayout[contains(@content-desc, \"Accueil\")]",
     ],
     "navigation.home_tab_selected": [],
+    # `Messages`, measured on the bar of both versions — not "Boîte de réception", which the
+    # catalogue asked for and no screen writes. The obfuscated id covered for it until it died;
+    # same family of guessed label as `Amis` against `Ami(e)s`.
     "navigation.inbox_tab": [
-        "//android.widget.FrameLayout[contains(@content-desc, \"Boîte de réception\")]",
+        "//android.widget.FrameLayout[contains(@content-desc, \"Messages\")]",
     ],
     "navigation.inbox_tab_selected": [],
     "navigation.profile_tab": [

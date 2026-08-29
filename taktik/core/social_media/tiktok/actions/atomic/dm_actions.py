@@ -714,16 +714,29 @@ class DMActions(BaseAction):
         
         time.sleep(0.3)
         
-        # Type the message using ADB
+        # The same chain Instagram's composer uses — Taktik keyboard, then send_keys — and NOT a
+        # clear-then-type.
+        #
+        # `device.clear_text()` was the first call here, and on Android 14+ it raises: the
+        # uiautomator2 agent implements it through `InputManager.getInstance`, a method Android
+        # removed. Measured on both lab phones (Android 16): the call raised, this function
+        # returned False, and no TikTok DM could be sent at all. The composer is opened fresh on
+        # a conversation and has nothing to clear, so the call bought nothing.
+        device_id = getattr(self.device, "device_id", None) or getattr(self.device, "serial", None)
+        if device_id:
+            try:
+                from taktik.core.shared.input.taktik_keyboard import type_text_human
+
+                if type_text_human(str(device_id), text):
+                    time.sleep(0.3)
+                    return True
+                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
+            except Exception as exc:
+                self.logger.warning(f"Taktik Keyboard unavailable ({exc}), falling back")
+
         try:
-            # Clear any existing text first
-            self.device.clear_text()
-            time.sleep(0.2)
-            
-            # Type new text
             self.device.send_keys(text)
             time.sleep(0.3)
-            
             return True
         except Exception as e:
             self.logger.error(f"Failed to type message: {e}")

@@ -242,6 +242,7 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.home_tab_selected": [
         "//android.widget.FrameLayout[@content-desc=\"Home\"][@selected=\"true\"]",
     ],
+    # Kept as the app's own wording; the French side asked for a phrase no screen writes.
     "navigation.inbox_tab": [
         "//android.widget.FrameLayout[@content-desc=\"Inbox\"]",
         "//*[@content-desc=\"Inbox\"]",
