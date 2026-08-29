@@ -72,8 +72,28 @@ class VideoDetector(BaseAction):
         return self._element_exists(self.video_selectors.video_favorited_indicator, timeout=1)
 
     def is_user_followed(self) -> bool:
-        """Check if current user is followed."""
-        return self._element_exists(self.video_selectors.user_followed_indicator, timeout=1)
+        """Is the author of the video on screen already followed?
+
+        Answered by ABSENCE, because that is how TikTok says it: a video whose author we already
+        follow carries NO follow affordance at all. Measured on the Following feed — where every
+        author is followed by definition — against the For You feed: the follow button reads 0
+        and 1, on both versions.
+
+        The catalogue field this used to read alone, `user_followed_indicator`, names a
+        "Following" / "Friends" button that does not exist on this surface. It is EMPTY in French
+        and reads 0 everywhere in English, so the question answered "no" for everyone: the bot
+        re-followed people it already followed, and spent a follow from its session budget doing
+        it.
+
+        Absence only means something once we know we are on a video, so it is gated. Without
+        that, "not on a video at all" and "already followed" would be the same answer — the
+        emptiest kind of true.
+        """
+        if self._element_exists(self.video_selectors.user_followed_indicator, timeout=1):
+            return True
+        if not self._element_exists(self.video_selectors.video_page_indicator, timeout=1):
+            return False
+        return not self._element_exists(self.video_selectors.follow_button, timeout=1)
 
     # === Video Info Extraction ===
 
