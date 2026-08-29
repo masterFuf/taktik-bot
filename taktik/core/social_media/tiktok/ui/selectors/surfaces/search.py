@@ -190,8 +190,24 @@ class SearchSelectors:
     ])
 
     def user_result_selectors_for_username(self, username: str) -> List[str]:
-        """Build user-result selectors for an exact or partial username match."""
+        """The row of ONE named user on the search Users tab.
+
+        Measured on a real tab (46.6.3, 2026-08-29), the two forms this replaces were both wrong:
+
+        - `@text="@name"` matched NOTHING. The tab prints the handle without its "@", wrapped in
+          invisible bidi marks, so an equality test could never hold.
+        - `contains(@text, "name")` matched SEVEN nodes for one query. Fan accounts carry the
+          searched handle as their DISPLAY name, so the first match was somebody else's row —
+          a workflow given a list of usernames would have visited the wrong people and called it
+          done.
+
+        The containment is scoped to `tv_username`, a readable id holding the handle and nothing
+        else, and the tappable row is its nearest clickable ancestor: exactly one row per query,
+        carrying exactly the handle asked for.
+        """
         return [
+            f'//*[contains(@resource-id, ":id/tv_username")][contains(@text, "{username}")]'
+            '/ancestor::*[@clickable="true"][1]',
             f'//android.widget.TextView[@text="@{username}"]',
             f'//android.widget.TextView[contains(@text, "{username}")]',
             *self.first_search_result,
