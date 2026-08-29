@@ -85,6 +85,11 @@ class InboxSelectors:
     ])
 
     @property
+    def people_suggestions(self) -> List[str]:
+        """Marks of the follow-suggestions pane the Messages tab sometimes renders instead."""
+        return L("inbox.people_suggestions_markers")
+
+    @property
     def conversation_username(self) -> List[str]:
         return self._conversation_username_base + L("inbox.conversation_username_anchors")
 

@@ -155,6 +155,16 @@ class DMActions(BaseAction):
         """Check if currently on the Inbox page."""
         return self._element_exists(self.inbox_selectors.inbox_title, timeout=2)
     
+    def is_showing_people_suggestions(self) -> bool:
+        """Is the Messages tab rendering follow suggestions instead of the conversation list?
+
+        The title says "Messages" either way, so `is_on_inbox_page` cannot tell them apart, and a
+        reader landing here finds no conversation and reports an EMPTY INBOX -- a lie the operator
+        has no way to question. A cold app restart brought the real list back, which is why the
+        bridges, which always restart, never showed it.
+        """
+        return self._element_exists(self.inbox_selectors.people_suggestions, timeout=1)
+
     def navigate_to_inbox(self) -> bool:
         """Navigate to the Inbox page."""
         self.logger.debug("📥 Navigating to Inbox")

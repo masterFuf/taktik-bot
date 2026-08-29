@@ -125,6 +125,17 @@ class DMWorkflow(BaseTikTokWorkflow):
                 # Get visible inbox items
                 inbox_items = self.dm.get_inbox_items()
                 self.logger.info(f"📋 Found {len(inbox_items)} visible items in inbox")
+
+                # An empty inbox and an inbox that did not render are the same silence. Only one
+                # of them means "this account has no conversations", and reporting the wrong one
+                # sends the operator looking for a problem that is not there.
+                if not inbox_items and self.dm.is_showing_people_suggestions():
+                    self.logger.error(
+                        "L'onglet Messages affiche des suggestions d'abonnement, pas la liste "
+                        "des conversations — rien n'a pu être lu. Un redémarrage de TikTok "
+                        "ramène la liste."
+                    )
+                    break
                 
                 # Filter items
                 new_conversations = []

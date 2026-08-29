@@ -352,7 +352,13 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/user_name\")]",
     ],
     "inbox.conversation_last_message_anchors": [
-        "//*[contains(@resource-id, \":id/user_name\")]/../..//android.widget.TextView[not(contains(@text, \"·\"))][2]",
+        # `[2]` was positional over the WHOLE document, not within a row, and resolved to
+        # nothing: every preview came back empty, so `unreplied` fell back to True for every
+        # conversation -- including the ones we had just answered. Anchored by exclusion
+        # instead, it pairs 1:1 with the usernames on the inbox AND on the requests page.
+        "//*[contains(@resource-id, \":id/user_name\")]/../.."
+        "//android.widget.TextView[not(contains(@resource-id, \":id/user_name\"))]"
+        "[not(contains(@text, \"·\"))]",
     ],
     "inbox.conversation_timestamp_anchors": [
         "//android.widget.TextView[contains(@text, \"·\")]",
@@ -366,6 +372,21 @@ STRINGS: Dict[str, List[str]] = {
     # nothing on the requests page or a profile.
     "conversation.conversation_name_anchors": [
         "//*[@content-desc=\"Retour\" or @content-desc=\"Back\"]/../..//android.widget.TextView[1]",
+    ],
+    # === "Messages" showing people suggestions instead of the conversation list ===
+    #
+    # Observed on device (46.6.3, 2026-08-29): the Messages tab rendered a follow-suggestions
+    # list. The title still read "Messages", so `is_on_inbox_page` answered yes, the reader found
+    # no conversation and every DM workflow reported an EMPTY INBOX rather than a navigation
+    # problem. A cold app restart brought the real list back, which is why the bridges -- which
+    # always restart -- never showed it.
+    #
+    # Signature measured across four captures: the healthy inbox has conversation rows
+    # (`user_name`) and NO row-level follow button; the degraded pane has no conversation row and
+    # nine follow buttons with suggestion captions.
+    "inbox.people_suggestions_markers": [
+        "//android.widget.Button[@text=\"Suivre\" or @text=\"Suivre en retour\"]",
+        "//*[contains(@text, \"Personnes que tu pourrais connaître\")]",
     ],
     "profile.username_anchors": [
         "//android.widget.Button[starts-with(@text, \"@\")]",
