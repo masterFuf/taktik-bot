@@ -127,6 +127,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/rdh\")][@text=\"Friends\"]",
     ],
     "followers.followers_counter": [
+        "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Follower\")]]",
         "//android.view.ViewGroup[@clickable=\"true\"][.//android.widget.TextView[@text=\"Followers\"]]",
         "//android.view.ViewGroup[@clickable=\"true\"][.//android.widget.TextView[contains(@resource-id, \":id/qfv\")][@text=\"Followers\"]]",
         "//*[.//android.widget.TextView[@text=\"Followers\"]][@clickable=\"true\"]",
@@ -676,6 +677,18 @@ STRINGS: Dict[str, List[str]] = {
     "search.search_input": [
         "//android.widget.EditText[contains(@hint, \"Search\")]",
         "//android.widget.EditText[contains(@content-desc, \"Search\")]",
+    ],
+    # === A2 anchor for the search field ===
+    #
+    # Measured on device (46.6.3, 2026-08-29): the field is `ho3` there, not `giv`, and it carries
+    # NO hint -- its placeholder is a trending topic sitting in @text (a trending topic), so
+    # the hint match could never fire either. `open_search` returned True onto a screen whose
+    # field nothing could find, and every Followers / Search run died on "Failed to submit search".
+    #
+    # Anchored on the READABLE id of the neighbouring button rather than on a bare EditText: a
+    # bare one also matches the conversation composer, on both versions.
+    "search.search_input_anchors": [
+        "//*[contains(@resource-id, \":id/tv_search_textview\")]/../..//android.widget.EditText",
     ],
     "search.search_submit_button": [
         "//*[contains(@resource-id, \":id/y61\")][@text=\"Search\"]",

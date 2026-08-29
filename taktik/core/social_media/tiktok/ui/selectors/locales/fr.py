@@ -97,7 +97,14 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "followers.follower_follow_button": [],
     "followers.follower_following_button": [],
-    "followers.followers_counter": [],
+    # Measured on device (2026-08-29): this entry was EMPTY, so only the English list applied --
+    # and it matches "Followers" by EQUALITY, while French TikTok writes the SINGULAR when the
+    # account has exactly one ("Follower"). The Followers workflow died on "Failed to open
+    # followers list" for that alone. Containment covers both numbers; "Abonné" covers the other
+    # rendering. Resolves 1 on both versions' profile screens, and fires on no other capture.
+    "followers.followers_counter": [
+        "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Follower\") or contains(@text, \"Abonné\")]]",
+    ],
     "followers.followers_tab": [],
     "followers.followers_tab_selected": [],
     "followers.following_counter": [],
@@ -525,6 +532,18 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "search.search_input": [
         "//android.widget.EditText[contains(@hint, \"Rechercher\")]",
+    ],
+    # === A2 anchor for the search field ===
+    #
+    # Measured on device (46.6.3, 2026-08-29): the field is `ho3` there, not `giv`, and it carries
+    # NO hint -- its placeholder is a trending topic sitting in @text ("Vigilance orange Var"), so
+    # the hint match could never fire either. `open_search` returned True onto a screen whose
+    # field nothing could find, and every Followers / Search run died on "Failed to submit search".
+    #
+    # Anchored on the READABLE id of the neighbouring button rather than on a bare EditText: a
+    # bare one also matches the conversation composer, on both versions.
+    "search.search_input_anchors": [
+        "//*[contains(@resource-id, \":id/tv_search_textview\")]/../..//android.widget.EditText",
     ],
     "search.search_submit_button": [
         "//android.widget.Button[@text=\"Rechercher\"]",

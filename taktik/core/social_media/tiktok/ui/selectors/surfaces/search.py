@@ -37,7 +37,12 @@ class SearchSelectors:
 
     @property
     def search_input(self) -> List[str]:
-        return self._search_input_base + L("search.search_input")
+        """The search field. `giv` is 43.1.4 only; 46.6.3 names it `ho3` and gives it no hint,
+        its placeholder being a trending topic in @text -- so both catalogue entries missed it
+        and every Followers run stopped on "Failed to submit search"."""
+        return (self._search_input_base
+                + L("search.search_input")
+                + L("search.search_input_anchors"))
 
     # === Search submit button — base neutre (resource-id) + overlay locales/ ===
     _search_submit_button_base: List[str] = field(default_factory=lambda: [
