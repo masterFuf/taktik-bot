@@ -34,7 +34,7 @@ def _install_followers_ai(config: Dict[str, Any]) -> None:
         return
     try:
         from bridges.tiktok.workflows.automation.runtime.ai import create_tiktok_ai_service
-        from bridges.tiktok.runtime.ipc import send_relevance
+        from bridges.tiktok.runtime.ipc import send_profile_classification, send_relevance
         from taktik.core.social_media.tiktok.workflows.core.ai_hooks import install_tiktok_ai_hooks
 
         ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=_bridge_log)
@@ -52,9 +52,16 @@ def _install_followers_ai(config: Dict[str, Any]) -> None:
                 like=payload.get("like"),
             )
 
+        def _persist(username: str, classification: dict) -> None:
+            send_profile_classification(
+                username,
+                classification,
+                result=f"[{classification.get('niche_category', '?')}] {classification.get('niche', '?')}",
+            )
+
         app_language = config.get("language") or config.get("appLanguage") or "en"
         install_tiktok_ai_hooks(ai_service, ai_config, log=_bridge_log, emit_relevance=_emit,
-                                language=app_language)
+                                emit_classification=_persist, language=app_language)
     except Exception as exc:
         logger.warning(f"Could not install TikTok AI hooks: {exc}")
 

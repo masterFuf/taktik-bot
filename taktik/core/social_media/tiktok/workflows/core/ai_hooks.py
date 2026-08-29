@@ -18,6 +18,7 @@ from typing import Any, Callable, Optional
 
 LogCallback = Callable[[str, str], None]
 EmitRelevance = Callable[[str, dict], None]
+EmitClassification = Callable[[str, dict], None]
 
 
 def install_tiktok_ai_hooks(
@@ -26,6 +27,7 @@ def install_tiktok_ai_hooks(
     *,
     log: LogCallback = lambda level, msg: None,
     emit_relevance: Optional[EmitRelevance] = None,
+    emit_classification: Optional[EmitClassification] = None,
     language: str = "en",
 ) -> None:
     """Install the TikTok AI hooks based on the AI config flags.
@@ -35,6 +37,9 @@ def install_tiktok_ai_hooks(
         ai_config: the run's `ai` config block (enabled, profileAnalysis, accountNiche…).
         log: (level, message) logger.
         emit_relevance: callback (username, payload) to surface the verdict to the UI.
+        emit_classification: callback (username, classification) so the desktop PERSISTS the
+            niche. Without it the vision call is paid for and thrown away, and the next pass
+            pays again for the same profile — which is what TikTok did until now.
         language: the Taktik APP language — the operator-facing engagement `reason` is written
             in it (shown on the Agent panel). Mirrors the Instagram hook.
     """
@@ -78,6 +83,16 @@ def install_tiktok_ai_hooks(
                                 response_language=language,
                             )
                             classification = (result or {}).get("classification") or {}
+
+                            # Persist what the call actually bought. The engagement verdict is
+                            # account-relative and recomputed every run, but the NICHE is a fact
+                            # about the profile: paying for it twice is paying for nothing.
+                            if classification and emit_classification:
+                                try:
+                                    emit_classification(username, classification)
+                                except Exception as exc:
+                                    log("warning", f"AI classification not persisted: {exc}")
+
                             engagement = classification.get("engagement")
                             if isinstance(engagement, dict):
                                 would = [v for v, k in (("follow", "follow"), ("comment", "comment"), ("like", "like")) if engagement.get(k)]

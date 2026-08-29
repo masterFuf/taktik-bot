@@ -85,4 +85,39 @@ def send_relevance(
     )
 
 
-__all__ = ["send_stats", "send_video_info", "send_action", "send_pause", "send_relevance"]
+def send_profile_classification(username: str, classification: dict, result: str = "") -> None:
+    """Send the AI classification of a TikTok profile so the desktop PERSISTS it.
+
+    The verdict was already surfaced to the panel by `send_relevance`; what was thrown away is
+    the CLASSIFICATION behind it — the niche, the profession, the age group. TikTok paid a vision
+    call for every profile on every pass and kept none of it, while Instagram has been persisting
+    the same shape for months.
+
+    `platform` travels explicitly. The desktop's Instagram path resolves a profile through the
+    `instagram_profiles` view, so a TikTok handle sent down that road either saves nothing or,
+    worse, writes a TikTok niche onto an Instagram account of the same name. The field is what
+    lets the desktop route it to the TikTok profile instead.
+
+    `persist_only` marks this as a persistence re-emit: the AI service already emitted the
+    countable event for this analysis, so the desktop's counter must skip this one.
+    """
+    _ipc.send(
+        "ai_profile_done",
+        username=username,
+        target_username=username,
+        platform="tiktok",
+        result=result,
+        classification=classification,
+        workflow_type="automation",
+        persist_only=True,
+    )
+
+
+__all__ = [
+    "send_stats",
+    "send_video_info",
+    "send_action",
+    "send_pause",
+    "send_relevance",
+    "send_profile_classification",
+]

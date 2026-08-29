@@ -28,10 +28,14 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-# Platforms whose profiles this facade can answer for. Instagram is the only reader today;
-# TikTok reads nothing at all yet and re-pays for every profile on every pass. It plugs in
-# here when its repository lands — NOT by copying this logic into its own hook.
-SUPPORTED_PLATFORMS = ("instagram",)
+# Platforms whose profiles this facade can answer for.
+#
+# TikTok joined on 2026-08-29, but NOT by adding a word to this tuple. The Instagram path reads
+# `FROM instagram_profiles` and joins `scraped_profiles WHERE platform = 'instagram'`: it is
+# Instagram-only by construction, so widening the tuple alone would have served an Instagram
+# namesake's niche for a TikTok handle — the exact confusion this module's header warns about.
+# Each platform therefore brings its own reader; the tuple only says which ones have one.
+SUPPORTED_PLATFORMS = ("instagram", "tiktok")
 
 
 class ProfileQualification:
@@ -92,6 +96,34 @@ class ProfileQualification:
         return decoded
 
     @staticmethod
+    def _tiktok_rows(usernames: List[str]) -> List[Dict[str, Any]]:
+        """TikTok qualifications, read straight from the store on (platform, username).
+
+        Deliberately not the Instagram query: that one reads the `instagram_profiles` view and
+        would answer for a namesake. The column names are aliased to the shape `_is_classified`
+        and `_decode` already expect, so the rest of this facade does not fork per platform.
+        """
+        from taktik.core.database.local.service import get_local_database
+
+        placeholders = ",".join("?" * len(usernames))
+        rows = get_local_database().profiles.query(
+            f"""
+            SELECT username,
+                   ai_niche          AS niche_category,
+                   ai_specific_niche AS niche,
+                   ai_profession     AS profession,
+                   ai_profession_tags AS profession_tags,
+                   location_city     AS cities,
+                   analysis_json
+            FROM profile_qualification
+            WHERE platform = 'tiktok'
+              AND lower(username) IN ({placeholders})
+            """,
+            tuple(name.lower() for name in usernames),
+        )
+        return [dict(row) for row in (rows or [])]
+
+    @staticmethod
     def load_many(
         usernames: List[str], platform: str = "instagram"
     ) -> Dict[str, Dict[str, Any]]:
@@ -103,7 +135,10 @@ class ProfileQualification:
         if not usernames or platform not in SUPPORTED_PLATFORMS:
             return {}
         try:
-            rows = ProfileQualification._db().get_profiles_by_usernames(usernames) or []
+            if platform == "tiktok":
+                rows = ProfileQualification._tiktok_rows(usernames)
+            else:
+                rows = ProfileQualification._db().get_profiles_by_usernames(usernames) or []
         except Exception as exc:  # noqa: BLE001 — a lookup failure must never cost a run
             logger.debug(f"Qualification lookup failed for {len(usernames)} username(s): {exc}")
             return {}
