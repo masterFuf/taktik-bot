@@ -24,6 +24,8 @@ Known screens and transitions :
                     → next: OTP / password  (TODO with next dumps)
 """
 import time
+
+from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from typing import Optional
 
 from loguru import logger
@@ -557,7 +559,10 @@ class TikTokSignupWorkflow:
                     wake = max(40, int(row_h))
                     yw1 = max(top_s, cy - wake // 2)
                     yw2 = min(bot_s, yw1 + wake)
-                    self.device.swipe(cx, yw1, cx, yw2, duration=0.3)
+                    # A wheel is DRAGGED, not flung: the finger tracks it and lifts at
+                    # near-zero velocity, which is both what a thumb does and what stops the
+                    # picker sailing past the row this loop is aiming for.
+                    human_drag_between_raw(self.device, (cx, yw1), (cx, yw2), duration=0.3)
                 time.sleep(0.4)
                 continue
             _null_streak = 0
@@ -600,7 +605,9 @@ class TikTokSignupWorkflow:
                 y1 = min(bot_s, cy + dist // 2)
                 y2 = max(top_s, y1 - dist)
 
-            self.device.swipe(cx, y1, cx, y2, duration=_PICKER_SWIPE_DURATION)
+            human_drag_between_raw(
+                self.device, (cx, y1), (cx, y2), duration=_PICKER_SWIPE_DURATION
+            )
 
             # Adaptive settle: fast when far from target, careful when close
             # to stop before overshooting the last row.

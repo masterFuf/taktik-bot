@@ -11,6 +11,8 @@ Observed flow (English app, dumps 2026-05-02):
 
 import time
 
+from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+
 from loguru import logger
 
 from taktik.core.social_media.tiktok.ui.selectors.shell.auth import LOGOUT_SELECTORS
@@ -100,12 +102,11 @@ class TikTokLogoutWorkflow:
             el.click()
             return True
 
-        w, h = self.device.window_size()
-        start_y = int(h * 0.70)
-        end_y = int(h * 0.30)
-
         for _ in range(max_swipes):
-            self.device.swipe(w // 2, start_y, w // 2, end_y, duration=0.35)
+            # A settings list is scrolled, not flung: the same 0.40h of travel as the raw swipe
+            # this replaces, but on a curve with a varied start point and release velocity.
+            # `coast=False` keeps the travel precise so the logout row is not skipped.
+            human_scroll_raw(self.device, direction="down", distance_ratio=0.40)
             time.sleep(0.5)
             el = self._find_element(LOGOUT_SELECTORS.logout_button, timeout=1.5)
             if el:
