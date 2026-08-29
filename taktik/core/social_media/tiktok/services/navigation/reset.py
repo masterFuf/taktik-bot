@@ -17,32 +17,62 @@ def return_to_tiktok_home(
     selector_timeout_seconds: float = 2.0,
     settle_seconds: float = 1.5,
 ) -> bool:
-    """Best-effort reset to the TikTok Home tab using centralized selectors."""
+    """Reset to the TikTok Home tab: reach the shell first, then go home, then check.
+
+    It used to press back a FIXED number of times and then click. Both halves were wrong, and
+    together they closed the app. Measured on 2026-08-30, from the feed: the SECOND back already
+    lands on the launcher, so three blind presses left TikTok, the home tab was then looked for on
+    the launcher, and this returned False with the app shut. Every caller carried on regardless —
+    `target_profiles` then ran `navigate_to_user_profile` on the home screen and reported
+    `skip_not_found` for all three targets, having never seen TikTok. The Followers and Search
+    workflows call this too, between targets: one reset was enough to sink the rest of a run.
+
+    So: back out only while the bottom bar is MISSING (`return_to_tiktok_shell`, which is a no-op
+    from the feed), and confirm arrival on `home_tab_selected` rather than on the tap. A tab that
+    swallows a tap while a video is mid-transition is the same failure that made
+    `change_language` retry its profile tab.
+    """
     try:
         if logger:
             logger.info("Returning to TikTok home...")
 
-        for _ in range(max(0, back_presses)):
-            device.press("back")
-            time.sleep(back_delay_seconds)
+        if not return_to_tiktok_shell(
+            device, logger=logger, max_back_presses=max(1, back_presses),
+            back_delay_seconds=back_delay_seconds,
+        ):
+            if logger:
+                logger.warning("Could not get back to the TikTok shell — not clicking blindly")
+            return False
+
+        if _selected_home(device):
+            return True
 
         for selector in NAVIGATION_SELECTORS.home_tab:
             try:
                 if device.xpath(selector).click_exists(timeout=selector_timeout_seconds):
                     time.sleep(settle_seconds)
-                    if logger:
-                        logger.info("Back to TikTok home")
-                    return True
+                    if _selected_home(device):
+                        if logger:
+                            logger.info("Back to TikTok home")
+                        return True
             except Exception as exc:
                 if logger:
                     logger.debug(f"TikTok home selector failed ({selector}): {exc}")
 
         if logger:
-            logger.warning("Could not confirm TikTok Home tab click")
+            logger.warning("Could not confirm arrival on the TikTok Home tab")
         return False
     except Exception as exc:
         if logger:
             logger.warning(f"Could not navigate to TikTok home: {exc}")
+        return False
+
+
+def _selected_home(device: Any) -> bool:
+    """Is the Home tab the SELECTED one? The outcome, not the tap."""
+    try:
+        return any(device.xpath(s).exists for s in NAVIGATION_SELECTORS.home_tab_selected)
+    except Exception:
         return False
 
 
